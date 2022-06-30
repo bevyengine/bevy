@@ -132,10 +132,15 @@ impl SystemRegistry {
     /// Registers a system in the [`SystemRegistry`], so then it can be later run.
     ///
     /// Ordinarily, systems are automatically registered when [`run_system`](SystemRegistry::run_system) is called.
+    /// When this occurs, they will be registered using their [`SystemTypeIdLabel`].
     /// However, manual registration allows you to provide one or more labels for the system.
+    /// This also allows you to register multiple distinct copies of the system under distinct labels.
     ///
     /// When [`run_systems_by_label`](SystemRegistry::run_systems_by_label) is called,
-    /// all registered systems that match that label will be evaluated.
+    /// all registered systems that match that label will be evaluated (in insertion order).
+    ///
+    /// Returns the index in the vector of systems that this new system is stored at.
+    /// This is only useful for debugging as an external user of this method.
     ///
     /// To provide multiple labels, use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
@@ -144,14 +149,17 @@ impl SystemRegistry {
         world: &mut World,
         system: S,
         label: L,
-    ) {
+    ) -> usize {
         let boxed_system: Box<dyn System<In = (), Out = ()>> =
             Box::new(IntoSystem::into_system(system));
 
-        self.register_boxed_system_with_labels(world, boxed_system, vec![Box::new(label)]);
+        self.register_boxed_system_with_labels(world, boxed_system, vec![Box::new(label)])
     }
 
     /// Register system a system with any number of [`SystemLabel`]s.
+    ///
+    /// Returns the index in the vector of systems that this new system is stored at.
+    /// This is only useful for debugging as an external user of this method.
     ///
     /// This allows the system to be run whenever any of its labels are run using [`run_systems_by_label`](SystemRegistry::run_systems_by_label).
     pub fn register_system_with_labels<
@@ -164,7 +172,7 @@ impl SystemRegistry {
         world: &mut World,
         system: S,
         labels: LI,
-    ) {
+    ) -> usize {
         let boxed_system: Box<dyn System<In = (), Out = ()>> =
             Box::new(IntoSystem::into_system(system));
 
@@ -176,10 +184,13 @@ impl SystemRegistry {
             })
             .collect();
 
-        self.register_boxed_system_with_labels(world, boxed_system, collected_labels);
+        self.register_boxed_system_with_labels(world, boxed_system, collected_labels)
     }
 
     /// A more exacting version of [`register_system_with_labels`](Self::register_system_with_labels).
+    ///
+    /// Returns the index in the vector of systems that this new system is stored at.
+    /// This is only useful for debugging as an external user of this method.
     ///
     /// This can be useful when you have a boxed system or boxed labels,
     /// as the corresponding traits are not implemented for boxed trait objects
@@ -189,7 +200,7 @@ impl SystemRegistry {
         world: &mut World,
         mut boxed_system: Box<dyn System<In = (), Out = ()>>,
         labels: Vec<Box<dyn SystemLabel>>,
-    ) {
+    ) -> usize {
         // Intialize the system's state
         boxed_system.initialize(world);
 
@@ -213,6 +224,8 @@ impl SystemRegistry {
                 self.labels.insert(label, vec![system_index]);
             };
         }
+
+        system_index
     }
 
     /// Runs the system at the supplied `index` a single time
@@ -288,14 +301,14 @@ impl SystemRegistry {
         system: S,
     ) {
         let automatic_system_label: SystemTypeIdLabel<S> = SystemTypeIdLabel::new();
-        if !self.is_label_registered(automatic_system_label) {
+        let index = if self.is_label_registered(automatic_system_label) {
+            self.first_registered_index(automatic_system_label).unwrap()
+        } else {
             let boxed_system: Box<dyn System<In = (), Out = ()>> =
                 Box::new(IntoSystem::into_system(system));
             let labels = boxed_system.default_labels();
-            self.register_boxed_system_with_labels(world, boxed_system, labels);
-        }
-        // System was registered above, so we can unwrap safely
-        let index = self.first_registered_index(automatic_system_label).unwrap();
+            self.register_boxed_system_with_labels(world, boxed_system, labels)
+        };
 
         self.run_system_at_index(world, index);
     }
