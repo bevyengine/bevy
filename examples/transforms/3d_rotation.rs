@@ -49,7 +49,8 @@ fn setup(
 // This system will rotate any entity in the scene with a Rotatable component around its y-axis.
 fn rotate_cube(mut cubes: Query<(&mut Transform, &Rotatable)>, timer: Res<Time>) {
     for (mut transform, cube) in cubes.iter_mut() {
-        // The speed is multiplied by TAU which is a full rotation (360deg) in radians, and delta_seconds which is the time that passed last frame.
+        // The speed is first multiplied by TAU which is a full rotation (360deg) in radians,
+        // and then multiplied by delta_seconds which is the time that passed last frame.
         // In other words. Speed is equal to the amount of rotations per second.
         transform.rotate_y(cube.speed * TAU * timer.delta_seconds());
     }
