@@ -201,7 +201,7 @@ impl Transform {
         self.rotation = rotation * self.rotation;
     }
 
-    /// Rotates this [`Transform`] on the given `axis` by `angle` (in radians).
+    /// Rotates this [`Transform`] around the given `axis` by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the `axis` is relative to the rotation of the parent.
     #[inline]
@@ -209,43 +209,43 @@ impl Transform {
         self.rotate(Quat::from_axis_angle(axis, angle));
     }
 
-    /// Rotates this [`Transform`] on the X axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around the X axis by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_x(&mut self, angle: f32) {
-        self.rotate_axis(Vec3::X, angle);
+        self.rotate(Quat::from_rotation_x(angle));
     }
 
-    /// Rotates this [`Transform`] on the Y axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around the Y axis by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_y(&mut self, angle: f32) {
-        self.rotate_axis(Vec3::Y, angle);
+        self.rotate(Quat::from_rotation_y(angle));
     }
 
-    /// Rotates this [`Transform`] on the Z axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around the Z axis by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_z(&mut self, angle: f32) {
-        self.rotate_axis(Vec3::Z, angle);
+        self.rotate(Quat::from_rotation_z(angle));
     }
 
-    /// Rotates this [`Transform`] on its X axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its X axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_x(&mut self, angle: f32) {
         self.rotate_axis(self.local_x(), angle);
     }
 
-    /// Rotates this [`Transform`] on its Y axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its Y axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_y(&mut self, angle: f32) {
         self.rotate_axis(self.local_y(), angle);
     }
 
-    /// Rotates this [`Transform`] on its Z axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its Z axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_z(&mut self, angle: f32) {
         self.rotate_axis(self.local_z(), angle);
