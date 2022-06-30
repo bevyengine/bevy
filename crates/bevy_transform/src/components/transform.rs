@@ -202,7 +202,7 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] on the given `axis` by `angle` (in radians).
-    /// 
+    ///
     /// If this [`Transform`] has a parent, the `axis` is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_axis(&mut self, axis: Vec3, angle: f32) {
@@ -210,7 +210,7 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] on the X axis by `angle` (in radians).
-    /// 
+    ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_x(&mut self, angle: f32) {
@@ -218,7 +218,7 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] on the Y axis by `angle` (in radians).
-    /// 
+    ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_y(&mut self, angle: f32) {
@@ -226,7 +226,7 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] on the Z axis by `angle` (in radians).
-    /// 
+    ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
     pub fn rotate_z(&mut self, angle: f32) {
@@ -252,7 +252,7 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] around a `point` in space.
-    /// 
+    ///
     /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the parent.
     #[inline]
     pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
