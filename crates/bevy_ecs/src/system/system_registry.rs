@@ -426,7 +426,7 @@ impl Command for RunSystemsByLabelCommand {
 ///
 /// ```rust
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::callback;
+/// use bevy_ecs::system::Callback;
 ///
 /// let mut world = World::new();
 /// // When working with `App`, use app.add_event
@@ -434,7 +434,7 @@ impl Command for RunSystemsByLabelCommand {
 /// world.init_resource::<Events<Callback>>();
 ///
 /// struct PlayerName(String);
-/// world.add_resource(PlayerName("Cart"));
+/// world.add_resource(PlayerName("Cart".to_string()));
 ///
 /// fn report_player_name(player_name: Res<PlayerName>){
 ///     println!("Hello {}", player_name.0);
@@ -452,9 +452,9 @@ impl Command for RunSystemsByLabelCommand {
 /// world.run_system(generate_callback_events);
 ///
 /// // Reading and then applying some callbacks
-/// fn process_callback_events(mut callbacks: EventReader<Callback>) {
+/// fn process_callback_events(mut callbacks: EventReader<Callback>, mut commands: Commands) {
 ///    for callback in callbacks.iter(){
-///       commands.run_callback(callback);
+///       commands.run_callback(&callback);
 ///    }
 /// }
 ///
