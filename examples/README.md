@@ -158,7 +158,7 @@ Example | Description
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_io.rs) | Implements a custom asset io loader
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
-[Modify Sprite](../examples/asset/modify_sprite.rs) | Demonstrates changing sprite texture & color at runtime
+[Modify Sprite](../examples/asset/modify_sprite.rs) | Demonstrates changing sprite texture and color at runtime
 
 ## Async Tasks
 

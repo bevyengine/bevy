@@ -650,7 +650,7 @@ path = "examples/asset/modify_sprite.rs"
 
 [package.metadata.example.modify_sprite]
 name = "Modify Sprite"
-description = "Demonstrates changing sprite texture & color at runtime"
+description = "Demonstrates changing sprite texture and color at runtime"
 category = "Assets"
 wasm = true
 
