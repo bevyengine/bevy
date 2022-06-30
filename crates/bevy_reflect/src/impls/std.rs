@@ -13,7 +13,8 @@ use std::{
     any::Any,
     borrow::Cow,
     hash::{Hash, Hasher},
-    ops::Range, marker::PhantomData,
+    marker::PhantomData,
+    ops::Range,
 };
 
 impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
