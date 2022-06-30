@@ -1,4 +1,4 @@
-//! Demonstrates the use of "one-shot systems", which run once when triggered.
+//! Demonstrates the use of "one-shot systems", which run once when triggered
 //!
 //! These can be useful to help structure your logic in a push-based fashion,
 //! reducing the overhead of running extremely rarely run systems
