@@ -7,7 +7,7 @@ use bevy::{
 };
 
 const TIME_STEP: f32 = 1.0 / 60.0;
-const BOUNDS: Vec2 = Vec2::from_array([1200.0, 640.0]);
+const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
     App::new()

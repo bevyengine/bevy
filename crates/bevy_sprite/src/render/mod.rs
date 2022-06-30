@@ -308,17 +308,17 @@ impl Default for SpriteMeta {
 const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
-    Vec2::from_array([-0.5, -0.5]),
-    Vec2::from_array([0.5, -0.5]),
-    Vec2::from_array([0.5, 0.5]),
-    Vec2::from_array([-0.5, 0.5]),
+    Vec2::new(-0.5, -0.5),
+    Vec2::new(0.5, -0.5),
+    Vec2::new(0.5, 0.5),
+    Vec2::new(-0.5, 0.5),
 ];
 
 const QUAD_UVS: [Vec2; 4] = [
-    Vec2::from_array([0., 1.]),
-    Vec2::from_array([1., 1.]),
-    Vec2::from_array([1., 0.]),
-    Vec2::from_array([0., 0.]),
+    Vec2::new(0., 1.),
+    Vec2::new(1., 1.),
+    Vec2::new(1., 0.),
+    Vec2::new(0., 0.),
 ];
 
 #[derive(Component, Eq, PartialEq, Copy, Clone)]
