@@ -659,7 +659,7 @@ pub(crate) fn assign_lights_to_clusters(
     lights.extend(
         lights_query
             .iter()
-            .filter(|(.., visibility)| visibility.is_visible)
+            .filter(|(.., visibility)| visibility.is_visible())
             .map(
                 |(entity, transform, light, _visibility)| PointLightAssignmentData {
                     entity,
@@ -1174,7 +1174,7 @@ pub fn update_directional_light_frusta(
         // The frustum is used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frustum is
         // not needed.
-        if !directional_light.shadows_enabled || !visibility.is_visible {
+        if !directional_light.shadows_enabled || !visibility.is_visible() {
             continue;
         }
 
@@ -1269,7 +1269,7 @@ pub fn check_light_mesh_visibility(
         visible_entities.entities.clear();
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled || !visibility.is_visible {
+        if !directional_light.shadows_enabled || !visibility.is_visible() {
             continue;
         }
 
@@ -1284,7 +1284,7 @@ pub fn check_light_mesh_visibility(
             maybe_transform,
         ) in visible_entity_query.iter_mut()
         {
-            if !visibility.is_visible {
+            if !visibility.is_visible() {
                 continue;
             }
 
@@ -1343,7 +1343,7 @@ pub fn check_light_mesh_visibility(
                     maybe_transform,
                 ) in visible_entity_query.iter_mut()
                 {
-                    if !visibility.is_visible {
+                    if !visibility.is_visible() {
                         continue;
                     }
 

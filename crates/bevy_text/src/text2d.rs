@@ -72,7 +72,7 @@ pub fn extract_text2d_sprite(
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
     for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
         let (width, height) = (calculated_size.size.x, calculated_size.size.y);

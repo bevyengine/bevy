@@ -235,7 +235,7 @@ pub fn extract_sprites(
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
     extracted_sprites.sprites.clear();
     for (visibility, sprite, transform, handle) in sprite_query.iter() {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
@@ -253,7 +253,7 @@ pub fn extract_sprites(
         });
     }
     for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {

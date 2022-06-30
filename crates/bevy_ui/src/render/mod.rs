@@ -188,7 +188,7 @@ pub fn extract_uinodes(
     let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
         let image = image.0.clone_weak();
@@ -289,7 +289,7 @@ pub fn extract_text_uinodes(
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)

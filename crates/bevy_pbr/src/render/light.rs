@@ -465,7 +465,7 @@ pub fn extract_lights(
     for (entity, directional_light, visible_entities, transform, visibility) in
         directional_lights.iter_mut()
     {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
 

@@ -6,6 +6,7 @@ pub use render_layers::*;
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
+use bevy_hierarchy::{Children, HierarchySystem, Parent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
@@ -20,15 +21,49 @@ use crate::{
 };
 
 /// User indication of whether an entity is visible
-#[derive(Component, Clone, Reflect, Debug)]
+#[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
 #[reflect(Component, Default)]
 pub struct Visibility {
-    pub is_visible: bool,
+    self_visible: bool,
+    inherited: bool,
+}
+
+impl Visibility {
+    /// Checks if the entity is visible or not.
+    ///
+    /// This value can be affected by the entity's local visibility
+    /// or it inherited from it's ancestors in the hierarchy. An entity
+    /// is only visible in the hierarchy if and only if all of it's
+    /// ancestors are visible. Setting an entity to be invisible will
+    /// hide all of it's children and descendants.
+    ///
+    /// If the systems labeled [`VisibilitySystems::VisibilityPropagate`]
+    /// have not yet run, this value may be out of date with the state of
+    /// the hierarchy.
+    pub fn is_visible(&self) -> bool {
+        self.self_visible && self.inherited
+    }
+
+    /// Checks the local visibility state of the entity.
+    ///
+    /// Unlike [`is_visible`], this value is always up to date.
+    pub fn is_self_visible(&self) -> bool {
+        self.self_visible
+    }
+
+    /// Sets whether the entity is visible or not. If set to false,
+    /// all descendants will be marked as invisible.
+    pub fn set_visible(&mut self, visible: bool) {
+        self.self_visible = visible;
+    }
 }
 
 impl Default for Visibility {
     fn default() -> Self {
-        Self { is_visible: true }
+        Self {
+            self_visible: true,
+            inherited: true,
+        }
     }
 }
 
@@ -76,6 +111,7 @@ pub enum VisibilitySystems {
     UpdateOrthographicFrusta,
     UpdatePerspectiveFrusta,
     UpdateProjectionFrusta,
+    VisibilityPropagate,
     CheckVisibility,
 }
 
@@ -109,12 +145,19 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
+            visibility_propagate_system
+                .label(VisibilityPropagate)
+                .after(HierarchySystem::ParentUpdate),
+        )
+        .add_system_to_stage(
+            CoreStage::PostUpdate,
             check_visibility
                 .label(CheckVisibility)
                 .after(CalculateBounds)
                 .after(UpdateOrthographicFrusta)
                 .after(UpdatePerspectiveFrusta)
                 .after(UpdateProjectionFrusta)
+                .after(VisibilityPropagate)
                 .after(TransformSystem::TransformPropagate),
         );
     }
@@ -147,6 +190,58 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
             projection.far(),
         );
     }
+}
+
+fn visibility_propagate_system(
+    mut root_query: Query<(Option<&Children>, &mut Visibility, Entity), Without<Parent>>,
+    mut visibility_query: Query<(&mut Visibility, &Parent)>,
+    children_query: Query<&Children, (With<Parent>, With<Visibility>)>,
+) {
+    for (children, mut visibility, entity) in root_query.iter_mut() {
+        visibility.inherited = true;
+        if let Some(children) = children {
+            for child in children.iter() {
+                let _ = propagate_recursive(
+                    visibility.clone(),
+                    &mut visibility_query,
+                    &children_query,
+                    *child,
+                    entity,
+                );
+            }
+        }
+    }
+}
+
+fn propagate_recursive(
+    parent_visiblity: Visibility,
+    visibility_query: &mut Query<(&mut Visibility, &Parent)>,
+    children_query: &Query<&Children, (With<Parent>, With<Visibility>)>,
+    entity: Entity,
+    expected_parent: Entity,
+    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
+) -> Result<(), ()> {
+    let visiblity = {
+        let (mut visibility, child_parent) = visibility_query.get_mut(entity).map_err(drop)?;
+        // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
+        assert_eq!(
+            child_parent.0, expected_parent,
+            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+        );
+        visibility.inherited = parent_visiblity.is_visible();
+        visibility.clone()
+    };
+
+    for child in children_query.get(entity).map_err(drop)?.iter() {
+        let _ = propagate_recursive(
+            visiblity.clone(),
+            visibility_query,
+            children_query,
+            *child,
+            entity,
+        );
+    }
+    Ok(())
 }
 
 pub fn check_visibility(
@@ -184,7 +279,7 @@ pub fn check_visibility(
                 maybe_no_frustum_culling,
                 maybe_transform,
             )| {
-                if !visibility.is_visible {
+                if !visibility.is_visible() {
                     return;
                 }
 
@@ -223,5 +318,127 @@ pub fn check_visibility(
         for cell in thread_queues.iter_mut() {
             visible_entities.entities.append(cell.get_mut());
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bevy_app::prelude::*;
+    use bevy_ecs::prelude::*;
+
+    use super::*;
+
+    use bevy_hierarchy::{parent_update_system, BuildWorldChildren, Children, Parent};
+
+    #[test]
+    fn did_propagate() {
+        let mut world = World::default();
+
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(visibility_propagate_system.after(parent_update_system));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        // Root entity
+        world.spawn().insert(Visibility::default());
+
+        let mut children = Vec::new();
+        world
+            .spawn()
+            .insert(Visibility {
+                self_visible: false,
+                inherited: false,
+            })
+            .with_children(|parent| {
+                children.push(parent.spawn().insert(Visibility::default()).id());
+                children.push(parent.spawn().insert(Visibility::default()).id());
+            });
+        schedule.run(&mut world);
+
+        assert_eq!(
+            *world.get::<Visibility>(children[0]).unwrap(),
+            Visibility {
+                self_visible: true,
+                inherited: false,
+            }
+        );
+
+        assert_eq!(
+            *world.get::<Visibility>(children[1]).unwrap(),
+            Visibility {
+                self_visible: true,
+                inherited: false,
+            }
+        );
+    }
+
+    #[test]
+    fn correct_visibility_when_no_children() {
+        let mut app = App::new();
+
+        app.add_system(parent_update_system);
+        app.add_system(visibility_propagate_system.after(parent_update_system));
+
+        let parent = app
+            .world
+            .spawn()
+            .insert(Visibility {
+                self_visible: false,
+                inherited: false,
+            })
+            .insert(GlobalTransform::default())
+            .id();
+
+        let child = app
+            .world
+            .spawn()
+            .insert_bundle((Visibility::default(), Parent(parent)))
+            .id();
+
+        let grandchild = app
+            .world
+            .spawn()
+            .insert_bundle((Visibility::default(), Parent(child)))
+            .id();
+
+        app.update();
+
+        // check the `Children` structure is spawned
+        assert_eq!(&**app.world.get::<Children>(parent).unwrap(), &[child]);
+        assert_eq!(&**app.world.get::<Children>(child).unwrap(), &[grandchild]);
+        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
+        app.update();
+
+        let mut state = app.world.query::<&Visibility>();
+        for visibility in state.iter(&app.world) {
+            assert!(!visibility.is_visible());
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_when_hierarchy_cycle() {
+        let mut world = World::default();
+        // This test is run on a single thread in order to avoid breaking the global task pool by panicking
+        // This fixes the flaky tests reported in https://github.com/bevyengine/bevy/issues/4996
+        let mut update_stage = SystemStage::single_threaded();
+
+        update_stage.add_system(parent_update_system);
+        update_stage.add_system(visibility_propagate_system.after(parent_update_system));
+
+        let child = world.spawn().insert(Visibility::default()).id();
+
+        let grandchild = world
+            .spawn()
+            .insert_bundle((Visibility::default(), Parent(child)))
+            .id();
+        world
+            .spawn()
+            .insert_bundle((Visibility::default(), Children::with(&[child])));
+        world.entity_mut(child).insert(Parent(grandchild));
+
+        update_stage.run(&mut world);
     }
 }
