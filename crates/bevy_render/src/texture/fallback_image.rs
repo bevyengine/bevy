@@ -10,6 +10,10 @@ use crate::{
     texture::{BevyDefault, GpuImage, ImageSampler},
 };
 
+/// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
+/// which can be used in situations where an image was not explicitly defined. The most common
+/// use case is [`AsBindGroup`] implementations (such as materials) that support optional textures.
+/// [`FallbackImage`] defaults to a 1x1 fully white texture, making blending colors with it a no-op.
 #[derive(Deref)]
 pub struct FallbackImage(GpuImage);
 
