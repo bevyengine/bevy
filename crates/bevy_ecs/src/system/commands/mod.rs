@@ -523,7 +523,9 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RemoveResource::<R>::new());
     }
 
-    /// Calls [`World::run_system`]
+    /// Runs the supplied system on the [`World`] a single time.
+    ///
+    /// Calls the method of the same name on [`SystemRegistry`](crate::system::SystemRegistry).
     pub fn run_system<
         Params: Send + Sync + 'static,
         S: IntoSystem<(), (), Params> + Send + Sync + 'static,
@@ -534,11 +536,21 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(RunSystemCommand::new(system));
     }
 
-    /// Calls [`World::run_system_by_type_id`]
+    /// Runs the systems corresponding to the supplied [`SystemLabel`] on the [`World`] a single time.
+    ///
+    /// Calls the method of the same name on [`SystemRegistry`](crate::system::SystemRegistry).
     pub fn run_systems_by_label(&mut self, label: impl SystemLabel) {
         self.queue.push(RunSystemsByLabelCommand {
             label: Box::new(label),
         });
+    }
+
+    /// A trait-object compatible version of `run_systems_by_label`.
+    ///
+    /// Calls the method of the same name on [`SystemRegistry`](crate::system::SystemRegistry).
+    pub fn run_systems_by_boxed_label(&mut self, boxed_label: Box<dyn SystemLabel>) {
+        self.queue
+            .push(RunSystemsByLabelCommand { label: boxed_label });
     }
 
     /// Pushes a generic [`Command`] to the command queue.

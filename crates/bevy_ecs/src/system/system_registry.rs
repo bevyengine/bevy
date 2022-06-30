@@ -279,13 +279,13 @@ impl SystemRegistry {
         self.run_systems_by_boxed_label(world, boxed_label)
     }
 
-    /// A more exacting version of [`run_systems_by_label`](Self::run_systems_by_label).
+    /// A trait-object compatible version of `run_systems_by_label`.
     ///
-    /// This can be useful when you have boxed labels,
+    /// This can be useful for more abstract designs that rely on boxed labels,
     /// as [`SystemLabel`] is not implemented for boxed trait objects
     /// to avoid indefinite nesting.
     #[inline]
-    fn run_systems_by_boxed_label(
+    pub fn run_systems_by_boxed_label(
         &mut self,
         world: &mut World,
         boxed_label: Box<dyn SystemLabel>,
@@ -366,7 +366,7 @@ impl World {
         });
     }
 
-    /// Runs the system corresponding to the supplied [`SystemLabel`] on the [`World`] a single time.
+    /// Runs the systems corresponding to the supplied [`SystemLabel`] on the [`World`] a single time.
     ///
     /// Calls the method of the same name on [`SystemRegistry`].
     #[inline]
@@ -376,6 +376,19 @@ impl World {
     ) -> Result<(), SystemRegistryError> {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry.run_systems_by_label(world, label)
+        })
+    }
+
+    /// A trait-object compatible version of `run_systems_by_label`.
+    ///
+    /// Calls the method of the same name on [`SystemRegistry`].
+    #[inline]
+    pub fn run_systems_by_boxed_label(
+        &mut self,
+        boxed_label: Box<dyn SystemLabel>,
+    ) -> Result<(), SystemRegistryError> {
+        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
+            registry.run_systems_by_boxed_label(world, boxed_label)
         })
     }
 }
