@@ -13,7 +13,7 @@ use std::{
     any::Any,
     borrow::Cow,
     hash::{Hash, Hasher},
-    ops::Range,
+    ops::Range, marker::PhantomData,
 };
 
 impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -37,6 +37,7 @@ impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Re
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(PhantomData<T: Reflect>);
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -65,6 +66,7 @@ impl_from_reflect_value!(
     Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>
 );
 impl_from_reflect_value!(Duration);
+impl_from_reflect_value!(PhantomData<T: Reflect>);
 
 impl<T: FromReflect> Array for Vec<T> {
     #[inline]
