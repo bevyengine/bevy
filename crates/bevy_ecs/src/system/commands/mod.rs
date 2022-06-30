@@ -7,7 +7,7 @@ use crate::{
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
-use bevy_utils::tracing::{error, warn};
+use bevy_utils::tracing::{error, info, warn};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
@@ -588,6 +588,13 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         });
     }
 
+    /// Logs the components of the entity at the info level.
+    pub fn log_components(&mut self) {
+        self.commands.add(LogComponents {
+            entity: self.entity,
+        });
+    }
+
     /// Returns the underlying [`Commands`].
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         self.commands
@@ -790,6 +797,22 @@ pub struct RemoveResource<R: Resource> {
 impl<R: Resource> Command for RemoveResource<R> {
     fn write(self, world: &mut World) {
         world.remove_resource::<R>();
+    }
+}
+
+/// [`Command`] to log the components of a given entity. See [`EntityCommands::log_components`].
+pub struct LogComponents {
+    entity: Entity,
+}
+
+impl Command for LogComponents {
+    fn write(self, world: &mut World) {
+        let debug_infos: Vec<_> = world
+            .inspect_entity(self.entity)
+            .into_iter()
+            .map(|component_info| component_info.name())
+            .collect();
+        info!("Entity {:?}: {:?}", self.entity, debug_infos);
     }
 }
 
