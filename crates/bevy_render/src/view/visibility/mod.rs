@@ -46,7 +46,7 @@ impl Visibility {
 
     /// Checks the local visibility state of the entity.
     ///
-    /// Unlike [`is_visible`], this value is always up to date.
+    /// Unlike [`is_visible`](Self::is_visible), this value is always up to date.
     pub fn is_self_visible(&self) -> bool {
         self.self_visible
     }
