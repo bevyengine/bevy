@@ -502,9 +502,6 @@ pub fn extract_lights(
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
 
-const NEGATIVE_X: Vec3 = Vec3::NEG_X;
-const NEGATIVE_Y: Vec3 = Vec3::NEG_Y;
-const NEGATIVE_Z: Vec3 = Vec3::NEG_Z;
 
 pub(crate) struct CubeMapFace {
     pub(crate) target: Vec3,
@@ -515,33 +512,33 @@ pub(crate) struct CubeMapFace {
 pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
     // 0 	GL_TEXTURE_CUBE_MAP_POSITIVE_X
     CubeMapFace {
-        target: NEGATIVE_X,
-        up: NEGATIVE_Y,
+        target: Vec3::NEG_X,
+        up: Vec3::NEG_Y,
     },
     // 1 	GL_TEXTURE_CUBE_MAP_NEGATIVE_X
     CubeMapFace {
         target: Vec3::X,
-        up: NEGATIVE_Y,
+        up: Vec3::NEG_Y,
     },
     // 2 	GL_TEXTURE_CUBE_MAP_POSITIVE_Y
     CubeMapFace {
-        target: NEGATIVE_Y,
+        target: Vec3::NEG_Y,
         up: Vec3::Z,
     },
     // 3 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
     CubeMapFace {
         target: Vec3::Y,
-        up: NEGATIVE_Z,
+        up: Vec3::NEG_Z,
     },
     // 4 	GL_TEXTURE_CUBE_MAP_POSITIVE_Z
     CubeMapFace {
-        target: NEGATIVE_Z,
-        up: NEGATIVE_Y,
+        target: Vec3::NEG_Z,
+        up: Vec3::NEG_Y,
     },
     // 5 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
     CubeMapFace {
         target: Vec3::Z,
-        up: NEGATIVE_Y,
+        up: Vec3::NEG_Y,
     },
 ];
 
