@@ -456,7 +456,7 @@ impl Command for RunSystemsByLabelCommand {
 /// world.run_system(process_callback_events);
 /// ```
 use crate as bevy_ecs;
-#[derive(Debug, crate::prelude::Component, Clone)]
+#[derive(Debug, crate::prelude::Component, Clone, Eq)]
 pub struct Callback {
     /// The label of the system(s) to be run.
     ///
@@ -473,6 +473,12 @@ impl Callback {
         Callback {
             label: Box::new(SystemTypeIdLabel::<S>::new()),
         }
+    }
+}
+
+impl PartialEq for Callback {
+    fn eq(&self, other: &Self) -> bool {
+        self.label.dyn_eq(other.label.as_dyn_eq())
     }
 }
 
