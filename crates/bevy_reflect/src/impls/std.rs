@@ -38,7 +38,7 @@ impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Re
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(PhantomData<T: Reflect>);
+impl_reflect_value!(PhantomData<T: Reflect>(Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -592,6 +592,17 @@ mod tests {
             .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<std::time::Duration>())
             .unwrap();
         let _serializable = reflect_serialize.get_serializable(&std::time::Duration::ZERO);
+    }
+
+    #[test]
+    fn can_serialize_phantomdata() {
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<std::marker::PhantomData<()>>();
+
+        let reflect_serialize = type_registry
+            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<std::marker::PhantomData<()>>())
+            .unwrap();
+        let _serializable = reflect_serialize.get_serializable(&std::marker::PhantomData::<()>);
     }
 
     #[test]
