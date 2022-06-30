@@ -1,3 +1,4 @@
+use bevy_utils::tracing::warn;
 use bevy_utils::HashMap;
 use std::marker::PhantomData;
 
@@ -131,6 +132,9 @@ struct StoredSystem {
 impl SystemRegistry {
     /// Registers a system in the [`SystemRegistry`], so then it can be later run.
     ///
+    /// This allows the system to be run by their [`SystemTypeIdLabel`] using the `run_systems_by_label` method.
+    /// Repeatedly registering a system will have no effect.
+    ///
     /// Ordinarily, systems are automatically registered when [`run_system`](SystemRegistry::run_system) is called.
     /// When this occurs, they will be registered using their [`SystemTypeIdLabel`].
     /// However, manual registration allows you to provide one or more labels for the system.
@@ -139,23 +143,38 @@ impl SystemRegistry {
     /// When [`run_systems_by_label`](SystemRegistry::run_systems_by_label) is called,
     /// all registered systems that match that label will be evaluated (in insertion order).
     ///
-    /// To provide multiple labels, use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
+    /// To provide explicit label(s), use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
-    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static, L: SystemLabel>(
+    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
-        label: L,
     ) {
         let boxed_system: Box<dyn System<In = (), Out = ()>> =
             Box::new(IntoSystem::into_system(system));
+        let automatic_system_label: SystemTypeIdLabel<S> = SystemTypeIdLabel::new();
 
-        self.register_boxed_system_with_labels(world, boxed_system, vec![Box::new(label)]);
+        // This avoids nasty surprising behavior in case systems are registered twice
+        if !self.is_label_registered(automatic_system_label) {
+            self.register_boxed_system_with_labels(
+                world,
+                boxed_system,
+                vec![Box::new(automatic_system_label)],
+            );
+        } else {
+            let type_name = std::any::type_name::<S>();
+            warn!("A system of type {type_name} was registered more than once!");
+        };
     }
 
     /// Register system a system with any number of [`SystemLabel`]s.
     ///
     /// This allows the system to be run whenever any of its labels are run using [`run_systems_by_label`](SystemRegistry::run_systems_by_label).
+    ///
+    /// # Warning
+    ///
+    /// Unlike the `register_system` method, duplicate systems may be added;
+    /// each copy will be called seperately if they share a label.
     pub fn register_system_with_labels<
         Params,
         S: IntoSystem<(), (), Params> + 'static,
@@ -311,20 +330,17 @@ impl SystemRegistry {
 impl World {
     /// Registers the supplied system in the [`SystemRegistry`] resource
     ///
-    /// This allows the system to be run by their [`SystemLabel`] using [`World::run_systems_by_label`].
-    /// If you are using [`World::run_system`] directly, manual registration is not needed.
-    /// The system will be automatically registered under its [`SystemTypeIdLabel`] the first time it is run.
+    /// Calls the method of the same name on [`SystemRegistry`].
     #[inline]
-    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static, L: SystemLabel>(
-        &mut self,
-        system: S,
-        label: L,
-    ) {
+    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.register_system(world, system, label);
+            registry.register_system(world, system);
         });
     }
 
+    /// Register system a system with any number of [`SystemLabel`]s.
+    ///
+    /// Calls the method of the same name on [`SystemRegistry`].
     pub fn register_system_with_labels<
         Params,
         S: IntoSystem<(), (), Params> + 'static,
@@ -342,14 +358,7 @@ impl World {
 
     /// Runs the supplied system on the [`World`] a single time
     ///
-    /// Any [`Commands`](crate::system::Commands) generated will also be applied to the world immediately.
-    ///
-    /// The system's state will be cached: any future calls using the same type will use this state,
-    /// improving performance and ensuring that change detection works properly.
-    ///
-    /// This is evaluated in a sequential, single-threaded fashion.
-    /// Consider creating and running a [`Schedule`](crate::schedule::Schedule) if you need to execute large groups of systems
-    /// at once, and want parallel execution of these systems.
+    /// Calls the method of the same name on [`SystemRegistry`].
     #[inline]
     pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
@@ -359,16 +368,7 @@ impl World {
 
     /// Runs the system corresponding to the supplied [`SystemLabel`] on the [`World`] a single time
     ///
-    /// Systems must be registered before they can be run by their label.
-    ///
-    /// Any [`Commands`](crate::system::Commands) generated will also be applied to the world immediately.
-    ///
-    /// The system's state will be cached: any future calls using the same type will use this state,
-    /// improving performance and ensuring that change detection works properly.
-    ///
-    /// This is evaluated in a sequential, single-threaded fashion.
-    /// Consider creating and running a [`Schedule`](crate::schedule::Schedule) if you need to execute large groups of systems
-    /// at once, and want parallel execution of these systems.
+    /// Calls the method of the same name on [`SystemRegistry`].
     #[inline]
     pub fn run_systems_by_label<L: SystemLabel>(
         &mut self,
@@ -483,8 +483,8 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.register_system(count_up, "count");
-        world.register_system(count_up, "count");
+        world.register_system_with_labels(count_up, ["count"]);
+        world.register_system_with_labels(count_up, ["count"]);
         world.run_systems_by_label("count").unwrap();
         // All systems matching the label will be run.
         assert_eq!(*world.resource::<Counter>(), Counter(2));
