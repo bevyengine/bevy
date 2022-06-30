@@ -522,7 +522,7 @@ impl ShaderProcessor {
 pub enum ShaderRef {
     /// Use the "default" shader for the current context.
     Default,
-    /// A shader handle
+    /// A handle to a shader stored in the [`Assets<Shader>`] resource
     Handle(Handle<Shader>),
     /// An asset path leading to a shader
     Path(AssetPath<'static>),
