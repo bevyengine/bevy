@@ -198,7 +198,7 @@ impl Transform {
     /// Rotates this [`Transform`] by the given rotation.
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
-        self.rotation *= rotation;
+        self.rotation = rotation * self.rotation;
     }
 
     /// Rotates this [`Transform`] on the given `axis` by `angle` (in radians).
