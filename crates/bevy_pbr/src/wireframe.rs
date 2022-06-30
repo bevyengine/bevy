@@ -2,11 +2,12 @@ use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
-use bevy_core_pipeline::Opaque3d;
+use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
@@ -34,7 +35,8 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl
         );
 
-        app.init_resource::<WireframeConfig>();
+        app.init_resource::<WireframeConfig>()
+            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -42,15 +44,8 @@ impl Plugin for WireframePlugin {
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
                 .add_system_to_stage(RenderStage::Extract, extract_wireframes)
-                .add_system_to_stage(RenderStage::Extract, extract_wireframe_config)
                 .add_system_to_stage(RenderStage::Queue, queue_wireframes);
         }
-    }
-}
-
-fn extract_wireframe_config(mut commands: Commands, wireframe_config: Res<WireframeConfig>) {
-    if wireframe_config.is_added() || wireframe_config.is_changed() {
-        commands.insert_resource(wireframe_config.into_inner().clone());
     }
 }
 
@@ -65,7 +60,7 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
 #[reflect(Component, Default)]
 pub struct Wireframe;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, ExtractResource)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
     pub global: bool,
@@ -102,7 +97,6 @@ impl SpecializedMeshPipeline for WireframePipeline {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::type_complexity)]
 fn queue_wireframes(
     opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
     render_meshes: Res<RenderAssets<Mesh>>,

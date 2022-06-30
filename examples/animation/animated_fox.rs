@@ -1,3 +1,5 @@
+//! Plays animations from a skinned glTF.
+
 use bevy::prelude::*;
 
 fn main() {
@@ -18,7 +20,6 @@ struct Animations(Vec<Handle<AnimationClip>>);
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut scene_spawner: ResMut<SceneSpawner>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -30,10 +31,10 @@ fn setup(
     ]));
 
     // Camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(100.0, 100.0, 150.0)
             .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // Plane
@@ -59,7 +60,10 @@ fn setup(
     });
 
     // Fox
-    scene_spawner.spawn(asset_server.load("models/animated/Fox.glb#Scene0"));
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        ..default()
+    });
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");

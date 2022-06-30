@@ -10,13 +10,13 @@ use crate::{
     storage::TableId,
     world::{World, WorldId},
 };
-use bevy_tasks::TaskPool;
+use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
-use std::fmt;
+use std::{borrow::Borrow, fmt};
 
-use super::{QueryFetch, QueryItem, ROQueryFetch, ROQueryItem};
+use super::{QueryFetch, QueryItem, QueryManyIter, ROQueryFetch, ROQueryItem};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
@@ -47,13 +47,16 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         let filter_state = <F::State as FetchState>::init(world);
 
         let mut component_access = FilteredAccess::default();
-        fetch_state.update_component_access(&mut component_access);
+        QueryFetch::<'static, Q>::update_component_access(&fetch_state, &mut component_access);
 
         // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
         // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
         // because they are evaluated *before* a specific reference is constructed.
         let mut filter_component_access = FilteredAccess::default();
-        filter_state.update_component_access(&mut filter_component_access);
+        QueryFetch::<'static, F>::update_component_access(
+            &filter_state,
+            &mut filter_component_access,
+        );
 
         // Merge the temporary filter access with the main access. This ensures that filter access is
         // properly considered in a global "cross-query" context (both within systems and across systems).
@@ -115,13 +118,23 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
     /// Creates a new [`Archetype`].
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        if self.fetch_state.matches_archetype(archetype)
-            && self.filter_state.matches_archetype(archetype)
+        if self
+            .fetch_state
+            .matches_component_set(&|id| archetype.contains(id))
+            && self
+                .filter_state
+                .matches_component_set(&|id| archetype.contains(id))
         {
-            self.fetch_state
-                .update_archetype_component_access(archetype, &mut self.archetype_component_access);
-            self.filter_state
-                .update_archetype_component_access(archetype, &mut self.archetype_component_access);
+            QueryFetch::<'static, Q>::update_archetype_component_access(
+                &self.fetch_state,
+                archetype,
+                &mut self.archetype_component_access,
+            );
+            QueryFetch::<'static, F>::update_archetype_component_access(
+                &self.filter_state,
+                archetype,
+                &mut self.archetype_component_access,
+            );
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow(archetype_index + 1);
@@ -548,6 +561,32 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
+    ///
+    /// This can only return immutable data (mutable data will be cast to an immutable form).
+    /// See [`Self::many_for_each_mut`] for queries that contain at least one mutable component.
+    ///
+    #[inline]
+    pub fn iter_many<'w, 's, EntityList: IntoIterator>(
+        &'s mut self,
+        world: &'w World,
+        entities: EntityList,
+    ) -> QueryManyIter<'w, 's, Q, ROQueryFetch<'w, Q>, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // SAFETY: query is read only
+        unsafe {
+            self.update_archetypes(world);
+            self.iter_many_unchecked_manual(
+                entities,
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
     /// # Safety
@@ -601,6 +640,35 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         change_tick: u32,
     ) -> QueryIter<'w, 's, Q, QF, F> {
         QueryIter::new(world, self, last_change_tick, change_tick)
+    }
+
+    /// Returns an [`Iterator`] for the given [`World`] and list of [`Entity`]'s, where the last change and
+    /// the current change tick are given.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// this does not check for entity uniqueness
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    #[inline]
+    pub(crate) unsafe fn iter_many_unchecked_manual<
+        'w,
+        's,
+        QF: Fetch<'w, State = Q::State>,
+        EntityList: IntoIterator,
+    >(
+        &'s self,
+        entities: EntityList,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> QueryManyIter<'w, 's, Q, QF, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        QueryManyIter::new(world, self, entities, last_change_tick, change_tick)
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the
@@ -685,15 +753,18 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         );
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    /// Runs `func` on each query result in parallel.
     ///
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
     /// write-queries.
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
     pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w World,
-        task_pool: &TaskPool,
         batch_size: usize,
         func: FN,
     ) {
@@ -702,7 +773,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             self.update_archetypes(world);
             self.par_for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
                 world,
-                task_pool,
                 batch_size,
                 func,
                 world.last_change_tick(),
@@ -711,12 +781,15 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    /// Runs `func` on each query result in parallel.
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
     pub fn par_for_each_mut<'w, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w mut World,
-        task_pool: &TaskPool,
         batch_size: usize,
         func: FN,
     ) {
@@ -725,7 +798,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             self.update_archetypes(world);
             self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
                 world,
-                task_pool,
                 batch_size,
                 func,
                 world.last_change_tick(),
@@ -734,9 +806,13 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Runs `func` on each query result in parallel using the given `task_pool`.
+    /// Runs `func` on each query result in parallel.
     ///
     /// This can only be called for read-only queries.
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
     ///
@@ -746,19 +822,40 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     pub unsafe fn par_for_each_unchecked<'w, FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w World,
-        task_pool: &TaskPool,
         batch_size: usize,
         func: FN,
     ) {
         self.update_archetypes(world);
         self.par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
             world,
-            task_pool,
             batch_size,
             func,
             world.last_change_tick(),
             world.read_change_tick(),
         );
+    }
+
+    /// Runs `func` on each query result where the entities match.
+    #[inline]
+    pub fn many_for_each_mut<EntityList: IntoIterator>(
+        &mut self,
+        world: &mut World,
+        entities: EntityList,
+        func: impl FnMut(QueryItem<'_, Q>),
+    ) where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // SAFETY: query has unique world access
+        unsafe {
+            self.update_archetypes(world);
+            self.many_for_each_unchecked_manual(
+                world,
+                entities,
+                func,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            );
+        };
     }
 
     /// Runs `func` on each query result for the given [`World`], where the last change and
@@ -783,7 +880,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         change_tick: u32,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::many_for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         let mut fetch = QF::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = <QueryFetch<F> as Fetch>::init(
             world,
@@ -837,6 +934,10 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// the current change tick are given. This is faster than the equivalent
     /// iter() method, but cannot be chained like a normal [`Iterator`].
     ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
     /// # Safety
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
@@ -850,15 +951,14 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     >(
         &self,
         world: &'w World,
-        task_pool: &TaskPool,
         batch_size: usize,
         func: FN,
         last_change_tick: u32,
         change_tick: u32,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        task_pool.scope(|scope| {
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::many_for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        ComputeTaskPool::get().scope(|scope| {
             if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
                 let tables = &world.storages().tables;
                 for table_id in &self.matched_table_ids {
@@ -955,6 +1055,192 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                 }
             }
         });
+    }
+
+    /// Runs `func` on each query result for the given [`World`] and list of [`Entity`]'s, where the last change and
+    /// the current change tick are given. This is faster than the equivalent
+    /// iter() method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    pub(crate) unsafe fn many_for_each_unchecked_manual<EntityList: IntoIterator>(
+        &self,
+        world: &World,
+        entity_list: EntityList,
+        mut func: impl FnMut(QueryItem<'_, Q>),
+        last_change_tick: u32,
+        change_tick: u32,
+    ) where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::many_for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        let mut fetch =
+            <QueryFetch<Q> as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter = <QueryFetch<F> as Fetch>::init(
+            world,
+            &self.filter_state,
+            last_change_tick,
+            change_tick,
+        );
+
+        let tables = &world.storages.tables;
+
+        for entity in entity_list.into_iter() {
+            let location = match world.entities.get(*entity.borrow()) {
+                Some(location) => location,
+                None => continue,
+            };
+
+            if !self
+                .matched_archetypes
+                .contains(location.archetype_id.index())
+            {
+                continue;
+            }
+
+            let archetype = &world.archetypes[location.archetype_id];
+
+            fetch.set_archetype(&self.fetch_state, archetype, tables);
+            filter.set_archetype(&self.filter_state, archetype, tables);
+            if filter.archetype_filter_fetch(location.index) {
+                func(fetch.archetype_fetch(location.index));
+            }
+        }
+    }
+
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// This can only be called for read-only queries,
+    /// see [`single_mut`](Self::single_mut) for write-queries.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
+    #[track_caller]
+    #[inline]
+    pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, Q> {
+        self.get_single(world).unwrap()
+    }
+
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// This can only be called for read-only queries,
+    /// see [`get_single_mut`](Self::get_single_mut) for write-queries.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    #[inline]
+    pub fn get_single<'w>(
+        &mut self,
+        world: &'w World,
+    ) -> Result<ROQueryItem<'w, Q>, QuerySingleError> {
+        self.update_archetypes(world);
+
+        // SAFETY: query is read only
+        unsafe {
+            self.get_single_unchecked_manual::<ROQueryFetch<'w, Q>>(
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
+    #[track_caller]
+    #[inline]
+    pub fn single_mut<'w>(&mut self, world: &'w mut World) -> QueryItem<'w, Q> {
+        // SAFETY: query has unique world access
+        self.get_single_mut(world).unwrap()
+    }
+
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    #[inline]
+    pub fn get_single_mut<'w>(
+        &mut self,
+        world: &'w mut World,
+    ) -> Result<QueryItem<'w, Q>, QuerySingleError> {
+        self.update_archetypes(world);
+
+        // SAFETY: query has unique world access
+        unsafe {
+            self.get_single_unchecked_manual::<QueryFetch<'w, Q>>(
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns a query result when there is exactly one entity matching the query.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn get_single_unchecked<'w>(
+        &mut self,
+        world: &'w World,
+    ) -> Result<QueryItem<'w, Q>, QuerySingleError> {
+        self.update_archetypes(world);
+
+        self.get_single_unchecked_manual::<QueryFetch<'w, Q>>(
+            world,
+            world.last_change_tick(),
+            world.read_change_tick(),
+        )
+    }
+
+    /// Returns a query result when there is exactly one entity matching the query,
+    /// where the last change and the current change tick are given.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn get_single_unchecked_manual<'w, QF: Fetch<'w, State = Q::State>>(
+        &self,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Result<QF::Item, QuerySingleError> {
+        let mut query = self.iter_unchecked_manual::<QF>(world, last_change_tick, change_tick);
+        let first = query.next();
+        let extra = query.next().is_some();
+
+        match (first, extra) {
+            (Some(r), false) => Ok(r),
+            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+                Self,
+            >())),
+        }
     }
 }
 
@@ -1084,5 +1370,26 @@ mod tests {
 
         let mut query_state = world_1.query::<Entity>();
         let _panics = query_state.get_many_mut(&mut world_2, []);
+    }
+}
+
+/// An error that occurs when evaluating a [`QueryState`] as a single expected resulted via
+/// [`QueryState::single`] or [`QueryState::single_mut`].
+#[derive(Debug)]
+pub enum QuerySingleError {
+    NoEntities(&'static str),
+    MultipleEntities(&'static str),
+}
+
+impl std::error::Error for QuerySingleError {}
+
+impl std::fmt::Display for QuerySingleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {}", query),
+            QuerySingleError::MultipleEntities(query) => {
+                write!(f, "Multiple entities fit the query {}!", query)
+            }
+        }
     }
 }

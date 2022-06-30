@@ -1,9 +1,12 @@
+//! Simple benchmark to test rendering many point lights.
+//! Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::CameraProjection, primitives::Frustum, RenderApp, RenderStage},
+    render::{camera::ScalingMode, RenderApp, RenderStage},
 };
 use rand::{thread_rng, Rng};
 
@@ -74,21 +77,16 @@ fn setup(
 
     // camera
     match std::env::args().nth(1).as_deref() {
-        Some("orthographic") => {
-            let mut orthographic_camera_bundle = OrthographicCameraBundle::new_3d();
-            orthographic_camera_bundle.orthographic_projection.scale = 20.0;
-            let view_projection = orthographic_camera_bundle
-                .orthographic_projection
-                .get_projection_matrix();
-            orthographic_camera_bundle.frustum = Frustum::from_view_projection(
-                &view_projection,
-                &Vec3::ZERO,
-                &Vec3::Z,
-                orthographic_camera_bundle.orthographic_projection.far(),
-            );
-            commands.spawn_bundle(orthographic_camera_bundle)
-        }
-        _ => commands.spawn_bundle(PerspectiveCameraBundle::default()),
+        Some("orthographic") => commands.spawn_bundle(Camera3dBundle {
+            projection: OrthographicProjection {
+                scale: 20.0,
+                scaling_mode: ScalingMode::FixedHorizontal(1.0),
+                ..default()
+            }
+            .into(),
+            ..default()
+        }),
+        _ => commands.spawn_bundle(Camera3dBundle::default()),
     };
 
     // add one cube, the only one with strong handles

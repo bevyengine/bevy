@@ -67,7 +67,6 @@ struct Ring {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut scene_spawner: ResMut<SceneSpawner>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     foxes: Res<Foxes>,
@@ -121,15 +120,13 @@ fn setup(
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {
-                let fox_parent = builder
-                    .spawn_bundle((
-                        Transform::from_xyz(x as f32, 0.0, z as f32)
-                            .with_scale(Vec3::splat(0.01))
-                            .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
-                        GlobalTransform::default(),
-                    ))
-                    .id();
-                scene_spawner.spawn_as_child(fox_handle.clone(), fox_parent);
+                builder.spawn_bundle(SceneBundle {
+                    scene: fox_handle.clone(),
+                    transform: Transform::from_xyz(x as f32, 0.0, z as f32)
+                        .with_scale(Vec3::splat(0.01))
+                        .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
+                    ..default()
+                });
             });
         }
 
@@ -145,10 +142,10 @@ fn setup(
         radius * 0.5 * zoom,
         radius * 1.5 * zoom,
     );
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // Plane
@@ -232,6 +229,10 @@ fn keyboard_animation_control(
         foxes.speed *= 0.8;
     }
 
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        *current_animation = (*current_animation + 1) % animations.0.len();
+    }
+
     for mut player in animation_player.iter_mut() {
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.is_paused() {
@@ -262,7 +263,6 @@ fn keyboard_animation_control(
         }
 
         if keyboard_input.just_pressed(KeyCode::Return) {
-            *current_animation = (*current_animation + 1) % animations.0.len();
             player
                 .play(animations.0[*current_animation].clone_weak())
                 .repeat();

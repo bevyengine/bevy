@@ -11,7 +11,7 @@ pub use iter::*;
 pub use state::*;
 
 #[allow(unreachable_code)]
-unsafe fn debug_checked_unreachable() -> ! {
+pub(crate) unsafe fn debug_checked_unreachable() -> ! {
     #[cfg(debug_assertions)]
     unreachable!();
     std::hint::unreachable_unchecked();
@@ -21,6 +21,7 @@ unsafe fn debug_checked_unreachable() -> ! {
 mod tests {
     use super::WorldQuery;
     use crate::prelude::{AnyOf, Entity, Or, With, Without};
+    use crate::system::{IntoSystem, Query, System};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::collections::HashSet;
 
@@ -30,6 +31,8 @@ mod tests {
     struct B(usize);
     #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     struct C(usize);
+    #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
+    struct D(usize);
 
     #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     #[component(storage = "SparseSet")]
@@ -48,6 +51,145 @@ mod tests {
         }
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(3)]);
+    }
+
+    #[test]
+    fn query_filtered_len() {
+        let mut world = World::new();
+        world.spawn().insert_bundle((A(1), B(1)));
+        world.spawn().insert_bundle((A(2),));
+        world.spawn().insert_bundle((A(3),));
+
+        let mut values = world.query_filtered::<&A, With<B>>();
+        let n = 1;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, Without<B>>();
+        let n = 2;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+
+        let mut world = World::new();
+        world.spawn().insert_bundle((A(1), B(1), C(1)));
+        world.spawn().insert_bundle((A(2), B(2)));
+        world.spawn().insert_bundle((A(3), B(3)));
+        world.spawn().insert_bundle((A(4), C(4)));
+        world.spawn().insert_bundle((A(5), C(5)));
+        world.spawn().insert_bundle((A(6), C(6)));
+        world.spawn().insert_bundle((A(7),));
+        world.spawn().insert_bundle((A(8),));
+        world.spawn().insert_bundle((A(9),));
+        world.spawn().insert_bundle((A(10),));
+
+        // With/Without for B and C
+        let mut values = world.query_filtered::<&A, With<B>>();
+        let n = 3;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, With<C>>();
+        let n = 4;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, Without<B>>();
+        let n = 7;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, Without<C>>();
+        let n = 6;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+
+        // With/Without (And) combinations
+        let mut values = world.query_filtered::<&A, (With<B>, With<C>)>();
+        let n = 1;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, (With<B>, Without<C>)>();
+        let n = 2;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, (Without<B>, With<C>)>();
+        let n = 3;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, (Without<B>, Without<C>)>();
+        let n = 4;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+
+        // With/Without Or<()> combinations
+        let mut values = world.query_filtered::<&A, Or<(With<B>, With<C>)>>();
+        let n = 6;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, Or<(With<B>, Without<C>)>>();
+        let n = 7;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, Or<(Without<B>, With<C>)>>();
+        let n = 8;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, Or<(Without<B>, Without<C>)>>();
+        let n = 9;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+
+        let mut values = world.query_filtered::<&A, (Or<(With<B>,)>, Or<(With<C>,)>)>();
+        let n = 1;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>();
+        let n = 6;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+
+        world.spawn().insert_bundle((A(11), D(11)));
+
+        let mut values = world.query_filtered::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>();
+        let n = 7;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
+        let mut values = world.query_filtered::<&A, Or<(Or<(With<B>, With<C>)>, Without<D>)>>();
+        let n = 10;
+        assert_eq!(values.iter(&world).size_hint().0, n);
+        assert_eq!(values.iter(&world).size_hint().1.unwrap(), n);
+        assert_eq!(values.iter(&world).len(), n);
+        assert_eq!(values.iter(&world).count(), n);
     }
 
     #[test]
@@ -455,7 +597,7 @@ mod tests {
                     )
                 })
                 .collect::<Vec<_>>();
-            assert_eq!(custom_param_data, normal_data)
+            assert_eq!(custom_param_data, normal_data);
         }
 
         {
@@ -514,6 +656,46 @@ mod tests {
                 .iter(&world)
                 .collect::<Vec<_>>();
             assert_eq!(custom_param_entities, normal_entities);
+        }
+    }
+
+    #[test]
+    fn many_entities() {
+        let mut world = World::new();
+        world.spawn().insert_bundle((A(0), B(0)));
+        world.spawn().insert_bundle((A(0), B(0)));
+        world.spawn().insert(A(0));
+        world.spawn().insert(B(0));
+        {
+            fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
+                assert_eq!(has_a_and_b.iter_many(&has_a).count(), 2);
+            }
+            let mut system = IntoSystem::into_system(system);
+            system.initialize(&mut world);
+            system.run((), &mut world);
+        }
+        {
+            fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
+                b_query.many_for_each_mut(&has_a, |mut b| {
+                    b.0 = 1;
+                });
+            }
+            let mut system = IntoSystem::into_system(system);
+            system.initialize(&mut world);
+            system.run((), &mut world);
+        }
+        {
+            fn system(query: Query<(Option<&A>, &B)>) {
+                for (maybe_a, b) in &query {
+                    match maybe_a {
+                        Some(_) => assert_eq!(b.0, 1),
+                        None => assert_eq!(b.0, 0),
+                    }
+                }
+            }
+            let mut system = IntoSystem::into_system(system);
+            system.initialize(&mut world);
+            system.run((), &mut world);
         }
     }
 }

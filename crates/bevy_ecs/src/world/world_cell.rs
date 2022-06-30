@@ -74,7 +74,7 @@ impl<'w> Drop for WorldCell<'w> {
     fn drop(&mut self) {
         let mut access = self.access.borrow_mut();
         // give world ArchetypeComponentAccess back to reuse allocations
-        let _ = std::mem::swap(&mut self.world.archetype_component_access, &mut *access);
+        std::mem::swap(&mut self.world.archetype_component_access, &mut *access);
     }
 }
 
@@ -204,7 +204,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<T>()
@@ -239,7 +239,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<T>()
@@ -272,7 +272,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<T>()
             ),
@@ -307,7 +307,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<T>()
             ),
@@ -420,12 +420,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn world_cell_ref_and_ref() {
         let mut world = World::default();
         world.insert_resource(1u32);
         let cell = world.cell();
-        let _value_a = cell.resource_mut::<u32>();
+        let _value_a = cell.resource::<u32>();
         let _value_b = cell.resource::<u32>();
     }
 }

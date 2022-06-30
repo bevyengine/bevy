@@ -117,9 +117,6 @@ pub struct ParallelSystemContainer {
     ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
 }
 
-unsafe impl Send for ParallelSystemContainer {}
-unsafe impl Sync for ParallelSystemContainer {}
-
 impl ParallelSystemContainer {
     pub(crate) fn from_descriptor(descriptor: ParallelSystemDescriptor) -> Self {
         ParallelSystemContainer {

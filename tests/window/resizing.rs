@@ -1,7 +1,7 @@
 //! A test to confirm that `bevy` allows setting the window to arbitrary small sizes
 //! This is run in CI to ensure that this doesn't regress again.
 
-use bevy::prelude::*;
+use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
 // TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
@@ -133,7 +133,7 @@ fn setup_3d(
         ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -141,7 +141,18 @@ fn setup_3d(
 
 /// A simple 2d scene, taken from the `rect` example
 fn setup_2d(mut commands: Commands) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle {
+        camera: Camera {
+            // render the 2d camera after the 3d camera
+            priority: 1,
+            ..default()
+        },
+        camera_2d: Camera2d {
+            // do not use a clear color
+            clear_color: ClearColorConfig::None,
+        },
+        ..default()
+    });
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
             color: Color::rgb(0.25, 0.25, 0.75),

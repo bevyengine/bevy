@@ -1,3 +1,7 @@
+#![allow(clippy::match_same_arms)]
+//! This example illustrates how reflection works for simple data structures, like
+//! structs, tuples and vectors.
+
 use bevy::{
     prelude::*,
     reflect::{DynamicList, ReflectRef},
@@ -5,7 +9,6 @@ use bevy::{
 };
 use serde::{Deserialize, Serialize};
 
-/// This example illustrates the various reflection types available
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

@@ -6,12 +6,13 @@ warning: unused import: `SystemState`
   |
   = note: `#[warn(unused_imports)]` on by default
 
-error[E0277]: the trait bound `for<'x> WriteFetch<'x, Foo>: ReadOnlyFetch` is not satisfied
+error[E0277]: the trait bound `&'static mut Foo: ReadOnlyWorldQuery` is not satisfied
   --> tests/ui/system_param_derive_readonly.rs:18:5
    |
 18 |     assert_readonly::<Mutable>();
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `for<'x> ReadOnlyFetch` is not implemented for `WriteFetch<'x, Foo>`
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `ReadOnlyWorldQuery` is not implemented for `&'static mut Foo`
    |
+   = note: `ReadOnlyWorldQuery` is implemented for `&'static Foo`, but not for `&'static mut Foo`
    = note: required because of the requirements on the impl of `ReadOnlySystemParamFetch` for `QueryState<&'static mut Foo>`
    = note: 2 redundant requirements hidden
    = note: required because of the requirements on the impl of `ReadOnlySystemParamFetch` for `_::FetchState<(QueryState<&'static mut Foo>,)>`

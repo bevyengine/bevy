@@ -1,6 +1,6 @@
 use crate::{
-    serde::type_fields, Array, List, Map, Reflect, ReflectRef, Struct, Tuple, TupleStruct,
-    TypeRegistry,
+    serde::type_fields, Array, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple,
+    TupleStruct, TypeRegistry,
 };
 use serde::{
     ser::{SerializeMap, SerializeSeq},
@@ -22,13 +22,19 @@ impl<'a> Serializable<'a> {
     }
 }
 
-fn get_serializable<E: serde::ser::Error>(reflect_value: &dyn Reflect) -> Result<Serializable, E> {
-    reflect_value.serializable().ok_or_else(|| {
-        serde::ser::Error::custom(format_args!(
-            "Type '{}' does not support ReflectValue serialization",
-            reflect_value.type_name()
-        ))
-    })
+fn get_serializable<'a, E: serde::ser::Error>(
+    reflect_value: &'a dyn Reflect,
+    type_registry: &TypeRegistry,
+) -> Result<Serializable<'a>, E> {
+    let reflect_serialize = type_registry
+        .get_type_data::<ReflectSerialize>(reflect_value.type_id())
+        .ok_or_else(|| {
+            serde::ser::Error::custom(format_args!(
+                "Type '{}' did not register ReflectSerialize",
+                reflect_value.type_name()
+            ))
+        })?;
+    Ok(reflect_serialize.get_serializable(reflect_value))
 }
 
 pub struct ReflectSerializer<'a> {
@@ -101,7 +107,7 @@ impl<'a> Serialize for ReflectValueSerializer<'a> {
         state.serialize_entry(type_fields::TYPE, self.value.type_name())?;
         state.serialize_entry(
             type_fields::VALUE,
-            get_serializable::<S::Error>(self.value)?.borrow(),
+            get_serializable::<S::Error>(self.value, self.registry)?.borrow(),
         )?;
         state.end()
     }
