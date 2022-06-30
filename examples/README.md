@@ -56,6 +56,19 @@ git checkout v0.4.0
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
+- [Tests](#tests)
+- [Platform-Specific Examples](#platform-specific-examples)
+  - [Android](#android)
+    - [Setup](#setup)
+    - [Build & Run](#build--run)
+    - [Old phones](#old-phones)
+  - [iOS](#ios)
+    - [Setup](#setup-1)
+    - [Build & Run](#build--run-1)
+  - [WASM](#wasm)
+    - [Setup](#setup-2)
+    - [Build & Run](#build--run-2)
+    - [Loading Assets](#loading-assets)
 
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
@@ -192,6 +205,7 @@ Example | Description
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
+[One Shot Systems](../examples/ecs/one_shot_systems.rs) | Shows how to flexibly run systems without scheduling them
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed in a previous stage during the current frame
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
