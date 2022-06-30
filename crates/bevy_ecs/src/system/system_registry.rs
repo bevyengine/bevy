@@ -456,7 +456,7 @@ impl Command for RunSystemsByLabelCommand {
 /// world.run_system(process_callback_events);
 /// ```
 use crate as bevy_ecs;
-#[derive(Debug, crate::prelude::Component, Clone, Eq)]
+#[derive(Debug, crate::prelude::Component, Clone, Eq, Hash)]
 pub struct Callback {
     /// The label of the system(s) to be run.
     ///
