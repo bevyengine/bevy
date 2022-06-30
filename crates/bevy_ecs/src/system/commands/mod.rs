@@ -6,7 +6,7 @@ use crate::{
     bundle::Bundle,
     entity::{Entities, Entity},
     schedule::SystemLabel,
-    system::{IntoSystem, RunSystemCommand, RunSystemsByLabelCommand},
+    system::{Callback, IntoSystem, RunSystemCommand, RunSystemsByLabelCommand},
     world::{FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
@@ -541,16 +541,17 @@ impl<'w, 's> Commands<'w, 's> {
     /// Calls the method of the same name on [`SystemRegistry`](crate::system::SystemRegistry).
     pub fn run_systems_by_label(&mut self, label: impl SystemLabel) {
         self.queue.push(RunSystemsByLabelCommand {
-            label: Box::new(label),
+            callback: Callback {
+                label: Box::new(label),
+            },
         });
     }
 
-    /// A trait-object compatible version of `run_systems_by_label`.
+    /// Run the systems corresponding to the label stored in the provided [`Callback`]
     ///
     /// Calls the method of the same name on [`SystemRegistry`](crate::system::SystemRegistry).
-    pub fn run_systems_by_boxed_label(&mut self, boxed_label: Box<dyn SystemLabel>) {
-        self.queue
-            .push(RunSystemsByLabelCommand { label: boxed_label });
+    pub fn run_callback(&mut self, callback: Callback) {
+        self.queue.push(RunSystemsByLabelCommand { callback });
     }
 
     /// Pushes a generic [`Command`] to the command queue.

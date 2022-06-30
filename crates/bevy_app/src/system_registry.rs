@@ -1,6 +1,6 @@
 use crate::App;
 use bevy_ecs::prelude::*;
-use bevy_ecs::system::SystemRegistryError;
+use bevy_ecs::system::{Callback, SystemRegistryError};
 
 impl App {
     /// Registers the supplied system in the [`SystemRegistry`](bevy_ecs::system::SystemRegistry) resource.
@@ -57,14 +57,11 @@ impl App {
         self.world.run_systems_by_label(label)
     }
 
-    /// A trait-object compatible version of `run_systems_by_label`.
+    /// Run the systems corresponding to the label stored in the provided [`Callback`]
     ///
     /// Calls the method of the same name on [`SystemRegistry`](bevy_ecs::system::SystemRegistry).
     #[inline]
-    pub fn run_systems_by_boxed_label(
-        &mut self,
-        boxed_label: Box<dyn SystemLabel>,
-    ) -> Result<(), SystemRegistryError> {
-        self.world.run_systems_by_boxed_label(boxed_label)
+    pub fn run_callback(&mut self, callback: Callback) -> Result<(), SystemRegistryError> {
+        self.world.run_callback(callback)
     }
 }

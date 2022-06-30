@@ -230,21 +230,28 @@ impl SystemRegistry {
         world: &mut World,
         label: L,
     ) -> Result<(), SystemRegistryError> {
-        let boxed_label: Box<dyn SystemLabel> = label.dyn_clone();
-        self.run_systems_by_boxed_label(world, boxed_label)
+        self.run_callback(
+            world,
+            Callback {
+                label: label.dyn_clone(),
+            },
+        )
     }
 
-    /// A trait-object compatible version of `run_systems_by_label`.
+    /// Run the systems corresponding to the label stored in the provided [`Callback`]
     ///
-    /// This can be useful for more abstract designs that rely on boxed labels,
-    /// as [`SystemLabel`] is not implemented for boxed trait objects
-    /// to avoid indefinite nesting.
+    /// Systems must be registered before they can be run by their label,
+    /// including via this method.
+    ///
+    /// Systems will be run sequentially in registration order if more than one registered system matches the provided label.
     #[inline]
-    pub fn run_systems_by_boxed_label(
+    pub fn run_callback(
         &mut self,
         world: &mut World,
-        boxed_label: Box<dyn SystemLabel>,
+        callback: Callback,
     ) -> Result<(), SystemRegistryError> {
+        let boxed_label = callback.label;
+
         match self.labels.get(&boxed_label) {
             Some(matching_indexes) => {
                 // Loop over the system in registration order
@@ -334,16 +341,13 @@ impl World {
         })
     }
 
-    /// A trait-object compatible version of `run_systems_by_label`.
+    /// Run the systems corresponding to the label stored in the provided [`Callback`]
     ///
     /// Calls the method of the same name on [`SystemRegistry`].
     #[inline]
-    pub fn run_systems_by_boxed_label(
-        &mut self,
-        boxed_label: Box<dyn SystemLabel>,
-    ) -> Result<(), SystemRegistryError> {
+    pub fn run_callback(&mut self, callback: Callback) -> Result<(), SystemRegistryError> {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_systems_by_boxed_label(world, boxed_label)
+            registry.run_callback(world, callback)
         })
     }
 }
@@ -388,7 +392,7 @@ impl<Params: Send + Sync + 'static, S: IntoSystem<(), (), Params> + Send + Sync 
 /// The [`Command`] type for [`SystemRegistry::run_systems_by_label`]
 #[derive(Debug, Clone)]
 pub struct RunSystemsByLabelCommand {
-    pub label: Box<dyn SystemLabel>,
+    pub callback: Callback,
 }
 
 impl Command for RunSystemsByLabelCommand {
@@ -396,7 +400,7 @@ impl Command for RunSystemsByLabelCommand {
     fn write(self, world: &mut World) {
         world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
             registry
-                .run_systems_by_boxed_label(world, self.label.dyn_clone())
+                .run_callback(world, self.callback)
                 // Ideally this error should be handled more gracefully,
                 // but that's blocked on a full error handling solution for commands
                 .unwrap();
@@ -448,7 +452,7 @@ impl Command for RunSystemsByLabelCommand {
 /// // Reading and then applying some callbacks
 /// fn process_callback_events(mut callbacks: EventReader<Callback>) {
 ///    for callback in callbacks.iter(){
-///       commands.run_system_by_boxed_label(callback.label);
+///       commands.run_callback(callback);
 ///    }
 /// }
 ///
