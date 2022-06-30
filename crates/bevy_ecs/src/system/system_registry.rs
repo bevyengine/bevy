@@ -73,51 +73,6 @@ use crate::world::{Mut, World};
 /// world.run_system(spawn_7_entities);
 /// world.run_system(assert_7_spawned);
 /// ```
-///
-/// Systems can also be manually registered using [`SystemLabel`] types
-/// and then run via those labels, enabling more sophisticated control flows.
-///
-/// ```rust
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::SystemRegistry;
-///
-/// let mut world = World::new();
-/// let mut system_registry = SystemRegistry::default();
-///
-/// #[derive(SystemLabel, Debug, PartialEq, Eq, Hash, Clone)]
-/// enum ManualSystems {
-///     Hello,
-///     Goodbye,
-/// }
-///
-/// fn hello(){
-///     println!("Hello!")
-/// }
-///
-/// fn goodbye(){
-///     println!("Goodbye <3")
-/// }
-///
-/// fn have_a_nice_day(){
-///     println!("Have a nice day, and enjoy using Bevy!")
-/// }
-///
-/// // You can register systems by their label
-/// system_registry.register_system(&mut world, hello, ManualSystems::Hello);
-///
-/// // And run them by their label as well
-/// system_registry.run_systems_by_label(&mut world, ManualSystems::Hello);
-///
-/// // You can register systems under multiple labels
-/// system_registry.register_system_with_labels(&mut world, have_a_nice_day, [ManualSystems::Hello, ManualSystems::Goodbye]);
-///
-/// // All systems registered under that label will be run, in registration order
-/// system_registry.run_systems_by_label(&mut world, ManualSystems::Hello);
-///
-/// // The methods on this type are also exposed on the `World` for convenience
-/// world.register_system(goodbye, ManualSystems::Goodbye);
-/// world.run_systems_by_label(ManualSystems::Goodbye);
-/// ```
 #[derive(Default)]
 pub struct SystemRegistry {
     systems: Vec<StoredSystem>,
