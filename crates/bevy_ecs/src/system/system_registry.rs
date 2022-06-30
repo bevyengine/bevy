@@ -241,7 +241,7 @@ impl SystemRegistry {
         system_index
     }
 
-    /// Runs the system at the supplied `index` a single time
+    /// Runs the system at the supplied `index` a single time.
     #[inline]
     fn run_system_at_index(&mut self, world: &mut World, index: usize) {
         let stored_system = &mut self.systems[index];
@@ -259,7 +259,7 @@ impl SystemRegistry {
         self.labels.get(&boxed_label).is_some()
     }
 
-    /// Returns the first matching index for systems with this label if any
+    /// Returns the first matching index for systems with this label if any.
     #[inline]
     fn first_registered_index<L: SystemLabel>(&self, label: L) -> Option<usize> {
         let boxed_label: Box<dyn SystemLabel> = Box::new(label);
@@ -267,9 +267,9 @@ impl SystemRegistry {
         vec_of_indexes.iter().next().copied()
     }
 
-    /// Runs the set of systems corresponding to the provided [`SystemLabel`] on the [`World`] a single time
+    /// Runs the set of systems corresponding to the provided [`SystemLabel`] on the [`World`] a single time.
     ///
-    /// Systems will be run sequentially in registration order if more than one registered system matches the provided label
+    /// Systems will be run sequentially in registration order if more than one registered system matches the provided label.
     pub fn run_systems_by_label<L: SystemLabel>(
         &mut self,
         world: &mut World,
@@ -303,7 +303,7 @@ impl SystemRegistry {
         }
     }
 
-    /// Runs the supplied system on the [`World`] a single time
+    /// Runs the supplied system on the [`World`] a single time.
     ///
     /// System state will be reused between runs, ensuring that [`Local`](crate::system::Local) variables and change detection works correctly.
     /// If, via manual system registration, you have somehow managed to insert more than one system with the same [`SystemTypeIdLabel`],
@@ -328,7 +328,7 @@ impl SystemRegistry {
 }
 
 impl World {
-    /// Registers the supplied system in the [`SystemRegistry`] resource
+    /// Registers the supplied system in the [`SystemRegistry`] resource.
     ///
     /// Calls the method of the same name on [`SystemRegistry`].
     #[inline]
@@ -356,7 +356,7 @@ impl World {
         });
     }
 
-    /// Runs the supplied system on the [`World`] a single time
+    /// Runs the supplied system on the [`World`] a single time.
     ///
     /// Calls the method of the same name on [`SystemRegistry`].
     #[inline]
@@ -366,7 +366,7 @@ impl World {
         });
     }
 
-    /// Runs the system corresponding to the supplied [`SystemLabel`] on the [`World`] a single time
+    /// Runs the system corresponding to the supplied [`SystemLabel`] on the [`World`] a single time.
     ///
     /// Calls the method of the same name on [`SystemRegistry`].
     #[inline]
