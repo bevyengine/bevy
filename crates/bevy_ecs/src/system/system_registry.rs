@@ -106,12 +106,12 @@ impl SystemRegistry {
         world: &mut World,
         system: S,
     ) {
-        let boxed_system: Box<dyn System<In = (), Out = ()>> =
-            Box::new(IntoSystem::into_system(system));
         let automatic_system_label: SystemTypeIdLabel<S> = SystemTypeIdLabel::new();
 
         // This avoids nasty surprising behavior in case systems are registered twice
         if !self.is_label_registered(automatic_system_label) {
+        	let boxed_system: Box<dyn System<In = (), Out = ()>> =
+            	Box::new(IntoSystem::into_system(system));
             self.register_boxed_system_with_labels(
                 world,
                 boxed_system,
