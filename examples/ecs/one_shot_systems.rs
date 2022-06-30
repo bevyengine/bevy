@@ -12,6 +12,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
+        .add_startup_system(count_entities)
         .add_startup_system(setup)
         // One shot systems are interchangeable with ordinarily scheduled systems.
         // Change detection, Local and NonSend all work as expected
@@ -37,19 +38,17 @@ fn count_entities(all_entities: Query<()>) {
 }
 
 fn setup(mut commands: Commands) {
-    // commands.run_system is evaluated in sequence
-    commands.run_system(count_entities); // Reports 0 entities
     commands.spawn().insert(Callback::new(button_pressed));
     commands.spawn().insert(Callback::new(slider_toggled));
-    commands.run_system(count_entities); // Reports 2 entities, as the previous command will be processed by the time this has evaluated
+    commands.run_system(count_entities);
 }
 
 fn button_pressed() {
-    println!("A button was pressed!")
+    println!("A button was pressed!");
 }
 
 fn slider_toggled() {
-    println!("A slider was toggled!")
+    println!("A slider was toggled!");
 }
 
 // When creating abstractions built on one-shot systems,
@@ -65,7 +64,7 @@ impl Callback {
     // We can pass in a system as our function argument to automatically generate the correct label.
     // Alternatively, you can create an API that takes an explicit `SystemLabel`, and users can control
     // exactly how the system should be called.
-    fn new<S: IntoSystemDescriptor<Params> + 'static, Params>(system: S) -> Self {
+    fn new<S: IntoSystemDescriptor<Params> + 'static, Params>(_system: S) -> Self {
         Callback {
             triggered: false,
             label: Box::new(SystemTypeIdLabel::<S>::new()),
@@ -75,7 +74,7 @@ impl Callback {
 
 // These callbacks could easily be triggered via events, button interactions or so on
 // or even stored directly in the event type
-fn trigger_callbacks(query: Query<&mut Callback>) {
+fn trigger_callbacks(mut query: Query<&mut Callback>) {
     for mut callback in query.iter_mut() {
         callback.triggered = true;
     }
@@ -92,7 +91,7 @@ fn evaluate_callbacks(query: Query<&Callback>, mut commands: Commands) {
             // we have to use the layer of indirection provided by system labels
             // Note that if we had registered multiple systems with the same label,
             // they would all be evaluated here.
-            commands.run_systems_by_boxed_label(callback.label);
+            commands.run_systems_by_boxed_label(callback.label.clone());
         }
     }
 }
