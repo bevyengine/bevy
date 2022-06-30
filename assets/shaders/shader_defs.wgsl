@@ -6,7 +6,7 @@ struct CustomMaterial {
 var<uniform> material: CustomMaterial;
 
 [[stage(fragment)]]
-fn fragment([[location(2)]] uv: vec2<f32>) -> [[location(0)]] vec4<f32> {
+fn fragment() -> [[location(0)]] vec4<f32> {
 #ifdef IS_RED
     return vec4<f32>(1.0, 0.0, 0.0, 1.0);
 #else
