@@ -248,8 +248,6 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 ..Default::default()
             };
             projection.update(logical_size.x, logical_size.y);
-            // This roundabout approach is required because spawn().id() won't work in this context
-
             let default_camera_view = commands
                 .spawn()
                 .insert(ExtractedView {

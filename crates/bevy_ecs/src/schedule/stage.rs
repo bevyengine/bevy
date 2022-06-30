@@ -91,7 +91,7 @@ pub struct SystemStage {
     last_tick_check: u32,
     /// If true, buffers will be automatically applied at the end of the stage. If false, buffers must be manually applied.
     apply_buffers: bool,
-    must_use_resource: Option<ComponentId>,
+    must_read_resource: Option<ComponentId>,
 }
 
 impl SystemStage {
@@ -114,7 +114,7 @@ impl SystemStage {
             uninitialized_at_end: vec![],
             last_tick_check: Default::default(),
             apply_buffers: true,
-            must_use_resource: None,
+            must_read_resource: None,
         }
     }
 
@@ -145,7 +145,7 @@ impl SystemStage {
     }
 
     pub fn set_must_read_resource(&mut self, resource_id: ComponentId) {
-        self.must_use_resource = Some(resource_id);
+        self.must_read_resource = Some(resource_id);
     }
 
     #[must_use]
@@ -805,7 +805,7 @@ impl Stage for SystemStage {
             if world.contains_resource::<ReportExecutionOrderAmbiguities>() {
                 self.report_ambiguities(world);
             }
-            if let Some(resource_id) = self.must_use_resource {
+            if let Some(resource_id) = self.must_read_resource {
                 self.check_uses_resource(resource_id, world);
             }
         } else if self.executor_modified {
