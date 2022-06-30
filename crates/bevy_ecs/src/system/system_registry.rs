@@ -233,24 +233,24 @@ impl SystemRegistry {
         self.labels.get(&boxed_label).is_some()
     }
 
-    /// Returns the first matching index for systems with this label
-    ///
-    /// # Panics
-    ///
-    /// Panics if no system with the label is registered.
+    /// Returns the first matching index for systems with this label if any
     #[inline]
-    fn first_registered_index<L: SystemLabel>(&self, label: L) -> usize {
+    fn first_registered_index<L: SystemLabel>(&self, label: L) -> Option<usize> {
         let boxed_label: Box<dyn SystemLabel> = Box::new(label);
-        let vec_of_indexes = self.labels.get(&boxed_label).unwrap();
-        *vec_of_indexes.iter().next().unwrap()
+        let vec_of_indexes = self.labels.get(&boxed_label)?;
+        vec_of_indexes.iter().next().copied()
     }
 
     /// Runs the set of systems corresponding to the provided [`SystemLabel`] on the [`World`] a single time
     ///
     /// Systems will be run sequentially in registration order if more than one registered system matches the provided label
-    pub fn run_systems_by_label<L: SystemLabel>(&mut self, world: &mut World, label: L) {
+    pub fn run_systems_by_label<L: SystemLabel>(
+        &mut self,
+        world: &mut World,
+        label: L,
+    ) -> Result<(), SystemRegistryError> {
         let boxed_label: Box<dyn SystemLabel> = label.dyn_clone();
-        self.run_systems_by_boxed_label(world, boxed_label);
+        self.run_systems_by_boxed_label(world, boxed_label)
     }
 
     /// A more exacting version of [`run_systems_by_label`](Self::run_systems_by_label).
@@ -259,12 +259,21 @@ impl SystemRegistry {
     /// as [`SystemLabel`] is not implemented for boxed trait objects
     /// to avoid indefinite nesting.
     #[inline]
-    fn run_systems_by_boxed_label(&mut self, world: &mut World, boxed_label: Box<dyn SystemLabel>) {
-        let matching_system_indexes = self.labels.get(&boxed_label).unwrap_or_else(||{panic!{"No system with the `SystemLabel` {boxed_label:?} was found. Did you forget to register it?"}});
+    fn run_systems_by_boxed_label(
+        &mut self,
+        world: &mut World,
+        boxed_label: Box<dyn SystemLabel>,
+    ) -> Result<(), SystemRegistryError> {
+        match self.labels.get(&boxed_label) {
+            Some(matching_indexes) => {
+                // Loop over the system in registration order
+                for index in matching_indexes.clone() {
+                    self.run_system_at_index(world, index);
+                }
 
-        // Loop over the system in registration order
-        for index in matching_system_indexes.clone() {
-            self.run_system_at_index(world, index);
+                Ok(())
+            }
+            None => Err(SystemRegistryError::LabelNotFound(boxed_label)),
         }
     }
 
@@ -279,14 +288,16 @@ impl SystemRegistry {
         system: S,
     ) {
         let automatic_system_label: SystemTypeIdLabel<S> = SystemTypeIdLabel::new();
-
         if !self.is_label_registered(automatic_system_label) {
             let boxed_system: Box<dyn System<In = (), Out = ()>> =
                 Box::new(IntoSystem::into_system(system));
             let labels = boxed_system.default_labels();
             self.register_boxed_system_with_labels(world, boxed_system, labels);
         }
-        self.run_system_at_index(world, self.first_registered_index(automatic_system_label));
+        // System was registered above, so we can unwrap safely
+        let index = self.first_registered_index(automatic_system_label).unwrap();
+
+        self.run_system_at_index(world, index);
     }
 }
 
@@ -352,10 +363,13 @@ impl World {
     /// Consider creating and running a [`Schedule`](crate::schedule::Schedule) if you need to execute large groups of systems
     /// at once, and want parallel execution of these systems.
     #[inline]
-    pub fn run_systems_by_label<L: SystemLabel>(&mut self, label: L) {
+    pub fn run_systems_by_label<L: SystemLabel>(
+        &mut self,
+        label: L,
+    ) -> Result<(), SystemRegistryError> {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_systems_by_label(world, label);
-        });
+            return registry.run_systems_by_label(world, label);
+        })
     }
 }
 
@@ -406,9 +420,22 @@ impl Command for RunSystemsByLabelCommand {
     #[inline]
     fn write(self, world: &mut World) {
         world.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.run_systems_by_boxed_label(world, self.label.dyn_clone());
+            registry
+                .run_systems_by_boxed_label(world, self.label.dyn_clone())
+                // Ideally this error should be handled more gracefully,
+                // but that's blocked on a full error handling solution for commands
+                .unwrap();
         });
     }
+}
+
+/// An operation on a [`SystemRegistry`] failed
+#[derive(Debug)]
+pub enum SystemRegistryError {
+    /// A system was run by label, but no system with that label was found.
+    ///
+    /// Did you forget to register it?
+    LabelNotFound(Box<dyn SystemLabel>),
 }
 
 mod tests {
@@ -438,7 +465,7 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(0));
         world.register_system(count_up, "count");
         world.register_system(count_up, "count");
-        world.run_systems_by_label("count");
+        world.run_systems_by_label("count").unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
