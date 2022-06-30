@@ -2,7 +2,7 @@ use bevy_utils::tracing::warn;
 use bevy_utils::HashMap;
 use std::marker::PhantomData;
 
-use crate::schedule::SystemLabel;
+use crate::schedule::{IntoSystemDescriptor, SystemLabel};
 use crate::system::{Command, IntoSystem, System, SystemTypeIdLabel};
 use crate::world::{Mut, World};
 
@@ -401,6 +401,78 @@ impl Command for RunSystemsByLabelCommand {
                 // but that's blocked on a full error handling solution for commands
                 .unwrap();
         });
+    }
+}
+
+/// A struct that stores a boxed [`SystemLabel`], used to cause a [`SystemRegistry`] to run systems.
+///
+/// This might be stored as a component, used as an event, or arranged in a queue stored in a resource.
+/// Unless you need to inspect the list of events or add additional information,
+/// prefer the simpler `commands.run_system` over storing callbacks as events,
+///
+/// When working with callbacks, consider your architecture carefully.
+/// Callbacks are typically harder to reason about and debug than scheduled systems,
+/// and it's easy to get into a tangled mess if you don't consider the system as a whole before starting.
+///
+/// Systems must be registered via the `register_system` methods on [`SystemRegistry`], [`World`] or `App`
+/// before they can be run by their label using a callback.
+///
+/// # Example
+///
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::callback;
+///
+/// let mut world = World::new();
+/// // When working with `App`, use app.add_event
+/// // to get automatic event cleanup
+/// world.init_resource::<Events<Callback>>();
+///
+/// struct PlayerName(String);
+/// world.add_resource(PlayerName("Cart"));
+///
+/// fn report_player_name(player_name: Res<PlayerName>){
+///     println!("Hello {}", player_name.0);
+/// }
+/// // Remember to register any systems you intend to use as a `Callback`
+/// world.register_system(hello_world);
+///
+/// // Generating some callbacks
+/// fn generate_callback_events(mut callbacks: EventWriter<Callback>){
+///   // This will have no effect if you forgot to register the system in question
+///   callbacks.send(Callback::new(hello_world));
+/// }
+///
+/// world.run_system(generate_callback_events);
+///
+/// // Reading and then applying some callbacks
+/// fn process_callback_events(mut callbacks: EventReader<Callback>) {
+///    for callback in callbacks.iter(){
+///       commands.run_system_by_boxed_label(callback.label);
+///    }
+/// }
+///
+/// // Say hi to Cart!
+/// world.run_system(process_callback_events);
+/// ```
+use crate as bevy_ecs;
+#[derive(Debug, crate::prelude::Component, Clone)]
+pub struct Callback {
+    /// The label of the system(s) to be run.
+    ///
+    /// By default, this is set to the [`SystemTypeIdLabel`]
+    /// of the system passed in via [`Callback::new()`].
+    pub label: Box<dyn SystemLabel>,
+}
+
+impl Callback {
+    /// Creates a new callback from a function that can be used as a system.
+    ///
+    /// Remember that you must register your systems with the `App` / [`World`] before they can be run as callbacks!
+    pub fn new<S: IntoSystemDescriptor<Params> + 'static, Params>(_system: S) -> Self {
+        Callback {
+            label: Box::new(SystemTypeIdLabel::<S>::new()),
+        }
     }
 }
 
