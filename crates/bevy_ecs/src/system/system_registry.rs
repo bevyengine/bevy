@@ -209,8 +209,8 @@ impl SystemRegistry {
         };
 
         // Add the system to the end of the vec
-        self.systems.push(stored_system);
         let system_index = self.systems.len();
+        self.systems.push(stored_system);
 
         // For each label that the system has
         for label in labels {
