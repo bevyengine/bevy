@@ -122,7 +122,7 @@ impl AsBindGroup for ArrayTextureMaterial {
     ) -> Result<PreparedBindGroup<Self>, AsBindGroupError> {
         let image = images
             .get(&self.array_texture)
-            .ok_or_else(|| AsBindGroupError::RetryNextUpdate)?;
+            .ok_or(AsBindGroupError::RetryNextUpdate)?;
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
                 BindGroupEntry {
