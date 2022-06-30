@@ -268,7 +268,9 @@ pub struct PreparedBindGroup<T: AsBindGroup> {
     pub data: T::Data,
 }
 
-/// An owned binding resource.
+/// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
+/// This is used by types like [`PreparedBindGroup`] to hold a single list of all
+/// render resources used by bindings.
 pub enum OwnedBindingResource {
     Buffer(Buffer),
     TextureView(TextureView),
