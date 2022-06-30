@@ -6,8 +6,7 @@
 //!
 //! See the [`SystemRegistry`](bevy::ecs::SystemRegistry) docs for more details.
 
-use bevy::ecs::schedule::IntoSystemDescriptor;
-use bevy::ecs::system::SystemTypeIdLabel;
+use bevy::ecs::system::Callback;
 use bevy::prelude::*;
 
 fn main() {
@@ -24,9 +23,8 @@ fn main() {
         .register_system(slider_toggled)
         // One-shot systems can be used to build complex abstractions
         // to match the needs of your design.
-        // Here, we model a very simple system-powered callback architecture.
-        .add_system(trigger_callbacks)
-        .add_system(evaluate_callbacks.after(trigger_callbacks))
+        // Here, we model a very simple component-linked callback architecture.
+        .add_system(evaluate_callbacks)
         .run();
 }
 
@@ -37,8 +35,18 @@ fn count_entities(all_entities: Query<()>) {
     dbg!(all_entities.iter().count());
 }
 
+#[derive(Component)]
+struct Triggered;
+
 fn setup(mut commands: Commands) {
-    commands.spawn().insert(Callback::new(button_pressed));
+    commands
+        .spawn()
+        // The Callback component is defined in bevy_ecs,
+        // but wrapping this (or making your own customized variant) is easy.
+        // Just stored a boxed SystemLabel!
+        .insert(Callback::new(button_pressed))
+        .insert(Triggered);
+    // This entity does not have a Triggered component, so its callback won't run
     commands.spawn().insert(Callback::new(slider_toggled));
     commands.run_system(count_entities);
 }
@@ -51,47 +59,15 @@ fn slider_toggled() {
     println!("A slider was toggled!");
 }
 
-// When creating abstractions built on one-shot systems,
-// storing system labels is the way to go.
-// Don't try to store boxed System trait objects!
-#[derive(Component)]
-struct Callback {
-    triggered: bool,
-    label: Box<dyn SystemLabel>,
-}
-
-impl Callback {
-    // We can pass in a system as our function argument to automatically generate the correct label.
-    // Alternatively, you can create an API that takes an explicit `SystemLabel`, and users can control
-    // exactly how the system should be called.
-    fn new<S: IntoSystemDescriptor<Params> + 'static, Params>(_system: S) -> Self {
-        Callback {
-            triggered: false,
-            label: Box::new(SystemTypeIdLabel::<S>::new()),
-        }
-    }
-}
-
-// These callbacks could easily be triggered via events, button interactions or so on
-// or even stored directly in the event type
-fn trigger_callbacks(mut query: Query<&mut Callback>) {
-    for mut callback in query.iter_mut() {
-        callback.triggered = true;
-    }
-}
-
-/// Runs the systems associated with each Callback component
+/// Runs the systems associated with each `Callback` component if the entity also has a Triggered component
 ///
-/// This could also be done in an exclusive system,
-/// but the borrow checker is more frustrating
-fn evaluate_callbacks(query: Query<&Callback>, mut commands: Commands) {
+/// This could be done in an exclusive system rather than using `Commands` if preferred
+fn evaluate_callbacks(query: Query<&Callback, With<Triggered>>, mut commands: Commands) {
     for callback in query.iter() {
-        if callback.triggered {
-            // Because we don't have access to the type information of the callbacks
-            // we have to use the layer of indirection provided by system labels
-            // Note that if we had registered multiple systems with the same label,
-            // they would all be evaluated here.
-            commands.run_systems_by_boxed_label(callback.label.clone());
-        }
+        // Because we don't have access to the type information of the callbacks
+        // we have to use the layer of indirection provided by system labels
+        // Note that if we had registered multiple systems with the same label,
+        // they would all be evaluated here.
+        commands.run_systems_by_boxed_label(callback.label.clone());
     }
 }
