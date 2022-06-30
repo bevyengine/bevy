@@ -139,9 +139,6 @@ impl SystemRegistry {
     /// When [`run_systems_by_label`](SystemRegistry::run_systems_by_label) is called,
     /// all registered systems that match that label will be evaluated (in insertion order).
     ///
-    /// Returns the index in the vector of systems that this new system is stored at.
-    /// This is only useful for debugging as an external user of this method.
-    ///
     /// To provide multiple labels, use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
     pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static, L: SystemLabel>(
@@ -149,17 +146,14 @@ impl SystemRegistry {
         world: &mut World,
         system: S,
         label: L,
-    ) -> usize {
+    ) {
         let boxed_system: Box<dyn System<In = (), Out = ()>> =
             Box::new(IntoSystem::into_system(system));
 
-        self.register_boxed_system_with_labels(world, boxed_system, vec![Box::new(label)])
+        self.register_boxed_system_with_labels(world, boxed_system, vec![Box::new(label)]);
     }
 
     /// Register system a system with any number of [`SystemLabel`]s.
-    ///
-    /// Returns the index in the vector of systems that this new system is stored at.
-    /// This is only useful for debugging as an external user of this method.
     ///
     /// This allows the system to be run whenever any of its labels are run using [`run_systems_by_label`](SystemRegistry::run_systems_by_label).
     pub fn register_system_with_labels<
@@ -172,7 +166,7 @@ impl SystemRegistry {
         world: &mut World,
         system: S,
         labels: LI,
-    ) -> usize {
+    ) {
         let boxed_system: Box<dyn System<In = (), Out = ()>> =
             Box::new(IntoSystem::into_system(system));
 
@@ -184,7 +178,7 @@ impl SystemRegistry {
             })
             .collect();
 
-        self.register_boxed_system_with_labels(world, boxed_system, collected_labels)
+        self.register_boxed_system_with_labels(world, boxed_system, collected_labels);
     }
 
     /// A more exacting version of [`register_system_with_labels`](Self::register_system_with_labels).
@@ -381,7 +375,7 @@ impl World {
         label: L,
     ) -> Result<(), SystemRegistryError> {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            return registry.run_systems_by_label(world, label);
+            registry.run_systems_by_label(world, label)
         })
     }
 }
