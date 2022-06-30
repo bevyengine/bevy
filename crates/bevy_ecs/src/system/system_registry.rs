@@ -466,6 +466,19 @@ mod tests {
     }
 
     #[test]
+    /// We need to ensure that the system registry is accessible
+    /// even after being used once.
+    fn run_two_systems() {
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        assert_eq!(*world.resource::<Counter>(), Counter(0));
+        world.run_system(count_up);
+        assert_eq!(*world.resource::<Counter>(), Counter(1));
+        world.run_system(count_up);
+        assert_eq!(*world.resource::<Counter>(), Counter(2));
+    }
+
+    #[test]
     fn run_system_by_label() {
         let mut world = World::new();
         world.init_resource::<Counter>();
@@ -473,6 +486,7 @@ mod tests {
         world.register_system(count_up, "count");
         world.register_system(count_up, "count");
         world.run_systems_by_label("count").unwrap();
+        // All systems matching the label will be run.
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -490,38 +504,34 @@ mod tests {
         assert_eq!(world.entities.len(), 1);
     }
 
-    fn non_send_count_down(mut ns: NonSendMut<Counter>) {
-        ns.0 -= 1;
-    }
-
-    #[allow(dead_code)]
-    fn trigger_non_send_count_down(mut commands: Commands) {
-        commands.run_system(non_send_count_down);
-    }
-
     #[test]
     fn non_send_resources() {
+        fn non_send_count_down(mut ns: NonSendMut<Counter>) {
+            ns.0 -= 1;
+        }
+
         let mut world = World::new();
         world.insert_non_send_resource(Counter(10));
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
         world.run_system(non_send_count_down);
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
-        world.run_system(trigger_non_send_count_down);
-        assert_eq!(*world.non_send_resource::<Counter>(), Counter(8));
-    }
-
-    #[derive(Default)]
-    struct ChangeDetector;
-
-    #[allow(dead_code)]
-    fn count_up_iff_changed(mut commands: Commands, change_detector: ResMut<ChangeDetector>) {
-        if change_detector.is_changed() {
-            commands.run_system(count_up);
-        }
     }
 
     #[test]
     fn change_detection() {
+        #[derive(Default)]
+        struct ChangeDetector;
+
+        #[allow(dead_code)]
+        fn count_up_iff_changed(
+            mut counter: ResMut<Counter>,
+            change_detector: ResMut<ChangeDetector>,
+        ) {
+            if change_detector.is_changed() {
+                counter.0 += 1;
+            }
+        }
+
         let mut world = World::new();
         world.init_resource::<ChangeDetector>();
         world.init_resource::<Counter>();
@@ -538,41 +548,40 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
-    #[allow(dead_code)]
-    // The `Local` begins at the default value of 0
-    fn fibonacci_counting(last_counter: Local<u8>, mut counter: ResMut<Counter>) {
-        counter.0 += *last_counter;
-    }
-
     #[test]
     fn local_variables() {
+        // The `Local` begins at the default value of 0
+        fn doubling(mut last_counter: Local<Counter>, mut counter: ResMut<Counter>) {
+            counter.0 += last_counter.0;
+            last_counter.0 = counter.0;
+        }
+
         let mut world = World::new();
         world.insert_resource(Counter(1));
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system(fibonacci_counting);
+        world.run_system(doubling);
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system(fibonacci_counting);
+        world.run_system(doubling);
         assert_eq!(*world.resource::<Counter>(), Counter(2));
-        world.run_system(fibonacci_counting);
-        assert_eq!(*world.resource::<Counter>(), Counter(3));
-        world.run_system(fibonacci_counting);
-        assert_eq!(*world.resource::<Counter>(), Counter(5));
-    }
-
-    #[allow(dead_code)]
-    fn count_to_ten(mut counter: ResMut<Counter>, mut commands: Commands) {
-        counter.0 += 1;
-        if counter.0 < 10 {
-            commands.run_system(count_to_ten);
-        }
+        world.run_system(doubling);
+        assert_eq!(*world.resource::<Counter>(), Counter(4));
+        world.run_system(doubling);
+        assert_eq!(*world.resource::<Counter>(), Counter(8));
     }
 
     #[test]
     // This is a known limitation;
-    // if this test passes the docs must be updated to reflect this
-    // added functionality
+    // if this test passes the docs must be updated
+    // to reflect the ability to chain run_system commands
     #[should_panic]
     fn system_recursion() {
+        fn count_to_ten(mut counter: ResMut<Counter>, mut commands: Commands) {
+            counter.0 += 1;
+            if counter.0 < 10 {
+                commands.run_system(count_to_ten);
+            }
+        }
+
         let mut world = World::new();
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
