@@ -11,7 +11,7 @@ status = [
     "run-examples-on-wasm",
     "check-doc",
     "check-missing-examples-in-docs",
-    "check-unused-dependencies",
+    # "check-unused-dependencies",
     "ci",
     "miri",
     "check-compiles",

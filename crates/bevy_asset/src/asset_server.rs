@@ -371,6 +371,14 @@ impl AssetServer {
         self.get_handle_untyped(handle_id)
     }
 
+    /// Force an [`Asset`] to be reloaded.
+    ///
+    /// This is useful for custom hot-reloading or for supporting `watch_for_changes`
+    /// in custom [`AssetIo`] implementations.
+    pub fn reload_asset<'a, P: Into<AssetPath<'a>>>(&self, path: P) {
+        self.load_untracked(path.into(), true);
+    }
+
     pub(crate) fn load_untracked(&self, asset_path: AssetPath<'_>, force: bool) -> HandleId {
         let server = self.clone();
         let owned_path = asset_path.to_owned();

@@ -739,3 +739,30 @@ impl_tick_filter!(
     ChangedFetch,
     ComponentTicks::is_changed
 );
+
+/// A marker trait to indicate that the filter works at an archetype level.
+///
+/// This is needed to implement [`ExactSizeIterator`](std::iter::ExactSizeIterator) for
+/// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
+///
+/// The trait must only be implement for filters where its corresponding [`Fetch::IS_ARCHETYPAL`](crate::query::Fetch::IS_ARCHETYPAL)
+/// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
+/// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
+/// also implement the same trait.
+///
+/// [`Added`] and [`Changed`] works with entities, and therefore are not archetypal. As such
+/// they do not implement [`ArchetypeFilter`].
+pub trait ArchetypeFilter {}
+
+impl<T> ArchetypeFilter for With<T> {}
+impl<T> ArchetypeFilter for Without<T> {}
+
+macro_rules! impl_archetype_filter_tuple {
+    ($($filter: ident),*) => {
+        impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for ($($filter,)*) {}
+
+        impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for Or<($($filter,)*)> {}
+    };
+}
+
+all_tuples!(impl_archetype_filter_tuple, 0, 15, F);
