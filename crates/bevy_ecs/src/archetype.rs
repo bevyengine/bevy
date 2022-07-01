@@ -6,7 +6,7 @@ use crate::{
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
     storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
-    world::archetype_invariants::ArchetypeInvariants,
+    world::ArchetypeInvariants,
 };
 use std::{
     collections::HashMap,

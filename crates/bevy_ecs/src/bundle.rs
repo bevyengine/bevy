@@ -9,7 +9,7 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
-    world::archetype_invariants::ArchetypeInvariants,
+    world::ArchetypeInvariants,
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
