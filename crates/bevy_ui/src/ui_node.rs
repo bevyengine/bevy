@@ -139,7 +139,7 @@ impl Default for Style {
 }
 
 /// How items are aligned according to the cross axis
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
     /// Items are aligned at the start
@@ -156,7 +156,7 @@ pub enum AlignItems {
 }
 
 /// Works like [`AlignItems`] but applies only to a single item
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
     /// Use the value of [`AlignItems`]
@@ -177,7 +177,7 @@ pub enum AlignSelf {
 /// Defines how each line is aligned within the flexbox.
 ///
 /// It only applies if [`FlexWrap::Wrap`] is present and if there are multiple lines of items.
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
     /// Each line moves towards the start of the cross axis
@@ -200,7 +200,7 @@ pub enum AlignContent {
 /// Defines the text direction
 ///
 /// For example English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Direction {
     /// Inherit from parent node
@@ -213,7 +213,7 @@ pub enum Direction {
 }
 
 /// Whether to use Flexbox layout
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Display {
     /// Use flexbox
@@ -224,7 +224,7 @@ pub enum Display {
 }
 
 /// Defines how flexbox items are ordered within a flexbox
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum FlexDirection {
     /// Same way as text direction along the main axis
@@ -239,7 +239,7 @@ pub enum FlexDirection {
 }
 
 /// Defines how items are aligned according to the main axis
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
     /// Pushed towards the start
@@ -258,7 +258,7 @@ pub enum JustifyContent {
 }
 
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect, Serialize, Deserialize)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Overflow {
     /// Show overflowing items
@@ -269,7 +269,7 @@ pub enum Overflow {
 }
 
 /// The strategy used to position this node
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum PositionType {
     /// Relative to all other nodes with the [`PositionType::Relative`] value
@@ -282,7 +282,7 @@ pub enum PositionType {
 }
 
 /// Defines if flexbox items appear on a single line or on multiple lines
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum FlexWrap {
     /// Single line, will overflow if needed
