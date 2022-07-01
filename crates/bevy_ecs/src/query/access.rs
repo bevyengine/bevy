@@ -439,6 +439,29 @@ mod tests {
     use crate::query::{Access, FilteredAccess, FilteredAccessSet};
 
     #[test]
+    fn read_all_access_conflicts() {
+        // read_all / single write
+        let mut access_a = Access::<usize>::default();
+        access_a.grow(10);
+        access_a.add_write(0);
+
+        let mut access_b = Access::<usize>::default();
+        access_b.read_all();
+
+        assert!(!access_b.is_compatible(&access_a));
+
+        // read_all / read_all
+        let mut access_a = Access::<usize>::default();
+        access_a.grow(10);
+        access_a.read_all();
+
+        let mut access_b = Access::<usize>::default();
+        access_b.read_all();
+
+        assert!(access_b.is_compatible(&access_a));
+    }
+
+    #[test]
     fn access_get_conflicts() {
         let mut access_a = Access::<usize>::default();
         access_a.add_read(0);
