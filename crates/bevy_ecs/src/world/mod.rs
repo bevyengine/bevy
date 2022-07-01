@@ -4,10 +4,10 @@ mod spawn_batch;
 mod world_cell;
 
 pub use crate::change_detection::Mut;
+pub use archetype_invariants::*;
 pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
-pub use archetype_invariants::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},

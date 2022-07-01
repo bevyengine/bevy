@@ -19,7 +19,7 @@ use crate::{component::ComponentId, prelude::Bundle, world::World};
 /// swapping between existing archetypes will not trigger these checks.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArchetypeInvariant<B1: Bundle, B2: Bundle = B1> {
-    /// Defines which entities this invariant applies to. 
+    /// Defines which entities this invariant applies to.
     /// This is the "if" of the if/then clause.
     pub predicate: ArchetypeStatement<B1>,
     /// Defines what must be true for the entities that this invariant applies to.
@@ -78,6 +78,8 @@ pub enum ArchetypeStatement<B: Bundle> {
     AtMostOneOf(PhantomData<B>),
     /// The entity has none of the components in the bundle `B`.
     NoneOf(PhantomData<B>),
+    /// The entity contains only components from the bundle `B`, and no others.
+    Only(PhantomData<B>),
 }
 
 impl<B: Bundle> ArchetypeStatement<B> {
@@ -100,6 +102,7 @@ impl<B: Bundle> ArchetypeStatement<B> {
                 UntypedArchetypeStatement::AtMostOneOf(component_ids)
             }
             ArchetypeStatement::NoneOf(_) => UntypedArchetypeStatement::NoneOf(component_ids),
+            ArchetypeStatement::Only(_) => UntypedArchetypeStatement::Only(component_ids),
         }
     }
 
@@ -125,6 +128,12 @@ impl<B: Bundle> ArchetypeStatement<B> {
     #[inline]
     pub const fn none_of() -> Self {
         ArchetypeStatement::NoneOf(PhantomData)
+    }
+
+    /// Constructs a new [`ArchetypeStatement::Only`] variant for all components stored in the bundle `B`.
+    #[inline]
+    pub const fn only() -> Self {
+        ArchetypeStatement::Only(PhantomData)
     }
 }
 
@@ -179,6 +188,8 @@ pub enum UntypedArchetypeStatement {
     AtMostOneOf(HashSet<ComponentId>),
     /// The entity has none of the components in the set.
     NoneOf(HashSet<ComponentId>),
+    /// The entity contains only components from the bundle `B`, and no others.
+    Only(HashSet<ComponentId>),
 }
 
 impl UntypedArchetypeStatement {
@@ -188,7 +199,8 @@ impl UntypedArchetypeStatement {
             UntypedArchetypeStatement::AllOf(set)
             | UntypedArchetypeStatement::AtLeastOneOf(set)
             | UntypedArchetypeStatement::AtMostOneOf(set)
-            | UntypedArchetypeStatement::NoneOf(set) => set,
+            | UntypedArchetypeStatement::NoneOf(set)
+            | UntypedArchetypeStatement::Only(set) => set,
         }
     }
 
@@ -226,6 +238,14 @@ impl UntypedArchetypeStatement {
             UntypedArchetypeStatement::NoneOf(forbidden_ids) => {
                 for forbidden_id in forbidden_ids {
                     if component_ids.contains(forbidden_id) {
+                        return false;
+                    }
+                }
+                true
+            }
+            UntypedArchetypeStatement::Only(only_ids) => {
+                for component_id in component_ids {
+                    if !only_ids.contains(component_id) {
                         return false;
                     }
                 }
