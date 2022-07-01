@@ -102,7 +102,7 @@ jobs:
           # -Zmiri-ignore-leaks is needed because running bevy_ecs tests finds a memory leak but its impossible
           # to track down because allocids are nondeterministic.
           # -Zmiri-permissive-provenance disables warnings against int2ptr casts (since those are used by once_cell)
-          # -Zmiri-disable-weak-memory-emulation works around an unknown bug in Bevy or Miri.
+          # -Zmiri-disable-weak-memory-emulation works around https://github.com/bevyengine/bevy/issues/5164.
           MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation
 
   check-compiles:
