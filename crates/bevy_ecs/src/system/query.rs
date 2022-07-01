@@ -631,8 +631,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
 
     /// Runs `f` on each read-only query item.
     ///
-    /// It is faster than the equivalent [`iter`](Self::iter) method, but cannot be chained like a normal [`Iterator`].
-    ///
     /// # Example
     ///
     /// Here, the `report_names_system` iterates over the `Player` component of every entity that contains it:
@@ -669,8 +667,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     }
 
     /// Runs `f` on each query item.
-    ///
-    /// This is faster than the equivalent [`iter`](Self::iter) method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Example
     ///
