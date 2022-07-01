@@ -116,41 +116,41 @@ bitflags::bitflags! {
 
 pub fn extract_meshes(
     mut commands: Commands,
-    mut prev_len_shadow_caster: Local<usize>,
-    mut prev_len_not_shadow_caster: Local<usize>,
+    mut prev_caster_commands_len: Local<usize>,
+    mut prev_not_caster_commands_len: Local<usize>,
     meshes_query: Query<(
         Entity,
         &ComputedVisibility,
         &GlobalTransform,
         &Handle<Mesh>,
-        Option<Without<NotShadowReceiver>>,
-        Option<Without<NotShadowCaster>>,
+        Option<With<NotShadowReceiver>>,
+        Option<With<NotShadowCaster>>,
     )>,
 ) {
-    let mut caster_commands = Vec::with_capacity(*prev_len_shadow_caster);
-    let mut not_caster_commands = Vec::with_capacity(*prev_len_not_shadow_caster);
+    let mut caster_commands = Vec::with_capacity(*prev_caster_commands_len);
+    let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
     let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.is_visible);
 
-    for (entity, _, transform, handle, is_receiver, is_caster) in visible_meshes {
+    for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
         let transform = transform.compute_matrix();
-        let shadow_receiver_flags = if is_receiver.is_some() {
-            MeshFlags::SHADOW_RECEIVER.bits
-        } else {
+        let shadow_receiver_flags = if not_receiver.is_some() {
             MeshFlags::empty().bits
+        } else {
+            MeshFlags::SHADOW_RECEIVER.bits
         };
         let uniform = MeshUniform {
             flags: shadow_receiver_flags,
             transform,
             inverse_transpose_model: transform.inverse().transpose(),
         };
-        if is_caster.is_some() {
-            caster_commands.push((entity, (handle.clone_weak(), uniform)));
-        } else {
+        if not_caster.is_some() {
             not_caster_commands.push((entity, (handle.clone_weak(), uniform, NotShadowCaster)));
+        } else {
+            caster_commands.push((entity, (handle.clone_weak(), uniform)));
         }
     }
-    *prev_len_shadow_caster = caster_commands.len();
-    *prev_len_not_shadow_caster = not_caster_commands.len();
+    *prev_caster_commands_len = caster_commands.len();
+    *prev_not_caster_commands_len = not_caster_commands.len();
     commands.insert_or_spawn_batch(caster_commands);
     commands.insert_or_spawn_batch(not_caster_commands);
 }
