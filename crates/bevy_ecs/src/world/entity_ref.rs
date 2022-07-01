@@ -954,14 +954,15 @@ mod tests {
         let mut test_component = entity_mut.get_mut_by_id(component_id).unwrap();
         {
             test_component.set_changed();
-            // SAFETY: `test_component` has unique access of the `EntityMut` and is not used afterwards
             let test_component =
+                // SAFETY: `test_component` has unique access of the `EntityMut` and is not used afterwards
                 unsafe { test_component.into_inner().deref_mut::<TestComponent>() };
             test_component.0 = 43;
         }
 
         let entity = world.entity(entity);
         let test_component = entity.get_by_id(component_id).unwrap();
+        // SAFETY: `TestComponent` is the correct component type
         let test_component = unsafe { test_component.deref::<TestComponent>() };
 
         assert_eq!(test_component.0, 43);

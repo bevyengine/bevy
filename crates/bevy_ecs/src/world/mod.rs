@@ -1714,6 +1714,7 @@ mod tests {
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
+        // SAFETY: `TestResource` is the correct resource type
         let resource = unsafe { resource.deref::<TestResource>() };
 
         assert_eq!(resource.0, 42);
@@ -1731,11 +1732,13 @@ mod tests {
         {
             let mut resource = world.get_resource_mut_by_id(component_id).unwrap();
             resource.set_changed();
+            // SAFETY: `TestResource` is the correct resource type
             let resource = unsafe { resource.into_inner().deref_mut::<TestResource>() };
             resource.0 = 43;
         }
 
         let resource = world.get_resource_by_id(component_id).unwrap();
+        // SAFETY: `TestResource` is the correct resource type
         let resource = unsafe { resource.deref::<TestResource>() };
 
         assert_eq!(resource.0, 43);
@@ -1764,11 +1767,14 @@ mod tests {
         let component_id = world.init_component_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
-        OwningPtr::make(value, |ptr| unsafe {
+        OwningPtr::make(value, |ptr| {
             // SAFETY: value is valid for the component layout
-            world.insert_resource_by_id(component_id, ptr);
+            unsafe {
+                world.insert_resource_by_id(component_id, ptr);
+            }
         });
 
+        // SAFETY: [u8; 8] is the correct type for the resource
         let data = unsafe {
             world
                 .get_resource_by_id(component_id)
@@ -1788,9 +1794,11 @@ mod tests {
         let invalid_component_id = ComponentId::new(usize::MAX);
 
         let mut world = World::new();
-        OwningPtr::make((), |ptr| unsafe {
+        OwningPtr::make((), |ptr| {
             // SAFETY: ptr must be valid for the component_id `invalid_component_id` which is invalid, but checked by `insert_resource_by_id`
-            world.insert_resource_by_id(invalid_component_id, ptr);
+            unsafe {
+                world.insert_resource_by_id(invalid_component_id, ptr);
+            }
         });
     }
 
