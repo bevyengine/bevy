@@ -450,7 +450,7 @@ impl PipelineCache {
                 .map(|(module, entry_point, targets)| RawFragmentState {
                     entry_point,
                     module,
-                    targets: &targets,
+                    targets,
                 }),
         };
 
