@@ -424,47 +424,6 @@ impl Command for RunSystemsByLabelCommand {
 ///
 /// Systems must be registered via the `register_system` methods on [`SystemRegistry`], [`World`] or `App`
 /// before they can be run by their label using a callback.
-///
-/// # Example
-///
-/// ```rust
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::event::Events;
-/// use bevy_ecs::system::Callback;
-///
-/// let mut world = World::new();
-/// // When working with `App`, use app.add_event
-/// // to get automatic event cleanup
-/// world.init_resource::<Events<Callback>>();
-///
-/// struct PlayerName(String);
-/// world.insert_resource(PlayerName("Cart".to_string()));
-///
-/// fn report_player_name(player_name: Res<PlayerName>){
-///     println!("Hello {}", player_name.0);
-/// }
-/// // Remember to register any systems you intend to use as a `Callback`
-/// world.register_system(report_player_name);
-///
-/// // Generating some callbacks
-/// fn generate_callback_events(mut callbacks: EventWriter<Callback>){
-///   // The callback will have no effect when evaluated
-///   // if you forgot to register the system in question
-///   callbacks.send(Callback::new(report_player_name));
-/// }
-///
-/// world.run_system(generate_callback_events);
-///
-/// // Reading and then applying some callbacks
-/// fn process_callback_events(mut callbacks: EventReader<Callback>, mut commands: Commands) {
-///    for callback in callbacks.iter(){
-///       commands.run_callback(callback.clone());
-///    }
-/// }
-///
-/// // Say hi to Cart!
-/// world.run_system(process_callback_events);
-/// ```
 #[derive(Debug, Component, Clone, Eq)]
 pub struct Callback {
     /// The label of the system(s) to be run.
