@@ -155,7 +155,7 @@ impl ShaderCache {
                 render_device
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
-                let shader_module = render_device.create_shader_module(&module_descriptor);
+                let shader_module = render_device.create_shader_module(module_descriptor);
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
@@ -410,7 +410,9 @@ impl PipelineCache {
             Some((
                 fragment_module,
                 fragment.entry_point.deref(),
-                &fragment.targets,
+                &fragment.targets[..], // .into_iter()
+                                       // .map(|v| Some(v))
+                                       // .collect::<Vec<_>>(),
             ))
         } else {
             None
@@ -450,7 +452,7 @@ impl PipelineCache {
                 .map(|(module, entry_point, targets)| RawFragmentState {
                     entry_point,
                     module,
-                    targets,
+                    targets: &targets[..],
                 }),
         };
 

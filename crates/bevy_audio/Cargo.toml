@@ -19,7 +19,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 # other
 anyhow = "1.0.4"
 rodio = { version = "0.15", default-features = false }
-parking_lot = "0.11.0"
+parking_lot = "0.12.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 rodio = { version = "0.15", default-features = false, features = ["wasm-bindgen"] }

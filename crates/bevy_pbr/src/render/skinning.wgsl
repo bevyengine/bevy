@@ -22,10 +22,10 @@ fn skin_model(
     indexes: vec4<u32>,
     weights: vec4<f32>,
 ) -> mat4x4<f32> {
-    var matrix = weights.x * joint_matrices.data[indexes.x];
-    matrix = add_matrix(matrix, weights.y * joint_matrices.data[indexes.y]);
-    matrix = add_matrix(matrix, weights.z * joint_matrices.data[indexes.z]);
-    return add_matrix(matrix, weights.w * joint_matrices.data[indexes.w]);
+    var skinned_matrix = weights.x * joint_matrices.data[indexes.x];
+    skinned_matrix = add_matrix(skinned_matrix, weights.y * joint_matrices.data[indexes.y]);
+    skinned_matrix = add_matrix(skinned_matrix, weights.z * joint_matrices.data[indexes.z]);
+    return add_matrix(skinned_matrix, weights.w * joint_matrices.data[indexes.w]);
 }
 
 fn inverse_transpose_3x3(in: mat3x3<f32>) -> mat3x3<f32> {
