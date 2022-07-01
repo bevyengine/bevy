@@ -13,6 +13,7 @@ criterion_group!(
     all_added_detection,
     all_changed_detection,
     few_changed_detection,
+    none_changed_detection,
 );
 criterion_main!(benches);
 
@@ -176,6 +177,50 @@ fn few_changed_detection(criterion: &mut Criterion) {
             vec![
                 Box::new(few_changed_detection_generic::<Table>),
                 Box::new(few_changed_detection_generic::<Sparse>),
+            ],
+            entity_count,
+        );
+    }
+}
+
+fn none_changed_detection_generic<T: Component + Default>(
+    group: &mut BenchGroup,
+    entity_count: u32,
+) {
+    group.bench_function(
+        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+        |bencher| {
+            bencher.iter_batched(
+                || {
+                    let mut world = setup::<Table>(entity_count);
+                    world.clear_trackers();
+                    world
+                },
+                |mut world| {
+                    let mut count = 0;
+                    let mut query = world.query_filtered::<Entity, Changed<Table>>();
+                    for entity in query.iter(&world) {
+                        black_box(entity);
+                        count += 1;
+                    }
+                    assert_eq!(0, count);
+                },
+                criterion::BatchSize::LargeInput,
+            );
+        },
+    );
+}
+
+fn none_changed_detection(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("none_changed_detection");
+    group.warm_up_time(std::time::Duration::from_millis(500));
+    group.measurement_time(std::time::Duration::from_secs(4));
+    for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
+        generic_bench(
+            &mut group,
+            vec![
+                Box::new(none_changed_detection_generic::<Table>),
+                Box::new(none_changed_detection_generic::<Sparse>),
             ],
             entity_count,
         );
