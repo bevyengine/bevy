@@ -41,13 +41,13 @@ fn prepare_normal(
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
-    var Nt: vec3<f32>;
+    var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
     if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
         // Only use the xy components and derive z for 2-component normal maps.
-        Nt = vec3<f32>(textureSample(normal_map_texture, normal_map_sampler, uv).rg * 2.0 - 1.0, 0.0);
+        Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
         Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
     } else {
-        Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb * 2.0 - 1.0;
+        Nt = Nt * 2.0 - 1.0;
     }
     // Normal maps authored for DirectX require flipping the y component
     if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {

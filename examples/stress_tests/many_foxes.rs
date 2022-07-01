@@ -204,9 +204,7 @@ fn update_fox_rings(
     let dt = time.delta_seconds();
     for (ring, rotation_direction, mut transform) in rings.iter_mut() {
         let angular_velocity = foxes.speed / ring.radius;
-        transform.rotate(Quat::from_rotation_y(
-            rotation_direction.sign() * angular_velocity * dt,
-        ));
+        transform.rotate_y(rotation_direction.sign() * angular_velocity * dt);
     }
 }
 
