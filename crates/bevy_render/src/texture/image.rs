@@ -486,7 +486,8 @@ pub trait TextureFormatPixelInfo {
 impl TextureFormatPixelInfo for TextureFormat {
     #[inline]
     fn pixel_size(&self) -> usize {
-        self.describe().block_size as usize
+        let info = self.describe();
+        (info.block_size / (info.block_dimensions.0 * info.block_dimensions.1)) as usize
     }
 }
 
