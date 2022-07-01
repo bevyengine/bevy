@@ -585,8 +585,8 @@ fn cluster_space_light_aabb(
     )
 }
 
-const NDC_MIN: Vec2 = Vec2::splat(-1.0);
-const NDC_MAX: Vec2 = Vec2::splat(1.0);
+const NDC_MIN: Vec2 = Vec2::NEG_ONE;
+const NDC_MAX: Vec2 = Vec2::ONE;
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
 // can be used to limit the number of point light shadows to render based on the device and
