@@ -484,3 +484,62 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
+
+#[proc_macro]
+pub fn impl_into_linked_system_set(_input: TokenStream) -> TokenStream {
+    let start = 0;
+    let end = 15;
+    let mut system_idents = Vec::with_capacity(end - start);
+    let mut params_idents = Vec::with_capacity(end - start);
+    let mut labels_idents = Vec::with_capacity(end - start);
+    let mut i_s = Vec::with_capacity(end - start);
+    for i in start..=end {
+        let system_ident = format_ident!("S{}", i);
+        let params_ident = format_ident!("P{}", i);
+        let labels_ident = format_ident!("label{}", i);
+        system_idents.push(system_ident);
+        params_idents.push(params_ident);
+        labels_idents.push(labels_ident);
+        // See https://docs.rs/quote/latest/quote/macro.quote.html#indexing-into-a-tuple-struct
+        i_s.push(Index::from(i));
+    }
+
+    let start = 2;
+    let implementations = (start..=end).map(|i| {
+        let system_idents = &system_idents[0..i];
+        let params_idents = &params_idents[0..i];
+
+        // This is the reason why this is a proc macro and not
+        // a macro passed to `all_tuples`.
+        //
+        // `macro_rules!` do not have a way to get a
+        // subset of a variadic.
+        let head_i = &i_s[0];
+        let tail_i = &i_s[1..i];
+        let init_i = &i_s[0..i - 1];
+        let labels_idents = &labels_idents[0..i - 1];
+
+        quote! {
+            impl<#(#system_idents),*, #(#params_idents),*>
+            IntoLinkedSystemSet<(#(#system_idents,)*), (#(#params_idents,)*)>
+            for (#(#system_idents,)*)
+            where
+                #(#params_idents: SystemParam + 'static,)*
+                #(#system_idents: SystemParamFunction<(), (), #params_idents, ()> + 'static,)*
+            {
+                fn link(self) -> SystemSet {
+                    #(let #labels_idents = self.#init_i.as_system_label();)*
+                    SystemSet::new()
+                        .with_system(self.#head_i)
+                        #(.with_system(self.#tail_i.after(#labels_idents)))*
+                }
+            }
+        }
+    });
+
+    TokenStream::from(quote! {
+        #(
+            #implementations
+        )*
+    })
+}

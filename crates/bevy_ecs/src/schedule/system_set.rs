@@ -1,9 +1,13 @@
+use bevy_ecs_macros::impl_into_linked_system_set;
+
 use crate::schedule::{
     AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
     IntoSystemDescriptor, RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor,
     SystemLabel,
 };
-use crate::system::AsSystemLabel;
+use crate::system::{AsSystemLabel, SystemParam, SystemParamFunction};
+
+use super::ParallelSystemDescriptorCoercion;
 
 /// A builder for describing several systems at the same time.
 #[derive(Default)]
@@ -136,5 +140,82 @@ impl SystemSet {
             }
         }
         (run_criteria, systems)
+    }
+}
+
+/// A trait that provides the [`.link()`] method to tuples of systems.
+///
+/// [`.link()`]: IntoLinkedSystemSet::link
+pub trait IntoLinkedSystemSet<S, P> {
+    /// A helper method to create system sets with automatic
+    /// ordering of execution.
+    ///
+    /// This is only implemented for tuples of 2 to 15 systems.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # fn first_system() {}
+    /// # fn second_system() {}
+    /// # fn third_system() {}
+    /// # fn fourth_system() {}
+    ///
+    /// // This expression...
+    ///
+    /// (
+    ///     first_system,
+    ///     second_system,
+    ///     third_system,
+    ///     fourth_system,
+    /// ).link();
+    ///
+    /// // ...is equal to:
+    ///
+    /// SystemSet::new()
+    ///     .with_system(first_system)
+    ///     .with_system(second_system.after(first_system))
+    ///     .with_system(third_system.after(second_system))
+    ///     .with_system(fourth_system.after(third_system));
+    /// ```
+    fn link(self) -> SystemSet;
+}
+
+impl_into_linked_system_set!();
+
+/// A trait that provides the [`.then()`] method to systems.
+///
+/// [`.then()`]: IntoSequentialSystemSet::then
+pub trait IntoSequentialSystemSet<S0, S1, P0, P1> {
+    /// A helper method to create system sets with automatic
+    /// ordering of execution.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # fn first_system() {}
+    /// # fn second_system() {}
+    ///
+    /// // This expression...
+    ///
+    /// first_system.then(second_system);
+    ///
+    /// // ...is equal to:
+    ///
+    /// SystemSet::new()
+    ///     .with_system(first_system)
+    ///     .with_system(second_system.after(first_system));
+    /// ```
+    fn then(self, next_system: S1) -> SystemSet;
+}
+
+impl<S0, S1, P0, P1> IntoSequentialSystemSet<S0, S1, P0, P1> for S0
+where
+    P0: SystemParam + 'static,
+    P1: SystemParam + 'static,
+    S0: SystemParamFunction<(), (), P0, ()> + 'static,
+    S1: SystemParamFunction<(), (), P1, ()> + 'static,
+{
+    fn then(self, next_system: S1) -> SystemSet {
+        (self, next_system).link()
     }
 }
