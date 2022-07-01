@@ -210,7 +210,6 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 ///
 /// Creating a `Query` is a low-cost constant operation.
 /// Iterating it, on the other hand, fetches data from the world and generates items, which can have a significant computational cost.
-/// However, iteration cost of queries is reduced by the fact that they have an internal archetype cache to avoid re-computing archetype matches on each query access.
 ///
 /// [`Table`] component storage type is much more optimized for query iteration than [`SparseSet`].
 ///
