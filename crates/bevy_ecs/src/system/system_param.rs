@@ -1299,7 +1299,8 @@ macro_rules! impl_system_param_tuple {
             }
         }
 
-        /// SAFETY: implementors of each `SystemParamState` in the tuple have validated their impls
+        // SAFETY: implementors of each `SystemParamState` in the tuple have validated their impls
+        #[allow(clippy::undocumented_unsafe_blocks)] // false positive by clippy
         #[allow(non_snake_case)]
         unsafe impl<$($param: SystemParamState),*> SystemParamState for ($($param,)*) {
             #[inline]
