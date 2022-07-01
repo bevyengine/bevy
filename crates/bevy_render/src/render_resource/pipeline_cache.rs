@@ -410,9 +410,7 @@ impl PipelineCache {
             Some((
                 fragment_module,
                 fragment.entry_point.deref(),
-                &fragment.targets[..], // .into_iter()
-                                       // .map(|v| Some(v))
-                                       // .collect::<Vec<_>>(),
+                &fragment.targets[..],
             ))
         } else {
             None
@@ -452,7 +450,7 @@ impl PipelineCache {
                 .map(|(module, entry_point, targets)| RawFragmentState {
                     entry_point,
                     module,
-                    targets: &targets[..],
+                    targets: &targets,
                 }),
         };
 
