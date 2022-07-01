@@ -11,8 +11,7 @@ use crate::{component::ComponentId, prelude::Bundle, world::World};
 /// while `B2` is used in the `consequence`.
 /// If only a single generic is provided, these types are the same.
 ///
-/// When added to the [`World`], archetype invariants behave like [`assert!`];
-/// all archetype invariants must be true for every entity in the [`World`].
+/// When added to the [`World`], archetype invariants behave like [`assert!`].
 /// Archetype invariants are checked each time [`Archetypes`](crate::archetype::Archetypes) is modified;
 /// this can occur on component addition, component removal, and entity spawning.
 ///
@@ -20,9 +19,11 @@ use crate::{component::ComponentId, prelude::Bundle, world::World};
 /// swapping between existing archetypes will not trigger these checks.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArchetypeInvariant<B1: Bundle, B2: Bundle = B1> {
-    /// For all entities where the predicate is true
+    /// Defines which entities this invariant applies to. 
+    /// This is the "if" of the if/then clause.
     pub predicate: ArchetypeStatement<B1>,
-    /// The consequence must also be true
+    /// Defines what must be true for the entities that this invariant applies to.
+    /// This is the "then" of the if/then clause.
     pub consequence: ArchetypeStatement<B2>,
 }
 
@@ -44,7 +45,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
     ///
     /// In other words, if any component of this bundle is present, then all of them must be.
     #[inline]
-    pub fn full_bundle() -> Self {
+    pub fn atomic_bundle() -> Self {
         Self {
             predicate: ArchetypeStatement::<B>::at_least_one_of(),
             consequence: ArchetypeStatement::<B>::all_of(),
@@ -234,6 +235,7 @@ impl UntypedArchetypeStatement {
     }
 }
 
+/// A list of [`ArchetypeInvariant`]s to be stored on a [`World`].
 #[derive(Default)]
 pub struct ArchetypeInvariants {
     /// The list of invariants that must be upheld.
@@ -304,7 +306,7 @@ mod tests {
     fn full_bundle_happy() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
         world.spawn().insert_bundle((A, B, C));
     }
 
@@ -313,7 +315,7 @@ mod tests {
         let mut world = World::new();
 
         world.spawn().insert_bundle((A, B, C));
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
     }
 
     #[test]
@@ -321,7 +323,7 @@ mod tests {
     fn full_bundle_sad() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
         world.spawn().insert_bundle((A, B));
     }
 
@@ -331,6 +333,6 @@ mod tests {
         let mut world = World::new();
 
         world.spawn().insert_bundle((A, B));
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::full_bundle());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
     }
 }
