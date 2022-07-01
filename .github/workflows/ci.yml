@@ -99,11 +99,10 @@ jobs:
           RUSTFLAGS: -Zrandomize-layout
           # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
           # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
-          # -Zmiri-ignore-leaks is needed because running bevy_ecs tests finds a memory leak but its impossible
-          # to track down because allocids are nondeterministic.
           # -Zmiri-permissive-provenance disables warnings against int2ptr casts (since those are used by once_cell)
           # -Zmiri-disable-weak-memory-emulation works around https://github.com/bevyengine/bevy/issues/5164.
-          MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation
+          # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
+          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation
 
   check-compiles:
     runs-on: ubuntu-latest
