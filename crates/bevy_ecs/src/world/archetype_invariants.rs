@@ -4,7 +4,7 @@ use bevy_utils::{tracing::warn, HashSet};
 
 use crate::{component::ComponentId, prelude::Bundle, world::World};
 
-/// A rule about which [`Component`](crate::component::Component)s can coexist on entities
+/// A rule about which [`Component`](crate::component::Component)s can coexist on entities.
 ///
 /// These rules must be true at all times for all entities in the [`World`].
 /// The generic [`Bundle`] type `B1` is always used in the `predicate`,
@@ -18,9 +18,6 @@ use crate::{component::ComponentId, prelude::Bundle, world::World};
 ///
 /// Archetypes are only modified when a novel archetype (set of components) is seen for the first time;
 /// swapping between existing archetypes will not trigger these checks.
-///
-/// Note that this is converted to an [`UntypedArchetypeInvariant`] when added to a [`World`].
-/// This is to ensure compatibility between different invariants.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArchetypeInvariant<B1: Bundle, B2: Bundle = B1> {
     /// For all entities where the predicate is true
@@ -43,9 +40,9 @@ impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
 }
 
 impl<B: Bundle> ArchetypeInvariant<B, B> {
-    /// This is a helper function for constructing common invariants.
-    /// All components of the provided bundle require each other.
-    /// In other words, if any one component of this bundle is present, then all of them must be.
+    /// Creates an archetype invariant where all components of `B` require each other.
+    ///
+    /// In other words, if any component of this bundle is present, then all of them must be.
     #[inline]
     pub fn full_bundle() -> Self {
         Self {
@@ -70,20 +67,20 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
 /// This is to ensure compatibility between different invariants.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArchetypeStatement<B: Bundle> {
-    /// Evaluates to true if and only if the entity has all of the components present in the bundle `B`
+    /// Evaluates to true if and only if the entity has all of the components present in the bundle `B`.
     AllOf(PhantomData<B>),
-    /// The entity has at least one component in the bundle `B`, and may have all of them.
+    /// The entity has at least one component in the bundle `B`.
     /// When using a single-component bundle, `AllOf` is preferred.
     AtLeastOneOf(PhantomData<B>),
     /// The entity has zero or one of the components in the bundle `B`, but no more.
-    /// When using a single-component bundle, this is a tautology.
+    /// When using a single-component bundle, this will always be true.
     AtMostOneOf(PhantomData<B>),
-    /// The entity has none of the components in the bundle `B`
+    /// The entity has none of the components in the bundle `B`.
     NoneOf(PhantomData<B>),
 }
 
 impl<B: Bundle> ArchetypeStatement<B> {
-    /// Erases the type information of this archetype statment.
+    /// Erases the type information of this archetype statement.
     ///
     /// Requires mutable world access, since the components might not have been added to the world yet.
     pub fn into_untyped(self, world: &mut World) -> UntypedArchetypeStatement {
@@ -105,25 +102,25 @@ impl<B: Bundle> ArchetypeStatement<B> {
         }
     }
 
-    /// Constructs a new [`ArchetypeStatement::AllOf`] variant for all components stored in the bundle `B`
+    /// Constructs a new [`ArchetypeStatement::AllOf`] variant for all components stored in the bundle `B`.
     #[inline]
     pub const fn all_of() -> Self {
         ArchetypeStatement::AllOf(PhantomData)
     }
 
-    /// Constructs a new [`ArchetypeStatement::AtLeastOneOf`] variant for all components stored in the bundle `B`
+    /// Constructs a new [`ArchetypeStatement::AtLeastOneOf`] variant for all components stored in the bundle `B`.
     #[inline]
     pub const fn at_least_one_of() -> Self {
         ArchetypeStatement::AtLeastOneOf(PhantomData)
     }
 
-    /// Constructs a new [`ArchetypeStatement::AtMostOneOf`] variant for all components stored in the bundle `B`
+    /// Constructs a new [`ArchetypeStatement::AtMostOneOf`] variant for all components stored in the bundle `B`.
     #[inline]
     pub const fn at_most_one_of() -> Self {
         ArchetypeStatement::AtMostOneOf(PhantomData)
     }
 
-    /// Constructs a new [`ArchetypeStatement::NoneOf`] variant for all components stored in the bundle `B`
+    /// Constructs a new [`ArchetypeStatement::NoneOf`] variant for all components stored in the bundle `B`.
     #[inline]
     pub const fn none_of() -> Self {
         ArchetypeStatement::NoneOf(PhantomData)
@@ -143,14 +140,14 @@ pub struct UntypedArchetypeInvariant {
 }
 
 impl UntypedArchetypeInvariant {
-    /// Assert that the provided iterator of [`ComponentId`]s obeys this archetype invariant
+    /// Asserts that the provided iterator of [`ComponentId`]s obeys this archetype invariant.
     ///
     /// `component_ids` is generally provided via the `components` field on [`Archetype`](crate::archetype::Archetype).
     /// When testing against multiple archetypes, [`ArchetypeInvariants::test_archetype`] is preferred,
     /// as it can more efficiently cache checks between archetypes.
     ///
     /// # Panics
-    /// Panics if the archetype invariant is violated
+    /// Panics if the archetype invariant is violated.
     pub fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
         let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
 
@@ -165,20 +162,21 @@ impl UntypedArchetypeInvariant {
     }
 }
 
-/// A type-erased version of [`ArchetypeStatement`]
+/// A type-erased version of [`ArchetypeStatement`].
+///
 /// Intended to be used with dynamic components that cannot be represented with Rust types.
 /// Prefer [`ArchetypeStatement`] when possible.
 #[derive(Clone, Debug, PartialEq)]
 pub enum UntypedArchetypeStatement {
-    /// Evaluates to true if and only if the entity has all of the components present in the set
+    /// Evaluates to true if and only if the entity has all of the components present in the set.
     AllOf(HashSet<ComponentId>),
     /// The entity has at least one component in the set, and may have all of them.
-    /// When using a single-component set, `AllOf` is preferred
+    /// When using a single-component set, `AllOf` is preferred.
     AtLeastOneOf(HashSet<ComponentId>),
     /// The entity has zero or one of the components in the set, but no more.
     /// When using a single-component set, this is a tautology.
     AtMostOneOf(HashSet<ComponentId>),
-    /// The entity has none of the components in the set
+    /// The entity has none of the components in the set.
     NoneOf(HashSet<ComponentId>),
 }
 
@@ -193,7 +191,7 @@ impl UntypedArchetypeStatement {
         }
     }
 
-    /// Test if this statement is true for the provided set of [`ComponentId`]s
+    /// Test if this statement is true for the provided set of [`ComponentId`]s.
     pub fn test(&self, component_ids: &HashSet<ComponentId>) -> bool {
         match self {
             UntypedArchetypeStatement::AllOf(required_ids) => {
@@ -238,7 +236,7 @@ impl UntypedArchetypeStatement {
 
 #[derive(Default)]
 pub struct ArchetypeInvariants {
-    /// The list of invariants that must be upheld
+    /// The list of invariants that must be upheld.
     raw_list: Vec<UntypedArchetypeInvariant>,
 }
 
@@ -246,18 +244,19 @@ impl ArchetypeInvariants {
     /// Adds a new [`ArchetypeInvariant`] to this set of archetype invariants.
     ///
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
-    /// This may include empty archetypes- archetypes that contain no entities.
+    /// This may include empty archetypes: archetypes that contain no entities.
     #[inline]
     pub fn add(&mut self, archetype_invariant: UntypedArchetypeInvariant) {
         self.raw_list.push(archetype_invariant);
     }
 
-    /// Assert that the provided iterator of [`ComponentId`]s obeys all archetype invariants
+    /// Asserts that the provided iterator of [`ComponentId`]s obeys all archetype invariants.
     ///
     /// `component_ids` is generally provided via the `components` field on [`Archetype`](crate::archetype::Archetype).
     ///
     /// # Panics
-    /// Panics if any archetype invariant is violated
+    ///
+    /// Panics if any archetype invariant is violated.
     pub fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
         let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
 

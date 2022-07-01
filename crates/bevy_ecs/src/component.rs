@@ -372,7 +372,7 @@ pub struct Components {
 impl Components {
     /// Adds a new component type to [`Components`].
     ///
-    /// If the component type is already present, then simply return its [`ComponentId`].
+    /// If the component type is already present, it simply returns its [`ComponentId`].
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();

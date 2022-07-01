@@ -1,4 +1,4 @@
-pub mod archetype_invariants;
+mod archetype_invariants;
 mod entity_ref;
 mod spawn_batch;
 mod world_cell;
@@ -7,10 +7,7 @@ pub use crate::change_detection::Mut;
 pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
-
-use self::archetype_invariants::{
-    ArchetypeInvariant, ArchetypeInvariants, UntypedArchetypeInvariant,
-};
+pub use archetype_invariants::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeComponentInfo, ArchetypeId, Archetypes},
@@ -160,7 +157,7 @@ impl World {
         &self.archetypes
     }
 
-    /// Retrieves this world's [`ArchetypeInvariants`] collection
+    /// Retrieves this world's [`ArchetypeInvariants`] collection.
     #[inline]
     pub fn archetype_invariants(&self) -> &ArchetypeInvariants {
         &self.archetype_invariants
@@ -697,7 +694,7 @@ impl World {
         self.archetype_invariants.add(untyped_invariant);
     }
 
-    /// Inserts a new [`UntypedArchetypeInvariant`] to the world
+    /// Inserts a new [`UntypedArchetypeInvariant`] to the world.
     ///
     /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
