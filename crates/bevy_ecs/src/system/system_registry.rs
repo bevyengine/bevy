@@ -6,6 +6,9 @@ use std::marker::PhantomData;
 use crate::schedule::{IntoSystemDescriptor, SystemLabel};
 use crate::system::{Command, IntoSystem, System, SystemTypeIdLabel};
 use crate::world::{Mut, World};
+// Needed for derive(Component) macro
+use crate as bevy_ecs;
+use bevy_ecs_macros::Component;
 
 /// Stores initialized [`Systems`](crate::system::System), so they can be reused and run in an ad-hoc fashion
 ///
@@ -110,8 +113,8 @@ impl SystemRegistry {
 
         // This avoids nasty surprising behavior in case systems are registered twice
         if !self.is_label_registered(automatic_system_label) {
-        	let boxed_system: Box<dyn System<In = (), Out = ()>> =
-            	Box::new(IntoSystem::into_system(system));
+            let boxed_system: Box<dyn System<In = (), Out = ()>> =
+                Box::new(IntoSystem::into_system(system));
             self.register_boxed_system_with_labels(
                 world,
                 boxed_system,
@@ -426,6 +429,7 @@ impl Command for RunSystemsByLabelCommand {
 ///
 /// ```rust
 /// use bevy_ecs::prelude::*;
+/// use bevy_ecs::event::Events;
 /// use bevy_ecs::system::Callback;
 ///
 /// let mut world = World::new();
@@ -434,7 +438,7 @@ impl Command for RunSystemsByLabelCommand {
 /// world.init_resource::<Events<Callback>>();
 ///
 /// struct PlayerName(String);
-/// world.add_resource(PlayerName("Cart".to_string()));
+/// world.insert_resource(PlayerName("Cart".to_string()));
 ///
 /// fn report_player_name(player_name: Res<PlayerName>){
 ///     println!("Hello {}", player_name.0);
@@ -454,15 +458,14 @@ impl Command for RunSystemsByLabelCommand {
 /// // Reading and then applying some callbacks
 /// fn process_callback_events(mut callbacks: EventReader<Callback>, mut commands: Commands) {
 ///    for callback in callbacks.iter(){
-///       commands.run_callback(&callback);
+///       commands.run_callback(callback.clone());
 ///    }
 /// }
 ///
 /// // Say hi to Cart!
 /// world.run_system(process_callback_events);
 /// ```
-use crate as bevy_ecs;
-#[derive(Debug, crate::prelude::Component, Clone, Eq)]
+#[derive(Debug, Component, Clone, Eq)]
 pub struct Callback {
     /// The label of the system(s) to be run.
     ///
