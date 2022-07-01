@@ -761,6 +761,16 @@ impl App {
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
+    /// # // Dummies created to avoid using `bevy_log`,
+    /// # // which pulls in too many dependencies and breaks rust-analyzer
+    /// # pub mod bevy_log {
+    /// #     use bevy_app::prelude::*;
+    /// #     #[derive(Default)]
+    /// #     pub struct LogPlugin;
+    /// #     impl Plugin for LogPlugin{
+    /// #        fn build(&self, app: &mut App) {}
+    /// #     }
+    /// # }
     /// App::new().add_plugin(bevy_log::LogPlugin::default());
     /// ```
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
@@ -810,9 +820,10 @@ impl App {
     /// #
     /// # // Dummies created to avoid using `bevy_internal` and `bevy_log`,
     /// # // which pulls in too many dependencies and breaks rust-analyzer
-    /// # mod bevy_log {
-    /// #     struct LogPlugin;
+    /// # pub mod bevy_log {
     /// #     use bevy_app::prelude::*;
+    /// #     #[derive(Default)]
+    /// #     pub struct LogPlugin;
     /// #     impl Plugin for LogPlugin{
     /// #        fn build(&self, app: &mut App) {}
     /// #     }
