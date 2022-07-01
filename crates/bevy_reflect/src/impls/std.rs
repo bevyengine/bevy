@@ -288,7 +288,7 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
-        map_apply(self, value)
+        map_apply(self, value);
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
