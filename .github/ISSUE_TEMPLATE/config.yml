@@ -1,4 +1,4 @@
 contact_links:
   - name: Question
     url: https://github.com/bevyengine/bevy/discussions
-    about: Please ask and answer questions about Bevy in the "Discussion" section.
+    about: Questions about how to use or contribute to Bevy belong in Github Discussions
