@@ -38,7 +38,7 @@ impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Re
 impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
 impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(PhantomData<T: Reflect>(Serialize, Deserialize));
+impl_reflect_value!(PhantomData<T: Reflect>(Debug, Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -579,8 +579,13 @@ impl FromReflect for Cow<'static, str> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::serde::{ReflectDeserializer, ReflectSerializer};
+    use crate::DynamicStruct;
     use crate::{Reflect, ReflectSerialize, TypeRegistry};
+    use ::serde::de::DeserializeSeed;
     use bevy_utils::HashMap;
+    use ron::{ser::to_string, Deserializer};
     use std::f32::consts::{PI, TAU};
 
     #[test]
@@ -596,15 +601,31 @@ mod tests {
 
     #[test]
     fn can_serialize_phantomdata() {
-        let mut type_registry = TypeRegistry::default();
-        type_registry.register::<std::marker::PhantomData<()>>();
+        #[derive(Reflect, PartialEq, Eq, Debug)]
+        struct Foo<T: Reflect> {
+            a: u32,
+            _phantomdata: PhantomData<T>,
+        }
 
-        let reflect_serialize = type_registry
-            .get_type_data::<ReflectSerialize>(
-                std::any::TypeId::of::<std::marker::PhantomData<()>>(),
-            )
-            .unwrap();
-        let _serializable = reflect_serialize.get_serializable(&std::marker::PhantomData::<()>);
+        let foo: Foo<u8> = Foo {
+            a: 1,
+            _phantomdata: PhantomData,
+        };
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<u32>();
+        registry.register::<PhantomData<u8>>();
+
+        let serializer = ReflectSerializer::new(&foo, &registry);
+        let serialized = to_string(&serializer).unwrap();
+
+        let mut deserializer = Deserializer::from_str(&serialized).unwrap();
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+        let dynamic_struct = value.take::<DynamicStruct>().unwrap();
+
+        assert_eq!(serialized, "{\"type\":\"bevy_reflect::impls::std::tests::can_serialize_phantomdata::Foo<u8>\",\"struct\":{\"a\":{\"type\":\"u32\",\"value\":1},\"_phantomdata\":{\"type\":\"core::marker::PhantomData<u8>\",\"value\":()}}}");
+        assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
     }
 
     #[test]
