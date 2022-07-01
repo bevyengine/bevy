@@ -382,6 +382,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # See also
     ///
     /// - [`iter`](Self::iter) for read-only query items.
+    /// - [`for_each_mut`](Self::for_each_mut) for the closure based alternative.
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, 's, Q, F> {
         // SAFETY: system runs without conflicts with other systems.
@@ -652,6 +653,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # See also
     ///
     /// - [`for_each_mut`](Self::for_each_mut) to operate on mutable query items.
+    /// - [`iter`](Self::iter) for the iterator based alternative.
     #[inline]
     pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
         // SAFETY: system runs without conflicts with other systems.
@@ -689,6 +691,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # See also
     ///
     /// - [`for_each`](Self::for_each) to operate on read-only query items.
+    /// - [`iter_mut`](Self::iter_mut) for the iterator based alternative.
     #[inline]
     pub fn for_each_mut<'a, FN: FnMut(QueryItem<'a, Q>)>(&'a mut self, f: FN) {
         // SAFETY: system runs without conflicts with other systems. same-system queries have runtime
