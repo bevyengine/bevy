@@ -8,7 +8,6 @@ struct Input(String);
 
 fn my_runner(mut app: App) {
     println!("Type stuff into the console");
-    #[allow(clippy::significant_drop_in_scrutinee)] // https://github.com/rust-lang/rust-clippy/issues/8963
     for line in io::stdin().lines() {
         {
             let mut input = app.world.resource_mut::<Input>();
