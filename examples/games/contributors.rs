@@ -301,7 +301,7 @@ fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
 
     for (velocity, mut transform) in query.iter_mut() {
         transform.translation += delta * velocity.translation;
-        transform.rotate(Quat::from_rotation_z(velocity.rotation * delta));
+        transform.rotate_z(velocity.rotation * delta);
     }
 }
 

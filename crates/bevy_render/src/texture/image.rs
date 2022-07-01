@@ -115,17 +115,13 @@ pub struct Image {
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
 /// [`ImageSampler::Default`], will read the sampler from the [`ImageSettings`] resource at runtime.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the [`ImageSettings`] resource.
+    #[default]
     Default,
     /// Custom sampler for this image which will override global default.
     Descriptor(wgpu::SamplerDescriptor<'static>),
-}
-impl Default for ImageSampler {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 impl ImageSampler {

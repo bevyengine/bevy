@@ -126,7 +126,7 @@ struct EventInstance<E: Event> {
 /// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 ///
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
-/// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/bevy_ecs/examples/events.rs)
+/// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
 #[derive(Debug)]
 pub struct Events<E: Event> {

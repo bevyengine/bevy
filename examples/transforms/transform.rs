@@ -60,8 +60,8 @@ fn setup(
     // Define a start transform for an orbiting cube, that's away from our central object (sphere)
     // and rotate it so it will be able to move around the sphere and not towards it.
     let angle_90 = PI / 2.0;
-    let mut cube_spawn = Transform::from_translation(Vec3::Z * -10.0);
-    cube_spawn.rotation = Quat::from_rotation_y(angle_90);
+    let cube_spawn =
+        Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(angle_90));
     commands
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
