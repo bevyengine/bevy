@@ -624,7 +624,7 @@ mod tests {
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
-        assert_eq!(serialized, "{\"type\":\"bevy_reflect::impls::std::tests::can_serialize_phantomdata::Foo<u8>\",\"struct\":{\"a\":{\"type\":\"u32\",\"value\":1},\"_phantomdata\":{\"type\":\"core::marker::PhantomData<u8>\",\"value\":()}}}");
+        assert_eq!(serialized, r#"{"type":"bevy_reflect::impls::std::tests::can_serialize_phantomdata::Foo<u8>","struct":{"a":{"type":"u32","value":1},"_phantomdata":{"type":"core::marker::PhantomData<u8>","value":()}}}"#);
         assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
     }
 
