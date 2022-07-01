@@ -1,6 +1,7 @@
 use std::{
     alloc::{handle_alloc_error, Layout},
     cell::UnsafeCell,
+    num::NonZeroUsize,
     ptr::NonNull,
 };
 
@@ -95,33 +96,45 @@ impl BlobVec {
 
     pub fn reserve_exact(&mut self, additional: usize) {
         let available_space = self.capacity - self.len;
-        if available_space < additional {
-            self.grow_exact(additional - available_space);
+        if available_space < additional && self.item_layout.size() > 0 {
+            // SAFETY: `available_space < additional`, so `additional - available_space > 0`
+            let increment = unsafe { NonZeroUsize::new_unchecked(additional - available_space) };
+            // SAFETY: not called for ZSTs
+            unsafe { self.grow_exact(increment) };
         }
     }
 
-    // FIXME: this should probably be an unsafe fn as it shouldn't be called if the layout
-    // is for a ZST
-    fn grow_exact(&mut self, increment: usize) {
+    // SAFETY: must not be called for a ZST item layout
+    #[warn(unsafe_op_in_unsafe_fn)] // to allow unsafe blocks in unsafe fn
+    unsafe fn grow_exact(&mut self, increment: NonZeroUsize) {
         debug_assert!(self.item_layout.size() != 0);
 
-        let new_capacity = self.capacity + increment;
+        let new_capacity = self.capacity + increment.get();
         let new_layout =
             array_layout(&self.item_layout, new_capacity).expect("array layout should be valid");
-        unsafe {
-            let new_data = if self.capacity == 0 {
-                std::alloc::alloc(new_layout)
-            } else {
+        let new_data = if self.capacity == 0 {
+            // SAFETY:
+            // - layout has non-zero size as per safety requirement
+            unsafe { std::alloc::alloc(new_layout) }
+        } else {
+            // SAFETY:
+            // - ptr was be allocated via this allocator
+            // - the layout of the ptr was `array_layout(self.item_layout, self.capacity)`
+            // - `item_layout.size() > 0` and `new_capacity > 0`, so the layout size is non-zero
+            // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
+            // since the item size is always a multiple of its align, the rounding cannot happen
+            // here and the overflow is handled in `array_layout`
+            unsafe {
                 std::alloc::realloc(
                     self.get_ptr_mut().as_ptr(),
                     array_layout(&self.item_layout, self.capacity)
                         .expect("array layout should be valid"),
                     new_layout.size(),
                 )
-            };
+            }
+        };
 
-            self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
-        }
+        self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
         self.capacity = new_capacity;
     }
 
