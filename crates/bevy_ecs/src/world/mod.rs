@@ -12,7 +12,8 @@ use crate::{
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
     component::{
-        Component, ComponentDescriptor, ComponentId, ComponentTicks, Components, StorageType,
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
+        StorageType,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, WorldQuery},
@@ -278,6 +279,30 @@ impl World {
         // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
         self.get_entity_mut(entity)
             .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity))
+    }
+
+    /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
+    #[inline]
+    pub fn inspect_entity(&self, entity: Entity) -> Vec<&ComponentInfo> {
+        let entity_location = self
+            .entities()
+            .get(entity)
+            .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity));
+
+        let archetype = self
+            .archetypes()
+            .get(entity_location.archetype_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Archetype {:?} does not exist",
+                    entity_location.archetype_id
+                )
+            });
+
+        archetype
+            .components()
+            .filter_map(|id| self.components().get_info(id))
+            .collect()
     }
 
     /// Returns an [`EntityMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
@@ -1542,11 +1567,13 @@ mod tests {
     use super::World;
     use crate::{
         change_detection::DetectChanges,
-        component::{ComponentDescriptor, ComponentId, StorageType},
+        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
         ptr::OwningPtr,
     };
     use bevy_ecs_macros::Component;
+    use bevy_utils::HashSet;
     use std::{
+        any::TypeId,
         panic,
         sync::{
             atomic::{AtomicBool, AtomicU32, Ordering},
@@ -1761,5 +1788,65 @@ mod tests {
             // SAFE: ptr must be valid for the component_id `invalid_component_id` which is invalid, but checked by `insert_resource_by_id`
             world.insert_resource_by_id(invalid_component_id, ptr);
         });
+    }
+
+    #[derive(Component)]
+    struct Foo;
+
+    #[derive(Component)]
+    struct Bar;
+
+    #[derive(Component)]
+    struct Baz;
+
+    #[test]
+    fn inspect_entity_components() {
+        let mut world = World::new();
+        let ent0 = world.spawn().insert_bundle((Foo, Bar, Baz)).id();
+        let ent1 = world.spawn().insert_bundle((Foo, Bar)).id();
+        let ent2 = world.spawn().insert_bundle((Bar, Baz)).id();
+        let ent3 = world.spawn().insert_bundle((Foo, Baz)).id();
+        let ent4 = world.spawn().insert_bundle((Foo,)).id();
+        let ent5 = world.spawn().insert_bundle((Bar,)).id();
+        let ent6 = world.spawn().insert_bundle((Baz,)).id();
+
+        fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
+            component_infos
+                .into_iter()
+                .map(|component_info| component_info.type_id())
+                .collect()
+        }
+
+        let foo_id = TypeId::of::<Foo>();
+        let bar_id = TypeId::of::<Bar>();
+        let baz_id = TypeId::of::<Baz>();
+        assert_eq!(
+            to_type_ids(world.inspect_entity(ent0)),
+            [Some(foo_id), Some(bar_id), Some(baz_id)].into()
+        );
+        assert_eq!(
+            to_type_ids(world.inspect_entity(ent1)),
+            [Some(foo_id), Some(bar_id)].into()
+        );
+        assert_eq!(
+            to_type_ids(world.inspect_entity(ent2)),
+            [Some(bar_id), Some(baz_id)].into()
+        );
+        assert_eq!(
+            to_type_ids(world.inspect_entity(ent3)),
+            [Some(foo_id), Some(baz_id)].into()
+        );
+        assert_eq!(
+            to_type_ids(world.inspect_entity(ent4)),
+            [Some(foo_id)].into()
+        );
+        assert_eq!(
+            to_type_ids(world.inspect_entity(ent5)),
+            [Some(bar_id)].into()
+        );
+        assert_eq!(
+            to_type_ids(world.inspect_entity(ent6)),
+            [Some(baz_id)].into()
+        );
     }
 }
