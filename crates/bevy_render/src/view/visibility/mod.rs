@@ -198,11 +198,15 @@ fn visibility_propagate_system(
     children_query: Query<&Children, (With<Parent>, With<Visibility>)>,
 ) {
     for (children, mut visibility, entity) in root_query.iter_mut() {
-        visibility.inherited = true;
+        // Avoid triggering change detection if nothing has changed.
+        if !visibility.inherited {
+            visibility.inherited = true;
+        }
         if let Some(children) = children {
+            let is_visible = visibility.is_visible();
             for child in children.iter() {
                 let _ = propagate_recursive(
-                    visibility.clone(),
+                    is_visible,
                     &mut visibility_query,
                     &children_query,
                     *child,
@@ -214,32 +218,29 @@ fn visibility_propagate_system(
 }
 
 fn propagate_recursive(
-    parent_visiblity: Visibility,
+    parent_visible: bool,
     visibility_query: &mut Query<(&mut Visibility, &Parent)>,
     children_query: &Query<&Children, (With<Parent>, With<Visibility>)>,
     entity: Entity,
     expected_parent: Entity,
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
-    let visiblity = {
+    let is_visible = {
         let (mut visibility, child_parent) = visibility_query.get_mut(entity).map_err(drop)?;
         // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
         assert_eq!(
             child_parent.0, expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        visibility.inherited = parent_visiblity.is_visible();
-        visibility.clone()
+        // Avoid triggering change detection if nothing has changed.
+        if visibility.inherited != parent_visible {
+            visibility.inherited = parent_visible;
+        }
+        visibility.is_visible()
     };
 
     for child in children_query.get(entity).map_err(drop)?.iter() {
-        let _ = propagate_recursive(
-            visiblity.clone(),
-            visibility_query,
-            children_query,
-            *child,
-            entity,
-        );
+        let _ = propagate_recursive(is_visible, visibility_query, children_query, *child, entity);
     }
     Ok(())
 }
