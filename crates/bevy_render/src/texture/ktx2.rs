@@ -1379,7 +1379,7 @@ pub fn ktx2_format_to_texture_format(
             } else {
                 TextureFormat::Astc {
                     block: AstcBlock::B10x8,
-                    channel: AstcChannel::UnormSrgb,
+                    channel: AstcChannel::Unorm,
                 }
             }
         }
