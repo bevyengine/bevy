@@ -15,6 +15,12 @@ use crate::{component::ComponentId, prelude::Bundle, world::World};
 /// Archetype invariants are checked each time [`Archetypes`](crate::archetype::Archetypes) is modified;
 /// this can occur on component addition, component removal, and entity spawning.
 ///
+/// Note that archetype invariants are not symmetric by default.
+/// For example, `ArchetypeInvariant::<B1, B2>::requires_one()` means that `B1` requires `B2`,
+/// but not that `B2` requires `B1`.
+/// In this case, an entity with just `B2` is completely valid, but an entity with just `B1` is not.
+/// If symmetry is desired, repeat the invariant with the order of the types switched.
+///
 /// Archetypes are only modified when a novel archetype (set of components) is seen for the first time;
 /// swapping between existing archetypes will not trigger these checks.
 #[derive(Clone, Debug, PartialEq)]
@@ -38,6 +44,41 @@ impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
             consequence: self.consequence.into_untyped(world),
         }
     }
+
+    /// Creates an archetype invariant where any component of `B1` forbids every comonent from `B2`, and vice versa.
+    ///
+    /// In other words, if any component from `B1` is present, then none of the components from `B2` can be present.
+    /// Although this appears assymetric, it actually implies its own converse.
+    /// This is particularly useful for avoiding query conflicts.
+    #[inline]
+    pub fn forbids() -> Self {
+        Self {
+            premise: ArchetypeStatement::<B1>::any_of(),
+            consequence: ArchetypeStatement::<B2>::none_of(),
+        }
+    }
+
+    /// Creates an archetype invariant where components of `B1` require all the components of `B2`.
+    ///
+    /// In other words, if any component from `B1` is present, then all of the components from `B2` must be.
+    #[inline]
+    pub fn requires_all() -> Self {
+        Self {
+            premise: ArchetypeStatement::<B1>::any_of(),
+            consequence: ArchetypeStatement::<B2>::all_of(),
+        }
+    }
+
+    /// Creates an archetype invariant where any components of `B1` must appear with some components of `B2`.
+    ///
+    /// In other words, if any component from `B1` is present, then at least one component from `B2` must be.
+    #[inline]
+    pub fn requires_one() -> Self {
+        Self {
+            premise: ArchetypeStatement::<B1>::any_of(),
+            consequence: ArchetypeStatement::<B2>::any_of(),
+        }
+    }
 }
 
 impl<B: Bundle> ArchetypeInvariant<B, B> {
@@ -45,10 +86,33 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
     ///
     /// In other words, if any component of this bundle is present, then all of them must be.
     #[inline]
-    pub fn atomic_bundle() -> Self {
+    pub fn atomic() -> Self {
         Self {
             premise: ArchetypeStatement::<B>::any_of(),
             consequence: ArchetypeStatement::<B>::all_of(),
+        }
+    }
+
+    /// Creates an archetype where components of `B` cannot appear with each other.
+    ///
+    /// In other words, if any component of this bundle is present, then no others can be.
+    /// This is particularly useful for creating enum-like groups of components, such as `Dead` and `Ailve`.
+    #[inline]
+    pub fn disjoint() -> Self {
+        Self {
+            premise: ArchetypeStatement::<B>::any_of(),
+            consequence: ArchetypeStatement::<B>::at_most_one_of(),
+        }
+    }
+
+    /// Creates an archetype invariant where components of `B` can only appear with each other.
+    ///
+    /// In other words, if any component of this bundle is present, then _only_ components from this bundle can be present.
+    #[inline]
+    pub fn exhaustive() -> Self {
+        Self {
+            premise: ArchetypeStatement::<B>::any_of(),
+            consequence: ArchetypeStatement::<B>::only(),
         }
     }
 }
@@ -62,7 +126,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
 ///
 /// For the statements about a single component `C`, wrap it in a single-component bundle `(C,)`.
 /// For single component bundles, `AllOf` and `AnyOf` are equivalent.
-/// Prefer `ArchetypeStatement::<(C,)>::all_of` over `ArchetypeStatement::<(C,)>::at_least_one_of` for consistency and clarity.
+/// Prefer `ArchetypeStatement::<(C,)>::all_of` over `ArchetypeStatement::<(C,)>::any_of` for consistency and clarity.
 ///
 /// Note that this is converted to an [`UntypedArchetypeStatement`] when added to a [`World`].
 /// This is to ensure compatibility between different invariants.
@@ -322,36 +386,156 @@ mod tests {
     struct C;
 
     #[test]
-    fn atomic_bundle_happy() {
-        let mut world = World::new();
-
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
-        world.spawn().insert_bundle((A, B, C));
-    }
-
-    #[test]
-    fn atomic_bundle_on_insert_happy() {
+    fn on_insert_happy() {
         let mut world = World::new();
 
         world.spawn().insert_bundle((A, B, C));
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic());
     }
 
     #[test]
     #[should_panic]
-    fn atomic_bundle_sad() {
+    fn on_insert_sad() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
+        world.spawn().insert_bundle((A, B));
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic());
+    }
+
+    #[test]
+    fn forbids_happy() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::forbids());
+        world.spawn().insert(A);
+        world.spawn().insert_bundle((B, C));
+    }
+
+    #[test]
+    #[should_panic]
+    fn forbids_sad() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::forbids());
+        world.spawn().insert_bundle((A, B));
+    }
+
+    #[test]
+    fn requires_all_happy() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires_all());
+        world.spawn().insert_bundle((A, B, C));
+        world.spawn().insert_bundle((B, C));
+    }
+
+    #[test]
+    #[should_panic]
+    fn requires_all_sad_partial() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires_all());
         world.spawn().insert_bundle((A, B));
     }
 
     #[test]
     #[should_panic]
-    fn atomic_bundle_on_insert_sad() {
+    fn requires_all_sad_none() {
         let mut world = World::new();
 
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires_all());
+        world.spawn().insert(A);
+    }
+
+    #[test]
+    fn requires_one_happy() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires_one());
+        world.spawn().insert_bundle((A, B, C));
         world.spawn().insert_bundle((A, B));
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
+        world.spawn().insert_bundle((B, C));
+    }
+
+    #[test]
+    #[should_panic]
+    fn requires_one_sad() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires_one());
+        world.spawn().insert(A);
+    }
+
+    #[test]
+    fn atomic_happy() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic());
+        world.spawn().insert_bundle((A, B, C));
+    }
+
+    #[test]
+    #[should_panic]
+    fn atomic_sad() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic());
+        world.spawn().insert_bundle((A, B));
+    }
+
+    #[test]
+    fn disjoint_happy() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::disjoint());
+        world.spawn().insert(A);
+        world.spawn().insert(B);
+        world.spawn().insert(C);
+    }
+
+    #[test]
+    #[should_panic]
+    fn disjoint_sad_partial() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::disjoint());
+        world.spawn().insert_bundle((A, B));
+    }
+
+    #[test]
+    #[should_panic]
+    fn disjoint_sad_all() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::disjoint());
+        world.spawn().insert_bundle((A, B, C));
+    }
+
+    #[test]
+    fn exhaustive_happy() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B)>::exhaustive());
+        world.spawn().insert_bundle((A, B));
+        world.spawn().insert(A);
+        world.spawn().insert(C);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exhaustive_sad_partial() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B)>::exhaustive());
+        world.spawn().insert_bundle((A, C));
+    }
+
+    #[test]
+    #[should_panic]
+    fn exhaustive_sad_all() {
+        let mut world = World::new();
+
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B)>::exhaustive());
+        world.spawn().insert_bundle((A, B, C));
     }
 }
