@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_utils::{tracing::warn, HashSet};
+use bevy_utils::{get_short_name, tracing::warn, HashSet};
 
 use crate::{
     component::{ComponentId, Components},
@@ -293,7 +293,7 @@ impl UntypedArchetypeStatement {
             .component_ids()
             .iter()
             .map(|id| match components.get_info(*id) {
-                Some(info) => info.name().to_owned(),
+                Some(info) => get_short_name(info.name()),
                 None => format!("{:?}", id),
             })
             .reduce(|acc, s| format!("{}, {}", acc, s))
@@ -404,7 +404,7 @@ impl ArchetypeInvariants {
                 let archetype_component_names: Vec<String> = component_ids_of_archetype
                     .into_iter()
                     .map(|id| match components.get_info(id) {
-                        Some(info) => info.name().to_owned(),
+                        Some(info) => get_short_name(info.name()),
                         None => format!("{:?}", id),
                     })
                     .collect();
