@@ -58,7 +58,7 @@ mod name_formatting_tests {
 
     #[test]
     fn trivial() {
-        assert_eq!(get_short_name("test_system"), "test_system")
+        assert_eq!(get_short_name("test_system"), "test_system");
     }
 
     #[test]
@@ -66,7 +66,7 @@ mod name_formatting_tests {
         assert_eq!(
             get_short_name("bevy_prelude::make_fun_game"),
             "make_fun_game".to_string()
-        )
+        );
     }
 
     #[test]
@@ -74,22 +74,22 @@ mod name_formatting_tests {
         assert_eq!(
             get_short_name("(String, String)"),
             "(String, String)".to_string()
-        )
+        );
     }
 
     #[test]
     fn array_type() {
-        assert_eq!(get_short_name("[i32; 3]"), "[i32; 3]".to_string())
+        assert_eq!(get_short_name("[i32; 3]"), "[i32; 3]".to_string());
     }
 
     #[test]
     fn trivial_generics() {
-        assert_eq!(get_short_name("a<B>"), "a<B>".to_string())
+        assert_eq!(get_short_name("a<B>"), "a<B>".to_string());
     }
 
     #[test]
     fn multiple_type_parameters() {
-        assert_eq!(get_short_name("a<B, C>"), "a<B, C>".to_string())
+        assert_eq!(get_short_name("a<B, C>"), "a<B, C>".to_string());
     }
 
     #[test]
@@ -97,7 +97,7 @@ mod name_formatting_tests {
         assert_eq!(
             get_short_name("bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"),
             "extract_cameras<Camera3d>".to_string()
-        )
+        );
     }
 
     #[test]
@@ -105,6 +105,6 @@ mod name_formatting_tests {
         assert_eq!(
             get_short_name("bevy::mad_science::do_mad_science<mad_science::Test<mad_science::Tube>, bavy::TypeSystemAbuse>"),
             "do_mad_science<Test<Tube>, TypeSystemAbuse>".to_string()
-        )
+        );
     }
 }
