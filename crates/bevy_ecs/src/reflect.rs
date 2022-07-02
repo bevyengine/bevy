@@ -183,7 +183,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
                 world.insert_resource(resource);
             },
             apply_resource: |world, reflected_resource| {
-                let mut resource = world.get_resource_mut::<C>().unwrap();
+                let mut resource = world.resource_mut::<C>();
                 resource.apply(reflected_resource);
             },
             remove_resource: |world| {
@@ -199,7 +199,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
                     })
             },
             copy_resource: |source_world, destination_world| {
-                let source_resource = source_world.get_resource::<C>().unwrap();
+                let source_resource = source_world.resource::<C>();
                 let mut destination_resource = C::from_world(destination_world);
                 destination_resource.apply(source_resource);
                 destination_world.insert_resource(destination_resource);
