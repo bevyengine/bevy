@@ -3,7 +3,7 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, StorageType},
+    component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
     world::ArchetypeInvariants,
@@ -154,13 +154,14 @@ impl Archetype {
         table_archetype_components: Vec<ArchetypeComponentId>,
         sparse_set_archetype_components: Vec<ArchetypeComponentId>,
         archetype_invariants: &ArchetypeInvariants,
+        components: &Components,
     ) -> Self {
-        let mut components =
+        let mut component_set =
             SparseSet::with_capacity(table_components.len() + sparse_set_components.len());
         for (component_id, archetype_component_id) in
             table_components.iter().zip(table_archetype_components)
         {
-            components.insert(
+            component_set.insert(
                 *component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::Table,
@@ -173,7 +174,7 @@ impl Archetype {
             .iter()
             .zip(sparse_set_archetype_components)
         {
-            components.insert(
+            component_set.insert(
                 *component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
@@ -182,7 +183,7 @@ impl Archetype {
             );
         }
 
-        archetype_invariants.test_archetype(components.indices());
+        archetype_invariants.test_archetype(component_set.indices(), components);
 
         Self {
             id,
@@ -190,7 +191,7 @@ impl Archetype {
                 id: table_id,
                 entity_rows: Default::default(),
             },
-            components,
+            components: component_set,
             table_components,
             sparse_set_components,
             unique_components: SparseSet::new(),
@@ -401,6 +402,7 @@ impl Default for Archetypes {
             Vec::new(),
             Vec::new(),
             &ArchetypeInvariants::default(),
+            &Components::default(),
         );
 
         // adds the resource archetype. it is "special" in that it is inaccessible via a "hash",
@@ -413,6 +415,7 @@ impl Default for Archetypes {
             Vec::new(),
             Vec::new(),
             &ArchetypeInvariants::default(),
+            &Components::default(),
         ));
         archetypes
     }
@@ -500,6 +503,7 @@ impl Archetypes {
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
         archetype_invariants: &ArchetypeInvariants,
+        components: &Components,
     ) -> ArchetypeId {
         let table_components = table_components.into_boxed_slice();
         let sparse_set_components = sparse_set_components.into_boxed_slice();
@@ -534,6 +538,7 @@ impl Archetypes {
                     table_archetype_components,
                     sparse_set_archetype_components,
                     archetype_invariants,
+                    components,
                 ));
                 id
             })

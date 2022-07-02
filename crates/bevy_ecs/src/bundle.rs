@@ -393,6 +393,7 @@ impl BundleInfo {
                 table_components,
                 sparse_set_components,
                 archetype_invariants,
+                components,
             );
             // add an edge from the old archetype to the new archetype
             archetypes[archetype_id].edges_mut().insert_add_bundle(

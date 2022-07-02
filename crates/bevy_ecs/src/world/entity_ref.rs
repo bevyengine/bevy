@@ -820,6 +820,7 @@ unsafe fn remove_bundle_from_archetype(
             next_table_components,
             next_sparse_set_components,
             archetype_invariants,
+            components,
         );
         Some(new_archetype_id)
     };

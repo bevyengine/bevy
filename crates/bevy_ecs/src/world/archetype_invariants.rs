@@ -2,7 +2,11 @@ use std::marker::PhantomData;
 
 use bevy_utils::{tracing::warn, HashSet};
 
-use crate::{component::ComponentId, prelude::Bundle, world::World};
+use crate::{
+    component::{ComponentId, Components},
+    prelude::Bundle,
+    world::World,
+};
 
 /// A rule about which [`Component`](crate::component::Component)s can coexist on entities.
 ///
@@ -236,6 +240,15 @@ impl UntypedArchetypeInvariant {
             );
         }
     }
+
+    /// Returns formatted string describing this archetype invariant
+    pub fn display(&self, components: &Components) -> String {
+        format!(
+            "{{Premise: {}, Consequence: {}}}",
+            self.premise.display(components),
+            self.consequence.display(components)
+        )
+    }
 }
 
 /// A type-erased version of [`ArchetypeStatement`].
@@ -267,6 +280,31 @@ impl UntypedArchetypeStatement {
             | UntypedArchetypeStatement::AtMostOneOf(set)
             | UntypedArchetypeStatement::NoneOf(set)
             | UntypedArchetypeStatement::Only(set) => set,
+        }
+    }
+
+    /// Returns formatted string describing this archetype invariant
+    ///
+    /// For Rust types, the names should match the type name.
+    /// If any [`ComponentId`]s in the invariant have not been registered in the world,
+    /// then the raw component id will be returned instead.
+    pub fn display(&self, components: &Components) -> String {
+        let component_names: String = self
+            .component_ids()
+            .iter()
+            .map(|id| match components.get_info(*id) {
+                Some(info) => info.name().to_owned(),
+                None => format!("{:?}", id),
+            })
+            .reduce(|acc, s| format!("{}, {}", acc, s))
+            .unwrap_or("".to_owned());
+
+        match self {
+            UntypedArchetypeStatement::AllOf(_) => format!("AllOf({component_names})"),
+            UntypedArchetypeStatement::AnyOf(_) => format!("AnyOf({component_names})"),
+            UntypedArchetypeStatement::AtMostOneOf(_) => format!("AtMostOneOf({component_names})"),
+            UntypedArchetypeStatement::NoneOf(_) => format!("NoneOf({component_names})"),
+            UntypedArchetypeStatement::Only(_) => format!("Only({component_names})"),
         }
     }
 
@@ -342,7 +380,11 @@ impl ArchetypeInvariants {
     /// # Panics
     ///
     /// Panics if any archetype invariant is violated.
-    pub fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
+    pub fn test_archetype(
+        &self,
+        component_ids_of_archetype: impl Iterator<Item = ComponentId>,
+        components: &Components,
+    ) {
         let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
 
         for invariant in &self.raw_list {
@@ -359,10 +401,24 @@ impl ArchetypeInvariants {
                     }
                 }
 
+                let archetype_component_names: Vec<String> = component_ids_of_archetype
+                    .into_iter()
+                    .map(|id| match components.get_info(id) {
+                        Some(info) => info.name().to_owned(),
+                        None => format!("{:?}", id),
+                    })
+                    .collect();
+
+                let failed_invariant_names: String = failed_invariants
+                    .into_iter()
+                    .map(|invariant| invariant.display(components))
+                    .reduce(|acc, s| format!("{}\n{}", acc, s))
+                    .unwrap();
+
                 panic!(
-                    "Archetype invariant violated! The following invariants were violated for archetype {:?}:\n{:?}",
-                    component_ids_of_archetype,
-                    failed_invariants,
+                    "Archetype invariant violated! The following invariants were violated for archetype {:?}:\n{}",
+                    archetype_component_names,
+                    failed_invariant_names,
                 )
             }
         }
