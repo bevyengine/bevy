@@ -1241,185 +1241,143 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::EAC_R11G11_UNORM_BLOCK => TextureFormat::EacRg11Unorm,
         ktx2::Format::EAC_R11G11_SNORM_BLOCK => TextureFormat::EacRg11Snorm,
         ktx2::Format::ASTC_4x4_UNORM_BLOCK | ktx2::Format::ASTC_4x4_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B4x4,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B4x4,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B4x4,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_5x4_UNORM_BLOCK | ktx2::Format::ASTC_5x4_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B5x4,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B5x4,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B5x4,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_5x5_UNORM_BLOCK | ktx2::Format::ASTC_5x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B5x5,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B5x5,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B5x5,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_6x5_UNORM_BLOCK | ktx2::Format::ASTC_6x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B6x5,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B6x5,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B6x5,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_6x6_UNORM_BLOCK | ktx2::Format::ASTC_6x6_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B6x6,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B6x6,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B6x6,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_8x5_UNORM_BLOCK | ktx2::Format::ASTC_8x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B8x5,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B8x5,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B8x5,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_8x6_UNORM_BLOCK | ktx2::Format::ASTC_8x6_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B8x6,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B8x6,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B8x6,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_8x8_UNORM_BLOCK | ktx2::Format::ASTC_8x8_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B8x8,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B8x8,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B8x8,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_10x5_UNORM_BLOCK | ktx2::Format::ASTC_10x5_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B10x5,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B8x5,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B10x5,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_10x6_UNORM_BLOCK | ktx2::Format::ASTC_10x6_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B10x6,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B10x6,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B10x6,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_10x8_UNORM_BLOCK | ktx2::Format::ASTC_10x8_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B10x8,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B10x8,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B10x8,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_10x10_UNORM_BLOCK | ktx2::Format::ASTC_10x10_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B10x10,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B10x10,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B10x10,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_12x10_UNORM_BLOCK | ktx2::Format::ASTC_12x10_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B12x10,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B12x10,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B12x10,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         ktx2::Format::ASTC_12x12_UNORM_BLOCK | ktx2::Format::ASTC_12x12_SRGB_BLOCK => {
-            if is_srgb {
-                TextureFormat::Astc {
-                    block: AstcBlock::B12x12,
-                    channel: AstcChannel::UnormSrgb,
-                }
-            } else {
-                TextureFormat::Astc {
-                    block: AstcBlock::B12x12,
-                    channel: AstcChannel::Unorm,
-                }
+            TextureFormat::Astc {
+                block: AstcBlock::B12x12,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             }
         }
         _ => {
