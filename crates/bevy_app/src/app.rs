@@ -2,13 +2,13 @@ use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule,
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{Event, Events},
-    prelude::{FromWorld, IntoExclusiveSystem},
+    prelude::{Bundle, FromWorld, IntoExclusiveSystem},
     schedule::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
     },
     system::Resource,
-    world::World,
+    world::{ArchetypeInvariant, UntypedArchetypeInvariant, World},
 };
 use bevy_utils::{tracing::debug, HashMap};
 use std::fmt::Debug;
@@ -128,6 +128,32 @@ impl App {
         let mut app = std::mem::replace(self, App::empty());
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
+    }
+
+    /// Adds a new [`ArchetypeInvariant`] to this app's [`World`]
+    ///
+    /// Whenever a new archetype invariant is added to a world, all existing archetypes are re-checked.
+    /// This may include empty archetypes- archetypes that contain no entities.
+    pub fn add_archetype_invariant<B1: Bundle, B2: Bundle>(
+        &mut self,
+        archetype_invariant: ArchetypeInvariant<B1, B2>,
+    ) -> &mut Self {
+        self.world.add_archetype_invariant(archetype_invariant);
+        self
+    }
+
+    /// Inserts a new [`UntypedArchetypeInvariant`] to this app's [`World`].
+    ///
+    /// Whenever a new archetype invariant is added to a world, all existing archetypes are re-checked.
+    /// This may include empty archetypes- archetypes that contain no entities.
+    /// Prefer [`add_archetype_invariant`](App::add_archetype_invariant) where possible.
+    pub fn add_untyped_archetype_invariant(
+        &mut self,
+        archetype_invariant: UntypedArchetypeInvariant,
+    ) -> &mut Self {
+        self.world
+            .add_untyped_archetype_invariant(archetype_invariant);
+        self
     }
 
     /// Adds a [`Stage`] with the given `label` to the last position of the app's
