@@ -9,5 +9,5 @@
 @location(3) world_tangent: vec4<f32>,
 #endif
 #ifdef VERTEX_COLORS
-@location(4) colors: vec4<f32>,
+@location(4) color: vec4<f32>,
 #endif
