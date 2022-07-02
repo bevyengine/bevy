@@ -52,7 +52,7 @@ impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
     /// Creates an archetype invariant where any component of `B1` forbids every comonent from `B2`, and vice versa.
     ///
     /// In other words, if any component from `B1` is present, then none of the components from `B2` can be present.
-    /// Although this appears assymetric, it actually implies its own converse.
+    /// Although this appears asymetric, it actually implies its own converse.
     /// This is particularly useful for avoiding query conflicts.
     #[inline]
     pub fn forbids() -> Self {
@@ -100,7 +100,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
     /// Creates an archetype where components of `B` cannot appear with each other.
     ///
     /// In other words, if any component of this bundle is present, then no others can be.
-    /// This is particularly useful for creating enum-like groups of components, such as `Dead` and `Ailve`.
+    /// This is particularly useful for creating enum-like groups of components, such as `Dead` and `Alive`.
     #[inline]
     pub fn disjoint() -> Self {
         Self {
@@ -126,7 +126,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
 /// This type is used as part of an [`ArchetypeInvariant`].
 ///
 /// When used as a premise, the archetype invariant matches all entities which satisfy the statement.
-/// When used as a consquence, then the statment must be true for all entities that were matched by the premise.
+/// When used as a consequence, then the statment must be true for all entities that were matched by the premise.
 ///
 /// For the statements about a single component `C`, wrap it in a single-component bundle `(C,)`.
 /// For single component bundles, `AllOf` and `AnyOf` are equivalent.

@@ -130,7 +130,7 @@ impl App {
         (runner)(app);
     }
 
-    /// Adds a new [`ArchetypeInvariant`] to this app's [`World`]
+    /// Adds a new [`ArchetypeInvariant`] to this app's [`World`].
     ///
     /// Whenever a new archetype invariant is added to a world, all existing archetypes are re-checked.
     /// This may include empty archetypes- archetypes that contain no entities.
