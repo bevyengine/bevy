@@ -1016,8 +1016,10 @@ mod tests {
         let archetype_component_id = world
             .storages()
             .resources
-            .get_archetype_component_id(resource_id)
-            .unwrap();
+            .get(resource_id)
+            .unwrap()
+            .component_info()
+            .archetype_component_id;
 
         assert_eq!(*world.resource::<i32>(), 123);
         assert!(world.contains_resource::<i32>());
@@ -1083,8 +1085,10 @@ mod tests {
         let current_archetype_component_id = world
             .storages()
             .resources
-            .get_archetype_component_id(current_resource_id)
-            .unwrap();
+            .get(resource_id)
+            .unwrap()
+            .component_info()
+            .archetype_component_id;
 
         assert_eq!(
             archetype_component_id, current_archetype_component_id,
