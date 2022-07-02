@@ -151,8 +151,20 @@ impl BlobVec {
         let ptr = self.get_unchecked_mut(index).promote().as_ptr();
         self.len = 0;
         // Drop the old value, then write back, justifying the promotion
+        // If the drop impl for the old value panics then we run the drop impl for `value` too.
         if let Some(drop) = self.drop {
+            struct OnDrop<F: FnMut()>(F);
+            impl<F: FnMut()> Drop for OnDrop<F> {
+                fn drop(&mut self) {
+                    (self.0)();
+                }
+            }
+            let value = value.as_ptr();
+            let on_unwind = OnDrop(|| (drop)(OwningPtr::new(NonNull::new_unchecked(value))));
+
             (drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
+
+            core::mem::forget(on_unwind);
         }
         std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
         self.len = old_len;
@@ -207,6 +219,27 @@ impl BlobVec {
         );
         self.len -= 1;
         OwningPtr::new(self.swap_scratch)
+    }
+
+    /// Removes the value at `index` and copies the value stored into `ptr`.
+    /// Does not do any bounds checking on `index`.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that `index` is < `self.len()`
+    /// and that `self[index]` has been properly initialized.
+    #[inline]
+    pub unsafe fn swap_remove_unchecked(&mut self, index: usize, ptr: PtrMut<'_>) {
+        debug_assert!(index < self.len());
+        let last = self.get_unchecked_mut(self.len - 1).as_ptr();
+        let target = self.get_unchecked_mut(index).as_ptr();
+        // Copy the item at the index into the provided ptr
+        std::ptr::copy_nonoverlapping::<u8>(target, ptr.as_ptr(), self.item_layout.size());
+        // Recompress the storage by moving the previous last element into the
+        // now-free row overwriting the previous data. The removed row may be the last
+        // one so a non-overlapping copy must not be used here.
+        std::ptr::copy::<u8>(last, target, self.item_layout.size());
+        // Invalidate the data stored in the last row, as it has been moved
+        self.len -= 1;
     }
 
     /// # Safety
@@ -283,12 +316,16 @@ impl BlobVec {
 impl Drop for BlobVec {
     fn drop(&mut self) {
         self.clear();
+        if self.item_layout.size() > 0 {
+            unsafe {
+                std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
+            }
+        }
         let array_layout =
             array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
         if array_layout.size() > 0 {
             unsafe {
                 std::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
-                std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
             }
         }
     }

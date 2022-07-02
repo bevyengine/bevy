@@ -21,9 +21,10 @@ pub struct Sprite {
 
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
 /// It defaults to `Anchor::Center`.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Default, Reflect)]
 #[doc(alias = "pivot")]
 pub enum Anchor {
+    #[default]
     Center,
     BottomLeft,
     BottomCenter,
@@ -36,12 +37,6 @@ pub enum Anchor {
     /// Custom anchor point. Top left is `(-0.5, 0.5)`, center is `(0.0, 0.0)`. The value will
     /// be scaled with the sprite size.
     Custom(Vec2),
-}
-
-impl Default for Anchor {
-    fn default() -> Self {
-        Anchor::Center
-    }
 }
 
 impl Anchor {

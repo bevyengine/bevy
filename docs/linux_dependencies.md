@@ -80,23 +80,20 @@ Add a `shell.nix` file to the root of the project containing:
 with pkgs; mkShell {
   nativeBuildInputs = [
     pkgconfig
-    clang lld # To use lld linker
+    llvmPackages.bintools # To use lld linker
   ];
   buildInputs = [
     udev alsaLib vulkan-loader
     xlibsWrapper xorg.libXcursor xorg.libXrandr xorg.libXi # To use x11 feature
     libxkbcommon wayland # To use wayland feature
   ];
-  shellHook = ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
-    udev alsaLib vulkan-loader
-    libxkbcommon wayland # To use wayland feature
-  ]}"'';
+  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
 }
 ```
 
-And enter it by just running `nix-shell`. You should be able compile bevy programs using `cargo` within this nix-shell.
+And enter it by just running `nix-shell`. You should be able compile Bevy programs using `cargo run` within this nix-shell. You can do this in one line with `nix-shell --run "cargo run"`.
 
-Note that this template does not add Rust to the environment because there are many ways to do it, each with its pros and cons. For example, to use stable Rust from nixpkgs you can add `cargo` to `nativeBuildInputs`.
+Note that this template does not add Rust to the environment because there are many ways to do it. For example, to use stable Rust from nixpkgs you can add `cargo` to `nativeBuildInputs`.
 
 ## [OpenSUSE](https://www.opensuse.org/)
 

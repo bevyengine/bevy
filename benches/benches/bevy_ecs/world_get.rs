@@ -2,6 +2,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     system::{Query, SystemState},
+    bundle::Bundle,
     world::World,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -26,6 +27,12 @@ struct Table(f32);
 #[derive(Component, Default)]
 #[component(storage = "SparseSet")]
 struct Sparse(f32);
+#[derive(Component, Default)]
+#[component(storage = "Table")]
+struct WideTable<const X: usize>(f32);
+#[derive(Component, Default)]
+#[component(storage = "SparseSet")]
+struct WideSparse<const X: usize>(f32);
 
 const RANGE: std::ops::Range<u32> = 5..6;
 
@@ -36,6 +43,12 @@ fn deterministic_rand() -> ChaCha8Rng {
 fn setup<T: Component + Default>(entity_count: u32) -> World {
     let mut world = World::default();
     world.spawn_batch((0..entity_count).map(|_| (T::default(),)));
+    black_box(world)
+}
+
+fn setup_wide<T: Bundle + Default>(entity_count: u32) -> World {
+    let mut world = World::default();
+    world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
 }
 
@@ -108,9 +121,59 @@ fn world_query_get(criterion: &mut Criterion) {
                 }
             });
         });
+        group.bench_function(format!("{}_entities_table_wide", entity_count), |bencher| {
+            let mut world = setup_wide::<(
+                WideTable<0>,
+                WideTable<1>,
+                WideTable<2>,
+                WideTable<3>,
+                WideTable<4>,
+                WideTable<5>,
+            )>(entity_count);
+            let mut query = world.query::<(
+                &WideTable<0>,
+                &WideTable<1>,
+                &WideTable<2>,
+                &WideTable<3>,
+                &WideTable<4>,
+                &WideTable<5>,
+            )>();
+
+            bencher.iter(|| {
+                for i in 0..entity_count {
+                    let entity = Entity::from_raw(i);
+                    assert!(query.get(&world, entity).is_ok());
+                }
+            });
+        });
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
             let mut world = setup::<Sparse>(entity_count);
             let mut query = world.query::<&Sparse>();
+
+            bencher.iter(|| {
+                for i in 0..entity_count {
+                    let entity = Entity::from_raw(i);
+                    assert!(query.get(&world, entity).is_ok());
+                }
+            });
+        });
+        group.bench_function(format!("{}_entities_sparse_wide", entity_count), |bencher| {
+            let mut world = setup_wide::<(
+                WideSparse<0>,
+                WideSparse<1>,
+                WideSparse<2>,
+                WideSparse<3>,
+                WideSparse<4>,
+                WideSparse<5>,
+            )>(entity_count);
+            let mut query = world.query::<(
+                &WideSparse<0>,
+                &WideSparse<1>,
+                &WideSparse<2>,
+                &WideSparse<3>,
+                &WideSparse<4>,
+                &WideSparse<5>,
+            )>();
 
             bencher.iter(|| {
                 for i in 0..entity_count {

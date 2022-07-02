@@ -41,12 +41,18 @@ pub enum MouseButton {
     Other(u16),
 }
 
-/// A mouse motion event.
+/// An event reporting the change in physical position of a pointing device.
 ///
-/// This event is the translated version of the `DeviceEvent::MouseMotion` from the `winit` crate.
+/// This represents raw, unfiltered physical motion.
+/// It is the translated version of [`DeviceEvent::MouseMotion`] from the `winit` crate.
+///
+/// All pointing devices connected to a single machine at the same time can emit the event independently.
+/// However, the event data does not make it possible to distinguish which device it is referring to.
+///
+/// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
 #[derive(Debug, Clone)]
 pub struct MouseMotion {
-    /// The delta of the previous and current mouse positions.
+    /// The change in the position of the pointing device since the last event was sent.
     pub delta: Vec2,
 }
 

@@ -109,16 +109,12 @@ where
     marker: PhantomData<fn() -> T>,
 }
 
+// FIXME: Default is only needed because `Handle`'s field `handle_type` is currently ignored for reflection
+#[derive(Default)]
 enum HandleType {
+    #[default]
     Weak,
     Strong(Sender<RefChange>),
-}
-
-// FIXME: This only is needed because `Handle`'s field `handle_type` is currently ignored for reflection
-impl Default for HandleType {
-    fn default() -> Self {
-        Self::Weak
-    }
 }
 
 impl Debug for HandleType {
