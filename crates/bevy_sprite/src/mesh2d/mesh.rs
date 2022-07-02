@@ -38,7 +38,7 @@ impl From<Handle<Mesh>> for Mesh2dHandle {
 pub struct Mesh2dRenderPlugin;
 
 pub const MESH2D_VERTEX_OUTPUT: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12677582416465905311);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7646632476603252194);
 pub const MESH2D_VIEW_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12677582416765805110);
 pub const MESH2D_VIEW_BINDINGS_HANDLE: HandleUntyped =
