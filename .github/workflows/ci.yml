@@ -272,27 +272,27 @@ jobs:
           echo "if this step fails, run the following command and commit the changed file on your PR."
           echo " > cargo run -p build-example-pages -- update"
           git diff --quiet HEAD --
-  # TODO: re-enable once cargo-udeps builds with changes from rust 1.62
-  # check-unused-dependencies:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - uses: actions/cache@v3
-  #       with:
-  #         path: |
-  #           ~/.cargo/bin/
-  #           ~/.cargo/registry/index/
-  #           ~/.cargo/registry/cache/
-  #           ~/.cargo/git/db/
-  #           target/
-  #         key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
-  #     - uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: nightly
-  #         override: true
-  #     - name: Installs cargo-udeps
-  #       run: cargo install --force cargo-udeps
-  #     - name: Install alsa and udev
-  #       run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-  #     - name: Run cargo udeps
-  #       run: cargo udeps
+
+  check-unused-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Installs cargo-udeps
+        run: cargo install --force cargo-udeps
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Run cargo udeps
+        run: cargo udeps
