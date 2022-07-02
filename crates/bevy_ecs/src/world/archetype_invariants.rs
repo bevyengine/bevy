@@ -7,7 +7,7 @@ use crate::{component::ComponentId, prelude::Bundle, world::World};
 /// A rule about which [`Component`](crate::component::Component)s can coexist on entities.
 ///
 /// These rules must be true at all times for all entities in the [`World`].
-/// The generic [`Bundle`] type `B1` is always used in the `predicate`,
+/// The generic [`Bundle`] type `B1` is always used in the `premise`,
 /// while `B2` is used in the `consequence`.
 /// If only a single generic is provided, these types are the same.
 ///
@@ -21,7 +21,7 @@ use crate::{component::ComponentId, prelude::Bundle, world::World};
 pub struct ArchetypeInvariant<B1: Bundle, B2: Bundle = B1> {
     /// Defines which entities this invariant applies to.
     /// This is the "if" of the if/then clause.
-    pub predicate: ArchetypeStatement<B1>,
+    pub premise: ArchetypeStatement<B1>,
     /// Defines what must be true for the entities that this invariant applies to.
     /// This is the "then" of the if/then clause.
     pub consequence: ArchetypeStatement<B2>,
@@ -34,7 +34,7 @@ impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
     #[inline]
     pub fn into_untyped(self, world: &mut World) -> UntypedArchetypeInvariant {
         UntypedArchetypeInvariant {
-            predicate: self.predicate.into_untyped(world),
+            premise: self.premise.into_untyped(world),
             consequence: self.consequence.into_untyped(world),
         }
     }
@@ -47,7 +47,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
     #[inline]
     pub fn atomic_bundle() -> Self {
         Self {
-            predicate: ArchetypeStatement::<B>::at_least_one_of(),
+            premise: ArchetypeStatement::<B>::at_least_one_of(),
             consequence: ArchetypeStatement::<B>::all_of(),
         }
     }
@@ -57,8 +57,8 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
 ///
 /// This type is used as part of an [`ArchetypeInvariant`].
 ///
-/// When used as a predicate, the archetype invariant matches all entities which satisfy the statement.
-/// When used as a consquence, then the statment must be true for all entities that were matched by the predicate.
+/// When used as a premise, the archetype invariant matches all entities which satisfy the statement.
+/// When used as a consquence, then the statment must be true for all entities that were matched by the premise.
 ///
 /// For the statements about a single component `C`, wrap it in a single-component bundle `(C,)`.
 /// For single component bundles, `AllOf` and `AtLeastOneOf` are equivalent.
@@ -143,9 +143,11 @@ impl<B: Bundle> ArchetypeStatement<B> {
 /// Prefer [`ArchetypeInvariant`] when possible.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UntypedArchetypeInvariant {
-    /// For all entities where the predicate is true
-    pub predicate: UntypedArchetypeStatement,
-    /// The consequence must also be true
+    /// Defines which entities this invariant applies to.
+    /// This is the "if" of the if/then clause.
+    pub premise: UntypedArchetypeStatement,
+    /// Defines what must be true for the entities that this invariant applies to.
+    /// This is the "then" of the if/then clause.
     pub consequence: UntypedArchetypeStatement,
 }
 
@@ -161,7 +163,7 @@ impl UntypedArchetypeInvariant {
     pub fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
         let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
 
-        if self.predicate.test(&component_ids_of_archetype)
+        if self.premise.test(&component_ids_of_archetype)
             && !self.consequence.test(&component_ids_of_archetype)
         {
             panic!(
@@ -280,13 +282,13 @@ impl ArchetypeInvariants {
         let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
 
         for invariant in &self.raw_list {
-            if invariant.predicate.test(&component_ids_of_archetype)
+            if invariant.premise.test(&component_ids_of_archetype)
                 && !invariant.consequence.test(&component_ids_of_archetype)
             {
                 let mut failed_invariants = vec![];
 
                 for invariant in &self.raw_list {
-                    if invariant.predicate.test(&component_ids_of_archetype)
+                    if invariant.premise.test(&component_ids_of_archetype)
                         && !invariant.consequence.test(&component_ids_of_archetype)
                     {
                         failed_invariants.push(invariant.clone());
