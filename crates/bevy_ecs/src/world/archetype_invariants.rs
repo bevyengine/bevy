@@ -403,6 +403,27 @@ mod tests {
     }
 
     #[test]
+    fn on_insert_untyped_happy() {
+        let mut world = World::new();
+
+        world.spawn().insert_bundle((A, B, C));
+        let archetype_invariant =
+            ArchetypeInvariant::<(A, B, C)>::atomic().into_untyped(&mut world);
+        world.add_untyped_archetype_invariant(archetype_invariant);
+    }
+
+    #[test]
+    #[should_panic]
+    fn on_insert_untyped_sad() {
+        let mut world = World::new();
+
+        world.spawn().insert_bundle((A, B));
+        let archetype_invariant =
+            ArchetypeInvariant::<(A, B, C)>::atomic().into_untyped(&mut world);
+        world.add_untyped_archetype_invariant(archetype_invariant);
+    }
+
+    #[test]
     fn forbids_happy() {
         let mut world = World::new();
 

@@ -704,6 +704,11 @@ impl World {
         &mut self,
         archetype_invariant: UntypedArchetypeInvariant,
     ) {
+        for archetype in &self.archetypes.archetypes {
+            let components = archetype.components.indices();
+            archetype_invariant.test_archetype(components);
+        }
+
         self.archetype_invariants.add(archetype_invariant);
     }
 
