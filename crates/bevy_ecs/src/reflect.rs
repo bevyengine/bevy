@@ -28,6 +28,10 @@ pub struct ReflectComponent {
 
 impl ReflectComponent {
     /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityMut::insert).
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no such entity.
     pub fn add_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.add_component)(world, entity, component);
     }
@@ -36,12 +40,16 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if there is no [`Component`] of the given type.
+    /// Panics if there is no [`Component`] of the given type or such entity.
     pub fn apply_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.apply_component)(world, entity, component);
     }
 
-    /// Removes this [`Component`] type from the entity.
+    /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no such entity
     pub fn remove_component(&self, world: &mut World, entity: Entity) {
         (self.remove_component)(world, entity);
     }
@@ -83,7 +91,7 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if there is no [`Component`] of the given type.
+    /// Panics if there is no [`Component`] of the given type or such entities.
     pub fn copy_component(
         &self,
         source_world: &World,
@@ -171,7 +179,7 @@ impl ReflectResource {
         (self.apply_resource)(world, resource);
     }
 
-    /// Removes this [`Resource`] type from the world.
+    /// Removes this [`Resource`] type from the world. Does nothing if it doesn't exist.
     pub fn remove_resource(&self, world: &mut World) {
         (self.remove_resource)(world);
     }
