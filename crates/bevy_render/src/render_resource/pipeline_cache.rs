@@ -410,7 +410,7 @@ impl PipelineCache {
             Some((
                 fragment_module,
                 fragment.entry_point.deref(),
-                &fragment.targets[..],
+                fragment.targets.as_slice(),
             ))
         } else {
             None
