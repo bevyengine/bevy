@@ -231,7 +231,7 @@ impl TypeRegistryArc {
 /// a [`TypeData`] which can be used to downcast [`Reflect`] trait objects of
 /// this type to trait objects of the relevant trait.
 ///
-/// [short name]: TypeRegistration::get_short_name
+/// [short name]: bevy_utils::get_short_name
 /// [`TypeInfo`]: crate::TypeInfo
 /// [0]: crate::Reflect
 /// [1]: crate::Reflect
@@ -287,14 +287,14 @@ impl TypeRegistration {
         let type_name = std::any::type_name::<T>();
         Self {
             data: HashMap::default(),
-            short_name: Self::get_short_name(type_name),
+            short_name: bevy_utils::get_short_name(type_name),
             type_info: T::type_info(),
         }
     }
 
     /// Returns the [short name] of the type.
     ///
-    /// [short name]: TypeRegistration::get_short_name
+    /// [short name]: bevy_utils::get_short_name
     pub fn short_name(&self) -> &str {
         &self.short_name
     }
@@ -304,16 +304,6 @@ impl TypeRegistration {
     /// [name]: std::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_info.type_name()
-    }
-
-    /// Calculates the short name of a type.
-    ///
-    /// The short name of a type is its full name as returned by
-    /// [`std::any::type_name`], but with the prefix of all paths removed. For
-    /// example, the short name of `alloc::vec::Vec<core::option::Option<u32>>`
-    /// would be `Vec<Option<u32>>`.
-    pub fn get_short_name(full_name: &str) -> String {
-        bevy_utils::get_short_name(full_name)
     }
 }
 
