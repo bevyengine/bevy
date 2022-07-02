@@ -214,9 +214,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     &mut self,
                     _state: &Self::State,
                     _archetype: &'__w #path::archetype::Archetype,
-                    _tables: &'__w #path::storage::Tables
+                    _table: &'__w #path::storage::Table
                 ) {
-                    #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _tables);)*
+                    #(self.#field_idents.set_archetype(&_state.#field_idents, _archetype, _table);)*
                 }
 
                 /// SAFETY: we call `set_table` for each member that implements `Fetch`
