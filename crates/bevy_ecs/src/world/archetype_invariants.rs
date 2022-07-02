@@ -323,7 +323,7 @@ mod tests {
     struct C;
 
     #[test]
-    fn full_bundle_happy() {
+    fn atomic_bundle_happy() {
         let mut world = World::new();
 
         world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
@@ -331,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    fn full_bundle_on_insert_happy() {
+    fn atomic_bundle_on_insert_happy() {
         let mut world = World::new();
 
         world.spawn().insert_bundle((A, B, C));
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn full_bundle_sad() {
+    fn atomic_bundle_sad() {
         let mut world = World::new();
 
         world.add_archetype_invariant(ArchetypeInvariant::<(A, B, C)>::atomic_bundle());
@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn full_bundle_on_insert_sad() {
+    fn atomic_bundle_on_insert_sad() {
         let mut world = World::new();
 
         world.spawn().insert_bundle((A, B));
