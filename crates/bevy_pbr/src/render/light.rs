@@ -502,7 +502,6 @@ pub fn extract_lights(
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
 
-
 pub(crate) struct CubeMapFace {
     pub(crate) target: Vec3,
     pub(crate) up: Vec3,
