@@ -2,13 +2,13 @@
 //! lines from stdin and prints them from within the ecs.
 
 use bevy::prelude::*;
-use std::{io, io::BufRead};
+use std::io;
 
 struct Input(String);
 
 fn my_runner(mut app: App) {
     println!("Type stuff into the console");
-    for line in io::stdin().lock().lines() {
+    for line in io::stdin().lines() {
         {
             let mut input = app.world.resource_mut::<Input>();
             input.0 = line.unwrap();

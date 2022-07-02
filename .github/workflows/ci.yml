@@ -76,20 +76,18 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
-      # TODO: re-enable cache once nightly is unpinned
-      # - uses: actions/cache@v3
-      #   with:
-      #     path: |
-      #       ~/.cargo/bin/
-      #       ~/.cargo/registry/index/
-      #       ~/.cargo/registry/cache/
-      #       ~/.cargo/git/db/
-      #       target/
-      #     key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.toml') }}
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
-          # TODO: check again with nightly once https://github.com/rust-lang/miri/issues/2223 is fixed
-          toolchain: nightly-2022-06-08
+          toolchain: nightly
           components: miri
           override: true
       - name: Install alsa and udev
@@ -99,12 +97,12 @@ jobs:
         env:
           # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
           RUSTFLAGS: -Zrandomize-layout
+          # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
           # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
-          # -Zmiri-ignore-leaks is needed because running bevy_ecs tests finds a memory leak but its impossible
-          # to track down because allocids are nondeterministic.
-          # -Zmiri-tag-raw-pointers is not strictly "necessary" but enables a lot of extra UB checks relating
-          # to raw pointer aliasing rules that we should be trying to uphold.
-          MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-ignore-leaks -Zmiri-tag-raw-pointers
+          # -Zmiri-permissive-provenance disables warnings against int2ptr casts (since those are used by once_cell)
+          # -Zmiri-disable-weak-memory-emulation works around https://github.com/bevyengine/bevy/issues/5164.
+          # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
+          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation
 
   check-compiles:
     runs-on: ubuntu-latest
@@ -274,27 +272,27 @@ jobs:
           echo "if this step fails, run the following command and commit the changed file on your PR."
           echo " > cargo run -p build-example-pages -- update"
           git diff --quiet HEAD --
-
-  check-unused-dependencies:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: Installs cargo-udeps
-        run: cargo install --force cargo-udeps
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-      - name: Run cargo udeps
-        run: cargo udeps
+  # TODO: re-enable once cargo-udeps builds with changes from rust 1.62
+  # check-unused-dependencies:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: actions/cache@v3
+  #       with:
+  #         path: |
+  #           ~/.cargo/bin/
+  #           ~/.cargo/registry/index/
+  #           ~/.cargo/registry/cache/
+  #           ~/.cargo/git/db/
+  #           target/
+  #         key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: nightly
+  #         override: true
+  #     - name: Installs cargo-udeps
+  #       run: cargo install --force cargo-udeps
+  #     - name: Install alsa and udev
+  #       run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+  #     - name: Run cargo udeps
+  #       run: cargo udeps

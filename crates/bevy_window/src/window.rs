@@ -267,7 +267,7 @@ pub enum WindowCommand {
 }
 
 /// Defines the way a window is displayed.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowMode {
     /// Creates a window that uses the given size.
     Windowed,

@@ -142,7 +142,7 @@ where
 }
 
 impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery, I: Iterator> Iterator
-    for QueryManyIter<'w, 'w, Q, QF, F, I>
+    for QueryManyIter<'w, 's, Q, QF, F, I>
 where
     I::Item: Borrow<Entity>,
 {

@@ -12,6 +12,16 @@ error[E0277]: the trait bound `&'static mut Foo: ReadOnlyWorldQuery` is not sati
 18 |     assert_readonly::<Mutable>();
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `ReadOnlyWorldQuery` is not implemented for `&'static mut Foo`
    |
+   = help: the following other types implement trait `ReadOnlyWorldQuery`:
+             &T
+             ()
+             (F0, F1)
+             (F0, F1, F2)
+             (F0, F1, F2, F3)
+             (F0, F1, F2, F3, F4)
+             (F0, F1, F2, F3, F4, F5)
+             (F0, F1, F2, F3, F4, F5, F6)
+           and 48 others
    = note: `ReadOnlyWorldQuery` is implemented for `&'static Foo`, but not for `&'static mut Foo`
    = note: required because of the requirements on the impl of `ReadOnlySystemParamFetch` for `QueryState<&'static mut Foo>`
    = note: 2 redundant requirements hidden

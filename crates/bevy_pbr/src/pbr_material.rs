@@ -1,15 +1,9 @@
-use crate::{AlphaMode, MaterialPipeline, SpecializedMaterial, PBR_SHADER_HANDLE};
-use bevy_asset::{AssetServer, Handle};
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use crate::{AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_SHADER_HANDLE};
+use bevy_asset::Handle;
 use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    color::Color,
-    mesh::MeshVertexBufferLayout,
-    prelude::Shader,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
-    render_resource::*,
-    renderer::RenderDevice,
+    color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
     texture::Image,
 };
 
@@ -18,17 +12,23 @@ use bevy_render::{
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
 #[uuid = "7494888b-c082-457b-aacf-517228cc0c22"]
+#[bind_group_data(StandardMaterialKey)]
+#[uniform(0, StandardMaterialUniform)]
 pub struct StandardMaterial {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between. If used together with a base_color_texture, this is factored into the final
     /// base color as `base_color * base_color_texture_value`
     pub base_color: Color,
+    #[texture(1)]
+    #[sampler(2)]
     pub base_color_texture: Option<Handle<Image>>,
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Color,
+    #[texture(3)]
+    #[sampler(4)]
     pub emissive_texture: Option<Handle<Image>>,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
@@ -39,14 +39,20 @@ pub struct StandardMaterial {
     /// If used together with a roughness/metallic texture, this is factored into the final base
     /// color as `metallic * metallic_texture_value`
     pub metallic: f32,
+    #[texture(5)]
+    #[sampler(6)]
     pub metallic_roughness_texture: Option<Handle<Image>>,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
+    #[texture(9)]
+    #[sampler(10)]
     pub normal_map_texture: Option<Handle<Image>>,
     /// Normal map textures authored for DirectX have their y-component flipped. Set this to flip
     /// it to right-handed conventions.
     pub flip_normal_map_y: bool,
+    #[texture(7)]
+    #[sampler(8)]
     pub occlusion_texture: Option<Handle<Image>>,
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
     /// within the PBR lighting shader.
@@ -140,7 +146,7 @@ bitflags::bitflags! {
 
 /// The GPU representation of the uniform data of a [`StandardMaterial`].
 #[derive(Clone, Default, ShaderType)]
-pub struct StandardMaterialUniformData {
+pub struct StandardMaterialUniform {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between.
     pub base_color: Vec4,
@@ -161,105 +167,31 @@ pub struct StandardMaterialUniformData {
     pub alpha_cutoff: f32,
 }
 
-/// The GPU representation of a [`StandardMaterial`].
-#[derive(Debug, Clone)]
-pub struct GpuStandardMaterial {
-    /// A buffer containing the [`StandardMaterialUniformData`] of the material.
-    pub buffer: Buffer,
-    /// The bind group specifying how the [`StandardMaterialUniformData`] and
-    /// all the textures of the material are bound.
-    pub bind_group: BindGroup,
-    pub has_normal_map: bool,
-    pub flags: StandardMaterialFlags,
-    pub base_color_texture: Option<Handle<Image>>,
-    pub alpha_mode: AlphaMode,
-    pub depth_bias: f32,
-    pub cull_mode: Option<Face>,
-}
-
-impl RenderAsset for StandardMaterial {
-    type ExtractedAsset = StandardMaterial;
-    type PreparedAsset = GpuStandardMaterial;
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<MaterialPipeline<StandardMaterial>>,
-        SRes<RenderAssets<Image>>,
-    );
-
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
-    }
-
-    fn prepare_asset(
-        material: Self::ExtractedAsset,
-        (render_device, pbr_pipeline, gpu_images): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let (base_color_texture_view, base_color_sampler) = if let Some(result) = pbr_pipeline
-            .mesh_pipeline
-            .get_image_texture(gpu_images, &material.base_color_texture)
-        {
-            result
-        } else {
-            return Err(PrepareAssetError::RetryNextUpdate(material));
-        };
-
-        let (emissive_texture_view, emissive_sampler) = if let Some(result) = pbr_pipeline
-            .mesh_pipeline
-            .get_image_texture(gpu_images, &material.emissive_texture)
-        {
-            result
-        } else {
-            return Err(PrepareAssetError::RetryNextUpdate(material));
-        };
-
-        let (metallic_roughness_texture_view, metallic_roughness_sampler) = if let Some(result) =
-            pbr_pipeline
-                .mesh_pipeline
-                .get_image_texture(gpu_images, &material.metallic_roughness_texture)
-        {
-            result
-        } else {
-            return Err(PrepareAssetError::RetryNextUpdate(material));
-        };
-        let (normal_map_texture_view, normal_map_sampler) = if let Some(result) = pbr_pipeline
-            .mesh_pipeline
-            .get_image_texture(gpu_images, &material.normal_map_texture)
-        {
-            result
-        } else {
-            return Err(PrepareAssetError::RetryNextUpdate(material));
-        };
-        let (occlusion_texture_view, occlusion_sampler) = if let Some(result) = pbr_pipeline
-            .mesh_pipeline
-            .get_image_texture(gpu_images, &material.occlusion_texture)
-        {
-            result
-        } else {
-            return Err(PrepareAssetError::RetryNextUpdate(material));
-        };
+impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
+    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> StandardMaterialUniform {
         let mut flags = StandardMaterialFlags::NONE;
-        if material.base_color_texture.is_some() {
+        if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
         }
-        if material.emissive_texture.is_some() {
+        if self.emissive_texture.is_some() {
             flags |= StandardMaterialFlags::EMISSIVE_TEXTURE;
         }
-        if material.metallic_roughness_texture.is_some() {
+        if self.metallic_roughness_texture.is_some() {
             flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_TEXTURE;
         }
-        if material.occlusion_texture.is_some() {
+        if self.occlusion_texture.is_some() {
             flags |= StandardMaterialFlags::OCCLUSION_TEXTURE;
         }
-        if material.double_sided {
+        if self.double_sided {
             flags |= StandardMaterialFlags::DOUBLE_SIDED;
         }
-        if material.unlit {
+        if self.unlit {
             flags |= StandardMaterialFlags::UNLIT;
         }
-        let has_normal_map = material.normal_map_texture.is_some();
+        let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
-            match gpu_images
-                .get(material.normal_map_texture.as_ref().unwrap())
+            match images
+                .get(self.normal_map_texture.as_ref().unwrap())
                 .unwrap()
                 .texture_format
             {
@@ -272,13 +204,13 @@ impl RenderAsset for StandardMaterial {
                 }
                 _ => {}
             }
-            if material.flip_normal_map_y {
+            if self.flip_normal_map_y {
                 flags |= StandardMaterialFlags::FLIP_NORMAL_MAP_Y;
             }
         }
         // NOTE: 0.5 is from the glTF default - do we want this?
         let mut alpha_cutoff = 0.5;
-        match material.alpha_mode {
+        match self.alpha_mode {
             AlphaMode::Opaque => flags |= StandardMaterialFlags::ALPHA_MODE_OPAQUE,
             AlphaMode::Mask(c) => {
                 alpha_cutoff = c;
@@ -287,86 +219,15 @@ impl RenderAsset for StandardMaterial {
             AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
         };
 
-        let value = StandardMaterialUniformData {
-            base_color: material.base_color.as_linear_rgba_f32().into(),
-            emissive: material.emissive.into(),
-            roughness: material.perceptual_roughness,
-            metallic: material.metallic,
-            reflectance: material.reflectance,
+        StandardMaterialUniform {
+            base_color: self.base_color.as_linear_rgba_f32().into(),
+            emissive: self.emissive.into(),
+            roughness: self.perceptual_roughness,
+            metallic: self.metallic,
+            reflectance: self.reflectance,
             flags: flags.bits(),
             alpha_cutoff,
-        };
-
-        let byte_buffer = [0u8; StandardMaterialUniformData::SIZE.get() as usize];
-        let mut buffer = encase::UniformBuffer::new(byte_buffer);
-        buffer.write(&value).unwrap();
-
-        let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("pbr_standard_material_uniform_buffer"),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            contents: buffer.as_ref(),
-        });
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::TextureView(base_color_texture_view),
-                },
-                BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::Sampler(base_color_sampler),
-                },
-                BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::TextureView(emissive_texture_view),
-                },
-                BindGroupEntry {
-                    binding: 4,
-                    resource: BindingResource::Sampler(emissive_sampler),
-                },
-                BindGroupEntry {
-                    binding: 5,
-                    resource: BindingResource::TextureView(metallic_roughness_texture_view),
-                },
-                BindGroupEntry {
-                    binding: 6,
-                    resource: BindingResource::Sampler(metallic_roughness_sampler),
-                },
-                BindGroupEntry {
-                    binding: 7,
-                    resource: BindingResource::TextureView(occlusion_texture_view),
-                },
-                BindGroupEntry {
-                    binding: 8,
-                    resource: BindingResource::Sampler(occlusion_sampler),
-                },
-                BindGroupEntry {
-                    binding: 9,
-                    resource: BindingResource::TextureView(normal_map_texture_view),
-                },
-                BindGroupEntry {
-                    binding: 10,
-                    resource: BindingResource::Sampler(normal_map_sampler),
-                },
-            ],
-            label: Some("pbr_standard_material_bind_group"),
-            layout: &pbr_pipeline.material_layout,
-        });
-
-        Ok(GpuStandardMaterial {
-            buffer,
-            bind_group,
-            flags,
-            has_normal_map,
-            base_color_texture: material.base_color_texture,
-            alpha_mode: material.alpha_mode,
-            depth_bias: material.depth_bias,
-            cull_mode: material.cull_mode,
-        })
+        }
     }
 }
 
@@ -376,23 +237,23 @@ pub struct StandardMaterialKey {
     cull_mode: Option<Face>,
 }
 
-impl SpecializedMaterial for StandardMaterial {
-    type Key = StandardMaterialKey;
-
-    fn key(render_asset: &<Self as RenderAsset>::PreparedAsset) -> Self::Key {
+impl From<&StandardMaterial> for StandardMaterialKey {
+    fn from(material: &StandardMaterial) -> Self {
         StandardMaterialKey {
-            normal_map: render_asset.has_normal_map,
-            cull_mode: render_asset.cull_mode,
+            normal_map: material.normal_map_texture.is_some(),
+            cull_mode: material.cull_mode,
         }
     }
+}
 
+impl Material for StandardMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        key: Self::Key,
         _layout: &MeshVertexBufferLayout,
+        key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        if key.normal_map {
+        if key.bind_group_data.normal_map {
             descriptor
                 .fragment
                 .as_mut()
@@ -400,139 +261,24 @@ impl SpecializedMaterial for StandardMaterial {
                 .shader_defs
                 .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
         }
-        descriptor.primitive.cull_mode = key.cull_mode;
+        descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
         if let Some(label) = &mut descriptor.label {
             *label = format!("pbr_{}", *label).into();
         }
         Ok(())
     }
 
-    fn fragment_shader(_asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        Some(PBR_SHADER_HANDLE.typed())
+    fn fragment_shader() -> ShaderRef {
+        PBR_SHADER_HANDLE.typed().into()
     }
 
     #[inline]
-    fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
-        &render_asset.bind_group
-    }
-
-    fn bind_group_layout(
-        render_device: &RenderDevice,
-    ) -> bevy_render::render_resource::BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: Some(StandardMaterialUniformData::min_size()),
-                    },
-                    count: None,
-                },
-                // Base Color Texture
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // Base Color Texture Sampler
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // Emissive Texture
-                BindGroupLayoutEntry {
-                    binding: 3,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // Emissive Texture Sampler
-                BindGroupLayoutEntry {
-                    binding: 4,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // Metallic Roughness Texture
-                BindGroupLayoutEntry {
-                    binding: 5,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // Metallic Roughness Texture Sampler
-                BindGroupLayoutEntry {
-                    binding: 6,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // Occlusion Texture
-                BindGroupLayoutEntry {
-                    binding: 7,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // Occlusion Texture Sampler
-                BindGroupLayoutEntry {
-                    binding: 8,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-                // Normal Map Texture
-                BindGroupLayoutEntry {
-                    binding: 9,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-                // Normal Map Texture Sampler
-                BindGroupLayoutEntry {
-                    binding: 10,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("pbr_material_layout"),
-        })
+    fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
     }
 
     #[inline]
-    fn alpha_mode(render_asset: &<Self as RenderAsset>::PreparedAsset) -> AlphaMode {
-        render_asset.alpha_mode
-    }
-
-    #[inline]
-    fn depth_bias(material: &<Self as RenderAsset>::PreparedAsset) -> f32 {
-        material.depth_bias
+    fn depth_bias(&self) -> f32 {
+        self.depth_bias
     }
 }
