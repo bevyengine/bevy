@@ -1,13 +1,13 @@
-/// Shortens a type name to remove all module paths
+/// Shortens a type name to remove all module paths.
 ///
 /// The short name of a type is its full name as returned by
 /// [`std::any::type_name`], but with the prefix of all paths removed. For
 /// example, the short name of `alloc::vec::Vec<core::option::Option<u32>>`
 /// would be `Vec<Option<u32>>`.
 pub fn get_short_name(full_name: &str) -> String {
-    // Generics result in nested paths within <..> blocks
-    // Consider "bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"
-    // To tackle this, we parse the string from left to right, collapsing as we go
+    // Generics result in nested paths within <..> blocks.
+    // Consider "bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>".
+    // To tackle this, we parse the string from left to right, collapsing as we go.
     let mut index: usize = 0;
     let end_of_string = full_name.len();
     let mut parsed_name = String::new();
