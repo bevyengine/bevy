@@ -166,12 +166,13 @@ where
                 }
 
                 let archetype = &self.archetypes[location.archetype_id];
+                let table = &self.tables[archetype.table_id()];
                 let entity = &archetype.entities().get_unchecked(location.index);
 
                 self.fetch
-                    .set_archetype(&self.query_state.fetch_state, archetype, self.tables);
+                    .set_archetype(&self.query_state.fetch_state, archetype, table);
                 self.filter
-                    .set_archetype(&self.query_state.filter_state, archetype, self.tables);
+                    .set_archetype(&self.query_state.filter_state, archetype, table);
                 if self.filter.filter_fetch(entity.entity, entity.table_row) {
                     return Some(self.fetch.fetch(entity.entity, entity.table_row));
                 }
@@ -509,10 +510,11 @@ where
                 if self.current_index == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
                     let archetype = &archetypes[*archetype_id];
+                    let table = &tables[archetype.table_id()];
                     self.fetch
-                        .set_archetype(&query_state.fetch_state, archetype, tables);
+                        .set_archetype(&query_state.fetch_state, archetype, table);
                     self.filter
-                        .set_archetype(&query_state.filter_state, archetype, tables);
+                        .set_archetype(&query_state.filter_state, archetype, table);
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_index = 0;

@@ -374,8 +374,9 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             change_tick,
         );
 
-        fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
-        filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
+        let table = &world.storages().tables[archetype.table_id()];
+        fetch.set_archetype(&self.fetch_state, archetype, table);
+        filter.set_archetype(&self.filter_state, archetype, table);
         if filter.filter_fetch(entity, location.index) {
             Ok(fetch.fetch(entity, location.index))
         } else {
@@ -909,8 +910,9 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             let archetypes = &world.archetypes;
             for archetype_id in &self.matched_archetype_ids {
                 let archetype = &archetypes[*archetype_id];
-                fetch.set_archetype(&self.fetch_state, archetype, tables);
-                filter.set_archetype(&self.filter_state, archetype, tables);
+                let table = &tables[archetype.table_id()];
+                fetch.set_archetype(&self.fetch_state, archetype, table);
+                filter.set_archetype(&self.filter_state, archetype, table);
 
                 let entities = archetype.entities();
                 for idx in 0..archetype.len() {
@@ -1016,8 +1018,9 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             );
                             let tables = &world.storages().tables;
                             let archetype = &world.archetypes[*archetype_id];
-                            fetch.set_archetype(&self.fetch_state, archetype, tables);
-                            filter.set_archetype(&self.filter_state, archetype, tables);
+                            let table = &tables[archetype.table_id()];
+                            fetch.set_archetype(&self.fetch_state, archetype, table);
+                            filter.set_archetype(&self.filter_state, archetype, table);
 
                             let entities = archetype.entities();
                             for archetype_index in offset..offset + len {
@@ -1099,10 +1102,11 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             }
 
             let archetype = &world.archetypes[location.archetype_id];
+            let table = &tables[archetype.table_id()];
             let entity = &archetype.entities().get_unchecked(location.index);
 
-            fetch.set_archetype(&self.fetch_state, archetype, tables);
-            filter.set_archetype(&self.filter_state, archetype, tables);
+            fetch.set_archetype(&self.fetch_state, archetype, table);
+            filter.set_archetype(&self.filter_state, archetype, table);
             if filter.filter_fetch(entity.entity, entity.table_row) {
                 func(fetch.fetch(entity.entity, entity.table_row));
             }

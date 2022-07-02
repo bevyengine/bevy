@@ -6,7 +6,7 @@ use crate::{
         debug_checked_unreachable, Access, Fetch, FetchState, FilteredAccess, QueryFetch,
         WorldQuery, WorldQueryGats,
     },
-    storage::{ComponentSparseSet, Table, Tables},
+    storage::{ComponentSparseSet, Table},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
@@ -122,7 +122,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for WithFetch<T> {
         &mut self,
         _state: &Self::State,
         _archetype: &Archetype,
-        _tables: &Tables,
+        _table: &Table,
     ) {
     }
 
@@ -260,7 +260,7 @@ unsafe impl<'w, T: Component> Fetch<'w> for WithoutFetch<T> {
         &mut self,
         _state: &Self::State,
         _archetype: &Archetype,
-        _tables: &Tables,
+        _table: &Table,
     ) {
     }
 
@@ -390,13 +390,13 @@ macro_rules! impl_query_filter_tuple {
             }
 
             #[inline]
-            unsafe fn set_archetype(&mut self, state: & Self::State, archetype: &'w Archetype, tables: &'w Tables) {
+            unsafe fn set_archetype(&mut self, state: & Self::State, archetype: &'w Archetype, table: &'w Table) {
                 let ($($filter,)*) = &mut self.0;
                 let ($($state,)*) = &state.0;
                 $(
                     $filter.matches = $state.matches_component_set(&|id| archetype.contains(id));
                     if $filter.matches {
-                        $filter.fetch.set_archetype($state, archetype, tables);
+                        $filter.fetch.set_archetype($state, archetype, table);
                     }
                 )*
             }
@@ -558,6 +558,7 @@ macro_rules! impl_tick_filter {
 
             const IS_ARCHETYPAL:  bool = false;
 
+            #[inline]
             unsafe fn set_table(&mut self, state: &Self::State, table: &'w Table) {
                 self.table_ticks = Some(
                     table.get_column(state.component_id)
@@ -567,14 +568,9 @@ macro_rules! impl_tick_filter {
                 );
             }
 
-            unsafe fn set_archetype(&mut self, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
-                match T::Storage::STORAGE_TYPE {
-                    StorageType::Table => {
-                        let table = &tables[archetype.table_id()];
-                        self.table_ticks = Some(table.get_column(state.component_id).unwrap().get_ticks_slice().into());
-                    }
-                    StorageType::SparseSet => {},
-                }
+            #[inline]
+            unsafe fn set_archetype(&mut self, state: &Self::State, _archetype: &'w Archetype, table: &'w Table) {
+                self.set_table(state, table);
             }
 
             #[inline(always)]
