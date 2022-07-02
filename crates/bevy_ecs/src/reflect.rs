@@ -40,7 +40,7 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if there is no [`Component`] of the given type or such entity.
+    /// Panics if there is no [`Component`] of the given type or the `entity` does not exist.
     pub fn apply_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.apply_component)(world, entity, component);
     }
@@ -49,7 +49,7 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if there is no such entity
+    /// Panics if there is no [`Component`] of the given type or the `entity` does not exist.
     pub fn remove_component(&self, world: &mut World, entity: Entity) {
         (self.remove_component)(world, entity);
     }
@@ -91,7 +91,7 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if there is no [`Component`] of the given type or such entities.
+    /// Panics if there is no [`Component`] of the given type or either entity does not exist.
     pub fn copy_component(
         &self,
         source_world: &World,
