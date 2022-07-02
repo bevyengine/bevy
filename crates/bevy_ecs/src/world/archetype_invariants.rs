@@ -113,7 +113,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
     ///
     /// In other words, if any component of this bundle is present, then _only_ components from this bundle can be present.
     #[inline]
-    pub fn exhaustive() -> Self {
+    pub fn exclusive() -> Self {
         Self {
             premise: ArchetypeStatement::<B>::any_of(),
             consequence: ArchetypeStatement::<B>::only(),
@@ -589,10 +589,10 @@ mod tests {
     }
 
     #[test]
-    fn exhaustive_happy() {
+    fn exclusive_happy() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B)>::exhaustive());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B)>::exclusive());
         world.spawn().insert_bundle((A, B));
         world.spawn().insert(A);
         world.spawn().insert(C);
@@ -600,19 +600,19 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn exhaustive_sad_partial() {
+    fn exclusive_sad_partial() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B)>::exhaustive());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B)>::exclusive());
         world.spawn().insert_bundle((A, C));
     }
 
     #[test]
     #[should_panic]
-    fn exhaustive_sad_all() {
+    fn exclusive_sad_all() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(ArchetypeInvariant::<(A, B)>::exhaustive());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A, B)>::exclusive());
         world.spawn().insert_bundle((A, B, C));
     }
 }
