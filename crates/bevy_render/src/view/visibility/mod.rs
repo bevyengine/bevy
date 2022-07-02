@@ -84,6 +84,18 @@ impl Default for ComputedVisibility {
 #[derive(Component)]
 pub struct NoFrustumCulling;
 
+/// Collection of entities visible from the current view.
+///
+/// This component contains all entities which are visible from the currently
+/// rendered view. The collection is updated automatically by the [`check_visibility()`]
+/// system, and renderers can use it to optimize rendering of a particular view, to
+/// prevent drawing items not visible from that view.
+///
+/// This component is intended to be attached to the same entity as the [`Camera`] and
+/// the [`Frustum`] defining the view.
+///
+/// Currently this component is ignored by the sprite renderer, so sprite rendering
+/// is not optimized per view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
@@ -112,6 +124,8 @@ pub enum VisibilitySystems {
     UpdatePerspectiveFrusta,
     UpdateProjectionFrusta,
     VisibilityPropagate,
+    /// Label for the [`check_visibility()`] system updating each frame the [`ComputedVisibility`]
+    /// of each entity and the [`VisibleEntities`] of each view.
     CheckVisibility,
 }
 
@@ -245,6 +259,11 @@ fn propagate_recursive(
     Ok(())
 }
 
+/// System updating the visibility of entities each frame.
+///
+/// The system is labelled with [`VisibilitySystems::CheckVisibility`]. Each frame, it updates the
+/// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
+/// for that view.
 pub fn check_visibility(
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
