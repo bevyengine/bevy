@@ -570,7 +570,9 @@ macro_rules! impl_tick_filter {
 
             #[inline]
             unsafe fn set_archetype(&mut self, state: &Self::State, _archetype: &'w Archetype, table: &'w Table) {
-                self.set_table(state, table);
+                if Self::IS_DENSE {
+                    self.set_table(state, table);
+                }
             }
 
             #[inline(always)]

@@ -635,7 +635,9 @@ unsafe impl<'w, T: Component> Fetch<'w> for ReadFetch<'w, T> {
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        self.set_table(state, table);
+        if Self::IS_DENSE {
+            self.set_table(state, table);
+        }
     }
 
     #[inline]
@@ -771,7 +773,9 @@ unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        self.set_table(state, table);
+        if Self::IS_DENSE {
+            self.set_table(state, table);
+        }
     }
 
     #[inline]
@@ -1127,7 +1131,9 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        self.set_table(state, table);
+        if Self::IS_DENSE {
+            self.set_table(state, table);
+        }
     }
 
     #[inline]
