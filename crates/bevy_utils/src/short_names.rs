@@ -1,4 +1,4 @@
-/// Collapses a name returned by [`std::any::type_name`] to remove its module path
+/// Shortens a type name to remove all module paths
 ///
 /// The short name of a type is its full name as returned by
 /// [`std::any::type_name`], but with the prefix of all paths removed. For
