@@ -1,6 +1,5 @@
 use crate::{
-    serde::Serializable, utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut,
-    ReflectRef, TypeInfo, Typed,
+    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -152,8 +151,7 @@ impl DynamicArray {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicArray {
+impl Reflect for DynamicArray {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()
@@ -165,12 +163,17 @@ unsafe impl Reflect for DynamicArray {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -216,10 +219,6 @@ unsafe impl Reflect for DynamicArray {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         array_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 

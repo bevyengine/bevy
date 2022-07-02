@@ -9,7 +9,7 @@ use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 type EntityId = u32;
 
 #[derive(Debug)]
-pub struct SparseArray<I, V = I> {
+pub(crate) struct SparseArray<I, V = I> {
     values: Vec<Option<V>>,
     marker: PhantomData<I>,
 }
@@ -31,13 +31,6 @@ impl<I, V> SparseArray<I, V> {
 }
 
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            values: Vec::with_capacity(capacity),
-            marker: PhantomData,
-        }
-    }
-
     #[inline]
     pub fn insert(&mut self, index: I, value: V) {
         let index = index.sparse_set_index();
@@ -74,18 +67,6 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values.get_mut(index).and_then(|value| value.take())
     }
 
-    #[inline]
-    pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
-        let index = index.sparse_set_index();
-        if index < self.values.len() {
-            return self.values[index].get_or_insert_with(func);
-        }
-        self.values.resize_with(index + 1, || None);
-        let value = &mut self.values[index];
-        *value = Some(func());
-        value.as_mut().unwrap()
-    }
-
     pub fn clear(&mut self) {
         self.values.clear();
     }
@@ -108,7 +89,7 @@ pub struct ComponentSparseSet {
 }
 
 impl ComponentSparseSet {
-    pub fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
+    pub(crate) fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
             dense: Column::with_capacity(component_info, capacity),
             entities: Vec::with_capacity(capacity),
@@ -116,7 +97,7 @@ impl ComponentSparseSet {
         }
     }
 
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.dense.clear();
         self.entities.clear();
         self.sparse.clear();
@@ -138,7 +119,7 @@ impl ComponentSparseSet {
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
     /// inside the [`ComponentInfo`] given when constructing this sparse set.
-    pub unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
+    pub(crate) unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
         if let Some(&dense_index) = self.sparse.get(entity.id()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index as usize]);
@@ -209,7 +190,7 @@ impl ComponentSparseSet {
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
     /// it exists).
     #[must_use = "The returned pointer must be used to drop the removed component."]
-    pub fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
+    pub(crate) fn remove_and_forget(&mut self, entity: Entity) -> Option<OwningPtr<'_>> {
         self.sparse.remove(entity.id()).map(|dense_index| {
             let dense_index = dense_index as usize;
             #[cfg(debug_assertions)]
@@ -230,7 +211,7 @@ impl ComponentSparseSet {
         })
     }
 
-    pub fn remove(&mut self, entity: Entity) -> bool {
+    pub(crate) fn remove(&mut self, entity: Entity) -> bool {
         if let Some(dense_index) = self.sparse.remove(entity.id()) {
             let dense_index = dense_index as usize;
             #[cfg(debug_assertions)]
@@ -308,28 +289,6 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
             self.indices.push(index);
             self.dense.push(value);
         }
-
-        // PERF: switch to this. it's faster but it has an invalid memory access on
-        // table_add_remove_many let dense = &mut self.dense;
-        // let indices = &mut self.indices;
-        // let dense_index = *self.sparse.get_or_insert_with(index.clone(), move || {
-        //     if dense.len() == dense.capacity() {
-        //         dense.reserve(64);
-        //         indices.reserve(64);
-        //     }
-        //     let len = dense.len();
-        //     // SAFE: we set the index immediately
-        //     unsafe {
-        //         dense.set_len(len + 1);
-        //         indices.set_len(len + 1);
-        //     }
-        //     len
-        // });
-        // // SAFE: index either already existed or was just allocated
-        // unsafe {
-        //     *self.dense.get_unchecked_mut(dense_index) = value;
-        //     *self.indices.get_unchecked_mut(dense_index) = index;
-        // }
     }
 
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {

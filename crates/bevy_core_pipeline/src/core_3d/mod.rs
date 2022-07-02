@@ -98,6 +98,11 @@ impl PhaseItem for Opaque3d {
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
     }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        radsort::sort_by_key(items, |item| item.distance);
+    }
 }
 
 impl EntityPhaseItem for Opaque3d {
@@ -133,6 +138,11 @@ impl PhaseItem for AlphaMask3d {
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
     }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        radsort::sort_by_key(items, |item| item.distance);
+    }
 }
 
 impl EntityPhaseItem for AlphaMask3d {
@@ -167,6 +177,11 @@ impl PhaseItem for Transparent3d {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        radsort::sort_by_key(items, |item| item.distance);
     }
 }
 

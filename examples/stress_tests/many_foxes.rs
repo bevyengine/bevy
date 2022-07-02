@@ -204,9 +204,7 @@ fn update_fox_rings(
     let dt = time.delta_seconds();
     for (ring, rotation_direction, mut transform) in rings.iter_mut() {
         let angular_velocity = foxes.speed / ring.radius;
-        transform.rotate(Quat::from_rotation_y(
-            rotation_direction.sign() * angular_velocity * dt,
-        ));
+        transform.rotate_y(rotation_direction.sign() * angular_velocity * dt);
     }
 }
 
@@ -227,6 +225,10 @@ fn keyboard_animation_control(
 
     if keyboard_input.just_pressed(KeyCode::Down) {
         foxes.speed *= 0.8;
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        *current_animation = (*current_animation + 1) % animations.0.len();
     }
 
     for mut player in animation_player.iter_mut() {
@@ -259,7 +261,6 @@ fn keyboard_animation_control(
         }
 
         if keyboard_input.just_pressed(KeyCode::Return) {
-            *current_animation = (*current_animation + 1) % animations.0.len();
             player
                 .play(animations.0[*current_animation].clone_weak())
                 .repeat();

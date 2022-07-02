@@ -90,6 +90,11 @@ impl PhaseItem for Transparent2d {
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
     }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(|item| item.sort_key());
+    }
 }
 
 impl EntityPhaseItem for Transparent2d {

@@ -134,10 +134,8 @@ fn player_movement_system(
         movement_factor += 1.0;
     }
 
-    // create the change in rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    let rotation_delta = Quat::from_rotation_z(rotation_factor * ship.rotation_speed * TIME_STEP);
-    // update the ship rotation with our rotation delta
-    transform.rotation *= rotation_delta;
+    // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
+    transform.rotate_z(rotation_factor * ship.rotation_speed * TIME_STEP);
 
     // get the ship's forward vector by applying the current rotation to the ships initial facing vector
     let movement_direction = transform.rotation * Vec3::Y;
@@ -168,7 +166,7 @@ fn snap_to_player_system(
 
         // get the quaternion to rotate from the initial enemy facing direction to the direction
         // facing the player
-        let rotate_to_player = Quat::from_rotation_arc(Vec3::Y, Vec3::from((to_player, 0.0)));
+        let rotate_to_player = Quat::from_rotation_arc(Vec3::Y, to_player.extend(0.));
 
         // rotate the enemy to face the player
         enemy_transform.rotation = rotate_to_player;
@@ -243,11 +241,7 @@ fn rotate_to_player_system(
         // calculate angle of rotation with limit
         let rotation_angle = rotation_sign * (config.rotation_speed * TIME_STEP).min(max_angle);
 
-        // get the quaternion to rotate from the current enemy facing direction towards the
-        // direction facing the player
-        let rotation_delta = Quat::from_rotation_z(rotation_angle);
-
         // rotate the enemy to face the player
-        enemy_transform.rotation *= rotation_delta;
+        enemy_transform.rotate_z(rotation_angle);
     }
 }

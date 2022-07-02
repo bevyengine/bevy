@@ -5,7 +5,6 @@ mod resource;
 mod sparse_set;
 mod table;
 
-pub use blob_vec::*;
 pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;

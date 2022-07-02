@@ -116,7 +116,11 @@ impl Camera {
     /// the full physical rect of the current [`RenderTarget`].
     #[inline]
     pub fn physical_viewport_rect(&self) -> Option<(UVec2, UVec2)> {
-        let min = self.viewport.as_ref()?.physical_position;
+        let min = self
+            .viewport
+            .as_ref()
+            .map(|v| v.physical_position)
+            .unwrap_or(UVec2::ZERO);
         let max = min + self.physical_viewport_size()?;
         Some((min, max))
     }
@@ -303,19 +307,14 @@ impl RenderTarget {
     }
 }
 
-#[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Reflect, Serialize, Deserialize)]
 #[reflect_value(Serialize, Deserialize)]
 pub enum DepthCalculation {
     /// Pythagorean distance; works everywhere, more expensive to compute.
+    #[default]
     Distance,
     /// Optimization for 2D; assuming the camera points towards -Z.
     ZDifference,
-}
-
-impl Default for DepthCalculation {
-    fn default() -> Self {
-        DepthCalculation::Distance
-    }
 }
 
 pub fn camera_system<T: CameraProjection + Component>(
