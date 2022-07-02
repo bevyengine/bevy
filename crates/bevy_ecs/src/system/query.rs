@@ -242,8 +242,10 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// |Change detection filtering ([`Added`], [`Changed`])|O(a + n)|
 ///
 /// `for_each` methods are seen to be generally faster than their `iter` version on worlds with high archetype fragmentation.
-/// Only benchmarks can guarantee what variant is faster in each use case.
-/// So, if performance analysis is not done, it's better to use the more ergonomic `iter` methods.
+/// As iterators are in general more flexible and better integrated with the rest of the 
+/// Rust ecosystem, it's advised to use `iter` methods over `for_each`. 
+/// It is strongly advised to only use `for_each` if it tangibly improves performance: be sure profile
+/// or benchmark both before and after the change.
 ///
 /// [binomial coefficient]: https://en.wikipedia.org/wiki/Binomial_coefficient
 /// [`iter`]: Self::iter
