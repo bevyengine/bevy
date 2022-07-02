@@ -589,14 +589,13 @@ macro_rules! impl_tick_filter {
                         )
                     }
                     StorageType::SparseSet => {
-                        let ticks = self
+                        let ticks = &*self
                             .sparse_set
                             .unwrap_or_else(|| debug_checked_unreachable())
                             .get_ticks(entity)
-                            .map(|ticks| &*ticks.get())
-                            .cloned()
-                            .unwrap_or_else(|| debug_checked_unreachable());
-                        $is_detected(&ticks, self.last_change_tick, self.change_tick)
+                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .get();
+                        $is_detected(ticks, self.last_change_tick, self.change_tick)
                     }
                 }
             }

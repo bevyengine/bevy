@@ -1162,13 +1162,12 @@ unsafe impl<'w, T: Component> Fetch<'w> for ChangeTrackersFetch<'w, T> {
                 change_tick: self.change_tick,
             },
             StorageType::SparseSet => ChangeTrackers {
-                component_ticks: self
+                component_ticks: *self
                     .sparse_set
                     .unwrap_or_else(|| debug_checked_unreachable())
                     .get_ticks(entity)
-                    .map(|ticks| &*ticks.get())
-                    .cloned()
-                    .unwrap_or_else(|| debug_checked_unreachable()),
+                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .get(),
                 marker: PhantomData,
                 last_change_tick: self.last_change_tick,
                 change_tick: self.change_tick,
