@@ -38,7 +38,7 @@ const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 pub const MESH_VERTEX_OUTPUT: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8141453348413964287);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
 pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
 pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
