@@ -313,40 +313,7 @@ impl TypeRegistration {
     /// example, the short name of `alloc::vec::Vec<core::option::Option<u32>>`
     /// would be `Vec<Option<u32>>`.
     pub fn get_short_name(full_name: &str) -> String {
-        let mut short_name = String::new();
-
-        {
-            // A typename may be a composition of several other type names (e.g. generic parameters)
-            // separated by the characters that we try to find below.
-            // Then, each individual typename is shortened to its last path component.
-            //
-            // Note: Instead of `find`, `split_inclusive` would be nice but it's still unstable...
-            let mut remainder = full_name;
-            while let Some(index) = remainder.find(&['<', '>', '(', ')', '[', ']', ',', ';'][..]) {
-                let (path, new_remainder) = remainder.split_at(index);
-                // Push the shortened path in front of the found character
-                short_name.push_str(path.rsplit(':').next().unwrap());
-                // Push the character that was found
-                let character = new_remainder.chars().next().unwrap();
-                short_name.push(character);
-                // Advance the remainder
-                if character == ',' || character == ';' {
-                    // A comma or semicolon is always followed by a space
-                    short_name.push(' ');
-                    remainder = &new_remainder[2..];
-                } else {
-                    remainder = &new_remainder[1..];
-                }
-            }
-
-            // The remainder will only be non-empty if there were no matches at all
-            if !remainder.is_empty() {
-                // Then, the full typename is a path that has to be shortened
-                short_name.push_str(remainder.rsplit(':').next().unwrap());
-            }
-        }
-
-        short_name
+        bevy_utils::get_short_name(full_name)
     }
 }
 
@@ -458,42 +425,6 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 mod test {
     use crate::TypeRegistration;
     use bevy_utils::HashMap;
-
-    #[test]
-    fn test_get_short_name() {
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<f64>()),
-            "f64"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<String>()),
-            "String"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<(u32, f64)>()),
-            "(u32, f64)"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<(String, String)>()),
-            "(String, String)"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[f64]>()),
-            "[f64]"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[String]>()),
-            "[String]"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[f64; 16]>()),
-            "[f64; 16]"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[String; 16]>()),
-            "[String; 16]"
-        );
-    }
 
     #[test]
     fn test_property_type_registration() {
