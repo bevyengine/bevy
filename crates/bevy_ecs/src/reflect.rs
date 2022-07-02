@@ -4,6 +4,7 @@ pub use crate::change_detection::ReflectMut;
 use crate::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
+    system::Resource,
     world::{FromWorld, World},
 };
 use bevy_reflect::{
@@ -118,6 +119,90 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                         value: c.value as &mut dyn Reflect,
                         ticks: c.ticks,
                     })
+            },
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ReflectResource {
+    insert_resource: fn(&mut World, &dyn Reflect),
+    apply_resource: fn(&mut World, &dyn Reflect),
+    remove_resource: fn(&mut World),
+    reflect_resource: fn(&World) -> Option<&dyn Reflect>,
+    reflect_resource_unchecked_mut: unsafe fn(&World) -> Option<ReflectMut>,
+    copy_resource: fn(&World, &mut World),
+}
+
+impl ReflectResource {
+    pub fn insert_resource(&self, world: &mut World, resource: &dyn Reflect) {
+        (self.insert_resource)(world, resource);
+    }
+
+    pub fn apply_resource(&self, world: &mut World, resource: &dyn Reflect) {
+        (self.apply_resource)(world, resource);
+    }
+
+    pub fn remove_resource(&self, world: &mut World) {
+        (self.remove_resource)(world);
+    }
+
+    pub fn reflect_resource<'a>(&self, world: &'a World) -> Option<&'a dyn Reflect> {
+        (self.reflect_resource)(world)
+    }
+
+    pub fn reflect_resource_mut<'a>(&self, world: &'a mut World) -> Option<ReflectMut<'a>> {
+        // SAFE: unique world access
+        unsafe { (self.reflect_resource_unchecked_mut)(world) }
+    }
+
+    /// # Safety
+    /// This method does not prevent you from having two mutable pointers to the same data,
+    /// violating Rust's aliasing rules. To avoid this:
+    /// * Only call this method in an exclusive system to avoid sharing across threads (or use a
+    ///   scheduler that enforces safe memory access).
+    /// * Don't call this method more than once in the same scope for a given resource.
+    pub unsafe fn reflect_resource_unckecked_mut<'a>(
+        &self,
+        world: &'a World,
+    ) -> Option<ReflectMut<'a>> {
+        (self.reflect_resource_unchecked_mut)(world)
+    }
+
+    pub fn copy_resource(&self, source_world: &World, destination_world: &mut World) {
+        (self.copy_resource)(source_world, destination_world);
+    }
+}
+
+impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
+    fn from_type() -> Self {
+        ReflectResource {
+            insert_resource: |world, reflected_resource| {
+                let mut resource = C::from_world(world);
+                resource.apply(reflected_resource);
+                world.insert_resource(resource);
+            },
+            apply_resource: |world, reflected_resource| {
+                let mut resource = world.get_resource_mut::<C>().unwrap();
+                resource.apply(reflected_resource);
+            },
+            remove_resource: |world| {
+                world.remove_resource::<C>();
+            },
+            reflect_resource: |world| world.get_resource::<C>().map(|res| res as &dyn Reflect),
+            reflect_resource_unchecked_mut: |world| unsafe {
+                world
+                    .get_resource_unchecked_mut::<C>()
+                    .map(|res| ReflectMut {
+                        value: res.value as &mut dyn Reflect,
+                        ticks: res.ticks,
+                    })
+            },
+            copy_resource: |source_world, destination_world| {
+                let source_resource = source_world.get_resource::<C>().unwrap();
+                let mut destination_resource = C::from_world(destination_world);
+                destination_resource.apply(source_resource);
+                destination_world.insert_resource(destination_resource);
             },
         }
     }

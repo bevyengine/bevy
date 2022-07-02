@@ -23,7 +23,7 @@ pub use bevy_ptr as ptr;
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::ReflectComponent;
+    pub use crate::reflect::{ReflectComponent, ReflectResource};
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
