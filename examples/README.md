@@ -273,7 +273,6 @@ Due to the focus on performance it's recommended to run the stress tests in rele
 cargo run --release --example <example name>
 ```
 
-
 Example | Description
 --- | ---
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
