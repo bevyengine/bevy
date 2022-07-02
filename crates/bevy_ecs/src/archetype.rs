@@ -146,6 +146,7 @@ pub struct Archetype {
 }
 
 impl Archetype {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: ArchetypeId,
         table_id: TableId,

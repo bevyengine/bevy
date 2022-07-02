@@ -42,7 +42,7 @@ pub mod prelude {
             NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut, System,
             SystemParamFunction,
         },
-        world::{FromWorld, Mut, World, ArchetypeInvariant, ArchetypeStatement},
+        world::{ArchetypeInvariant, ArchetypeStatement, FromWorld, Mut, World},
     };
 }
 

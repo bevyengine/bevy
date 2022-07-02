@@ -297,7 +297,7 @@ impl UntypedArchetypeStatement {
                 None => format!("{:?}", id),
             })
             .reduce(|acc, s| format!("{}, {}", acc, s))
-            .unwrap_or("".to_owned());
+            .unwrap_or_default();
 
         match self {
             UntypedArchetypeStatement::AllOf(_) => format!("AllOf({component_names})"),
