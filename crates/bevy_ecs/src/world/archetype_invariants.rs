@@ -47,7 +47,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
     #[inline]
     pub fn atomic_bundle() -> Self {
         Self {
-            premise: ArchetypeStatement::<B>::at_least_one_of(),
+            premise: ArchetypeStatement::<B>::any_of(),
             consequence: ArchetypeStatement::<B>::all_of(),
         }
     }
@@ -61,7 +61,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
 /// When used as a consquence, then the statment must be true for all entities that were matched by the premise.
 ///
 /// For the statements about a single component `C`, wrap it in a single-component bundle `(C,)`.
-/// For single component bundles, `AllOf` and `AtLeastOneOf` are equivalent.
+/// For single component bundles, `AllOf` and `AnyOf` are equivalent.
 /// Prefer `ArchetypeStatement::<(C,)>::all_of` over `ArchetypeStatement::<(C,)>::at_least_one_of` for consistency and clarity.
 ///
 /// Note that this is converted to an [`UntypedArchetypeStatement`] when added to a [`World`].
@@ -72,7 +72,7 @@ pub enum ArchetypeStatement<B: Bundle> {
     AllOf(PhantomData<B>),
     /// The entity has at least one component in the bundle `B`.
     /// When using a single-component bundle, `AllOf` is preferred.
-    AtLeastOneOf(PhantomData<B>),
+    AnyOf(PhantomData<B>),
     /// The entity has zero or one of the components in the bundle `B`, but no more.
     /// When using a single-component bundle, this will always be true.
     AtMostOneOf(PhantomData<B>),
@@ -92,11 +92,11 @@ impl<B: Bundle> ArchetypeStatement<B> {
 
         match self {
             ArchetypeStatement::AllOf(_) => UntypedArchetypeStatement::AllOf(component_ids),
-            ArchetypeStatement::AtLeastOneOf(_) => {
+            ArchetypeStatement::AnyOf(_) => {
                 if component_ids.len() == 1 {
-                    warn!("An `ArchetypeStatement::AtLeastOneOf` was constructed for a bundle with only one component. Prefer the equivalent `ArchetypeStatment:AllOf` for consistency and clarity.");
+                    warn!("An `ArchetypeStatement::AnyOf` was constructed for a bundle with only one component. Prefer the equivalent `ArchetypeStatment:AllOf` for consistency and clarity.");
                 }
-                UntypedArchetypeStatement::AtLeastOneOf(component_ids)
+                UntypedArchetypeStatement::AnyOf(component_ids)
             }
             ArchetypeStatement::AtMostOneOf(_) => {
                 UntypedArchetypeStatement::AtMostOneOf(component_ids)
@@ -112,10 +112,10 @@ impl<B: Bundle> ArchetypeStatement<B> {
         ArchetypeStatement::AllOf(PhantomData)
     }
 
-    /// Constructs a new [`ArchetypeStatement::AtLeastOneOf`] variant for all components stored in the bundle `B`.
+    /// Constructs a new [`ArchetypeStatement::AnyOf`] variant for all components stored in the bundle `B`.
     #[inline]
-    pub const fn at_least_one_of() -> Self {
-        ArchetypeStatement::AtLeastOneOf(PhantomData)
+    pub const fn any_of() -> Self {
+        ArchetypeStatement::AnyOf(PhantomData)
     }
 
     /// Constructs a new [`ArchetypeStatement::AtMostOneOf`] variant for all components stored in the bundle `B`.
@@ -184,7 +184,7 @@ pub enum UntypedArchetypeStatement {
     AllOf(HashSet<ComponentId>),
     /// The entity has at least one component in the set, and may have all of them.
     /// When using a single-component set, `AllOf` is preferred.
-    AtLeastOneOf(HashSet<ComponentId>),
+    AnyOf(HashSet<ComponentId>),
     /// The entity has zero or one of the components in the set, but no more.
     /// When using a single-component set, this is a tautology.
     AtMostOneOf(HashSet<ComponentId>),
@@ -199,7 +199,7 @@ impl UntypedArchetypeStatement {
     pub fn component_ids(&self) -> &HashSet<ComponentId> {
         match self {
             UntypedArchetypeStatement::AllOf(set)
-            | UntypedArchetypeStatement::AtLeastOneOf(set)
+            | UntypedArchetypeStatement::AnyOf(set)
             | UntypedArchetypeStatement::AtMostOneOf(set)
             | UntypedArchetypeStatement::NoneOf(set)
             | UntypedArchetypeStatement::Only(set) => set,
@@ -217,7 +217,7 @@ impl UntypedArchetypeStatement {
                 }
                 true
             }
-            UntypedArchetypeStatement::AtLeastOneOf(desired_ids) => {
+            UntypedArchetypeStatement::AnyOf(desired_ids) => {
                 for desired_id in desired_ids {
                     if component_ids.contains(desired_id) {
                         return true;
