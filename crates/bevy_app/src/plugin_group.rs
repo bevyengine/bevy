@@ -148,6 +148,7 @@ impl PluginGroupBuilder {
 ///     App::new().add_plugins(MinimalPlugins).run();
 /// }
 /// ```
+#[doc(hidden)]
 pub struct NoopPluginGroup;
 
 impl PluginGroup for NoopPluginGroup {
