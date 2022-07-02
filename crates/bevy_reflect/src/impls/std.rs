@@ -248,7 +248,7 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
         let value = value.take::<V>().unwrap_or_else(|value| {
             V::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
-                    "Attempted to push invalid value of type {}.",
+                    "Attempted to insert invalid value of type {}.",
                     value.type_name()
                 )
             })

@@ -395,13 +395,13 @@ pub fn map_debug(dyn_map: &dyn Map, f: &mut std::fmt::Formatter<'_>) -> std::fmt
     debug.finish()
 }
 
-/// Applies the elements of `b` to the corresponding elements of `a`.
+/// Applies the elements of reflected map `b` to the corresponding elements of map `a`.
 ///
 /// If a key from `b` does not exist in `a`, the value is cloned and inserted.
 ///
 /// # Panics
 ///
-/// This function panics if `b` is not a map.
+/// This function panics if `b` is not a reflected map.
 #[inline]
 pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
     if let ReflectRef::Map(map_value) = b.reflect_ref() {
