@@ -44,6 +44,10 @@ pub struct Viewport {
     pub depth: Range<f32>,
 }
 
+/// A vector wrapper that represents either absolute value or value as a percentage.
+///
+/// For example, used in representing viewport position, either as absolute pixel value, or as a
+/// percentage of render target size.
 #[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
 pub enum AbsOrPercVec {
     Absolute(UVec2),
@@ -57,6 +61,8 @@ impl Default for AbsOrPercVec {
 }
 
 impl AbsOrPercVec {
+    /// Returns percentage of provided vec or absolute value from self.
+    #[inline]
     pub fn as_absolute(&self, of: UVec2) -> UVec2 {
         match self {
             AbsOrPercVec::Absolute(v) => *v,
@@ -64,16 +70,13 @@ impl AbsOrPercVec {
         }
     }
 
+    /// Returns percentage of provided vec or absolute value.
+    /// Returns `None` if self is `Percentage` and argument is `None`
+    #[inline]
     pub fn as_absolute_opt(&self, of_opt: Option<UVec2>) -> Option<UVec2> {
         match self {
             AbsOrPercVec::Absolute(v) => Some(*v),
-            AbsOrPercVec::Percentage(v) => {
-                if let Some(of) = of_opt {
-                    Some((of.as_vec2() * *v).as_uvec2())
-                } else {
-                    None
-                }
-            }
+            AbsOrPercVec::Percentage(_) => of_opt.map(|of| self.as_absolute(of)),
         }
     }
 }
@@ -145,6 +148,14 @@ impl Camera {
         Some((physical_size.as_dvec2() / scale).as_vec2())
     }
 
+    /// Returns absolute size of this `Camera`'s viewport.
+    ///
+    /// I.e. multiplies the percentage size of viewport with `physical_target_size` or uses
+    /// viewport's absolute size
+    ///
+    /// Returns `None` if viewport size is a `Percentage` and [`physical_target_size`] returns
+    /// `None`
+    #[inline]
     pub fn viewport_absolute_size(&self) -> Option<UVec2> {
         self.viewport
             .as_ref()
