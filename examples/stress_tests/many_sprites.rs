@@ -8,7 +8,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Quat,
     prelude::*,
-    render::camera::Camera,
+    render::camera::Camera, window::PresentMode,
 };
 
 use rand::Rng;
@@ -18,7 +18,7 @@ const CAMERA_SPEED: f32 = 1000.0;
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            present_mode: bevy::window::PresentMode::Immediate,
+            present_mode: PresentMode::Immediate,
             ..default()
         })
         // Since this is also used as a benchmark, we want it to display performance data.

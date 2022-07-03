@@ -13,13 +13,13 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    prelude::*,
+    prelude::*, window::PresentMode,
 };
 
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            present_mode: bevy::window::PresentMode::Immediate,
+            present_mode: PresentMode::Immediate,
             ..default()
         })
         .add_plugins(DefaultPlugins)

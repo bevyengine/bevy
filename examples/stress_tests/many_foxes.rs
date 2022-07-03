@@ -3,7 +3,7 @@
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
+    prelude::*, window::PresentMode,
 };
 
 struct Foxes {
@@ -16,7 +16,7 @@ fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
-            present_mode: bevy::window::PresentMode::Immediate,
+            present_mode: PresentMode::Immediate,
             ..default()
         })
         .add_plugins(DefaultPlugins)
