@@ -92,8 +92,8 @@ impl Default for PointLightShadowMap {
 /// approximation for light sources VERY far away, like the sun or
 /// the moon.
 ///
-/// The light's default direction is negative-Z (0, 0, -1) and is
-/// adjusted by the GlobalTransform.
+/// By default, the light shines in the negative-Z and the local
+/// transform adjusts its direction.
 ///
 /// Valid values for `illuminance` are:
 ///
