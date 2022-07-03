@@ -4,20 +4,7 @@ use bevy_ecs::{
     system::{Command, CommandQueue, Commands},
     world::World,
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
-criterion_group!(
-    benches,
-    empty_commands,
-    spawn_commands,
-    insert_commands,
-    fake_commands,
-    zero_sized_commands,
-    medium_sized_commands,
-    large_sized_commands,
-    get_or_spawn
-);
-criterion_main!(benches);
+use criterion::{black_box, Criterion};
 
 #[derive(Component)]
 struct A;
@@ -26,7 +13,7 @@ struct B;
 #[derive(Component)]
 struct C;
 
-fn empty_commands(criterion: &mut Criterion) {
+pub fn empty_commands(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("empty_commands");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -43,7 +30,7 @@ fn empty_commands(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn spawn_commands(criterion: &mut Criterion) {
+pub fn spawn_commands(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("spawn_commands");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -89,7 +76,7 @@ struct Matrix([[f32; 4]; 4]);
 #[derive(Default, Component)]
 struct Vec3([f32; 3]);
 
-fn insert_commands(criterion: &mut Criterion) {
+pub fn insert_commands(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("insert_commands");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -154,7 +141,7 @@ impl Command for FakeCommandB {
     }
 }
 
-fn fake_commands(criterion: &mut Criterion) {
+pub fn fake_commands(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("fake_commands");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -200,7 +187,7 @@ impl Default for LargeStruct {
     }
 }
 
-fn sized_commands_impl<T: Default + Command>(criterion: &mut Criterion) {
+pub fn sized_commands_impl<T: Default + Command>(criterion: &mut Criterion) {
     let mut group =
         criterion.benchmark_group(format!("sized_commands_{}_bytes", std::mem::size_of::<T>()));
     group.warm_up_time(std::time::Duration::from_millis(500));
@@ -225,19 +212,19 @@ fn sized_commands_impl<T: Default + Command>(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn zero_sized_commands(criterion: &mut Criterion) {
+pub fn zero_sized_commands(criterion: &mut Criterion) {
     sized_commands_impl::<SizedCommand<()>>(criterion);
 }
 
-fn medium_sized_commands(criterion: &mut Criterion) {
+pub fn medium_sized_commands(criterion: &mut Criterion) {
     sized_commands_impl::<SizedCommand<(u32, u32, u32)>>(criterion);
 }
 
-fn large_sized_commands(criterion: &mut Criterion) {
+pub fn large_sized_commands(criterion: &mut Criterion) {
     sized_commands_impl::<SizedCommand<LargeStruct>>(criterion);
 }
 
-fn get_or_spawn(criterion: &mut Criterion) {
+pub fn get_or_spawn(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("get_or_spawn");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
