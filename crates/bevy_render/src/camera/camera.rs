@@ -39,16 +39,44 @@ pub struct Viewport {
     pub physical_position: UVec2,
     /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
     /// The origin of the rectangle is in the top-left corner.
-    pub physical_size: UVec2,
+    pub physical_size: AbsoluteOrPercentageVec,
     /// The minimum and maximum depth to render (on a scale from 0.0 to 1.0).
     pub depth: Range<f32>,
+}
+
+#[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
+pub enum AbsoluteOrPercentageVec {
+    Absolute(UVec2),
+    Percentage(Vec2),
+}
+
+impl AbsoluteOrPercentageVec {
+    pub fn as_absolute(&self, of: UVec2) -> UVec2 {
+        match self {
+            AbsoluteOrPercentageVec::Absolute(v) => *v,
+            AbsoluteOrPercentageVec::Percentage(v) => (of.as_vec2() * *v).as_uvec2(),
+        }
+    }
+
+    pub fn as_absolute_opt(&self, of_opt: Option<UVec2>) -> Option<UVec2> {
+        match self {
+            AbsoluteOrPercentageVec::Absolute(v) => Some(*v),
+            AbsoluteOrPercentageVec::Percentage(v) => {
+                if let Some(of) = of_opt {
+                    Some((of.as_vec2() * *v).as_uvec2())
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }
 
 impl Default for Viewport {
     fn default() -> Self {
         Self {
             physical_position: Default::default(),
-            physical_size: Default::default(),
+            physical_size: AbsoluteOrPercentageVec::Absolute(UVec2::default()),
             depth: 0.0..1.0,
         }
     }
@@ -111,16 +139,18 @@ impl Camera {
         Some((physical_size.as_dvec2() / scale).as_vec2())
     }
 
+    pub fn viewport_absolute_size(&self) -> Option<UVec2> {
+        self.viewport
+            .as_ref()
+            .and_then(|v| v.physical_size.as_absolute_opt(self.physical_target_size()))
+    }
+
     /// The rendered physical bounds (minimum, maximum) of the camera. If the `viewport` field is
     /// set to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to
     /// the full physical rect of the current [`RenderTarget`].
     #[inline]
     pub fn physical_viewport_rect(&self) -> Option<(UVec2, UVec2)> {
-        let min = self
-            .viewport
-            .as_ref()
-            .map(|v| v.physical_position)
-            .unwrap_or(UVec2::ZERO);
+        let min = self.viewport_absolute_size().unwrap_or(UVec2::ZERO);
         let max = min + self.physical_viewport_size()?;
         Some((min, max))
     }
@@ -141,9 +171,8 @@ impl Camera {
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
-        self.viewport
-            .as_ref()
-            .and_then(|v| self.to_logical(v.physical_size))
+        self.viewport_absolute_size()
+            .and_then(|s| self.to_logical(s))
             .or_else(|| self.logical_target_size())
     }
 
@@ -153,9 +182,7 @@ impl Camera {
     /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
     #[inline]
     pub fn physical_viewport_size(&self) -> Option<UVec2> {
-        self.viewport
-            .as_ref()
-            .map(|v| v.physical_size)
+        self.viewport_absolute_size()
             .or_else(|| self.physical_target_size())
     }
 

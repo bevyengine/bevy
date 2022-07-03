@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    render::camera::Viewport,
+    render::camera::{AbsoluteOrPercentageVec, Viewport},
     window::{WindowId, WindowResized},
 };
 
@@ -97,14 +97,17 @@ fn set_camera_viewports(
             let mut left_camera = left_camera.single_mut();
             left_camera.viewport = Some(Viewport {
                 physical_position: UVec2::new(0, 0),
-                physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
+                physical_size: AbsoluteOrPercentageVec::Absolute(UVec2::new(
+                    window.physical_width() / 2,
+                    window.physical_height(),
+                )),
                 ..default()
             });
 
             let mut right_camera = right_camera.single_mut();
             right_camera.viewport = Some(Viewport {
                 physical_position: UVec2::new(window.physical_width() / 2, 0),
-                physical_size: UVec2::new(window.physical_width() / 2, window.physical_height()),
+                physical_size: AbsoluteOrPercentageVec::Percentage(Vec2::new(0.5, 1.0)),
                 ..default()
             });
         }

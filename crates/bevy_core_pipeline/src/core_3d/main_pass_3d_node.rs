@@ -103,7 +103,8 @@ impl Node for MainPass3dNode {
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
             if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
+                let physical_size = viewport.physical_size.as_absolute_opt(camera.physical_target_size).expect("Couldn't get camera.physical_target_size (needed for relative viewport size)");
+                tracked_pass.set_camera_viewport(viewport, physical_size);
             }
             for item in &opaque_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
@@ -142,7 +143,8 @@ impl Node for MainPass3dNode {
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
             if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
+                let physical_size = viewport.physical_size.as_absolute_opt(camera.physical_target_size).expect("Couldn't get camera.physical_target_size (needed for relative viewport size)");
+                tracked_pass.set_camera_viewport(viewport, physical_size);
             }
             for item in &alpha_mask_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
@@ -186,7 +188,8 @@ impl Node for MainPass3dNode {
             let mut draw_functions = draw_functions.write();
             let mut tracked_pass = TrackedRenderPass::new(render_pass);
             if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
+                let physical_size = viewport.physical_size.as_absolute_opt(camera.physical_target_size).expect("Couldn't get camera.physical_target_size (needed for relative viewport size)");
+                tracked_pass.set_camera_viewport(viewport, physical_size);
             }
             for item in &transparent_phase.items {
                 let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
