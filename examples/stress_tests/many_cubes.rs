@@ -13,7 +13,8 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    prelude::*, window::PresentMode,
+    prelude::*,
+    window::PresentMode,
 };
 
 fn main() {
