@@ -59,7 +59,7 @@ thiserror = "1.0"
 futures-lite = "1.4.0"
 anyhow = "1.0"
 hex = "0.4.2"
-hexasphere = "7.0.0"
+hexasphere = "7.2"
 parking_lot = "0.11.0"
 regex = "1.5"
 copyless = "0.1.5"
@@ -70,4 +70,4 @@ flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.2.4", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.2.0", optional = true }
-encase = { version = "0.2", features = ["glam"] }
+encase = { version = "0.3", features = ["glam"] }

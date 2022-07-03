@@ -45,7 +45,7 @@ fn setup(
             subdivisions: 9,
         })),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
-        transform: Transform::from_scale(Vec3::splat(-1.0)),
+        transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 

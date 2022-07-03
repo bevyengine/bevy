@@ -922,7 +922,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             assert_eq!(
                 result,
-                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
+                r#"{"type":"glam::f32::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
             );
         }
 

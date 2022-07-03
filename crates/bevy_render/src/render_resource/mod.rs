@@ -49,6 +49,6 @@ pub mod encase {
     pub use encase::*;
 }
 
-pub use self::encase::{ShaderType, Size as ShaderSize};
+pub use self::encase::{ShaderSize, ShaderType};
 
 pub use naga::ShaderStage;
