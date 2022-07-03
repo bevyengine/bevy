@@ -1,4 +1,4 @@
-use bevy_reflect::TypeRegistration;
+use bevy_utils::get_short_name;
 use lazy_static::lazy_static;
 use regex::Regex;
 use termcolor::{Color, ColorSpec, StandardStream, WriteColor};
@@ -206,21 +206,18 @@ lazy_static! {
 
 pub fn simplify_name(name: &str) -> String {
     if let Some(captures) = SYSTEM_NAME.captures(name) {
-        return format!(
-            r#"system: name="{}""#,
-            TypeRegistration::get_short_name(&captures[1])
-        );
+        return format!(r#"system: name="{}""#, get_short_name(&captures[1]));
     }
     if let Some(captures) = SYSTEM_OVERHEAD.captures(name) {
         return format!(
             r#"system overhead: name="{}""#,
-            TypeRegistration::get_short_name(&captures[1])
+            get_short_name(&captures[1])
         );
     }
     if let Some(captures) = SYSTEM_COMMANDS.captures(name) {
         return format!(
             r#"system_commands: name="{}""#,
-            TypeRegistration::get_short_name(&captures[1])
+            get_short_name(&captures[1])
         );
     }
     name.to_string()

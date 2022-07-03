@@ -1,10 +1,8 @@
-//! Illustrates how to (constantly) rotate an object around an axis.
+//! Illustrates how to rotate an object around an axis.
 
 use bevy::prelude::*;
 
-use std::f32::consts::PI;
-
-const FULL_TURN: f32 = 2.0 * PI;
+use std::f32::consts::TAU;
 
 // Define a component to designate a rotation speed to an entity.
 #[derive(Component)]
@@ -41,19 +39,19 @@ fn setup(
         ..default()
     });
 
-    // Add a light source for better 3d visibility.
+    // Add a light source so we can see clearly.
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::ONE * 3.0),
         ..default()
     });
 }
 
-// This system will rotate any entity in the scene with an assigned Rotatable around its z-axis.
+// This system will rotate any entity in the scene with a Rotatable component around its y-axis.
 fn rotate_cube(mut cubes: Query<(&mut Transform, &Rotatable)>, timer: Res<Time>) {
     for (mut transform, cube) in cubes.iter_mut() {
-        // The speed is taken as a percentage of a full 360 degree turn.
-        // The timers delta_seconds is used to smooth out the movement.
-        let rotation_change = Quat::from_rotation_y(FULL_TURN * cube.speed * timer.delta_seconds());
-        transform.rotate(rotation_change);
+        // The speed is first multiplied by TAU which is a full rotation (360deg) in radians,
+        // and then multiplied by delta_seconds which is the time that passed last frame.
+        // In other words. Speed is equal to the amount of rotations per second.
+        transform.rotate_y(cube.speed * TAU * timer.delta_seconds());
     }
 }

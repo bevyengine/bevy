@@ -262,8 +262,8 @@ pub fn animation_player(
                                     rot_end = -rot_end;
                                 }
                                 // Rotations are using a spherical linear interpolation
-                                transform.rotation = Quat::from_array(rot_start.normalize().into())
-                                    .slerp(Quat::from_array(rot_end.normalize().into()), lerp);
+                                transform.rotation =
+                                    rot_start.normalize().slerp(rot_end.normalize(), lerp);
                             }
                             Keyframes::Translation(keyframes) => {
                                 let translation_start = keyframes[step_start];
