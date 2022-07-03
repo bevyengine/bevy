@@ -1,12 +1,11 @@
 use crate::{
-    camera::Viewport,
+    camera::{ExtractedCamera, Viewport},
     prelude::Color,
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
 };
-use bevy_math::UVec2;
 use bevy_utils::tracing::trace;
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
@@ -341,10 +340,22 @@ impl<'a> TrackedRenderPass<'a> {
     /// Set the rendering viewport to the given [`Camera`](crate::camera::Viewport) [`Viewport`].
     ///
     /// Subsequent draw calls will be projected into that viewport.
-    pub fn set_camera_viewport(&mut self, viewport: &Viewport, physical_size: UVec2) {
+    pub fn set_camera_viewport(&mut self, viewport: &Viewport, camera: &ExtractedCamera) {
+        let physical_size = viewport
+            .physical_size
+            .as_absolute_opt(camera.physical_target_size)
+            .expect("Couldn't get camera.physical_target_size (needed for relative viewport size)");
+
+        let physical_position = viewport
+            .physical_position
+            .as_absolute_opt(camera.physical_target_size)
+            .expect(
+                "Couldn't get camera.physical_target_size (needed for relative viewport position)",
+            );
+
         self.set_viewport(
-            viewport.physical_position.x as f32,
-            viewport.physical_position.y as f32,
+            physical_position.x as f32,
+            physical_position.y as f32,
             physical_size.x as f32,
             physical_size.y as f32,
             viewport.depth.start,

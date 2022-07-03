@@ -36,32 +36,38 @@ use wgpu::Extent3d;
 pub struct Viewport {
     /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
     /// (0,0) corresponds to the top-left corner
-    pub physical_position: UVec2,
+    pub physical_position: AbsOrPercVec,
     /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
     /// The origin of the rectangle is in the top-left corner.
-    pub physical_size: AbsoluteOrPercentageVec,
+    pub physical_size: AbsOrPercVec,
     /// The minimum and maximum depth to render (on a scale from 0.0 to 1.0).
     pub depth: Range<f32>,
 }
 
 #[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
-pub enum AbsoluteOrPercentageVec {
+pub enum AbsOrPercVec {
     Absolute(UVec2),
     Percentage(Vec2),
 }
 
-impl AbsoluteOrPercentageVec {
+impl Default for AbsOrPercVec {
+    fn default() -> Self {
+        Self::Absolute(Default::default())
+    }
+}
+
+impl AbsOrPercVec {
     pub fn as_absolute(&self, of: UVec2) -> UVec2 {
         match self {
-            AbsoluteOrPercentageVec::Absolute(v) => *v,
-            AbsoluteOrPercentageVec::Percentage(v) => (of.as_vec2() * *v).as_uvec2(),
+            AbsOrPercVec::Absolute(v) => *v,
+            AbsOrPercVec::Percentage(v) => (of.as_vec2() * *v).as_uvec2(),
         }
     }
 
     pub fn as_absolute_opt(&self, of_opt: Option<UVec2>) -> Option<UVec2> {
         match self {
-            AbsoluteOrPercentageVec::Absolute(v) => Some(*v),
-            AbsoluteOrPercentageVec::Percentage(v) => {
+            AbsOrPercVec::Absolute(v) => Some(*v),
+            AbsOrPercVec::Percentage(v) => {
                 if let Some(of) = of_opt {
                     Some((of.as_vec2() * *v).as_uvec2())
                 } else {
@@ -76,7 +82,7 @@ impl Default for Viewport {
     fn default() -> Self {
         Self {
             physical_position: Default::default(),
-            physical_size: AbsoluteOrPercentageVec::Absolute(UVec2::default()),
+            physical_size: Default::default(),
             depth: 0.0..1.0,
         }
     }
