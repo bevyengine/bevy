@@ -153,7 +153,7 @@ impl Camera {
     /// I.e. multiplies the percentage size of viewport with `physical_target_size` or uses
     /// viewport's absolute size
     ///
-    /// Returns `None` if viewport size is a `Percentage` and [`physical_target_size`] returns
+    /// Returns `None` if viewport size is a `Percentage` and [`Camera::physical_target_size`] returns
     /// `None`
     #[inline]
     pub fn viewport_absolute_size(&self) -> Option<UVec2> {
