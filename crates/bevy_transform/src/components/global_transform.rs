@@ -339,33 +339,54 @@ impl Mul<Vec3> for GlobalTransform {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use bevy_math::EulerRot::XYZ;
+
+    fn transform_equal(left: GlobalTransform, right: Transform) -> bool {
+        left.scale.abs_diff_eq(right.scale, 0.001)
+            && left.translation.abs_diff_eq(right.translation, 0.001)
+            && left.rotation.angle_between(right.rotation) < 0.0001
+    }
+
     #[test]
     fn reparented_to_transform_identity() {
-        fn identity(t1: GlobalTransform, t2: GlobalTransform) -> Transform {
+        fn reparent_to_same(t1: GlobalTransform, t2: GlobalTransform) -> Transform {
             t2.mul_transform(t1.into()).reparented_to(t2)
         }
         let t1 = GlobalTransform {
             translation: Vec3::new(1034.0, 34.0, -1324.34),
-            rotation: Quat::from_rotation_x(1.2),
-            scale: Vec3::new(1.0, 2.345, 0.9),
+            rotation: Quat::from_euler(XYZ, 1.0, 0.9, 2.1),
+            scale: Vec3::new(1.0, 2.345, 0.0),
+        };
+        let t2 = GlobalTransform {
+            translation: Vec3::new(0.0, -54.493, 324.34),
+            rotation: Quat::from_euler(XYZ, 1.9, 0.3, 3.0),
+            scale: Vec3::new(3.0, 1.345, 0.9),
+        };
+        let retransformed = reparent_to_same(t1, t2);
+        assert!(
+            transform_equal(t1, retransformed),
+            "t1:{t1:#?} retransformed:{retransformed:#?}"
+        );
+    }
+    #[test]
+    fn reparented_usecase() {
+        let t1 = GlobalTransform {
+            translation: Vec3::new(1034.0, 34.0, -1324.34),
+            rotation: Quat::from_euler(XYZ, 0.8, 1.9, 2.1),
+            scale: Vec3::new(-1.0, -2.3, 10.9),
         };
         let t2 = GlobalTransform {
             translation: Vec3::new(28.0, -54.493, 324.34),
-            rotation: Quat::from_rotation_z(1.9),
-            scale: Vec3::new(3.0, 1.345, 0.9),
+            rotation: Quat::from_euler(XYZ, 0.0, 3.1, 0.1),
+            scale: Vec3::new(3.0, -1.345, 0.9),
         };
-        let f32_equal = |left: f32, right: f32| (left - right).abs() < 0.0001;
-        let rt_t1_pos = identity(t1, t2).translation;
-        let rt_t2_pos = identity(t2, t1).translation;
-        assert!(f32_equal(t1.translation.length(), rt_t1_pos.length()));
-        assert!(f32_equal(t2.translation.length(), rt_t2_pos.length()));
-        assert!(f32_equal(
-            t1.scale.length(),
-            identity(t1, t2).scale.length()
-        ));
-        assert!(f32_equal(
-            t2.scale.length(),
-            identity(t2, t1).scale.length()
-        ));
+        // goal: find `X` such as `t2 * X = t1`
+        let reparented = t1.reparented_to(t2);
+        let t1_prime = t2 * reparented;
+        assert!(
+            transform_equal(t1, t1_prime.into()),
+            "t1:{t1:#?} t1_prime:{t1_prime:#?}"
+        );
     }
 }
