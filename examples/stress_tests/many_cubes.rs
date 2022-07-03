@@ -18,6 +18,10 @@ use bevy::{
 
 fn main() {
     App::new()
+        .insert_resource(WindowDescriptor {
+            present_mode: bevy::window::PresentMode::Immediate,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())

@@ -16,6 +16,7 @@ fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
+            present_mode: bevy::window::PresentMode::Immediate,
             ..default()
         })
         .add_plugins(DefaultPlugins)
