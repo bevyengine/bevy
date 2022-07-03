@@ -297,7 +297,7 @@ impl RenderAsset for StandardMaterial {
             alpha_cutoff,
         };
 
-        let byte_buffer = [0u8; StandardMaterialUniformData::SIZE.get() as usize];
+        let byte_buffer = [0u8; StandardMaterialUniformData::SHADER_SIZE.get() as usize];
         let mut buffer = encase::UniformBuffer::new(byte_buffer);
         buffer.write(&value).unwrap();
 

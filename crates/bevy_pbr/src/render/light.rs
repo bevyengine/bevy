@@ -1012,7 +1012,7 @@ struct GpuClusterLightIndexListsUniform {
 
 // NOTE: Assert at compile time that GpuClusterLightIndexListsUniform
 // fits within the maximum uniform buffer binding size
-const _: () = assert!(GpuClusterLightIndexListsUniform::SIZE.get() <= 16384);
+const _: () = assert!(GpuClusterLightIndexListsUniform::SHADER_SIZE.get() <= 16384);
 
 impl Default for GpuClusterLightIndexListsUniform {
     fn default() -> Self {
