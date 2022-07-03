@@ -798,6 +798,6 @@ mod test {
     #[test]
     fn image_default_size() {
         let image = Image::default();
-        assert_eq!(Vec2::new(1.0, 1.0), image.size());
+        assert_eq!(Vec2::ONE, image.size());
     }
 }

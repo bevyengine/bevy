@@ -92,7 +92,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
                 id,
                 TextLayoutInfo {
                     glyphs: Vec::new(),
-                    size: Vec2::new(0., 0.),
+                    size: Vec2::ZERO,
                 },
             );
             return Ok(());

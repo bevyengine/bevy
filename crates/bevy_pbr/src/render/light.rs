@@ -9,7 +9,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -501,11 +501,6 @@ pub fn extract_lights(
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
 
-// Can't do `Vec3::Y * -1.0` because mul isn't const
-const NEGATIVE_X: Vec3 = const_vec3!([-1.0, 0.0, 0.0]);
-const NEGATIVE_Y: Vec3 = const_vec3!([0.0, -1.0, 0.0]);
-const NEGATIVE_Z: Vec3 = const_vec3!([0.0, 0.0, -1.0]);
-
 pub(crate) struct CubeMapFace {
     pub(crate) target: Vec3,
     pub(crate) up: Vec3,
@@ -515,33 +510,33 @@ pub(crate) struct CubeMapFace {
 pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
     // 0 	GL_TEXTURE_CUBE_MAP_POSITIVE_X
     CubeMapFace {
-        target: NEGATIVE_X,
-        up: NEGATIVE_Y,
+        target: Vec3::NEG_X,
+        up: Vec3::NEG_Y,
     },
     // 1 	GL_TEXTURE_CUBE_MAP_NEGATIVE_X
     CubeMapFace {
         target: Vec3::X,
-        up: NEGATIVE_Y,
+        up: Vec3::NEG_Y,
     },
     // 2 	GL_TEXTURE_CUBE_MAP_POSITIVE_Y
     CubeMapFace {
-        target: NEGATIVE_Y,
+        target: Vec3::NEG_Y,
         up: Vec3::Z,
     },
     // 3 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
     CubeMapFace {
         target: Vec3::Y,
-        up: NEGATIVE_Z,
+        up: Vec3::NEG_Z,
     },
     // 4 	GL_TEXTURE_CUBE_MAP_POSITIVE_Z
     CubeMapFace {
-        target: NEGATIVE_Z,
-        up: NEGATIVE_Y,
+        target: Vec3::NEG_Z,
+        up: Vec3::NEG_Y,
     },
     // 5 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
     CubeMapFace {
         target: Vec3::Z,
-        up: NEGATIVE_Y,
+        up: Vec3::NEG_Y,
     },
 ];
 
@@ -1016,7 +1011,7 @@ struct GpuClusterLightIndexListsUniform {
 
 // NOTE: Assert at compile time that GpuClusterLightIndexListsUniform
 // fits within the maximum uniform buffer binding size
-const _: () = assert!(GpuClusterLightIndexListsUniform::SIZE.get() <= 16384);
+const _: () = assert!(GpuClusterLightIndexListsUniform::SHADER_SIZE.get() <= 16384);
 
 impl Default for GpuClusterLightIndexListsUniform {
     fn default() -> Self {

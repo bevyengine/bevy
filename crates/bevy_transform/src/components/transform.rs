@@ -1,6 +1,6 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{const_vec3, Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use std::ops::Mul;
@@ -43,7 +43,7 @@ impl Transform {
     /// `z`-value.
     #[inline]
     pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
-        Self::from_translation(const_vec3!([x, y, z]))
+        Self::from_translation(Vec3::new(x, y, z))
     }
 
     /// Creates a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
