@@ -325,7 +325,7 @@ pub struct Mut<'a, T: ?Sized> {
     pub(crate) ticks: Ticks<'a>,
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a Mut<'w, T>
+impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
 where
     &'a T: IntoIterator,
 {
@@ -338,7 +338,7 @@ where
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a mut Mut<'w, T>
+impl<'w, 'a, T> IntoIterator for &'a mut Mut<'w, T>
 where
     &'a mut T: IntoIterator,
 {
