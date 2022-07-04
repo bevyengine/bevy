@@ -35,7 +35,8 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl
         );
 
-        app.init_resource::<WireframeConfig>()
+        app.register_type::<WireframeConfig>()
+            .init_resource::<WireframeConfig>()
             .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -60,7 +61,8 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
 #[reflect(Component, Default)]
 pub struct Wireframe;
 
-#[derive(Debug, Clone, Default, ExtractResource)]
+#[derive(Debug, Clone, Default, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
     pub global: bool,

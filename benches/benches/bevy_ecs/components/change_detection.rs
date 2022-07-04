@@ -8,15 +8,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
-criterion_group!(
-    benches,
-    all_added_detection,
-    all_changed_detection,
-    few_changed_detection,
-    none_changed_detection,
-);
-criterion_main!(benches);
-
 #[derive(Component, Default)]
 #[component(storage = "Table")]
 struct Table;
@@ -69,7 +60,7 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
     );
 }
 
-fn all_added_detection(criterion: &mut Criterion) {
+pub fn all_added_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_added_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -117,7 +108,7 @@ fn all_changed_detection_generic<T: Component + Default>(
     );
 }
 
-fn all_changed_detection(criterion: &mut Criterion) {
+pub fn all_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -167,7 +158,7 @@ fn few_changed_detection_generic<T: Component + Default>(
     );
 }
 
-fn few_changed_detection(criterion: &mut Criterion) {
+pub fn few_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("few_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -211,7 +202,7 @@ fn none_changed_detection_generic<T: Component + Default>(
     );
 }
 
-fn none_changed_detection(criterion: &mut Criterion) {
+pub fn none_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("none_changed_detection");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));

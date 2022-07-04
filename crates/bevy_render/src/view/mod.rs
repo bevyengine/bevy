@@ -21,6 +21,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
+use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 
@@ -28,7 +29,8 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Msaa>()
+        app.register_type::<Msaa>()
+            .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugin(ExtractResourcePlugin::<Msaa>::default())
             .add_plugin(VisibilityPlugin);
@@ -45,7 +47,6 @@ impl Plugin for ViewPlugin {
     }
 }
 
-#[derive(Clone, ExtractResource)]
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
 /// # Example
@@ -56,6 +57,8 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa { samples: 4 })
 ///     .run();
 /// ```
+#[derive(Clone, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
     /// smoother edges.
@@ -84,9 +87,11 @@ pub struct ExtractedView {
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
     view_proj: Mat4,
+    inverse_view_proj: Mat4,
     view: Mat4,
     inverse_view: Mat4,
     projection: Mat4,
+    inverse_projection: Mat4,
     world_position: Vec3,
     width: f32,
     height: f32,
@@ -138,14 +143,17 @@ fn prepare_view_uniforms(
     view_uniforms.uniforms.clear();
     for (entity, camera) in views.iter() {
         let projection = camera.projection;
+        let inverse_projection = projection.inverse();
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: projection * inverse_view,
+                inverse_view_proj: view * inverse_projection,
                 view,
                 inverse_view,
                 projection,
+                inverse_projection,
                 world_position: camera.transform.translation,
                 width: camera.width as f32,
                 height: camera.height as f32,

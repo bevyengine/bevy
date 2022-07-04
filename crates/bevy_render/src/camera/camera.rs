@@ -307,19 +307,14 @@ impl RenderTarget {
     }
 }
 
-#[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Reflect, Serialize, Deserialize)]
 #[reflect_value(Serialize, Deserialize)]
 pub enum DepthCalculation {
     /// Pythagorean distance; works everywhere, more expensive to compute.
+    #[default]
     Distance,
     /// Optimization for 2D; assuming the camera points towards -Z.
     ZDifference,
-}
-
-impl Default for DepthCalculation {
-    fn default() -> Self {
-        DepthCalculation::Distance
-    }
 }
 
 pub fn camera_system<T: CameraProjection + Component>(

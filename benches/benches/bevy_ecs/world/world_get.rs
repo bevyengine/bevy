@@ -1,25 +1,14 @@
 use bevy_ecs::{
+    bundle::Bundle,
     component::Component,
     entity::Entity,
+    prelude::*,
     system::{Query, SystemState},
-    bundle::Bundle,
     world::World,
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-
-criterion_group!(
-    benches,
-    world_entity,
-    world_get,
-    world_query_get,
-    world_query_iter,
-    world_query_for_each,
-    query_get_component,
-    query_get,
-);
-criterion_main!(benches);
 
 #[derive(Component, Default)]
 #[component(storage = "Table")]
@@ -52,7 +41,7 @@ fn setup_wide<T: Bundle + Default>(entity_count: u32) -> World {
     black_box(world)
 }
 
-fn world_entity(criterion: &mut Criterion) {
+pub fn world_entity(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("world_entity");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -73,7 +62,7 @@ fn world_entity(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn world_get(criterion: &mut Criterion) {
+pub fn world_get(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("world_get");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -104,7 +93,7 @@ fn world_get(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn world_query_get(criterion: &mut Criterion) {
+pub fn world_query_get(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("world_query_get");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -157,37 +146,40 @@ fn world_query_get(criterion: &mut Criterion) {
                 }
             });
         });
-        group.bench_function(format!("{}_entities_sparse_wide", entity_count), |bencher| {
-            let mut world = setup_wide::<(
-                WideSparse<0>,
-                WideSparse<1>,
-                WideSparse<2>,
-                WideSparse<3>,
-                WideSparse<4>,
-                WideSparse<5>,
-            )>(entity_count);
-            let mut query = world.query::<(
-                &WideSparse<0>,
-                &WideSparse<1>,
-                &WideSparse<2>,
-                &WideSparse<3>,
-                &WideSparse<4>,
-                &WideSparse<5>,
-            )>();
+        group.bench_function(
+            format!("{}_entities_sparse_wide", entity_count),
+            |bencher| {
+                let mut world = setup_wide::<(
+                    WideSparse<0>,
+                    WideSparse<1>,
+                    WideSparse<2>,
+                    WideSparse<3>,
+                    WideSparse<4>,
+                    WideSparse<5>,
+                )>(entity_count);
+                let mut query = world.query::<(
+                    &WideSparse<0>,
+                    &WideSparse<1>,
+                    &WideSparse<2>,
+                    &WideSparse<3>,
+                    &WideSparse<4>,
+                    &WideSparse<5>,
+                )>();
 
-            bencher.iter(|| {
-                for i in 0..entity_count {
-                    let entity = Entity::from_raw(i);
-                    assert!(query.get(&world, entity).is_ok());
-                }
-            });
-        });
+                bencher.iter(|| {
+                    for i in 0..entity_count {
+                        let entity = Entity::from_raw(i);
+                        assert!(query.get(&world, entity).is_ok());
+                    }
+                });
+            },
+        );
     }
 
     group.finish();
 }
 
-fn world_query_iter(criterion: &mut Criterion) {
+pub fn world_query_iter(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("world_query_iter");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -226,7 +218,7 @@ fn world_query_iter(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn world_query_for_each(criterion: &mut Criterion) {
+pub fn world_query_for_each(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("world_query_for_each");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -265,7 +257,49 @@ fn world_query_for_each(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn query_get_component(criterion: &mut Criterion) {
+pub fn query_get_component_simple(criterion: &mut Criterion) {
+    #[derive(Component)]
+    struct A(f32);
+
+    let mut group = criterion.benchmark_group("query_get_component_simple");
+    group.warm_up_time(std::time::Duration::from_millis(500));
+    group.measurement_time(std::time::Duration::from_secs(4));
+
+    group.bench_function("unchecked", |bencher| {
+        let mut world = World::new();
+
+        let entity = world.spawn().insert(A(0.0)).id();
+        let mut query = world.query::<&mut A>();
+
+        bencher.iter(|| {
+            for _x in 0..100000 {
+                let mut a = unsafe { query.get_unchecked(&mut world, entity).unwrap() };
+                a.0 += 1.0;
+            }
+        });
+    });
+    group.bench_function("system", |bencher| {
+        let mut world = World::new();
+
+        let entity = world.spawn().insert(A(0.0)).id();
+        fn query_system(In(entity): In<Entity>, mut query: Query<&mut A>) {
+            for _ in 0..100_000 {
+                let mut a = query.get_mut(entity).unwrap();
+                a.0 += 1.0;
+            }
+        }
+
+        let mut system = IntoSystem::into_system(query_system);
+        system.initialize(&mut world);
+        system.update_archetype_component_access(&world);
+
+        bencher.iter(|| system.run(entity, &mut world));
+    });
+
+    group.finish();
+}
+
+pub fn query_get_component(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("query_get_component");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -320,7 +354,7 @@ fn query_get_component(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn query_get(criterion: &mut Criterion) {
+pub fn query_get(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("query_get");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));

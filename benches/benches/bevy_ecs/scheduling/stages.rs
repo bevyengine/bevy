@@ -4,10 +4,7 @@ use bevy_ecs::{
     system::Query,
     world::World,
 };
-use criterion::{criterion_group, criterion_main, Criterion};
-
-criterion_group!(benches, empty_systems, busy_systems, contrived);
-criterion_main!(benches);
+use criterion::Criterion;
 
 fn run_stage(stage: &mut SystemStage, world: &mut World) {
     stage.run(world);
@@ -26,7 +23,7 @@ struct E(f32);
 
 const ENTITY_BUNCH: usize = 5000;
 
-fn empty_systems(criterion: &mut Criterion) {
+pub fn empty_systems(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("empty_systems");
     group.warm_up_time(std::time::Duration::from_millis(500));
@@ -64,7 +61,7 @@ fn empty_systems(criterion: &mut Criterion) {
     group.finish()
 }
 
-fn busy_systems(criterion: &mut Criterion) {
+pub fn busy_systems(criterion: &mut Criterion) {
     fn ab(mut q: Query<(&mut A, &mut B)>) {
         q.for_each_mut(|(mut a, mut b)| {
             std::mem::swap(&mut a.0, &mut b.0);
@@ -113,7 +110,7 @@ fn busy_systems(criterion: &mut Criterion) {
     group.finish()
 }
 
-fn contrived(criterion: &mut Criterion) {
+pub fn contrived(criterion: &mut Criterion) {
     fn s_0(mut q_0: Query<(&mut A, &mut B)>) {
         q_0.for_each_mut(|(mut c_0, mut c_1)| {
             std::mem::swap(&mut c_0.0, &mut c_1.0);

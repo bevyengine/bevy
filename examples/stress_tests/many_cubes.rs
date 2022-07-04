@@ -14,10 +14,15 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     prelude::*,
+    window::PresentMode,
 };
 
 fn main() {
     App::new()
+        .insert_resource(WindowDescriptor {
+            present_mode: PresentMode::Immediate,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -149,8 +154,9 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 // System for rotating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.15));
-    camera_transform.rotate(Quat::from_rotation_x(time.delta_seconds() * 0.15));
+    let delta = time.delta_seconds() * 0.15;
+    camera_transform.rotate_z(delta);
+    camera_transform.rotate_x(delta);
 }
 
 // System for printing the number of meshes on every tick of the timer

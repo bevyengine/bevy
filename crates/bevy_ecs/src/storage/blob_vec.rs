@@ -151,8 +151,20 @@ impl BlobVec {
         let ptr = self.get_unchecked_mut(index).promote().as_ptr();
         self.len = 0;
         // Drop the old value, then write back, justifying the promotion
+        // If the drop impl for the old value panics then we run the drop impl for `value` too.
         if let Some(drop) = self.drop {
+            struct OnDrop<F: FnMut()>(F);
+            impl<F: FnMut()> Drop for OnDrop<F> {
+                fn drop(&mut self) {
+                    (self.0)();
+                }
+            }
+            let value = value.as_ptr();
+            let on_unwind = OnDrop(|| (drop)(OwningPtr::new(NonNull::new_unchecked(value))));
+
             (drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
+
+            core::mem::forget(on_unwind);
         }
         std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
         self.len = old_len;
@@ -304,12 +316,16 @@ impl BlobVec {
 impl Drop for BlobVec {
     fn drop(&mut self) {
         self.clear();
+        if self.item_layout.size() > 0 {
+            unsafe {
+                std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
+            }
+        }
         let array_layout =
             array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
         if array_layout.size() > 0 {
             unsafe {
                 std::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
-                std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
             }
         }
     }
