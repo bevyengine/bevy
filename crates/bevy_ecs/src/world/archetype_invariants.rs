@@ -19,14 +19,17 @@ use crate::{
 /// Archetype invariants are checked each time [`Archetypes`](crate::archetype::Archetypes) is modified;
 /// this can occur on component addition, component removal, and entity spawning.
 ///
+/// Archetypes are only modified when a novel archetype (set of components) is seen for the first time;
+/// swapping between existing archetypes will not trigger these checks.
+///
 /// Note that archetype invariants are not symmetric by default.
 /// For example, `ArchetypeInvariant::<B1, B2>::requires_one()` means that `B1` requires `B2`,
 /// but not that `B2` requires `B1`.
 /// In this case, an entity with just `B2` is completely valid, but an entity with just `B1` is not.
 /// If symmetry is desired, repeat the invariant with the order of the types switched.
-///
-/// Archetypes are only modified when a novel archetype (set of components) is seen for the first time;
-/// swapping between existing archetypes will not trigger these checks.
+/// 
+/// When working with dynamic component types (for non-Rust components),
+/// use the untyped equivalents [`UntypedArchetypeInvariant`] and [`UntypedArchetypeStatement`] directly.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArchetypeInvariant<B1: Bundle, B2: Bundle = B1> {
     /// Defines which entities this invariant applies to.
@@ -131,9 +134,6 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
 /// For the statements about a single component `C`, wrap it in a single-component bundle `(C,)`.
 /// For single component bundles, `AllOf` and `AnyOf` are equivalent.
 /// Prefer `ArchetypeStatement::<(C,)>::all_of` over `ArchetypeStatement::<(C,)>::any_of` for consistency and clarity.
-///
-/// Note that this is converted to an [`UntypedArchetypeStatement`] when added to a [`World`].
-/// This is to ensure compatibility between different invariants.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArchetypeStatement<B: Bundle> {
     /// Evaluates to true if and only if the entity has all of the components present in the bundle `B`.
@@ -403,7 +403,10 @@ impl UntypedArchetypeStatement {
     }
 }
 
-/// A list of [`ArchetypeInvariant`]s to be stored on a [`World`].
+/// A list of [`ArchetypeInvariant`]s, stored on a [`World`].
+/// 
+/// These store [`UntypedArchetypeInvariant`]s to ensure fast computation
+/// and compatiblity with dynamic (non-Rust) component types.
 #[derive(Default)]
 pub struct ArchetypeInvariants {
     /// The list of invariants that must be upheld.
@@ -415,6 +418,11 @@ impl ArchetypeInvariants {
     #[inline]
     pub fn add(&mut self, archetype_invariant: UntypedArchetypeInvariant) {
         self.raw_list.push(archetype_invariant);
+    }
+
+    /// Returns the raw list of [`UntypedArchetypeInvariant`]s
+    pub fn raw_list(&self) -> &Vec<UntypedArchetypeInvariant> {
+        &self.raw_list
     }
 
     /// Asserts that the provided iterator of [`ComponentId`]s obeys all archetype invariants.
