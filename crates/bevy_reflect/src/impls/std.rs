@@ -7,7 +7,7 @@ use crate::{
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
-use bevy_utils::{Duration, HashMap, HashSet};
+use bevy_utils::{Duration, HashMap, HashSet, Instant};
 use std::{
     any::Any,
     borrow::Cow,
@@ -36,6 +36,7 @@ impl_reflect_value!(Option<T: Clone + Reflect + 'static>());
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
 impl_reflect_value!(Range<T: Clone +  Send + Sync + 'static>());
 impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Instant(Debug, Hash, PartialEq));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
