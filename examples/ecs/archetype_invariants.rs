@@ -22,13 +22,13 @@ fn main() {
         .add_archetype_invariant(ArchetypeInvariant::<(Player,), (Camera,)>::forbids())
         // This invariant ensures that the presence of a `GlobalTransform` component implies the existence of a `Transform` component
         .add_archetype_invariant(
-            ArchetypeInvariant::<(GlobalTransform,), (Transform,)>::requires_one(),
+            ArchetypeInvariant::<(GlobalTransform,), (Transform,)>::requires(),
         )
         // Note that the converse statement isn't automatically true!
         // With only the above invariant, a entity with only `Transform` is valid.
         // To fix this, swap the order of the generic types and add a new invariant.
         .add_archetype_invariant(
-            ArchetypeInvariant::<(Transform,), (GlobalTransform,)>::requires_one(),
+            ArchetypeInvariant::<(Transform,), (GlobalTransform,)>::requires(),
         )
         // The `disjoint` invariant ensures that at most one component from the bundle is present on a given entity.
         // This way, an entity can never be an animal and a vegetable at once.

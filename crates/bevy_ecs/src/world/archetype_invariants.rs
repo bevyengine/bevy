@@ -66,7 +66,7 @@ impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
     ///
     /// In other words, if any component from `B1` is present, then all of the components from `B2` must be.
     #[inline]
-    pub fn requires_all() -> Self {
+    pub fn requires() -> Self {
         Self {
             premise: ArchetypeStatement::<B1>::any_of(),
             consequence: ArchetypeStatement::<B2>::all_of(),
@@ -569,29 +569,29 @@ mod tests {
     }
 
     #[test]
-    fn requires_all_happy() {
+    fn requires_happy() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires_all());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires());
         world.spawn().insert_bundle((A, B, C));
         world.spawn().insert_bundle((B, C));
     }
 
     #[test]
     #[should_panic]
-    fn requires_all_sad_partial() {
+    fn requires_sad_partial() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires_all());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires());
         world.spawn().insert_bundle((A, B));
     }
 
     #[test]
     #[should_panic]
-    fn requires_all_sad_none() {
+    fn requires_sad_none() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires_all());
+        world.add_archetype_invariant(ArchetypeInvariant::<(A,), (B, C)>::requires());
         world.spawn().insert(A);
     }
 
