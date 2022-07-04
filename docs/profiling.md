@@ -38,15 +38,15 @@ Alternatively, directly run the tracy GUI and then run your application, for liv
 
 In any case, you'll see your trace in the GUI window:
 
-<img width="1840" alt="Tracy timeline demonstrating the performance breakdown of a Bevy app" src="https://user-images.githubusercontent.com/302146/163988636-25c017ab-64bc-4da7-a897-a80098b667ef.png">
+![Tracy timeline demonstrating the performance breakdown of a Bevy app](https://user-images.githubusercontent.com/302146/163988636-25c017ab-64bc-4da7-a897-a80098b667ef.png)
 
 There is a button to display statistics of mean time per call (MTPC) for all systems:
 
-<img width="1086" alt="A table in the Tracy GUI showing the MTPC (mean time per call) for all instrumented spans in the application" src="https://user-images.githubusercontent.com/302146/163988302-c21102d8-b7eb-476d-a741-a2c28d9bf8c1.png">
+![A table in the Tracy GUI showing the MTPC (mean time per call) for all instrumented spans in the application](https://user-images.githubusercontent.com/302146/163988302-c21102d8-b7eb-476d-a741-a2c28d9bf8c1.png)
 
 Or you can select an individual system and inspect its statistics (available through the "statistics" button in the top menu) to see things like the distribution of execution times in a graph, or statistical aggregates such as mean, median, standard deviation, etc. It will look something like this:
 
-<img width="514" alt="A graph and statistics in the Tracy GUI showing the distribution of execution times of an instrumented span in the application" src="https://user-images.githubusercontent.com/302146/163988464-86e1a3ee-e97b-49ae-9f7e-4ff2b8b761ad.png">
+![A graph and statistics in the Tracy GUI showing the distribution of execution times of an instrumented span in the application](https://user-images.githubusercontent.com/302146/163988464-86e1a3ee-e97b-49ae-9f7e-4ff2b8b761ad.png)
 
 ### Adding your own spans
 
