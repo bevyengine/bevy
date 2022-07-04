@@ -119,7 +119,7 @@ impl DynamicScene {
                 {
                     reflect_component.apply_component(world, entity, &**component);
                 } else {
-                    reflect_component.add_component(world, entity, &**component);
+                    reflect_component.insert_component(world, entity, &**component);
                 }
             }
         }

@@ -18,7 +18,7 @@ use bevy_reflect::{
 /// [`bevy_reflect::TypeRegistration::data`].
 #[derive(Clone)]
 pub struct ReflectComponent {
-    add_component: fn(&mut World, Entity, &dyn Reflect),
+    insert_component: fn(&mut World, Entity, &dyn Reflect),
     apply_component: fn(&mut World, Entity, &dyn Reflect),
     remove_component: fn(&mut World, Entity),
     reflect_component: fn(&World, Entity) -> Option<&dyn Reflect>,
@@ -32,8 +32,8 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no such entity.
-    pub fn add_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
-        (self.add_component)(world, entity, component);
+    pub fn insert_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
+        (self.insert_component)(world, entity, component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value.
@@ -111,7 +111,7 @@ impl ReflectComponent {
 impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent {
-            add_component: |world, entity, reflected_component| {
+            insert_component: |world, entity, reflected_component| {
                 let mut component = C::from_world(world);
                 component.apply(reflected_component);
                 world.entity_mut(entity).insert(component);
