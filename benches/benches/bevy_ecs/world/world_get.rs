@@ -2,6 +2,7 @@ use bevy_ecs::{
     bundle::Bundle,
     component::Component,
     entity::Entity,
+    prelude::*,
     system::{Query, SystemState},
     world::World,
 };
@@ -252,6 +253,48 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
             });
         });
     }
+
+    group.finish();
+}
+
+pub fn query_get_component_simple(criterion: &mut Criterion) {
+    #[derive(Component)]
+    struct A(f32);
+
+    let mut group = criterion.benchmark_group("query_get_component_simple");
+    group.warm_up_time(std::time::Duration::from_millis(500));
+    group.measurement_time(std::time::Duration::from_secs(4));
+
+    group.bench_function("unchecked", |bencher| {
+        let mut world = World::new();
+
+        let entity = world.spawn().insert(A(0.0)).id();
+        let mut query = world.query::<&mut A>();
+
+        bencher.iter(|| {
+            for _x in 0..100000 {
+                let mut a = unsafe { query.get_unchecked(&mut world, entity).unwrap() };
+                a.0 += 1.0;
+            }
+        });
+    });
+    group.bench_function("system", |bencher| {
+        let mut world = World::new();
+
+        let entity = world.spawn().insert(A(0.0)).id();
+        fn query_system(In(entity): In<Entity>, mut query: Query<&mut A>) {
+            for _ in 0..100_000 {
+                let mut a = query.get_mut(entity).unwrap();
+                a.0 += 1.0;
+            }
+        }
+
+        let mut system = IntoSystem::into_system(query_system);
+        system.initialize(&mut world);
+        system.update_archetype_component_access(&world);
+
+        bencher.iter(|| system.run(entity, &mut world));
+    });
 
     group.finish();
 }

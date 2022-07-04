@@ -21,6 +21,7 @@ criterion_group!(
     world_query_get,
     world_query_iter,
     world_query_for_each,
+    query_get_component_simple,
     query_get_component,
     query_get,
 );
