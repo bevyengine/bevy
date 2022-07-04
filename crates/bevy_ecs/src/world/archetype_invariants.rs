@@ -148,6 +148,12 @@ pub enum ArchetypeStatement<B: Bundle> {
     NoneOf(PhantomData<B>),
     /// The entity contains only components from the bundle `B`, and no others.
     Only(PhantomData<B>),
+    /// This statement is always true.
+    /// Useful for constructing universal invariants.
+    True,
+    /// This statement is always false.
+    /// Useful for constructing universal invariants.
+    False,
 }
 
 impl<B: Bundle> ArchetypeStatement<B> {
@@ -166,6 +172,8 @@ impl<B: Bundle> ArchetypeStatement<B> {
             }
             ArchetypeStatement::NoneOf(_) => UntypedArchetypeStatement::NoneOf(component_ids),
             ArchetypeStatement::Only(_) => UntypedArchetypeStatement::Only(component_ids),
+            ArchetypeStatement::True => UntypedArchetypeStatement::True,
+            ArchetypeStatement::False => UntypedArchetypeStatement::False,
         }
     }
 
@@ -197,6 +205,23 @@ impl<B: Bundle> ArchetypeStatement<B> {
     #[inline]
     pub const fn only() -> Self {
         ArchetypeStatement::Only(PhantomData)
+    }
+}
+
+// We must pass in a generic type to all archetype statements;
+// we use the empty bundle `()` by convention.
+// These helper methods are useful because they improve type inference and consistency in user code.
+impl ArchetypeStatement<()> {
+    /// Constructs a new [`ArchetypeStatement::True`] variant.
+    #[inline]
+    pub const fn always_true() -> Self {
+        ArchetypeStatement::<()>::True
+    }
+
+    /// Constructs a new [`ArchetypeStatement::False`] variant.
+    #[inline]
+    pub const fn always_false() -> Self {
+        ArchetypeStatement::<()>::False
     }
 }
 
@@ -264,17 +289,26 @@ pub enum UntypedArchetypeStatement {
     NoneOf(HashSet<ComponentId>),
     /// The entity contains only components from the bundle `B`, and no others.
     Only(HashSet<ComponentId>),
+    /// This statement is always true.
+    /// Useful for constructing universal invariants.
+    True,
+    /// This statement is always false.
+    /// Useful for constructing universal invariants.
+    False,
 }
 
 impl UntypedArchetypeStatement {
     /// Returns the set of [`ComponentId`]s affected by this statement.
-    pub fn component_ids(&self) -> &HashSet<ComponentId> {
+    ///
+    /// Returns `Some` for all variants other than the static `True` and `False`.
+    pub fn component_ids(&self) -> Option<&HashSet<ComponentId>> {
         match self {
             UntypedArchetypeStatement::AllOf(set)
             | UntypedArchetypeStatement::AnyOf(set)
             | UntypedArchetypeStatement::AtMostOneOf(set)
             | UntypedArchetypeStatement::NoneOf(set)
-            | UntypedArchetypeStatement::Only(set) => set,
+            | UntypedArchetypeStatement::Only(set) => Some(set),
+            UntypedArchetypeStatement::True | UntypedArchetypeStatement::False => None,
         }
     }
 
@@ -286,6 +320,7 @@ impl UntypedArchetypeStatement {
     pub fn display(&self, components: &Components) -> String {
         let component_names: String = self
             .component_ids()
+            .unwrap_or(&HashSet::new())
             .iter()
             .map(|id| match components.get_info(*id) {
                 Some(info) => get_short_name(info.name()),
@@ -300,6 +335,8 @@ impl UntypedArchetypeStatement {
             UntypedArchetypeStatement::AtMostOneOf(_) => format!("AtMostOneOf({component_names})"),
             UntypedArchetypeStatement::NoneOf(_) => format!("NoneOf({component_names})"),
             UntypedArchetypeStatement::Only(_) => format!("Only({component_names})"),
+            UntypedArchetypeStatement::True => "True".to_owned(),
+            UntypedArchetypeStatement::False => "False".to_owned(),
         }
     }
 
@@ -350,6 +387,8 @@ impl UntypedArchetypeStatement {
                 }
                 true
             }
+            UntypedArchetypeStatement::True => true,
+            UntypedArchetypeStatement::False => false,
         }
     }
 }
@@ -422,9 +461,10 @@ impl ArchetypeInvariants {
 
 #[cfg(test)]
 mod tests {
+    use crate as bevy_ecs;
     use crate::{
-        self as bevy_ecs, component::Component, world::archetype_invariants::ArchetypeInvariant,
-        world::World,
+        component::Component, world::archetype_invariants::ArchetypeInvariant,
+        world::archetype_invariants::ArchetypeStatement, world::World,
     };
 
     #[derive(Component)]
@@ -472,6 +512,42 @@ mod tests {
         let archetype_invariant =
             ArchetypeInvariant::<(A, B, C)>::atomic().into_untyped(&mut world);
         world.add_untyped_archetype_invariant(archetype_invariant);
+    }
+
+    #[test]
+    fn tautology() {
+        let mut world = World::new();
+
+        // This invariant is a tautology.
+        world.add_archetype_invariant(ArchetypeInvariant {
+            premise: ArchetypeStatement::always_true(),
+            consequence: ArchetypeStatement::always_true(),
+        });
+        // This invariant is also a tautology.
+        world.add_archetype_invariant(ArchetypeInvariant {
+            premise: ArchetypeStatement::always_false(),
+            consequence: ArchetypeStatement::always_false(),
+        });
+
+        // Since invariants are only checked when archetypes are created,
+        // we must add something to trigger the check.
+        world.spawn().insert(A);
+    }
+
+    #[test]
+    #[should_panic]
+    fn contradiction() {
+        let mut world = World::new();
+
+        // This invariant is a contradiction.
+        world.add_archetype_invariant(ArchetypeInvariant {
+            premise: ArchetypeStatement::always_true(),
+            consequence: ArchetypeStatement::always_false(),
+        });
+
+        // Since invariants are only checked when archetypes are created,
+        // we must add something to trigger the check.
+        world.spawn().insert(A);
     }
 
     #[test]
