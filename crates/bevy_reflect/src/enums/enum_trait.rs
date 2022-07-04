@@ -7,8 +7,8 @@ use std::slice::Iter;
 /// A trait representing a [reflected] enum.
 ///
 /// This allows enums to be processed and modified dynamically at runtime without
-/// necessarily knowing the actual type. Enums, unlike their struct counterparts,
-/// are a lot more complex. Users will need to be mindful of conventions,
+/// necessarily knowing the actual type. Enums are much more complex than their
+/// struct counterparts. As a result, users will need to be mindful of conventions,
 /// considerations, and complications when working with this trait.
 ///
 /// # Variants
@@ -33,7 +33,8 @@ use std::slice::Iter;
 /// As you can see, a unit variant contains no fields, while tuple and struct variants
 /// can contain one or more fields. The fields in a tuple variant is defined by their
 /// _order_ within the variant. Index `0` represents the first field in the variant and
-/// so on. Fields in struct variants, on the other hand, are represented by a _name_.
+/// so on. Fields in struct variants (excluding tuple structs), on the other hand, are
+/// represented by a _name_.
 ///
 /// # Implementation
 ///

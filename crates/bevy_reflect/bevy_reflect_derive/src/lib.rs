@@ -147,12 +147,21 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
                 #impl_from_struct
             })
         }
-        _ => syn::Error::new(
+        ReflectDerive::TupleStruct(..) => syn::Error::new(
             ast.span(),
-            "impl_reflect_struct is only supported for standard structs",
+            "impl_reflect_struct does not support tuple structs",
         )
         .into_compile_error()
         .into(),
+        ReflectDerive::UnitStruct(..) => syn::Error::new(
+            ast.span(),
+            "impl_reflect_struct does not support unit structs",
+        )
+        .into_compile_error()
+        .into(),
+        _ => syn::Error::new(ast.span(), "impl_reflect_struct only supports structs")
+            .into_compile_error()
+            .into(),
     }
 }
 
