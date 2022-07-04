@@ -13,15 +13,7 @@ pub struct FloatOrd(pub f32);
 #[allow(clippy::derive_ord_xor_partial_ord)]
 impl Ord for FloatOrd {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0.partial_cmp(&other.0).unwrap_or_else(|| {
-            if self.0.is_nan() && !other.0.is_nan() {
-                Ordering::Less
-            } else if !self.0.is_nan() && other.0.is_nan() {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
-            }
-        })
+        self.0.total_cmp(&other.0)
     }
 }
 
