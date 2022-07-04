@@ -882,7 +882,7 @@ impl World {
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given resource type. The caller must ensure
-    /// that only one mutable access exists at a time.
+    /// that there is either only one mutable access or multiple immutable accesses at a time.
     #[inline]
     pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -951,7 +951,7 @@ impl World {
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given non-send resource type. The caller must
-    /// ensure that only one mutable access exists at a time.
+    /// ensure that there is either only one mutable access or multiple immutable accesses at a time.
     #[inline]
     pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(&self) -> Option<Mut<'_, R>> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
