@@ -34,7 +34,7 @@ Alternatively, directly run the tracy GUI and then run your application, for liv
 
 In any case, you'll see your trace in the GUI window:
 
-<img width="1840" alt="Tracy timeline" src="https://user-images.githubusercontent.com/302146/163988636-25c017ab-64bc-4da7-a897-a80098b667ef.png">
+<img width="1840" alt="Tracy timeline demonstrating the performance breakdown of a Bevy app" src="https://user-images.githubusercontent.com/302146/163988636-25c017ab-64bc-4da7-a897-a80098b667ef.png">
 
 There is a button to display statistics of mean time per call (MTPC) for all systems:
 
