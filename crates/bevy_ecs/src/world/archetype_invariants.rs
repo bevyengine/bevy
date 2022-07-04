@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_utils::{get_short_name, tracing::warn, HashSet};
+use bevy_utils::{get_short_name, HashSet};
 
 use crate::{
     component::{ComponentId, Components},
@@ -160,12 +160,7 @@ impl<B: Bundle> ArchetypeStatement<B> {
 
         match self {
             ArchetypeStatement::AllOf(_) => UntypedArchetypeStatement::AllOf(component_ids),
-            ArchetypeStatement::AnyOf(_) => {
-                if component_ids.len() == 1 {
-                    warn!("An `ArchetypeStatement::AnyOf` was constructed for a bundle with only one component. Prefer the equivalent `ArchetypeStatment:AllOf` for consistency and clarity.");
-                }
-                UntypedArchetypeStatement::AnyOf(component_ids)
-            }
+            ArchetypeStatement::AnyOf(_) => UntypedArchetypeStatement::AnyOf(component_ids),
             ArchetypeStatement::AtMostOneOf(_) => {
                 UntypedArchetypeStatement::AtMostOneOf(component_ids)
             }
