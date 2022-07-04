@@ -21,6 +21,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
+use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 
@@ -28,7 +29,8 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Msaa>()
+        app.register_type::<Msaa>()
+            .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugin(ExtractResourcePlugin::<Msaa>::default())
             .add_plugin(VisibilityPlugin);
@@ -45,7 +47,6 @@ impl Plugin for ViewPlugin {
     }
 }
 
-#[derive(Clone, ExtractResource)]
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
 /// # Example
@@ -56,6 +57,8 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa { samples: 4 })
 ///     .run();
 /// ```
+#[derive(Clone, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
     /// smoother edges.

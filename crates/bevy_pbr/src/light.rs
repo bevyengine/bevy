@@ -73,7 +73,8 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -151,7 +152,8 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -166,7 +168,8 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Clone, Debug, ExtractResource)]
+#[derive(Clone, Debug, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
