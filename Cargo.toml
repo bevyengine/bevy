@@ -569,7 +569,7 @@ path = "examples/app/random.rs"
 
 [package.metadata.example.random]
 name = "Random"
-description = "Demonstrates how to use entropy to control randomness in bevy."
+description = "Demonstrates how to use entropy to control randomness in Bevy."
 category = "Application"
 wasm = true
 

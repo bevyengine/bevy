@@ -146,7 +146,7 @@ Example | Description
 [Logs](../examples/app/logs.rs) | Illustrate how to use generate log output
 [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
-[Random](../examples/app/random.rs) | Show how to use a central source of entropy for random number generation.
+[Random](../examples/app/random.rs) | Demonstrates how to use entropy to control randomness in Bevy.
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
 [Thread Pool Resources](../examples/app/thread_pool_resources.rs) | Creates and customizes the internal thread pool
 [Without Winit](../examples/app/without_winit.rs) | Create an application without winit (runs single time, no event loop)
