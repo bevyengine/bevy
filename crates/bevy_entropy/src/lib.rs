@@ -50,7 +50,7 @@ impl Entropy {
 
     /// Fill `dest` with entropy data. For an allocating alternative, see [`Entropy::get`].
     pub fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.0.fill_bytes(dest)
+        self.0.fill_bytes(dest);
     }
 
     /// Allocate and return entropy data. For a non-allocating alternative, see [`Entropy::fill_bytes`].
