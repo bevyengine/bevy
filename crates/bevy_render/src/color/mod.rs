@@ -1153,7 +1153,9 @@ impl encase::ShaderType for Color {
     type ExtraMetadata = ();
 
     const METADATA: encase::private::Metadata<Self::ExtraMetadata> = {
-        let size = encase::private::SizeValue::from(<f32 as encase::private::Size>::SIZE).mul(4);
+        let size =
+            encase::private::SizeValue::from(<f32 as encase::private::ShaderSize>::SHADER_SIZE)
+                .mul(4);
         let alignment = encase::private::AlignmentValue::from_next_power_of_two_size(size);
 
         encase::private::Metadata {
@@ -1214,7 +1216,7 @@ impl encase::private::CreateFrom for Color {
     }
 }
 
-impl encase::Size for Color {}
+impl encase::ShaderSize for Color {}
 
 #[derive(Debug, Error)]
 pub enum HexColorError {

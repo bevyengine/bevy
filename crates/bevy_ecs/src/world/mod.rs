@@ -1693,6 +1693,7 @@ mod tests {
                 DropLogItem::Create(0),
                 DropLogItem::Create(1),
                 DropLogItem::Drop(0),
+                DropLogItem::Drop(1),
             ]
         );
     }

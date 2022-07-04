@@ -7,6 +7,7 @@ use bevy::{
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, RenderApp, RenderStage},
+    window::PresentMode,
 };
 use rand::{thread_rng, Rng};
 
@@ -16,7 +17,7 @@ fn main() {
             width: 1024.0,
             height: 768.0,
             title: "many_lights".to_string(),
-            present_mode: bevy::window::PresentMode::Immediate,
+            present_mode: PresentMode::Immediate,
             ..default()
         })
         .add_plugins(DefaultPlugins)
@@ -45,7 +46,7 @@ fn setup(
             subdivisions: 9,
         })),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
-        transform: Transform::from_scale(Vec3::splat(-1.0)),
+        transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
