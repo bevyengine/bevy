@@ -33,7 +33,7 @@ impl Coin {
 
 struct CoinChooser(SmallRng);
 
-#[derive(Component, Debug, PartialEq)]
+#[derive(Component, Debug, Eq, PartialEq)]
 enum Face {
     Heads,
     Tails,
@@ -90,7 +90,7 @@ fn spawn_coins(mut commands: Commands) {
     for _ in 1..100 {
         commands.spawn().insert(Coin).insert(Face::Heads);
     }
-    info!("Spawned coins")
+    info!("Spawned coins");
 }
 
 // System to toss a random coin.
