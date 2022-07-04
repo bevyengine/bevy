@@ -118,7 +118,7 @@ impl From<Capsule> for Mesh {
             // North.
             vs[j] = Vec3::new(0.0, summit, 0.0);
             vts[j] = Vec2::new(s_texture_polar, 1.0);
-            vns[j] = Vec3::new(0.0, 1.0, 0.0);
+            vns[j] = Vec3::Y;
 
             // South.
             let idx = vert_offset_south_cap + j;
