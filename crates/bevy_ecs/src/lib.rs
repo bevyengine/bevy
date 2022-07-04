@@ -30,7 +30,7 @@ pub mod prelude {
         change_detection::DetectChanges,
         component::Component,
         entity::Entity,
-        event::{EventReader, EventWriter},
+        event::{EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
