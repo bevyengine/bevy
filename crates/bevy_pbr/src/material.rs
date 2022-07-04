@@ -21,7 +21,6 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
-    rangefinder::ViewRangefinder3d,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
@@ -349,7 +348,7 @@ pub fn queue_material_meshes<M: Material>(
             .get_id::<DrawMaterial<M>>()
             .unwrap();
 
-        let rangefinder = ViewRangefinder3d::from_view(view);
+        let rangefinder = view.rangefinder3d();
         let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {

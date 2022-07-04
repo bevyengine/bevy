@@ -12,7 +12,6 @@ use bevy::{
     prelude::*,
     render::{
         mesh::MeshVertexBufferLayout,
-        rangefinder::ViewRangefinder3d,
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
@@ -117,7 +116,7 @@ fn queue_custom(
         | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
     for (view, mut transparent_phase) in views.iter_mut() {
-        let rangefinder = ViewRangefinder3d::from_view(view);
+        let rangefinder = view.rangefinder3d();
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let pipeline = pipelines
