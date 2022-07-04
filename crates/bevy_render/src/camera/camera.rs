@@ -61,7 +61,7 @@ impl Default for AbsOrPercVec {
 }
 
 impl AbsOrPercVec {
-    /// Returns percentage of provided vec or absolute value from self.
+    /// Converts this size into a absolute size in pixels.
     #[inline]
     pub fn as_absolute(&self, of: UVec2) -> UVec2 {
         match self {
@@ -70,10 +70,11 @@ impl AbsOrPercVec {
         }
     }
 
-    /// Returns percentage of provided vec or absolute value.
+    ///  Converts this size into a absolute size in pixels if possible.
+
     /// Returns `None` if self is `Percentage` and argument is `None`
     #[inline]
-    pub fn as_absolute_opt(&self, of_opt: Option<UVec2>) -> Option<UVec2> {
+    pub fn try_as_absolute(&self, of_opt: Option<UVec2>) -> Option<UVec2> {
         match self {
             AbsOrPercVec::Absolute(v) => Some(*v),
             AbsOrPercVec::Percentage(_) => of_opt.map(|of| self.as_absolute(of)),
@@ -159,7 +160,7 @@ impl Camera {
     pub fn viewport_absolute_size(&self) -> Option<UVec2> {
         self.viewport
             .as_ref()
-            .and_then(|v| v.physical_size.as_absolute_opt(self.physical_target_size()))
+            .and_then(|v| v.physical_size.try_as_absolute(self.physical_target_size()))
     }
 
     /// The rendered physical bounds (minimum, maximum) of the camera. If the `viewport` field is

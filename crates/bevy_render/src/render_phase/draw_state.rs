@@ -343,12 +343,12 @@ impl<'a> TrackedRenderPass<'a> {
     pub fn set_camera_viewport(&mut self, viewport: &Viewport, camera: &ExtractedCamera) {
         let physical_size = viewport
             .physical_size
-            .as_absolute_opt(camera.physical_target_size)
+            .try_as_absolute(camera.physical_target_size)
             .expect("Couldn't get camera.physical_target_size (needed for relative viewport size)");
 
         let physical_position = viewport
             .physical_position
-            .as_absolute_opt(camera.physical_target_size)
+            .try_as_absolute(camera.physical_target_size)
             .expect(
                 "Couldn't get camera.physical_target_size (needed for relative viewport position)",
             );

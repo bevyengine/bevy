@@ -107,7 +107,7 @@ fn set_camera_viewports(
 
             let mut right_camera = right_camera.single_mut();
             right_camera.viewport = Some(Viewport {
-                // ... or specify a percentage of the render target.
+                // ... or specify an adaptive percentage of the render target.
                 physical_position: AbsOrPercVec::Percentage(Vec2::new(0.5, 0.0)),
                 physical_size: AbsOrPercVec::Percentage(Vec2::new(0.5, 1.0)),
                 ..default()
