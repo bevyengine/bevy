@@ -20,6 +20,7 @@ use bevy_reflect::{
 pub struct ReflectComponent {
     insert_component: fn(&mut World, Entity, &dyn Reflect),
     apply_component: fn(&mut World, Entity, &dyn Reflect),
+    apply_or_insert_component: fn(&mut World, Entity, &dyn Reflect),
     remove_component: fn(&mut World, Entity),
     reflect_component: fn(&World, Entity) -> Option<&dyn Reflect>,
     reflect_component_mut: unsafe fn(&World, Entity) -> Option<ReflectMut>,
@@ -43,6 +44,20 @@ impl ReflectComponent {
     /// Panics if there is no [`Component`] of the given type or the `entity` does not exist.
     pub fn apply_component(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.apply_component)(world, entity, component);
+    }
+
+    /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `entity` does not exist.
+    pub fn apply_or_insert_component(
+        &self,
+        world: &mut World,
+        entity: Entity,
+        component: &dyn Reflect,
+    ) {
+        (self.apply_or_insert_component)(world, entity, component);
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
@@ -120,6 +135,15 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 let mut component = world.get_mut::<C>(entity).unwrap();
                 component.apply(reflected_component);
             },
+            apply_or_insert_component: |world, entity, reflected_component| {
+                if let Some(mut component) = world.get_mut::<C>(entity) {
+                    component.apply(reflected_component);
+                } else {
+                    let mut component = C::from_world(world);
+                    component.apply(reflected_component);
+                    world.entity_mut(entity).insert(component);
+                }
+            },
             remove_component: |world, entity| {
                 world.entity_mut(entity).remove::<C>();
             },
@@ -162,6 +186,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
 pub struct ReflectResource {
     insert_resource: fn(&mut World, &dyn Reflect),
     apply_resource: fn(&mut World, &dyn Reflect),
+    apply_or_insert_resource: fn(&mut World, &dyn Reflect),
     remove_resource: fn(&mut World),
     reflect_resource: fn(&World) -> Option<&dyn Reflect>,
     reflect_resource_unchecked_mut: unsafe fn(&World) -> Option<ReflectMut>,
@@ -181,6 +206,11 @@ impl ReflectResource {
     /// Panics if there is no [`Resource`] of the given type.
     pub fn apply_resource(&self, world: &mut World, resource: &dyn Reflect) {
         (self.apply_resource)(world, resource);
+    }
+
+    /// Uses reflection to set the value of this [`Resource`] type in the world to the given value or insert a new one.
+    pub fn apply_or_insert_resource(&self, world: &mut World, resource: &dyn Reflect) {
+        (self.apply_or_insert_resource)(world, resource);
     }
 
     /// Removes this [`Resource`] type from the world. Does nothing if it doesn't exist.
@@ -234,6 +264,15 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
             apply_resource: |world, reflected_resource| {
                 let mut resource = world.resource_mut::<C>();
                 resource.apply(reflected_resource);
+            },
+            apply_or_insert_resource: |world, reflected_resource| {
+                if let Some(mut resource) = world.get_resource_mut::<C>() {
+                    resource.apply(reflected_resource);
+                } else {
+                    let mut resource = C::from_world(world);
+                    resource.apply(reflected_resource);
+                    world.insert_resource(resource);
+                }
             },
             remove_resource: |world| {
                 world.remove_resource::<C>();
