@@ -1,11 +1,9 @@
 use criterion::criterion_group;
 
-mod heavy_compute;
 mod run_criteria;
 mod schedule;
 mod stages;
 
-use heavy_compute::*;
 use run_criteria::*;
 use schedule::*;
 use stages::*;
@@ -23,5 +21,4 @@ criterion_group!(
     contrived,
     schedule,
     build_schedule,
-    heavy_compute,
 );

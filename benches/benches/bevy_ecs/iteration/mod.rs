@@ -1,5 +1,6 @@
 use criterion::*;
 
+mod heavy_compute;
 mod iter_frag;
 mod iter_frag_foreach;
 mod iter_frag_foreach_sparse;
@@ -18,7 +19,15 @@ mod iter_simple_system;
 mod iter_simple_wide;
 mod iter_simple_wide_sparse_set;
 
-criterion_group!(iterations_benches, iter_frag, iter_frag_sparse, iter_simple,);
+use heavy_compute::*;
+
+criterion_group!(
+    iterations_benches,
+    iter_frag,
+    iter_frag_sparse,
+    iter_simple,
+    heavy_compute,
+);
 
 fn iter_simple(c: &mut Criterion) {
     let mut group = c.benchmark_group("iter_simple");
