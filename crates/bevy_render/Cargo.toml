@@ -46,7 +46,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 image = { version = "0.24", default-features = false }
 
 # misc
-wgpu = { version = "0.12.0", features = ["spirv"] }
+wgpu = { version = "0.13.1", features = ["spirv"] }
 codespan-reporting = "0.11.0"
 naga = { version = "0.8.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }
