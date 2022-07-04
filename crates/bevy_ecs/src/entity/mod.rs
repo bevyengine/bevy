@@ -591,6 +591,8 @@ impl Entities {
     // Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return None
     // unless they are later populated with a valid archetype.
     pub fn flush_as_invalid(&mut self) {
+        // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
+        // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
         unsafe {
             self.flush(|_entity, location| {
                 location.archetype_id = ArchetypeId::INVALID;
@@ -658,6 +660,7 @@ mod tests {
     fn reserve_entity_len() {
         let mut e = Entities::default();
         e.reserve_entity();
+        // SAFETY: entity_location is left invalid
         unsafe { e.flush(|_, _| {}) };
         assert_eq!(e.len(), 1);
     }
@@ -669,6 +672,7 @@ mod tests {
         assert!(entities.contains(e));
         assert!(entities.get(e).is_none());
 
+        // SAFETY: entity_location is left invalid
         unsafe {
             entities.flush(|_entity, _location| {
                 // do nothing ... leaving entity location invalid

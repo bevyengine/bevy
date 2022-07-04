@@ -29,5 +29,7 @@ fn noop_raw_waker() -> RawWaker {
 }
 
 fn noop_waker() -> Waker {
+    // SAFETY: the `RawWakerVTable` is just a big noop and doesn't violate any of the rules in `RawWakerVTable`s documentation
+    // (which talks about retaining and releasing any "resources", of which there are none in this case)
     unsafe { Waker::from_raw(noop_raw_waker()) }
 }

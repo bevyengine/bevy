@@ -24,7 +24,7 @@ impl RawWindowHandleWrapper {
     }
 }
 
-// SAFE: RawWindowHandle is just a normal "raw pointer", which doesn't impl Send/Sync. However the pointer is only
+// SAFETY: RawWindowHandle is just a normal "raw pointer", which doesn't impl Send/Sync. However the pointer is only
 // exposed via an unsafe method that forces the user to make a call for a given platform. (ex: some platforms don't
 // support doing window operations off of the main thread).
 // A recommendation for this pattern (and more context) is available here:
@@ -41,7 +41,7 @@ unsafe impl Sync for RawWindowHandleWrapper {}
 /// In many cases, this should only be constructed on the main thread.
 pub struct ThreadLockedRawWindowHandleWrapper(RawWindowHandle);
 
-// SAFE: the caller has validated that this is a valid context to get RawWindowHandle
+// SAFETY: the caller has validated that this is a valid context to get RawWindowHandle
 // as otherwise an instance of this type could not have been constructed
 // NOTE: we cannot simply impl HasRawWindowHandle for RawWindowHandleWrapper,
 // as the `raw_window_handle` method is safe. We cannot guarantee that all calls

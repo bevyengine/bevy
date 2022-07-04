@@ -317,11 +317,11 @@ impl World {
         self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
-                // SAFE: `entity` exists and `location` is that entity's location
+                // SAFETY: `entity` exists and `location` is that entity's location
                 Some(unsafe { EntityMut::new(self, entity, location) })
             }
             AllocAtWithoutReplacement::DidNotExist => {
-                // SAFE: entity was just allocated
+                // SAFETY: entity was just allocated
                 Some(unsafe { self.spawn_at_internal(entity) })
             }
             AllocAtWithoutReplacement::ExistsWithWrongGeneration => None,
@@ -381,7 +381,7 @@ impl World {
     #[inline]
     pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityMut> {
         let location = self.entities.get(entity)?;
-        // SAFE: `entity` exists and `location` is that entity's location
+        // SAFETY: `entity` exists and `location` is that entity's location
         Some(unsafe { EntityMut::new(self, entity, location) })
     }
 
@@ -413,7 +413,7 @@ impl World {
     pub fn spawn(&mut self) -> EntityMut {
         self.flush();
         let entity = self.entities.alloc();
-        // SAFE: entity was just allocated
+        // SAFETY: entity was just allocated
         unsafe { self.spawn_at_internal(entity) }
     }
 
@@ -423,10 +423,10 @@ impl World {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
-        // SAFE: no components are allocated by archetype.allocate() because the archetype is
+        // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = archetype.allocate(entity, table_row);
-        // SAFE: entity index was just allocated
+        // SAFETY: entity index was just allocated
         self.entities
             .meta
             .get_unchecked_mut(entity.id() as usize)
@@ -507,7 +507,7 @@ impl World {
     /// ```
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        // SAFE: lifetimes enforce correct usage of returned borrow
+        // SAFETY: lifetimes enforce correct usage of returned borrow
         unsafe { get_mut(self, entity, self.get_entity(entity)?.location()) }
     }
 
@@ -688,7 +688,7 @@ impl World {
     #[inline]
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
         let component_id = self.components.init_resource::<R>();
-        // SAFE: component_id just initialized and corresponds to resource of type T
+        // SAFETY: component_id just initialized and corresponds to resource of type T
         unsafe { self.insert_resource_with_id(component_id, value) };
     }
 
@@ -716,21 +716,21 @@ impl World {
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         self.validate_non_send_access::<R>();
         let component_id = self.components.init_non_send::<R>();
-        // SAFE: component_id just initialized and corresponds to resource of type R
+        // SAFETY: component_id just initialized and corresponds to resource of type R
         unsafe { self.insert_resource_with_id(component_id, value) };
     }
 
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        // SAFE: R is Send + Sync
+        // SAFETY: R is Send + Sync
         unsafe { self.remove_resource_unchecked() }
     }
 
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
         self.validate_non_send_access::<R>();
-        // SAFE: we are on main thread
+        // SAFETY: we are on main thread
         unsafe { self.remove_resource_unchecked() }
     }
 
@@ -747,10 +747,10 @@ impl World {
         if column.is_empty() {
             return None;
         }
-        // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of the
+        // SAFETY: if a resource column exists, row 0 exists as well. caller takes ownership of the
         // ptr value / drop is called when R is dropped
         let (ptr, _) = unsafe { column.swap_remove_and_forget_unchecked(0) };
-        // SAFE: column is of type R
+        // SAFETY: column is of type R
         Some(unsafe { ptr.read::<R>() })
     }
 
@@ -778,7 +778,7 @@ impl World {
         } else {
             return false;
         };
-        // SAFE: resources table always have row 0
+        // SAFETY: resources table always have row 0
         let ticks = unsafe { column.get_ticks_unchecked(0).deref() };
         ticks.is_added(self.last_change_tick(), self.read_change_tick())
     }
@@ -795,7 +795,7 @@ impl World {
         } else {
             return false;
         };
-        // SAFE: resources table always have row 0
+        // SAFETY: resources table always have row 0
         let ticks = unsafe { column.get_ticks_unchecked(0).deref() };
         ticks.is_changed(self.last_change_tick(), self.read_change_tick())
     }
@@ -852,14 +852,14 @@ impl World {
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFE: unique world access
+        // SAFETY: unique world access
         unsafe { self.get_resource_with_id(component_id) }
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFE: unique world access
+        // SAFETY: unique world access
         unsafe { self.get_resource_unchecked_mut() }
     }
 
@@ -882,7 +882,7 @@ impl World {
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given resource type. The caller must ensure
-    /// that only one mutable access exists at a time.
+    /// that there is either only one mutable access or multiple immutable accesses at a time.
     #[inline]
     pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -934,7 +934,7 @@ impl World {
     #[inline]
     pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFE: component id matches type T
+        // SAFETY: component id matches type T
         unsafe { self.get_non_send_with_id(component_id) }
     }
 
@@ -942,7 +942,7 @@ impl World {
     /// Otherwise returns [None]
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFE: unique world access
+        // SAFETY: unique world access
         unsafe { self.get_non_send_resource_unchecked_mut() }
     }
 
@@ -951,7 +951,7 @@ impl World {
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given non-send resource type. The caller must
-    /// ensure that only one mutable access exists at a time.
+    /// ensure that there is either only one mutable access or multiple immutable accesses at a time.
     #[inline]
     pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(&self) -> Option<Mut<'_, R>> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -1033,7 +1033,7 @@ impl World {
                         SpawnOrInsert::Insert(ref mut inserter, archetype)
                             if location.archetype_id == archetype =>
                         {
-                            // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
+                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                             unsafe { inserter.insert(entity, location.index, bundle) };
                         }
                         _ => {
@@ -1045,7 +1045,7 @@ impl World {
                                 location.archetype_id,
                                 change_tick,
                             );
-                            // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
+                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                             unsafe { inserter.insert(entity, location.index, bundle) };
                             spawn_or_insert =
                                 SpawnOrInsert::Insert(inserter, location.archetype_id);
@@ -1054,7 +1054,7 @@ impl World {
                 }
                 AllocAtWithoutReplacement::DidNotExist => {
                     if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
-                        // SAFE: `entity` is allocated (but non existent), bundle matches inserter
+                        // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };
                     } else {
                         let mut spawner = bundle_info.get_bundle_spawner(
@@ -1064,7 +1064,7 @@ impl World {
                             &mut self.storages,
                             change_tick,
                         );
-                        // SAFE: `entity` is valid, `location` matches entity, bundle matches inserter
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
                     }
@@ -1123,11 +1123,11 @@ impl World {
                 "resource does not exist: {}",
                 std::any::type_name::<R>()
             );
-            // SAFE: if a resource column exists, row 0 exists as well. caller takes ownership of
+            // SAFETY: if a resource column exists, row 0 exists as well. caller takes ownership of
             // the ptr value / drop is called when R is dropped
             unsafe { column.swap_remove_and_forget_unchecked(0) }
         };
-        // SAFE: pointer is of type R
+        // SAFETY: pointer is of type R
         // Read the value onto the stack to avoid potential mut aliasing.
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
@@ -1148,8 +1148,8 @@ impl World {
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
 
         OwningPtr::make(value, |ptr| {
+            // SAFETY: pointer is of type R
             unsafe {
-                // SAFE: pointer is of type R
                 column.push(ptr, ticks);
             }
         });
@@ -1216,12 +1216,12 @@ impl World {
         let change_tick = self.change_tick();
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
-            // SAFE: column is of type R and has been allocated above
+            // SAFETY: column is of type R and has been allocated above
             OwningPtr::make(value, |ptr| {
                 column.push(ptr, ComponentTicks::new(change_tick));
             });
         } else {
-            // SAFE: column is of type R and has already been allocated
+            // SAFETY: column is of type R and has already been allocated
             *column.get_data_unchecked_mut(0).deref_mut::<R>() = value;
             column.get_ticks_unchecked_mut(0).set_changed(change_tick);
         }
@@ -1246,10 +1246,10 @@ impl World {
                 "insert_resource_by_id called with component id which doesn't exist in this world"
             )
         });
-        // SAFE: component_id is valid, checked by the lines above
+        // SAFETY: component_id is valid, checked by the lines above
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
-            // SAFE: column is of type R and has been allocated above
+            // SAFETY: column is of type R and has been allocated above
             column.push(value, ComponentTicks::new(change_tick));
         } else {
             let ptr = column.get_data_unchecked_mut(0);
@@ -1266,7 +1266,7 @@ impl World {
     /// `component_id` must be valid for this world
     #[inline]
     unsafe fn initialize_resource_internal(&mut self, component_id: ComponentId) -> &mut Column {
-        // SAFE: resource archetype always exists
+        // SAFETY: resource archetype always exists
         let resource_archetype = self
             .archetypes
             .archetypes
@@ -1294,14 +1294,14 @@ impl World {
 
     pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
         let component_id = self.components.init_resource::<R>();
-        // SAFE: resource initialized above
+        // SAFETY: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id
     }
 
     pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
         let component_id = self.components.init_non_send::<R>();
-        // SAFE: resource initialized above
+        // SAFETY: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id
     }
@@ -1343,12 +1343,12 @@ impl World {
     /// such as inserting a [Component].
     pub(crate) fn flush(&mut self) {
         let empty_archetype = self.archetypes.empty_mut();
+        let table = &mut self.storages.tables[empty_archetype.table_id()];
+        // PERF: consider pre-allocating space for flushed entities
+        // SAFETY: entity is set to a valid location
         unsafe {
-            let table = &mut self.storages.tables[empty_archetype.table_id()];
-            // PERF: consider pre-allocating space for flushed entities
-            // SAFE: entity is set to a valid location
             self.entities.flush(|entity, location| {
-                // SAFE: no components are allocated by archetype.allocate() because the archetype
+                // SAFETY: no components are allocated by archetype.allocate() because the archetype
                 // is empty
                 *location = empty_archetype.allocate(entity, table.allocate(entity));
             });
@@ -1428,9 +1428,10 @@ impl World {
 
         let column = self.get_populated_resource_column(component_id)?;
 
-        // SAFE: get_data_ptr requires that the mutability rules are not violated, and the caller promises
+        // SAFETY: get_data_ptr requires that the mutability rules are not violated, and the caller promises
         // to only modify the resource while the mutable borrow of the world is valid
         let ticks = Ticks {
+            // SAFETY:
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
             component_ticks: unsafe { &mut *column.get_ticks_unchecked(0).get() },
@@ -1439,6 +1440,7 @@ impl World {
         };
 
         Some(MutUntyped {
+            // SAFETY: world access is unique, so no other reference can exist at the same time
             value: unsafe { column.get_data_ptr().assert_unique() },
             ticks,
         })
@@ -1460,7 +1462,7 @@ impl World {
         if column.is_empty() {
             return None;
         }
-        // SAFE: if a resource column exists, row 0 exists as well
+        // SAFETY: if a resource column exists, row 0 exists as well
         unsafe { column.swap_remove_unchecked(0) };
 
         Some(())
@@ -1474,7 +1476,7 @@ impl World {
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
         self.components().get_info(component_id)?;
-        // SAFE: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
             get_component(
                 self,
@@ -1497,7 +1499,7 @@ impl World {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
         self.components().get_info(component_id)?;
-        // SAFE: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
             get_mut_by_id(
                 self,
@@ -1526,7 +1528,9 @@ impl fmt::Debug for World {
 
 // TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
 #[allow(clippy::non_send_fields_in_send_ty)]
+// SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread
 unsafe impl Send for World {}
+// SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread
 unsafe impl Sync for World {}
 
 /// Creates an instance of the type this trait is implemented for
@@ -1711,6 +1715,7 @@ mod tests {
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
+        // SAFETY: `TestResource` is the correct resource type
         let resource = unsafe { resource.deref::<TestResource>() };
 
         assert_eq!(resource.0, 42);
@@ -1728,11 +1733,13 @@ mod tests {
         {
             let mut resource = world.get_resource_mut_by_id(component_id).unwrap();
             resource.set_changed();
+            // SAFETY: `TestResource` is the correct resource type
             let resource = unsafe { resource.into_inner().deref_mut::<TestResource>() };
             resource.0 = 43;
         }
 
         let resource = world.get_resource_by_id(component_id).unwrap();
+        // SAFETY: `TestResource` is the correct resource type
         let resource = unsafe { resource.deref::<TestResource>() };
 
         assert_eq!(resource.0, 43);
@@ -1744,7 +1751,7 @@ mod tests {
 
         let mut world = World::new();
 
-        // SAFE: the drop function is valid for the layout and the data will be safe to access from any thread
+        // SAFETY: the drop function is valid for the layout and the data will be safe to access from any thread
         let descriptor = unsafe {
             ComponentDescriptor::new_with_layout(
                 "Custom Test Component".to_string(),
@@ -1761,11 +1768,14 @@ mod tests {
         let component_id = world.init_component_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
-        OwningPtr::make(value, |ptr| unsafe {
-            // SAFE: value is valid for the component layout
-            world.insert_resource_by_id(component_id, ptr);
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: value is valid for the component layout
+            unsafe {
+                world.insert_resource_by_id(component_id, ptr);
+            }
         });
 
+        // SAFETY: [u8; 8] is the correct type for the resource
         let data = unsafe {
             world
                 .get_resource_by_id(component_id)
@@ -1785,9 +1795,11 @@ mod tests {
         let invalid_component_id = ComponentId::new(usize::MAX);
 
         let mut world = World::new();
-        OwningPtr::make((), |ptr| unsafe {
-            // SAFE: ptr must be valid for the component_id `invalid_component_id` which is invalid, but checked by `insert_resource_by_id`
-            world.insert_resource_by_id(invalid_component_id, ptr);
+        OwningPtr::make((), |ptr| {
+            // SAFETY: ptr must be valid for the component_id `invalid_component_id` which is invalid, but checked by `insert_resource_by_id`
+            unsafe {
+                world.insert_resource_by_id(invalid_component_id, ptr);
+            }
         });
     }
 

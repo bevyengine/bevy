@@ -69,7 +69,7 @@ impl ReflectComponent {
         world: &'a mut World,
         entity: Entity,
     ) -> Option<ReflectMut<'a>> {
-        // SAFE: unique world access
+        // SAFETY: unique world access
         unsafe { (self.reflect_component_mut)(world, entity) }
     }
 
@@ -137,14 +137,18 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .get::<C>()
                     .map(|c| c as &dyn Reflect)
             },
-            reflect_component_mut: |world, entity| unsafe {
-                world
-                    .get_entity(entity)?
-                    .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
-                    .map(|c| ReflectMut {
-                        value: c.value as &mut dyn Reflect,
-                        ticks: c.ticks,
-                    })
+            reflect_component_mut: |world, entity| {
+                // SAFETY: reflect_component_mut is an unsafe function pointer used by `reflect_component_unchecked_mut` which promises to never
+                // produce aliasing mutable references, and reflect_component_mut, which has mutable world access
+                unsafe {
+                    world
+                        .get_entity(entity)?
+                        .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
+                        .map(|c| ReflectMut {
+                            value: c.value as &mut dyn Reflect,
+                            ticks: c.ticks,
+                        })
+                }
             },
         }
     }
@@ -191,7 +195,7 @@ impl ReflectResource {
 
     /// Gets the value of this [`Resource`] type from the world as a mutable reflected reference.
     pub fn reflect_resource_mut<'a>(&self, world: &'a mut World) -> Option<ReflectMut<'a>> {
-        // SAFE: unique world access
+        // SAFETY: unique world access
         unsafe { (self.reflect_resource_unchecked_mut)(world) }
     }
 
@@ -205,6 +209,7 @@ impl ReflectResource {
         &self,
         world: &'a World,
     ) -> Option<ReflectMut<'a>> {
+        // SAFETY: caller promises to uphold uniqueness guarantees
         (self.reflect_resource_unchecked_mut)(world)
     }
 
@@ -234,13 +239,17 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
                 world.remove_resource::<C>();
             },
             reflect_resource: |world| world.get_resource::<C>().map(|res| res as &dyn Reflect),
-            reflect_resource_unchecked_mut: |world| unsafe {
-                world
-                    .get_resource_unchecked_mut::<C>()
-                    .map(|res| ReflectMut {
-                        value: res.value as &mut dyn Reflect,
-                        ticks: res.ticks,
-                    })
+            reflect_resource_unchecked_mut: |world| {
+                // SAFETY: all usages of `reflect_resource_unchecked_mut` guarantee that there is either a single mutable
+                // reference or multiple immutable ones alive at any given point
+                unsafe {
+                    world
+                        .get_resource_unchecked_mut::<C>()
+                        .map(|res| ReflectMut {
+                            value: res.value as &mut dyn Reflect,
+                            ticks: res.ticks,
+                        })
+                }
             },
             copy_resource: |source_world, destination_world| {
                 let source_resource = source_world.resource::<C>();

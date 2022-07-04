@@ -480,7 +480,7 @@ macro_rules! impl_query_filter_tuple {
             }
         }
 
-        // SAFE: filters are read only
+        // SAFETY: filters are read only
         unsafe impl<$($filter: ReadOnlyWorldQuery),*> ReadOnlyWorldQuery for Or<($($filter,)*)> {}
     };
 }

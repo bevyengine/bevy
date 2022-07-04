@@ -81,7 +81,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     #[inline]
     pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
-        // SAFE: NopFetch does not access any members while &self ensures no one has exclusive access
+        // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
         unsafe {
             self.iter_unchecked_manual::<NopFetch<Q::State>>(world, last_change_tick, change_tick)
                 .next()
@@ -211,7 +211,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
         self.update_archetypes(world);
 
-        // SAFE: update_archetypes validates the `World` matches
+        // SAFETY: update_archetypes validates the `World` matches
         unsafe {
             self.get_many_read_only_manual(
                 world,
@@ -287,7 +287,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     ) -> Result<[QueryItem<'w, Q>; N], QueryEntityError> {
         self.update_archetypes(world);
 
-        // SAFE: method requires exclusive world access
+        // SAFETY: method requires exclusive world access
         // and world has been validated via update_archetypes
         unsafe {
             self.get_many_unchecked_manual(
@@ -397,7 +397,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
-        // SAFE: fetch is read-only
+        // SAFETY: fetch is read-only
         // and world must be validated
         let array_of_results = entities.map(|entity| {
             self.get_unchecked_manual::<ROQueryFetch<'w, Q>>(
@@ -527,7 +527,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: &'w World,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
-        // SAFE: query is read only
+        // SAFETY: query is read only
         unsafe {
             self.update_archetypes(world);
             self.iter_combinations_unchecked_manual(
@@ -550,7 +550,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: &'w mut World,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
-        // SAFE: query has unique world access
+        // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
             self.iter_combinations_unchecked_manual(
@@ -1272,6 +1272,8 @@ mod tests {
         // It's best to test get_many_unchecked_manual directly,
         // as it is shared and unsafe
         // We don't care about aliased mutabilty for the read-only equivalent
+
+        // SAFETY: mutable access is not checked, but we own the world and don't use the query results
         assert!(unsafe {
             query_state
                 .get_many_unchecked_manual::<10>(
@@ -1284,6 +1286,7 @@ mod tests {
         });
 
         assert_eq!(
+            // SAFETY: mutable access is not checked, but we own the world and don't use the query results
             unsafe {
                 query_state
                     .get_many_unchecked_manual(
@@ -1298,6 +1301,7 @@ mod tests {
         );
 
         assert_eq!(
+            // SAFETY: mutable access is not checked, but we own the world and don't use the query results
             unsafe {
                 query_state
                     .get_many_unchecked_manual(
@@ -1312,6 +1316,7 @@ mod tests {
         );
 
         assert_eq!(
+            // SAFETY: mutable access is not checked, but we own the world and don't use the query results
             unsafe {
                 query_state
                     .get_many_unchecked_manual(

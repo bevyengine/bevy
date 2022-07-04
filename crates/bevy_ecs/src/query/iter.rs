@@ -52,6 +52,9 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY:
+        // `tables` and `archetypes` belong to the same world that the cursor was initialized for.
+        // `query_state` is the state that was passed to `QueryIterationCursor::init`.
         unsafe {
             self.cursor
                 .next(self.tables, self.archetypes, self.query_state)
@@ -150,33 +153,42 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        unsafe {
-            for entity in self.entity_iter.by_ref() {
-                let location = match self.entities.get(*entity.borrow()) {
-                    Some(location) => location,
-                    None => continue,
-                };
+        for entity in self.entity_iter.by_ref() {
+            let location = match self.entities.get(*entity.borrow()) {
+                Some(location) => location,
+                None => continue,
+            };
 
-                if !self
-                    .query_state
-                    .matched_archetypes
-                    .contains(location.archetype_id.index())
-                {
-                    continue;
-                }
+            if !self
+                .query_state
+                .matched_archetypes
+                .contains(location.archetype_id.index())
+            {
+                continue;
+            }
 
-                let archetype = &self.archetypes[location.archetype_id];
+            let archetype = &self.archetypes[location.archetype_id];
 
+            // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
+            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+            unsafe {
                 self.fetch
                     .set_archetype(&self.query_state.fetch_state, archetype, self.tables);
+            }
+            // SAFETY: `table` is from the world that `fetch/filter` were created for,
+            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+            unsafe {
                 self.filter
                     .set_archetype(&self.query_state.filter_state, archetype, self.tables);
-                if self.filter.archetype_filter_fetch(location.index) {
-                    return Some(self.fetch.archetype_fetch(location.index));
-                }
             }
-            None
+            // SAFETY: set_archetype was called prior.
+            // `location.index` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
+            if unsafe { self.filter.archetype_filter_fetch(location.index) } {
+                // SAFETY: set_archetype was called prior, `location.index` is an archetype index in range of the current archetype
+                return Some(unsafe { self.fetch.archetype_fetch(location.index) });
+            }
         }
+        None
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -289,7 +301,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
         for<'a> QueryFetch<'a, Q>: Clone,
         for<'a> QueryFetch<'a, F>: Clone,
     {
-        // safety: we are limiting the returned reference to self,
+        // SAFETY: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
         unsafe {
@@ -374,7 +386,9 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::Stat
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
     fetch: QF,
     filter: QueryFetch<'w, F>,
+    // length of the table table or length of the archetype, depending on whether both `Q`'s and `F`'s fetches are dense
     current_len: usize,
+    // either table row or archetype index, depending on whether both `Q`'s and `F`'s fetches are dense
     current_index: usize,
     phantom: PhantomData<(&'w (), Q)>,
 }
@@ -461,6 +475,10 @@ where
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
     // QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+    /// # Safety
+    /// `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
+    /// was initialized for.
+    /// `query_state` must be the same [`QueryState`] that was passed to `init` or `init_empty`.
     #[inline(always)]
     unsafe fn next(
         &mut self,
@@ -470,9 +488,12 @@ where
     ) -> Option<QF::Item> {
         if Self::IS_DENSE {
             loop {
+                // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_index == self.current_len {
                     let table_id = self.table_id_iter.next()?;
                     let table = &tables[*table_id];
+                    // SAFETY: `table` is from the world that `fetch/filter` were created for,
+                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     self.fetch.set_table(&query_state.fetch_state, table);
                     self.filter.set_table(&query_state.filter_state, table);
                     self.current_len = table.len();
@@ -480,11 +501,15 @@ where
                     continue;
                 }
 
+                // SAFETY: set_table was called prior.
+                // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                 if !self.filter.table_filter_fetch(self.current_index) {
                     self.current_index += 1;
                     continue;
                 }
 
+                // SAFETY: set_table was called prior.
+                // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                 let item = self.fetch.table_fetch(self.current_index);
 
                 self.current_index += 1;
@@ -495,6 +520,8 @@ where
                 if self.current_index == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
                     let archetype = &archetypes[*archetype_id];
+                    // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
+                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     self.fetch
                         .set_archetype(&query_state.fetch_state, archetype, tables);
                     self.filter
@@ -504,11 +531,15 @@ where
                     continue;
                 }
 
+                // SAFETY: set_archetype was called prior.
+                // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
                 if !self.filter.archetype_filter_fetch(self.current_index) {
                     self.current_index += 1;
                     continue;
                 }
 
+                // SAFETY: set_archetype was called prior, `current_index` is an archetype index in range of the current archetype
+                // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
                 let item = self.fetch.archetype_fetch(self.current_index);
                 self.current_index += 1;
                 return Some(item);
