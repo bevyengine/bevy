@@ -719,6 +719,11 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "archetype_invariants"
+path = "examples/ecs/archetype_invariants.rs"
+description = "Assertions about valid combinations of components"
+
+[[example]]
 name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
 
