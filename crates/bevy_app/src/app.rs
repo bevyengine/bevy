@@ -857,12 +857,34 @@ impl App {
         self
     }
 
-    /// Adds the type `T` to the type registry [`Resource`].
+    /// Adds the type `T` to the [TypeRegistry](bevy_reflect::TypeRegistry) resource
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {
             let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
             registry.write().register::<T>();
+        }
+        self
+    }
+
+    /// Adds the type data `D` to type `T` in the [TypeRegistry](bevy_reflect::TypeRegistry) resource
+    /// # Example
+    /// ```rust
+    /// use bevy_app::App;
+    /// use bevy_reflect::{ReflectSerialize, ReflectDeserialize};
+    ///
+    /// App::new()
+    ///     .register_type::<Option<String>>()
+    ///     .register_type_data::<Option<String>, ReflectSerialize>()
+    ///     .register_type_data::<Option<String>, ReflectDeserialize>();
+    /// ```
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_data<T: 'static, D: bevy_reflect::TypeData + bevy_reflect::FromType<T>>(
+        &mut self,
+    ) -> &mut Self {
+        {
+            let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
+            registry.write().register_type_data::<T, D>();
         }
         self
     }

@@ -100,6 +100,22 @@ impl TypeRegistry {
             .insert(registration.type_id(), registration);
     }
 
+    /// Registers the type data `D` for type `T`
+    /// # Example
+    /// ```rust
+    /// use bevy_reflect::{TypeRegistry, ReflectSerialize, ReflectDeserialize};
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<Option<String>>();
+    /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
+    /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
+    /// ```
+    pub fn register_type_data<T: 'static, D: TypeData + FromType<T>>(&mut self) -> Option<()> {
+        let data = self.get_mut(TypeId::of::<T>())?;
+        data.insert(D::from_type());
+        Some(())
+    }
+
     /// Returns a reference to the [`TypeRegistration`] of the type with the
     /// given [`TypeId`].
     ///
