@@ -105,20 +105,12 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Default)]
-    struct BVec3A {}
-);
-impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
     struct BVec4 {
         x: bool,
         y: bool,
         z: bool,
         w: bool,
     }
-);
-impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
-    struct BVec4A {}
 );
 
 impl_reflect_struct!(
@@ -245,3 +237,6 @@ impl_from_reflect_value!(Quat);
 impl_from_reflect_value!(DQuat);
 
 impl_reflect_value!(EulerRot(Debug, Default));
+
+impl_reflect_value!(BVec3A(Debug, PartialEq, Default));
+impl_reflect_value!(BVec4A(Debug, PartialEq, Default));
