@@ -27,7 +27,7 @@ use crate::{
 /// but not that `B2` requires `B1`.
 /// In this case, an entity with just `B2` is completely valid, but an entity with just `B1` is not.
 /// If symmetry is desired, repeat the invariant with the order of the types switched.
-/// 
+///
 /// When working with dynamic component types (for non-Rust components),
 /// use the untyped equivalents [`UntypedArchetypeInvariant`] and [`UntypedArchetypeStatement`] directly.
 #[derive(Clone, Debug, PartialEq)]
@@ -404,7 +404,7 @@ impl UntypedArchetypeStatement {
 }
 
 /// A list of [`ArchetypeInvariant`]s, stored on a [`World`].
-/// 
+///
 /// These store [`UntypedArchetypeInvariant`]s to ensure fast computation
 /// and compatiblity with dynamic (non-Rust) component types.
 #[derive(Default)]
