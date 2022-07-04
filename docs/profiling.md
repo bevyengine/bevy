@@ -19,7 +19,7 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 
 There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
 
-It has a command line capture tool that can be used for capturing with minimal disruption to the execution of graphical applications, saving the profile data to a file. It also has a GUI that can be used to inspect these profile files, or live capture them, though running the live capture on the same machine will be a competing graphical application, which may impact results. As such, @superdump tends to use the command line to for capturing, and the GUI tool for inspecting.
+It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app.
 
 In one terminal, run:
 `./capture-release -o my_capture.tracy`
@@ -28,7 +28,11 @@ This will sit and wait for a tracy-instrumented application to start, and when i
 Then run your application, enabling the `trace_tracy` feature:
 `cargo run --release --features bevy/trace_tracy`
 
-After running your app, you can open the captured profile file (`my_capture.tracy` in the example above) in the Tracy GUI application to see a timeline of the executed spans:
+After running your app, you can open the captured profile file (`my_capture.tracy` in the example above) in the Tracy GUI application to see a timeline of the executed spans.
+
+Alternatively, directly run the tracy GUI and then run your application, for live capture. However, beware that running the live capture on the same machine will be a competing graphical application, which may impact results. Pre-recording the profile data through the CLI tool is recommended for more accurate traces.
+
+In any case, you'll see your trace in the GUI window:
 
 <img width="1840" alt="Tracy timeline" src="https://user-images.githubusercontent.com/302146/163988636-25c017ab-64bc-4da7-a897-a80098b667ef.png">
 
