@@ -145,19 +145,14 @@ mod sealed {
 /// #[component(storage = "SparseSet")]
 /// struct A;
 /// ```
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub enum StorageType {
     /// Provides fast and cache-friendly iteration, but slower addition and removal of components.
     /// This is the default storage type.
+    #[default]
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
-}
-
-impl Default for StorageType {
-    fn default() -> Self {
-        StorageType::Table
-    }
 }
 
 #[derive(Debug)]
