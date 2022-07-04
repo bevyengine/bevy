@@ -122,7 +122,7 @@ mod test {
                         result_channel.0.send(thing.0).expect("result to send");
                     }
                 }
-                app_exit_events.send(AppExit)
+                app_exit_events.send(AppExit);
             }
 
             // The result of running the app.
