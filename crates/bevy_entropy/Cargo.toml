@@ -17,7 +17,7 @@ keywords = ["bevy", "random", "entropy"]
 bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 # other
-rand_core = { version = "0.6.3" }
+rand_core = { version = "0.6.3", features = ["getrandom"] }
 rand_chacha = { version = "0.3.1" }
 
 [dev-dependencies]
