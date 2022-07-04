@@ -52,7 +52,7 @@ impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
     /// Creates an archetype invariant where any component of `B1` forbids every comonent from `B2`, and vice versa.
     ///
     /// In other words, if any component from `B1` is present, then none of the components from `B2` can be present.
-    /// Although this appears asymetric, it actually implies its own converse.
+    /// Although this appears asymmetric, it actually implies its own converse.
     /// This is particularly useful for avoiding query conflicts.
     #[inline]
     pub fn forbids() -> Self {
@@ -73,7 +73,7 @@ impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
         }
     }
 
-    /// Creates an archetype invariant where any components of `B1` must appear with some components of `B2`.
+    /// Creates an archetype invariant where components of `B1` require at least one component of `B2`.
     ///
     /// In other words, if any component from `B1` is present, then at least one component from `B2` must be.
     #[inline]
@@ -121,7 +121,7 @@ impl<B: Bundle> ArchetypeInvariant<B, B> {
     }
 }
 
-/// A statement about the presence or absence of some subset of components in the given [`Bundle`]
+/// A statement about the presence or absence of some subset of components in the given [`Bundle`].
 ///
 /// This type is used as part of an [`ArchetypeInvariant`].
 ///
@@ -272,7 +272,7 @@ pub enum UntypedArchetypeStatement {
 }
 
 impl UntypedArchetypeStatement {
-    /// Get the set of [`ComponentId`]s affected by this statement
+    /// Returns the set of [`ComponentId`]s affected by this statement.
     pub fn component_ids(&self) -> &HashSet<ComponentId> {
         match self {
             UntypedArchetypeStatement::AllOf(set)
@@ -283,7 +283,7 @@ impl UntypedArchetypeStatement {
         }
     }
 
-    /// Returns formatted string describing this archetype invariant
+    /// Returns formatted string describing this archetype invariant.
     ///
     /// For Rust types, the names should match the type name.
     /// If any [`ComponentId`]s in the invariant have not been registered in the world,
