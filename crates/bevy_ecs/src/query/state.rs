@@ -1230,7 +1230,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
 /// An error that occurs when retrieving a specific [`Entity`]'s query result.
 // TODO: return the type_name as part of this error
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum QueryEntityError {
     QueryDoesNotMatch(Entity),
     NoSuchEntity(Entity),

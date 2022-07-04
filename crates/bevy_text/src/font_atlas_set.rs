@@ -62,7 +62,7 @@ impl FontAtlasSet {
                 vec![FontAtlas::new(
                     textures,
                     texture_atlases,
-                    Vec2::new(512.0, 512.0),
+                    Vec2::splat(512.0),
                 )]
             });
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
