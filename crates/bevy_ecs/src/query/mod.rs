@@ -21,8 +21,8 @@ pub(crate) unsafe fn debug_checked_unreachable() -> ! {
 mod tests {
     use super::WorldQuery;
     use crate::prelude::{AnyOf, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, QueryCombinationIter, QueryFetch, ReadOnlyWorldQuery};
-    use crate::system::{IntoSystem, Query, System};
+    use crate::query::{ArchetypeFilter, QueryCombinationIter, QueryFetch};
+    use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::any::type_name;
     use std::collections::HashSet;
@@ -67,10 +67,11 @@ mod tests {
         }
         fn assert_combination<Q, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            Q: ReadOnlyWorldQuery,
-            F: ReadOnlyWorldQuery + ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q>: Clone,
-            for<'w> QueryFetch<'w, F>: Clone,
+            Q: WorldQuery,
+            F: WorldQuery,
+            F::ReadOnly: ArchetypeFilter,
+            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
+            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter_combinations::<K>(world);
@@ -79,10 +80,11 @@ mod tests {
         }
         fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
         where
-            Q: ReadOnlyWorldQuery,
-            F: ReadOnlyWorldQuery + ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q>: Clone,
-            for<'w> QueryFetch<'w, F>: Clone,
+            Q: WorldQuery,
+            F: WorldQuery,
+            F::ReadOnly: ArchetypeFilter,
+            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
+            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter(world);
@@ -652,5 +654,43 @@ count():       {count}"#
             system.initialize(&mut world);
             system.run((), &mut world);
         }
+    }
+
+    #[test]
+    fn mut_to_immut_query_methods_have_immut_item() {
+        #[derive(Component)]
+        struct Foo;
+
+        let mut world = World::new();
+        let e = world.spawn().insert(Foo).id();
+
+        // state
+        let mut q = world.query::<&mut Foo>();
+        let _: Option<&Foo> = q.iter(&world).next();
+        let _: Option<[&Foo; 2]> = q.iter_combinations::<2>(&world).next();
+        let _: Option<&Foo> = q.iter_manual(&world).next();
+        let _: Option<&Foo> = q.iter_many(&world, [e]).next();
+        q.for_each(&world, |_: &Foo| ());
+
+        let _: Option<&Foo> = q.get(&world, e).ok();
+        let _: Option<&Foo> = q.get_manual(&world, e).ok();
+        let _: Option<[&Foo; 1]> = q.get_many(&world, [e]).ok();
+        let _: Option<&Foo> = q.get_single(&world).ok();
+        let _: &Foo = q.single(&world);
+
+        // system param
+        let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
+        let q = q.get_mut(&mut world);
+        let _: Option<&Foo> = q.iter().next();
+        let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
+        let _: Option<&Foo> = q.iter_many([e]).next();
+        q.for_each(|_: &Foo| ());
+
+        let _: Option<&Foo> = q.get(e).ok();
+        let _: Option<&Foo> = q.get_component(e).ok();
+        let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
+        let _: Option<&Foo> = q.get_single().ok();
+        let _: [&Foo; 1] = q.many([e]);
+        let _: &Foo = q.single();
     }
 }

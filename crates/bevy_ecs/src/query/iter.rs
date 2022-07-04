@@ -13,17 +13,14 @@ use super::{QueryFetch, QueryItem, ReadOnlyWorldQuery};
 ///
 /// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
+pub struct QueryIter<'w, 's, Q: WorldQuery, F: WorldQuery> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
-    cursor: QueryIterationCursor<'w, 's, Q, QF, F>,
+    cursor: QueryIterationCursor<'w, 's, Q, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIter<'w, 's, Q, QF, F>
-where
-    QF: Fetch<'w, State = Q::State>,
-{
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F> {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
@@ -44,11 +41,8 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, QF, F>
-where
-    QF: Fetch<'w, State = Q::State>,
-{
-    type Item = QF::Item;
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F> {
+    type Item = QueryItem<'w, Q>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -69,42 +63,32 @@ where
             .map(|id| self.archetypes[*id].len())
             .sum();
 
-        let archetype_query = F::Fetch::IS_ARCHETYPAL && QF::IS_ARCHETYPAL;
+        let archetype_query = Q::Fetch::IS_ARCHETYPAL && F::Fetch::IS_ARCHETYPAL;
         let min_size = if archetype_query { max_size } else { 0 };
         (min_size, Some(max_size))
     }
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q, QF, F> where
-    QF: Fetch<'w, State = Q::State>
-{
-}
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) method.
-pub struct QueryManyIter<
-    'w,
-    's,
-    Q: WorldQuery,
-    QF: Fetch<'w, State = Q::State>,
-    F: WorldQuery,
-    I: Iterator,
-> where
+pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator>
+where
     I::Item: Borrow<Entity>,
 {
     entity_iter: I,
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: QF,
+    fetch: QueryFetch<'w, Q>,
     filter: QueryFetch<'w, F>,
     query_state: &'s QueryState<Q, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery, I: Iterator>
-    QueryManyIter<'w, 's, Q, QF, F, I>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator> QueryManyIter<'w, 's, Q, F, I>
 where
     I::Item: Borrow<Entity>,
 {
@@ -119,14 +103,14 @@ where
         entity_list: EntityList,
         last_change_tick: u32,
         change_tick: u32,
-    ) -> QueryManyIter<'w, 's, Q, QF, F, I> {
-        let fetch = QF::init(
+    ) -> QueryManyIter<'w, 's, Q, F, I> {
+        let fetch = Q::Fetch::init(
             world,
             &query_state.fetch_state,
             last_change_tick,
             change_tick,
         );
-        let filter = QueryFetch::<F>::init(
+        let filter = F::Fetch::init(
             world,
             &query_state.filter_state,
             last_change_tick,
@@ -144,12 +128,11 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery, I: Iterator> Iterator
-    for QueryManyIter<'w, 's, Q, QF, F, I>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator> Iterator for QueryManyIter<'w, 's, Q, F, I>
 where
     I::Item: Borrow<Entity>,
 {
-    type Item = QF::Item;
+    type Item = QueryItem<'w, Q>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -201,7 +184,7 @@ pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: u
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
-    cursors: [QueryIterationCursor<'w, 's, Q, QueryFetch<'w, Q>, F>; K],
+    cursors: [QueryIterationCursor<'w, 's, Q, F>; K],
 }
 
 impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K> {
@@ -219,11 +202,10 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
-        let mut array: MaybeUninit<[QueryIterationCursor<'w, 's, Q, QueryFetch<'w, Q>, F>; K]> =
-            MaybeUninit::uninit();
+        let mut array: MaybeUninit<[QueryIterationCursor<'w, 's, Q, F>; K]> = MaybeUninit::uninit();
         let ptr = array
             .as_mut_ptr()
-            .cast::<QueryIterationCursor<'w, 's, Q, QueryFetch<'w, Q>, F>>();
+            .cast::<QueryIterationCursor<'w, 's, Q, F>>();
         if K != 0 {
             ptr.write(QueryIterationCursor::init(
                 world,
@@ -367,10 +349,9 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F> ExactSizeIterator for QueryIter<'w, 's, Q, QF, F>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, F>
 where
-    QF: Fetch<'w, State = Q::State>,
-    F: WorldQuery + ArchetypeFilter,
+    F: ArchetypeFilter,
 {
     fn len(&self) -> usize {
         self.query_state
@@ -405,21 +386,21 @@ where
 {
 }
 
-struct QueryIterationCursor<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
+struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: WorldQuery> {
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
-    fetch: QF,
+    fetch: QueryFetch<'w, Q>,
     filter: QueryFetch<'w, F>,
     // length of the table table or length of the archetype, depending on whether both `Q`'s and `F`'s fetches are dense
     current_len: usize,
     // either table row or archetype index, depending on whether both `Q`'s and `F`'s fetches are dense
     current_index: usize,
-    phantom: PhantomData<(&'w (), Q)>,
+    phantom: PhantomData<Q>,
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, QF, F>
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, F>
 where
-    QF: Fetch<'w, State = Q::State> + Clone,
+    QueryFetch<'w, Q>: Clone,
     QueryFetch<'w, F>: Clone,
 {
     fn clone(&self) -> Self {
@@ -435,11 +416,8 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryIterationCursor<'w, 's, Q, QF, F>
-where
-    QF: Fetch<'w, State = Q::State>,
-{
-    const IS_DENSE: bool = QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE;
+impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
+    const IS_DENSE: bool = Q::Fetch::IS_DENSE && F::Fetch::IS_DENSE;
 
     unsafe fn init_empty(
         world: &'w World,
@@ -460,13 +438,13 @@ where
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
-        let fetch = QF::init(
+        let fetch = Q::Fetch::init(
             world,
             &query_state.fetch_state,
             last_change_tick,
             change_tick,
         );
-        let filter = QueryFetch::<F>::init(
+        let filter = F::Fetch::init(
             world,
             &query_state.filter_state,
             last_change_tick,
@@ -485,7 +463,7 @@ where
 
     /// retrieve item returned from most recent `next` call again.
     #[inline]
-    unsafe fn peek_last(&mut self) -> Option<QF::Item> {
+    unsafe fn peek_last(&mut self) -> Option<QueryItem<'w, Q>> {
         if self.current_index > 0 {
             if Self::IS_DENSE {
                 Some(self.fetch.table_fetch(self.current_index - 1))
@@ -509,7 +487,7 @@ where
         tables: &'w Tables,
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<Q, F>,
-    ) -> Option<QF::Item> {
+    ) -> Option<QueryItem<'w, Q>> {
         if Self::IS_DENSE {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
