@@ -23,7 +23,7 @@ It has a command line capture tool that can record the execution of graphical ap
 
 In one terminal, run:
 `./capture-release -o my_capture.tracy`
-This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing.
+This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing. Note that on Windows, the capture tool is called `capture.exe`.
 
 Then run your application, enabling the `trace_tracy` feature:
 `cargo run --release --features bevy/trace_tracy`
