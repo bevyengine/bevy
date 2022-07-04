@@ -353,6 +353,7 @@ mod tests {
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
+        map.insert(3usize, 4i8);
         foo_patch.insert("d", map);
 
         let mut bar_patch = DynamicStruct::default();
@@ -394,6 +395,7 @@ mod tests {
         let mut hash_map = HashMap::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 3);
+        hash_map.insert(3, 4);
 
         let mut hash_map_baz = HashMap::default();
         hash_map_baz.insert(1, Bar { x: 7 });
@@ -416,6 +418,7 @@ mod tests {
 
         let mut hash_map = HashMap::default();
         hash_map.insert(2, 3);
+        hash_map.insert(3, 4);
 
         let expected_new_foo = Foo {
             a: 2,
