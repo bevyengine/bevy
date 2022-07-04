@@ -50,7 +50,7 @@ Add spans to your app like this (these are in `bevy::prelude::*` and `bevy::log:
 
 ```rust
 {
-  // creates a span and starts the timer 
+  // creates a span and starts the timer
   let my_span = info_span!("span_name", name = "span_name").entered();
   do_something_here();
 } // my_span is dropped here ... this stops the timer
@@ -60,7 +60,7 @@ Add spans to your app like this (these are in `bevy::prelude::*` and `bevy::log:
 // Prefer the previous, simpler syntax unless you need the extra control.
 let my_span = info_span!("span_name", name = "span_name");
 {
-  // starts the span's timer 
+  // starts the span's timer
   let guard = my_span.enter();
   do_something_here();
 } // guard is dropped here ... this stops the timer
