@@ -19,7 +19,6 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
         // Archetype invariants are constructed in terms of bundles;
         // use (MyComponent, ) to construct a bundle with a single item.
         // This invariant ensures that Player and Camera can never be found together.
@@ -43,6 +42,8 @@ fn main() {
             // ArchetypeStatement::AnyOf evaluates to true when at least one of the components is present on the entity.
             consequence: ArchetypeStatement::<(Animal, Vegetable, Mineral)>::any_of(),
         })
+        .add_startup_system(spawn_vegetable)
+        .add_system(position_vegetable)
         .run();
 }
 
@@ -57,3 +58,27 @@ struct Vegetable;
 
 #[derive(Component)]
 struct Mineral;
+
+fn spawn_vegetable(mut commands: Commands) {
+    commands.spawn().insert(Vegetable);
+}
+
+fn position_vegetable(mut commands: Commands, query: Query<Entity, With<Vegetable>>) {
+    let vegetable_entity = query.single();
+
+    // Because of our invariants, these components need to be added together.
+    // Adding them separately (as in the broken code below) will cause the entity to briefly enter an invalid state,
+    // where it has only one of the two components.
+    commands
+        .entity(vegetable_entity)
+        .insert_bundle((GlobalTransform::default(), Transform::default()));
+
+    // Adding the components one at a time panics
+    // Track this limitation at https://github.com/bevyengine/bevy/issues/5074
+    /*
+    commands
+        .entity(vegetable_entity)
+        .insert(GlobalTransform::default())
+        .insert(Transform::default());
+    */
+}

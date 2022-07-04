@@ -721,7 +721,12 @@ wasm = false
 [[example]]
 name = "archetype_invariants"
 path = "examples/ecs/archetype_invariants.rs"
+
+[package.metadata.example.archetype_invariants]
+name = "archetype_invariants"
 description = "Assertions about valid combinations of components"
+category = "ECS (Entity Component System)"
+wasm = false
 
 [[example]]
 name = "component_change_detection"
