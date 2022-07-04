@@ -32,21 +32,35 @@ impl ArchetypeId {
     }
 }
 
-pub enum ComponentStatus {
+pub(crate) enum ComponentStatus {
     Added,
     Mutated,
 }
 
 pub struct AddBundle {
     pub archetype_id: ArchetypeId,
-    pub bundle_status: Vec<ComponentStatus>,
+    pub(crate) bundle_status: Vec<ComponentStatus>,
 }
 
+/// Archetypes and bundles form a graph. Adding or removing a bundle moves
+/// an [`Entity`] to a new [`Archetype`].
+///
+/// [`Edges`] caches the results of these moves. Each archetype caches
+/// the result of a structural alteration. This can be used to monitor the
+/// state of the archetype graph.
+///
+/// Note: This type only contains edges the [`World`] has already traversed.
+/// If any of functions return `None`, it doesn't mean there is guarenteed
+/// not to be a result of adding or removing that bundle, but rather that
+/// operation that has moved an entity along that edge has not been performed
+/// yet.
+///
+/// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Edges {
-    pub add_bundle: SparseArray<BundleId, AddBundle>,
-    pub remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
-    pub remove_bundle_intersection: SparseArray<BundleId, Option<ArchetypeId>>,
+    add_bundle: SparseArray<BundleId, AddBundle>,
+    remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
+    remove_bundle_intersection: SparseArray<BundleId, Option<ArchetypeId>>,
 }
 
 impl Edges {
@@ -56,7 +70,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn insert_add_bundle(
+    pub(crate) fn insert_add_bundle(
         &mut self,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
@@ -77,7 +91,11 @@ impl Edges {
     }
 
     #[inline]
-    pub fn insert_remove_bundle(&mut self, bundle_id: BundleId, archetype_id: Option<ArchetypeId>) {
+    pub(crate) fn insert_remove_bundle(
+        &mut self,
+        bundle_id: BundleId,
+        archetype_id: Option<ArchetypeId>,
+    ) {
         self.remove_bundle.insert(bundle_id, archetype_id);
     }
 
@@ -90,7 +108,7 @@ impl Edges {
     }
 
     #[inline]
-    pub fn insert_remove_bundle_intersection(
+    pub(crate) fn insert_remove_bundle_intersection(
         &mut self,
         bundle_id: BundleId,
         archetype_id: Option<ArchetypeId>,
@@ -237,14 +255,14 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn set_entity_table_row(&mut self, index: usize, table_row: usize) {
+    pub(crate) fn set_entity_table_row(&mut self, index: usize, table_row: usize) {
         self.table_info.entity_rows[index] = table_row;
     }
 
     /// # Safety
     /// valid component values must be immediately written to the relevant storages
     /// `table_row` must be valid
-    pub unsafe fn allocate(&mut self, entity: Entity, table_row: usize) -> EntityLocation {
+    pub(crate) unsafe fn allocate(&mut self, entity: Entity, table_row: usize) -> EntityLocation {
         self.entities.push(entity);
         self.table_info.entity_rows.push(table_row);
 
@@ -254,7 +272,7 @@ impl Archetype {
         }
     }
 
-    pub fn reserve(&mut self, additional: usize) {
+    pub(crate) fn reserve(&mut self, additional: usize) {
         self.entities.reserve(additional);
         self.table_info.entity_rows.reserve(additional);
     }
@@ -407,7 +425,7 @@ impl Archetypes {
     }
 
     #[inline]
-    pub fn empty_mut(&mut self) -> &mut Archetype {
+    pub(crate) fn empty_mut(&mut self) -> &mut Archetype {
         // SAFE: empty archetype always exists
         unsafe {
             self.archetypes
@@ -422,7 +440,7 @@ impl Archetypes {
     }
 
     #[inline]
-    pub fn resource_mut(&mut self) -> &mut Archetype {
+    pub(crate) fn resource_mut(&mut self) -> &mut Archetype {
         // SAFE: resource archetype always exists
         unsafe {
             self.archetypes
@@ -438,11 +456,6 @@ impl Archetypes {
     #[inline]
     pub fn get(&self, id: ArchetypeId) -> Option<&Archetype> {
         self.archetypes.get(id.index())
-    }
-
-    #[inline]
-    pub fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
-        self.archetypes.get_mut(id.index())
     }
 
     #[inline]
@@ -518,7 +531,7 @@ impl Archetypes {
         self.archetype_component_count
     }
 
-    pub fn clear_entities(&mut self) {
+    pub(crate) fn clear_entities(&mut self) {
         for archetype in &mut self.archetypes {
             archetype.clear_entities();
         }

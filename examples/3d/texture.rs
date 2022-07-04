@@ -1,6 +1,7 @@
+//! This example shows various ways to configure texture materials in 3D.
+
 use bevy::prelude::*;
 
-/// This example shows various ways to configure texture materials in 3D
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -86,7 +87,7 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

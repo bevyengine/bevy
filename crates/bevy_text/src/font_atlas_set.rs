@@ -1,11 +1,11 @@
 use crate::{error::TextError, Font, FontAtlas};
 use ab_glyph::{GlyphId, OutlinedGlyph, Point};
 use bevy_asset::{Assets, Handle};
-use bevy_core::FloatOrd;
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
+use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 
 type FontSizeKey = FloatOrd;
@@ -62,7 +62,7 @@ impl FontAtlasSet {
                 vec![FontAtlas::new(
                     textures,
                     texture_atlases,
-                    Vec2::new(512.0, 512.0),
+                    Vec2::splat(512.0),
                 )]
             });
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
@@ -76,10 +76,18 @@ impl FontAtlasSet {
             )
         };
         if !font_atlases.iter_mut().any(add_char_to_font_atlas) {
+            // Find the largest dimension of the glyph, either its width or its height
+            let glyph_max_size: u32 = glyph_texture
+                .texture_descriptor
+                .size
+                .height
+                .max(glyph_texture.texture_descriptor.size.width);
+            // Pick the higher  of 512 or the smallest power of 2 greater than glyph_max_size
+            let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512) as f32;
             font_atlases.push(FontAtlas::new(
                 textures,
                 texture_atlases,
-                Vec2::new(512.0, 512.0),
+                Vec2::new(containing, containing),
             ));
             if !font_atlases.last_mut().unwrap().add_glyph(
                 textures,

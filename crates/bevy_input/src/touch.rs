@@ -224,6 +224,11 @@ impl Touches {
         self.pressed.get(&id)
     }
 
+    /// Checks if any touch input was just pressed.
+    pub fn any_just_pressed(&self) -> bool {
+        !self.just_pressed.is_empty()
+    }
+
     /// Returns `true` if the input corresponding to the `id` has just been pressed.
     pub fn just_pressed(&self, id: u64) -> bool {
         self.just_pressed.contains_key(&id)
@@ -239,6 +244,11 @@ impl Touches {
         self.just_released.get(&id)
     }
 
+    /// Checks if any touch input was just released.
+    pub fn any_just_released(&self) -> bool {
+        !self.just_released.is_empty()
+    }
+
     /// Returns `true` if the input corresponding to the `id` has just been released.
     pub fn just_released(&self, id: u64) -> bool {
         self.just_released.contains_key(&id)
@@ -249,6 +259,11 @@ impl Touches {
         self.just_released.values()
     }
 
+    /// Checks if any touch input was just cancelled.
+    pub fn any_just_cancelled(&self) -> bool {
+        !self.just_cancelled.is_empty()
+    }
+
     /// Returns `true` if the input corresponding to the `id` has just been cancelled.
     pub fn just_cancelled(&self, id: u64) -> bool {
         self.just_cancelled.contains_key(&id)
@@ -257,6 +272,11 @@ impl Touches {
     /// An iterator visiting every just cancelled [`Touch`] input in arbitrary order.
     pub fn iter_just_cancelled(&self) -> impl Iterator<Item = &Touch> {
         self.just_cancelled.values()
+    }
+
+    /// Retrieves the position of the first currently pressed touch, if any
+    pub fn first_pressed_position(&self) -> Option<Vec2> {
+        self.pressed.values().next().map(|t| t.position)
     }
 
     /// Processes a [`TouchInput`] event by updating the `pressed`, `just_pressed`,
@@ -330,11 +350,11 @@ mod test {
 
         let touch_event = Touch {
             id: 4,
-            start_position: Vec2::new(0.0, 0.0),
+            start_position: Vec2::ZERO,
             start_force: None,
-            previous_position: Vec2::new(0.0, 0.0),
+            previous_position: Vec2::ZERO,
             previous_force: None,
-            position: Vec2::new(0.0, 0.0),
+            position: Vec2::ZERO,
             force: None,
         };
 
@@ -363,7 +383,7 @@ mod test {
 
         let touch_event = TouchInput {
             phase: TouchPhase::Started,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };
@@ -378,7 +398,7 @@ mod test {
 
         let moved_touch_event = TouchInput {
             phase: TouchPhase::Moved,
-            position: Vec2::new(5.0, 5.0),
+            position: Vec2::splat(5.0),
             force: None,
             id: touch_event.id,
         };
@@ -399,7 +419,7 @@ mod test {
 
         let cancel_touch_event = TouchInput {
             phase: TouchPhase::Cancelled,
-            position: Vec2::new(1.0, 1.0),
+            position: Vec2::ONE,
             force: None,
             id: touch_event.id,
         };
@@ -414,7 +434,7 @@ mod test {
 
         let end_touch_event = TouchInput {
             phase: TouchPhase::Ended,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };
@@ -436,7 +456,7 @@ mod test {
 
         let touch_event = TouchInput {
             phase: TouchPhase::Started,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };
@@ -458,7 +478,7 @@ mod test {
 
         let touch_event = TouchInput {
             phase: TouchPhase::Ended,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };
@@ -480,7 +500,7 @@ mod test {
 
         let touch_event = TouchInput {
             phase: TouchPhase::Cancelled,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };

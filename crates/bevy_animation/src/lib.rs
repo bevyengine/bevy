@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_core::{Name, Time};
+use bevy_core::Name;
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -18,6 +18,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, HierarchySystem};
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
 
@@ -71,6 +72,12 @@ impl AnimationClip {
     /// Hashmap of the [`VariableCurve`]s per [`EntityPath`].
     pub fn curves(&self) -> &HashMap<EntityPath, Vec<VariableCurve>> {
         &self.curves
+    }
+
+    /// Duration of the clip, represented in seconds
+    #[inline]
+    pub fn duration(&self) -> f32 {
+        self.duration
     }
 
     /// Add a [`VariableCurve`] to an [`EntityPath`].
@@ -223,7 +230,7 @@ pub fn animation_player(
                             match &curve.keyframes {
                                 Keyframes::Rotation(keyframes) => transform.rotation = keyframes[0],
                                 Keyframes::Translation(keyframes) => {
-                                    transform.translation = keyframes[0]
+                                    transform.translation = keyframes[0];
                                 }
                                 Keyframes::Scale(keyframes) => transform.scale = keyframes[0],
                             }
@@ -255,8 +262,8 @@ pub fn animation_player(
                                     rot_end = -rot_end;
                                 }
                                 // Rotations are using a spherical linear interpolation
-                                transform.rotation = Quat::from_array(rot_start.normalize().into())
-                                    .slerp(Quat::from_array(rot_end.normalize().into()), lerp);
+                                transform.rotation =
+                                    rot_start.normalize().slerp(rot_end.normalize(), lerp);
                             }
                             Keyframes::Translation(keyframes) => {
                                 let translation_start = keyframes[step_start];

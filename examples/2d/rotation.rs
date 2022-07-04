@@ -1,11 +1,9 @@
-use bevy::{
-    core::FixedTimestep,
-    math::{const_vec2, Vec3Swizzles},
-    prelude::*,
-};
+//! Demonstrates rotating entities in 2D using quaternions.
+
+use bevy::{math::Vec3Swizzles, prelude::*, time::FixedTimestep};
 
 const TIME_STEP: f32 = 1.0 / 60.0;
-const BOUNDS: Vec2 = const_vec2!([1200.0, 640.0]);
+const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
     App::new()
@@ -18,7 +16,7 @@ fn main() {
                 .with_system(snap_to_player_system)
                 .with_system(rotate_to_player_system),
         )
-        .add_system(bevy::input::system::exit_on_esc_system)
+        .add_system(bevy::window::close_on_esc)
         .run();
 }
 
@@ -57,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
 
     // 2D orthographic camera
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
 
     let horizontal_margin = BOUNDS.x / 4.0;
     let vertical_margin = BOUNDS.y / 4.0;
@@ -132,10 +130,8 @@ fn player_movement_system(
         movement_factor += 1.0;
     }
 
-    // create the change in rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    let rotation_delta = Quat::from_rotation_z(rotation_factor * ship.rotation_speed * TIME_STEP);
-    // update the ship rotation with our rotation delta
-    transform.rotation *= rotation_delta;
+    // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
+    transform.rotate_z(rotation_factor * ship.rotation_speed * TIME_STEP);
 
     // get the ship's forward vector by applying the current rotation to the ships initial facing vector
     let movement_direction = transform.rotation * Vec3::Y;
@@ -166,7 +162,7 @@ fn snap_to_player_system(
 
         // get the quaternion to rotate from the initial enemy facing direction to the direction
         // facing the player
-        let rotate_to_player = Quat::from_rotation_arc(Vec3::Y, Vec3::from((to_player, 0.0)));
+        let rotate_to_player = Quat::from_rotation_arc(Vec3::Y, to_player.extend(0.));
 
         // rotate the enemy to face the player
         enemy_transform.rotation = rotate_to_player;
@@ -241,11 +237,7 @@ fn rotate_to_player_system(
         // calculate angle of rotation with limit
         let rotation_angle = rotation_sign * (config.rotation_speed * TIME_STEP).min(max_angle);
 
-        // get the quaternion to rotate from the current enemy facing direction towards the
-        // direction facing the player
-        let rotation_delta = Quat::from_rotation_z(rotation_angle);
-
         // rotate the enemy to face the player
-        enemy_transform.rotation *= rotation_delta;
+        enemy_transform.rotate_z(rotation_angle);
     }
 }

@@ -7,14 +7,16 @@ status = [
     "build-wasm (nightly, ubuntu-latest)",
     "build-android",
     "markdownlint",
-    "check-markdown-links",
     "run-examples",
+    "run-examples-on-wasm",
     "check-doc",
     "check-missing-examples-in-docs",
-    "check-unused-dependencies",
+    # "check-unused-dependencies",
     "ci",
     "miri",
-    "check-benches",
+    "check-compiles",
+    "build-and-install-on-iOS",
+    "run-examples-on-windows",
 ]
 
 use_squash_merge = true

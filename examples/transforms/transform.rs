@@ -1,3 +1,5 @@
+//! Shows multiple transformations of objects.
+
 use bevy::prelude::*;
 
 use std::f32::consts::PI;
@@ -44,7 +46,7 @@ fn setup(
             })),
             material: materials.add(Color::YELLOW.into()),
             transform: Transform::from_translation(Vec3::ZERO),
-            ..Default::default()
+            ..default()
         })
         .insert(Center {
             max_size: 1.0,
@@ -58,14 +60,14 @@ fn setup(
     // Define a start transform for an orbiting cube, that's away from our central object (sphere)
     // and rotate it so it will be able to move around the sphere and not towards it.
     let angle_90 = PI / 2.0;
-    let mut cube_spawn = Transform::from_translation(Vec3::Z * -10.0);
-    cube_spawn.rotation = Quat::from_rotation_y(angle_90);
+    let cube_spawn =
+        Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(angle_90));
     commands
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
             transform: cube_spawn,
-            ..Default::default()
+            ..default()
         })
         .insert(CubeState {
             start_pos: cube_spawn.translation,
@@ -74,15 +76,15 @@ fn setup(
         });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // Add a light source for better 3d visibility.
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::ONE * 3.0),
-        ..Default::default()
+        ..default()
     });
 }
 

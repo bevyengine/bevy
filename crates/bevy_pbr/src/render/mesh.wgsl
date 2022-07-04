@@ -1,5 +1,8 @@
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::mesh_bindings
+
+// NOTE: Bindings must come before functions that use them!
+#import bevy_pbr::mesh_functions
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
@@ -8,9 +11,12 @@ struct Vertex {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] tangent: vec4<f32>;
 #endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] color: vec4<f32>;
+#endif
 #ifdef SKINNED
-    [[location(4)]] joint_indices: vec4<u32>;
-    [[location(5)]] joint_weights: vec4<f32>;
+    [[location(5)]] joint_indices: vec4<u32>;
+    [[location(6)]] joint_weights: vec4<f32>;
 #endif
 };
 
@@ -22,47 +28,31 @@ struct VertexOutput {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
 #endif
-};
-
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
-#ifdef SKINNED
-[[group(2), binding(1)]]
-var<uniform> joint_matrices: SkinnedMesh;
-#import bevy_pbr::skinning
+#ifdef VERTEX_COLORS
+    [[location(4)]] color: vec4<f32>;
 #endif
+};
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
 #ifdef SKINNED
     var model = skin_model(vertex.joint_indices, vertex.joint_weights);
-    out.world_position = model * vec4<f32>(vertex.position, 1.0);
     out.world_normal = skin_normals(model, vertex.normal);
-#ifdef VERTEX_TANGENTS
-    out.world_tangent = skin_tangents(model, vertex.tangent);
-#endif
 #else
-    out.world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
-    out.world_normal = mat3x3<f32>(
-        mesh.inverse_transpose_model[0].xyz,
-        mesh.inverse_transpose_model[1].xyz,
-        mesh.inverse_transpose_model[2].xyz
-    ) * vertex.normal;
-#ifdef VERTEX_TANGENTS
-    out.world_tangent = vec4<f32>(
-        mat3x3<f32>(
-            mesh.model[0].xyz,
-            mesh.model[1].xyz,
-            mesh.model[2].xyz
-        ) * vertex.tangent.xyz,
-        vertex.tangent.w
-    );
+    var model = mesh.model;
+    out.world_normal = mesh_normal_local_to_world(vertex.normal);
 #endif
+    out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+    out.uv = vertex.uv;
+#ifdef VERTEX_TANGENTS
+    out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
+#endif
+#ifdef VERTEX_COLORS
+    out.color = vertex.color;
 #endif
 
-    out.uv = vertex.uv;
-    out.clip_position = view.view_proj * out.world_position;
+    out.clip_position = mesh_position_world_to_clip(out.world_position);
     return out;
 }
 
@@ -74,9 +64,16 @@ struct FragmentInput {
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
 #endif
+#ifdef VERTEX_COLORS
+    [[location(4)]] color: vec4<f32>;
+#endif
 };
 
 [[stage(fragment)]]
 fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
+#ifdef VERTEX_COLORS
+    return in.color;
+#else
     return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+#endif
 }

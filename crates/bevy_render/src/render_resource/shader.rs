@@ -1,7 +1,8 @@
-use bevy_asset::{AssetLoader, Handle, LoadContext, LoadedAsset};
+use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
 use naga::back::wgsl::WriterFlags;
+use naga::valid::Capabilities;
 use naga::{valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -9,6 +10,7 @@ use std::{
     borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
 };
 use thiserror::Error;
+use wgpu::Features;
 use wgpu::{util::make_spirv, ShaderModuleDescriptor, ShaderSource};
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -125,7 +127,7 @@ impl ProcessedShader {
         }
     }
 
-    pub fn reflect(&self) -> Result<ShaderReflection, ShaderReflectError> {
+    pub fn reflect(&self, features: Features) -> Result<ShaderReflection, ShaderReflectError> {
         let module = match &self {
             // TODO: process macros here
             ProcessedShader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
@@ -143,11 +145,23 @@ impl ProcessedShader {
                 },
             )?,
         };
-        let module_info = naga::valid::Validator::new(
-            naga::valid::ValidationFlags::default(),
-            naga::valid::Capabilities::default(),
-        )
-        .validate(&module)?;
+        const CAPABILITIES: &[(Features, Capabilities)] = &[
+            (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
+            (Features::SHADER_FLOAT64, Capabilities::FLOAT64),
+            (
+                Features::SHADER_PRIMITIVE_INDEX,
+                Capabilities::PRIMITIVE_INDEX,
+            ),
+        ];
+        let mut capabilities = Capabilities::empty();
+        for (feature, capability) in CAPABILITIES {
+            if features.contains(*feature) {
+                capabilities |= *capability;
+            }
+        }
+        let module_info =
+            naga::valid::Validator::new(naga::valid::ValidationFlags::default(), capabilities)
+                .validate(&module)?;
 
         Ok(ShaderReflection {
             module,
@@ -155,7 +169,10 @@ impl ProcessedShader {
         })
     }
 
-    pub fn get_module_descriptor(&self) -> Result<ShaderModuleDescriptor, AsModuleDescriptorError> {
+    pub fn get_module_descriptor(
+        &self,
+        features: Features,
+    ) -> Result<ShaderModuleDescriptor, AsModuleDescriptorError> {
         Ok(ShaderModuleDescriptor {
             label: None,
             source: match self {
@@ -164,12 +181,12 @@ impl ProcessedShader {
                     // Parse and validate the shader early, so that (e.g. while hot reloading) we can
                     // display nicely formatted error messages instead of relying on just displaying the error string
                     // returned by wgpu upon creating the shader module.
-                    let _ = self.reflect()?;
+                    let _ = self.reflect(features)?;
 
                     ShaderSource::Wgsl(source.clone())
                 }
                 ProcessedShader::Glsl(_source, _stage) => {
-                    let reflection = self.reflect()?;
+                    let reflection = self.reflect(features)?;
                     // TODO: it probably makes more sense to convert this to spirv, but as of writing
                     // this comment, naga's spirv conversion is broken
                     let wgsl = reflection.get_wgsl()?;
@@ -379,9 +396,8 @@ impl ShaderProcessor {
             Source::SpirV(source) => {
                 if shader_defs.is_empty() {
                     return Ok(ProcessedShader::SpirV(source.clone()));
-                } else {
-                    return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
                 }
+                return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
             }
         };
 
@@ -499,6 +515,34 @@ impl ShaderProcessor {
         }
 
         Ok(())
+    }
+}
+
+/// A reference to a shader asset.
+pub enum ShaderRef {
+    /// Use the "default" shader for the current context.
+    Default,
+    /// A handle to a shader stored in the [`Assets<Shader>`](bevy_asset::Assets) resource
+    Handle(Handle<Shader>),
+    /// An asset path leading to a shader
+    Path(AssetPath<'static>),
+}
+
+impl From<Handle<Shader>> for ShaderRef {
+    fn from(handle: Handle<Shader>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl From<AssetPath<'static>> for ShaderRef {
+    fn from(path: AssetPath<'static>) -> Self {
+        Self::Path(path)
+    }
+}
+
+impl From<&'static str> for ShaderRef {
+    fn from(path: &'static str) -> Self {
+        Self::Path(AssetPath::from(path))
     }
 }
 
