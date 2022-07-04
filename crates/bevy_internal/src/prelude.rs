@@ -1,9 +1,9 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, entropy::prelude::*, hierarchy::prelude::*,
-    input::prelude::*, log::prelude::*, math::prelude::*, reflect::prelude::*, scene::prelude::*,
-    time::prelude::*, transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins,
-    MinimalPlugins,
+    app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, entropy::prelude::*,
+    hierarchy::prelude::*, input::prelude::*, log::prelude::*, math::prelude::*,
+    reflect::prelude::*, scene::prelude::*, time::prelude::*, transform::prelude::*,
+    utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};

@@ -1,6 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_utils::tracing::{debug, trace};
-use rand::{rngs::StdRng, RngCore, SeedableRng};
+use rand_chacha::ChaCha12Rng;
+use rand_core::{RngCore, SeedableRng};
 
 pub mod prelude {
     #[doc(hidden)]
@@ -25,14 +26,14 @@ impl Plugin for EntropyPlugin {
 }
 
 /// A resource that provides entropy.
-pub struct Entropy(StdRng);
+pub struct Entropy(ChaCha12Rng);
 
 impl Default for Entropy {
     /// The default entropy source is non-deterministic and seeded from the operating system.
     /// For a deterministic source, use [`Entropy::from`].
     fn default() -> Self {
         debug!("Entropy created via the operating system");
-        let rng = StdRng::from_entropy();
+        let rng = ChaCha12Rng::from_entropy();
         Entropy(rng)
     }
 }
@@ -43,7 +44,7 @@ impl Entropy {
     /// If determinism is not required, use [`Entropy::default`].
     pub fn from(seed: [u8; 32]) -> Self {
         debug!("Entropy created via seed: {:?} ", seed);
-        let rng = StdRng::from_seed(seed);
+        let rng = ChaCha12Rng::from_seed(seed);
         Entropy(rng)
     }
 
