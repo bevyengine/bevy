@@ -1,13 +1,13 @@
 use criterion::criterion_main;
 
 mod components;
-mod iterations;
+mod iteration;
 mod stages;
 mod systems;
 mod world;
 
 criterion_main!(
-    iterations::iterations_benches,
+    iteration::iterations_benches,
     components::components_benches,
     stages::stages_benches,
     systems::systems_benches,
