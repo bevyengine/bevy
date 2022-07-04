@@ -243,3 +243,5 @@ impl_reflect_value!(DQuat(Debug, PartialEq, Serialize, Deserialize, Default));
 
 impl_from_reflect_value!(Quat);
 impl_from_reflect_value!(DQuat);
+
+impl_reflect_value!(EulerRot(Debug, Default));
