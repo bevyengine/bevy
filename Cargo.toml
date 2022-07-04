@@ -1217,6 +1217,16 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_animated_sprites"
+path = "examples/stress_tests/many_animated_sprites.rs"
+
+[package.metadata.example.many_animated_sprites]
+name = "Many Animated Sprites"
+description = "Displays many animated sprites in a grid arragement with slight offsets to their animation timers. Used for performance testing."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 
