@@ -7,16 +7,17 @@ use std::slice::Iter;
 /// A trait representing a [reflected] enum.
 ///
 /// This allows enums to be processed and modified dynamically at runtime without
-/// necessarily knowing the actual type. Enums are much more complex than their
-/// struct counterparts. As a result, users will need to be mindful of conventions,
-/// considerations, and complications when working with this trait.
+/// necessarily knowing the actual type.
+/// Enums are much more complex than their struct counterparts.
+/// As a result, users will need to be mindful of conventions, considerations,
+/// and complications when working with this trait.
 ///
 /// # Variants
 ///
-/// An enum is a set of choices called _variants_. An instance of an enum can only
-/// exist as one of these choices at any given time. Consider Rust's [`Option<T>`].
-/// It's an enum with two variants: [`None`] and [`Some`]. If you're `None`, you can't
-/// be `Some` and vice versa.
+/// An enum is a set of choices called _variants_.
+/// An instance of an enum can only exist as one of these choices at any given time.
+/// Consider Rust's [`Option<T>`]. It's an enum with two variants: [`None`] and [`Some`].
+/// If you're `None`, you can't be `Some` and vice versa.
 ///
 /// > ⚠️ __This is very important:__
 /// > The [`Enum`] trait represents an enum _as one of its variants_.
@@ -31,9 +32,10 @@ use std::slice::Iter;
 /// | Struct       | `MyEnum::Foo{ value: String }` |
 ///
 /// As you can see, a unit variant contains no fields, while tuple and struct variants
-/// can contain one or more fields. The fields in a tuple variant is defined by their
-/// _order_ within the variant. Index `0` represents the first field in the variant and
-/// so on. Fields in struct variants (excluding tuple structs), on the other hand, are
+/// can contain one or more fields.
+/// The fields in a tuple variant is defined by their _order_ within the variant.
+/// Index `0` represents the first field in the variant and so on.
+/// Fields in struct variants (excluding tuple structs), on the other hand, are
 /// represented by a _name_.
 ///
 /// # Implementation
@@ -42,40 +44,44 @@ use std::slice::Iter;
 /// > on an enum definition.
 ///
 /// Despite the fact that enums can represent multiple states, traits only exist in one state
-/// and must be applied to the entire enum rather than a particular variant. Because of this
-/// limitation, the [`Enum`] trait must not only _represent- any of the three variant types,
-/// but also define the _methods_ for all three as well.
+/// and must be applied to the entire enum rather than a particular variant.
+/// Because of this limitation, the [`Enum`] trait must not only _represent_ any of the
+/// three variant types, but also define the _methods_ for all three as well.
 ///
 /// What does this mean? It means that even though a unit variant contains no fields, a
 /// representation of that variant using the [`Enum`] trait will still contain methods for
-/// accessing fields! Again, this is to account for _all three_ variant types.
+/// accessing fields!
+/// Again, this is to account for _all three_ variant types.
 ///
 /// We recommend using the built-in [`Reflect`] derive macro to automatically handle all the
-/// implementation details for you. However, if you _must_ implement this trait manually, there
-/// are a few things to keep in mind...
+/// implementation details for you.
+/// However, if you _must_ implement this trait manually, there are a few things to keep in mind...
 ///
 /// ## Field Order
 ///
 /// While tuple variants identify their fields by the order in which they are defined, struct
-/// variants identify fields by their name. However, both should allow access to fields by their
-/// defined order.
+/// variants identify fields by their name.
+/// However, both should allow access to fields by their defined order.
 ///
 /// The reason all fields, regardless of variant type, need to be accessible by their order is
-/// due to field iteration. We need a way to iterate through each field in a variant, and the
-/// easiest way of achieving that is through the use of field order.
+/// due to field iteration.
+/// We need a way to iterate through each field in a variant, and the easiest way of achieving
+/// that is through the use of field order.
 ///
 /// The derive macro adds proper struct variant handling for [`Enum::index_of`], [`Enum::name_at`]
-/// and [`Enum::field_at[_mut]`](Enum::field_at) methods. The first two methods are __required__ for
-/// all struct variant types. By convention, implementors should also handle the last method as well,
-/// but this is not a strict requirement.
+/// and [`Enum::field_at[_mut]`](Enum::field_at) methods.
+/// The first two methods are __required__ for all struct variant types.
+/// By convention, implementors should also handle the last method as well, but this is not
+/// a strict requirement.
 ///
 /// ## Field Names
 ///
 /// Implementors may choose to handle [`Enum::index_of`], [`Enum::name_at`], and
 /// [`Enum::field[_mut]`](Enum::field) for tuple variants by considering stringified `usize`s to be
-/// valid names (such as `"3"`). This isn't wrong to do, but the convention set by the derive macro
-/// is that it isn't supported. It's preferred that these strings be converted to their proper `usize`
-/// representations and the [`Enum::field_at[_mut]`](Enum::field_at) methods be used instead.
+/// valid names (such as `"3"`).
+/// This isn't wrong to do, but the convention set by the derive macro is that it isn't supported.
+/// It's preferred that these strings be converted to their proper `usize` representations and
+/// the [`Enum::field_at[_mut]`](Enum::field_at) methods be used instead.
 ///
 /// [reflected]: crate
 /// [`None`]: core::option::Option<T>::None
