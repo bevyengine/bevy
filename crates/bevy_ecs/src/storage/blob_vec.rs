@@ -333,6 +333,7 @@ impl Drop for BlobVec {
     fn drop(&mut self) {
         self.clear();
         if self.item_layout.size() > 0 {
+            // SAFETY: the `swap_scratch` pointer is always allocated using `self.item_layout`
             unsafe {
                 std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
             }
