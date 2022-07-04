@@ -139,19 +139,24 @@ pub enum ArchetypeStatement<B: Bundle> {
     /// Evaluates to true if and only if the entity has all of the components present in the bundle `B`.
     AllOf(PhantomData<B>),
     /// The entity has at least one component in the bundle `B`.
-    /// When using a single-component bundle, `AllOf` is preferred.
+    ///
+    /// When using a single-component bundle, `AllOf` is preferred by convention.
     AnyOf(PhantomData<B>),
     /// The entity has zero or one of the components in the bundle `B`, but no more.
-    /// When using a single-component bundle, this will always be true.
+    ///
+    /// When using a single-component bundle this is tautologically true.
+    /// Prefer the much clearer `True` variant.
     AtMostOneOf(PhantomData<B>),
     /// The entity has none of the components in the bundle `B`.
     NoneOf(PhantomData<B>),
     /// The entity contains only components from the bundle `B`, and no others.
     Only(PhantomData<B>),
     /// This statement is always true.
+    ///
     /// Useful for constructing universal invariants.
     True,
     /// This statement is always false.
+    ///
     /// Useful for constructing universal invariants.
     False,
 }
@@ -280,19 +285,24 @@ pub enum UntypedArchetypeStatement {
     /// Evaluates to true if and only if the entity has all of the components present in the set.
     AllOf(HashSet<ComponentId>),
     /// The entity has at least one component in the set, and may have all of them.
+    ///
     /// When using a single-component set, `AllOf` is preferred.
     AnyOf(HashSet<ComponentId>),
     /// The entity has zero or one of the components in the set, but no more.
-    /// When using a single-component set, this is a tautology.
+    ///
+    /// When using a single-component bundle this is tautologically true.
+    /// Prefer the much clearer `True` variant.
     AtMostOneOf(HashSet<ComponentId>),
     /// The entity has none of the components in the set.
     NoneOf(HashSet<ComponentId>),
     /// The entity contains only components from the bundle `B`, and no others.
     Only(HashSet<ComponentId>),
     /// This statement is always true.
+    ///
     /// Useful for constructing universal invariants.
     True,
     /// This statement is always false.
+    ///
     /// Useful for constructing universal invariants.
     False,
 }
