@@ -21,7 +21,7 @@ use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
-    TextureViewDescriptor,
+    TextureUsages, TextureViewDescriptor,
 };
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
@@ -184,22 +184,22 @@ pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
     fn default() -> Self {
-        let format = wgpu::TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size() as usize];
+        let format = TextureFormat::bevy_default();
+        let data = vec![255; format.describe().block_size as usize];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
-                size: wgpu::Extent3d {
+                size: Extent3d {
                     width: 1,
                     height: 1,
                     depth_or_array_layers: 1,
                 },
                 format,
-                dimension: wgpu::TextureDimension::D2,
+                dimension: TextureDimension::D2,
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             },
             sampler_descriptor: ImageSampler::Default,
         }
@@ -219,7 +219,7 @@ impl Image {
         format: TextureFormat,
     ) -> Self {
         debug_assert_eq!(
-            size.volume() * format.pixel_size(),
+            format.texture_size(size).in_bytes(),
             data.len(),
             "Pixel data, size and format have to match",
         );
@@ -237,8 +237,7 @@ impl Image {
     /// the image data with the `pixel` data repeated multiple times.
     ///
     /// # Panics
-    /// Panics if the size of the `format` is not a multiple of the length of the `pixel` data.
-    /// do not match.
+    /// Panics if the size of the texture is not a multiple of the length of the `pixel` data.
     pub fn new_fill(
         size: Extent3d,
         dimension: TextureDimension,
@@ -250,8 +249,10 @@ impl Image {
         value.texture_descriptor.dimension = dimension;
         value.resize(size);
 
+        let texture_size = format.texture_size(size);
+
         debug_assert_eq!(
-            pixel.len() % format.pixel_size(),
+            texture_size.in_bytes() % pixel.len(),
             0,
             "Must not have incomplete pixel data."
         );
@@ -284,22 +285,31 @@ impl Image {
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
         self.data.resize(
-            size.volume() * self.texture_descriptor.format.pixel_size(),
+            self.texture_descriptor.format.texture_size(size).in_bytes(),
             0,
         );
     }
 
-    /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
-    /// same.
+    /// Changes the `size`, asserting that the total number of data elements (pixels or blocks)
+    /// remains the same.
     ///
     /// # Panics
-    /// Panics if the `new_size` does not have the same volume as to old one.
+    /// Panics if the `new_size` does not have the same texture size as to old one.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
-        assert!(
-            new_size.volume() == self.texture_descriptor.size.volume(),
+        let old_bytes = self
+            .texture_descriptor
+            .format
+            .texture_size(self.texture_descriptor.size)
+            .in_bytes();
+        let new_bytes = self
+            .texture_descriptor
+            .format
+            .texture_size(new_size)
+            .in_bytes();
+        assert_eq!(
+            old_bytes, new_bytes,
             "Incompatible sizes: old = {:?} new = {:?}",
-            self.texture_descriptor.size,
-            new_size
+            old_bytes, new_bytes
         );
 
         self.texture_descriptor.size = new_size;
@@ -461,29 +471,46 @@ impl<'a> ImageType<'a> {
     }
 }
 
-/// Used to calculate the volume of an item.
-pub trait Volume {
-    fn volume(&self) -> usize;
+/// The size of a texture.
+pub struct TextureSize {
+    /// The size of the texture in blocks.
+    /// The size in pixels is rounded up to fit the block dimension.
+    pub size_in_blocks: Extent3d,
+    /// Size in bytes of a "block" of texels. This is the size per pixel on uncompressed textures.
+    pub block_size: u32,
 }
 
-impl Volume for Extent3d {
-    /// Calculates the volume of the [`Extent3d`].
-    fn volume(&self) -> usize {
-        (self.width * self.height * self.depth_or_array_layers) as usize
+impl TextureSize {
+    /// Calculates the size of the entire texture in bytes.
+    pub fn in_bytes(&self) -> usize {
+        (self.size_in_blocks.depth_or_array_layers
+            * self.size_in_blocks.width
+            * self.size_in_blocks.height
+            * self.block_size) as usize
     }
 }
 
-/// Extends the wgpu [`TextureFormat`] with information about the pixel.
-pub trait TextureFormatPixelInfo {
-    /// Returns the size of a pixel of the format in bytes.
-    fn pixel_size(&self) -> usize;
+/// Extends the wgpu [`TextureFormat`] with information about the texture size.
+pub trait TextureSizeInfo {
+    fn texture_size(&self, size_in_pixels: Extent3d) -> TextureSize;
 }
 
-impl TextureFormatPixelInfo for TextureFormat {
-    #[inline]
-    fn pixel_size(&self) -> usize {
+impl TextureSizeInfo for TextureFormat {
+    /// Calculates the size of the texture in blocks.
+    fn texture_size(&self, size_in_pixels: Extent3d) -> TextureSize {
         let info = self.describe();
-        (info.block_size / (info.block_dimensions.0 * info.block_dimensions.1)) as usize
+        let size_in_blocks = Extent3d {
+            width: (size_in_pixels.width + info.block_dimensions.0 as u32 - 1)
+                / info.block_dimensions.0 as u32,
+            height: (size_in_pixels.height + info.block_dimensions.1 as u32 - 1)
+                / info.block_dimensions.1 as u32,
+            depth_or_array_layers: size_in_pixels.depth_or_array_layers,
+        };
+
+        TextureSize {
+            size_in_blocks,
+            block_size: info.block_size as u32,
+        }
     }
 }
 
@@ -525,7 +552,10 @@ impl RenderAsset for Image {
             )
         } else {
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let format_size = image.texture_descriptor.format.pixel_size();
+            let texture_size = image
+                .texture_descriptor
+                .format
+                .texture_size(image.texture_descriptor.size);
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -538,12 +568,12 @@ impl RenderAsset for Image {
                     offset: 0,
                     bytes_per_row: Some(
                         std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
+                            (texture_size.size_in_blocks.width * texture_size.block_size) as u32,
                         )
                         .unwrap(),
                     ),
                     rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                        std::num::NonZeroU32::new(image.texture_descriptor.size.height)
+                        std::num::NonZeroU32::new(texture_size.size_in_blocks.height)
                     } else {
                         None
                     },

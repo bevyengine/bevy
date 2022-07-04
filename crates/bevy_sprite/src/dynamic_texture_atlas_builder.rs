@@ -1,7 +1,7 @@
 use crate::{Rect, TextureAtlas};
 use bevy_asset::Assets;
 use bevy_math::Vec2;
-use bevy_render::texture::{Image, TextureFormatPixelInfo};
+use bevy_render::texture::Image;
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
 pub struct DynamicTextureAtlasBuilder {
@@ -73,7 +73,11 @@ impl DynamicTextureAtlasBuilder {
         rect.max.y -= self.padding;
         let atlas_width = atlas_texture.texture_descriptor.size.width as usize;
         let rect_width = rect.width() as usize;
-        let format_size = atlas_texture.texture_descriptor.format.pixel_size();
+        let format_size = atlas_texture
+            .texture_descriptor
+            .format
+            .describe()
+            .block_size as usize; // only works for uncompressed textures
 
         for (texture_y, bound_y) in (rect.min.y..rect.max.y).map(|i| i as usize).enumerate() {
             let begin = (bound_y * atlas_width + rect.min.x as usize) * format_size;

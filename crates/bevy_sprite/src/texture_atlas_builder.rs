@@ -3,7 +3,7 @@ use bevy_log::{debug, error, warn};
 use bevy_math::Vec2;
 use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::{Image, TextureFormatPixelInfo},
+    texture::Image,
 };
 use bevy_utils::HashMap;
 use rectangle_pack::{
@@ -102,7 +102,11 @@ impl TextureAtlasBuilder {
         let rect_x = packed_location.x() as usize;
         let rect_y = packed_location.y() as usize;
         let atlas_width = atlas_texture.texture_descriptor.size.width as usize;
-        let format_size = atlas_texture.texture_descriptor.format.pixel_size();
+        let format_size = atlas_texture
+            .texture_descriptor
+            .format
+            .describe()
+            .block_size as usize; // only works for uncompressed textures
 
         for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
             let begin = (bound_y * atlas_width + rect_x) * format_size;
@@ -186,7 +190,9 @@ impl TextureAtlasBuilder {
                         TextureDimension::D2,
                         vec![
                             0;
-                            self.format.pixel_size() * (current_width * current_height) as usize
+                            (self.format.describe().block_size as u32
+                                * current_width
+                                * current_height) as usize
                         ],
                         self.format,
                     );

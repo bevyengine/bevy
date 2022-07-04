@@ -9,8 +9,9 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Mat4, Vec2};
+use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
+use bevy_render::texture::FallbackImage;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     mesh::{
@@ -21,9 +22,7 @@ use bevy_render::{
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    texture::{BevyDefault, GpuImage, Image},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderApp, RenderStage,
 };
@@ -285,12 +284,9 @@ pub struct MeshPipeline {
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<DefaultImageSampler>,
-            Res<RenderQueue>,
-        )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let mut system_state: SystemState<(Res<RenderDevice>, Res<FallbackImage>)> =
+            SystemState::new(world);
+        let (render_device, fallback_image) = system_state.get_mut(world);
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
@@ -441,60 +437,12 @@ impl FromWorld for MeshPipeline {
                 label: Some("skinned_mesh_layout"),
             });
 
-        // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
-        let dummy_white_gpu_image = {
-            let image = Image::new_fill(
-                Extent3d::default(),
-                TextureDimension::D2,
-                &[255u8; 4],
-                TextureFormat::bevy_default(),
-            );
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler_descriptor {
-                ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
-            };
-
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: TextureAspect::All,
-                },
-                &image.data,
-                ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
-
-            let texture_view = texture.create_view(&TextureViewDescriptor::default());
-            GpuImage {
-                texture,
-                texture_view,
-                texture_format: image.texture_descriptor.format,
-                sampler,
-                size: Vec2::new(
-                    image.texture_descriptor.size.width as f32,
-                    image.texture_descriptor.size.height as f32,
-                ),
-            }
-        };
         MeshPipeline {
             view_layout,
             mesh_layout,
             skinned_mesh_layout,
             clustered_forward_buffer_binding_type,
-            dummy_white_gpu_image,
+            dummy_white_gpu_image: fallback_image.clone(),
         }
     }
 }
