@@ -128,7 +128,7 @@ pub trait Enum: Reflect {
     }
 }
 
-/// A container for compile-time enum info, used by [`TypeInfo`].
+/// A container for compile-time enum info, used by [`TypeInfo`](crate::TypeInfo).
 #[derive(Clone, Debug)]
 pub struct EnumInfo {
     type_name: &'static str,
