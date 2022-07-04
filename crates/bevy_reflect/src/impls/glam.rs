@@ -89,6 +89,39 @@ impl_reflect_struct!(
 );
 
 impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Default)]
+    struct BVec2 {
+        x: bool,
+        y: bool,
+    }
+);
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Default)]
+    struct BVec3 {
+        x: bool,
+        y: bool,
+        z: bool,
+    }
+);
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Default)]
+    struct BVec3A {}
+);
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Default)]
+    struct BVec4 {
+        x: bool,
+        y: bool,
+        z: bool,
+        w: bool,
+    }
+);
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Default)]
+    struct BVec4A {}
+);
+
+impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
     struct DVec2 {
         x: f64,
@@ -115,10 +148,25 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    struct Mat2 {
+        x_axis: Vec2,
+        y_axis: Vec2,
+    }
+);
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
     struct Mat3 {
         x_axis: Vec3,
         y_axis: Vec3,
         z_axis: Vec3,
+    }
+);
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    struct Mat3A {
+        x_axis: Vec3A,
+        y_axis: Vec3A,
+        z_axis: Vec3A,
     }
 );
 impl_reflect_struct!(
@@ -131,6 +179,13 @@ impl_reflect_struct!(
     }
 );
 
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    struct DMat2 {
+        x_axis: DVec2,
+        y_axis: DVec2,
+    }
+);
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
     struct DMat3 {
@@ -146,6 +201,36 @@ impl_reflect_struct!(
         y_axis: DVec4,
         z_axis: DVec4,
         w_axis: DVec4,
+    }
+);
+
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    struct Affine2 {
+        matrix2: Mat2,
+        translation: Vec2,
+    }
+);
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    struct Affine3A {
+        matrix3: Mat3A,
+        translation: Vec3A,
+    }
+);
+
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    struct DAffine2 {
+        matrix2: DMat2,
+        translation: DVec2,
+    }
+);
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    struct DAffine3 {
+        matrix3: DMat3,
+        translation: DVec3,
     }
 );
 
