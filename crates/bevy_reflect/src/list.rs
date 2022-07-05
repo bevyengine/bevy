@@ -293,7 +293,7 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 /// - `b` is a list;
 /// - `b` is the same length as `a`;
 /// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
-/// 
+///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
