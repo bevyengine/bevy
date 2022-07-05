@@ -306,8 +306,9 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     }
 
     for (a_value, b_value) in a.iter().zip(list.iter()) {
-        if let Some(false) | None = a_value.reflect_partial_eq(b_value) {
-            return Some(false);
+        let eq_result = a_value.reflect_partial_eq(b_value);
+        if let failed @ (Some(false) | None) = eq_result {
+            return failed;
         }
     }
 
