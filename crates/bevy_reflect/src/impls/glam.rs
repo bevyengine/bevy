@@ -238,7 +238,6 @@ impl_from_reflect_value!(DQuat);
 
 impl_reflect_value!(EulerRot(Debug, Default));
 
-
 // Wasm type aliases these to the non simd versions when there is no support
 // ideally it shouldn't do that and there's an issue on glam for this
 #[cfg(any(target_feature = "sse2", target_feature = "simd128"))]
