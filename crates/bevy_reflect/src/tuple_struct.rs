@@ -363,8 +363,9 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
 
     for (i, value) in tuple_struct.iter_fields().enumerate() {
         if let Some(field_value) = a.field(i) {
-            if let Some(false) | None = field_value.reflect_partial_eq(value) {
-                return Some(false);
+            let eq_result = field_value.reflect_partial_eq(value);
+            if let failed @ (Some(false) | None) = eq_result {
+                return failed;
             }
         } else {
             return Some(false);
