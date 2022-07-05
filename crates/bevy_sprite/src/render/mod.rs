@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite, SPRITE_SHADER_HANDLE,
+    Rect, Sprite, SpriteSlice, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
 use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
@@ -316,6 +316,7 @@ pub fn extract_sprite_events(
 pub fn extract_sprites(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    images: Extract<Res<Assets<Image>>>,
     sprite_query: Extract<
         Query<(
             Entity,
@@ -323,6 +324,7 @@ pub fn extract_sprites(
             &Sprite,
             &GlobalTransform,
             &Handle<Image>,
+            Option<&SpriteSlice>
         )>,
     >,
     atlas_query: Extract<
@@ -336,23 +338,51 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (entity, visibility, sprite, transform, handle) in sprite_query.iter() {
+    for (entity, visibility, sprite, transform, handle, slice) in sprite_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
-        // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-        extracted_sprites.sprites.push(ExtractedSprite {
-            entity,
-            color: sprite.color,
-            transform: *transform,
-            rect: sprite.rect,
-            // Pass the custom size
-            custom_size: sprite.custom_size,
-            flip_x: sprite.flip_x,
-            flip_y: sprite.flip_y,
-            image_handle_id: handle.id(),
-            anchor: sprite.anchor.as_vec(),
-        });
+        if let Some(slice) = slice {
+            let image_size = match images.get(handle) {
+                None => continue,
+                Some(i) => Vec2::new(
+                    i.texture_descriptor.size.width as f32,
+                    i.texture_descriptor.size.height as f32,
+                ),
+            };
+            // TODO: remove
+            let slice: &SpriteSlice = slice;
+            //
+            for rect in slice.slice_rects(image_size) {
+                extracted_sprites.sprites.alloc().init(ExtractedSprite {
+                    entity,
+                    color: sprite.color,
+                    transform: *transform,
+                    rect: Some(rect),
+                    // Pass the custom size
+                    custom_size: None,
+                    flip_x: sprite.flip_x,
+                    flip_y: sprite.flip_y,
+                    image_handle_id: handle.id,
+                    anchor: sprite.anchor.as_vec(),
+                });
+            }
+        } else {
+            // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
+            extracted_sprites.sprites.alloc().init(ExtractedSprite {
+                entity,
+                color: sprite.color,
+                transform: *transform,
+                // Use the full texture
+                rect: None,
+                // Pass the custom size
+                custom_size: sprite.custom_size,
+                flip_x: sprite.flip_x,
+                flip_y: sprite.flip_y,
+                image_handle_id: handle.id,
+                anchor: sprite.anchor.as_vec(),
+            });
+        }
     }
     for (entity, visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
         if !visibility.is_visible() {

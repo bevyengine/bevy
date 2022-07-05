@@ -12,6 +12,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::{SpriteBundle, SpriteSheetBundle},
+        rect::{BorderRect, Rect},
         sprite::Sprite,
         texture_atlas::{TextureAtlas, TextureAtlasSprite},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
