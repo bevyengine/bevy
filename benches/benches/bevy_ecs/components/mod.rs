@@ -1,7 +1,6 @@
 use criterion::*;
 
-mod add_remove_big_sparse_set;
-mod add_remove_big_table;
+mod add_remove_big;
 mod add_remove_sparse_set;
 mod add_remove_table;
 mod archetype_updates;
@@ -45,11 +44,11 @@ fn add_remove_big(c: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
     group.bench_function("table", |b| {
-        let mut bench = add_remove_big_table::Benchmark::new();
+        let mut bench = add_remove_big::BenchmarkTable::new();
         b.iter(move || bench.run());
     });
     group.bench_function("sparse_set", |b| {
-        let mut bench = add_remove_big_sparse_set::Benchmark::new();
+        let mut bench = add_remove_big::BenchmarkSparse::new();
         b.iter(move || bench.run());
     });
     group.finish();

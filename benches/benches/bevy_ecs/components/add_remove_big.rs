@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use bevy_ecs::prelude::*;
 use glam::*;
 
@@ -14,11 +16,20 @@ struct D(Mat4);
 #[derive(Component, Copy, Clone)]
 struct E(Mat4);
 
-#[derive(Component, Copy, Clone)]
-struct F(Mat4);
-pub struct Benchmark(World, Vec<Entity>);
+#[derive(Component, Copy, Clone, Default)]
+#[component(storage = "SparseSet")]
+pub struct Fsparse(Mat4);
 
-impl Benchmark {
+#[derive(Component, Copy, Clone, Default)]
+pub struct Ftable(Mat4);
+
+pub struct Benchmark<T> {
+    world: World,
+    entities: Vec<Entity>,
+    _storage_type_to_test: PhantomData<T>,
+}
+
+impl<F: Component + Copy + Clone + Default> Benchmark<F> {
     pub fn new() -> Self {
         let mut world = World::default();
         let mut entities = Vec::with_capacity(10_000);
@@ -37,18 +48,23 @@ impl Benchmark {
             );
         }
 
-        Self(world, entities)
+        Self {
+            world,
+            entities,
+            _storage_type_to_test: Default::default(),
+        }
     }
 
     pub fn run(&mut self) {
-        for entity in &self.1 {
-            self.0
-                .entity_mut(*entity)
-                .insert(F(Mat4::from_scale(Vec3::ONE)));
+        for entity in &self.entities {
+            self.world.entity_mut(*entity).insert(F::default());
         }
 
-        for entity in &self.1 {
-            self.0.entity_mut(*entity).remove::<F>();
+        for entity in &self.entities {
+            self.world.entity_mut(*entity).remove::<F>();
         }
     }
 }
+
+pub type BenchmarkTable = Benchmark<Ftable>;
+pub type BenchmarkSparse = Benchmark<Fsparse>;
