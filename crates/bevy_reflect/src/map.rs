@@ -344,6 +344,8 @@ impl<'a> ExactSizeIterator for MapIter<'a> {}
 /// - `b` is the same length as `a`;
 /// - For each key-value pair in `a`, `b` contains a value for the given key,
 ///   and [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two values.
+/// 
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
     let map = if let ReflectRef::Map(map) = b.reflect_ref() {

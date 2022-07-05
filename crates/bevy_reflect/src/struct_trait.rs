@@ -437,6 +437,8 @@ impl Typed for DynamicStruct {
 /// - For each field in `a`, `b` contains a field with the same name and
 ///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
+/// 
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
