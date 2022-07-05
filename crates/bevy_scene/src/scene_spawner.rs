@@ -199,12 +199,7 @@ impl SceneSpawner {
                                     }
                                 })
                             })?;
-                        reflect_component.copy_component(
-                            &scene.world,
-                            world,
-                            *scene_entity,
-                            entity,
-                        );
+                        reflect_component.copy(&scene.world, world, *scene_entity, entity);
                     }
                 }
             }
