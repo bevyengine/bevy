@@ -358,8 +358,9 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
 
     for (key, value) in a.iter() {
         if let Some(map_value) = map.get(key) {
-            if let Some(false) | None = value.reflect_partial_eq(map_value) {
-                return Some(false);
+            let eq_result = value.reflect_partial_eq(map_value);
+            if let failed @ (Some(false) | None) = eq_result {
+                return failed;
             }
         } else {
             return Some(false);
