@@ -170,6 +170,7 @@ jobs:
       - name: Run Markdown Lint
         uses: docker://ghcr.io/github/super-linter:slim-v4
         env:
+          MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_MARKDOWN: true
           DEFAULT_BRANCH: main
