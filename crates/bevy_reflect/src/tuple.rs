@@ -384,9 +384,9 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     }
 
     for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        match a_field.reflect_partial_eq(b_field) {
-            failed @ (Some(false) | None) => return failed,
-            Some(true) => {}
+        let eq_result = a_field.reflect_partial_eq(b_field);
+        if let failed @ (Some(false) | None) = eq_result {
+            return failed;
         }
     }
 
