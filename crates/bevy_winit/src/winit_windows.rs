@@ -1,8 +1,8 @@
 use bevy_math::IVec2;
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
 use raw_window_handle::HasRawWindowHandle;
-use winit::dpi::LogicalSize;
+use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition};
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -49,30 +49,61 @@ impl WinitWindows {
                     ..
                 } = window_descriptor;
 
-                if let Some(position) = position {
-                    if let Some(sf) = scale_factor_override {
-                        winit_window_builder = winit_window_builder.with_position(
-                            winit::dpi::LogicalPosition::new(
-                                position[0] as f64,
-                                position[1] as f64,
-                            )
-                            .to_physical::<f64>(*sf),
-                        );
-                    } else {
-                        winit_window_builder =
-                            winit_window_builder.with_position(winit::dpi::LogicalPosition::new(
-                                position[0] as f64,
-                                position[1] as f64,
-                            ));
+                use bevy_window::WindowPosition::*;
+                match position {
+                    Automatic => { /* Window manager will handle position */ }
+                    Centered(monitor_selection) => {
+                        use bevy_window::MonitorSelection::*;
+                        let maybe_monitor = match monitor_selection {
+                            Current => {
+                                warn!("Can't select current monitor on window creation!");
+                                None
+                            }
+                            Primary => event_loop.primary_monitor(),
+                            Number(n) => event_loop.available_monitors().nth(*n),
+                        };
+
+                        if let Some(monitor) = maybe_monitor {
+                            let screen_size = monitor.size();
+
+                            let scale_factor = scale_factor_override.unwrap_or(1.0);
+
+                            // Logical to physical window size
+                            let (width, height): (u32, u32) = LogicalSize::new(*width, *height)
+                                .to_physical::<u32>(scale_factor)
+                                .into();
+
+                            let position = PhysicalPosition {
+                                x: screen_size.width.saturating_sub(width) as f64 / 2.
+                                    + monitor.position().x as f64,
+                                y: screen_size.height.saturating_sub(height) as f64 / 2.
+                                    + monitor.position().y as f64,
+                            };
+
+                            winit_window_builder = winit_window_builder.with_position(position);
+                        } else {
+                            warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                        }
+                    }
+                    At(position) => {
+                        if let Some(sf) = scale_factor_override {
+                            winit_window_builder = winit_window_builder.with_position(
+                                LogicalPosition::new(position[0] as f64, position[1] as f64)
+                                    .to_physical::<f64>(*sf),
+                            );
+                        } else {
+                            winit_window_builder = winit_window_builder.with_position(
+                                LogicalPosition::new(position[0] as f64, position[1] as f64),
+                            );
+                        }
                     }
                 }
+
                 if let Some(sf) = scale_factor_override {
-                    winit_window_builder.with_inner_size(
-                        winit::dpi::LogicalSize::new(*width, *height).to_physical::<f64>(*sf),
-                    )
-                } else {
                     winit_window_builder
-                        .with_inner_size(winit::dpi::LogicalSize::new(*width, *height))
+                        .with_inner_size(LogicalSize::new(*width, *height).to_physical::<f64>(*sf))
+                } else {
+                    winit_window_builder.with_inner_size(LogicalSize::new(*width, *height))
                 }
             }
             .with_resizable(window_descriptor.resizable)

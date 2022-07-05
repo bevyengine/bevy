@@ -1,27 +1,16 @@
-mod bench_helpers;
+use crate::generic_bench;
 
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
     entity::Entity,
+    prelude::*,
     system::{Query, SystemState},
     world::World,
 };
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion};
+use criterion::{black_box, BenchmarkGroup, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-
-criterion_group!(
-    benches,
-    world_entity,
-    world_get,
-    world_query_get,
-    world_query_iter,
-    world_query_for_each,
-    query_get_component,
-    query_get,
-);
-criterion_main!(benches);
 
 #[derive(Component, Default)]
 #[component(storage = "Table")]
@@ -54,7 +43,7 @@ fn setup_wide<T: Bundle + Default>(entity_count: u32) -> World {
     black_box(world)
 }
 
-fn world_entity(criterion: &mut Criterion) {
+pub fn world_entity(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("world_entity");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
@@ -75,32 +64,32 @@ fn world_entity(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn world_get_bench<T: Component + Default>(
-    group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
-    entity_count: u32,
-) {
-    group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
-        |bencher| {
-            let world = setup::<T>(entity_count);
+pub fn world_get(criterion: &mut Criterion) {
+    fn world_get_bench<T: Component + Default>(
+        group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
+        entity_count: u32,
+    ) {
+        group.bench_function(
+            format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+            |bencher| {
+                let world = setup::<T>(entity_count);
 
-            bencher.iter(|| {
-                for i in 0..entity_count {
-                    let entity = Entity::from_raw(i);
-                    assert!(world.get::<T>(entity).is_some());
-                }
-            });
-        },
-    );
-}
+                bencher.iter(|| {
+                    for i in 0..entity_count {
+                        let entity = Entity::from_raw(i);
+                        assert!(world.get::<T>(entity).is_some());
+                    }
+                });
+            },
+        );
+    }
 
-fn world_get(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("world_get");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(world_get_bench::<Table>),
@@ -113,33 +102,32 @@ fn world_get(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn world_query_get_bench<T: Component + Default>(
-    group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
-    entity_count: u32,
-) {
-    group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
-        |bencher| {
-            let mut world = setup::<T>(entity_count);
-            let mut query = world.query::<&T>();
+pub fn world_query_get(criterion: &mut Criterion) {
+    fn world_query_get_bench<T: Component + Default>(
+        group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
+        entity_count: u32,
+    ) {
+        group.bench_function(
+            format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+            |bencher| {
+                let mut world = setup::<T>(entity_count);
+                let mut query = world.query::<&T>();
 
-            bencher.iter(|| {
-                for i in 0..entity_count {
-                    let entity = Entity::from_raw(i);
-                    assert!(query.get(&world, entity).is_ok());
-                }
-            });
-        },
-    );
-}
-
-fn world_query_get(criterion: &mut Criterion) {
+                bencher.iter(|| {
+                    for i in 0..entity_count {
+                        let entity = Entity::from_raw(i);
+                        assert!(query.get(&world, entity).is_ok());
+                    }
+                });
+            },
+        );
+    }
     let mut group = criterion.benchmark_group("world_query_get");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(world_query_get_bench::<Table>),
@@ -205,7 +193,7 @@ fn world_query_get(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn world_query_iter(criterion: &mut Criterion) {
+pub fn world_query_iter(criterion: &mut Criterion) {
     fn world_query_iter_bench<T: Component + Default>(
         group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
         entity_count: u32,
@@ -234,7 +222,7 @@ fn world_query_iter(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(world_query_iter_bench::<Table>),
@@ -247,7 +235,7 @@ fn world_query_iter(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn world_query_for_each(criterion: &mut Criterion) {
+pub fn world_query_for_each(criterion: &mut Criterion) {
     fn world_query_for_each_bench<T: Component + Default>(
         group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
         entity_count: u32,
@@ -276,7 +264,7 @@ fn world_query_for_each(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(world_query_for_each_bench::<Table>),
@@ -289,7 +277,7 @@ fn world_query_for_each(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn query_get_component(criterion: &mut Criterion) {
+pub fn query_get_component(criterion: &mut Criterion) {
     fn query_get_component_bench<T: Component + Default>(
         group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
         entity_count: u32,
@@ -317,13 +305,12 @@ fn query_get_component(criterion: &mut Criterion) {
             },
         );
     }
-
     let mut group = criterion.benchmark_group("query_get_component");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(query_get_component_bench::<Table>),
@@ -336,7 +323,49 @@ fn query_get_component(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn query_get(criterion: &mut Criterion) {
+pub fn query_get_component_simple(criterion: &mut Criterion) {
+    #[derive(Component)]
+    struct A(f32);
+
+    let mut group = criterion.benchmark_group("query_get_component_simple");
+    group.warm_up_time(std::time::Duration::from_millis(500));
+    group.measurement_time(std::time::Duration::from_secs(4));
+
+    group.bench_function("unchecked", |bencher| {
+        let mut world = World::new();
+
+        let entity = world.spawn().insert(A(0.0)).id();
+        let mut query = world.query::<&mut A>();
+
+        bencher.iter(|| {
+            for _x in 0..100000 {
+                let mut a = unsafe { query.get_unchecked(&mut world, entity).unwrap() };
+                a.0 += 1.0;
+            }
+        });
+    });
+    group.bench_function("system", |bencher| {
+        let mut world = World::new();
+
+        let entity = world.spawn().insert(A(0.0)).id();
+        fn query_system(In(entity): In<Entity>, mut query: Query<&mut A>) {
+            for _ in 0..100_000 {
+                let mut a = query.get_mut(entity).unwrap();
+                a.0 += 1.0;
+            }
+        }
+
+        let mut system = IntoSystem::into_system(query_system);
+        system.initialize(&mut world);
+        system.update_archetype_component_access(&world);
+
+        bencher.iter(|| system.run(entity, &mut world));
+    });
+
+    group.finish();
+}
+
+pub fn query_get(criterion: &mut Criterion) {
     fn query_get_bench<T: Component + Default>(
         group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
         entity_count: u32,
@@ -364,13 +393,12 @@ fn query_get(criterion: &mut Criterion) {
             },
         );
     }
-
     let mut group = criterion.benchmark_group("query_get");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(query_get_bench::<Table>),

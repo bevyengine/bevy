@@ -5,24 +5,13 @@ use bevy_ecs::{
     system::Query,
     world::World,
 };
-use criterion::{criterion_group, criterion_main, Criterion};
-
-criterion_group!(
-    benches,
-    run_criteria_yes,
-    run_criteria_no,
-    run_criteria_yes_with_labels,
-    run_criteria_no_with_labels,
-    run_criteria_yes_with_query,
-    run_criteria_yes_with_resource
-);
-criterion_main!(benches);
+use criterion::Criterion;
 
 fn run_stage(stage: &mut SystemStage, world: &mut World) {
     stage.run(world);
 }
 
-fn run_criteria_yes(criterion: &mut Criterion) {
+pub fn run_criteria_yes(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_criteria/yes");
     group.warm_up_time(std::time::Duration::from_millis(500));
@@ -54,7 +43,7 @@ fn run_criteria_yes(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn run_criteria_no(criterion: &mut Criterion) {
+pub fn run_criteria_no(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_criteria/no");
     group.warm_up_time(std::time::Duration::from_millis(500));
@@ -85,7 +74,7 @@ fn run_criteria_no(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
+pub fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_criteria/yes_with_labels");
     group.warm_up_time(std::time::Duration::from_millis(500));
@@ -116,7 +105,7 @@ fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn run_criteria_no_with_labels(criterion: &mut Criterion) {
+pub fn run_criteria_no_with_labels(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_criteria/no_with_labels");
     group.warm_up_time(std::time::Duration::from_millis(500));
@@ -150,7 +139,7 @@ fn run_criteria_no_with_labels(criterion: &mut Criterion) {
 #[derive(Component)]
 struct TestBool(pub bool);
 
-fn run_criteria_yes_with_query(criterion: &mut Criterion) {
+pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {
     let mut world = World::new();
     world.spawn().insert(TestBool(true));
     let mut group = criterion.benchmark_group("run_criteria/yes_using_query");
@@ -187,7 +176,7 @@ fn run_criteria_yes_with_query(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn run_criteria_yes_with_resource(criterion: &mut Criterion) {
+pub fn run_criteria_yes_with_resource(criterion: &mut Criterion) {
     let mut world = World::new();
     world.insert_resource(TestBool(true));
     let mut group = criterion.benchmark_group("run_criteria/yes_using_resource");

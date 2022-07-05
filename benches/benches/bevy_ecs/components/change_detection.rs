@@ -1,4 +1,4 @@
-mod bench_helpers;
+use crate::generic_bench;
 
 use bevy_ecs::{
     component::Component,
@@ -6,18 +6,9 @@ use bevy_ecs::{
     prelude::{Added, Changed},
     world::World,
 };
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion};
+use criterion::{black_box, BenchmarkGroup, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-
-criterion_group!(
-    benches,
-    all_added_detection,
-    all_changed_detection,
-    few_changed_detection,
-    none_changed_detection,
-);
-criterion_main!(benches);
 
 #[derive(Component, Default)]
 #[component(storage = "Table")]
@@ -38,7 +29,7 @@ fn setup<T: Component + Default>(entity_count: u32) -> World {
     black_box(world)
 }
 
-fn all_added_detection(criterion: &mut Criterion) {
+pub fn all_added_detection(criterion: &mut Criterion) {
     fn all_added_detection_bench<T: Component + Default>(
         group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
         entity_count: u32,
@@ -67,7 +58,7 @@ fn all_added_detection(criterion: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
     for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(all_added_detection_bench::<Table>),
@@ -78,7 +69,7 @@ fn all_added_detection(criterion: &mut Criterion) {
     }
 }
 
-fn all_changed_detection(criterion: &mut Criterion) {
+pub fn all_changed_detection(criterion: &mut Criterion) {
     fn all_changed_detection_bench<T: Component + Default>(
         group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
         entity_count: u32,
@@ -115,7 +106,7 @@ fn all_changed_detection(criterion: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
     for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(all_changed_detection_bench::<Table>),
@@ -126,7 +117,7 @@ fn all_changed_detection(criterion: &mut Criterion) {
     }
 }
 
-fn few_changed_detection(criterion: &mut Criterion) {
+pub fn few_changed_detection(criterion: &mut Criterion) {
     fn few_changed_detection_bench<T: Component + Default>(
         group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
         entity_count: u32,
@@ -165,7 +156,7 @@ fn few_changed_detection(criterion: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
     for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(few_changed_detection_bench::<Table>),
@@ -176,7 +167,7 @@ fn few_changed_detection(criterion: &mut Criterion) {
     }
 }
 
-fn none_changed_detection(criterion: &mut Criterion) {
+pub fn none_changed_detection(criterion: &mut Criterion) {
     fn none_changed_detection_bench<T: Component + Default>(
         group: &mut BenchmarkGroup<criterion::measurement::WallTime>,
         entity_count: u32,
@@ -209,7 +200,7 @@ fn none_changed_detection(criterion: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
     for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
-        bench_helpers::generic_bench(
+        generic_bench(
             &mut group,
             vec![
                 Box::new(none_changed_detection_bench::<Table>),

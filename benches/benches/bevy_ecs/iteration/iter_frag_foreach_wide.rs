@@ -7,7 +7,7 @@ macro_rules! create_entities {
             struct $variants(f32);
             for _ in 0..20 {
                 $world.spawn().insert_bundle((
-                    $variants(0.0), 
+                    $variants(0.0),
                     Data::<0>(1.0),
                     Data::<1>(1.0),
                     Data::<2>(1.0),
@@ -28,19 +28,22 @@ macro_rules! create_entities {
 #[derive(Component)]
 struct Data<const X: usize>(f32);
 
-pub struct Benchmark<'w>(World, QueryState<(
-    &'w mut Data<0>,
-    &'w mut Data<1>,
-    &'w mut Data<2>,
-    &'w mut Data<3>,
-    &'w mut Data<4>,
-    &'w mut Data<5>,
-    &'w mut Data<6>,
-    &'w mut Data<7>,
-    &'w mut Data<8>,
-    &'w mut Data<9>,
-    &'w mut Data<10>,
-)>);
+pub struct Benchmark<'w>(
+    World,
+    QueryState<(
+        &'w mut Data<0>,
+        &'w mut Data<1>,
+        &'w mut Data<2>,
+        &'w mut Data<3>,
+        &'w mut Data<4>,
+        &'w mut Data<5>,
+        &'w mut Data<6>,
+        &'w mut Data<7>,
+        &'w mut Data<8>,
+        &'w mut Data<9>,
+        &'w mut Data<10>,
+    )>,
+);
 
 impl<'w> Benchmark<'w> {
     pub fn new() -> Self {
@@ -54,17 +57,17 @@ impl<'w> Benchmark<'w> {
 
     pub fn run(&mut self) {
         self.1.for_each_mut(&mut self.0, |mut data| {
-            data.0.0 *= 2.0;
-            data.1.0 *= 2.0;
-            data.2.0 *= 2.0;
-            data.3.0 *= 2.0;
-            data.4.0 *= 2.0;
-            data.5.0 *= 2.0;
-            data.6.0 *= 2.0;
-            data.7.0 *= 2.0;
-            data.8.0 *= 2.0;
-            data.9.0 *= 2.0;
-            data.10.0 *= 2.0;
+            data.0 .0 *= 2.0;
+            data.1 .0 *= 2.0;
+            data.2 .0 *= 2.0;
+            data.3 .0 *= 2.0;
+            data.4 .0 *= 2.0;
+            data.5 .0 *= 2.0;
+            data.6 .0 *= 2.0;
+            data.7 .0 *= 2.0;
+            data.8 .0 *= 2.0;
+            data.9 .0 *= 2.0;
+            data.10 .0 *= 2.0;
         });
     }
 }
