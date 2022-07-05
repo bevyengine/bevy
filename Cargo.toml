@@ -1435,7 +1435,7 @@ name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
 
 [package.metadata.example.scale_factor_override]
-name = "Scale Factor Iverride"
+name = "Scale Factor Override"
 description = "Illustrates how to customize the default window settings"
 category = "Window"
 wasm = true
