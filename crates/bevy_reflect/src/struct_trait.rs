@@ -452,8 +452,9 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     for (i, value) in struct_value.iter_fields().enumerate() {
         let name = struct_value.name_at(i).unwrap();
         if let Some(field_value) = a.field(name) {
-            if let Some(false) | None = field_value.reflect_partial_eq(value) {
-                return Some(false);
+            let eq_result = field_value.reflect_partial_eq(value);
+            if let failed @ (Some(false) | None) = eq_result {
+                return failed;
             }
         } else {
             return Some(false);
