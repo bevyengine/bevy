@@ -33,6 +33,8 @@ fn setup(
             .collect();
         colorful_cube.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     }
+    // Remove unused texture coordinates
+    colorful_cube.remove_attribute(Mesh::ATTRIBUTE_UV_0);
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(colorful_cube),
         // This is the default color, but note that vertex colors are

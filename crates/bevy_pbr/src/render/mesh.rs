@@ -540,10 +540,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut vertex_attributes = vec![
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
-            Mesh::ATTRIBUTE_UV_0.at_shader_location(2),
         ];
 
         let mut shader_defs = Vec::new();
+        if layout.contains(Mesh::ATTRIBUTE_UV_0) {
+            shader_defs.push(String::from("VERTEX_UVS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
