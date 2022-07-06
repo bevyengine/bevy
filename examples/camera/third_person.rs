@@ -76,7 +76,7 @@ struct OldCursorPosition(Vec2);
 struct ThirdPersonCameraPlugin;
 
 impl ThirdPersonCameraPlugin {
-    /// This system reads TPControlEvents and moves or teleports the camera
+    /// This system reads `TPControlEvent`s and moves or teleports the camera
     /// accordingly.
     fn update_tp(mut control: EventReader<TPControlEvent>, mut camera: Query<&mut TPCamera>) {
         let mut camera = camera.single_mut();
@@ -103,8 +103,8 @@ impl ThirdPersonCameraPlugin {
         }
     }
 
-    /// This system updates the actual Transform of the camera according to the
-    /// spherical coordinates in TPCamera.
+    /// This system updates the actual `Transform` of the camera according to the
+    /// spherical coordinates in `TPCamera`.
     fn update_transform(mut camera: Query<(&TPCamera, &mut Transform)>) {
         let (tp, mut transform) = camera.single_mut();
         // First we compute the "horizontal" longitude rotation component.
@@ -172,8 +172,8 @@ impl Plugin for ThirdPersonCameraPlugin {
     }
 }
 
-/// This system converts bevy mouse input events into TPControlEvents that are
-/// then interpreted by the update_tp system.
+/// This system converts bevy mouse input events into `TPControlEvent`s that are
+/// then interpreted by the `update_tp` system.
 fn mouse_control(
     time: Res<Time>,
     mut old_cursor_position: ResMut<OldCursorPosition>,
