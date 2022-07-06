@@ -71,7 +71,7 @@ fn time_system(
             time.update_with_instant(new_time);
             *has_received_time = true;
         } else if *has_received_time {
-            warn!("time_system did not receive time from render world! Calculations depending on the time may be incorrect.");
+            warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
         }
     } else {
         time.update();
