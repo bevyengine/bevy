@@ -144,7 +144,7 @@ pub enum ArchetypeStatement<B: Bundle> {
     AnyOf(PhantomData<B>),
     /// The entity has zero or one of the components in the bundle `B`, but no more.
     ///
-    /// When using a single-component bundle this is tautologically true.
+    /// When using a single-component bundle this is always true.
     /// Prefer the much clearer `True` variant.
     AtMostOneOf(PhantomData<B>),
     /// The entity has none of the components in the bundle `B`.
@@ -290,7 +290,7 @@ pub enum UntypedArchetypeStatement {
     AnyOf(HashSet<ComponentId>),
     /// The entity has zero or one of the components in the set, but no more.
     ///
-    /// When using a single-component bundle this is tautologically true.
+    /// When using a single-component bundle this is always true.
     /// Prefer the much clearer `True` variant.
     AtMostOneOf(HashSet<ComponentId>),
     /// The entity has none of the components in the set.
