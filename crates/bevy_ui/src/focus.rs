@@ -89,8 +89,9 @@ pub fn ui_focus_system(
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
     let cursor_position = windows
-        .get_primary()
-        .and_then(|window| window.cursor_position())
+        .iter()
+        .filter_map(|window| window.cursor_position())
+        .next()
         .or_else(|| touches_input.first_pressed_position());
 
     let mut moused_over_z_sorted_nodes = node_query
