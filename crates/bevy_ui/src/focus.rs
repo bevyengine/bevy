@@ -90,31 +90,29 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
+    let is_ui_disabled = |camera_ui| {
+        matches!(
+            camera_ui,
+            Some(&CameraUi {
+                is_enabled: false,
+                ..
+            })
+        )
+    };
+
     let cursor_position = camera
         .iter()
-        .find_map(|(camera, camera_ui)| {
-            // Disabled UI camera should be ignored
-            if let Some(&CameraUi {
-                is_enabled: false, ..
-            }) = camera_ui
-            {
-                return None;
-            }
-
-            match camera.target {
-                RenderTarget::Window(window_id) => {
-                    // Get the cursor position from the currently focused window with camera
-                    windows.get(window_id).and_then(|window| {
-                        if window.is_focused() {
-                            window.cursor_position()
-                        } else {
-                            None
-                        }
-                    })
-                }
-                _ => None,
+        .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
+        .filter_map(|(camera, _)| {
+            if let RenderTarget::Window(window_id) = camera.target {
+                Some(window_id)
+            } else {
+                None
             }
         })
+        .filter_map(|window_id| windows.get(window_id))
+        .filter(|window| window.is_focused())
+        .find_map(|window| window.cursor_position())
         .or_else(|| touches_input.first_pressed_position());
 
     let mut moused_over_z_sorted_nodes = node_query
