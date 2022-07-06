@@ -117,10 +117,7 @@ impl Mesh {
     }
 
     /// Removes the data for a vertex attribute
-    pub fn remove_attribute(
-        &mut self,
-        attribute: MeshVertexAttribute,
-    ) {
+    pub fn remove_attribute(&mut self, attribute: MeshVertexAttribute) {
         self.attributes.remove(&attribute.id);
     }
 
