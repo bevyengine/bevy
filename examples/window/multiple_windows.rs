@@ -43,7 +43,7 @@ fn setup(
         descriptor: WindowDescriptor {
             width: 800.,
             height: 600.,
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             title: "Second window".to_string(),
             ..default()
         },

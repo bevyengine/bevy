@@ -166,9 +166,14 @@ pub fn prepare_windows(
             height: window.physical_height,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
+                #[allow(deprecated)]
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                #[allow(deprecated)]
                 PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+                #[allow(deprecated)]
                 PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
         };
 
