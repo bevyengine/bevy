@@ -9,18 +9,18 @@ use encase::{
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
 /// A helper structure for storing data that will be transferred to the GPU and made accessible
-/// to shaders as a uniform buffer. 
-/// 
-/// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders 
-/// parameters that are constant during shader execution. 
-/// 
-/// Uniform buffers must conform to std140 alignment/padding requirements, which this helper structure takes care of enforcing. 
-/// Per the [WGPU spec], uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors. 
-/// If this is required, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer). 
-/// 
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues 
+/// to shaders as a uniform buffer.
+///
+/// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
+/// parameters that are constant during shader execution.
+///
+/// Uniform buffers must conform to std140 alignment/padding requirements, which this helper structure takes care of enforcing.
+/// Per the [WGPU spec], uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors.
+/// If this is required, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer).
+///
+/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM.
-/// 
+///
 /// [WGPU spec]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct UniformBuffer<T: ShaderType> {
     value: T,
@@ -96,13 +96,13 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 }
 
 /// A helper structure for storing data that will be transferred to the GPU and made accessible
-/// to shaders as a dynamic uniform buffer. 
-/// 
-/// Dynamic uniform buffers are available to shaders on a read-only basis. Dynamic uniform buffers are commonly used to make 
+/// to shaders as a dynamic uniform buffer.
+///
+/// Dynamic uniform buffers are available to shaders on a read-only basis. Dynamic uniform buffers are commonly used to make
 /// available to shaders runtime-sized arrays of parameters that are otherwise constant during shader execution.
-/// 
-/// Dynamic uniform buffers must conform to std140 alignment/padding requirements, which this helper structure takes care of 
-/// enforcing. 
+///
+/// Dynamic uniform buffers must conform to std140 alignment/padding requirements, which this helper structure takes care of
+/// enforcing.
 pub struct DynamicUniformBuffer<T: ShaderType> {
     values: Vec<T>,
     scratch: DynamicUniformBufferWrapper<Vec<u8>>,
@@ -146,7 +146,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         self.values.is_empty()
     }
 
-    /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM). 
+    /// Push data into the `DynamicUniformBuffer`'s internal vector (residing on system RAM).
     #[inline]
     pub fn push(&mut self, value: T) -> u32 {
         let offset = self.scratch.write(&value).unwrap() as u32;
@@ -157,8 +157,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
     /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
     ///
-    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously 
-    /// allocated does not have enough capacity, a new GPU-side buffer is created. 
+    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
+    /// allocated does not have enough capacity, a new GPU-side buffer is created.
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         let size = self.scratch.as_ref().len();
