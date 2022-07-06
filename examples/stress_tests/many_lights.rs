@@ -7,6 +7,7 @@ use bevy::{
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, RenderApp, RenderStage},
+    window::PresentMode,
 };
 use rand::{thread_rng, Rng};
 
@@ -16,7 +17,7 @@ fn main() {
             width: 1024.0,
             height: 768.0,
             title: "many_lights".to_string(),
-            present_mode: bevy::window::PresentMode::Immediate,
+            present_mode: PresentMode::Immediate,
             ..default()
         })
         .add_plugins(DefaultPlugins)
@@ -45,7 +46,7 @@ fn setup(
             subdivisions: 9,
         })),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
-        transform: Transform::from_scale(Vec3::splat(-1.0)),
+        transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
@@ -124,8 +125,9 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 // System for rotating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.15));
-    camera_transform.rotate(Quat::from_rotation_x(time.delta_seconds() * 0.15));
+    let delta = time.delta_seconds() * 0.15;
+    camera_transform.rotate_z(delta);
+    camera_transform.rotate_x(delta);
 }
 
 // System for printing the number of meshes on every tick of the timer

@@ -361,7 +361,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         }
     };
 
-    let tokens = TokenStream::from(quote! {
+    TokenStream::from(quote! {
         #fetch_impl
 
         #state_impl
@@ -421,8 +421,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(q.#ignored_field_idents;)*
             }
         };
-    });
-    tokens
+    })
 }
 
 struct WorldQueryFieldInfo {

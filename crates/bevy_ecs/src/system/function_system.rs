@@ -166,7 +166,7 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::Fetch: ReadOnlySystemParamFetch,
     {
         self.validate_world_and_update_archetypes(world);
-        // SAFE: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
+        // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
 
@@ -177,7 +177,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w mut World,
     ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         self.validate_world_and_update_archetypes(world);
-        // SAFE: World is uniquely borrowed and matches the World this SystemState was created with.
+        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
 
