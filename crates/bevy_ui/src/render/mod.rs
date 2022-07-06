@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::CameraUi, CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -227,14 +227,11 @@ pub struct DefaultCameraView(pub Entity);
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
     render_world: Res<RenderWorld>,
-    query: Query<(Entity, &Camera, Option<&CameraUi>), With<T>>,
+    query: Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>,
 ) {
     for (entity, camera, camera_ui) in query.iter() {
         // ignore cameras with disabled ui
-        if let Some(&CameraUi {
-            is_enabled: false, ..
-        }) = camera_ui
-        {
+        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
         if let (Some(logical_size), Some(physical_size)) = (
