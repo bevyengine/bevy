@@ -124,6 +124,12 @@ Example | Description
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
 
+## Camera
+
+Example | Description
+--- | ---
+[Third Person Camera](../examples/camera/third_person.rs) | Demonstrates a third person camera controlled by a mouse
+
 ## Animation
 
 Example | Description

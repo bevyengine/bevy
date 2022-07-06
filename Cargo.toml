@@ -441,6 +441,17 @@ description = "Showcases wireframe rendering"
 category = "3D Rendering"
 wasm = true
 
+# Camera
+[[example]]
+name = "third_person_camera"
+path = "examples/camera/third_person.rs"
+
+[package.metadata.example.third_person_camera]
+name = "Third Person Camera"
+description = "Demonstrates a third person camera controlled by a mouse"
+category = "Camera"
+wasm = true
+
 # Animation
 [[example]]
 name = "animated_fox"
