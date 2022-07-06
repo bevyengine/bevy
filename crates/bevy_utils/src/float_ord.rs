@@ -4,8 +4,10 @@ use std::{
     ops::Neg,
 };
 
-/// A wrapper type that enables ordering floats. This is a work around for the famous "rust float
-/// ordering" problem. By using it, you acknowledge that sorting NaN is undefined according to spec.
+/// A wrapper for floats that impls [`Ord`], [`Eq`], and [`Hash`].
+///
+/// This is a work around for the famous "rust float ordering" problem.
+/// By using it, you acknowledge that sorting NaN is undefined according to spec.
 /// This implementation treats NaN as the "smallest" float.
 #[derive(Debug, Copy, Clone, PartialOrd)]
 pub struct FloatOrd(pub f32);
