@@ -44,6 +44,7 @@ git checkout v0.4.0
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
   - [Audio](#audio)
+  - [Camera](#camera)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
   - [Games](#games)
@@ -124,12 +125,6 @@ Example | Description
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
 
-## Camera
-
-Example | Description
---- | ---
-[Third Person Camera](../examples/camera/third_person.rs) | Demonstrates a third person camera controlled by a mouse
-
 ## Animation
 
 Example | Description
@@ -178,6 +173,12 @@ Example | Description
 --- | ---
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
+
+## Camera
+
+Example | Description
+--- | ---
+[Third Person Camera](../examples/camera/third_person.rs) | Demonstrates a third person camera controlled by a mouse
 
 ## Diagnostics
 
