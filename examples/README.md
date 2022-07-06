@@ -276,6 +276,7 @@ cargo run --release --example <example name>
 Example | Description
 --- | ---
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+[Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arragement with slight offsets to their animation timers. Used for performance testing.
 [Many Cubes](../examples/stress_tests/many_cubes.rs) | Simple benchmark to test per-entity draw overhead. Run with the `sphere` argument to test frustum culling
 [Many Foxes](../examples/stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
@@ -316,7 +317,7 @@ Example | Description
 [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
-[Scale Factor Iverride](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
+[Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 [Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
 
@@ -346,32 +347,47 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 To run on a device setup for Android development, run:
 
 ```sh
-cargo apk run --example android
+cargo apk run --example android_example
 ```
-
-:warning: At this time Bevy does not work in Android Emulator.
 
 When using Bevy as a library, the following fields must be added to `Cargo.toml`:
 
 ```toml
 [package.metadata.android]
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-target_sdk_version = 29
-min_sdk_version = 16
+
+[package.metadata.android.sdk]
+target_sdk_version = 31
 ```
 
 Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
 
+### Debugging
+
+You can view the logs with the following command:
+
+```sh
+adb logcat | grep 'RustStdoutStderr\|bevy\|wgpu'
+```
+
+In case of an error getting a GPU or setting it up, you can try settings logs of `wgpu_hal` to `DEBUG` to get more informations.
+
+Sometimes, running the app complains about an unknown activity. This may be fixed by uninstalling the application:
+
+```sh
+adb uninstall org.bevyengine.example
+```
+
 ### Old phones
 
-Bevy by default targets Android API level 29 in its examples which is the <!-- markdown-link-check-disable -->
+Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing.
 
 To use a different API, the following fields must be updated in Cargo.toml:
 
 ```toml
-[package.metadata.android]
+[package.metadata.android.sdk]
 target_sdk_version = >>API<<
 min_sdk_version = >>API or less<<
 ```

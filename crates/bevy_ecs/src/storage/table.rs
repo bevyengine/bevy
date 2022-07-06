@@ -42,7 +42,7 @@ impl Column {
     #[inline]
     pub(crate) fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Column {
-            // SAFE: component_info.drop() is valid for the types that will be inserted.
+            // SAFETY: component_info.drop() is valid for the types that will be inserted.
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             ticks: Vec::with_capacity(capacity),
         }
@@ -559,7 +559,7 @@ mod tests {
         table.add_column(components.get_info(component_id).unwrap());
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
-            // SAFE: we allocate and immediately set data afterwards
+            // SAFETY: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);
                 let value: W<usize> = W(row);

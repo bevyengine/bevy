@@ -117,8 +117,7 @@ fn queue_custom(
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
     for (view, mut transparent_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
+        let rangefinder = view.rangefinder3d();
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
             if let Some(mesh) = meshes.get(mesh_handle) {
                 let key =
@@ -130,7 +129,7 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    distance: rangefinder.distance(&mesh_uniform.transform),
                 });
             }
         }
@@ -168,7 +167,6 @@ pub struct CustomPipeline {
 
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
         let asset_server = world.resource::<AssetServer>();
         asset_server.watch_for_changes().unwrap();
         let shader = asset_server.load("shaders/instancing.wgsl");

@@ -1,11 +1,63 @@
 use bevy_app::App;
 use bevy_ecs::prelude::*;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::Criterion;
 
-criterion_group!(benches, build_schedule);
-criterion_main!(benches);
+pub fn schedule(c: &mut Criterion) {
+    #[derive(Component)]
+    struct A(f32);
+    #[derive(Component)]
+    struct B(f32);
+    #[derive(Component)]
+    struct C(f32);
+    #[derive(Component)]
+    struct D(f32);
+    #[derive(Component)]
+    struct E(f32);
 
-fn build_schedule(criterion: &mut Criterion) {
+    fn ab(mut query: Query<(&mut A, &mut B)>) {
+        query.for_each_mut(|(mut a, mut b)| {
+            std::mem::swap(&mut a.0, &mut b.0);
+        });
+    }
+
+    fn cd(mut query: Query<(&mut C, &mut D)>) {
+        query.for_each_mut(|(mut c, mut d)| {
+            std::mem::swap(&mut c.0, &mut d.0);
+        });
+    }
+
+    fn ce(mut query: Query<(&mut C, &mut E)>) {
+        query.for_each_mut(|(mut c, mut e)| {
+            std::mem::swap(&mut c.0, &mut e.0);
+        });
+    }
+
+    let mut group = c.benchmark_group("schedule");
+    group.warm_up_time(std::time::Duration::from_millis(500));
+    group.measurement_time(std::time::Duration::from_secs(4));
+    group.bench_function("base", |b| {
+        let mut world = World::default();
+
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0))));
+
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
+
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
+
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
+
+        let mut stage = SystemStage::parallel();
+        stage.add_system(ab);
+        stage.add_system(cd);
+        stage.add_system(ce);
+        stage.run(&mut world);
+
+        b.iter(move || stage.run(&mut world));
+    });
+    group.finish();
+}
+
+pub fn build_schedule(criterion: &mut Criterion) {
     // empty system
     fn empty_system() {}
 

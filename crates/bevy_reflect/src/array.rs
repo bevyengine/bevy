@@ -327,13 +327,16 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
 
 /// Compares two [arrays](Array) (one concrete and one reflected) to see if they
 /// are equal.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bool> {
     match reflect.reflect_ref() {
         ReflectRef::Array(reflect_array) if reflect_array.len() == array.len() => {
             for (a, b) in array.iter().zip(reflect_array.iter()) {
-                if let Some(false) | None = a.reflect_partial_eq(b) {
-                    return Some(false);
+                let eq_result = a.reflect_partial_eq(b);
+                if let failed @ (Some(false) | None) = eq_result {
+                    return failed;
                 }
             }
         }

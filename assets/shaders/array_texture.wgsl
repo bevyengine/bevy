@@ -59,5 +59,5 @@ fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
     );
     pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
 
-    return pbr(pbr_input);
+    return tone_mapping(pbr(pbr_input));
 }

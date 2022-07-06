@@ -116,8 +116,7 @@ fn queue_custom(
         | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
     for (view, mut transparent_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
+        let rangefinder = view.rangefinder3d();
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let pipeline = pipelines
@@ -127,7 +126,7 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    distance: rangefinder.distance(&mesh_uniform.transform),
                 });
             }
         }
@@ -189,11 +188,10 @@ pub struct CustomPipeline {
 
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
         let asset_server = world.resource::<AssetServer>();
         let shader = asset_server.load("shaders/animate_shader.wgsl");
 
-        let render_device = world.resource_mut::<RenderDevice>();
+        let render_device = world.resource::<RenderDevice>();
         let time_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("time bind group"),
