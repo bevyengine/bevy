@@ -107,6 +107,7 @@ impl WinitWindows {
                 }
             }
             .with_resizable(window_descriptor.resizable)
+            .with_visible(window_descriptor.visible)
             .with_decorations(window_descriptor.decorations)
             .with_transparent(window_descriptor.transparent),
         };

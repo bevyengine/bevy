@@ -181,6 +181,7 @@ pub struct Window {
     title: String,
     present_mode: PresentMode,
     resizable: bool,
+    visible: bool,
     decorations: bool,
     cursor_icon: CursorIcon,
     cursor_visible: bool,
@@ -224,6 +225,10 @@ pub enum WindowCommand {
     /// Set whether or not the window is resizable.
     SetResizable {
         resizable: bool,
+    },
+    /// Set whether or not the window is visible.
+    SetVisible {
+        visible: bool,
     },
     /// Set whether or not the window has decorations.
     ///
@@ -307,6 +312,7 @@ impl Window {
             title: window_descriptor.title.clone(),
             present_mode: window_descriptor.present_mode,
             resizable: window_descriptor.resizable,
+            visible: window_descriptor.visible,
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
             cursor_locked: window_descriptor.cursor_locked,
@@ -546,6 +552,18 @@ impl Window {
         self.resizable = resizable;
         self.command_queue
             .push(WindowCommand::SetResizable { resizable });
+    }
+    /// Get whether or not the window is visible.
+    #[inline]
+    pub fn visible(&self) -> bool {
+        self.visible
+    }
+    /// Set whether or not the window is visible.
+    #[inline]
+    pub fn set_visible(&mut self, visible: bool) {
+        self.visible = visible;
+        self.command_queue
+            .push(WindowCommand::SetVisible { visible });
     }
     /// Get whether or not decorations are enabled.
     ///
@@ -795,6 +813,8 @@ pub struct WindowDescriptor {
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     pub resizable: bool,
+    /// Sets whether the window should be visible or not.
+    pub visible: bool,
     /// Sets whether the window should have borders and bars.
     pub decorations: bool,
     /// Sets whether the cursor is visible when the window has focus.
@@ -841,6 +861,7 @@ impl Default for WindowDescriptor {
             scale_factor_override: None,
             present_mode: PresentMode::Fifo,
             resizable: true,
+            visible: false,
             decorations: true,
             cursor_locked: false,
             cursor_visible: true,

@@ -119,6 +119,10 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_resizable(resizable);
                 }
+                bevy_window::WindowCommand::SetVisible { visible } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_visible(visible);
+                }
                 bevy_window::WindowCommand::SetDecorations { decorations } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_decorations(decorations);
@@ -612,9 +616,15 @@ pub fn winit_runner_with(mut app: App) {
             }
             Event::RedrawEventsCleared => {
                 {
-                    let winit_config = app.world.resource::<WinitSettings>();
-                    let windows = app.world.resource::<Windows>();
+                    let mut windows = app.world.resource_mut::<Windows>();
                     let focused = windows.iter().any(|w| w.is_focused());
+                    if windows.iter().any(|w| w.visible()) == false {
+                        windows
+                            .iter_mut()
+                            .filter(|w| !w.visible())
+                            .for_each(|w| w.set_visible(true))
+                    }
+                    let winit_config = app.world.resource::<WinitSettings>();
                     let now = Instant::now();
                     use UpdateMode::*;
                     *control_flow = match winit_config.update_mode(focused) {
