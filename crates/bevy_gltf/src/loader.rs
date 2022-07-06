@@ -260,11 +260,6 @@ async fn load_gltf<'a, 'b>(
                 .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
             {
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
-            } else {
-                let len = mesh.count_vertices();
-                let uvs = vec![[0.0, 0.0]; len];
-                bevy_log::debug!("missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs");
-                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
             if let Some(vertex_attribute) = reader
