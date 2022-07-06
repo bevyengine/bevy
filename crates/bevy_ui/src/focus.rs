@@ -1,4 +1,4 @@
-use crate::{CalculatedClip, Node};
+use crate::{entity::CameraUi, CalculatedClip, Node};
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -8,6 +8,7 @@ use bevy_ecs::{
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_render::camera::{Camera, RenderTarget};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_window::Windows;
@@ -52,6 +53,7 @@ pub struct State {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 pub fn ui_focus_system(
     mut state: Local<State>,
+    camera: Query<(&Camera, Option<&CameraUi>)>,
     windows: Res<Windows>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
@@ -88,10 +90,30 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let cursor_position = windows
+    let cursor_position = camera
         .iter()
-        .filter_map(|window| window.cursor_position())
-        .next()
+        .find_map(|(camera, camera_ui)| {
+            // Disabled UI camera should be ignored
+            if let Some(&CameraUi {
+                is_enabled: false, ..
+            }) = camera_ui
+            {
+                return None;
+            }
+
+            match camera.target {
+                RenderTarget::Window(window_id) => {
+                    // Get the cursor position from the currently focused window with camera
+                    if let Some(window) = windows.get(window_id) {
+                        if window.is_focused() {
+                            return window.cursor_position();
+                        }
+                    }
+                    None
+                }
+                _ => None,
+            }
+        })
         .or_else(|| touches_input.first_pressed_position());
 
     let mut moused_over_z_sorted_nodes = node_query
