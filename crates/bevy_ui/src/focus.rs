@@ -104,12 +104,13 @@ pub fn ui_focus_system(
             match camera.target {
                 RenderTarget::Window(window_id) => {
                     // Get the cursor position from the currently focused window with camera
-                    if let Some(window) = windows.get(window_id) {
+                    windows.get(window_id).and_then(|window| {
                         if window.is_focused() {
-                            return window.cursor_position();
+                            window.cursor_position()
+                        } else {
+                            None
                         }
-                    }
-                    None
+                    })
                 }
                 _ => None,
             }
