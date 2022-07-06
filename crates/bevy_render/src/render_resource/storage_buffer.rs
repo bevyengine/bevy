@@ -6,6 +6,21 @@ use encase::{
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
+/// A helper structure for storing data that will be transferred to the GPU and made accessible
+/// to shaders as a storage buffer.
+///
+/// Storage buffers can be made available to shaders as some combination of read/write, unlike 
+/// [`UniformBuffer`](crate::render_resource::UniformBuffer) which is read-only. Furthermore, storage buffers 
+/// can store much larger data than uniform buffers, which are best suited to relatively small data. Finally, unlike 
+/// [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer), a storage buffer is automatically bound to
+/// at the beginning of the buffer. 
+///
+/// Storage buffers must conform to [std430 alignment/padding requirements], which this helper structure takes care of enforcing.
+///
+/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::StorageBuffer::write_buffer) queues
+/// copying of the data from system RAM to VRAM.
+///
+/// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct StorageBuffer<T: ShaderType> {
     value: T,
     scratch: StorageBufferWrapper<Vec<u8>>,
@@ -60,6 +75,11 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         &mut self.value
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
+    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    ///
+    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
+    /// allocated does not have enough capacity, a new GPU-side buffer is created.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.scratch.write(&self.value).unwrap();
 
@@ -78,6 +98,21 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 }
 
+/// A helper structure for storing data that will be transferred to the GPU and made accessible
+/// to shaders as a dynamic storage buffer.
+///
+/// Storage buffers can be made available to shaders as some combination of read/write, unlike 
+/// [`DynamicUniformBuffer`](crate::render_resource::UniformBuffer) 
+/// which is read-only. Furthermore, storage buffers can store much larger data than uniform buffers, which are best suited 
+/// to relatively small data. Finally, dynamic storage buffers can be bound to at a custom offset that is not necessarily the 
+/// beginning of the buffer; if this is not required, consider using [`StorageBuffer`](crate::render_resource::StorageBuffer) 
+/// instead. 
+///
+/// Dynamic storage buffers must conform to std430 alignment/padding requirements, which this helper structure takes care of
+/// enforcing.
+/// 
+/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicStorageBuffer::write_buffer) queues
+/// copying of the data from system RAM to VRAM.
 pub struct DynamicStorageBuffer<T: ShaderType> {
     values: Vec<T>,
     scratch: DynamicStorageBufferWrapper<Vec<u8>>,

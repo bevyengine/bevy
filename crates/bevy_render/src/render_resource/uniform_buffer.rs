@@ -12,16 +12,18 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// to shaders as a uniform buffer.
 ///
 /// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
-/// parameters that are constant during shader execution.
+/// parameters that are constant during shader execution. Uniform buffers are also best used for data that is relatively small
+/// in size. For larger data, or data that must be made accessible to shaders on a read-write basis, consider 
+/// [`StorageBuffer`](crate::render_resource::StorageBuffer). 
 ///
-/// Uniform buffers must conform to std140 alignment/padding requirements, which this helper structure takes care of enforcing.
-/// Per the [WGPU spec], uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors.
+/// Uniform buffers must conform to [std140 alignment/padding requirements], which this helper structure takes care of enforcing.
+/// Per the WGPU spec, uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors.
 /// If this is required, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer).
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM.
 ///
-/// [WGPU spec]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
+/// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct UniformBuffer<T: ShaderType> {
     value: T,
     scratch: UniformBufferWrapper<Vec<u8>>,
@@ -103,6 +105,9 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 ///
 /// Dynamic uniform buffers must conform to std140 alignment/padding requirements, which this helper structure takes care of
 /// enforcing.
+/// 
+/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicUniformBuffer::write_buffer) queues
+/// copying of the data from system RAM to VRAM.
 pub struct DynamicUniformBuffer<T: ShaderType> {
     values: Vec<T>,
     scratch: DynamicUniformBufferWrapper<Vec<u8>>,
