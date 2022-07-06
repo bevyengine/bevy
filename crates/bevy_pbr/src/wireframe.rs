@@ -119,8 +119,7 @@ fn queue_wireframes(
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, visible_entities, mut opaque_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
+        let rangefinder = view.rangefinder3d();
 
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
@@ -144,7 +143,7 @@ fn queue_wireframes(
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
-                        distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                        distance: rangefinder.distance(&mesh_uniform.transform),
                     });
                 }
             };

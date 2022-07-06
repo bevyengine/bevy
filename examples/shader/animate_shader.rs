@@ -116,8 +116,7 @@ fn queue_custom(
         | MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
     for (view, mut transparent_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
+        let rangefinder = view.rangefinder3d();
         for (entity, mesh_uniform, mesh_handle) in material_meshes.iter() {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let pipeline = pipelines
@@ -127,7 +126,7 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    distance: rangefinder.distance(&mesh_uniform.transform),
                 });
             }
         }

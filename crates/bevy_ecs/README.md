@@ -6,7 +6,9 @@
 
 ## What is Bevy ECS?
 
-Bevy ECS is an Entity Component System custom-built for the [Bevy][bevy] game engine. It aims to be simple to use, ergonomic, fast, massively parallel, opinionated, and featureful. It was created specifically for Bevy's needs, but it can easily be used as a standalone crate in other projects.
+Bevy ECS is an Entity Component System custom-built for the [Bevy][bevy] game engine.
+It aims to be simple to use, ergonomic, fast, massively parallel, opinionated, and featureful.
+It was created specifically for Bevy's needs, but it can easily be used as a standalone crate in other projects.
 
 ## ECS
 

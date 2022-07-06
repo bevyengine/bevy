@@ -62,8 +62,7 @@ impl DynamicScene {
                     .and_then(|registration| registration.data::<ReflectComponent>());
                 if let Some(reflect_component) = reflect_component {
                     for (i, entity) in archetype.entities().iter().enumerate() {
-                        if let Some(component) = reflect_component.reflect_component(world, *entity)
-                        {
+                        if let Some(component) = reflect_component.reflect(world, *entity) {
                             scene.entities[entities_offset + i]
                                 .components
                                 .push(component.clone_value());
@@ -113,7 +112,7 @@ impl DynamicScene {
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                reflect_component.apply_or_insert_component(world, entity, &**component);
+                reflect_component.apply_or_insert(world, entity, &**component);
             }
         }
 

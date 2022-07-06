@@ -11,6 +11,8 @@ pub mod graph {
     }
 }
 
+use std::cmp::Reverse;
+
 pub use camera_3d::*;
 pub use main_pass_3d_node::*;
 
@@ -87,11 +89,12 @@ pub struct Opaque3d {
 }
 
 impl PhaseItem for Opaque3d {
-    type SortKey = FloatOrd;
+    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
+    type SortKey = Reverse<FloatOrd>;
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
@@ -101,7 +104,8 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
@@ -127,11 +131,12 @@ pub struct AlphaMask3d {
 }
 
 impl PhaseItem for AlphaMask3d {
-    type SortKey = FloatOrd;
+    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
+    type SortKey = Reverse<FloatOrd>;
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
@@ -141,7 +146,8 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
@@ -167,6 +173,7 @@ pub struct Transparent3d {
 }
 
 impl PhaseItem for Transparent3d {
+    // NOTE: Values increase towards the camera. Back-to-front ordering for transparent means we need an ascending sort.
     type SortKey = FloatOrd;
 
     #[inline]

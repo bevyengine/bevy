@@ -12,6 +12,7 @@ use crate::{
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
+    rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
@@ -82,6 +83,13 @@ pub struct ExtractedView {
     pub transform: GlobalTransform,
     pub width: u32,
     pub height: u32,
+}
+
+impl ExtractedView {
+    /// Creates a 3D rangefinder for a view
+    pub fn rangefinder3d(&self) -> ViewRangefinder3d {
+        ViewRangefinder3d::from_view_matrix(&self.transform.compute_matrix())
+    }
 }
 
 #[derive(Clone, ShaderType)]
