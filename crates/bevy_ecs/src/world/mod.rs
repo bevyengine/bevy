@@ -687,8 +687,8 @@ impl World {
         let untyped_invariant = archetype_invariant.into_untyped(self);
 
         for archetype in &self.archetypes.archetypes {
-            let components = archetype.components.indices();
-            untyped_invariant.test_archetype(components);
+            let archetype_components = archetype.components.indices();
+            untyped_invariant.test_archetype(archetype_components, self.components());
         }
 
         self.archetype_invariants.add(untyped_invariant);
@@ -705,8 +705,8 @@ impl World {
         archetype_invariant: UntypedArchetypeInvariant,
     ) {
         for archetype in &self.archetypes.archetypes {
-            let components = archetype.components.indices();
-            archetype_invariant.test_archetype(components);
+            let archetype_components = archetype.components.indices();
+            archetype_invariant.test_archetype(archetype_components, self.components());
         }
 
         self.archetype_invariants.add(archetype_invariant);

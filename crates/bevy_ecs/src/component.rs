@@ -7,6 +7,7 @@ use crate::{
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::OwningPtr;
+use bevy_utils::get_short_name;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -249,6 +250,22 @@ impl SparseSetIndex for ComponentId {
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }
+}
+
+/// Prints the shortened type names of the provided [`ComponentId`]s
+///
+/// Uses [`get_short_name`] to strip the module paths of the items, resulting in cleaner lists.
+pub fn display_component_id_types<'a, I: Iterator<Item = &'a ComponentId>>(
+    component_ids: I,
+    components: &Components,
+) -> String {
+    component_ids
+        .map(|id| match components.get_info(*id) {
+            Some(info) => get_short_name(info.name()),
+            None => format!("{:?}", id),
+        })
+        .reduce(|acc, s| format!("{}, {}", acc, s))
+        .unwrap_or_default()
 }
 
 pub struct ComponentDescriptor {

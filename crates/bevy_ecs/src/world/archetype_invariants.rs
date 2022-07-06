@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
-use bevy_utils::{get_short_name, HashSet};
+use bevy_utils::HashSet;
 
 use crate::{
-    component::{ComponentId, Components},
+    component::{display_component_id_types, ComponentId, Components},
     prelude::Bundle,
     world::World,
 };
@@ -253,15 +253,23 @@ impl UntypedArchetypeInvariant {
     ///
     /// # Panics
     /// Panics if the archetype invariant is violated.
-    pub fn test_archetype(&self, component_ids_of_archetype: impl Iterator<Item = ComponentId>) {
+    pub fn test_archetype(
+        &self,
+        component_ids_of_archetype: impl Iterator<Item = ComponentId>,
+        components: &Components,
+    ) {
         let component_ids_of_archetype: HashSet<ComponentId> = component_ids_of_archetype.collect();
 
         if self.premise.test(&component_ids_of_archetype)
             && !self.consequence.test(&component_ids_of_archetype)
         {
+            let archetype_component_names =
+                display_component_id_types(component_ids_of_archetype.iter(), components);
+
             panic!(
-                "Archetype invariant violated! The invariant {:?} failed for archetype {:?}",
-                self, component_ids_of_archetype
+                "Archetype invariant {} failed for archetype [{}]",
+                self.display(components),
+                archetype_component_names
             );
         }
     }
@@ -328,16 +336,10 @@ impl UntypedArchetypeStatement {
     /// If any [`ComponentId`]s in the invariant have not been registered in the world,
     /// then the raw component id will be returned instead.
     pub fn display(&self, components: &Components) -> String {
-        let component_names: String = self
-            .component_ids()
-            .unwrap_or(&HashSet::new())
-            .iter()
-            .map(|id| match components.get_info(*id) {
-                Some(info) => get_short_name(info.name()),
-                None => format!("{:?}", id),
-            })
-            .reduce(|acc, s| format!("{}, {}", acc, s))
-            .unwrap_or_default();
+        let component_names = display_component_id_types(
+            self.component_ids().unwrap_or(&HashSet::new()).iter(),
+            components,
+        );
 
         match self {
             UntypedArchetypeStatement::AllOf(_) => format!("AllOf({component_names})"),
@@ -453,24 +455,18 @@ impl ArchetypeInvariants {
                     }
                 }
 
-                let archetype_component_names: Vec<String> = component_ids_of_archetype
-                    .into_iter()
-                    .map(|id| match components.get_info(id) {
-                        Some(info) => get_short_name(info.name()),
-                        None => format!("{:?}", id),
-                    })
-                    .collect();
+                let archetype_component_names =
+                    display_component_id_types(component_ids_of_archetype.iter(), components);
 
-                let failed_invariant_names: String = failed_invariants
-                    .into_iter()
+                let failed_invariant_names = failed_invariants
+                    .iter()
                     .map(|invariant| invariant.display(components))
                     .reduce(|acc, s| format!("{}\n{}", acc, s))
-                    .unwrap();
+                    .unwrap_or_default();
 
                 panic!(
-                    "Archetype invariant violated! The following invariants were violated for archetype {:?}:\n{}",
-                    archetype_component_names,
-                    failed_invariant_names,
+                    "At least one archetype invariant was violated for the archetype [{archetype_component_names}]: \
+                    \n{failed_invariant_names}"
                 )
             }
         }
