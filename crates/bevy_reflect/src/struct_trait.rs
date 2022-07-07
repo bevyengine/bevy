@@ -59,7 +59,7 @@ pub trait Struct: Reflect {
     /// Returns the number of fields in the struct.
     fn field_len(&self) -> usize;
 
-    /// Returns an iterator over the values of the struct's fields.
+    /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter;
 
     /// Clones the struct into a [`DynamicStruct`].

@@ -220,6 +220,25 @@ impl TypeRegistry {
             .and_then(|registration| registration.data_mut::<T>())
     }
 
+    /// Returns a reference to the [`SerializationData`] for the type associated with the given `TypeId`.
+    ///
+    /// If the specified type has not been registered, or if it has no associated [`SerializationData`], returns `None`.
+    pub fn get_serialization_data(&self, type_id: TypeId) -> Option<&SerializationData> {
+        self.get(type_id)
+            .and_then(|registration| registration.serialization_data())
+    }
+
+    /// Returns a mutable reference to the [`SerializationData`] for the type associated with the given `TypeId`.
+    ///
+    /// If the specified type has not been registered, or if it has no associated [`SerializationData`], returns `None`.
+    pub fn get_serialization_data_mut(
+        &mut self,
+        type_id: TypeId,
+    ) -> Option<&mut SerializationData> {
+        self.get_mut(type_id)
+            .and_then(|registration| registration.serialization_data_mut())
+    }
+
     /// Returns the [`TypeInfo`] associated with the given `TypeId`.
     ///
     /// If the specified type has not been registered, returns `None`.
@@ -268,8 +287,19 @@ impl TypeRegistryArc {
 /// [1]: crate::Reflect
 pub struct TypeRegistration {
     short_name: String,
+    serialization_data: Option<SerializationData>,
     data: HashMap<TypeId, Box<dyn TypeData>>,
     type_info: &'static TypeInfo,
+}
+
+impl Debug for TypeRegistration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TypeRegistration")
+            .field("short_name", &self.short_name)
+            .field("serialization_data", &self.serialization_data)
+            .field("type_info", &self.type_info)
+            .finish()
+    }
 }
 
 impl TypeRegistration {
@@ -301,6 +331,14 @@ impl TypeRegistration {
             .and_then(|value| value.downcast_mut())
     }
 
+    pub fn serialization_data(&self) -> Option<&SerializationData> {
+        self.serialization_data.as_ref()
+    }
+
+    pub fn serialization_data_mut(&mut self) -> Option<&mut SerializationData> {
+        self.serialization_data.as_mut()
+    }
+
     /// Returns a reference to the registration's [`TypeInfo`]
     pub fn type_info(&self) -> &'static TypeInfo {
         self.type_info
@@ -313,11 +351,19 @@ impl TypeRegistration {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
     }
 
+    /// Set the scene serialization data of this registration.
+    ///
+    /// If another instance was previously set, it is replaced.
+    pub fn set_serialization_data(&mut self, data: SerializationData) {
+        self.serialization_data = Some(data);
+    }
+
     /// Creates type registration information for `T`.
     pub fn of<T: Reflect + Typed>() -> Self {
         let type_name = std::any::type_name::<T>();
         Self {
             data: HashMap::default(),
+            serialization_data: None,
             short_name: bevy_utils::get_short_name(type_name),
             type_info: T::type_info(),
         }
@@ -347,9 +393,29 @@ impl Clone for TypeRegistration {
 
         TypeRegistration {
             data,
+            serialization_data: self.serialization_data.clone(),
             short_name: self.short_name.clone(),
             type_info: self.type_info,
         }
+    }
+}
+
+/// Contains data relevant to the serialization of a type into the scene.
+#[derive(Default, Debug, Clone)]
+pub struct SerializationData {
+    ignored_field_indices: HashSet<usize>,
+}
+
+impl SerializationData {
+    pub fn new<I: Iterator<Item = usize>>(ignored_field_indices: I) -> Self {
+        Self {
+            ignored_field_indices: ignored_field_indices.collect(),
+        }
+    }
+
+    /// Returns true if the given index corresponds to a field meant to be ignored in serialization.
+    pub fn is_ignored_index(&self, index: usize) -> bool {
+        self.ignored_field_indices.contains(&index)
     }
 }
 

@@ -10,6 +10,7 @@ pub(crate) fn impl_get_type_registration(
     bevy_reflect_path: &Path,
     registration_data: &[Ident],
     generics: &Generics,
+    scene_ignored_field_indices: &[usize],
 ) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
@@ -19,6 +20,8 @@ pub(crate) fn impl_get_type_registration(
                 let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name #ty_generics>();
                 registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<#type_name #ty_generics>::from_type());
                 #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<#type_name #ty_generics>::from_type());)*
+                let serialization_data = #bevy_reflect_path::SerializationData::new([#(#scene_ignored_field_indices),*].into_iter());
+                registration.set_serialization_data(serialization_data);
                 registration
             }
         }

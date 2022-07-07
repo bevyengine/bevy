@@ -1,5 +1,5 @@
 use crate::container_attributes::ReflectTraits;
-use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
+use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr, ReflectFieldIgnore};
 use quote::quote;
 
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
@@ -241,11 +241,25 @@ impl<'a> ReflectMeta<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
+        let mut idxs = Vec::default();
+        self.fields.iter().fold(0, |next_idx, field| {
+            if field.attrs.ignore == ReflectFieldIgnore::IgnoreAlways {
+                idxs.push(next_idx);
+                next_idx
+            } else if field.attrs.ignore == ReflectFieldIgnore::IgnoreSerialization {
+                idxs.push(next_idx);
+                next_idx + 1
+            } else {
+                next_idx + 1
+            }
+        });
+
         crate::registration::impl_get_type_registration(
             self.type_name,
             &self.bevy_reflect_path,
             self.traits.idents(),
             self.generics,
+            &idxs,
         )
     }
 }
@@ -256,19 +270,34 @@ impl<'a> ReflectStruct<'a> {
         &self.meta
     }
 
-    /// Get an iterator over the active fields.
+    /// Get an iterator over the fields satisfying the given predicate
+    fn fields_with<F: FnMut(&&StructField) -> bool>(
+        &self,
+        predicate: F,
+    ) -> impl Iterator<Item = &StructField<'a>> {
+        self.fields.iter().filter(predicate)
+    }
+
+    /// Get a collection of all field types satisfying the given predicate
+    fn types_with<F: FnMut(&&StructField) -> bool>(&self, predicate: F) -> Vec<syn::Type> {
+        self.fields_with(predicate)
+            .map(|field| field.data.ty.clone())
+            .collect::<Vec<_>>()
+    }
+
+    /// Get a collection of types which are exposed to either the scene serialization or reflection API
+    pub fn active_types(&self) -> Vec<syn::Type> {
+        self.types_with(|field| field.attrs.ignore != ReflectFieldIgnore::IgnoreAlways)
+    }
+
+    /// Get a collection of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields.iter().filter(|field| !field.attrs.ignore)
+        self.fields_with(|field| field.attrs.ignore != ReflectFieldIgnore::IgnoreAlways)
     }
 
-    /// Get an iterator over the ignored fields.
+    /// Get a collection of fields which are ignored from the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields.iter().filter(|field| field.attrs.ignore)
-    }
-
-    /// Get a collection of all active types.
-    pub fn active_types(&self) -> impl Iterator<Item = &Type> {
-        self.active_fields().map(|field| &field.data.ty)
+        self.fields_with(|field| field.attrs.ignore != ReflectFieldIgnore::None)
     }
 
     /// The complete set of fields in this struct.
