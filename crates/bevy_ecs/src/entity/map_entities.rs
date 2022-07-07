@@ -23,7 +23,12 @@ pub trait MapEntities {
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
 }
 
-/// A hash map adapter for mapping entities.
+/// A mapping from one set of entities to another.
+///
+/// The API generally follows [`HashMap`], but each [`Entity`] is returned by value, as they are [`Copy`].
+///
+/// This is typically used to coordinate data transfer between sets of entities, such as between a scene and the world or over the network.
+/// This is required as [`Entity`] identifiers are opaque; you cannot and do not want to reuse identifiers directly. 
 #[derive(Default, Debug)]
 pub struct EntityMap {
     map: HashMap<Entity, Entity>,
