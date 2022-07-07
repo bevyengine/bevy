@@ -28,7 +28,7 @@ pub trait MapEntities {
 /// The API generally follows [`HashMap`], but each [`Entity`] is returned by value, as they are [`Copy`].
 ///
 /// This is typically used to coordinate data transfer between sets of entities, such as between a scene and the world or over the network.
-/// This is required as [`Entity`] identifiers are opaque; you cannot and do not want to reuse identifiers directly. 
+/// This is required as [`Entity`] identifiers are opaque; you cannot and do not want to reuse identifiers directly.
 #[derive(Default, Debug)]
 pub struct EntityMap {
     map: HashMap<Entity, Entity>,
