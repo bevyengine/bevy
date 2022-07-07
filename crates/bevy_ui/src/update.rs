@@ -1,15 +1,22 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, Overflow, Style};
+use crate::{
+    prelude::{CameraUiConfig, UiCameraRenderInfo},
+    CalculatedClip, Overflow, Style, UI_CAMERA_FAR,
+};
 
 use super::Node;
 use bevy_ecs::{
     entity::Entity,
+    prelude::{ChangeTrackers, Changed, Component, Or},
     query::{With, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::Vec2;
+use bevy_render::camera::{
+    Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin,
+};
 use bevy_sprite::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -127,6 +134,64 @@ fn update_clipping(
     if let Ok(children) = children_query.get(entity) {
         for child in children.iter().cloned() {
             update_clipping(commands, children_query, node_query, child, children_clip);
+        }
+    }
+}
+
+pub fn update_ui_camera_data<T: Component>(
+    mut commands: Commands,
+    mut query: Query<
+        (
+            Entity,
+            &Camera,
+            Option<&CameraUiConfig>,
+            Option<&mut UiCameraRenderInfo>,
+            Option<ChangeTrackers<CameraUiConfig>>,
+        ),
+        (With<T>, Or<(Changed<Camera>, Changed<CameraUiConfig>)>),
+    >,
+) {
+    for (entity, camera, config, render_info, config_changed) in query.iter_mut() {
+        if matches!(config, Some(&CameraUiConfig { show_ui: false, .. })) {
+            commands.entity(entity).remove::<UiCameraRenderInfo>();
+            continue;
+        }
+        let logical_size = if let Some(logical_size) = camera.logical_viewport_size() {
+            logical_size
+        } else {
+            commands.entity(entity).remove::<UiCameraRenderInfo>();
+            continue;
+        };
+        // skip work if there is no changes.
+        if let (Some(projection), Some(config_changed)) = (&render_info, config_changed) {
+            if projection.old_logical_size == logical_size && !config_changed.is_changed() {
+                continue;
+            }
+        }
+
+        let (view_pos, scale) = if let Some(config) = config {
+            (config.position, config.scale)
+        } else {
+            (Vec2::new(0.0, 0.0), 1.0)
+        };
+        let mut new_projection = OrthographicProjection {
+            far: UI_CAMERA_FAR,
+            scale,
+            window_origin: WindowOrigin::BottomLeft,
+            depth_calculation: DepthCalculation::ZDifference,
+            ..Default::default()
+        };
+        new_projection.update(logical_size.x, logical_size.y);
+        if let Some(mut info) = render_info {
+            info.projection = new_projection;
+            info.position = view_pos;
+            info.old_logical_size = logical_size;
+        } else {
+            commands.entity(entity).insert(UiCameraRenderInfo {
+                projection: new_projection,
+                position: view_pos,
+                old_logical_size: logical_size,
+            });
         }
     }
 }

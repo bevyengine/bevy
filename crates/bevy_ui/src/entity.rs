@@ -4,12 +4,10 @@ use crate::{
     widget::{Button, ImageMode},
     CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
 };
-use bevy_ecs::{
-    bundle::Bundle,
-    prelude::{Component, With},
-    query::QueryItem,
-};
-use bevy_render::{camera::Camera, extract_component::ExtractComponent, view::Visibility};
+use bevy_ecs::{bundle::Bundle, prelude::Component};
+use bevy_math::Vec2;
+use bevy_reflect::Reflect;
+use bevy_render::{camera::OrthographicProjection, view::Visibility};
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -136,32 +134,51 @@ impl Default for ButtonBundle {
         }
     }
 }
+
 /// Configuration for cameras related to UI.
 ///
 /// When a [`Camera`] doesn't have the [`CameraUiConfig`] component,
 /// it will display the UI by default.
 ///
 /// [`Camera`]: bevy_render::camera::Camera
-#[derive(Component, Clone)]
+#[derive(Component, Reflect, Clone, Debug)]
 pub struct CameraUiConfig {
     /// Whether to output UI to this camera view.
     ///
     /// When a `Camera` doesn't have the [`CameraUiConfig`] component,
     /// it will display the UI by default.
     pub show_ui: bool,
+    /// Scale of the UI.
+    pub scale: f32,
+    /// Position of the camera compared to the UI.
+    pub position: Vec2,
 }
 
 impl Default for CameraUiConfig {
     fn default() -> Self {
-        Self { show_ui: true }
+        Self {
+            show_ui: true,
+            scale: 1.0,
+            position: Vec2::ZERO,
+        }
     }
 }
 
-impl ExtractComponent for CameraUiConfig {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
+/// Data related to the UI camera attached to this camera.
+#[derive(Component, Clone, Debug)]
+pub struct UiCameraRenderInfo {
+    pub(crate) projection: OrthographicProjection,
+    pub(crate) position: Vec2,
+    // Used to only update the data when the
+    pub(crate) old_logical_size: Vec2,
+}
+impl UiCameraRenderInfo {
+    /// The orthographic projection used by the UI camera.
+    pub fn projection(&self) -> &OrthographicProjection {
+        &self.projection
+    }
+    /// The position of the UI camera in UI space.
+    pub fn position(&self) -> &Vec2 {
+        &self.position
     }
 }

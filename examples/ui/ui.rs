@@ -13,12 +13,18 @@ fn main() {
         .insert_resource(WinitSettings::desktop_app())
         .add_startup_system(setup)
         .add_system(mouse_scroll)
+        .add_system(change_ui_camera)
         .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands
+        .spawn_bundle(Camera2dBundle::default())
+        .insert(CameraUiConfig {
+            show_ui: true,
+            ..default()
+        });
 
     // root node
     commands
@@ -309,6 +315,29 @@ struct ScrollingList {
     position: f32,
 }
 
+fn change_ui_camera(
+    mouse: Res<Input<MouseButton>>,
+    keyboard: Res<Input<KeyCode>>,
+    mut ui_config: Query<&mut CameraUiConfig>,
+) {
+    for mut config in ui_config.iter_mut() {
+        if mouse.just_pressed(MouseButton::Left) {
+            config.show_ui = !config.show_ui;
+        }
+        if keyboard.pressed(KeyCode::A) {
+            config.position.x -= 1.0;
+        }
+        if keyboard.pressed(KeyCode::D) {
+            config.position.x += 1.0;
+        }
+        if keyboard.pressed(KeyCode::W) {
+            config.scale *= 0.99;
+        }
+        if keyboard.pressed(KeyCode::S) {
+            config.scale *= 1.01;
+        }
+    }
+}
 fn mouse_scroll(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     mut query_list: Query<(&mut ScrollingList, &mut Style, &Children, &Node)>,

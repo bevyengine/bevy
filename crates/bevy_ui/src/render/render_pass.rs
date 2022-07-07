@@ -1,5 +1,5 @@
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::CameraUiConfig, DefaultCameraView};
+use crate::DefaultCameraView;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -16,14 +16,8 @@ use bevy_render::{
 use bevy_utils::FloatOrd;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<
-        (
-            &'static RenderPhase<TransparentUi>,
-            &'static ViewTarget,
-            Option<&'static CameraUiConfig>,
-        ),
-        With<ExtractedView>,
-    >,
+    ui_view_query:
+        QueryState<(&'static RenderPhase<TransparentUi>, &'static ViewTarget), With<ExtractedView>>,
     default_camera_view_query: QueryState<&'static DefaultCameraView>,
 }
 
@@ -56,17 +50,13 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
 
-        let (transparent_phase, target, camera_ui) =
+        let (transparent_phase, target) =
             if let Ok(result) = self.ui_view_query.get_manual(world, input_view_entity) {
                 result
             } else {
                 return Ok(());
             };
         if transparent_phase.items.is_empty() {
-            return Ok(());
-        }
-        // Don't render UI for cameras where it is explicitly disabled
-        if matches!(camera_ui, Some(&CameraUiConfig { show_ui: false })) {
             return Ok(());
         }
 
@@ -77,7 +67,7 @@ impl Node for UiPassNode {
         {
             default_view.0
         } else {
-            input_view_entity
+            return Ok(());
         };
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),

@@ -5,14 +5,14 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::CameraUiConfig, CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::UiCameraRenderInfo, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
+    camera::{Camera, CameraProjection},
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -70,14 +70,8 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera2d>,
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera3d>,
-        )
+        .add_system_to_stage(RenderStage::Extract, extract_ui_camera_view::<Camera2d>)
+        .add_system_to_stage(RenderStage::Extract, extract_ui_camera_view::<Camera3d>)
         .add_system_to_stage(
             RenderStage::Extract,
             extract_uinodes.label(RenderUiSystem::ExtractNode),
@@ -215,7 +209,7 @@ pub fn extract_uinodes(
 /// as ui elements are "stacked on top of each other", they are within the camera's view
 /// and have room to grow.
 // TODO: Consider computing this value at runtime based on the maximum z-value.
-const UI_CAMERA_FAR: f32 = 1000.0;
+pub(crate) const UI_CAMERA_FAR: f32 = 1000.0;
 
 // This value is subtracted from the far distance for the camera's z-position to ensure nodes at z == 0.0 are rendered
 // TODO: Evaluate if we still need this.
@@ -224,36 +218,22 @@ const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 #[derive(Component)]
 pub struct DefaultCameraView(pub Entity);
 
-pub fn extract_default_ui_camera_view<T: Component>(
+pub fn extract_ui_camera_view<T: Component>(
     mut commands: Commands,
     render_world: Res<RenderWorld>,
-    query: Query<(Entity, &Camera, Option<&CameraUiConfig>), With<T>>,
+    query: Query<(Entity, &Camera, &UiCameraRenderInfo), With<T>>,
 ) {
     for (entity, camera, camera_ui) in query.iter() {
-        // ignore cameras with disabled ui
-        if matches!(camera_ui, Some(&CameraUiConfig { show_ui: false, .. })) {
-            continue;
-        }
-        if let (Some(logical_size), Some(physical_size)) = (
-            camera.logical_viewport_size(),
-            camera.physical_viewport_size(),
-        ) {
-            let mut projection = OrthographicProjection {
-                far: UI_CAMERA_FAR,
-                window_origin: WindowOrigin::BottomLeft,
-                depth_calculation: DepthCalculation::ZDifference,
-                ..Default::default()
-            };
-            projection.update(logical_size.x, logical_size.y);
+        if let Some(physical_size) = camera.physical_viewport_size() {
             // This roundabout approach is required because spawn().id() won't work in this context
             let default_camera_view = render_world.entities().reserve_entity();
             commands
                 .get_or_spawn(default_camera_view)
                 .insert(ExtractedView {
-                    projection: projection.get_projection_matrix(),
+                    projection: camera_ui.projection().get_projection_matrix(),
                     transform: GlobalTransform::from_xyz(
-                        0.0,
-                        0.0,
+                        camera_ui.position().x,
+                        camera_ui.position().y,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
                     width: physical_size.x,
