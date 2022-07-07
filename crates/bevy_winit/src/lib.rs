@@ -618,11 +618,11 @@ pub fn winit_runner_with(mut app: App) {
                 {
                     let mut windows = app.world.resource_mut::<Windows>();
                     let focused = windows.iter().any(|w| w.is_focused());
-                    if windows.iter().any(|w| w.visible()) == false {
+                    if !windows.iter().any(|w| w.visible()) {
                         windows
                             .iter_mut()
                             .filter(|w| !w.visible())
-                            .for_each(|w| w.set_visible(true))
+                            .for_each(|w| w.set_visible(true));
                     }
                     let winit_config = app.world.resource::<WinitSettings>();
                     let now = Instant::now();
