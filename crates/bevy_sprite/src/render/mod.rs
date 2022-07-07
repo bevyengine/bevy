@@ -375,28 +375,25 @@ pub fn prepare_sprites(
         // Impossible starting values that will be replaced on the first iteration
         let mut current_batch_handle = HandleId::Id(Uuid::nil(), u64::MAX);
         let mut current_image_size = Vec2::ZERO;
-        let mut current_z_order = 0.0;
+        let mut z_order = 0.0;
 
         // Vertex buffer indices
         let mut index_start = 0;
         let mut index_end = 0;
 
         for extracted_sprite in sprites {
-            if extracted_sprite.image_handle_id != current_batch_handle
-                || extracted_sprite.transform.translation.z != current_z_order
-            {
+            if extracted_sprite.image_handle_id != current_batch_handle {
                 if let Some(gpu_image) =
                     gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id))
                 {
                     current_image_size = gpu_image.size;
                     current_batch_handle = extracted_sprite.image_handle_id;
-                    current_z_order = extracted_sprite.transform.translation.z;
                     if index_start != index_end {
                         commands.spawn().insert(SpriteBatch {
                             range: index_start..index_end,
                             image_handle_id: current_batch_handle,
                             colored,
-                            z_order: current_z_order,
+                            z_order,
                         });
                         index_start = index_end;
                     }
@@ -456,6 +453,16 @@ pub fn prepare_sprites(
                 }
             }
             index_end += QUAD_INDICES.len() as u32;
+            z_order = extracted_sprite.transform.translation.z;
+        }
+        // if start != end, there is one last batch to process
+        if index_start != index_end {
+            commands.spawn().insert(SpriteBatch {
+                range: index_start..index_end,
+                image_handle_id: current_batch_handle,
+                colored,
+                z_order,
+            });
         }
     }
     sprite_meta
