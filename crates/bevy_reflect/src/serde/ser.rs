@@ -148,7 +148,18 @@ impl<'a> Serialize for StructValueSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(self.struct_value.field_len()))?;
+        let data = self
+            .registry
+            .get_with_name(self.struct_value.type_name())
+            .and_then(|registration| registration.serialization_data());
+
         for (index, value) in self.struct_value.iter_fields().enumerate() {
+            if data
+                .map(|data| data.is_ignored_index(index))
+                .unwrap_or(false)
+            {
+                continue;
+            }
             let key = self.struct_value.name_at(index).unwrap();
             state.serialize_entry(key, &ReflectSerializer::new(value, self.registry))?;
         }
@@ -191,7 +202,18 @@ impl<'a> Serialize for TupleStructValueSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_seq(Some(self.tuple_struct.field_len()))?;
-        for value in self.tuple_struct.iter_fields() {
+        let data = self
+            .registry
+            .get_with_name(self.tuple_struct.type_name())
+            .and_then(|registration| registration.serialization_data());
+
+        for (index, value) in self.tuple_struct.iter_fields().enumerate() {
+            if data
+                .map(|data| data.is_ignored_index(index))
+                .unwrap_or(false)
+            {
+                continue;
+            }
             state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
         }
         state.end()
@@ -233,6 +255,7 @@ impl<'a> Serialize for TupleValueSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_seq(Some(self.tuple.field_len()))?;
+
         for value in self.tuple.iter_fields() {
             state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
         }

@@ -9,14 +9,28 @@ use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Attribute, Lit, Meta, NestedMeta};
 
-pub(crate) static IGNORE_ATTR: &str = "ignore";
+pub(crate) static IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
+pub(crate) static IGNORE_ALL_ATTR: &str = "ignore";
+
 pub(crate) static DEFAULT_ATTR: &str = "default";
+
+/// Stores data about if the field should be visible via the Reflect and serialization interfaces
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ReflectFieldIgnore {
+    /// Don't ignore, appear to all systems
+    #[default]
+    None,
+    /// Ignore when serializing but not when reflecting
+    IgnoreSerialization,
+    /// Ignore for all systems
+    IgnoreAlways,
+}
 
 /// A container for attributes defined on a reflected type's field.
 #[derive(Default)]
 pub(crate) struct ReflectFieldAttr {
-    /// Determines if this field should be ignored.
-    pub ignore: bool,
+    /// Determines how this field should be ignored if at all.
+    pub ignore: ReflectFieldIgnore,
     /// Sets the default behavior of this field.
     pub default: DefaultBehavior,
 }
@@ -65,9 +79,15 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
 /// Recursively parses attribute metadata for things like `#[reflect(ignore)]` and `#[reflect(default = "foo")]`
 fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
     match meta {
-        Meta::Path(path) if path.is_ident(IGNORE_ATTR) => {
-            args.ignore = true;
-            Ok(())
+        Meta::Path(path) if path.is_ident(IGNORE_SERIALIZATION_ATTR) => {
+            (args.ignore == ReflectFieldIgnore::None)
+                .then(|| args.ignore = ReflectFieldIgnore::IgnoreSerialization)
+                .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
+        }
+        Meta::Path(path) if path.is_ident(IGNORE_ALL_ATTR) => {
+            (args.ignore == ReflectFieldIgnore::None)
+                .then(|| args.ignore = ReflectFieldIgnore::IgnoreAlways)
+                .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
         }
         Meta::Path(path) if path.is_ident(DEFAULT_ATTR) => {
             args.default = DefaultBehavior::Default;

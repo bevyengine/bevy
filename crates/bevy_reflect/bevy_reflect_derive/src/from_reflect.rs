@@ -54,7 +54,9 @@ fn impl_struct_internal(derive_data: &ReflectDeriveData, is_tuple: bool) -> Toke
         Ident::new("Struct", Span::call_site())
     };
 
+    // types which at some point may be reachable via reflection or serialization
     let field_types = derive_data.active_types();
+
     let MemberValuePair(active_members, active_values) =
         get_active_fields(derive_data, &ref_struct, &ref_struct_type, is_tuple);
 

@@ -108,6 +108,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         &bevy_reflect_path,
         registration_data,
         &reflect_value_def.generics,
+        &[],
     );
     impls::impl_value(
         ty,
