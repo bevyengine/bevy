@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraRenderInfo, CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::UiCamera, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -221,19 +221,26 @@ pub struct DefaultCameraView(pub Entity);
 pub fn extract_ui_camera_view<T: Component>(
     mut commands: Commands,
     render_world: Res<RenderWorld>,
-    query: Query<(Entity, &Camera, &UiCameraRenderInfo), With<T>>,
+    mut query: Query<(Entity, &Camera, Option<&mut UiCamera>), With<T>>,
 ) {
-    for (entity, camera, camera_ui) in query.iter() {
-        if let Some(physical_size) = camera.physical_viewport_size() {
+    for (entity, camera, camera_ui) in query.iter_mut() {
+        let mut camera_ui = camera_ui.as_deref().cloned().unwrap_or_default();
+        if !camera_ui.show_ui {
+            continue;
+        }
+        let physical = camera.physical_viewport_size();
+        let logical = camera.logical_viewport_size();
+        if let (Some(physical_size), Some(logical_size)) = (physical, logical) {
             // This roundabout approach is required because spawn().id() won't work in this context
             let default_camera_view = render_world.entities().reserve_entity();
+            camera_ui.projection.update(logical_size.x, logical_size.y);
             commands
                 .get_or_spawn(default_camera_view)
                 .insert(ExtractedView {
-                    projection: camera_ui.projection().get_projection_matrix(),
+                    projection: camera_ui.projection.get_projection_matrix(),
                     transform: GlobalTransform::from_xyz(
-                        camera_ui.position().x,
-                        camera_ui.position().y,
+                        camera_ui.position.x,
+                        camera_ui.position.y,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
                     width: physical_size.x,

@@ -12,7 +12,6 @@ pub mod entity;
 pub mod update;
 pub mod widget;
 
-use bevy_core_pipeline::{core_2d::Camera2d, prelude::Camera3d};
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
@@ -27,13 +26,11 @@ pub mod prelude {
 
 use crate::Size;
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel, SystemSet};
+use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
-use update::{ui_z_system, update_clipping_system, update_ui_camera_data};
-
-use crate::prelude::CameraUiConfig;
+use update::{ui_z_system, update_clipping_system};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -51,7 +48,6 @@ pub enum UiSystem {
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FlexSurface>()
-            .register_type::<CameraUiConfig>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -104,12 +100,6 @@ impl Plugin for UiPlugin {
                 ui_z_system
                     .after(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate),
-            )
-            .add_system_set_to_stage(
-                CoreStage::PostUpdate,
-                SystemSet::new()
-                    .with_system(update_ui_camera_data::<Camera2d>)
-                    .with_system(update_ui_camera_data::<Camera3d>),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

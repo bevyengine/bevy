@@ -2,12 +2,14 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
+    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage, UI_CAMERA_FAR,
 };
 use bevy_ecs::{bundle::Bundle, prelude::Component};
 use bevy_math::Vec2;
-use bevy_reflect::Reflect;
-use bevy_render::{camera::OrthographicProjection, view::Visibility};
+use bevy_render::{
+    camera::{DepthCalculation, OrthographicProjection, WindowOrigin},
+    view::Visibility,
+};
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -135,50 +137,42 @@ impl Default for ButtonBundle {
     }
 }
 
-/// Configuration for cameras related to UI.
-///
-/// When a [`Camera`] doesn't have the [`CameraUiConfig`] component,
-/// it will display the UI by default.
-///
-/// [`Camera`]: bevy_render::camera::Camera
-#[derive(Component, Reflect, Clone, Debug)]
-pub struct CameraUiConfig {
-    /// Whether to output UI to this camera view.
-    ///
-    /// When a `Camera` doesn't have the [`CameraUiConfig`] component,
-    /// it will display the UI by default.
+/// Data related to the UI camera attached to this camera.
+#[derive(Component, Clone, Debug)]
+pub struct UiCamera {
+    /// Toggle whether this camera should display UI
     pub show_ui: bool,
-    /// Scale of the UI.
-    pub scale: f32,
-    /// Position of the camera compared to the UI.
+    /// The position of the UI camera in UI space.
     pub position: Vec2,
+    pub(crate) projection: OrthographicProjection,
 }
-
-impl Default for CameraUiConfig {
+impl Default for UiCamera {
     fn default() -> Self {
         Self {
             show_ui: true,
-            scale: 1.0,
             position: Vec2::ZERO,
+            projection: OrthographicProjection {
+                far: UI_CAMERA_FAR,
+                window_origin: WindowOrigin::BottomLeft,
+                depth_calculation: DepthCalculation::ZDifference,
+                ..Default::default()
+            },
         }
     }
 }
-
-/// Data related to the UI camera attached to this camera.
-#[derive(Component, Clone, Debug)]
-pub struct UiCameraRenderInfo {
-    pub(crate) projection: OrthographicProjection,
-    pub(crate) position: Vec2,
-    // Used to only update the data when the
-    pub(crate) old_logical_size: Vec2,
-}
-impl UiCameraRenderInfo {
+impl UiCamera {
     /// The orthographic projection used by the UI camera.
     pub fn projection(&self) -> &OrthographicProjection {
         &self.projection
     }
-    /// The position of the UI camera in UI space.
-    pub fn position(&self) -> &Vec2 {
-        &self.position
+    pub fn set_scale(&mut self, scale: f32) {
+        // We can update the projection scale without running `projection.update(local_size)`
+        // because update is not affected by scale, unless:
+        // 1. window_origin = Center AND
+        // 2. scaling_mode is WindowSize AND
+        // 3. scale = 1.0
+        // which is currently not possible, since projection is read-only
+        // and its window_origin field never set to Center.
+        self.projection.scale = scale;
     }
 }
