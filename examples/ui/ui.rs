@@ -324,16 +324,16 @@ fn change_ui_camera(
         if mouse.just_pressed(MouseButton::Left) {
             config.show_ui = !config.show_ui;
         }
-        if keyboard.pressed(KeyCode::A) {
+        if keyboard.pressed(KeyCode::Left) {
             config.position.x -= 1.0;
         }
-        if keyboard.pressed(KeyCode::D) {
+        if keyboard.pressed(KeyCode::Right) {
             config.position.x += 1.0;
         }
-        if keyboard.pressed(KeyCode::W) {
+        if keyboard.pressed(KeyCode::Up) {
             config.scale *= 0.99;
         }
-        if keyboard.pressed(KeyCode::S) {
+        if keyboard.pressed(KeyCode::Down) {
             config.scale *= 1.01;
         }
     }
