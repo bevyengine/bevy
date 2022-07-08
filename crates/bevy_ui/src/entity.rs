@@ -136,18 +136,28 @@ impl Default for ButtonBundle {
         }
     }
 }
+/// Configuration for cameras related to UI.
+///
+/// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
+/// it will display the UI by default.
+///
+/// [`Camera`]: bevy_render::camera::Camera
 #[derive(Component, Clone)]
-pub struct CameraUi {
-    pub is_enabled: bool,
+pub struct UiCameraConfig {
+    /// Whether to output UI to this camera view.
+    ///
+    /// When a `Camera` doesn't have the [`UiCameraConfig`] component,
+    /// it will display the UI by default.
+    pub show_ui: bool,
 }
 
-impl Default for CameraUi {
+impl Default for UiCameraConfig {
     fn default() -> Self {
-        Self { is_enabled: true }
+        Self { show_ui: true }
     }
 }
 
-impl ExtractComponent for CameraUi {
+impl ExtractComponent for UiCameraConfig {
     type Query = &'static Self;
     type Filter = With<Camera>;
 

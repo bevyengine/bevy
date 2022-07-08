@@ -1,5 +1,5 @@
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::CameraUi, DefaultCameraView};
+use crate::{prelude::UiCameraConfig, DefaultCameraView};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -20,7 +20,7 @@ pub struct UiPassNode {
         (
             &'static RenderPhase<TransparentUi>,
             &'static ViewTarget,
-            Option<&'static CameraUi>,
+            Option<&'static UiCameraConfig>,
         ),
         With<ExtractedView>,
     >,
@@ -66,7 +66,7 @@ impl Node for UiPassNode {
             return Ok(());
         }
         // Don't render UI for cameras where it is explicitly disabled
-        if let Some(&CameraUi { is_enabled: false }) = camera_ui {
+        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false })) {
             return Ok(());
         }
 
