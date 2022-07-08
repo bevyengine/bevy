@@ -174,7 +174,7 @@ impl Plugin for RenderPlugin {
             extract_stage.set_must_read_resource(main_world_in_render.unwrap());
             // don't apply buffers when the stage finishes running
             // extract stage runs on the render world, but buffers are applied
-            // after losing access to the main world.
+            // after access to the main world is removed
             // See also https://github.com/bevyengine/bevy/issues/5082
             extract_stage.set_apply_buffers(false);
             render_app
