@@ -148,7 +148,7 @@ fn extract_render_asset<A: RenderAsset>(
     let mut extracted_assets = Vec::new();
     for handle in changed_assets.drain() {
         if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle.clone_weak(), asset.extract_asset()));
+            extracted_assets.push((handle, asset.extract_asset()));
         }
     }
 
