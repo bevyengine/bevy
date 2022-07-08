@@ -24,7 +24,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
-        light::{AmbientLight, DirectionalLight, PointLight, SpotLightAngles},
+        light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
     };
@@ -126,7 +126,7 @@ impl Plugin for PbrPlugin {
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<PointLight>()
-            .register_type::<SpotLightAngles>()
+            .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
             .init_resource::<AmbientLight>()

@@ -1,4 +1,4 @@
-use crate::{DirectionalLight, PointLight, SpecializedMaterial, SpotLightAngles, StandardMaterial};
+use crate::{DirectionalLight, PointLight, SpecializedMaterial, SpotLight, StandardMaterial};
 use bevy_asset::Handle;
 use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
@@ -78,8 +78,7 @@ pub struct PointLightBundle {
 /// A component bundle for spot light entities
 #[derive(Debug, Bundle, Default)]
 pub struct SpotLightBundle {
-    pub point_light: PointLight,
-    pub spot_light_angles: SpotLightAngles,
+    pub spot_light: SpotLight,
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
     pub transform: Transform,

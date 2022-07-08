@@ -126,15 +126,13 @@ fn setup(
         .spawn_bundle(SpotLightBundle {
             transform: Transform::from_xyz(-1.0, 2.0, 0.0)
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
-            point_light: PointLight {
+            spot_light: SpotLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::GREEN,
                 shadows_enabled: true,
+                inner_angle: 0.6,
+                outer_angle: 0.8,
                 ..default()
-            },
-            spot_light_angles: SpotLightAngles {
-                inner: 0.6,
-                outer: 0.8,
             },
             ..default()
         })

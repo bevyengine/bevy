@@ -10,7 +10,7 @@ use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
-    SpotLightAngles, SpotLightBundle, StandardMaterial,
+    SpotLight, SpotLightBundle, StandardMaterial,
 };
 use bevy_render::{
     camera::{
@@ -866,7 +866,7 @@ fn load_node(
                     outer_cone_angle,
                 } => {
                     let mut entity = parent.spawn_bundle(SpotLightBundle {
-                        point_light: PointLight {
+                        spot_light: SpotLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
                             // candela (lm/sr) which is luminous intensity and we need luminous power.
@@ -874,11 +874,9 @@ fn load_node(
                             intensity: light.intensity() * std::f32::consts::PI * 4.0,
                             range: light.range().unwrap_or(20.0),
                             radius: light.range().unwrap_or(0.0),
+                            inner_angle: inner_cone_angle,
+                            outer_angle: outer_cone_angle,
                             ..Default::default()
-                        },
-                        spot_light_angles: SpotLightAngles {
-                            inner: inner_cone_angle,
-                            outer: outer_cone_angle,
                         },
                         ..Default::default()
                     });

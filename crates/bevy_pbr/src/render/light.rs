@@ -1,7 +1,7 @@
 use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
-    PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLightAngles, VisiblePointLights,
+    PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLight, VisiblePointLights,
     SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
@@ -409,12 +409,7 @@ pub fn extract_lights(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     global_point_lights: Res<GlobalVisiblePointLights>,
     mut point_lights: Query<(&PointLight, &mut CubemapVisibleEntities, &GlobalTransform)>,
-    mut spot_lights: Query<(
-        &PointLight,
-        &mut VisibleEntities,
-        &GlobalTransform,
-        &SpotLightAngles,
-    )>,
+    mut spot_lights: Query<(&SpotLight, &mut VisibleEntities, &GlobalTransform)>,
     mut directional_lights: Query<
         (
             Entity,
@@ -423,7 +418,7 @@ pub fn extract_lights(
             &GlobalTransform,
             &Visibility,
         ),
-        Without<SpotLightAngles>,
+        Without<SpotLight>,
     >,
     mut previous_point_lights_len: Local<usize>,
     mut previous_spot_lights_len: Local<usize>,
@@ -445,33 +440,6 @@ pub fn extract_lights(
     // https://catlikecoding.com/unity/tutorials/custom-srp/point-and-spot-shadows/
     let point_light_texel_size = 2.0 / point_light_shadow_map.size as f32;
 
-    let extracted_point_light = |point_light: &PointLight,
-                                 transform: &GlobalTransform,
-                                 spot_light_angles: Option<(f32, f32)>,
-                                 texel_size: f32|
-     -> ExtractedPointLight {
-        ExtractedPointLight {
-            color: point_light.color,
-            // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-            // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-            // for details.
-            // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
-            // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
-            // which seems least surprising for users
-            intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
-            range: point_light.range,
-            radius: point_light.radius,
-            transform: *transform,
-            shadows_enabled: point_light.shadows_enabled,
-            shadow_depth_bias: point_light.shadow_depth_bias,
-            // The factor of SQRT_2 is for the worst-case diagonal offset
-            shadow_normal_bias: point_light.shadow_normal_bias
-                * texel_size
-                * std::f32::consts::SQRT_2,
-            spot_light_angles,
-        }
-    };
-
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
         if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get_mut(entity)
@@ -481,7 +449,23 @@ pub fn extract_lights(
             point_lights_values.push((
                 entity,
                 (
-                    extracted_point_light(point_light, transform, None, point_light_texel_size),
+                    ExtractedPointLight {
+                        color: point_light.color,
+                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                        // for details.
+                        intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+                        range: point_light.range,
+                        radius: point_light.radius,
+                        transform: *transform,
+                        shadows_enabled: point_light.shadows_enabled,
+                        shadow_depth_bias: point_light.shadow_depth_bias,
+                        // The factor of SQRT_2 is for the worst-case diagonal offset
+                        shadow_normal_bias: point_light.shadow_normal_bias
+                            * point_light_texel_size
+                            * std::f32::consts::SQRT_2,
+                        spot_light_angles: None,
+                    },
                     render_cubemap_visible_entities,
                 ),
             ));
@@ -492,22 +476,34 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, visible_entities, transform, spot_light_angles)) =
-            spot_lights.get_mut(entity)
-        {
+        if let Ok((spot_light, visible_entities, transform)) = spot_lights.get_mut(entity) {
             let render_visible_entities = std::mem::take(visible_entities.into_inner());
             let texel_size =
-                2.0 * spot_light_angles.outer.tan() / directional_light_shadow_map.size as f32;
+                2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
 
             spot_lights_values.push((
                 entity,
                 (
-                    extracted_point_light(
-                        point_light,
-                        transform,
-                        Some((spot_light_angles.inner, spot_light_angles.outer)),
-                        texel_size,
-                    ),
+                    ExtractedPointLight {
+                        color: spot_light.color,
+                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                        // for details.
+                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
+                        // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
+                        // which seems least surprising for users
+                        intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
+                        range: spot_light.range,
+                        radius: spot_light.radius,
+                        transform: *transform,
+                        shadows_enabled: spot_light.shadows_enabled,
+                        shadow_depth_bias: spot_light.shadow_depth_bias,
+                        // The factor of SQRT_2 is for the worst-case diagonal offset
+                        shadow_normal_bias: spot_light.shadow_normal_bias
+                            * texel_size
+                            * std::f32::consts::SQRT_2,
+                        spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                    },
                     render_visible_entities,
                 ),
             ));

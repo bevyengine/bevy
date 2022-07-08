@@ -93,17 +93,40 @@ impl Default for PointLightShadowMap {
 /// approaches this limit.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
-pub struct SpotLightAngles {
-    pub inner: f32,
-    pub outer: f32,
+pub struct SpotLight {
+    pub color: Color,
+    pub intensity: f32,
+    pub range: f32,
+    pub radius: f32,
+    pub shadows_enabled: bool,
+    pub shadow_depth_bias: f32,
+    /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
+    /// shadow map's texel size so that it can be small close to the camera and gets larger further
+    /// away.
+    pub shadow_normal_bias: f32,
+    pub inner_angle: f32,
+    pub outer_angle: f32,
 }
 
-impl Default for SpotLightAngles {
+impl SpotLight {
+    pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.02;
+    pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
+}
+
+impl Default for SpotLight {
     fn default() -> Self {
         // a quarter arc attenuating from the centre
         Self {
-            inner: 0.0,
-            outer: std::f32::consts::FRAC_PI_4,
+            color: Color::rgb(1.0, 1.0, 1.0),
+            /// Luminous power in lumens
+            intensity: 800.0, // Roughly a 60W non-halogen incandescent bulb
+            range: 20.0,
+            radius: 0.0,
+            shadows_enabled: false,
+            shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
+            shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
+            inner_angle: 0.0,
+            outer_angle: std::f32::consts::FRAC_PI_4,
         }
     }
 }
@@ -761,13 +784,8 @@ pub(crate) fn assign_lights_to_clusters(
         &mut Clusters,
         Option<&mut VisiblePointLights>,
     )>,
-    lights_query: Query<(
-        Entity,
-        &GlobalTransform,
-        &PointLight,
-        Option<&SpotLightAngles>,
-        &Visibility,
-    )>,
+    point_lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
+    spot_lights_query: Query<(Entity, &GlobalTransform, &SpotLight, &Visibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_point_lights_warning_emitted: Local<bool>,
@@ -782,19 +800,32 @@ pub(crate) fn assign_lights_to_clusters(
     lights.clear();
     // collect just the relevant light query data into a persisted vec to avoid reallocating each frame
     lights.extend(
-        lights_query
+        point_lights_query
             .iter()
             .filter(|(.., visibility)| visibility.is_visible)
             .map(
-                |(entity, transform, light, maybe_spot_light_angles, _visibility)| {
-                    PointLightAssignmentData {
-                        entity,
-                        translation: transform.translation,
-                        rotation: transform.rotation,
-                        shadows_enabled: light.shadows_enabled,
-                        range: light.range,
-                        spot_light_angle: maybe_spot_light_angles.map(|angles| angles.outer),
-                    }
+                |(entity, transform, point_light, _visibility)| PointLightAssignmentData {
+                    entity,
+                    translation: transform.translation,
+                    rotation: Quat::default(),
+                    shadows_enabled: point_light.shadows_enabled,
+                    range: point_light.range,
+                    spot_light_angle: None,
+                },
+            ),
+    );
+    lights.extend(
+        spot_lights_query
+            .iter()
+            .filter(|(.., visibility)| visibility.is_visible)
+            .map(
+                |(entity, transform, spot_light, _visibility)| PointLightAssignmentData {
+                    entity,
+                    translation: transform.translation,
+                    rotation: transform.rotation,
+                    shadows_enabled: spot_light.shadows_enabled,
+                    range: spot_light.range,
+                    spot_light_angle: Some(spot_light.outer_angle),
                 },
             ),
     );
@@ -1447,27 +1478,17 @@ pub fn update_point_light_frusta(
 pub fn update_spot_light_frusta(
     global_lights: Res<GlobalVisiblePointLights>,
     mut views: Query<
-        (
-            Entity,
-            &GlobalTransform,
-            &PointLight,
-            &SpotLightAngles,
-            &mut Frustum,
-        ),
-        Or<(
-            Changed<GlobalTransform>,
-            Changed<PointLight>,
-            Changed<SpotLightAngles>,
-        )>,
+        (Entity, &GlobalTransform, &SpotLight, &mut Frustum),
+        Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
     >,
 ) {
-    for (entity, transform, point_light, spot_light_angles, mut frustum) in views.iter_mut() {
+    for (entity, transform, spot_light, mut frustum) in views.iter_mut() {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
         // Also, if the light is not relevant for any cluster, it will not be in the
         // global lights set and so there is no need to update its frusta.
-        if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
+        if !spot_light.shadows_enabled || !global_lights.entities.contains(&entity) {
             continue;
         }
 
@@ -1477,14 +1498,14 @@ pub fn update_spot_light_frusta(
         let view_backward = transform.back();
 
         let spot_view = spot_light_view_matrix(transform);
-        let spot_projection = spot_light_projection_matrix(spot_light_angles.outer);
+        let spot_projection = spot_light_projection_matrix(spot_light.outer_angle);
         let view_projection = spot_projection * spot_view.inverse();
 
         *frustum = Frustum::from_view_projection(
             &view_projection,
             &view_translation.translation,
             &view_backward,
-            point_light.range,
+            spot_light.range,
         );
     }
 }
@@ -1498,16 +1519,13 @@ pub fn check_light_mesh_visibility(
         &mut CubemapVisibleEntities,
         Option<&RenderLayers>,
     )>,
-    mut spot_lights: Query<
-        (
-            &PointLight,
-            &GlobalTransform,
-            &Frustum,
-            &mut VisibleEntities,
-            Option<&RenderLayers>,
-        ),
-        With<SpotLightAngles>,
-    >,
+    mut spot_lights: Query<(
+        &SpotLight,
+        &GlobalTransform,
+        &Frustum,
+        &mut VisibleEntities,
+        Option<&RenderLayers>,
+    )>,
     mut directional_lights: Query<
         (
             &DirectionalLight,
@@ -1516,7 +1534,7 @@ pub fn check_light_mesh_visibility(
             Option<&RenderLayers>,
             &Visibility,
         ),
-        Without<PointLight>,
+        Without<SpotLight>,
     >,
     mut visible_entity_query: Query<
         (
