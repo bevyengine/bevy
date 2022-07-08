@@ -116,11 +116,6 @@ impl Mesh {
         );
     }
 
-    /// Removes the data for a vertex attribute
-    pub fn remove_attribute(&mut self, attribute: MeshVertexAttribute) {
-        self.attributes.remove(&attribute.id);
-    }
-
     #[inline]
     pub fn contains_attribute(&self, id: impl Into<MeshVertexAttributeId>) -> bool {
         self.attributes.contains_key(&id.into())
