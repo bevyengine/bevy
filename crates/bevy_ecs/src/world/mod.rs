@@ -1468,7 +1468,7 @@ impl World {
         Some(())
     }
 
-    /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
+    /// Retrieves an immutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
     /// Returns [None] if the `entity` does not have a [Component] of the given type.
     ///
     /// **You should prefer to use the typed API [`World::get_mut`] where possible and only
