@@ -34,7 +34,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_utils::{FloatOrd, HashMap};
 
@@ -208,7 +208,7 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 
 pub fn extract_core_3d_camera_phases(
     mut commands: Commands,
-    cameras_3d: Query<(Entity, &Camera), With<Camera3d>>,
+    cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
 ) {
     for (entity, camera) in cameras_3d.iter() {
         if camera.is_active {

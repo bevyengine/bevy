@@ -4,13 +4,18 @@
 
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
-    ecs::system::{lifetimeless::SRes, SystemParamItem},
+    ecs::system::{
+        lifetimeless::{Read, SRes},
+        SystemParamItem,
+    },
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
         SetMeshViewBindGroup,
     },
     prelude::*,
     render::{
+        extract_component::{ExtractComponent, ExtractComponentPlugin},
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
         render_phase::{
@@ -64,6 +69,8 @@ impl Plugin for CustomMaterialPlugin {
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+        app.add_plugin(ExtractComponentPlugin::<CustomMaterial>::default())
+            .add_plugin(ExtractResourcePlugin::<ExtractedTime>::default());
 
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
@@ -73,26 +80,20 @@ impl Plugin for CustomMaterialPlugin {
             })
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_system_to_stage(RenderStage::Extract, extract_time)
-            .add_system_to_stage(RenderStage::Extract, extract_custom_material)
             .add_system_to_stage(RenderStage::Prepare, prepare_time)
             .add_system_to_stage(RenderStage::Queue, queue_custom)
             .add_system_to_stage(RenderStage::Queue, queue_time_bind_group);
     }
 }
 
-// extract the `CustomMaterial` component into the render world
-fn extract_custom_material(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
-    mut query: Query<Entity, With<CustomMaterial>>,
-) {
-    let mut values = Vec::with_capacity(*previous_len);
-    for entity in query.iter_mut() {
-        values.push((entity, (CustomMaterial,)));
+impl ExtractComponent for CustomMaterial {
+    type Query = Read<CustomMaterial>;
+
+    type Filter = ();
+
+    fn extract_component(_: bevy::ecs::query::QueryItem<Self::Query>) -> Self {
+        CustomMaterial
     }
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
 }
 
 // add each entity with a mesh and a `CustomMaterial` to every view's `Transparent3d` render phase using the `CustomPipeline`
@@ -138,11 +139,14 @@ struct ExtractedTime {
     seconds_since_startup: f32,
 }
 
-// extract the passed time into a resource in the render world
-fn extract_time(mut commands: Commands, time: Res<Time>) {
-    commands.insert_resource(ExtractedTime {
-        seconds_since_startup: time.seconds_since_startup() as f32,
-    });
+impl ExtractResource for ExtractedTime {
+    type Source = Time;
+
+    fn extract_resource(time: &Self::Source) -> Self {
+        ExtractedTime {
+            seconds_since_startup: time.seconds_since_startup() as f32,
+        }
+    }
 }
 
 struct TimeMeta {

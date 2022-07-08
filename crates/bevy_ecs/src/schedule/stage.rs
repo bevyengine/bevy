@@ -12,7 +12,10 @@ use crate::{
     },
     world::{World, WorldId},
 };
-use bevy_utils::{tracing::info, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{info, warn},
+    HashMap, HashSet,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -88,6 +91,7 @@ pub struct SystemStage {
     last_tick_check: u32,
     /// If true, buffers will be automatically applied at the end of the stage. If false, buffers must be manually applied.
     apply_buffers: bool,
+    must_read_resource: Option<ComponentId>,
 }
 
 impl SystemStage {
@@ -110,6 +114,7 @@ impl SystemStage {
             uninitialized_at_end: vec![],
             last_tick_check: Default::default(),
             apply_buffers: true,
+            must_read_resource: None,
         }
     }
 
@@ -137,6 +142,10 @@ impl SystemStage {
     pub fn set_executor(&mut self, executor: Box<dyn ParallelSystemExecutor>) {
         self.executor_modified = true;
         self.executor = executor;
+    }
+
+    pub fn set_must_read_resource(&mut self, resource_id: ComponentId) {
+        self.must_read_resource = Some(resource_id);
     }
 
     #[must_use]
@@ -563,6 +572,20 @@ impl SystemStage {
         }
     }
 
+    fn check_uses_resource(&self, resource_id: ComponentId, world: &World) {
+        debug_assert!(!self.systems_modified);
+        for system in &self.parallel {
+            let access = system.component_access().unwrap();
+            if !access.has_read(resource_id) {
+                let component_name = world.components().get_info(resource_id).unwrap().name();
+                warn!(
+                    "System {} doesn't access resource {component_name}, despite being required to",
+                    system.name()
+                );
+            }
+        }
+    }
+
     /// All system and component change ticks are scanned once the world counter has incremented
     /// at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
     /// times since the previous `check_tick` scan.
@@ -781,6 +804,9 @@ impl Stage for SystemStage {
             self.executor_modified = false;
             if world.contains_resource::<ReportExecutionOrderAmbiguities>() {
                 self.report_ambiguities(world);
+            }
+            if let Some(resource_id) = self.must_read_resource {
+                self.check_uses_resource(resource_id, world);
             }
         } else if self.executor_modified {
             self.executor.rebuild_cached_data(&self.parallel);

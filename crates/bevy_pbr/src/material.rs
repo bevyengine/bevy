@@ -34,7 +34,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
@@ -455,15 +455,15 @@ pub type RenderMaterials<T> = HashMap<Handle<T>, PreparedMaterial<T>>;
 /// into the "render world".
 fn extract_materials<M: Material>(
     mut commands: Commands,
-    mut events: EventReader<AssetEvent<M>>,
-    assets: Res<Assets<M>>,
+    mut events: Extract<EventReader<AssetEvent<M>>>,
+    assets: Extract<Res<Assets<M>>>,
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.iter() {
         match event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle);
+                changed_assets.insert(handle.clone_weak());
             }
             AssetEvent::Removed { handle } => {
                 changed_assets.remove(handle);
@@ -474,8 +474,8 @@ fn extract_materials<M: Material>(
 
     let mut extracted_assets = Vec::new();
     for handle in changed_assets.drain() {
-        if let Some(asset) = assets.get(handle) {
-            extracted_assets.push((handle.clone_weak(), asset.clone()));
+        if let Some(asset) = assets.get(&handle) {
+            extracted_assets.push((handle, asset.clone()));
         }
     }
 

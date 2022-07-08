@@ -145,12 +145,6 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Spawns a [`Bundle`] without pre-allocating an [`Entity`]. The [`Entity`] will be allocated
-    /// when this [`Command`] is applied.
-    pub fn spawn_and_forget(&mut self, bundle: impl Bundle) {
-        self.queue.push(Spawn { bundle });
-    }
-
     /// Creates a new entity with the components contained in `bundle`.
     ///
     /// This returns an [`EntityCommands`] builder, which enables inserting more components and

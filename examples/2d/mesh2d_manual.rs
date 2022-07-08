@@ -19,7 +19,7 @@ use bevy::{
         },
         texture::BevyDefault,
         view::VisibleEntities,
-        RenderApp, RenderStage,
+        Extract, RenderApp, RenderStage,
     },
     sprite::{
         DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
@@ -286,7 +286,9 @@ impl Plugin for ColoredMesh2dPlugin {
 pub fn extract_colored_mesh2d(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>,
+    // When extracting, you must use `Extract` to mark the `SystemParam`s
+    // which should be taken from the main world.
+    query: Extract<Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility) in query.iter() {

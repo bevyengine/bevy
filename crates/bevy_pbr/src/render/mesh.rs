@@ -25,7 +25,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
 use std::num::NonZeroU64;
@@ -118,14 +118,16 @@ pub fn extract_meshes(
     mut commands: Commands,
     mut prev_caster_commands_len: Local<usize>,
     mut prev_not_caster_commands_len: Local<usize>,
-    meshes_query: Query<(
-        Entity,
-        &ComputedVisibility,
-        &GlobalTransform,
-        &Handle<Mesh>,
-        Option<With<NotShadowReceiver>>,
-        Option<With<NotShadowCaster>>,
-    )>,
+    meshes_query: Extract<
+        Query<(
+            Entity,
+            &ComputedVisibility,
+            &GlobalTransform,
+            &Handle<Mesh>,
+            Option<With<NotShadowReceiver>>,
+            Option<With<NotShadowCaster>>,
+        )>,
+    >,
 ) {
     let mut caster_commands = Vec::with_capacity(*prev_caster_commands_len);
     let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
@@ -202,12 +204,12 @@ impl SkinnedMeshJoints {
 }
 
 pub fn extract_skinned_meshes(
-    query: Query<(Entity, &ComputedVisibility, &SkinnedMesh)>,
-    inverse_bindposes: Res<Assets<SkinnedMeshInverseBindposes>>,
-    joint_query: Query<&GlobalTransform>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut previous_joint_len: Local<usize>,
+    query: Extract<Query<(Entity, &ComputedVisibility, &SkinnedMesh)>>,
+    inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
+    joint_query: Extract<Query<&GlobalTransform>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     let mut joints = Vec::with_capacity(*previous_joint_len);
