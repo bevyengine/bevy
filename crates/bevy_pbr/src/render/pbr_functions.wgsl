@@ -10,7 +10,9 @@ fn prepare_normal(
     world_tangent: vec4<f32>,
 #endif
 #endif
+#ifdef VERTEX_UVS
     uv: vec2<f32>,
+#endif
     is_front: bool,
 ) -> vec3<f32> {
     var N: vec3<f32> = normalize(world_normal);
@@ -39,6 +41,7 @@ fn prepare_normal(
     }
 
 #ifdef VERTEX_TANGENTS
+#ifdef VERTEX_UVS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
@@ -59,6 +62,7 @@ fn prepare_normal(
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
     N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
+#endif
 #endif
 #endif
 
