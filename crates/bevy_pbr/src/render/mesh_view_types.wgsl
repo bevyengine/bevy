@@ -13,17 +13,20 @@ struct View {
 };
 
 struct PointLight {
-    // NOTE: [2][2] [2][3] [3][2] [3][3]
-    projection_lr: vec4<f32>;
+    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
+    // For spot lights: the direction (x,z), spot_scale and spot_offset
+    light_custom_data: vec4<f32>;
     color_inverse_square_range: vec4<f32>;
     position_radius: vec4<f32>;
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32;
     shadow_depth_bias: f32;
     shadow_normal_bias: f32;
+    spot_light_tan_angle: f32;
 };
 
-let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
+let POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
+let POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
 
 struct DirectionalLight {
     view_projection: mat4x4<f32>;
@@ -55,6 +58,7 @@ struct Lights {
     // w is cluster_dimensions.z / (-far - -near)
     cluster_factors: vec4<f32>;
     n_directional_lights: u32;
+    spot_light_shadowmap_offset: i32;
 };
 
 #ifdef NO_STORAGE_BUFFERS_SUPPORT
@@ -78,6 +82,6 @@ struct ClusterLightIndexLists {
     data: array<u32>;
 };
 struct ClusterOffsetsAndCounts {
-    data: array<vec2<u32>>;
+    data: array<vec4<u32>>;
 };
 #endif
