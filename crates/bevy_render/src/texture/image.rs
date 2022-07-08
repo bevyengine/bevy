@@ -519,6 +519,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::R16Float
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
+            | TextureFormat::R16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rgba16Uint
             | TextureFormat::Rgba16Sint
@@ -563,6 +564,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::Rg8Sint
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
+            | TextureFormat::R16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rg32Uint
             | TextureFormat::Rg32Sint
