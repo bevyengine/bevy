@@ -119,10 +119,10 @@ impl Mesh {
     /// Removes the data for a vertex attribute
     pub fn remove_attribute(
         &mut self,
-        attribute: MeshVertexAttribute,
+        attribute: impl Into<MeshVertexAttributeId>,
     ) -> Option<VertexAttributeValues> {
         self.attributes
-            .remove(&attribute.id)
+            .remove(&attribute.into())
             .map(|data| data.values)
     }
 
