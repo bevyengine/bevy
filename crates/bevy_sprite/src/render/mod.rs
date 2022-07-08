@@ -476,19 +476,15 @@ pub fn prepare_sprites(
         z_order = extracted_sprite.transform.translation.z;
     }
     // if start != end, there is one last batch to process
-    if white_start != white_end {
+    let [start, end] = match current_batch_colored {
+        true => [&mut colored_start, &mut colored_end],
+        false => [&mut white_start, &mut white_end],
+    };
+    if *start != *end {
         commands.spawn().insert(SpriteBatch {
-            range: white_start..white_end,
+            range: *start..*end,
             image_handle_id: current_batch_handle,
-            colored: false,
-            z_order,
-        });
-    }
-    if colored_start != colored_end {
-        commands.spawn().insert(SpriteBatch {
-            range: colored_start..colored_end,
-            image_handle_id: current_batch_handle,
-            colored: true,
+            colored: current_batch_colored,
             z_order,
         });
     }
