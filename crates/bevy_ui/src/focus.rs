@@ -1,4 +1,4 @@
-use crate::{entity::CameraUi, CalculatedClip, Node};
+use crate::{entity::UiCameraConfig, CalculatedClip, Node};
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -53,7 +53,7 @@ pub struct State {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 pub fn ui_focus_system(
     mut state: Local<State>,
-    camera: Query<(&Camera, Option<&CameraUi>)>,
+    camera: Query<(&Camera, Option<&UiCameraConfig>)>,
     windows: Res<Windows>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
@@ -90,15 +90,8 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let is_ui_disabled = |camera_ui| {
-        matches!(
-            camera_ui,
-            Some(&CameraUi {
-                is_enabled: false,
-                ..
-            })
-        )
-    };
+    let is_ui_disabled =
+        |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
 
     let cursor_position = camera
         .iter()
