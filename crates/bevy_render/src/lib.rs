@@ -7,6 +7,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod mesh;
 pub mod primitives;
+pub mod rangefinder;
 pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;

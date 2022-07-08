@@ -369,6 +369,8 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 /// - `b` is a tuple;
 /// - `b` has the same number of elements as `a`;
 /// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     let b = if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
@@ -382,9 +384,9 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     }
 
     for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        match a_field.reflect_partial_eq(b_field) {
-            Some(false) | None => return Some(false),
-            Some(true) => {}
+        let eq_result = a_field.reflect_partial_eq(b_field);
+        if let failed @ (Some(false) | None) = eq_result {
+            return failed;
         }
     }
 

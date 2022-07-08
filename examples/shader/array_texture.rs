@@ -1,17 +1,17 @@
 use bevy::{
     asset::LoadState,
-    ecs::system::{lifetimeless::SRes, SystemParamItem},
-    pbr::MaterialPipeline,
     prelude::*,
     reflect::TypeUuid,
     render::{
-        render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
+        render_asset::RenderAssets,
         render_resource::{
-            BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+            AsBindGroup, AsBindGroupError, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
             BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-            SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension,
+            OwnedBindingResource, PreparedBindGroup, SamplerBindingType, ShaderRef, ShaderStages,
+            TextureSampleType, TextureViewDimension,
         },
         renderer::RenderDevice,
+        texture::FallbackImage,
     },
 };
 
@@ -104,62 +104,48 @@ struct ArrayTextureMaterial {
     array_texture: Handle<Image>,
 }
 
-#[derive(Clone)]
-pub struct GpuArrayTextureMaterial {
-    bind_group: BindGroup,
+impl Material for ArrayTextureMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/array_texture.wgsl".into()
+    }
 }
 
-impl RenderAsset for ArrayTextureMaterial {
-    type ExtractedAsset = ArrayTextureMaterial;
-    type PreparedAsset = GpuArrayTextureMaterial;
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<MaterialPipeline<Self>>,
-        SRes<RenderAssets<Image>>,
-    );
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
-    }
+impl AsBindGroup for ArrayTextureMaterial {
+    type Data = ();
 
-    fn prepare_asset(
-        extracted_asset: Self::ExtractedAsset,
-        (render_device, material_pipeline, gpu_images): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let (array_texture_texture_view, array_texture_sampler) = if let Some(result) =
-            material_pipeline
-                .mesh_pipeline
-                .get_image_texture(gpu_images, &Some(extracted_asset.array_texture.clone()))
-        {
-            result
-        } else {
-            return Err(PrepareAssetError::RetryNextUpdate(extracted_asset));
-        };
+    fn as_bind_group(
+        &self,
+        layout: &BindGroupLayout,
+        render_device: &RenderDevice,
+        images: &RenderAssets<Image>,
+        _fallback_image: &FallbackImage,
+    ) -> Result<PreparedBindGroup<Self>, AsBindGroupError> {
+        let image = images
+            .get(&self.array_texture)
+            .ok_or(AsBindGroupError::RetryNextUpdate)?;
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(array_texture_texture_view),
+                    resource: BindingResource::TextureView(&image.texture_view),
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: BindingResource::Sampler(array_texture_sampler),
+                    resource: BindingResource::Sampler(&image.sampler),
                 },
             ],
             label: Some("array_texture_material_bind_group"),
-            layout: &material_pipeline.material_layout,
+            layout,
         });
 
-        Ok(GpuArrayTextureMaterial { bind_group })
-    }
-}
-
-impl Material for ArrayTextureMaterial {
-    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        Some(asset_server.load("shaders/array_texture.wgsl"))
-    }
-
-    fn bind_group(render_asset: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
-        &render_asset.bind_group
+        Ok(PreparedBindGroup {
+            bind_group,
+            bindings: vec![
+                OwnedBindingResource::TextureView(image.texture_view.clone()),
+                OwnedBindingResource::Sampler(image.sampler.clone()),
+            ],
+            data: (),
+        })
     }
 
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {

@@ -190,6 +190,7 @@ impl ParallelExecutor {
                         .unwrap_or_else(|error| unreachable!("{}", error));
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
+                    // SAFETY: the executor prevents two systems with conflicting access from running simultaneously.
                     unsafe { system.run_unsafe((), world) };
                     #[cfg(feature = "trace")]
                     drop(system_guard);

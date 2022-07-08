@@ -15,14 +15,41 @@ use std::marker::PhantomData;
 use super::Resource;
 
 /// A [`World`] mutation.
+///
+/// Should be used with [`Commands::add`].
+///
+/// # Usage
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::Command;
+/// // Our world resource
+/// #[derive(Default)]
+/// struct Counter(u64);
+///
+/// // Our custom command
+/// struct AddToCounter(u64);
+///
+/// impl Command for AddToCounter {
+///     fn write(self, world: &mut World) {
+///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+///         counter.0 += self.0;
+///     }
+/// }
+///
+/// fn some_system(mut commands: Commands) {
+///     commands.add(AddToCounter(42));
+/// }
+/// ```
 pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
-/// A list of commands that runs at the end of the stage of the system that called them.
+/// A queue of [commands](Command) that get executed at the end of the stage of the system that called them.
 ///
 /// Commands are executed one at a time in an exclusive fashion.
-//// Each command can be used to modify the [`World`] in arbitrary ways:
+///
+/// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
 /// * inserting components on new or existing entities
 /// * inserting resources
@@ -72,7 +99,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// #[derive(Component)]
     /// struct Label(&'static str);
@@ -356,40 +383,39 @@ impl<'w, 's> Commands<'w, 's> {
         });
     }
 
-    /// Adds a command directly to the command list.
+    /// Adds a command directly to the command queue.
+    ///
+    /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
+    /// that takes [`&mut World`](World) as an argument.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// use bevy_ecs::system::InsertBundle;
-    /// #
-    /// # struct PlayerEntity { entity: Entity }
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// # #[derive(Component)]
-    /// # struct Strength(u32);
-    /// # #[derive(Component)]
-    /// # struct Defense(u32);
-    /// #
-    /// # #[derive(Bundle)]
-    /// # struct CombatBundle {
-    /// #     health: Health,
-    /// #     strength: Strength,
-    /// #     defense: Defense,
-    /// # }
+    /// # use bevy_ecs::{system::Command, prelude::*};
+    /// #[derive(Default)]
+    /// struct Counter(u64);
     ///
-    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///     commands.add(InsertBundle {
-    ///         entity: player.entity,
-    ///         bundle: CombatBundle {
-    ///             health: Health(100),
-    ///             strength: Strength(40),
-    ///             defense: Defense(20),
-    ///         },
+    /// struct AddToCounter(u64);
+    ///
+    /// impl Command for AddToCounter {
+    ///     fn write(self, world: &mut World) {
+    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         counter.0 += self.0;
+    ///     }
+    /// }
+    ///
+    /// fn add_three_to_counter_system(mut commands: Commands) {
+    ///     commands.add(AddToCounter(3));
+    /// }
+    /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
+    ///     commands.add(|world: &mut World| {
+    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         counter.0 += 25;
     ///     });
     /// }
-    /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
+
+    /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
+    /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
@@ -680,9 +706,7 @@ pub struct Despawn {
 impl Command for Despawn {
     fn write(self, world: &mut World) {
         if !world.despawn(self.entity) {
-            warn!("Could not despawn entity {:?} because it doesn't exist in this World.\n\
-                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
-                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", self.entity);
+            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", self.entity);
         }
     }
 }
@@ -700,9 +724,7 @@ where
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert_bundle(self.bundle);
         } else {
-            panic!("Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.\n\
-                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
-                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
         }
     }
 }
@@ -721,9 +743,7 @@ where
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(self.component);
         } else {
-            panic!("Could not add a component (of type `{}`) to entity {:?} because it doesn't exist in this World.\n\
-                    If this command was added to a newly spawned entity, ensure that you have not despawned that entity within the same stage.\n\
-                    This may have occurred due to system order ambiguity, or if the spawning system has multiple command buffers", std::any::type_name::<T>(), self.entity);
+            panic!("error[B0003]: Could not add a component (of type `{}`) to entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
         }
     }
 }

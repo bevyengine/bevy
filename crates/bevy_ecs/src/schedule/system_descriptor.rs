@@ -46,8 +46,6 @@ pub trait IntoSystemDescriptor<Params> {
     fn into_descriptor(self) -> SystemDescriptor;
 }
 
-pub struct SystemLabelMarker;
-
 impl IntoSystemDescriptor<()> for ParallelSystemDescriptor {
     fn into_descriptor(self) -> SystemDescriptor {
         SystemDescriptor::Parallel(self)

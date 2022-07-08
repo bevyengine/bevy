@@ -143,7 +143,7 @@ impl RenderAsset for ColorMaterial {
             flags: flags.bits(),
         };
 
-        let byte_buffer = [0u8; ColorMaterialUniformData::SIZE.get() as usize];
+        let byte_buffer = [0u8; ColorMaterialUniformData::SHADER_SIZE.get() as usize];
         let mut buffer = encase::UniformBuffer::new(byte_buffer);
         buffer.write(&value).unwrap();
 

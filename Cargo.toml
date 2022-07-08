@@ -282,6 +282,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "spotlight"
+path = "examples/3d/spotlight.rs"
+
+[package.metadata.example.spotlight]
+name = "Spotlight"
+description = "Illustrates spot lights"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
@@ -1217,6 +1227,16 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_animated_sprites"
+path = "examples/stress_tests/many_animated_sprites.rs"
+
+[package.metadata.example.many_animated_sprites]
+name = "Many Animated Sprites"
+description = "Displays many animated sprites in a grid arragement with slight offsets to their animation timers. Used for performance testing."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 
@@ -1425,7 +1445,7 @@ name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
 
 [package.metadata.example.scale_factor_override]
-name = "Scale Factor Iverride"
+name = "Scale Factor Override"
 description = "Illustrates how to customize the default window settings"
 category = "Window"
 wasm = true

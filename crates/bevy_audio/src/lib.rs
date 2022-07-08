@@ -1,17 +1,15 @@
 //! Audio support for the game engine Bevy
 //!
-//! ```
+//! ```no_run
 //! # use bevy_ecs::{system::Res, event::EventWriter};
 //! # use bevy_audio::{Audio, AudioPlugin};
 //! # use bevy_asset::{AssetPlugin, AssetServer};
-//! # use bevy_app::{App, AppExit};
-//! # use bevy_internal::MinimalPlugins;
+//! # use bevy_app::{App, AppExit, NoopPluginGroup as MinimalPlugins};
 //! fn main() {
 //!    App::new()
 //!         .add_plugins(MinimalPlugins)
 //!         .add_plugin(AssetPlugin)
 //!         .add_plugin(AudioPlugin)
-//! #       .add_system(stop)
 //!         .add_startup_system(play_background_audio)
 //!         .run();
 //! }
@@ -19,10 +17,6 @@
 //! fn play_background_audio(asset_server: Res<AssetServer>, audio: Res<Audio>) {
 //!     audio.play(asset_server.load("background_audio.ogg"));
 //! }
-//!
-//! # fn stop(mut events: EventWriter<AppExit>) {
-//! #     events.send(AppExit)
-//! # }
 //! ```
 
 #![forbid(unsafe_code)]
