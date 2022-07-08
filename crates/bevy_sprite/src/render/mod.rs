@@ -274,24 +274,35 @@ pub fn extract_sprites(
     }
 }
 
+/// Single sprite vertex data
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct SpriteVertex {
+    /// 3D vertex position
     pub position: [f32; 3],
+    /// vertex UV coordinates
     pub uv: [f32; 2],
 }
 
+/// Single sprite colored vertex data
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct ColoredSpriteVertex {
+    /// 3D vertex position
     pub position: [f32; 3],
+    /// Vertex UV coordinates
     pub uv: [f32; 2],
+    /// Vertex color as linear RGBA
     pub color: [f32; 4],
 }
 
+/// Sprite rendering information, stored as a resource
 pub struct SpriteMeta {
+    /// Non colored vertices buffer
     vertices: BufferVec<SpriteVertex>,
+    /// Colored vertices buffer
     colored_vertices: BufferVec<ColoredSpriteVertex>,
+    /// The associated pipeline's bind group
     view_bind_group: Option<BindGroup>,
 }
 
@@ -305,27 +316,46 @@ impl Default for SpriteMeta {
     }
 }
 
-const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
+/// Sprite quad triangles vertex indices
+const QUAD_INDICES: [usize; 6] = [
+    0, 2, 3, // Bottom left triangle
+    0, 1, 2, // Top right triangle
+];
 
+/// Base Quad vertices 2D positions
 const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
+    // Top left
     Vec2::new(-0.5, -0.5),
+    // Top right
     Vec2::new(0.5, -0.5),
+    // Bottom right
     Vec2::new(0.5, 0.5),
+    // Bottom left
     Vec2::new(-0.5, 0.5),
 ];
 
+/// Base Quad vertices UV coordinates
 const QUAD_UVS: [Vec2; 4] = [
+    // Top left
     Vec2::new(0., 1.),
+    // Top right
     Vec2::new(1., 1.),
+    // Bottom right
     Vec2::new(1., 0.),
+    // Bottom left
     Vec2::new(0., 0.),
 ];
 
+/// Component defining a batch of sprites for the render world
 #[derive(Component)]
 pub struct SpriteBatch {
+    /// The [`SpriteMeta`] vertex data indices
     range: Range<u32>,
+    /// The texture handle id
     image_handle_id: HandleId,
+    /// Defines if the `range` targets [`SpriteMeta::vertices`] or [`SpriteMeta::colored_vertices`]
     colored: bool,
+    /// Sort key of the batch
     z_order: f32,
 }
 
