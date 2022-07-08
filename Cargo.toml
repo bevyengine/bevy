@@ -1255,6 +1255,16 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_buttons"
+path = "examples/stress_tests/many_buttons.rs"
+
+[package.metadata.example.many_buttons]
+name = "Many Buttons"
+description = "Test rendering of many UI elements"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 
