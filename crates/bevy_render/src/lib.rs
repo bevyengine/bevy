@@ -85,7 +85,8 @@ pub enum RenderStage {
 }
 
 /// The simulation [`World`] of the application, stored as a resource.
-/// This resource is only available during [`RenderStage::Extract`].
+/// This resource is only available during [`RenderStage::Extract`] and not
+/// during command application of that stage.
 /// See [`Extract`] for more details.
 #[derive(Default)]
 pub struct MainWorld(World);

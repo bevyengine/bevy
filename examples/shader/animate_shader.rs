@@ -15,7 +15,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        extract_resource::{extract_resource, ExtractResource},
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
         render_phase::{
@@ -69,7 +69,8 @@ impl Plugin for CustomMaterialPlugin {
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        app.add_plugin(ExtractComponentPlugin::<CustomMaterial>::default());
+        app.add_plugin(ExtractComponentPlugin::<CustomMaterial>::default())
+            .add_plugin(ExtractResourcePlugin::<ExtractedTime>::default());
 
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
@@ -79,8 +80,6 @@ impl Plugin for CustomMaterialPlugin {
             })
             .init_resource::<CustomPipeline>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .init_resource::<ExtractedTime>()
-            .add_system_to_stage(RenderStage::Extract, extract_resource::<ExtractedTime>)
             .add_system_to_stage(RenderStage::Prepare, prepare_time)
             .add_system_to_stage(RenderStage::Queue, queue_custom)
             .add_system_to_stage(RenderStage::Queue, queue_time_bind_group);

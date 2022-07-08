@@ -154,7 +154,7 @@ impl Plugin for LogVisibleLights {
 
 // System for printing the number of meshes on every tick of the timer
 fn print_visible_light_count(
-    time: Res<Time>,
+    time: Res<ExtractedTime>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
     global_light_meta: Res<GlobalLightMeta>,
@@ -170,8 +170,11 @@ fn print_visible_light_count(
     }
 }
 
+#[derive(Deref, DerefMut)]
+pub struct ExtractedTime(Time);
+
 fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
-    commands.insert_resource(time.clone());
+    commands.insert_resource(ExtractedTime(time.clone()));
 }
 
 struct PrintingTimer(Timer);

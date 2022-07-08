@@ -5,7 +5,7 @@ use crate::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::{prelude::*, system::lifetimeless::SRes};
+use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
@@ -70,7 +70,7 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     mut closed: Extract<EventReader<WindowClosed>>,
-    windows: Extract<SRes<Windows>>,
+    windows: Extract<Res<Windows>>,
 ) {
     for window in windows.iter() {
         let (new_width, new_height) = (
