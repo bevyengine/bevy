@@ -85,11 +85,10 @@ impl Default for PointLightShadowMap {
     }
 }
 
-/// Angles defining the distance from the spot light direction to the inner and outer limits
-/// of the light's cone of effect.
-/// `inner` should be <= `outer`, and `outer` should be < PI / 2.0.
-/// PI / 2.0 defines a hemispherical spot light, but shadows become very blocky as the angle
-/// approaches this limit.
+/// A light that emits light in a given direction from a central point.
+/// Behaves like a point light in a perfectly absorbant housing that
+/// shines light only in a given direction. The direction is taken from 
+/// the transform, and can be specified with [Transform::looking_at](bevy_transform::components::Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct SpotLight {
@@ -103,8 +102,17 @@ pub struct SpotLight {
     /// shadow map's texel size so that it can be small close to the camera and gets larger further
     /// away.
     pub shadow_normal_bias: f32,
-    pub inner_angle: f32,
+    /// Angle defining the distance from the spot light direction to the outer limit
+    /// of the light's cone of effect.
+    /// `outer_angle` should be < `PI / 2.0`.
+    /// `PI / 2.0` defines a hemispherical spot light, but shadows become very blocky as the angle
+    /// approaches this limit.
     pub outer_angle: f32,
+    /// Angle defining the distance from the spot light direction to the inner limit
+    /// of the light's cone of effect.
+    /// Light is attenuated from `inner_angle` to `outer_angle` to give a smooth falloff.
+    /// `inner_angle` should be <= `outer_angle`
+    pub inner_angle: f32,
 }
 
 impl SpotLight {
