@@ -67,6 +67,18 @@ git checkout latest
 cargo run --example breakout
 ```
 
+To draw a window with standard functionality enabled, use:
+
+```rust
+use bevy::prelude::*;
+
+fn main(){
+  App::new()
+    .add_plugins(DefaultPlugins)
+    .run();
+}
+```
+
 ### Fast Compiles
 
 Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).

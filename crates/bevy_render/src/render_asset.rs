@@ -39,17 +39,12 @@ pub trait RenderAsset: Asset {
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
-#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
+#[derive(Clone, Hash, Debug, Default, PartialEq, Eq, SystemLabel)]
 pub enum PrepareAssetLabel {
     PreAssetPrepare,
+    #[default]
     AssetPrepare,
     PostAssetPrepare,
-}
-
-impl Default for PrepareAssetLabel {
-    fn default() -> Self {
-        Self::AssetPrepare
-    }
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"

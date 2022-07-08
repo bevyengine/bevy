@@ -216,8 +216,8 @@ pub struct Material2dPipeline<M: SpecializedMaterial2d> {
 
 #[derive(Eq, PartialEq, Clone, Hash)]
 pub struct Material2dKey<T> {
-    mesh_key: Mesh2dPipelineKey,
-    material_key: T,
+    pub mesh_key: Mesh2dPipelineKey,
+    pub material_key: T,
 }
 
 impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M> {

@@ -5,11 +5,11 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::CameraUi, CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
@@ -227,14 +227,11 @@ pub struct DefaultCameraView(pub Entity);
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
     render_world: Res<RenderWorld>,
-    query: Query<(Entity, &Camera, Option<&CameraUi>), With<T>>,
+    query: Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>,
 ) {
     for (entity, camera, camera_ui) in query.iter() {
         // ignore cameras with disabled ui
-        if let Some(&CameraUi {
-            is_enabled: false, ..
-        }) = camera_ui
-        {
+        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
         if let (Some(logical_size), Some(physical_size)) = (
@@ -353,10 +350,10 @@ impl Default for UiMeta {
 }
 
 const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
-    const_vec3!([-0.5, -0.5, 0.0]),
-    const_vec3!([0.5, -0.5, 0.0]),
-    const_vec3!([0.5, 0.5, 0.0]),
-    const_vec3!([-0.5, 0.5, 0.0]),
+    Vec3::new(-0.5, -0.5, 0.0),
+    Vec3::new(0.5, -0.5, 0.0),
+    Vec3::new(0.5, 0.5, 0.0),
+    Vec3::new(-0.5, 0.5, 0.0),
 ];
 
 const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];

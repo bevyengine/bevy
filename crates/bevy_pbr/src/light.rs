@@ -1,9 +1,7 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{
-    const_vec2, Mat4, Quat, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
-};
+use bevy_math::{Mat4, Quat, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
@@ -75,7 +73,8 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -198,7 +197,8 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -213,7 +213,8 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Clone, Debug, ExtractResource)]
+#[derive(Clone, Debug, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -543,8 +544,8 @@ fn ndc_position_to_cluster(
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
 }
 
-const VEC2_HALF: Vec2 = const_vec2!([0.5, 0.5]);
-const VEC2_HALF_NEGATIVE_Y: Vec2 = const_vec2!([0.5, -0.5]);
+const VEC2_HALF: Vec2 = Vec2::splat(0.5);
+const VEC2_HALF_NEGATIVE_Y: Vec2 = Vec2::new(0.5, -0.5);
 
 // Calculate bounds for the light using a view space aabb.
 // Returns a (Vec3, Vec3) containing min and max with
@@ -633,8 +634,6 @@ fn cluster_space_light_aabb(
     )
 }
 
-const NDC_MIN: Vec2 = const_vec2!([-1.0, -1.0]);
-const NDC_MAX: Vec2 = const_vec2!([1.0, 1.0]);
 fn screen_to_view(screen_size: Vec2, inverse_projection: Mat4, screen: Vec2, ndc_z: f32) -> Vec4 {
     let tex_coord = screen / screen_size;
     let clip = Vec4::new(
@@ -645,6 +644,8 @@ fn screen_to_view(screen_size: Vec2, inverse_projection: Mat4, screen: Vec2, ndc
     );
     clip_to_view(inverse_projection, clip)
 }
+const NDC_MIN: Vec2 = Vec2::NEG_ONE;
+const NDC_MAX: Vec2 = Vec2::ONE;
 
 // Calculate the intersection of a ray from the eye through the view space position to a z plane
 fn line_intersection_to_z_plane(origin: Vec3, p: Vec3, z: f32) -> Vec3 {
