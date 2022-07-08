@@ -70,7 +70,7 @@ fn spawn_player(mut commands: Commands) {
     commands.spawn().insert_bundle((Player, Mage, Life));
 }
 
-fn position_player(mut commands: Commands, query: Query<Entity, (With<Player>, Added<Player>)>) {
+fn position_player(mut commands: Commands, query: Query<Entity, Added<Player>>) {
     let player_entity = query.single();
 
     // Because of our invariants, these components need to be added together.
