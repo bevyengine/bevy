@@ -8,20 +8,19 @@ use encase::{
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
-/// A helper structure for storing data that will be transferred to the GPU and made accessible
-/// to shaders as a uniform buffer.
+/// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
 /// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
-/// parameters that are constant during shader execution. Uniform buffers are also best used for data that is relatively small
-/// in size. For larger data, or data that must be made accessible to shaders on a read-write basis, consider 
-/// [`StorageBuffer`](crate::render_resource::StorageBuffer). 
-///
-/// Uniform buffers must conform to [std140 alignment/padding requirements], which this helper structure takes care of enforcing.
-/// Per the WGPU spec, uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors.
-/// If this is required, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer).
+/// parameters that are constant during shader execution, and are best used for data that is relatively small in size. For
+/// larger data, or data that must be made accessible to shaders on a read-write basis, consider
+/// [`StorageBuffer`](crate::render_resource::StorageBuffer).
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues
-/// copying of the data from system RAM to VRAM.
+/// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
+/// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors.
+/// If this is required, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer).
+///
+/// If data does not need to be automatically padded or aligned, use [`BufferVec`](crate::render_resource::BufferVec).
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct UniformBuffer<T: ShaderType> {
@@ -97,17 +96,23 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     }
 }
 
-/// A helper structure for storing data that will be transferred to the GPU and made accessible
-/// to shaders as a dynamic uniform buffer.
+/// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic uniform buffer.
 ///
 /// Dynamic uniform buffers are available to shaders on a read-only basis. Dynamic uniform buffers are commonly used to make
-/// available to shaders runtime-sized arrays of parameters that are otherwise constant during shader execution.
+/// available to shaders runtime-sized arrays of parameters that are otherwise constant during shader execution, and are best
+/// suited to data that is relatively small in size. For larger data, or data that must be made
+/// accessible to shaders on a read-write basis, consider [`StorageBuffer`](crate::render_resource::StorageBuffer) or
+/// [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer). If it is not necessary to store runtime-sized arrays,
+/// consider [`UniformBuffer`](crate::render_resource::UniformBuffer) instead.
 ///
-/// Dynamic uniform buffers must conform to std140 alignment/padding requirements, which this helper structure takes care of
-/// enforcing.
-/// 
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicUniformBuffer::write_buffer) queues
-/// copying of the data from system RAM to VRAM.
+/// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
+/// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors.
+/// If this is required, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer).
+///
+/// If data does not need to be automatically padded or aligned, use [`BufferVec`](crate::render_resource::BufferVec).
+///
+/// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct DynamicUniformBuffer<T: ShaderType> {
     values: Vec<T>,
     scratch: DynamicUniformBufferWrapper<Vec<u8>>,
