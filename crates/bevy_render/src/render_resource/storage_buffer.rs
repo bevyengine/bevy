@@ -98,19 +98,19 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 }
 
-/// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
+/// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
 ///
-/// Storage buffers can be made available to shaders as some combination of read/write, unlike
-/// [`UniformBuffer`](crate::render_resource::UniformBuffer) which is read-only. Furthermore, storage buffers
+/// Dynamic storage buffers can be made available to shaders as some combination of read/write, unlike
+/// [`UniformBuffer`](crate::render_resource::UniformBuffer) which is read-only. Furthermore, dynamic storage buffers
 /// can store much larger data than uniform buffers, which are best suited to relatively small data. Dynamic storage buffers
 /// are particularly well-suited to storing like a Rust-vector (wgpu's "runtime-sized arrays") and have a
 /// [`push`](crate::render_resource::DynamicStorageBuffer::push) method, unlike
 /// [`StorageBuffer`](crate::render_resource::StorageBuffer).
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicStorageBuffer::write_buffer)
-/// queues copying of the data from system RAM to VRAM. Storage buffers must conform to [std430 alignment/padding requirements], which
-/// is automatically enforced by this structure. If data does not need to be automatically padded or aligned,
-/// consider using [`BufferVec`](crate::render_resource::BufferVec).
+/// queues copying of the data from system RAM to VRAM. Dynamic storage buffers must conform to
+/// [std430 alignment/padding requirements], which is automatically enforced by this structure. If data does not need to
+/// be automatically padded or aligned, consider using [`BufferVec`](crate::render_resource::BufferVec).
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct DynamicStorageBuffer<T: ShaderType> {
