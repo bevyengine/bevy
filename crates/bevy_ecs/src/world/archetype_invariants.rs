@@ -29,7 +29,7 @@ use crate::{
 /// If symmetry is desired, repeat the invariant with the order of the types switched.
 ///
 /// When working with dynamic component types (for non-Rust components),
-/// use the untyped equivalents [`UntypedArchetypeInvariant`] and [`UntypedArchetypeStatement`] directly.
+/// use [`UntypedArchetypeInvariant`] and [`UntypedArchetypeStatement`] instead.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArchetypeInvariant<B1: Bundle, B2: Bundle = B1> {
     /// Defines which entities this invariant applies to.
