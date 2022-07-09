@@ -101,6 +101,9 @@ impl Mesh {
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// # Panics
+    /// Panics when the format of the values is not the expected attribute format
     #[inline]
     pub fn insert_attribute(
         &mut self,
