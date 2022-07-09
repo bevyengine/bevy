@@ -387,6 +387,9 @@ pub fn prepare_sprites(
     gpu_images: Res<RenderAssets<Image>>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
 ) {
+    // Impossible handle id value
+    const NULL_HANDLE: HandleId = HandleId::Id(Uuid::nil(), u64::MAX);
+
     // Clear the vertex buffers
     sprite_meta.vertices.clear();
     sprite_meta.colored_vertices.clear();
@@ -409,10 +412,11 @@ pub fn prepare_sprites(
         (true, &extracted_sprites.colored_sprites),
     ] {
         // Impossible starting values that will be replaced on the first iteration
-        let mut current_batch_handle = HandleId::Id(Uuid::nil(), u64::MAX);
+        let mut current_batch_handle = NULL_HANDLE;
         let mut current_image_size = Vec2::ZERO;
         let mut z_order = 0.0;
 
+        // Vertex buffer indices
         let mut start = 0;
         let mut end = 0;
 
@@ -490,7 +494,7 @@ pub fn prepare_sprites(
             z_order = extracted_sprite.transform.translation.z;
         }
 
-        // if start != end, there is one last batch to process
+        // if start != end, there is one remaining batch to process
         if start != end {
             commands.spawn().insert(SpriteBatch {
                 range: start..end,
