@@ -112,7 +112,7 @@ impl Mesh {
         let values_format = VertexFormat::from(&values);
         if values_format != attribute.format {
             error!(
-                "Invalid attribute format for {} given format is {:?} but expected {:?}",
+                "Invalid attribute format for {}. Given format is {:?} but expected {:?}",
                 attribute.name, values_format, attribute.format
             );
             panic!("Failed to insert attribute");
