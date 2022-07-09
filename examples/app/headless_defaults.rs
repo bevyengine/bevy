@@ -15,7 +15,7 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
-        .add_system(do_something)
+        .add_system(exit_unconditionally)
         .run();
 }
 
@@ -23,7 +23,7 @@ fn main() {
 //
 // When running in headless mode there are no windows so
 // you must manually send an [`bevy::app::AppExit`] event.
-fn do_something(mut app_exit_events: EventWriter<AppExit>) {
+fn exit_unconditionally(mut app_exit_events: EventWriter<AppExit>) {
     info!("Successfully ran! Exiting...");
     app_exit_events.send(AppExit);
 }
