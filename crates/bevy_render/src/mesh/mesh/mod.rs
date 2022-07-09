@@ -13,7 +13,7 @@ use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use bevy_utils::Hashed;
+use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{
@@ -107,13 +107,19 @@ impl Mesh {
         attribute: MeshVertexAttribute,
         values: impl Into<VertexAttributeValues>,
     ) {
-        self.attributes.insert(
-            attribute.id,
-            MeshAttributeData {
-                attribute,
-                values: values.into(),
-            },
-        );
+        let values: VertexAttributeValues = values.into();
+
+        let values_format = VertexFormat::from(&values);
+        if values_format != attribute.format {
+            error!(
+                "Invalid attribute format for {} given format is {:?} but expected {:?}",
+                attribute.name, values_format, attribute.format
+            );
+            panic!("Failed to insert attribute");
+        }
+
+        self.attributes
+            .insert(attribute.id, MeshAttributeData { attribute, values });
     }
 
     /// Removes the data for a vertex attribute
@@ -993,4 +999,17 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
     }
 
     Ok(mikktspace_mesh.tangents)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Mesh;
+    use wgpu::PrimitiveTopology;
+
+    #[test]
+    #[should_panic]
+    fn panic_invalid_format() {
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+    }
 }
