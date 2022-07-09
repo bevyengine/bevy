@@ -437,7 +437,7 @@ pub fn prepare_sprites(
                         start = end;
                     }
                 } else {
-                    // We skip loading images
+                    // Skip this item if the texture is not ready
                     continue;
                 }
             }
