@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    render::camera::{AbsOrPercVec, Viewport},
+    render::camera::{Viewport, ViewportPosition, ViewportSize},
     window::{WindowId, WindowResized},
 };
 
@@ -97,8 +97,8 @@ fn set_camera_viewports(
             let mut left_camera = left_camera.single_mut();
             left_camera.viewport = Some(Viewport {
                 // You can use absolute pixel values...
-                physical_position: AbsOrPercVec::Absolute(UVec2::ZERO),
-                physical_size: AbsOrPercVec::Absolute(UVec2::new(
+                physical_position: ViewportPosition::Absolute(UVec2::ZERO),
+                physical_size: ViewportSize::Absolute(UVec2::new(
                     window.physical_width() / 2,
                     window.physical_height(),
                 )),
@@ -108,8 +108,8 @@ fn set_camera_viewports(
             let mut right_camera = right_camera.single_mut();
             right_camera.viewport = Some(Viewport {
                 // ... or specify an adaptive percentage of the render target.
-                physical_position: AbsOrPercVec::Percentage(Vec2::new(0.5, 0.0)),
-                physical_size: AbsOrPercVec::Percentage(Vec2::new(0.5, 1.0)),
+                physical_position: ViewportPosition::Percentage(Vec2::new(0.5, 0.0)),
+                physical_size: ViewportSize::Percentage(Vec2::new(0.5, 1.0)),
                 ..default()
             });
         }

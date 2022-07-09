@@ -36,48 +36,81 @@ use wgpu::Extent3d;
 pub struct Viewport {
     /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
     /// (0,0) corresponds to the top-left corner
-    pub physical_position: AbsOrPercVec,
+    pub physical_position: ViewportPosition,
     /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
     /// The origin of the rectangle is in the top-left corner.
-    pub physical_size: AbsOrPercVec,
+    pub physical_size: ViewportSize,
     /// The minimum and maximum depth to render (on a scale from 0.0 to 1.0).
     pub depth: Range<f32>,
 }
 
-/// A vector wrapper that represents either absolute value or value as a percentage.
-///
-/// For example, used in representing viewport position, either as absolute pixel value, or as a
-/// percentage of render target size.
+/// An enum that represents viewport's top-left corner position either as absolute value (in pixels)
+/// or as a percentage of camera's render target's size.
+/// (0,0) corresponds to the top-left corner
 #[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
-pub enum AbsOrPercVec {
+pub enum ViewportPosition {
     Absolute(UVec2),
     Percentage(Vec2),
 }
 
-impl Default for AbsOrPercVec {
+impl Default for ViewportPosition {
     fn default() -> Self {
         Self::Absolute(Default::default())
     }
 }
 
-impl AbsOrPercVec {
+impl ViewportPosition {
     /// Converts this size into a absolute size in pixels.
     #[inline]
     pub fn as_absolute(&self, of: UVec2) -> UVec2 {
         match self {
-            AbsOrPercVec::Absolute(v) => *v,
-            AbsOrPercVec::Percentage(v) => (of.as_vec2() * *v).as_uvec2(),
+            ViewportPosition::Absolute(v) => *v,
+            ViewportPosition::Percentage(v) => (of.as_vec2() * *v).as_uvec2(),
         }
     }
 
-    ///  Converts this size into a absolute size in pixels if possible.
-
+    /// Converts this size into a absolute size in pixels if possible.
+    ///
     /// Returns `None` if self is `Percentage` and argument is `None`
     #[inline]
     pub fn try_as_absolute(&self, of_opt: Option<UVec2>) -> Option<UVec2> {
         match self {
-            AbsOrPercVec::Absolute(v) => Some(*v),
-            AbsOrPercVec::Percentage(_) => of_opt.map(|of| self.as_absolute(of)),
+            ViewportPosition::Absolute(v) => Some(*v),
+            ViewportPosition::Percentage(_) => of_opt.map(|of| self.as_absolute(of)),
+        }
+    }
+}
+/// An enum that represents viewport's size either as absolute value (in pixels) or as a percentage of camera's render target's size.
+#[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
+pub enum ViewportSize {
+    Absolute(UVec2),
+    Percentage(Vec2),
+}
+
+impl Default for ViewportSize {
+    fn default() -> Self {
+        Self::Absolute(Default::default())
+    }
+}
+
+impl ViewportSize {
+    /// Converts this size into a absolute size in pixels.
+    #[inline]
+    pub fn as_absolute(&self, of: UVec2) -> UVec2 {
+        match self {
+            ViewportSize::Absolute(v) => *v,
+            ViewportSize::Percentage(v) => (of.as_vec2() * *v).as_uvec2(),
+        }
+    }
+
+    /// Converts this size into a absolute size in pixels if possible.
+    ///
+    /// Returns `None` if self is `Percentage` and argument is `None`
+    #[inline]
+    pub fn try_as_absolute(&self, of_opt: Option<UVec2>) -> Option<UVec2> {
+        match self {
+            ViewportSize::Absolute(v) => Some(*v),
+            ViewportSize::Percentage(_) => of_opt.map(|of| self.as_absolute(of)),
         }
     }
 }
