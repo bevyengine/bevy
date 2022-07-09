@@ -103,7 +103,7 @@ impl Mesh {
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// # Panics
-    /// Panics when the format of the values is not the expected attribute format
+    /// Panics when the format of the values does not match the attribute's format.
     #[inline]
     pub fn insert_attribute(
         &mut self,
