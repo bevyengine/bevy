@@ -232,8 +232,6 @@ pub fn extract_sprites(
         )>,
     >,
 ) {
-    let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
-    extracted_sprites.sprites.clear();
     for (visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible {
             continue;
