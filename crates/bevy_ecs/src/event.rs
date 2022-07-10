@@ -248,7 +248,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
-/// Sends events of type `T` to [`EventReader`]s of type `T`.
+/// Sends events of type `T`.
 ///
 /// # Usage
 ///
@@ -265,6 +265,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// ```
 ///
 /// # Limitations
+///
 /// `EventWriter` can only send events of one specific type, which must be known at compile-time.
 /// This is not a problem most of the time, but you may find a situtation where you cannot know
 /// ahead of time every kind of event you'll need to send. In this case, you can use the "type-erased event" pattern.
