@@ -554,11 +554,13 @@ impl Window {
             .push(WindowCommand::SetResizable { resizable });
     }
     /// Get whether or not the window is visible.
+    /// NOTE: This function has been added for internal use, overriding it will have no effect.
     #[inline]
     pub fn visible(&self) -> bool {
         self.visible
     }
     /// Set whether or not the window is visible.
+    /// NOTE: This function has been added for internal use, overriding it will have no effect.
     #[inline]
     pub fn set_visible(&mut self, visible: bool) {
         self.visible = visible;
@@ -814,6 +816,7 @@ pub struct WindowDescriptor {
     /// - iOS / Android / Web: Unsupported.
     pub resizable: bool,
     /// Sets whether the window should be visible or not.
+    /// NOTE: This field has been added for internal use, overriding will have no effect.
     pub visible: bool,
     /// Sets whether the window should have borders and bars.
     pub decorations: bool,
