@@ -58,7 +58,6 @@ pub fn extract_resource<R: ExtractResource>(
                 std::any::type_name::<R>()
             );
         }
-        debug_assert!(main_resource.is_added(),);
         commands.insert_resource(R::extract_resource(&*main_resource));
     }
 }
