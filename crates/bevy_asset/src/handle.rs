@@ -152,7 +152,7 @@ impl<T: Asset> Handle<T> {
     }
 
     /// Recasts this handle as a weak handle of an Asset `U`.
-    pub fn cast<U: Asset>(&self) -> Handle<U> {
+    pub fn cast_weak<U: Asset>(&self) -> Handle<U> {
         let id = if let HandleId::Id(_, id) = self.id {
             HandleId::Id(U::TYPE_UUID, id)
         } else {

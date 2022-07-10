@@ -34,12 +34,12 @@ impl FileAssetIo {
     /// Creates a new `FileAssetIo` at a path relative to the executable's directory, optionally
     /// watching for changes.
     ///
-    /// See `get_exe_root` below.
+    /// See `get_base_path` below.
     pub fn new<P: AsRef<Path>>(path: P, watch_for_changes: bool) -> Self {
         let file_asset_io = FileAssetIo {
             #[cfg(feature = "filesystem_watcher")]
             filesystem_watcher: Default::default(),
-            root_path: Self::get_exe_root().join(path.as_ref()),
+            root_path: Self::get_base_path().join(path.as_ref()),
         };
         if watch_for_changes {
             #[cfg(any(
@@ -57,12 +57,12 @@ impl FileAssetIo {
         file_asset_io
     }
 
-    /// Returns the path of the parent directory of the appplication's executable.
+    /// Returns the base path of the assets directory, which is normally the executable's parent
+    /// directory.
     ///
-    /// If the `CARGO_MANIFEST_DIR` environment variable is defined, which is set by cargo when
-    /// the app is run through it, the root path will be the crate's root instead, or whatever
-    /// path was passed to that variable.
-    pub fn get_exe_root() -> PathBuf {
+    /// If the `CARGO_MANIFEST_DIR` environment variable is set, then its value will be used
+    /// instead. It's set by cargo when running with `cargo run`.
+    pub fn get_base_path() -> PathBuf {
         if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
             PathBuf::from(manifest_dir)
         } else {
@@ -76,7 +76,9 @@ impl FileAssetIo {
         }
     }
 
-    /// Returns the base directory where assets are loaded from.
+    /// Returns the root directory where assets are loaded from.
+    ///
+    /// See `get_base_path`.
     pub fn root_path(&self) -> &PathBuf {
         &self.root_path
     }
