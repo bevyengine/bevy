@@ -4,7 +4,7 @@ use std::{
     ops::Neg,
 };
 
-/// A wrapper for floats that impls [`Ord`], [`Eq`], and [`Hash`].
+/// A wrapper for floats that implements [`Ord`], [`Eq`], and [`Hash`] traits.
 ///
 /// This is a work around for the famous "rust float ordering" problem.
 /// By using it, you acknowledge that sorting NaN is undefined according to spec.
