@@ -279,7 +279,7 @@ pub fn flex_node_system(
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
-            if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
+            if let Ok(parent_layout) = flex_surface.get_layout(**parent) {
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }

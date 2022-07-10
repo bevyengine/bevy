@@ -14,7 +14,6 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::HierarchySystem;
 use prelude::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
@@ -92,18 +91,14 @@ impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
-            // Adding these to startup ensures the first update is "correct"
+            // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
+                systems::transform_propagate_system.label(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
+                systems::transform_propagate_system.label(TransformSystem::TransformPropagate),
             );
     }
 }
