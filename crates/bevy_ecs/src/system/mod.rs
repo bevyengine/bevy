@@ -96,6 +96,17 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
     }
 }
 
+/// Ensure that a given function is an exclusive system
+#[allow(unused_variables)]
+pub fn assert_is_exclusive_system<
+    Params,
+    SystemType,
+    S: IntoExclusiveSystem<Params, SystemType>,
+>(
+    sys: S,
+) {
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
