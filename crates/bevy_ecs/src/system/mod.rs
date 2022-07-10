@@ -102,21 +102,19 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
 /// to confirm that systems used in an example are
 /// valid exclusive systems
 ///
-/// passing assert
+/// Passing assert
 /// ```
 /// # use bevy_ecs::prelude::World;
 /// # use bevy_ecs::system::assert_is_exclusive_system;
-///
 /// fn an_exclusive_system(_world: &mut World) {}
 ///
 /// assert_is_exclusive_system(an_exclusive_system);
 /// ```
 ///
-/// failing assert
+/// Failing assert
 /// ```compile_fail
 /// # use bevy_ecs::prelude::World;
 /// # use bevy_ecs::system::assert_is_exclusive_system;
-///
 /// fn not_an_exclusive_system(_world: &mut World, number: f32) {}
 ///
 /// assert_is_exclusive_system(not_an_exclusive_system);
