@@ -4,6 +4,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{
         Camera, CameraProjection, CameraRenderGraph, DepthCalculation, OrthographicProjection,
+        DEFAULT_PROJECTION_FAR,
     },
     extract_component::ExtractComponent,
     primitives::Frustum,
@@ -40,7 +41,7 @@ pub struct Camera2dBundle {
 
 impl Default for Camera2dBundle {
     fn default() -> Self {
-        Self::new_with_far(1000.0)
+        Self::new_with_far(DEFAULT_PROJECTION_FAR)
     }
 }
 
@@ -66,7 +67,8 @@ impl Camera2dBundle {
             &view_projection,
             &transform.translation,
             &transform.back(),
-            projection.far(),
+            // NOTE: Orthographic projections always return `Some` for `far()`
+            projection.far().unwrap(),
         );
         Self {
             camera_render_graph: CameraRenderGraph::new(crate::core_2d::graph::NAME),

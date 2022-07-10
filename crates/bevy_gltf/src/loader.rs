@@ -735,11 +735,9 @@ fn load_node(
                 let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
                     fov: perspective.yfov(),
                     near: perspective.znear(),
+                    far: perspective.zfar(),
                     ..Default::default()
                 };
-                if let Some(zfar) = perspective.zfar() {
-                    perspective_projection.far = zfar;
-                }
                 if let Some(aspect_ratio) = perspective.aspect_ratio() {
                     perspective_projection.aspect_ratio = aspect_ratio;
                 }
