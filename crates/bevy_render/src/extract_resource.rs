@@ -52,7 +52,7 @@ pub fn extract_resource<R: ExtractResource>(
         #[cfg(debug_assertions)]
         if !main_resource.is_added() && !*has_warned_on_remove {
             *has_warned_on_remove = true;
-            warn!(
+            bevy_log::warn!(
                 "Removing resource {} from render world not expected, adding using `Commands`.
                 This may decrease performance",
                 std::any::type_name::<R>()
