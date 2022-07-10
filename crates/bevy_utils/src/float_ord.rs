@@ -19,11 +19,7 @@ impl Ord for FloatOrd {
 
 impl PartialEq for FloatOrd {
     fn eq(&self, other: &Self) -> bool {
-        if self.0.is_nan() && other.0.is_nan() {
-            true
-        } else {
-            self.0 == other.0
-        }
+        self.0 == other.0
     }
 }
 
