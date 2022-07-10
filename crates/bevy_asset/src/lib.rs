@@ -48,7 +48,7 @@ use bevy_ecs::schedule::{StageLabel, SystemStage};
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum AssetStage {
     /// The stage where asset storages are updated.
-    UpdateAssets,
+    LoadAssets,
     /// The stage where asset events are generated.
     AssetEvents,
 }
@@ -107,7 +107,7 @@ impl Plugin for AssetPlugin {
 
         app.add_stage_before(
             bevy_app::CoreStage::PreUpdate,
-            AssetStage::UpdateAssets,
+            AssetStage::LoadAssets,
             SystemStage::parallel(),
         )
         .add_stage_after(
@@ -125,6 +125,6 @@ impl Plugin for AssetPlugin {
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system_to_stage(AssetStage::UpdateAssets, io::filesystem_watcher_system);
+        app.add_system_to_stage(AssetStage::LoadAssets, io::filesystem_watcher_system);
     }
 }
