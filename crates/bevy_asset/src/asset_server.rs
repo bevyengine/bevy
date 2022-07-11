@@ -75,7 +75,6 @@ pub struct AssetServerInternal {
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
 }
 
-#[derive(Clone)]
 /// Loads assets from the filesystem on the background.
 ///
 /// The asset server is the primary way of loading assets in bevy. It keeps track of the load state
@@ -103,6 +102,7 @@ pub struct AssetServerInternal {
 /// See the [`asset_loading`] example for more information.
 ///
 /// [`asset_loading`]: https://github.com/bevyengine/bevy/tree/latest/examples/asset/asset_loading.rs
+#[derive(Clone)]
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
 }
