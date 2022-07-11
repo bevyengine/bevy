@@ -28,7 +28,7 @@ body:
     id: commit-hash
     attributes:
       label: Commit Hash
-      description: Include the specific commit hash if you are using it in your bevy project.
+      description: Include the specific commit hash if you are using the bevy main branch.
     validations:
       required: false
   - type: input
