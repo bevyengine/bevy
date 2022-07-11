@@ -17,7 +17,7 @@ pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
-        for entity in self.0.iter_mut() {
+        for entity in &mut self.0 {
             *entity = entity_map.get(*entity)?;
         }
 

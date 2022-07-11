@@ -62,7 +62,7 @@ fn setup(
 
 // This system will move all Movable entities with a Transform
 fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
-    for (mut transform, mut cube) in cubes.iter_mut() {
+    for (mut transform, mut cube) in &mut cubes {
         // Check if the entity moved too far from its spawn, if so invert the moving direction.
         if (cube.spawn - transform.translation).length() > cube.max_distance {
             cube.speed *= -1.0;

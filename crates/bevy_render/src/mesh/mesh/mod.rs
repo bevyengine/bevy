@@ -465,7 +465,7 @@ impl InnerMeshVertexBufferLayout {
         attribute_descriptors: &[VertexAttributeDescriptor],
     ) -> Result<VertexBufferLayout, MissingVertexAttributeError> {
         let mut attributes = Vec::with_capacity(attribute_descriptors.len());
-        for attribute_descriptor in attribute_descriptors.iter() {
+        for attribute_descriptor in attribute_descriptors {
             if let Some(index) = self
                 .attribute_ids
                 .iter()

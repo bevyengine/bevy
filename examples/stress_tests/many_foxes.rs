@@ -187,7 +187,7 @@ fn setup_scene_once_loaded(
     mut done: Local<bool>,
 ) {
     if !*done && player.iter().len() == foxes.count {
-        for mut player in player.iter_mut() {
+        for mut player in &mut player {
             player.play(animations.0[0].clone_weak()).repeat();
         }
         *done = true;
@@ -204,7 +204,7 @@ fn update_fox_rings(
     }
 
     let dt = time.delta_seconds();
-    for (ring, rotation_direction, mut transform) in rings.iter_mut() {
+    for (ring, rotation_direction, mut transform) in &mut rings {
         let angular_velocity = foxes.speed / ring.radius;
         transform.rotate_y(rotation_direction.sign() * angular_velocity * dt);
     }
@@ -233,7 +233,7 @@ fn keyboard_animation_control(
         *current_animation = (*current_animation + 1) % animations.0.len();
     }
 
-    for mut player in animation_player.iter_mut() {
+    for mut player in &mut animation_player {
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.is_paused() {
                 player.resume();

@@ -110,7 +110,7 @@ impl AssetServer {
     {
         let mut loaders = self.server.loaders.write();
         let loader_index = loaders.len();
-        for extension in loader.extensions().iter() {
+        for extension in loader.extensions() {
             self.server
                 .extension_to_loader_index
                 .write()

@@ -317,7 +317,7 @@ pub fn queue_colored_mesh2d(
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, mut transparent_phase) in views.iter_mut() {
+    for (visible_entities, mut transparent_phase) in &mut views {
         let draw_colored_mesh2d = transparent_draw_functions
             .read()
             .get_id::<DrawColoredMesh2d>()

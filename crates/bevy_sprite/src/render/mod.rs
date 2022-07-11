@@ -389,7 +389,7 @@ pub fn queue_sprites(
         let mut colored_index = 0;
 
         // FIXME: VisibleEntities is ignored
-        for mut transparent_phase in views.iter_mut() {
+        for mut transparent_phase in &mut views {
             let extracted_sprites = &mut extracted_sprites.sprites;
             let image_bind_groups = &mut *image_bind_groups;
 
@@ -420,7 +420,7 @@ pub fn queue_sprites(
             // Compatible items share the same entity.
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
             // by any other phase item (and they can interrupt other items from batching).
-            for extracted_sprite in extracted_sprites.iter() {
+            for extracted_sprite in extracted_sprites {
                 let new_batch = SpriteBatch {
                     image_handle_id: extracted_sprite.image_handle_id,
                     colored: extracted_sprite.color != Color::WHITE,

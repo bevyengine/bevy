@@ -24,7 +24,7 @@ fn button_system(
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut color, children) in interaction_query.iter_mut() {
+    for (interaction, mut color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Clicked => {

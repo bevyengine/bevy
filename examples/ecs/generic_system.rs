@@ -66,7 +66,7 @@ fn setup_system(mut commands: Commands) {
 }
 
 fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextToPrint)>) {
-    for (mut timer, text) in query.iter_mut() {
+    for (mut timer, text) in &mut query {
         if timer.tick(time.delta()).just_finished() {
             info!("{}", text.0);
         }
@@ -85,7 +85,7 @@ fn transition_to_in_game_system(
 // Type arguments on functions come after the function name, but before ordinary arguments.
 // Here, the `Component` trait is a trait bound on T, our generic type
 fn cleanup_system<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
-    for e in query.iter() {
+    for e in &query {
         commands.entity(e).despawn_recursive();
     }
 }

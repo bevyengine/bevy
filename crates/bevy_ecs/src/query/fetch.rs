@@ -79,7 +79,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 ///
 /// fn my_system(query: Query<MyQuery>) {
-///     for q in query.iter() {
+///     for q in &query {
 ///         // Note the type of the returned item.
 ///         let q: MyQueryItem<'_> = q;
 ///         q.foo;
@@ -130,11 +130,11 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// fn my_system(mut health_query: Query<HealthQuery>) {
 ///     // Iterator's item is `HealthQueryReadOnlyItem`.
-///     for health in health_query.iter() {
+///     for health in &health_query {
 ///         println!("Total: {}", health.total());
 ///     }
 ///     // Iterator's item is `HealthQueryItem`.
-///     for mut health in health_query.iter_mut() {
+///     for mut health in &mut health_query {
 ///         health.damage(1.0);
 ///         println!("Total (mut): {}", health.total());
 ///     }
@@ -158,7 +158,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 ///
 /// fn my_system(mut my_query: Query<(FooReadOnly, FooReadOnly)>) {
-///     for (i1, i2) in my_query.iter_mut() {
+///     for (i1, i2) in &mut my_query {
 ///         let _: FooReadOnlyItem<'_> = i1;
 ///         let _: FooReadOnlyItem<'_> = i2;
 ///     }
@@ -254,7 +254,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// // You can also compose derived queries with regular ones in tuples.
 /// fn my_system(query: Query<(&Foo, MyQuery, FooQuery)>) {
-///     for (foo, my_query, foo_query) in query.iter() {
+///     for (foo, my_query, foo_query) in &query {
 ///         foo; my_query; foo_query;
 ///     }
 /// }
@@ -279,7 +279,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 ///
 /// fn my_system(query: Query<EmptyQuery>) {
-///     for _ in query.iter() {}
+///     for _ in &query {}
 /// }
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
@@ -311,7 +311,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 ///
 /// fn my_system(query: Query<Entity, MyFilter<Foo, Qux>>) {
-///     for _ in query.iter() {}
+///     for _ in &query {}
 /// }
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
@@ -1087,7 +1087,7 @@ unsafe impl<'w, T: Fetch<'w>> Fetch<'w> for OptionFetch<T> {
 /// # struct Transform {};
 /// #
 /// fn print_moving_objects_system(query: Query<(&Name, ChangeTrackers<Transform>)>) {
-///     for (name, tracker) in query.iter() {
+///     for (name, tracker) in &query {
 ///         if tracker.is_changed() {
 ///             println!("Entity moved: {:?}", name);
 ///         } else {

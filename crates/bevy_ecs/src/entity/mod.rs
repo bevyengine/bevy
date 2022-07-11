@@ -84,7 +84,7 @@ use std::{
 /// # struct Expired;
 /// #
 /// fn dispose_expired_food(mut commands: Commands, query: Query<Entity, With<Expired>>) {
-///     for food_entity in query.iter() {
+///     for food_entity in &query {
 ///         commands.entity(food_entity).despawn();
 ///     }
 /// }

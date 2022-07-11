@@ -139,7 +139,7 @@ pub fn calculate_bounds(
     meshes: Res<Assets<Mesh>>,
     without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
-    for (entity, mesh_handle) in without_aabb.iter() {
+    for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
                 commands.entity(entity).insert(aabb);
@@ -151,7 +151,7 @@ pub fn calculate_bounds(
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     mut views: Query<(&GlobalTransform, &T, &mut Frustum)>,
 ) {
-    for (transform, projection, mut frustum) in views.iter_mut() {
+    for (transform, projection, mut frustum) in &mut views {
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
         *frustum = Frustum::from_view_projection(
@@ -189,7 +189,7 @@ pub fn check_visibility(
         computed_visibility.is_visible = false;
     }
 
-    for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
+    for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
         visible_entities.entities.clear();
         visible_entity_query.p1().par_for_each_mut(
