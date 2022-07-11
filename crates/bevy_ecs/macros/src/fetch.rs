@@ -180,18 +180,19 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
         quote! {
             #derive_macro_call
-            #[doc = "Item for ["]
+            #[doc = "Automatically generated [`WorldQuery`] item type for [`"]
             #[doc = stringify!(#struct_name)]
-            #[doc = "]."]
+            #[doc = "`], returned when iterating over query results."]
             #[automatically_derived]
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Item,)*
                 #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
-
-            #[doc = "Fetch for ["]
+            
+            #[doc(hidden)]
+            #[doc = "Automatically generated internal [`WorldQuery`] fetch type for [`"]
             #[doc = stringify!(#struct_name)]
-            #[doc = "]."]
+            #[doc = "`], used to define the world data accessed by this query."]
             #[automatically_derived]
             #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Fetch,)*
