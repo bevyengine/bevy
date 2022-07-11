@@ -594,12 +594,12 @@ category = "Application"
 wasm = false
 
 [[example]]
-name = "headless_defaults"
-path = "examples/app/headless_defaults.rs"
+name = "no_renderer"
+path = "examples/app/no_renderer.rs"
 
-[package.metadata.example.headless_defaults]
-name = "Headless with Defaults"
-description = "An application that runs with default plugins, but without an actual renderer"
+[package.metadata.example.no_renderer]
+name = "No Renderer"
+description = "An application that runs with default plugins and displays an empty window, but without an actual renderer"
 category = "Application"
 wasm = false
 
