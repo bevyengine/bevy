@@ -180,6 +180,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
         quote! {
             #derive_macro_call
+            #[doc = "Automatically generated [`WorldQuery`] item type for [`"]
+            #[doc = stringify!(#struct_name)]
+            #[doc = "`], returned when iterating over query results."]
             #[automatically_derived]
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Item,)*
@@ -187,6 +190,10 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             }
 
             #[doc(hidden)]
+            #[doc = "Automatically generated internal [`WorldQuery`] fetch type for [`"]
+            #[doc = stringify!(#struct_name)]
+            #[doc = "`], used to define the world data accessed by this query."]
+            #[automatically_derived]
             #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Fetch,)*
                 #(#ignored_field_idents: #ignored_field_types,)*
@@ -369,6 +376,10 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         #readonly_impl
 
         #[doc(hidden)]
+        #[doc = "Automatically generated internal [`WorldQuery`] state type for [`"]
+        #[doc = stringify!(#struct_name)]
+        #[doc = "`], used for caching."]
+        #[automatically_derived]
         #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
             #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
             #(#ignored_field_idents: #ignored_field_types,)*
