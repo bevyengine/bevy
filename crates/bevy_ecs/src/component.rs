@@ -252,7 +252,7 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
-/// Returns the shortened type names of the provided [`ComponentId`]s
+/// Returns the shortened type names of the provided [`ComponentId`]s.
 ///
 /// Uses [`get_short_name`] to strip the module paths of the items, resulting in cleaner lists.
 pub fn display_component_id_types<'a, I: Iterator<Item = &'a ComponentId>>(
