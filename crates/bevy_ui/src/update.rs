@@ -23,7 +23,7 @@ pub fn ui_z_system(
     children_query: Query<&Children>,
 ) {
     let mut current_global_z = 0.0;
-    for entity in root_node_query.iter() {
+    for entity in &root_node_query {
         current_global_z = update_hierarchy(
             &children_query,
             &mut node_query,
@@ -71,7 +71,7 @@ pub fn update_clipping_system(
     mut node_query: Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     children_query: Query<&Children>,
 ) {
-    for root_node in root_node_query.iter() {
+    for root_node in &root_node_query {
         update_clipping(
             &mut commands,
             &children_query,

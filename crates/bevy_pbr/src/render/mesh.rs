@@ -753,7 +753,7 @@ pub fn queue_mesh_view_bind_groups(
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter() {
+        for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {

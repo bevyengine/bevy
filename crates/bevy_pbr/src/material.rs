@@ -333,7 +333,7 @@ pub fn queue_material_meshes<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
-        views.iter_mut()
+        &mut views
     {
         let draw_opaque_pbr = opaque_draw_functions
             .read()

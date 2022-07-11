@@ -71,14 +71,14 @@ fn rotate(
     mut transform_query: Query<&mut Transform, With<Sprite>>,
 ) {
     let angle = std::f32::consts::PI / 2.0;
-    for (parent, children) in parents_query.iter_mut() {
+    for (parent, children) in &mut parents_query {
         if let Ok(mut transform) = transform_query.get_mut(parent) {
             transform.rotate_z(-angle * time.delta_seconds());
         }
 
         // To iterate through the entities children, just treat the Children component as a Vec
         // Alternatively, you could query entities that have a Parent component
-        for child in children.iter() {
+        for child in children {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
                 transform.rotate_z(angle * 2.0 * time.delta_seconds());
             }

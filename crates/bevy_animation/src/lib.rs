@@ -183,7 +183,7 @@ pub fn animation_player(
     mut transforms: Query<&mut Transform>,
     children: Query<&Children>,
 ) {
-    for (entity, mut player) in animation_players.iter_mut() {
+    for (entity, mut player) in &mut animation_players {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause

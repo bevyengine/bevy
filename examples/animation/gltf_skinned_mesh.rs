@@ -50,7 +50,7 @@ fn joint_animation(
     mut transform_query: Query<&mut Transform>,
 ) {
     // Iter skinned mesh entity
-    for skinned_mesh_parent in parent_query.iter() {
+    for skinned_mesh_parent in &parent_query {
         // Mesh node is the parent of the skinned mesh entity.
         let mesh_node_entity = skinned_mesh_parent.get();
         // Get `Children` in the mesh node.

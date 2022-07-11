@@ -244,7 +244,7 @@ struct Update(f32);
 
 /// update positions system
 fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut Update)>) {
-    for (mut t, mut u) in query.iter_mut() {
+    for (mut t, mut u) in &mut query {
         u.0 += time.delta_seconds() * 0.1;
         set_translation(&mut t.translation, u.0);
     }

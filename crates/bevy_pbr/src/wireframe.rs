@@ -51,7 +51,7 @@ impl Plugin for WireframePlugin {
 }
 
 fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wireframe>>) {
-    for entity in query.iter() {
+    for entity in &query {
         commands.get_or_spawn(entity).insert(Wireframe);
     }
 }
@@ -118,7 +118,7 @@ fn queue_wireframes(
         .get_id::<DrawWireframes>()
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, visible_entities, mut opaque_phase) in views.iter_mut() {
+    for (view, visible_entities, mut opaque_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
 
         let add_render_phase =

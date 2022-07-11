@@ -81,7 +81,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         self.should_run.grow(systems.len());
 
         // Construct scheduling data for systems.
-        for container in systems.iter() {
+        for container in systems {
             let dependencies_total = container.dependencies().len();
             let system = container.system();
             let (start_sender, start_receiver) = async_channel::bounded(1);

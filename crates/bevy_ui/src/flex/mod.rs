@@ -112,7 +112,7 @@ impl FlexSurface {
 
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
         let mut taffy_children = Vec::with_capacity(children.len());
-        for child in children.iter() {
+        for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
                 taffy_children.push(*taffy_node);
             } else {
@@ -231,7 +231,7 @@ pub fn flex_node_system(
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
     ) {
         // update changed nodes
-        for (entity, style, calculated_size) in query.iter() {
+        for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
                 flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
@@ -241,7 +241,7 @@ pub fn flex_node_system(
         }
     }
 
-    for (entity, style, calculated_size) in changed_size_query.iter() {
+    for (entity, style, calculated_size) in &changed_size_query {
         flex_surface.upsert_leaf(entity, style, *calculated_size, logical_to_physical_factor);
     }
 
@@ -253,7 +253,7 @@ pub fn flex_node_system(
     }
 
     // update children
-    for (entity, children) in children_query.iter() {
+    for (entity, children) in &children_query {
         flex_surface.update_children(entity, children);
     }
 
@@ -265,7 +265,7 @@ pub fn flex_node_system(
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
-    for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
+    for (entity, mut node, mut transform, parent) in &mut node_transform_query {
         let layout = flex_surface.get_layout(entity).unwrap();
         let new_size = Vec2::new(
             to_logical(layout.size.width),

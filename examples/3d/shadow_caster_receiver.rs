@@ -124,7 +124,7 @@ fn toggle_light(
     mut directional_lights: Query<&mut DirectionalLight>,
 ) {
     if input.just_pressed(KeyCode::L) {
-        for mut light in point_lights.iter_mut() {
+        for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
                 100000000.0
@@ -132,7 +132,7 @@ fn toggle_light(
                 0.0
             };
         }
-        for mut light in directional_lights.iter_mut() {
+        for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 println!("Using DirectionalLight");
                 100000.0

@@ -162,7 +162,7 @@ impl WindowResizeConstraints {
 /// # App::new().add_system(access_window_system).run();
 /// # }
 /// fn access_window_system(mut windows: ResMut<Windows>){
-///     for mut window in windows.iter_mut(){
+///     for mut window in windows.iter_mut() {
 ///         window.set_title(String::from("Yay, I'm a window!"));
 ///     }
 /// }
