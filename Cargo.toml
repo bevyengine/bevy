@@ -1349,6 +1349,16 @@ description = "Various test cases for hierarchy and transform propagation perfor
 category = "Stress Tests"
 wasm = true
 
+[[example]]
+name = "color_banding"
+path = "examples/stress_tests/color_banding.rs"
+
+[package.metadata.example.color_banding]
+name = "Color Banding"
+description = "Test cases for extreme color banding"
+category = "Stress Tests"
+wasm = false
+
 # Tools
 [[example]]
 name = "scene_viewer"
