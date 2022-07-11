@@ -1,8 +1,6 @@
 name: Bug Report
 description: Report a bug to help us improve!
-title: ''
 labels: [C-Bug, S-Needs-Triage]
-assignees: ''
 body:
   - type: dropdown
     id: bevy-version

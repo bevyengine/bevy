@@ -1,8 +1,6 @@
 name: Feature Request
 description: Propose a new feature!
-title: ''
 labels: [C-Enhancement, S-Needs-Triage]
-assignees: ''
 body:
   - type: textarea
     id: problem
