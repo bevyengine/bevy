@@ -188,7 +188,11 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Item,)*
                 #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> be4e9bc8 (Added suggestions by @alice-i-cecile.)
             #[doc(hidden)]
             #[doc = "Automatically generated internal [`WorldQuery`] fetch type for [`"]
             #[doc = stringify!(#struct_name)]
