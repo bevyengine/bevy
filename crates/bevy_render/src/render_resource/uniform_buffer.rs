@@ -13,7 +13,11 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
 /// parameters that are constant during shader execution, and are best used for data that is relatively small in size. For
 /// larger data, or data that must be made accessible to shaders on a read-write basis, consider
-/// [`StorageBuffer`](crate::render_resource::StorageBuffer).
+/// [`StorageBuffer`](crate::render_resource::StorageBuffer) or
+/// [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer). Note however that
+/// WebGL2 does not support storage buffers, so other alternatives to consider are vertex/instance buffers (see
+/// [`BufferVec`](crate::render_resource::BufferVec)), or data textures ([`Texture`](crate::render_resource::Texture)),
+/// depending on what is most appropriate for the use case.
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
@@ -102,7 +106,10 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 /// available to shaders runtime-sized arrays of parameters that are otherwise constant during shader execution, and are best
 /// suited to data that is relatively small in size. For larger data, or data that must be made
 /// accessible to shaders on a read-write basis, consider [`StorageBuffer`](crate::render_resource::StorageBuffer) or
-/// [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer). If it is not necessary to store runtime-sized arrays,
+/// [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer). Note however that
+/// WebGL2 does not support storage buffers, so other alternatives to consider are vertex/instance buffers (see
+/// [`BufferVec`](crate::render_resource::BufferVec)), or data textures ([`Texture`](crate::render_resource::Texture)),
+/// depending on what is most appropriate for the use case. If it is not necessary to store runtime-sized arrays,
 /// consider [`UniformBuffer`](crate::render_resource::UniformBuffer) instead.
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicUniformBuffer::write_buffer) queues
