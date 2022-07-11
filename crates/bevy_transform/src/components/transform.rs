@@ -101,7 +101,7 @@ impl Transform {
     }
 
     /// Updates and returns this [`Transform`] by rotating it so that its unit vector in the
-    /// local z direction is toward `target` and its unit vector in the local y direction
+    /// local `Z` direction is toward `target` and its unit vector in the local `Y` direction
     /// is toward `up`.
     #[inline]
     #[must_use]
@@ -141,7 +141,7 @@ impl Transform {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
-    /// Get the unit vector in the local x direction.
+    /// Get the unit vector in the local `X` direction.
     #[inline]
     pub fn local_x(&self) -> Vec3 {
         self.rotation * Vec3::X
@@ -159,7 +159,7 @@ impl Transform {
         self.local_x()
     }
 
-    /// Get the unit vector in the local y direction.
+    /// Get the unit vector in the local `Y` direction.
     #[inline]
     pub fn local_y(&self) -> Vec3 {
         self.rotation * Vec3::Y
@@ -177,7 +177,7 @@ impl Transform {
         -self.local_y()
     }
 
-    /// Get the unit vector in the local z direction.
+    /// Get the unit vector in the local `Z` direction.
     #[inline]
     pub fn local_z(&self) -> Vec3 {
         self.rotation * Vec3::Z
@@ -209,7 +209,7 @@ impl Transform {
         self.rotate(Quat::from_axis_angle(axis, angle));
     }
 
-    /// Rotates this [`Transform`] around the X axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around the `X` axis by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
@@ -217,7 +217,7 @@ impl Transform {
         self.rotate(Quat::from_rotation_x(angle));
     }
 
-    /// Rotates this [`Transform`] around the Y axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around the `Y` axis by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
@@ -225,7 +225,7 @@ impl Transform {
         self.rotate(Quat::from_rotation_y(angle));
     }
 
-    /// Rotates this [`Transform`] around the Z axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around the `Z` axis by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
@@ -233,19 +233,19 @@ impl Transform {
         self.rotate(Quat::from_rotation_z(angle));
     }
 
-    /// Rotates this [`Transform`] around its X axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its `X` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_x(&mut self, angle: f32) {
         self.rotate_axis(self.local_x(), angle);
     }
 
-    /// Rotates this [`Transform`] around its Y axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its `Y` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_y(&mut self, angle: f32) {
         self.rotate_axis(self.local_y(), angle);
     }
 
-    /// Rotates this [`Transform`] around its Z axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its `Z` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_z(&mut self, angle: f32) {
         self.rotate_axis(self.local_z(), angle);
@@ -260,8 +260,8 @@ impl Transform {
         self.rotation *= rotation;
     }
 
-    /// Rotates this [`Transform`] so that its local negative z direction is toward
-    /// `target` and its local y direction is toward `up`.
+    /// Rotates this [`Transform`] so that its local negative `Z` direction is toward
+    /// `target` and its local `Y` direction is toward `up`.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         let forward = Vec3::normalize(self.translation - target);

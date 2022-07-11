@@ -378,7 +378,7 @@ pub struct ExtractedClusterConfig {
     /// Special near value for cluster calculations
     near: f32,
     far: f32,
-    /// Number of clusters in x / y / z in the view frustum
+    /// Number of clusters in `X` / `Y` / `Z` in the view frustum
     dimensions: UVec3,
 }
 

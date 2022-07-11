@@ -45,7 +45,7 @@ impl Default for Camera2dBundle {
 }
 
 impl Camera2dBundle {
-    /// Create an orthographic projection camera with a custom Z position.
+    /// Create an orthographic projection camera with a custom `Z` position.
     ///
     /// The camera is placed at `Z=far-0.1`, looking toward the world origin `(0,0,0)`.
     /// Its orthographic projection extends from `0.0` to `-far` in camera view space,

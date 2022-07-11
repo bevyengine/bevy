@@ -81,8 +81,8 @@ impl Sphere {
 }
 
 /// A plane defined by a unit normal and distance from the origin along the normal
-/// Any point p is in the plane if n.p + d = 0
-/// For planes defining half-spaces such as for frusta, if n.p + d > 0 then p is on
+/// Any point `p` is in the plane if `n.p + d = 0`
+/// For planes defining half-spaces such as for frusta, if `n.p + d > 0` then `p` is on
 /// the positive side (inside) of the plane.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Plane {

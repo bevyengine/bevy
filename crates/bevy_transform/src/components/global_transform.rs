@@ -138,7 +138,7 @@ impl GlobalTransform {
         Affine3A::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
-    /// Get the unit vector in the local x direction
+    /// Get the unit vector in the local `X` direction
     #[inline]
     pub fn local_x(&self) -> Vec3 {
         self.rotation * Vec3::X
@@ -156,7 +156,7 @@ impl GlobalTransform {
         self.local_x()
     }
 
-    /// Get the unit vector in the local y direction
+    /// Get the unit vector in the local `Y` direction
     #[inline]
     pub fn local_y(&self) -> Vec3 {
         self.rotation * Vec3::Y
@@ -174,7 +174,7 @@ impl GlobalTransform {
         -self.local_y()
     }
 
-    /// Get the unit vector in the local z direction
+    /// Get the unit vector in the local `Z` direction
     #[inline]
     pub fn local_z(&self) -> Vec3 {
         self.rotation * Vec3::Z
