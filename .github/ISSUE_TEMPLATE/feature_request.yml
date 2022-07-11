@@ -1,0 +1,34 @@
+name: Feature Request
+description: Propose a new feature!
+title: ''
+labels: [C-Enhancement, S-Needs-Triage]
+assignees: ''
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve or what need does it fill?
+      description: A description of why this particular feature should be added.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What solution would you like?
+      description: The solution you propose for the problem presented.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What alternative(s) have you considered?
+      description: Other solutions to solve and/or work around the problem presented.
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Any other information you would like to add such as related previous work, screenshots, benchmarks, etc.
+    validations:
+      required: false

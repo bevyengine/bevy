@@ -1,0 +1,105 @@
+name: Bug Report
+description: Report a bug to help us improve!
+title: ''
+labels: [C-Bug, S-Needs-Triage]
+assignees: ''
+body:
+  - type: dropdown
+    id: bevy-version
+    attributes:
+      label: Version
+      description: The release number or commit hash of the version you're using.
+      options:
+        - main
+        - 0.7.0
+        - 0.6.1
+        - 0.6.0
+        - 0.5.0
+        - 0.4.0
+        - 0.3.0
+        - 0.2.1
+        - 0.2.0
+        - 0.1.3
+        - 0.1.2
+        - 0.1.1
+        - 0.1.0
+        - 0.0.1
+    validations:
+      required: true
+  - type: input
+    id: commit-hash
+    attributes:
+      label: Commit Hash
+      description: Include the specific commit hash if you are using it in your bevy project.
+    validations:
+      required: false
+  - type: input
+    id: cargo-version
+    attributes:
+      label: Cargo Version
+      description: |
+        - the Rust version you're using (you can get this by running `cargo --version`)
+          - Bevy relies on the "latest stable release" of Rust
+          - nightly should generally work, but there are sometimes regressions: please let us know!
+      placeholder: e.g. cargo 1.64.0-nightly (dbff32b27 2022-06-24)
+    validations:
+      required: false
+  - type: input
+    id: os-or-browser-used
+    attributes:
+      label: Operating System or Browser Used
+      description: the operating system or browser used, including its version
+      placeholder: e.g. Windows 10, Ubuntu 18.04, iOS 14
+    validations:
+      required: false 
+  - type: textarea
+    id: adapter-info
+    attributes:
+      label: Adapter Information
+      description: |
+        If your bug is rendering-related, copy the adapter info that appears when you run Bevy.
+      
+        You should also consider testing the examples of our upstream dependencies to help isolate any setup-specific issue:
+
+        - [`wgpu`](https://github.com/gfx-rs/wgpu) for rendering problems
+        - [`winit`](https://github.com/rust-windowing/winit) for input and window management
+        - [`gilrs`](https://docs.rs/gilrs/latest/gilrs/) for gamepad inputs
+      placeholder: |
+        ```ignore
+        `AdapterInfo { name: "NVIDIA GeForce RTX 2070", vendor: 4318, device: 7938, device_type: DiscreteGpu, backend: Vulkan }`
+        ```
+    validations:
+      required: false 
+  - type: textarea
+    id: what-you-did
+    attributes:
+      label: What you did
+      description: Describe how you arrived at the problem. If you can, consider providing a code snippet or link.
+    validations:
+      required: true
+  - type: textarea
+    id: what-went-wrong
+    attributes:
+      label: What went wrong
+      description: |
+        If it's not clear, break this out into:
+
+        - what were you expecting?
+        - what actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Additional information
+      description: |
+        Other information that can be used to further reproduce or isolate the problem.
+        This commonly includes:
+
+        - screenshots
+        - logs
+        - theories about what might be going wrong
+        - workarounds that you used
+        - links to related bugs, PRs or discussions
+    validations:
+      required: false
