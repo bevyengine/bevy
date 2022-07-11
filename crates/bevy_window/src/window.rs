@@ -1,4 +1,4 @@
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
@@ -202,7 +202,7 @@ pub enum WindowCommand {
     /// Set the window's [`WindowMode`].
     SetWindowMode {
         mode: WindowMode,
-        resolution: (u32, u32),
+        resolution: UVec2,
     },
     /// Set the window's title.
     SetTitle {
@@ -214,7 +214,7 @@ pub enum WindowCommand {
     },
     /// Set the window's resolution.
     SetResolution {
-        logical_resolution: (f32, f32),
+        logical_resolution: Vec2,
         scale_factor: f64,
     },
     /// Set the window's [`PresentMode`].
@@ -447,7 +447,7 @@ impl Window {
         self.requested_width = width;
         self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
-            logical_resolution: (self.requested_width, self.requested_height),
+            logical_resolution: Vec2::new(self.requested_width, self.requested_height),
             scale_factor: self.scale_factor(),
         });
     }
@@ -464,7 +464,7 @@ impl Window {
             scale_factor: self.scale_factor(),
         });
         self.command_queue.push(WindowCommand::SetResolution {
-            logical_resolution: (self.requested_width, self.requested_height),
+            logical_resolution: Vec2::new(self.requested_width, self.requested_height),
             scale_factor: self.scale_factor(),
         });
     }
@@ -668,7 +668,7 @@ impl Window {
         self.mode = mode;
         self.command_queue.push(WindowCommand::SetWindowMode {
             mode,
-            resolution: (self.physical_width, self.physical_height),
+            resolution: UVec2::new(self.physical_width, self.physical_height),
         });
     }
     /// Close the operating system window corresponding to this [`Window`].
