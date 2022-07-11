@@ -14,7 +14,10 @@ use std::cell::Cell;
 use thread_local::ThreadLocal;
 
 use crate::{
-    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection},
+    camera::{
+        Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection,
+        DEFAULT_PROJECTION_FAR,
+    },
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
@@ -123,7 +126,7 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            check_visibility
+            check_visibility::<Projection>
                 .label(CheckVisibility)
                 .after(CalculateBounds)
                 .after(UpdateOrthographicFrusta)
@@ -158,7 +161,9 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
             &view_projection,
             &transform.translation,
             &transform.back(),
-            projection.far(),
+            // NOTE: Using a default value here for simplicity just to define a far plane whether
+            // we use it or not
+            projection.far().unwrap_or(DEFAULT_PROJECTION_FAR),
         );
     }
 }
@@ -168,9 +173,12 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 /// The system is labelled with [`VisibilitySystems::CheckVisibility`]. Each frame, it updates the
 /// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
 /// for that view.
-pub fn check_visibility(
+pub fn check_visibility<T: Component + CameraProjection + Send + Sync + 'static>(
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
-    mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
+    mut view_query: Query<
+        (&mut VisibleEntities, &Frustum, &T, Option<&RenderLayers>),
+        With<Camera>,
+    >,
     mut visible_entity_query: ParamSet<(
         Query<&mut ComputedVisibility>,
         Query<(
@@ -189,8 +197,9 @@ pub fn check_visibility(
         computed_visibility.is_visible = false;
     }
 
-    for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
+    for (mut visible_entities, frustum, projection, maybe_view_mask) in view_query.iter_mut() {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let intersect_far = projection.far().is_some();
         visible_entities.entities.clear();
         visible_entity_query.p1().par_for_each_mut(
             1024,
@@ -222,11 +231,11 @@ pub fn check_visibility(
                         radius: (Vec3A::from(transform.scale) * model_aabb.half_extents).length(),
                     };
                     // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
+                    if !frustum.intersects_sphere(&model_sphere, intersect_far) {
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, false) {
+                    if !frustum.intersects_obb(model_aabb, &model, intersect_far) {
                         return;
                     }
                 }

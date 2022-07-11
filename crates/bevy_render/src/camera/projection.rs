@@ -42,7 +42,7 @@ pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
     fn depth_calculation(&self) -> DepthCalculation;
-    fn far(&self) -> f32;
+    fn far(&self) -> Option<f32>;
 }
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
@@ -87,7 +87,7 @@ impl CameraProjection for Projection {
         }
     }
 
-    fn far(&self) -> f32 {
+    fn far(&self) -> Option<f32> {
         match self {
             Projection::Perspective(projection) => projection.far(),
             Projection::Orthographic(projection) => projection.far(),
@@ -101,13 +101,15 @@ impl Default for Projection {
     }
 }
 
+pub const DEFAULT_PROJECTION_FAR: f32 = 1000.0;
+
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct PerspectiveProjection {
     pub fov: f32,
     pub aspect_ratio: f32,
     pub near: f32,
-    pub far: f32,
+    pub far: Option<f32>,
 }
 
 impl CameraProjection for PerspectiveProjection {
@@ -123,7 +125,7 @@ impl CameraProjection for PerspectiveProjection {
         DepthCalculation::Distance
     }
 
-    fn far(&self) -> f32 {
+    fn far(&self) -> Option<f32> {
         self.far
     }
 }
@@ -133,7 +135,7 @@ impl Default for PerspectiveProjection {
         PerspectiveProjection {
             fov: std::f32::consts::PI / 4.0,
             near: 0.1,
-            far: 1000.0,
+            far: Some(DEFAULT_PROJECTION_FAR),
             aspect_ratio: 1.0,
         }
     }
@@ -248,8 +250,8 @@ impl CameraProjection for OrthographicProjection {
         self.depth_calculation
     }
 
-    fn far(&self) -> f32 {
-        self.far
+    fn far(&self) -> Option<f32> {
+        Some(self.far)
     }
 }
 
@@ -261,7 +263,7 @@ impl Default for OrthographicProjection {
             bottom: -1.0,
             top: 1.0,
             near: 0.0,
-            far: 1000.0,
+            far: DEFAULT_PROJECTION_FAR,
             window_origin: WindowOrigin::Center,
             scaling_mode: ScalingMode::WindowSize,
             scale: 1.0,

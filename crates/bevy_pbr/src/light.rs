@@ -1434,7 +1434,9 @@ pub fn update_directional_light_frusta(
             &view_projection,
             &transform.translation,
             &transform.back(),
-            directional_light.shadow_projection.far(),
+            // NOTE: Unwrap is safe as this projection is always orthographic and so always has a
+            // far plane
+            directional_light.shadow_projection.far().unwrap(),
         );
     }
 }
