@@ -19,7 +19,7 @@ impl Ord for FloatOrd {
 
 impl PartialEq for FloatOrd {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        self.cmp(other) == Ordering::Equal
     }
 }
 
