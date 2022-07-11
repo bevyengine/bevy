@@ -253,7 +253,7 @@ impl UntypedArchetypeInvariant {
     ///
     /// # Panics
     /// Panics if the archetype invariant is violated.
-    pub fn test_archetype(
+    pub(crate) fn test_archetype(
         &self,
         component_ids_of_archetype: impl Iterator<Item = ComponentId>,
         components: &Components,
@@ -434,7 +434,7 @@ impl ArchetypeInvariants {
     /// # Panics
     ///
     /// Panics if any archetype invariant is violated.
-    pub fn test_archetype(
+    pub(crate) fn test_archetype(
         &self,
         component_ids_of_archetype: impl Iterator<Item = ComponentId>,
         components: &Components,
