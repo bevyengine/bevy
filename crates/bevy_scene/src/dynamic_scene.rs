@@ -112,14 +112,7 @@ impl DynamicScene {
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                if world
-                    .entity(entity)
-                    .contains_type_id(registration.type_id())
-                {
-                    reflect_component.apply(world, entity, &**component);
-                } else {
-                    reflect_component.add(world, entity, &**component);
-                }
+                reflect_component.apply_or_insert(world, entity, &**component);
             }
         }
 
