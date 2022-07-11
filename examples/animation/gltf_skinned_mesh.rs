@@ -52,7 +52,7 @@ fn joint_animation(
     // Iter skinned mesh entity
     for skinned_mesh_parent in parent_query.iter() {
         // Mesh node is the parent of the skinned mesh entity.
-        let mesh_node_entity = skinned_mesh_parent.0;
+        let mesh_node_entity = skinned_mesh_parent.get();
         // Get `Children` in the mesh node.
         let mesh_node_children = children_query.get(mesh_node_entity).unwrap();
 

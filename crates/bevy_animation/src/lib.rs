@@ -15,7 +15,7 @@ use bevy_ecs::{
     schedule::ParallelSystemDescriptorCoercion,
     system::{Query, Res},
 };
-use bevy_hierarchy::{Children, HierarchySystem};
+use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_time::Time;
@@ -295,9 +295,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                animation_player
-                    .before(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
+                animation_player.before(TransformSystem::TransformPropagate),
             );
     }
 }
