@@ -14,7 +14,7 @@ use crate::Task;
 #[derive(Debug, Default, Clone)]
 #[must_use]
 pub struct TaskPoolBuilder {
-    /// If set, we'll set up the thread pool to use at most `num_threads` threads. 
+    /// If set, we'll set up the thread pool to use at most `num_threads` threads.
     /// Otherwise use the logical core count of the system
     num_threads: Option<usize>,
     /// If set, we'll use the given stack size rather than the system default
