@@ -250,27 +250,31 @@ fn propagate_recursive(
 pub fn check_visibility(
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
-    mut visible_entity_query: Query<(
+    mut visible_aabb_query: Query<(
         Entity,
         &mut ComputedVisibility,
         Option<&RenderLayers>,
-        Option<&Aabb>,
+        &Aabb,
+        &GlobalTransform,
         Option<&NoFrustumCulling>,
-        Option<&GlobalTransform>,
     )>,
+    mut visible_no_aabb_query: Query<
+        (Entity, &mut ComputedVisibility, Option<&RenderLayers>),
+        Without<Aabb>,
+    >,
 ) {
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
         visible_entities.entities.clear();
-        visible_entity_query.par_for_each_mut(
+        visible_aabb_query.par_for_each_mut(
             1024,
             |(
                 entity,
                 mut computed_visibility,
                 maybe_entity_mask,
-                maybe_aabb,
+                model_aabb,
+                transform,
                 maybe_no_frustum_culling,
-                maybe_transform,
             )| {
                 // skip computing visibility for entities that are configured to be hidden. is_visible_in_camera has already been set to false
                 // in visibility_propagate_system
@@ -284,9 +288,7 @@ pub fn check_visibility(
                 }
 
                 // If we have an aabb and transform, do frustum culling
-                if let (Some(model_aabb), None, Some(transform)) =
-                    (maybe_aabb, maybe_no_frustum_culling, maybe_transform)
-                {
+                if maybe_no_frustum_culling.is_none() {
                     let model = transform.compute_matrix();
                     let model_sphere = Sphere {
                         center: model.transform_point3a(model_aabb.center),
@@ -300,6 +302,28 @@ pub fn check_visibility(
                     if !frustum.intersects_obb(model_aabb, &model, false) {
                         return;
                     }
+                }
+
+                computed_visibility.is_visible_in_view = true;
+                let cell = thread_queues.get_or_default();
+                let mut queue = cell.take();
+                queue.push(entity);
+                cell.set(queue);
+            },
+        );
+
+        visible_no_aabb_query.par_for_each_mut(
+            1024,
+            |(entity, mut computed_visibility, maybe_entity_mask)| {
+                // skip computing visibility for entities that are configured to be hidden. is_visible_in_camera has already been set to false
+                // in visibility_propagate_system
+                if !computed_visibility.is_visibile_in_hierarchy {
+                    return;
+                }
+
+                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                if !view_mask.intersects(&entity_mask) {
+                    return;
                 }
 
                 computed_visibility.is_visible_in_view = true;
