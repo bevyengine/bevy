@@ -79,7 +79,7 @@ body:
     id: what-went-wrong
     attributes:
       label: What went wrong
-      description: |
+      placeholder: |
         If it's not clear, break this out into:
 
         - what were you expecting?
@@ -92,8 +92,7 @@ body:
       label: Additional information
       description: |
         Other information that can be used to further reproduce or isolate the problem.
-        This commonly includes:
-
+      placeholder: |
         - screenshots
         - logs
         - theories about what might be going wrong
