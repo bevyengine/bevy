@@ -189,6 +189,7 @@ impl Camera {
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
+    #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
         camera_transform: &GlobalTransform,
