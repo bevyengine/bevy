@@ -2,8 +2,10 @@ use crossbeam_channel::Receiver;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Result, Watcher};
 use std::path::Path;
 
-/// Watches for changes to assets on the filesystem. This is used by the `AssetServer` to reload
-/// them
+/// Watches for changes to files on the local filesystem.
+///
+/// When hot-reloading is enabled, the [`AssetServer`](crate::AssetServer) uses this to reload
+/// assets when their source files are modified.
 pub struct FilesystemWatcher {
     pub watcher: RecommendedWatcher,
     pub receiver: Receiver<Result<Event>>,
@@ -21,6 +23,7 @@ impl Default for FilesystemWatcher {
 }
 
 impl FilesystemWatcher {
+    /// Watch for changes recursively at the provided path.
     pub fn watch<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         self.watcher.watch(path.as_ref(), RecursiveMode::Recursive)
     }
