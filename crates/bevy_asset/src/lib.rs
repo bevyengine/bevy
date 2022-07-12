@@ -1,7 +1,7 @@
 //! Built-in plugin for asset support.
 //!
 //! This plugin allows a bevy app to work with assets from the filesystem (or [another source]),
-//! providing an [asset server] for loading an processing [`Asset`]s and storing them in an
+//! providing an [asset server] for loading and processing [`Asset`]s and storing them in an
 //! [asset storage] to be accessed by systems.
 //!
 //! [another source]: trait.AssetIo.html

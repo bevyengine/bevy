@@ -344,7 +344,7 @@ impl HandleUntyped {
         Self::weak(self.id)
     }
 
-    /// Returns `true` if this a weak handle.
+    /// Returns `true` if this is a weak handle.
     pub fn is_weak(&self) -> bool {
         matches!(self.handle_type, HandleType::Weak)
     }

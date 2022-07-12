@@ -75,7 +75,7 @@ pub struct AssetServerInternal {
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
 }
 
-/// Loads assets from the filesystem on the background.
+/// Loads assets from the filesystem in the background.
 ///
 /// The asset server is the primary way of loading assets in bevy. It keeps track of the load state
 /// of the assets it manages and can even reload them from the filesystem with
@@ -113,7 +113,7 @@ impl AssetServer {
         Self::with_boxed_io(Box::new(source_io))
     }
 
-    /// Creates a new asset server with a pointer to an asset I/O.
+    /// Creates a new asset server with a boxed asset I/O.
     pub fn with_boxed_io(asset_io: Box<dyn AssetIo>) -> Self {
         AssetServer {
             server: Arc::new(AssetServerInternal {
@@ -182,7 +182,7 @@ impl AssetServer {
         Handle::strong(id.into(), sender)
     }
 
-    /// Gets an untyped, strong handle for an asset with the provided id.
+    /// Gets an untyped strong handle for an asset with the provided id.
     pub fn get_handle_untyped<I: Into<HandleId>>(&self, id: I) -> HandleUntyped {
         let sender = self.server.asset_ref_counter.channel.sender.clone();
         HandleUntyped::strong(id.into(), sender)
