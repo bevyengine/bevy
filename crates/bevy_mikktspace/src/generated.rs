@@ -1060,8 +1060,8 @@ unsafe fn InitTriInfo<I: Geometry>(
                     let mut bChooseOrientFirstTri: bool = false;
                     if (*pTriInfos.offset((t + 1) as isize)).iFlag & 4i32 != 0i32 {
                         bChooseOrientFirstTri = true
-                    } else if CalcTexArea(geometry, &*piTriListIn.offset((t * 3 + 0) as isize))
-                        >= CalcTexArea(geometry, &*piTriListIn.offset(((t + 1) * 3 + 0) as isize))
+                    } else if CalcTexArea(geometry, piTriListIn.offset((t * 3 + 0) as isize))
+                        >= CalcTexArea(geometry, piTriListIn.offset(((t + 1) * 3 + 0) as isize))
                     {
                         bChooseOrientFirstTri = true
                     }
