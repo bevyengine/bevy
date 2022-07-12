@@ -1503,9 +1503,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
             vP_1.z
         };
         let iCell_0 = FindGridCell(fMin, fMax, fVal_0);
-        let mut pTable: *mut i32 = 0 as *mut i32;
-        pTable = &mut piHashTable[piHashOffsets[iCell_0] as usize] as *mut i32;
-        *pTable.offset(piHashCount2[iCell_0] as isize) = i as i32;
+        piHashTable[(piHashOffsets[iCell_0] + piHashCount2[iCell_0]) as usize] = i as i32;
         piHashCount2[iCell_0] += 1;
         i += 1
     }
@@ -1525,7 +1523,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     k = 0;
     while k < g_iCells {
         // extract table of cell k and amount of entries in it
-        let mut pTable_0 = &mut piHashTable[piHashOffsets[k] as usize] as *mut i32;
+        let pTable_0 = piHashTable.as_mut_ptr().offset(piHashOffsets[k] as isize);
         let iEntries = piHashCount[k] as usize;
         if !(iEntries < 2) {
             e = 0;
