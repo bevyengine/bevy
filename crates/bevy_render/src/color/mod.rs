@@ -527,10 +527,10 @@ impl Color {
         }
     }
 
-    /// Converts Color to a u32 from sRGB colorspace.
+    /// Converts `Color` to a `u32` from sRGB colorspace.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
-    /// A will be the most significant byte and R the least significant.
+    /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_rgba_u32(self: Color) -> u32 {
         match self {
             Color::Rgba {
@@ -576,7 +576,7 @@ impl Color {
     /// Converts Color to a u32 from linear RGB colorspace.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
-    /// A will be the most significant byte and R the least significant.
+    /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_linear_rgba_u32(self: Color) -> u32 {
         match self {
             Color::Rgba {

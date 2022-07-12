@@ -13,10 +13,10 @@ use bevy_math::Vec2;
 use bevy_sprite::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-/// The resolution of Z values for UI
+/// The resolution of `Z` values for UI
 pub const UI_Z_STEP: f32 = 0.001;
 
-/// Updates transforms of nodes to fit with the z system
+/// Updates transforms of nodes to fit with the `Z` system
 pub fn ui_z_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     mut node_query: Query<&mut Transform, With<Node>>,

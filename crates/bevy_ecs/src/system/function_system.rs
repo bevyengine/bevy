@@ -508,7 +508,7 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 ///
 /// // Unfortunately, we need all of these generics. `A` is the first system, with its
 /// // parameters and marker type required for coherence. `B` is the second system, and
-/// // the other generics are for the input/output types of A and B.
+/// // the other generics are for the input/output types of `A` and `B`.
 /// /// Chain creates a new system which calls `a`, then calls `b` with the output of `a`
 /// pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
 ///     mut a: A,

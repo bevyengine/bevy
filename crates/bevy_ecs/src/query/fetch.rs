@@ -793,7 +793,7 @@ impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
     type _State = ComponentIdState<T>;
 }
 
-/// SAFETY: component access and archetype component access are properly updated to reflect that T is
+/// SAFETY: component access and archetype component access are properly updated to reflect that `T` is
 /// read and write
 unsafe impl<'w, T: Component> Fetch<'w> for WriteFetch<'w, T> {
     type Item = Mut<'w, T>;

@@ -314,7 +314,7 @@ pub enum DepthCalculation {
     /// Pythagorean distance; works everywhere, more expensive to compute.
     #[default]
     Distance,
-    /// Optimization for 2D; assuming the camera points towards -Z.
+    /// Optimization for 2D; assuming the camera points towards `-Z`.
     ZDifference,
 }
 
