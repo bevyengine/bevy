@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
-use bevy_render::{texture::Image, view::Visibility, RenderWorld};
+use bevy_render::{prelude::ComputedVisibility, texture::Image, view::Visibility, RenderWorld};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
@@ -65,14 +65,20 @@ pub fn extract_text2d_sprite(
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
     windows: Res<Windows>,
-    text2d_query: Query<(Entity, &Visibility, &Text, &GlobalTransform, &Text2dSize)>,
+    text2d_query: Query<(
+        Entity,
+        &ComputedVisibility,
+        &Text,
+        &GlobalTransform,
+        &Text2dSize,
+    )>,
 ) {
     let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
 
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, visibility, text, transform, calculated_size) in text2d_query.iter() {
-        if !visibility.is_visible() {
+    for (entity, computed_visibility, text, transform, calculated_size) in text2d_query.iter() {
+        if !computed_visibility.is_visible() {
             continue;
         }
         let (width, height) = (calculated_size.size.x, calculated_size.size.y);

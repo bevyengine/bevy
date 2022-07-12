@@ -14,6 +14,7 @@ use bevy_math::{const_vec2, Vec2};
 use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
+    prelude::ComputedVisibility,
     render_asset::RenderAssets,
     render_phase::{
         BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
@@ -22,7 +23,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
+    view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -223,9 +224,14 @@ pub fn extract_sprite_events(
 pub fn extract_sprites(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    sprite_query: Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>,
+    sprite_query: Query<(
+        &ComputedVisibility,
+        &Sprite,
+        &GlobalTransform,
+        &Handle<Image>,
+    )>,
     atlas_query: Query<(
-        &Visibility,
+        &ComputedVisibility,
         &TextureAtlasSprite,
         &GlobalTransform,
         &Handle<TextureAtlas>,

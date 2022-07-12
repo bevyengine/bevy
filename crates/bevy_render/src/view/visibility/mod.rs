@@ -21,49 +21,15 @@ use crate::{
 };
 
 /// User indication of whether an entity is visible
-#[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
+#[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Component, Default)]
 pub struct Visibility {
-    self_visible: bool,
-    inherited: bool,
-}
-
-impl Visibility {
-    /// Checks if the entity is visible or not.
-    ///
-    /// This value can be affected by the entity's local visibility
-    /// or it inherited from it's ancestors in the hierarchy. An entity
-    /// is only visible in the hierarchy if and only if all of it's
-    /// ancestors are visible. Setting an entity to be invisible will
-    /// hide all of it's children and descendants.
-    ///
-    /// If the systems labeled [`VisibilitySystems::VisibilityPropagate`]
-    /// have not yet run, this value may be out of date with the state of
-    /// the hierarchy.
-    pub fn is_visible(&self) -> bool {
-        self.self_visible && self.inherited
-    }
-
-    /// Checks the local visibility state of the entity.
-    ///
-    /// Unlike [`is_visible`](Self::is_visible), this value is always up to date.
-    pub fn is_self_visible(&self) -> bool {
-        self.self_visible
-    }
-
-    /// Sets whether the entity is visible or not. If set to false,
-    /// all descendants will be marked as invisible.
-    pub fn set_visible(&mut self, visible: bool) {
-        self.self_visible = visible;
-    }
+    pub is_visible: bool,
 }
 
 impl Default for Visibility {
     fn default() -> Self {
-        Self {
-            self_visible: true,
-            inherited: true,
-        }
+        Self { is_visible: true }
     }
 }
 
@@ -71,12 +37,23 @@ impl Default for Visibility {
 #[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Component)]
 pub struct ComputedVisibility {
-    pub is_visible: bool,
+    pub is_visibile_in_hierarchy: bool,
+    pub is_visible_in_view: bool,
 }
 
 impl Default for ComputedVisibility {
     fn default() -> Self {
-        Self { is_visible: true }
+        Self {
+            is_visibile_in_hierarchy: true,
+            is_visible_in_view: true,
+        }
+    }
+}
+
+impl ComputedVisibility {
+    #[inline]
+    pub fn is_visible(&self) -> bool {
+        self.is_visibile_in_hierarchy && self.is_visible_in_view
     }
 }
 
@@ -207,20 +184,26 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 }
 
 fn visibility_propagate_system(
-    mut root_query: Query<(Option<&Children>, &mut Visibility, Entity), Without<Parent>>,
-    mut visibility_query: Query<(&mut Visibility, &Parent)>,
-    children_query: Query<&Children, (With<Parent>, With<Visibility>)>,
+    mut root_query: Query<
+        (
+            Option<&Children>,
+            &Visibility,
+            &mut ComputedVisibility,
+            Entity,
+        ),
+        Without<Parent>,
+    >,
+    mut visibility_query: Query<(&Visibility, &mut ComputedVisibility, &Parent)>,
+    children_query: Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
 ) {
-    for (children, mut visibility, entity) in root_query.iter_mut() {
-        // Avoid triggering change detection if nothing has changed.
-        if !visibility.inherited {
-            visibility.inherited = true;
-        }
+    for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
+        computed_visibility.is_visibile_in_hierarchy = visibility.is_visible;
+        // reset "view" visibility here ... if configured to be invisible, it will not be visible to "views" either
+        computed_visibility.is_visible_in_view = visibility.is_visible;
         if let Some(children) = children {
-            let is_visible = visibility.is_visible();
             for child in children.iter() {
                 let _ = propagate_recursive(
-                    is_visible,
+                    computed_visibility.is_visibile_in_hierarchy,
                     &mut visibility_query,
                     &children_query,
                     *child,
@@ -233,24 +216,24 @@ fn visibility_propagate_system(
 
 fn propagate_recursive(
     parent_visible: bool,
-    visibility_query: &mut Query<(&mut Visibility, &Parent)>,
-    children_query: &Query<&Children, (With<Parent>, With<Visibility>)>,
+    visibility_query: &mut Query<(&Visibility, &mut ComputedVisibility, &Parent)>,
+    children_query: &Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
     entity: Entity,
     expected_parent: Entity,
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
     let is_visible = {
-        let (mut visibility, child_parent) = visibility_query.get_mut(entity).map_err(drop)?;
+        let (visibility, mut computed_visibility, child_parent) =
+            visibility_query.get_mut(entity).map_err(drop)?;
         // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
         assert_eq!(
             child_parent.0, expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        // Avoid triggering change detection if nothing has changed.
-        if visibility.inherited != parent_visible {
-            visibility.inherited = parent_visible;
-        }
-        visibility.is_visible()
+        computed_visibility.is_visibile_in_hierarchy = visibility.is_visible && parent_visible;
+        // reset "view" visibility here ... if configured to be invisible, it will not be visible to "views" either
+        computed_visibility.is_visible_in_view = computed_visibility.is_visibile_in_hierarchy;
+        computed_visibility.is_visibile_in_hierarchy
     };
 
     for child in children_query.get(entity).map_err(drop)?.iter() {
@@ -267,44 +250,37 @@ fn propagate_recursive(
 pub fn check_visibility(
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
-    mut visible_entity_query: ParamSet<(
-        Query<&mut ComputedVisibility>,
-        Query<(
-            Entity,
-            &Visibility,
-            &mut ComputedVisibility,
-            Option<&RenderLayers>,
-            Option<&Aabb>,
-            Option<&NoFrustumCulling>,
-            Option<&GlobalTransform>,
-        )>,
+    mut visible_entity_query: Query<(
+        Entity,
+        &mut ComputedVisibility,
+        Option<&RenderLayers>,
+        Option<&Aabb>,
+        Option<&NoFrustumCulling>,
+        Option<&GlobalTransform>,
     )>,
 ) {
-    // Reset the computed visibility to false
-    for mut computed_visibility in visible_entity_query.p0().iter_mut() {
-        computed_visibility.is_visible = false;
-    }
-
     for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
         visible_entities.entities.clear();
-        visible_entity_query.p1().par_for_each_mut(
+        visible_entity_query.par_for_each_mut(
             1024,
             |(
                 entity,
-                visibility,
                 mut computed_visibility,
                 maybe_entity_mask,
                 maybe_aabb,
                 maybe_no_frustum_culling,
                 maybe_transform,
             )| {
-                if !visibility.is_visible() {
+                // skip computing visibility for entities that are configured to be hidden. is_visible_in_camera has already been set to false
+                // in visibility_propagate_system
+                if !computed_visibility.is_visibile_in_hierarchy {
                     return;
                 }
 
                 let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                 if !view_mask.intersects(&entity_mask) {
+                    computed_visibility.is_visible_in_view = false;
                     return;
                 }
 
@@ -319,15 +295,16 @@ pub fn check_visibility(
                     };
                     // Do quick sphere-based frustum culling
                     if !frustum.intersects_sphere(&model_sphere, false) {
+                        computed_visibility.is_visible_in_view = false;
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
                     if !frustum.intersects_obb(model_aabb, &model, false) {
+                        computed_visibility.is_visible_in_view = false;
                         return;
                     }
                 }
 
-                computed_visibility.is_visible = true;
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
@@ -367,10 +344,7 @@ mod test {
         let mut children = Vec::new();
         world
             .spawn()
-            .insert(Visibility {
-                self_visible: false,
-                inherited: false,
-            })
+            .insert(Visibility { is_visible: false })
             .with_children(|parent| {
                 children.push(parent.spawn().insert(Visibility::default()).id());
                 children.push(parent.spawn().insert(Visibility::default()).id());

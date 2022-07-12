@@ -12,7 +12,7 @@ use bevy_render::{
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
+    view::{ComputedVisibility, RenderLayers, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::warn;
@@ -643,7 +643,7 @@ pub(crate) fn assign_lights_to_clusters(
         &mut Clusters,
         Option<&mut VisiblePointLights>,
     )>,
-    lights_query: Query<(Entity, &GlobalTransform, &PointLight, &Visibility)>,
+    lights_query: Query<(Entity, &GlobalTransform, &PointLight, &ComputedVisibility)>,
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut max_point_lights_warning_emitted: Local<bool>,
     render_device: Option<Res<RenderDevice>>,
@@ -659,7 +659,7 @@ pub(crate) fn assign_lights_to_clusters(
     lights.extend(
         lights_query
             .iter()
-            .filter(|(.., visibility)| visibility.is_visible())
+            .filter(|(.., visibility)| visibility.is_visibile_in_hierarchy)
             .map(
                 |(entity, transform, light, _visibility)| PointLightAssignmentData {
                     entity,
@@ -1165,7 +1165,7 @@ pub fn update_directional_light_frusta(
             &GlobalTransform,
             &DirectionalLight,
             &mut Frustum,
-            &Visibility,
+            &ComputedVisibility,
         ),
         Or<(Changed<GlobalTransform>, Changed<DirectionalLight>)>,
     >,
@@ -1174,7 +1174,7 @@ pub fn update_directional_light_frusta(
         // The frustum is used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frustum is
         // not needed.
-        if !directional_light.shadows_enabled || !visibility.is_visible() {
+        if !directional_light.shadows_enabled || !visibility.is_visibile_in_hierarchy {
             continue;
         }
 
@@ -1248,59 +1248,53 @@ pub fn check_light_mesh_visibility(
         &Frustum,
         &mut VisibleEntities,
         Option<&RenderLayers>,
-        &Visibility,
+        &ComputedVisibility,
     )>,
     mut visible_entity_query: Query<
         (
             Entity,
-            &Visibility,
             &mut ComputedVisibility,
             Option<&RenderLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
         ),
-        Without<NotShadowCaster>,
+        (Without<NotShadowCaster>, Without<DirectionalLight>),
     >,
 ) {
     // Directonal lights
-    for (directional_light, frustum, mut visible_entities, maybe_view_mask, visibility) in
+    for (directional_light, frustum, mut visible_entities, maybe_view_mask, computed_visibility) in
         directional_lights.iter_mut()
     {
         visible_entities.entities.clear();
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled || !visibility.is_visible() {
+        if !directional_light.shadows_enabled || !computed_visibility.is_visibile_in_hierarchy {
             continue;
         }
 
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        for (
-            entity,
-            visibility,
-            mut computed_visibility,
-            maybe_entity_mask,
-            maybe_aabb,
-            maybe_transform,
-        ) in visible_entity_query.iter_mut()
+        for (entity, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
+            visible_entity_query.iter_mut()
         {
-            if !visibility.is_visible() {
+            if !computed_visibility.is_visibile_in_hierarchy {
                 continue;
             }
 
             let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
             if !view_mask.intersects(&entity_mask) {
+                computed_visibility.is_visible_in_view = false;
                 continue;
             }
 
             // If we have an aabb and transform, do frustum culling
             if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                 if !frustum.intersects_obb(aabb, &transform.compute_matrix(), true) {
+                    computed_visibility.is_visible_in_view = false;
                     continue;
                 }
             }
 
-            computed_visibility.is_visible = true;
             visible_entities.entities.push(entity);
         }
 
@@ -1336,14 +1330,13 @@ pub fn check_light_mesh_visibility(
 
                 for (
                     entity,
-                    visibility,
                     mut computed_visibility,
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
                 ) in visible_entity_query.iter_mut()
                 {
-                    if !visibility.is_visible() {
+                    if !computed_visibility.is_visibile_in_hierarchy {
                         continue;
                     }
 
@@ -1364,12 +1357,12 @@ pub fn check_light_mesh_visibility(
                             .zip(cubemap_visible_entities.iter_mut())
                         {
                             if frustum.intersects_obb(aabb, &model_to_world, true) {
-                                computed_visibility.is_visible = true;
+                                computed_visibility.is_visible_in_view = true;
                                 visible_entities.entities.push(entity);
                             }
                         }
                     } else {
-                        computed_visibility.is_visible = true;
+                        computed_visibility.is_visible_in_view = true;
                         for visible_entities in cubemap_visible_entities.iter_mut() {
                             visible_entities.entities.push(entity);
                         }

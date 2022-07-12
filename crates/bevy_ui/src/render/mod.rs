@@ -14,13 +14,14 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
     color::Color,
+    prelude::ComputedVisibility,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ExtractedView, ViewUniforms, Visibility},
+    view::{ExtractedView, ViewUniforms},
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
@@ -181,7 +182,7 @@ pub fn extract_uinodes(
         &GlobalTransform,
         &UiColor,
         &UiImage,
-        &Visibility,
+        &ComputedVisibility,
         Option<&CalculatedClip>,
     )>,
 ) {
@@ -280,7 +281,7 @@ pub fn extract_text_uinodes(
         &Node,
         &GlobalTransform,
         &Text,
-        &Visibility,
+        &ComputedVisibility,
         Option<&CalculatedClip>,
     )>,
 ) {

@@ -14,6 +14,7 @@ use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
     mesh::{Mesh, MeshVertexBufferLayout},
+    prelude::ComputedVisibility,
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
@@ -24,9 +25,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{
-        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
-    },
+    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
@@ -407,7 +406,7 @@ pub fn extract_lights(
         &DirectionalLight,
         &mut VisibleEntities,
         &GlobalTransform,
-        &Visibility,
+        &ComputedVisibility,
     )>,
     mut previous_point_lights_len: Local<usize>,
 ) {

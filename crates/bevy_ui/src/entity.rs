@@ -9,7 +9,10 @@ use bevy_ecs::{
     prelude::{Component, With},
     query::QueryItem,
 };
-use bevy_render::{camera::Camera, extract_component::ExtractComponent, view::Visibility};
+use bevy_render::{
+    camera::Camera, extract_component::ExtractComponent, prelude::ComputedVisibility,
+    view::Visibility,
+};
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -32,6 +35,8 @@ pub struct NodeBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 /// A UI node that is an image
@@ -57,6 +62,8 @@ pub struct ImageBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 /// A UI node that is text
@@ -78,6 +85,8 @@ pub struct TextBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 impl Default for TextBundle {
@@ -91,6 +100,7 @@ impl Default for TextBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
+            computed_visibility: Default::default(),
         }
     }
 }
@@ -118,6 +128,8 @@ pub struct ButtonBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 impl Default for ButtonBundle {
@@ -133,6 +145,7 @@ impl Default for ButtonBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
+            computed_visibility: Default::default(),
         }
     }
 }

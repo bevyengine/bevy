@@ -141,7 +141,7 @@ pub fn extract_meshes(
 ) {
     let mut caster_values = Vec::with_capacity(*previous_caster_len);
     for (entity, computed_visibility, transform, handle, not_receiver) in caster_query.iter() {
-        if !computed_visibility.is_visible {
+        if !computed_visibility.is_visible() {
             continue;
         }
         let transform = transform.compute_matrix();
@@ -166,7 +166,7 @@ pub fn extract_meshes(
 
     let mut not_caster_values = Vec::with_capacity(*previous_not_caster_len);
     for (entity, computed_visibility, transform, mesh, not_receiver) in not_caster_query.iter() {
-        if !computed_visibility.is_visible {
+        if !computed_visibility.is_visible() {
             continue;
         }
         let transform = transform.compute_matrix();
@@ -250,7 +250,7 @@ pub fn extract_skinned_meshes(
     let mut last_start = 0;
 
     for (entity, computed_visibility, skin) in query.iter() {
-        if !computed_visibility.is_visible {
+        if !computed_visibility.is_visible() {
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?
