@@ -92,15 +92,9 @@ impl From<Box> for Mesh {
             ([sp.max_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [0., 1.0]),
         ];
 
-        let mut positions = Vec::with_capacity(24);
-        let mut normals = Vec::with_capacity(24);
-        let mut uvs = Vec::with_capacity(24);
-
-        for (position, normal, uv) in vertices.iter() {
-            positions.push(*position);
-            normals.push(*normal);
-            uvs.push(*uv);
-        }
+        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let indices = Indices::U32(vec![
             0, 1, 2, 2, 3, 0, // top
@@ -160,14 +154,9 @@ impl From<Quad> for Mesh {
 
         let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
 
-        let mut positions = Vec::<[f32; 3]>::new();
-        let mut normals = Vec::<[f32; 3]>::new();
-        let mut uvs = Vec::<[f32; 2]>::new();
-        for (position, normal, uv) in &vertices {
-            positions.push(*position);
-            normals.push(*normal);
-            uvs.push(*uv);
-        }
+        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));
@@ -204,14 +193,9 @@ impl From<Plane> for Mesh {
 
         let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
 
-        let mut positions = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        for (position, normal, uv) in &vertices {
-            positions.push(*position);
-            normals.push(*normal);
-            uvs.push(*uv);
-        }
+        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));

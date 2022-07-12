@@ -143,8 +143,8 @@ Example | Description
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
 [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
-[Headless with Defaults](../examples/app/headless_defaults.rs) | An application that runs with default plugins, but without an actual renderer
 [Logs](../examples/app/logs.rs) | Illustrate how to use generate log output
+[No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer
 [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited

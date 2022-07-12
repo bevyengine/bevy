@@ -41,27 +41,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Store parent entity for next sections
         .id();
 
-    // Another way to create a hierarchy is to add a Parent component to an entity,
-    // which would be added automatically to parents with other methods.
-    // Similarly, adding a Parent component will automatically add a Children component to the
-    // parent.
-    commands
-        .spawn_bundle(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(-250.0, 0.0, 0.0),
-                scale: Vec3::splat(0.75),
-                ..default()
-            },
-            texture: texture.clone(),
-            sprite: Sprite {
-                color: Color::RED,
-                ..default()
-            },
-            ..default()
-        })
-        // Using the entity from the previous section as the parent:
-        .insert(Parent(parent));
-
     // Another way is to use the push_children function to add children after the parent
     // entity has already been spawned.
     let child = commands
