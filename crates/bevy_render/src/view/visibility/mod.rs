@@ -44,8 +44,8 @@ pub struct ComputedVisibility {
 impl Default for ComputedVisibility {
     fn default() -> Self {
         Self {
-            is_visibile_in_hierarchy: true,
-            is_visible_in_view: true,
+            is_visibile_in_hierarchy: false,
+            is_visible_in_view: false,
         }
     }
 }
@@ -198,8 +198,8 @@ fn visibility_propagate_system(
 ) {
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
         computed_visibility.is_visibile_in_hierarchy = visibility.is_visible;
-        // reset "view" visibility here ... if configured to be invisible, it will not be visible to "views" either
-        computed_visibility.is_visible_in_view = visibility.is_visible;
+        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
+        computed_visibility.is_visible_in_view = false;
         if let Some(children) = children {
             for child in children.iter() {
                 let _ = propagate_recursive(
@@ -231,8 +231,8 @@ fn propagate_recursive(
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
         computed_visibility.is_visibile_in_hierarchy = visibility.is_visible && parent_visible;
-        // reset "view" visibility here ... if configured to be invisible, it will not be visible to "views" either
-        computed_visibility.is_visible_in_view = computed_visibility.is_visibile_in_hierarchy;
+        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
+        computed_visibility.is_visible_in_view = false;
         computed_visibility.is_visibile_in_hierarchy
     };
 
@@ -280,7 +280,6 @@ pub fn check_visibility(
 
                 let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                 if !view_mask.intersects(&entity_mask) {
-                    computed_visibility.is_visible_in_view = false;
                     return;
                 }
 
@@ -295,16 +294,15 @@ pub fn check_visibility(
                     };
                     // Do quick sphere-based frustum culling
                     if !frustum.intersects_sphere(&model_sphere, false) {
-                        computed_visibility.is_visible_in_view = false;
                         return;
                     }
                     // If we have an aabb, do aabb-based frustum culling
                     if !frustum.intersects_obb(model_aabb, &model, false) {
-                        computed_visibility.is_visible_in_view = false;
                         return;
                     }
                 }
 
+                computed_visibility.is_visible_in_view = true;
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);

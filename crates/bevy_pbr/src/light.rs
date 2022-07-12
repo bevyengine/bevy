@@ -1283,18 +1283,17 @@ pub fn check_light_mesh_visibility(
 
             let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
             if !view_mask.intersects(&entity_mask) {
-                computed_visibility.is_visible_in_view = false;
                 continue;
             }
 
             // If we have an aabb and transform, do frustum culling
             if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                 if !frustum.intersects_obb(aabb, &transform.compute_matrix(), true) {
-                    computed_visibility.is_visible_in_view = false;
                     continue;
                 }
             }
 
+            computed_visibility.is_visible_in_view = true;
             visible_entities.entities.push(entity);
         }
 
