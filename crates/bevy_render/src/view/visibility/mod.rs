@@ -341,7 +341,7 @@ pub fn check_visibility(
         visible_no_aabb_query.par_for_each_mut(
             1024,
             |(entity, mut computed_visibility, maybe_entity_mask)| {
-                // skip computing visibility for entities that are configured to be hidden. is_visible_in_camera has already been set to false
+                // skip computing visibility for entities that are configured to be hidden. is_visible_in_view has already been set to false
                 // in visibility_propagate_system
                 if !computed_visibility.is_visible_in_hierarchy() {
                     return;
