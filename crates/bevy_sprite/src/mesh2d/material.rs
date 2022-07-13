@@ -311,21 +311,11 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 }
 
-/// Common [`Material2d`] properties, calculated for a specific material instance.
-pub struct Material2dProperties {
-    // /// The [`AlphaMode`] of this material.
-    // pub alpha_mode: AlphaMode,
-    // /// Add a bias to the view depth of the mesh which can be used to force a specific render order
-    // /// for meshes with equal depth, to avoid z-fighting.
-    // pub depth_bias: f32,
-}
-
 /// Data prepared for a [`Material`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<OwnedBindingResource>,
     pub bind_group: BindGroup,
     pub key: T::Data,
-    pub properties: Material2dProperties,
 }
 
 struct ExtractedMaterials2d<M: Material2d> {
@@ -460,10 +450,6 @@ fn prepare_material2d<M: Material2d>(
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,
         key: prepared.data,
-        properties: Material2dProperties {
-            // alpha_mode: material.alpha_mode(),
-            // depth_bias: material.depth_bias(),
-        },
     })
 }
 
