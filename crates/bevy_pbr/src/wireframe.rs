@@ -6,6 +6,7 @@ use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::Extract;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -50,8 +51,8 @@ impl Plugin for WireframePlugin {
     }
 }
 
-fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wireframe>>) {
-    for entity in &query {
+fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<Wireframe>>>) {
+    for entity in query.iter() {
         commands.get_or_spawn(entity).insert(Wireframe);
     }
 }
