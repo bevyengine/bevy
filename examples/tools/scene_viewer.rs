@@ -238,7 +238,7 @@ fn setup_scene_after_load(
 
         info!("Spawning a controllable 3D perspective camera");
         let mut projection = PerspectiveProjection::default();
-        projection.far = projection.far.max(size * 10.0);
+        projection.far = projection.far.map(|far| far.max(size * 10.0));
         commands
             .spawn_bundle(Camera3dBundle {
                 projection: projection.into(),
