@@ -251,7 +251,6 @@ fn propagate_recursive(
     let is_visible = {
         let (visibility, mut computed_visibility, child_parent) =
             visibility_query.get_mut(entity).map_err(drop)?;
-        // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
         assert_eq!(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
