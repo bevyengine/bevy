@@ -45,9 +45,72 @@ use crate::{
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
-/// way to render [`Mesh2dHandle`] entities with custom shader logic. For materials that can specialize their [`RenderPipelineDescriptor`]
-/// based on specific material values, see [`SpecializedMaterial2d`]. [`Material2d`] automatically implements [`SpecializedMaterial2d`]
-/// and can be used anywhere that type is used (such as [`Material2dPlugin`]).
+/// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
+/// way to render [`Mesh2dHandle`] entities with custom shader logic.
+///
+/// Material2ds must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
+/// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
+///
+/// Materials must also implement [`TypeUuid`] so they can be treated as an [`Asset`](bevy_asset::Asset).
+///
+/// # Example
+///
+/// Here is a simple Material2d implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
+/// check out the [`AsBindGroup`] documentation.
+/// ```
+/// # use bevy_sprite::{Material2d, MaterialMesh2dBundle};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_reflect::TypeUuid;
+/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_asset::{Handle, AssetServer, Assets};
+///
+/// #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+/// #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+/// pub struct CustomMaterial {
+///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
+///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
+///     #[uniform(0)]
+///     color: Color,
+///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
+///     // add the sampler attribute with a different binding index.
+///     #[texture(1)]
+///     #[sampler(2)]
+///     color_texture: Handle<Image>,
+/// }
+///
+/// // All functions on `Material` have default impls. You only need to implement the
+/// // functions that are relevant for your material.
+/// impl Material2d for CustomMaterial {
+///     fn fragment_shader() -> ShaderRef {
+///         "shaders/custom_material.wgsl".into()
+///     }
+/// }
+///
+/// // Spawn an entity using `CustomMaterial`.
+/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+///     commands.spawn_bundle(MaterialMesh2dBundle {
+///         material: materials.add(CustomMaterial {
+///             color: Color::RED,
+///             color_texture: asset_server.load("some_image.png"),
+///         }),
+///         ..default()
+///     });
+/// }
+/// ```
+/// In WGSL shaders, the material's binding would look like this:
+///
+/// ```wgsl
+/// struct CustomMaterial {
+///     color: vec4<f32>;
+/// };
+///
+/// [[group(1), binding(0)]]
+/// var<uniform> material: CustomMaterial;
+/// [[group(1), binding(1)]]
+/// var color_texture: texture_2d<f32>;
+/// [[group(1), binding(2)]]
+/// var color_sampler: sampler;
+/// ```
 pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
     /// Returns this material's vertex shader. If [`None`] is returned, the default mesh vertex shader will be used.
     /// Defaults to [`None`].
@@ -453,7 +516,7 @@ fn prepare_material2d<M: Material2d>(
     })
 }
 
-/// A component bundle for entities with a [`Mesh2dHandle`] and a [`SpecializedMaterial2d`].
+/// A component bundle for entities with a [`Mesh2dHandle`] and a [`Material2d`].
 #[derive(Bundle, Clone)]
 pub struct MaterialMesh2dBundle<M: Material2d> {
     pub mesh: Mesh2dHandle,
