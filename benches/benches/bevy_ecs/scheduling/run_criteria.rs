@@ -147,7 +147,7 @@ pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
     fn yes_with_query(query: Query<&TestBool>) -> ShouldRun {
-        query.single().0.into();
+        query.single().0.into()
     }
     for amount in 0..21 {
         let mut stage = SystemStage::parallel();
