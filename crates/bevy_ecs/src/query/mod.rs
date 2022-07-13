@@ -657,6 +657,26 @@ mod tests {
                 .collect::<Vec<_>>();
             assert_eq!(custom_param_entities, normal_entities);
         }
+
+        {
+            #[derive(WorldQuery)]
+            struct IterCombAB {
+                a: &'static A,
+                b: &'static B,
+            }
+
+            let custom_param_data = world
+                .query::<IterCombAB>()
+                .iter_combinations::<2>(&world)
+                .map(|[item0, item1]| [(*item0.a, *item0.b), (*item1.a, *item1.b)])
+                .collect::<Vec<_>>();
+            let normal_data = world
+                .query::<(&A, &B)>()
+                .iter_combinations(&world)
+                .map(|[(a0, b0), (a1, b1)]| [(*a0, *b0), (*a1, *b1)])
+                .collect::<Vec<_>>();
+            assert_eq!(custom_param_data, normal_data);
+        }
     }
 
     #[test]
