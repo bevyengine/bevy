@@ -811,7 +811,7 @@ pub(crate) fn assign_lights_to_clusters(
     lights.extend(
         point_lights_query
             .iter()
-            .filter(|(.., visibility)| visibility.is_visibile_in_hierarchy)
+            .filter(|(.., visibility)| visibility.is_visible_in_hierarchy())
             .map(
                 |(entity, transform, point_light, _visibility)| PointLightAssignmentData {
                     entity,
@@ -1563,7 +1563,7 @@ pub fn check_light_mesh_visibility(
         visible_entities.entities.clear();
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled || !computed_visibility.is_visibile_in_hierarchy {
+        if !directional_light.shadows_enabled || !computed_visibility.is_visible_in_hierarchy() {
             continue;
         }
 
@@ -1572,7 +1572,7 @@ pub fn check_light_mesh_visibility(
         for (entity, mut computed_visibility, maybe_entity_mask, maybe_aabb, maybe_transform) in
             &mut visible_entity_query
         {
-            if !computed_visibility.is_visibile_in_hierarchy {
+            if !computed_visibility.is_visible_in_hierarchy() {
                 continue;
             }
 
@@ -1588,7 +1588,7 @@ pub fn check_light_mesh_visibility(
                 }
             }
 
-            computed_visibility.is_visible_in_view = true;
+            computed_visibility.set_visible_in_view();
             visible_entities.entities.push(entity);
         }
 
@@ -1652,12 +1652,12 @@ pub fn check_light_mesh_visibility(
                             .zip(cubemap_visible_entities.iter_mut())
                         {
                             if frustum.intersects_obb(aabb, &model_to_world, true) {
-                                computed_visibility.is_visible_in_view = true;
+                                computed_visibility.set_visible_in_view();
                                 visible_entities.entities.push(entity);
                             }
                         }
                     } else {
-                        computed_visibility.is_visible_in_view = true;
+                        computed_visibility.set_visible_in_view();
                         for visible_entities in cubemap_visible_entities.iter_mut() {
                             visible_entities.entities.push(entity);
                         }
@@ -1693,7 +1693,7 @@ pub fn check_light_mesh_visibility(
                     maybe_transform,
                 ) in visible_entity_query.iter_mut()
                 {
-                    if !computed_visibility.is_visibile_in_hierarchy {
+                    if !computed_visibility.is_visible_in_hierarchy() {
                         continue;
                     }
 
@@ -1711,11 +1711,11 @@ pub fn check_light_mesh_visibility(
                         }
 
                         if frustum.intersects_obb(aabb, &model_to_world, true) {
-                            computed_visibility.is_visible_in_view = true;
+                            computed_visibility.set_visible_in_view();
                             visible_entities.entities.push(entity);
                         }
                     } else {
-                        computed_visibility.is_visible_in_view = true;
+                        computed_visibility.set_visible_in_view();
                         visible_entities.entities.push(entity);
                     }
                 }
