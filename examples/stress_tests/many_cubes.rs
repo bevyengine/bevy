@@ -37,6 +37,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     const WIDTH: usize = 200;
     const HEIGHT: usize = 200;
     let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));

@@ -33,6 +33,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+    warn!(include_str!("warning_string.txt"));
+
     let mut rng = rand::thread_rng();
 
     let tile_size = Vec2::splat(64.0);

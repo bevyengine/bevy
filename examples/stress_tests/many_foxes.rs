@@ -73,6 +73,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     foxes: Res<Foxes>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![
         asset_server.load("models/animated/Fox.glb#Animation2"),
