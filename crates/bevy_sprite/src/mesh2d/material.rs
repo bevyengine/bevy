@@ -138,7 +138,7 @@ pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'st
     }
 }
 
-/// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`SpecializedMaterial2d`]
+/// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
 /// asset type (which includes [`Material2d`] types).
 pub struct Material2dPlugin<M: Material2d>(PhantomData<M>);
 
