@@ -93,7 +93,7 @@ use crate::{
 ///             color: Color::RED,
 ///             color_texture: asset_server.load("some_image.png"),
 ///         }),
-///         ..default()
+///         ..Default::default()
 ///     });
 /// }
 /// ```
