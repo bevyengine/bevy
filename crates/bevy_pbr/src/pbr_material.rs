@@ -192,7 +192,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if has_normal_map {
             match images
                 .get(self.normal_map_texture.as_ref().unwrap())
-                .unwrap()
+                .expect("expect normal map asset to have finished loading already")
                 .texture_format
             {
                 // All 2-component unorm formats
