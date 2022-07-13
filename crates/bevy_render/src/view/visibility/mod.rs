@@ -302,7 +302,7 @@ pub fn check_visibility(
                 transform,
                 maybe_no_frustum_culling,
             )| {
-                // skip computing visibility for entities that are configured to be hidden. is_visible_in_camera has already been set to false
+                // skip computing visibility for entities that are configured to be hidden. is_visible_in_view has already been set to false
                 // in visibility_propagate_system
                 if !computed_visibility.is_visible_in_hierarchy() {
                     return;
