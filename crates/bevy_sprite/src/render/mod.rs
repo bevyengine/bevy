@@ -406,6 +406,7 @@ pub fn queue_sprites(
 
         let extracted_sprites = &mut extracted_sprites.sprites;
         // Sort sprites by z for correct transparency and then by handle to improve batching
+        // NOTE: This can be done independent of views by reasonably assuming that all 2D views look along the negative-z axis in world space
         extracted_sprites.sort_unstable_by(|a, b| {
             match a
                 .transform
