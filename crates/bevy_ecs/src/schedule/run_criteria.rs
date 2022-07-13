@@ -56,6 +56,16 @@ impl ShouldRun {
     }
 }
 
+impl From<bool> for ShouldRun {
+    fn from(value: bool) -> Self {
+        if value {
+            ShouldRun::Yes
+        } else {
+            ShouldRun::No
+        }
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct BoxedRunCriteria {
     criteria_system: Option<BoxedSystem<(), ShouldRun>>,
