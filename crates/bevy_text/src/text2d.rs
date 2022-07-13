@@ -10,7 +10,11 @@ use bevy_ecs::{
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
-use bevy_render::{prelude::ComputedVisibility, texture::Image, view::Visibility, RenderWorld};
+use bevy_render::{
+    texture::Image,
+    view::{ComputedVisibility, Visibility},
+    Extract,
+};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
@@ -58,23 +62,24 @@ pub struct Text2dBundle {
     pub text_2d_size: Text2dSize,
     pub text_2d_bounds: Text2dBounds,
     pub visibility: Visibility,
+    pub computed_visibility: ComputedVisibility,
 }
 
 pub fn extract_text2d_sprite(
-    mut render_world: ResMut<RenderWorld>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    text_pipeline: Res<DefaultTextPipeline>,
-    windows: Res<Windows>,
-    text2d_query: Query<(
-        Entity,
-        &ComputedVisibility,
-        &Text,
-        &GlobalTransform,
-        &Text2dSize,
-    )>,
+    mut extracted_sprites: ResMut<ExtractedSprites>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    text_pipeline: Extract<Res<DefaultTextPipeline>>,
+    windows: Extract<Res<Windows>>,
+    text2d_query: Extract<
+        Query<(
+            Entity,
+            &ComputedVisibility,
+            &Text,
+            &GlobalTransform,
+            &Text2dSize,
+        )>,
+    >,
 ) {
-    let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
-
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
     for (entity, computed_visibility, text, transform, calculated_size) in text2d_query.iter() {
@@ -156,7 +161,7 @@ pub fn update_text2d_layout(
     let factor_changed = scale_factor_changed.iter().last().is_some();
     let scale_factor = windows.scale_factor(WindowId::primary());
 
-    for (entity, text_changed, text, maybe_bounds, mut calculated_size) in text_query.iter_mut() {
+    for (entity, text_changed, text, maybe_bounds, mut calculated_size) in &mut text_query {
         if factor_changed || text_changed || queue.remove(&entity) {
             let text_bounds = match maybe_bounds {
                 Some(bounds) => Vec2::new(

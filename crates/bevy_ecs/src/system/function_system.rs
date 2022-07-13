@@ -126,7 +126,7 @@ impl SystemMeta {
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
 ///     let mut event_reader = cached_state.event_state.get_mut(world);
 ///
-///     for events in event_reader.iter(){
+///     for events in event_reader.iter() {
 ///         println!("Hello World!");
 ///     };
 /// });
@@ -166,7 +166,7 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::Fetch: ReadOnlySystemParamFetch,
     {
         self.validate_world_and_update_archetypes(world);
-        // SAFE: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
+        // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
 
@@ -177,7 +177,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w mut World,
     ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         self.validate_world_and_update_archetypes(world);
-        // SAFE: World is uniquely borrowed and matches the World this SystemState was created with.
+        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
 
@@ -508,7 +508,7 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 ///
 /// // Unfortunately, we need all of these generics. `A` is the first system, with its
 /// // parameters and marker type required for coherence. `B` is the second system, and
-/// // the other generics are for the input/output types of A and B.
+/// // the other generics are for the input/output types of `A` and `B`.
 /// /// Chain creates a new system which calls `a`, then calls `b` with the output of `a`
 /// pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
 ///     mut a: A,

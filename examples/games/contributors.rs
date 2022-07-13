@@ -242,7 +242,7 @@ fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Tran
 fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
     let delta = time.delta_seconds();
 
-    for mut velocity in velocity_query.iter_mut() {
+    for mut velocity in &mut velocity_query {
         velocity.translation += Vec3::new(0.0, GRAVITY * delta, 0.0);
     }
 }
@@ -266,7 +266,7 @@ fn collision_system(
     let wall_left = -(window.width() / 2.);
     let wall_right = window.width() / 2.;
 
-    for (mut velocity, mut transform) in query.iter_mut() {
+    for (mut velocity, mut transform) in &mut query {
         let left = transform.translation.x - SPRITE_SIZE / 2.0;
         let right = transform.translation.x + SPRITE_SIZE / 2.0;
         let top = transform.translation.y + SPRITE_SIZE / 2.0;
@@ -299,7 +299,7 @@ fn collision_system(
 fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
 
-    for (velocity, mut transform) in query.iter_mut() {
+    for (velocity, mut transform) in &mut query {
         transform.translation += delta * velocity.translation;
         transform.rotate_z(velocity.rotation * delta);
     }

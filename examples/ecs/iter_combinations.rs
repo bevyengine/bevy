@@ -164,7 +164,7 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
 
 fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
     let dt_sq = (DELTA_TIME * DELTA_TIME) as f32;
-    for (mut acceleration, mut transform, mut last_pos) in query.iter_mut() {
+    for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)
 

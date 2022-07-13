@@ -134,7 +134,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let mut field_idents = Vec::new();
     let mut field_types = Vec::new();
 
-    for field in fields.iter() {
+    for field in fields {
         let WorldQueryFieldInfo { is_ignored, attrs } = read_world_query_field_info(field);
 
         let field_ident = field.ident.as_ref().unwrap().clone();

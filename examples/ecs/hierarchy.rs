@@ -41,27 +41,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Store parent entity for next sections
         .id();
 
-    // Another way to create a hierarchy is to add a Parent component to an entity,
-    // which would be added automatically to parents with other methods.
-    // Similarly, adding a Parent component will automatically add a Children component to the
-    // parent.
-    commands
-        .spawn_bundle(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(-250.0, 0.0, 0.0),
-                scale: Vec3::splat(0.75),
-                ..default()
-            },
-            texture: texture.clone(),
-            sprite: Sprite {
-                color: Color::RED,
-                ..default()
-            },
-            ..default()
-        })
-        // Using the entity from the previous section as the parent:
-        .insert(Parent(parent));
-
     // Another way is to use the push_children function to add children after the parent
     // entity has already been spawned.
     let child = commands
@@ -92,14 +71,14 @@ fn rotate(
     mut transform_query: Query<&mut Transform, With<Sprite>>,
 ) {
     let angle = std::f32::consts::PI / 2.0;
-    for (parent, children) in parents_query.iter_mut() {
+    for (parent, children) in &mut parents_query {
         if let Ok(mut transform) = transform_query.get_mut(parent) {
             transform.rotate_z(-angle * time.delta_seconds());
         }
 
         // To iterate through the entities children, just treat the Children component as a Vec
         // Alternatively, you could query entities that have a Parent component
-        for child in children.iter() {
+        for child in children {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
                 transform.rotate_z(angle * 2.0 * time.delta_seconds());
             }

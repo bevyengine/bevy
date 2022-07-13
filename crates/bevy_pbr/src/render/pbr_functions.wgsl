@@ -10,7 +10,9 @@ fn prepare_normal(
     world_tangent: vec4<f32>,
 #endif
 #endif
+#ifdef VERTEX_UVS
     uv: vec2<f32>,
+#endif
     is_front: bool,
 ) -> vec3<f32> {
     var N: vec3<f32> = normalize(world_normal);
@@ -39,6 +41,7 @@ fn prepare_normal(
     }
 
 #ifdef VERTEX_TANGENTS
+#ifdef VERTEX_UVS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
@@ -59,6 +62,7 @@ fn prepare_normal(
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
     N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
+#endif
 #endif
 #endif
 
@@ -169,8 +173,10 @@ fn pbr(
         view.inverse_view[3].z
     ), in.world_position);
     let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
-    let offset_and_count = unpack_offset_and_count(cluster_index);
-    for (var i: u32 = offset_and_count[0]; i < offset_and_count[0] + offset_and_count[1]; i = i + 1u) {
+    let offset_and_counts = unpack_offset_and_counts(cluster_index);
+
+    // point lights
+    for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = get_light_id(i);
         let light = point_lights.data[light_id];
         var shadow: f32 = 1.0;
@@ -179,6 +185,19 @@ fn pbr(
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+        light_accum = light_accum + light_contrib * shadow;
+    }
+
+    // spot lights
+    for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
+        let light_id = get_light_id(i);
+        let light = point_lights.data[light_id];
+        var shadow: f32 = 1.0;
+        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
+        }
+        let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
@@ -207,7 +226,7 @@ fn pbr(
         output_color,
         view_z,
         in.is_orthographic,
-        offset_and_count,
+        offset_and_counts,
         cluster_index,
     );
 

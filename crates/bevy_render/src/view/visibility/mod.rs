@@ -6,7 +6,7 @@ pub use render_layers::*;
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::{Children, HierarchySystem, Parent};
+use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
@@ -136,9 +136,7 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            visibility_propagate_system
-                .label(VisibilityPropagate)
-                .after(HierarchySystem::ParentUpdate),
+            visibility_propagate_system.label(VisibilityPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
@@ -159,7 +157,7 @@ pub fn calculate_bounds(
     meshes: Res<Assets<Mesh>>,
     without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
-    for (entity, mesh_handle) in without_aabb.iter() {
+    for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
                 commands.entity(entity).insert(aabb);
@@ -171,7 +169,7 @@ pub fn calculate_bounds(
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     mut views: Query<(&GlobalTransform, &T, &mut Frustum)>,
 ) {
-    for (transform, projection, mut frustum) in views.iter_mut() {
+    for (transform, projection, mut frustum) in &mut views {
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
         *frustum = Frustum::from_view_projection(
@@ -227,7 +225,7 @@ fn propagate_recursive(
             visibility_query.get_mut(entity).map_err(drop)?;
         // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
         assert_eq!(
-            child_parent.0, expected_parent,
+            child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
         computed_visibility.is_visibile_in_hierarchy = visibility.is_visible && parent_visible;
@@ -263,7 +261,7 @@ pub fn check_visibility(
         Without<Aabb>,
     >,
 ) {
-    for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
+    for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
         visible_entities.entities.clear();
         visible_aabb_query.par_for_each_mut(

@@ -1,4 +1,4 @@
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
@@ -162,7 +162,7 @@ impl WindowResizeConstraints {
 /// # App::new().add_system(access_window_system).run();
 /// # }
 /// fn access_window_system(mut windows: ResMut<Windows>){
-///     for mut window in windows.iter_mut(){
+///     for mut window in windows.iter_mut() {
 ///         window.set_title(String::from("Yay, I'm a window!"));
 ///     }
 /// }
@@ -202,7 +202,7 @@ pub enum WindowCommand {
     /// Set the window's [`WindowMode`].
     SetWindowMode {
         mode: WindowMode,
-        resolution: (u32, u32),
+        resolution: UVec2,
     },
     /// Set the window's title.
     SetTitle {
@@ -214,7 +214,7 @@ pub enum WindowCommand {
     },
     /// Set the window's resolution.
     SetResolution {
-        logical_resolution: (f32, f32),
+        logical_resolution: Vec2,
         scale_factor: f64,
     },
     /// Set the window's [`PresentMode`].
@@ -259,6 +259,8 @@ pub enum WindowCommand {
     SetPosition {
         position: IVec2,
     },
+    /// Modifies the position of the window to be in the center of the current monitor
+    Center(MonitorSelection),
     /// Set the window's [`WindowResizeConstraints`]
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
@@ -416,6 +418,17 @@ impl Window {
             .push(WindowCommand::SetPosition { position });
     }
 
+    /// Modifies the position of the window to be in the center of the current monitor
+    ///
+    /// # Platform-specific
+    /// - iOS: Can only be called on the main thread.
+    /// - Web / Android / Wayland: Unsupported.
+    #[inline]
+    pub fn center_window(&mut self, monitor_selection: MonitorSelection) {
+        self.command_queue
+            .push(WindowCommand::Center(monitor_selection));
+    }
+
     /// Modifies the minimum and maximum window bounds for resizing in logical pixels.
     #[inline]
     pub fn set_resize_constraints(&mut self, resize_constraints: WindowResizeConstraints) {
@@ -434,7 +447,7 @@ impl Window {
         self.requested_width = width;
         self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
-            logical_resolution: (self.requested_width, self.requested_height),
+            logical_resolution: Vec2::new(self.requested_width, self.requested_height),
             scale_factor: self.scale_factor(),
         });
     }
@@ -451,7 +464,7 @@ impl Window {
             scale_factor: self.scale_factor(),
         });
         self.command_queue.push(WindowCommand::SetResolution {
-            logical_resolution: (self.requested_width, self.requested_height),
+            logical_resolution: Vec2::new(self.requested_width, self.requested_height),
             scale_factor: self.scale_factor(),
         });
     }
@@ -655,7 +668,7 @@ impl Window {
         self.mode = mode;
         self.command_queue.push(WindowCommand::SetWindowMode {
             mode,
-            resolution: (self.physical_width, self.physical_height),
+            resolution: UVec2::new(self.physical_width, self.physical_height),
         });
     }
     /// Close the operating system window corresponding to this [`Window`].
@@ -714,6 +727,32 @@ impl Window {
     }
 }
 
+/// Defines where window should be placed at on creation.
+#[derive(Debug, Clone, Copy)]
+pub enum WindowPosition {
+    /// Position will be set by the window manager
+    Automatic,
+    /// Window will be centered on the selected monitor
+    ///
+    /// Note that this does not account for window decorations.
+    Centered(MonitorSelection),
+    /// The window's top-left corner will be placed at the specified position (in pixels)
+    ///
+    /// (0,0) represents top-left corner of screen space.
+    At(Vec2),
+}
+
+/// Defines which monitor to use.
+#[derive(Debug, Clone, Copy)]
+pub enum MonitorSelection {
+    /// Uses current monitor of the window.
+    Current,
+    /// Uses primary monitor of the system.
+    Primary,
+    /// Uses monitor with the specified index.
+    Number(usize),
+}
+
 /// Describes the information needed for creating a window.
 ///
 /// This should be set up before adding the [`WindowPlugin`](crate::WindowPlugin).
@@ -732,10 +771,8 @@ pub struct WindowDescriptor {
     ///
     /// May vary from the physical height due to different pixel density on different monitors.
     pub height: f32,
-    /// The position on the screen that the window will be centered at.
-    ///
-    /// If set to `None`, some platform-specific position will be chosen.
-    pub position: Option<Vec2>,
+    /// The position on the screen that the window will be placed at.
+    pub position: WindowPosition,
     /// Sets minimum and maximum resize limits.
     pub resize_constraints: WindowResizeConstraints,
     /// Overrides the window's ratio of physical pixels to logical pixels.
@@ -799,7 +836,7 @@ impl Default for WindowDescriptor {
             title: "app".to_string(),
             width: 1280.,
             height: 720.,
-            position: None,
+            position: WindowPosition::Automatic,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
             present_mode: PresentMode::Fifo,

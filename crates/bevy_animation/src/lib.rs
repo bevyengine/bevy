@@ -15,7 +15,7 @@ use bevy_ecs::{
     schedule::ParallelSystemDescriptorCoercion,
     system::{Query, Res},
 };
-use bevy_hierarchy::{Children, HierarchySystem};
+use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_time::Time;
@@ -183,7 +183,7 @@ pub fn animation_player(
     mut transforms: Query<&mut Transform>,
     children: Query<&Children>,
 ) {
-    for (entity, mut player) in animation_players.iter_mut() {
+    for (entity, mut player) in &mut animation_players {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
@@ -295,9 +295,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                animation_player
-                    .before(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
+                animation_player.before(TransformSystem::TransformPropagate),
             );
     }
 }

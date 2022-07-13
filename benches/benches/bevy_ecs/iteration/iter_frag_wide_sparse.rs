@@ -14,19 +14,22 @@ macro_rules! create_entities {
 #[derive(Component)]
 struct Data<const X: usize>(f32);
 
-pub struct Benchmark<'w>(World, QueryState<(
-    &'w mut Data<0>,
-    &'w mut Data<1>,
-    &'w mut Data<2>,
-    &'w mut Data<3>,
-    &'w mut Data<4>,
-    &'w mut Data<5>,
-    &'w mut Data<6>,
-    &'w mut Data<7>,
-    &'w mut Data<8>,
-    &'w mut Data<9>,
-    &'w mut Data<10>,
-)>);
+pub struct Benchmark<'w>(
+    World,
+    QueryState<(
+        &'w mut Data<0>,
+        &'w mut Data<1>,
+        &'w mut Data<2>,
+        &'w mut Data<3>,
+        &'w mut Data<4>,
+        &'w mut Data<5>,
+        &'w mut Data<6>,
+        &'w mut Data<7>,
+        &'w mut Data<8>,
+        &'w mut Data<9>,
+        &'w mut Data<10>,
+    )>,
+);
 
 impl<'w> Benchmark<'w> {
     pub fn new() -> Self {
@@ -64,17 +67,17 @@ impl<'w> Benchmark<'w> {
 
     pub fn run(&mut self) {
         for mut data in self.1.iter_mut(&mut self.0) {
-            data.0.0 *= 2.0;
-            data.1.0 *= 2.0;
-            data.2.0 *= 2.0;
-            data.3.0 *= 2.0;
-            data.4.0 *= 2.0;
-            data.5.0 *= 2.0;
-            data.6.0 *= 2.0;
-            data.7.0 *= 2.0;
-            data.8.0 *= 2.0;
-            data.9.0 *= 2.0;
-            data.10.0 *= 2.0;
+            data.0 .0 *= 2.0;
+            data.1 .0 *= 2.0;
+            data.2 .0 *= 2.0;
+            data.3 .0 *= 2.0;
+            data.4 .0 *= 2.0;
+            data.5 .0 *= 2.0;
+            data.6 .0 *= 2.0;
+            data.7 .0 *= 2.0;
+            data.8 .0 *= 2.0;
+            data.9 .0 *= 2.0;
+            data.10 .0 *= 2.0;
         }
     }
 }

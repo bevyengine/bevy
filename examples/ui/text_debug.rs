@@ -177,7 +177,7 @@ fn change_text_system(
     diagnostics: Res<Diagnostics>,
     mut query: Query<&mut Text, With<TextChanges>>,
 ) {
-    for mut text in query.iter_mut() {
+    for mut text in &mut query {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(fps_avg) = fps_diagnostic.average() {

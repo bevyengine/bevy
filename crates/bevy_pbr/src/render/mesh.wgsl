@@ -7,7 +7,9 @@
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
     [[location(1)]] normal: vec3<f32>;
+#ifdef VERTEX_UVS
     [[location(2)]] uv: vec2<f32>;
+#endif
 #ifdef VERTEX_TANGENTS
     [[location(3)]] tangent: vec4<f32>;
 #endif
@@ -24,7 +26,9 @@ struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
     [[location(0)]] world_position: vec4<f32>;
     [[location(1)]] world_normal: vec3<f32>;
+#ifdef VERTEX_UVS
     [[location(2)]] uv: vec2<f32>;
+#endif
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
 #endif
@@ -44,7 +48,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.world_normal = mesh_normal_local_to_world(vertex.normal);
 #endif
     out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+#ifdef VERTEX_UVS
     out.uv = vertex.uv;
+#endif
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
 #endif
@@ -60,7 +66,9 @@ struct FragmentInput {
     [[builtin(front_facing)]] is_front: bool;
     [[location(0)]] world_position: vec4<f32>;
     [[location(1)]] world_normal: vec3<f32>;
+#ifdef VERTEX_UVS
     [[location(2)]] uv: vec2<f32>;
+#endif
 #ifdef VERTEX_TANGENTS
     [[location(3)]] world_tangent: vec4<f32>;
 #endif

@@ -114,7 +114,7 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         )
         .entered();
 
-        // SAFE: EntityMut is consumed so even though the location is no longer
+        // SAFETY: EntityMut is consumed so even though the location is no longer
         // valid, it cannot be accessed again with the invalid location.
         unsafe {
             despawn_with_children_recursive(self.world_mut(), entity);
@@ -131,7 +131,7 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         )
         .entered();
 
-        // SAFE: The location is updated.
+        // SAFETY: The location is updated.
         unsafe {
             despawn_children(self.world_mut(), entity);
             self.update_location();

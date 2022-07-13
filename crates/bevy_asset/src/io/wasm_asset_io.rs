@@ -10,6 +10,16 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
 
+/// I/O implementation for web builds.
+///
+/// Implementation details:
+///
+/// - `load_path` makes [fetch()] requests.
+/// - `read_directory` always returns an empty iterator.
+/// - `get_metadata` will always return an error.
+/// - Watching for changes is not supported. The watcher methods will do nothing.
+///
+/// [fetch()]: https://developer.mozilla.org/en-US/docs/Web/API/fetch
 pub struct WasmAssetIo {
     root_path: PathBuf,
 }

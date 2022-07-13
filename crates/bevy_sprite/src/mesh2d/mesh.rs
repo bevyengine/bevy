@@ -17,7 +17,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
 
@@ -116,7 +116,7 @@ bitflags::bitflags! {
 pub fn extract_mesh2d(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Query<(Entity, &ComputedVisibility, &GlobalTransform, &Mesh2dHandle)>,
+    query: Extract<Query<(Entity, &ComputedVisibility, &GlobalTransform, &Mesh2dHandle)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, transform, handle) in query.iter() {
@@ -408,7 +408,7 @@ pub fn queue_mesh2d_view_bind_groups(
     views: Query<Entity, With<ExtractedView>>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        for entity in views.iter() {
+        for entity in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,
