@@ -90,7 +90,6 @@ struct BirdTexture(Handle<Image>);
 struct StatsText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    #[cfg(debug_assertions)]
     warn!(include_str!("warning_string.txt"));
 
     let texture = asset_server.load("branding/icon.png");

@@ -37,7 +37,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    #[cfg(debug_assertions)]
     warn!(include_str!("warning_string.txt"));
 
     const WIDTH: usize = 200;

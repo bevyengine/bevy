@@ -257,7 +257,6 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 }
 
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
-    #[cfg(debug_assertions)]
     warn!(include_str!("warning_string.txt"));
 
     let mut cam = Camera2dBundle::default();

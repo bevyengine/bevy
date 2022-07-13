@@ -73,7 +73,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     foxes: Res<Foxes>,
 ) {
-    #[cfg(debug_assertions)]
     warn!(include_str!("warning_string.txt"));
 
     // Insert a resource with the current scene information

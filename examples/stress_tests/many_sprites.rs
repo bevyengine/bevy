@@ -33,7 +33,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
-    #[cfg(debug_assertions)]
     warn!(include_str!("warning_string.txt"));
 
     let mut rng = rand::thread_rng();

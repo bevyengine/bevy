@@ -1,1 +1,1 @@
-Running a stress test example in debug mode. Please try running this example again in release mode using `--release` for a more representative performance result.
+This is a stress test used to push Bevy to its limit and debug performance issues. It is not representative of an actual game. It must be run in release mode using --release or it will be very slow.
