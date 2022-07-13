@@ -34,20 +34,11 @@ impl Default for Visibility {
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-#[derive(Component, Clone, Reflect, Debug)]
+#[derive(Component, Clone, Reflect, Debug, Eq, PartialEq, Default)]
 #[reflect(Component)]
 pub struct ComputedVisibility {
     pub is_visibile_in_hierarchy: bool,
     pub is_visible_in_view: bool,
-}
-
-impl Default for ComputedVisibility {
-    fn default() -> Self {
-        Self {
-            is_visibile_in_hierarchy: false,
-            is_visible_in_view: false,
-        }
-    }
 }
 
 impl ComputedVisibility {
@@ -345,114 +336,143 @@ mod test {
 
     use super::*;
 
-    use bevy_hierarchy::{parent_update_system, BuildWorldChildren, Children, Parent};
+    use bevy_hierarchy::BuildWorldChildren;
 
     #[test]
-    fn did_propagate() {
-        let mut world = World::default();
-
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
-        update_stage.add_system(visibility_propagate_system.after(parent_update_system));
-
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
-
-        // Root entity
-        world.spawn().insert(Visibility::default());
-
-        let mut children = Vec::new();
-        world
-            .spawn()
-            .insert(Visibility { is_visible: false })
-            .with_children(|parent| {
-                children.push(parent.spawn().insert(Visibility::default()).id());
-                children.push(parent.spawn().insert(Visibility::default()).id());
-            });
-        schedule.run(&mut world);
-
-        assert_eq!(
-            *world.get::<Visibility>(children[0]).unwrap(),
-            Visibility {
-                self_visible: true,
-                inherited: false,
-            }
-        );
-
-        assert_eq!(
-            *world.get::<Visibility>(children[1]).unwrap(),
-            Visibility {
-                self_visible: true,
-                inherited: false,
-            }
-        );
-    }
-
-    #[test]
-    fn correct_visibility_when_no_children() {
+    fn visibility_propagation() {
         let mut app = App::new();
+        app.add_system(visibility_propagate_system);
 
-        app.add_system(parent_update_system);
-        app.add_system(visibility_propagate_system.after(parent_update_system));
-
-        let parent = app
+        let root1 = app
             .world
             .spawn()
-            .insert(Visibility {
-                self_visible: false,
-                inherited: false,
-            })
-            .insert(GlobalTransform::default())
+            .insert_bundle((
+                Visibility { is_visible: false },
+                ComputedVisibility::default(),
+            ))
             .id();
-
-        let child = app
+        let root1_child1 = app
             .world
             .spawn()
-            .insert_bundle((Visibility::default(), Parent(parent)))
+            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
             .id();
-
-        let grandchild = app
+        let root1_child2 = app
             .world
             .spawn()
-            .insert_bundle((Visibility::default(), Parent(child)))
+            .insert_bundle((
+                Visibility { is_visible: false },
+                ComputedVisibility::default(),
+            ))
             .id();
+        let root1_child1_grandchild1 = app
+            .world
+            .spawn()
+            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .id();
+        let root1_child2_grandchild1 = app
+            .world
+            .spawn()
+            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .id();
+
+        app.world
+            .entity_mut(root1)
+            .push_children(&[root1_child1, root1_child2]);
+        app.world
+            .entity_mut(root1_child1)
+            .push_children(&[root1_child1_grandchild1]);
+        app.world
+            .entity_mut(root1_child2)
+            .push_children(&[root1_child2_grandchild1]);
+
+        let root2 = app
+            .world
+            .spawn()
+            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .id();
+        let root2_child1 = app
+            .world
+            .spawn()
+            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .id();
+        let root2_child2 = app
+            .world
+            .spawn()
+            .insert_bundle((
+                Visibility { is_visible: false },
+                ComputedVisibility::default(),
+            ))
+            .id();
+        let root2_child1_grandchild1 = app
+            .world
+            .spawn()
+            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .id();
+        let root2_child2_grandchild1 = app
+            .world
+            .spawn()
+            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .id();
+
+        app.world
+            .entity_mut(root2)
+            .push_children(&[root2_child1, root2_child2]);
+        app.world
+            .entity_mut(root2_child1)
+            .push_children(&[root2_child1_grandchild1]);
+        app.world
+            .entity_mut(root2_child2)
+            .push_children(&[root2_child2_grandchild1]);
 
         app.update();
 
-        // check the `Children` structure is spawned
-        assert_eq!(&**app.world.get::<Children>(parent).unwrap(), &[child]);
-        assert_eq!(&**app.world.get::<Children>(child).unwrap(), &[grandchild]);
-        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
-        app.update();
+        let is_visible = |e: Entity| {
+            app.world
+                .entity(e)
+                .get::<ComputedVisibility>()
+                .unwrap()
+                .is_visibile_in_hierarchy
+        };
+        assert!(
+            !is_visible(root1),
+            "invisibility propagates down tree from root"
+        );
+        assert!(
+            !is_visible(root1_child1),
+            "invisibility propagates down tree from root"
+        );
+        assert!(
+            !is_visible(root1_child2),
+            "invisibility propagates down tree from root"
+        );
+        assert!(
+            !is_visible(root1_child1_grandchild1),
+            "invisibility propagates down tree from root"
+        );
+        assert!(
+            !is_visible(root1_child2_grandchild1),
+            "invisibility propagates down tree from root"
+        );
 
-        let mut state = app.world.query::<&Visibility>();
-        for visibility in state.iter(&app.world) {
-            assert!(!visibility.is_visible());
-        }
-    }
-
-    #[test]
-    #[should_panic]
-    fn panic_when_hierarchy_cycle() {
-        let mut world = World::default();
-        // This test is run on a single thread in order to avoid breaking the global task pool by panicking
-        // This fixes the flaky tests reported in https://github.com/bevyengine/bevy/issues/4996
-        let mut update_stage = SystemStage::single_threaded();
-
-        update_stage.add_system(parent_update_system);
-        update_stage.add_system(visibility_propagate_system.after(parent_update_system));
-
-        let child = world.spawn().insert(Visibility::default()).id();
-
-        let grandchild = world
-            .spawn()
-            .insert_bundle((Visibility::default(), Parent(child)))
-            .id();
-        world
-            .spawn()
-            .insert_bundle((Visibility::default(), Children::with(&[child])));
-        world.entity_mut(child).insert(Parent(grandchild));
-
-        update_stage.run(&mut world);
+        assert!(
+            is_visible(root2),
+            "visibility propagates down tree from root"
+        );
+        assert!(
+            is_visible(root2_child1),
+            "visibility propagates down tree from root"
+        );
+        assert!(
+            !is_visible(root2_child2),
+            "visibility propagates down tree from root, but local invisibility is preserved"
+        );
+        assert!(
+            is_visible(root2_child1_grandchild1),
+            "visibility propagates down tree from root"
+        );
+        assert!(
+            !is_visible(root2_child2_grandchild1),
+            "child's invisibility propagates down to grandchild"
+        );
     }
 }
