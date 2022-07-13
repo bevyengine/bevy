@@ -66,10 +66,28 @@ pub trait Command: Send + Sync + 'static {
 /// fn my_system(mut commands: Commands) {
 ///    // ...
 /// }
+/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// Each command is implemented as a separate method.
-/// Check the [`Command`] trait for a list of available commands (or implement your own!).
+/// # Implementing
+///
+/// Each built-in command is implemented as a separate method, e.g. [`spawn`](#method.spawn).
+/// In addition to the pre-defined command methods, you can add commands with any arbitrary
+/// behavior using [`Commands::add`](#method.add), which accepts any type implementing [`Command`].
+///
+/// Since closures and other functions implement this trait automatically, this allows one-shot,
+/// anonymous custom commands.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # fn foo(mut commands: Commands) {
+/// // NOTE: type inference fails here, so annotations are required on the closure.
+/// commands.add(|w: &mut World| {
+///     // Mutate the world however you want...
+///     # todo!();
+/// });
+/// # }
+/// ```
 pub struct Commands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,
