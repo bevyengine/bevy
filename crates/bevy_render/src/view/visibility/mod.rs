@@ -71,7 +71,7 @@ impl ComputedVisibility {
     /// [`VisibilitySystems::CheckVisibility`] system label. Meshes might use frustum culling to decide if they are visible in a view.
     /// Other entities might just set this to `true` every frame.
     #[inline]
-    pub fn is_visibile_in_view(&self) -> bool {
+    pub fn is_visible_in_view(&self) -> bool {
         self.is_visible_in_view
     }
 
