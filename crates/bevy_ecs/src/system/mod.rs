@@ -122,9 +122,8 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
 pub fn assert_is_exclusive_system<
     Params,
     SystemType,
-    S: IntoExclusiveSystem<Params, SystemType>,
 >(
-    _sys: S,
+    _sys: impl IntoExclusiveSystem<Params, SystemType>,
 ) {
 }
 
