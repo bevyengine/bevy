@@ -122,6 +122,7 @@ pub fn extract_text2d_sprite(
                 let transform = text_transform.mul_transform(glyph_transform);
 
                 extracted_sprites.sprites.push(ExtractedSprite {
+                    entity,
                     transform,
                     color,
                     rect,

@@ -22,7 +22,9 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
-    view::{ComputedVisibility, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{
+        ComputedVisibility, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities,
+    },
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -30,6 +32,7 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
+use fixedbitset::FixedBitSet;
 
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
@@ -172,6 +175,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
 #[derive(Component, Clone, Copy)]
 pub struct ExtractedSprite {
+    pub entity: Entity,
     pub transform: GlobalTransform,
     pub color: Color,
     /// Select an area of the texture
@@ -224,6 +228,7 @@ pub fn extract_sprites(
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     sprite_query: Extract<
         Query<(
+            Entity,
             &ComputedVisibility,
             &Sprite,
             &GlobalTransform,
@@ -232,6 +237,7 @@ pub fn extract_sprites(
     >,
     atlas_query: Extract<
         Query<(
+            Entity,
             &ComputedVisibility,
             &TextureAtlasSprite,
             &GlobalTransform,
@@ -240,12 +246,13 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (visibility, sprite, transform, handle) in sprite_query.iter() {
+    for (entity, visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
         extracted_sprites.sprites.alloc().init(ExtractedSprite {
+            entity,
             color: sprite.color,
             transform: *transform,
             // Use the full texture
@@ -258,13 +265,14 @@ pub fn extract_sprites(
             anchor: sprite.anchor.as_vec(),
         });
     }
-    for (visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
+    for (entity, visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
             let rect = Some(texture_atlas.textures[atlas_sprite.index as usize]);
             extracted_sprites.sprites.alloc().init(ExtractedSprite {
+                entity,
                 color: atlas_sprite.color,
                 transform: *transform,
                 // Select the area in the texture atlas
@@ -341,6 +349,7 @@ pub struct ImageBindGroups {
 #[allow(clippy::too_many_arguments)]
 pub fn queue_sprites(
     mut commands: Commands,
+    mut view_entities: Local<FixedBitSet>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -353,7 +362,7 @@ pub fn queue_sprites(
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut views: Query<&mut RenderPhase<Transparent2d>>,
+    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -395,25 +404,25 @@ pub fn queue_sprites(
         let mut index = 0;
         let mut colored_index = 0;
 
-        // FIXME: VisibleEntities is ignored
-        for mut transparent_phase in &mut views {
-            let extracted_sprites = &mut extracted_sprites.sprites;
-            let image_bind_groups = &mut *image_bind_groups;
+        let extracted_sprites = &mut extracted_sprites.sprites;
+        // Sort sprites by z for correct transparency and then by handle to improve batching
+        extracted_sprites.sort_unstable_by(|a, b| {
+            match a
+                .transform
+                .translation
+                .z
+                .partial_cmp(&b.transform.translation.z)
+            {
+                Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
+                Some(other) => other,
+            }
+        });
+        let image_bind_groups = &mut *image_bind_groups;
 
+        for (visible_entities, mut transparent_phase) in &mut views {
+            view_entities.clear();
+            view_entities.extend(visible_entities.entities.iter().map(|e| e.id() as usize));
             transparent_phase.items.reserve(extracted_sprites.len());
-
-            // Sort sprites by z for correct transparency and then by handle to improve batching
-            extracted_sprites.sort_unstable_by(|a, b| {
-                match a
-                    .transform
-                    .translation
-                    .z
-                    .partial_cmp(&b.transform.translation.z)
-                {
-                    Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
-                    Some(other) => other,
-                }
-            });
 
             // Impossible starting values that will be replaced on the first iteration
             let mut current_batch = SpriteBatch {
@@ -427,7 +436,10 @@ pub fn queue_sprites(
             // Compatible items share the same entity.
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
             // by any other phase item (and they can interrupt other items from batching).
-            for extracted_sprite in extracted_sprites {
+            for extracted_sprite in extracted_sprites.iter() {
+                if !view_entities.contains(extracted_sprite.entity.id() as usize) {
+                    continue;
+                }
                 let new_batch = SpriteBatch {
                     image_handle_id: extracted_sprite.image_handle_id,
                     colored: extracted_sprite.color != Color::WHITE,
