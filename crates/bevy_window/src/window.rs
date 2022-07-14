@@ -38,7 +38,6 @@ pub enum PresentMode {
     ///
     /// Selecting this variant will panic if not supported, it is preferred to use
     /// [`PresentMode::AutoNoVsync`].
-    #[deprecated = "May panic if unsupported. Use PresentMode::AutoNoVsync"]
     Immediate = 2,
     /// The presentation engine waits for the next vertical blanking period to update
     /// the current image, but frames may be submitted without delay. This is a low-latency
@@ -47,15 +46,10 @@ pub enum PresentMode {
     ///
     /// Selecting this variant will panic if not supported, it is preferred to use
     /// [`PresentMode::AutoNoVsync`].
-    #[deprecated = "May panic if unsupported. Use PresentMode::AutoNoVsync"]
     Mailbox = 3,
     /// The presentation engine waits for the next vertical blanking period to update
     /// the current image. The framerate will be capped at the display refresh rate,
     /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
-    ///
-    /// Selecting this variant will panic if not supported, it is preferred to use
-    /// [`PresentMode::AutoVsync`].
-    #[deprecated = "May panic if unsupported. Use PresentMode::AutoVsync"]
     Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
 }
 
@@ -859,7 +853,7 @@ impl Default for WindowDescriptor {
             position: WindowPosition::Automatic,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
-            present_mode: PresentMode::AutoVsync,
+            present_mode: PresentMode::Fifo,
             resizable: true,
             decorations: true,
             cursor_locked: false,
