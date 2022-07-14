@@ -3,6 +3,8 @@
 //!
 //! It sets up many sprites in different sizes and rotations, and at different scales in the world,
 //! and moves the camera over them to see how well frustum culling works.
+//!
+//! Add the `--colored` arg to run with color tinted sprites
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -18,12 +20,17 @@ const CAMERA_SPEED: f32 = 1000.0;
 
 const COLORS: [Color; 3] = [Color::BLUE, Color::WHITE, Color::RED];
 
+struct ColorTint(bool);
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             present_mode: PresentMode::Immediate,
             ..default()
         })
+        .insert_resource(ColorTint(
+            std::env::args().nth(1).unwrap_or_default() == "--colored",
+        ))
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
@@ -34,7 +41,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<ColorTint>) {
     warn!(include_str!("warning_string.txt"));
 
     let mut rng = rand::thread_rng();
@@ -71,7 +78,11 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 },
                 sprite: Sprite {
                     custom_size: Some(tile_size),
-                    color: COLORS[rng.gen_range(0..3)],
+                    color: if color_tint.0 {
+                        COLORS[rng.gen_range(0..3)]
+                    } else {
+                        Color::WHITE
+                    },
                     ..default()
                 },
                 ..default()
