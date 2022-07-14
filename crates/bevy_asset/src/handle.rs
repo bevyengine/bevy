@@ -55,7 +55,7 @@ impl HandleId {
     /// Creates a random id for an asset of type `T`.
     #[inline]
     pub fn random<T: Asset>() -> Self {
-        HandleId::Id(T::TYPE_UUID, rand::random())
+        HandleId::Id(T::TYPE_UUID, fastrand::u64(..))
     }
 
     /// Creates the default id for an asset of type `T`.
