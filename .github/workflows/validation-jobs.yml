@@ -63,7 +63,7 @@ jobs:
 
   run-examples-on-windows-dx12:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
 
