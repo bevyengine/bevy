@@ -342,7 +342,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             return None;
         }
 
-        // TODO: can speed up the following code using `cursor.remaining()` instead of `next_item.is_none()`
+        // PERF: can speed up the following code using `cursor.remaining()` instead of `next_item.is_none()`
         // when Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL
         //
         // let `i` be the index of `c`, the last cursor in `self.cursors` that
