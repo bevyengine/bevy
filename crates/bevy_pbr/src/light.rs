@@ -1556,14 +1556,19 @@ pub fn check_light_mesh_visibility(
         (Without<NotShadowCaster>, Without<DirectionalLight>),
     >,
 ) {
-    // Directonal lights
-    for (directional_light, frustum, mut visible_entities, maybe_view_mask, computed_visibility) in
-        &mut directional_lights
+    // Directional lights
+    for (
+        directional_light,
+        frustum,
+        mut visible_entities,
+        maybe_view_mask,
+        light_computed_visibility,
+    ) in &mut directional_lights
     {
         visible_entities.entities.clear();
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-        if !directional_light.shadows_enabled || !computed_visibility.is_visible_in_hierarchy() {
+        if !directional_light.shadows_enabled || !light_computed_visibility.is_visible() {
             continue;
         }
 
@@ -1630,7 +1635,7 @@ pub fn check_light_mesh_visibility(
                     maybe_transform,
                 ) in &mut visible_entity_query
                 {
-                    if !computed_visibility.is_visible() {
+                    if !computed_visibility.is_visible_in_hierarchy() {
                         continue;
                     }
 
