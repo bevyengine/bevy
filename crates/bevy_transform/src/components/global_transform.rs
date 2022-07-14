@@ -91,7 +91,7 @@ impl GlobalTransform {
 
     /// Get an upper bound of the radius from the given `extents`.
     #[inline]
-    pub fn radius(&self, extents: Vec3) -> f32 {
+    pub fn radius_vec3a(&self, extents: Vec3) -> f32 {
         (self.0.matrix3 * extents).length()
     }
 

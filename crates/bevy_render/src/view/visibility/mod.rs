@@ -218,7 +218,7 @@ pub fn check_visibility(
                     let model = transform.compute_matrix();
                     let model_sphere = Sphere {
                         center: model.transform_point3a(model_aabb.center),
-                        radius: transform.radius(model_aabb.half_extents.into()),
+                        radius: transform.radius_vec3a(model_aabb.half_extents.into()),
                     };
                     // Do quick sphere-based frustum culling
                     if !frustum.intersects_sphere(&model_sphere, false) {
