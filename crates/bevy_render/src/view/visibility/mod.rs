@@ -45,7 +45,7 @@ pub struct ComputedVisibility {
 }
 
 impl ComputedVisibility {
-    /// Whether this entity is visible to something this frame. This is true if and only if [`is_visible_in_hierarchy()`] and [`is_visible_in_view()`]
+    /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
     /// are true. This is the canonical method to call to determine if an entity should be drawn.
     /// This value is updated in [`CoreStage::PostUpdate`] during the [`VisibilitySystems::CheckVisibility`] system label. Reading it from the
     /// [`CoreStage::Update`] stage will yield the value from the previous frame.
