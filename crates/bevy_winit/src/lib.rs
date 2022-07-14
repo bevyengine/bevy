@@ -18,7 +18,7 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
 };
-use bevy_math::{ivec2, DVec2, Vec2};
+use bevy_math::{ivec2, DVec2, UVec2, Vec2};
 use bevy_utils::{
     tracing::{error, info, trace, warn},
     Instant,
@@ -74,7 +74,11 @@ fn change_window(
             match command {
                 bevy_window::WindowCommand::SetWindowMode {
                     mode,
-                    resolution: (width, height),
+                    resolution:
+                        UVec2 {
+                            x: width,
+                            y: height,
+                        },
                 } => {
                     let window = winit_windows.get_window(id).unwrap();
                     match mode {
@@ -105,7 +109,11 @@ fn change_window(
                     window_dpi_changed_events.send(WindowScaleFactorChanged { id, scale_factor });
                 }
                 bevy_window::WindowCommand::SetResolution {
-                    logical_resolution: (width, height),
+                    logical_resolution:
+                        Vec2 {
+                            x: width,
+                            y: height,
+                        },
                     scale_factor,
                 } => {
                     let window = winit_windows.get_window(id).unwrap();

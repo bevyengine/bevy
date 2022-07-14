@@ -88,7 +88,7 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
 
 // This system updates the score for each entity with the "Player" and "Score" component.
 fn score_system(mut query: Query<(&Player, &mut Score)>) {
-    for (player, mut score) in query.iter_mut() {
+    for (player, mut score) in &mut query {
         let scored_a_point = random::<bool>();
         if scored_a_point {
             score.value += 1;
@@ -114,7 +114,7 @@ fn score_check_system(
     mut game_state: ResMut<GameState>,
     query: Query<(&Player, &Score)>,
 ) {
-    for (player, score) in query.iter() {
+    for (player, score) in &query {
         if score.value == game_rules.winning_score {
             game_state.winning_player = Some(player.name.clone());
         }

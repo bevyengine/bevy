@@ -189,6 +189,7 @@ impl Camera {
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
+    #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
         camera_transform: &GlobalTransform,
@@ -314,7 +315,7 @@ pub enum DepthCalculation {
     /// Pythagorean distance; works everywhere, more expensive to compute.
     #[default]
     Distance,
-    /// Optimization for 2D; assuming the camera points towards -Z.
+    /// Optimization for 2D; assuming the camera points towards `-Z`.
     ZDifference,
 }
 
@@ -362,10 +363,10 @@ pub fn camera_system<T: CameraProjection + Component>(
         .collect();
 
     let mut added_cameras = vec![];
-    for entity in &mut queries.p1().iter() {
+    for entity in &queries.p1() {
         added_cameras.push(entity);
     }
-    for (entity, mut camera, mut camera_projection) in queries.p0().iter_mut() {
+    for (entity, mut camera, mut camera_projection) in &mut queries.p0() {
         if camera
             .target
             .is_changed(&changed_window_ids, &changed_image_handles)

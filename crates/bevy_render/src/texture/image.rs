@@ -381,7 +381,10 @@ impl Image {
                 let image_crate_format = format.as_image_crate_format().ok_or_else(|| {
                     TextureError::UnsupportedTextureFormat(format!("{:?}", format))
                 })?;
-                let dyn_img = image::load_from_memory_with_format(buffer, image_crate_format)?;
+                let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
+                reader.set_format(image_crate_format);
+                reader.no_limits();
+                let dyn_img = reader.decode()?;
                 Ok(image_to_texture(dyn_img, is_srgb))
             }
         }
@@ -519,6 +522,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::R16Float
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
+            | TextureFormat::R16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rgba16Uint
             | TextureFormat::Rgba16Sint
@@ -552,6 +556,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::R8Sint
             | TextureFormat::R16Uint
             | TextureFormat::R16Sint
+            | TextureFormat::R16Unorm
             | TextureFormat::R16Float
             | TextureFormat::R32Uint
             | TextureFormat::R32Sint

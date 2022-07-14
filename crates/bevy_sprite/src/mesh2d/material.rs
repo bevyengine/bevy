@@ -310,7 +310,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
         return;
     }
     let render_device = render_device.into_inner();
-    for (visible_entities, mut transparent_phase) in views.iter_mut() {
+    for (visible_entities, mut transparent_phase) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions
             .read()
             .get_id::<DrawMaterial2d<M>>()

@@ -343,17 +343,26 @@ where
         if max_size < K {
             return (0, Some(0));
         }
+        if max_size == K {
+            return (1, Some(1));
+        }
 
-        // n! / k!(n-k)! = (n*n-1*...*n-k+1) / k!
-        let max_combinations = (0..K)
-            .try_fold(1usize, |n, i| n.checked_mul(max_size - i))
-            .map(|n| {
-                let k_factorial: usize = (1..=K).product();
-                n / k_factorial
-            });
+        // binomial coefficient: (n ; k) = n! / k!(n-k)! = (n*n-1*...*n-k+1) / k!
+        // See https://en.wikipedia.org/wiki/Binomial_coefficient
+        // See https://blog.plover.com/math/choose.html for implementation
+        // It was chosen to reduce overflow potential.
+        fn choose(n: usize, k: usize) -> Option<usize> {
+            let ks = 1..=k;
+            let ns = (n - k + 1..=n).rev();
+            ks.zip(ns)
+                .try_fold(1_usize, |acc, (k, n)| Some(acc.checked_mul(n)? / k))
+        }
+        let smallest = K.min(max_size - K);
+        let max_combinations = choose(max_size, smallest);
 
         let archetype_query = F::Fetch::IS_ARCHETYPAL && Q::Fetch::IS_ARCHETYPAL;
-        let min_combinations = if archetype_query { max_size } else { 0 };
+        let known_max = max_combinations.unwrap_or(usize::MAX);
+        let min_combinations = if archetype_query { known_max } else { 0 };
         (min_combinations, max_combinations)
     }
 }
@@ -369,6 +378,21 @@ where
             .iter()
             .map(|id| self.archetypes[*id].len())
             .sum()
+    }
+}
+
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery + ArchetypeFilter, const K: usize>
+    ExactSizeIterator for QueryCombinationIter<'w, 's, Q, F, K>
+where
+    QueryFetch<'w, Q>: Clone,
+    QueryFetch<'w, F>: Clone,
+{
+    /// Returns the exact length of the iterator.
+    ///
+    /// **NOTE**: When the iterator length overflows `usize`, this will
+    /// return `usize::MAX`.
+    fn len(&self) -> usize {
+        self.size_hint().0
     }
 }
 

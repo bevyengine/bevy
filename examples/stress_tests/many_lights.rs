@@ -35,6 +35,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     const LIGHT_RADIUS: f32 = 0.3;
     const LIGHT_INTENSITY: f32 = 5.0;
     const RADIUS: f32 = 50.0;

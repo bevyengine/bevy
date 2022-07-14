@@ -53,7 +53,7 @@ pub fn scene_spawner(
     >,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
-    for (entity, scene, instance) in scene_to_spawn.iter_mut() {
+    for (entity, scene, instance) in &mut scene_to_spawn {
         let new_instance = scene_spawner.spawn_as_child(scene.clone(), entity);
         if let Some(mut old_instance) = instance {
             scene_spawner.despawn_instance(**old_instance);
@@ -62,7 +62,7 @@ pub fn scene_spawner(
             commands.entity(entity).insert(SceneInstance(new_instance));
         }
     }
-    for (entity, dynamic_scene, instance) in dynamic_scene_to_spawn.iter_mut() {
+    for (entity, dynamic_scene, instance) in &mut dynamic_scene_to_spawn {
         let new_instance = scene_spawner.spawn_dynamic_as_child(dynamic_scene.clone(), entity);
         if let Some(mut old_instance) = instance {
             scene_spawner.despawn_instance(**old_instance);

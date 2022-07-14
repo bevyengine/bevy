@@ -343,7 +343,7 @@ fn move_paddle(
 }
 
 fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
-    for (mut transform, velocity) in query.iter_mut() {
+    for (mut transform, velocity) in &mut query {
         transform.translation.x += velocity.x * TIME_STEP;
         transform.translation.y += velocity.y * TIME_STEP;
     }
@@ -365,7 +365,7 @@ fn check_for_collisions(
     let ball_size = ball_transform.scale.truncate();
 
     // check collision with walls
-    for (collider_entity, transform, maybe_brick) in collider_query.iter() {
+    for (collider_entity, transform, maybe_brick) in &collider_query {
         let collision = collide(
             ball_transform.translation,
             ball_size,

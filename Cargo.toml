@@ -594,12 +594,12 @@ category = "Application"
 wasm = false
 
 [[example]]
-name = "headless_defaults"
-path = "examples/app/headless_defaults.rs"
+name = "no_renderer"
+path = "examples/app/no_renderer.rs"
 
-[package.metadata.example.headless_defaults]
-name = "Headless with Defaults"
-description = "An application that runs with default plugins, but without an actual renderer"
+[package.metadata.example.no_renderer]
+name = "No Renderer"
+description = "An application that runs with default plugins and displays an empty window, but without an actual renderer"
 category = "Application"
 wasm = false
 
@@ -1232,7 +1232,7 @@ path = "examples/stress_tests/many_animated_sprites.rs"
 
 [package.metadata.example.many_animated_sprites]
 name = "Many Animated Sprites"
-description = "Displays many animated sprites in a grid arragement with slight offsets to their animation timers. Used for performance testing."
+description = "Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
 category = "Stress Tests"
 wasm = true
 
@@ -1272,7 +1272,7 @@ path = "examples/stress_tests/many_sprites.rs"
 
 [package.metadata.example.many_sprites]
 name = "Many Sprites"
-description = "Displays many sprites in a grid arragement! Used for performance testing"
+description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
 

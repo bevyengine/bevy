@@ -282,9 +282,9 @@ pub enum ClusterFarZMode {
 /// Configure the depth-slicing strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone)]
 pub struct ClusterZConfig {
-    /// Far z plane of the first depth slice
+    /// Far `Z` plane of the first depth slice
     pub first_slice_depth: f32,
-    /// Strategy for how to evaluate the far z plane of the furthest depth slice
+    /// Strategy for how to evaluate the far `Z` plane of the furthest depth slice
     pub far_z_mode: ClusterFarZMode,
 }
 
@@ -305,24 +305,24 @@ pub enum ClusterConfig {
     /// One single cluster. Optimal for low-light complexity scenes or scenes where
     /// most lights affect the entire scene.
     Single,
-    /// Explicit x, y and z counts (may yield non-square x/y clusters depending on the aspect ratio)
+    /// Explicit `X`, `Y` and `Z` counts (may yield non-square `X/Y` clusters depending on the aspect ratio)
     XYZ {
         dimensions: UVec3,
         z_config: ClusterZConfig,
-        /// Specify if clusters should automatically resize in x/y if there is a risk of exceeding
+        /// Specify if clusters should automatically resize in `X/Y` if there is a risk of exceeding
         /// the available cluster-light index limit
         dynamic_resizing: bool,
     },
-    /// Fixed number of z slices, x and y calculated to give square clusters
+    /// Fixed number of `Z` slices, `X` and `Y` calculated to give square clusters
     /// with at most total clusters. For top-down games where lights will generally always be within a
-    /// short depth range, it may be useful to use this configuration with 1 or few z slices. This
+    /// short depth range, it may be useful to use this configuration with 1 or few `Z` slices. This
     /// would reduce the number of lights per cluster by distributing more clusters in screen space
-    /// x/y which matches how lights are distributed in the scene.
+    /// `X/Y` which matches how lights are distributed in the scene.
     FixedZ {
         total: u32,
         z_slices: u32,
         z_config: ClusterZConfig,
-        /// Specify if clusters should automatically resize in x/y if there is a risk of exceeding
+        /// Specify if clusters should automatically resize in `X/Y` if there is a risk of exceeding
         /// the available cluster-light index limit
         dynamic_resizing: bool,
     },
@@ -331,7 +331,7 @@ pub enum ClusterConfig {
 impl Default for ClusterConfig {
     fn default() -> Self {
         // 24 depth slices, square clusters with at most 4096 total clusters
-        // use max light distance as clusters max Z-depth, first slice extends to 5.0
+        // use max light distance as clusters max `Z`-depth, first slice extends to 5.0
         Self::FixedZ {
             total: 4096,
             z_slices: 24,
@@ -414,7 +414,7 @@ impl ClusterConfig {
 pub struct Clusters {
     /// Tile size
     pub(crate) tile_size: UVec2,
-    /// Number of clusters in x / y / z in the view frustum
+    /// Number of clusters in `X` / `Y` / `Z` in the view frustum
     pub(crate) dimensions: UVec3,
     /// Distance to the far plane of the first depth slice. The first depth slice is special
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
@@ -461,7 +461,7 @@ pub fn add_clusters(
     mut commands: Commands,
     cameras: Query<(Entity, Option<&ClusterConfig>), (With<Camera>, Without<Clusters>)>,
 ) {
-    for (entity, config) in cameras.iter() {
+    for (entity, config) in &cameras {
         let config = config.copied().unwrap_or_default();
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
         commands
@@ -557,10 +557,10 @@ fn ndc_position_to_cluster(
 const VEC2_HALF: Vec2 = Vec2::splat(0.5);
 const VEC2_HALF_NEGATIVE_Y: Vec2 = Vec2::new(0.5, -0.5);
 
-// Calculate bounds for the light using a view space aabb.
-// Returns a (Vec3, Vec3) containing min and max with
-//     x and y in normalized device coordinates with range [-1, 1]
-//     z in view space, with range [-inf, -f32::MIN_POSITIVE]
+/// Calculate bounds for the light using a view space aabb.
+/// Returns a `(Vec3, Vec3)` containing minimum and maximum with
+///     `X` and `Y` in normalized device coordinates with range `[-1, 1]`
+///     `Z` in view space, with range `[-inf, -f32::MIN_POSITIVE]`
 fn cluster_space_light_aabb(
     inverse_view_transform: Mat4,
     projection_matrix: Mat4,
@@ -905,7 +905,7 @@ pub(crate) fn assign_lights_to_clusters(
     }
 
     for (view_entity, camera_transform, camera, frustum, config, clusters, mut visible_lights) in
-        views.iter_mut()
+        &mut views
     {
         let clusters = clusters.into_inner();
 
@@ -1418,7 +1418,7 @@ pub fn update_directional_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<DirectionalLight>)>,
     >,
 ) {
-    for (transform, directional_light, mut frustum, visibility) in views.iter_mut() {
+    for (transform, directional_light, mut frustum, visibility) in &mut views {
         // The frustum is used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frustum is
         // not needed.
@@ -1452,7 +1452,7 @@ pub fn update_point_light_frusta(
         .map(|CubeMapFace { target, up }| Transform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
 
-    for (entity, transform, point_light, mut cubemap_frusta) in views.iter_mut() {
+    for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
         // not needed.
@@ -1556,7 +1556,7 @@ pub fn check_light_mesh_visibility(
 ) {
     // Directonal lights
     for (directional_light, frustum, mut visible_entities, maybe_view_mask, visibility) in
-        directional_lights.iter_mut()
+        &mut directional_lights
     {
         visible_entities.entities.clear();
 
@@ -1574,7 +1574,7 @@ pub fn check_light_mesh_visibility(
             maybe_entity_mask,
             maybe_aabb,
             maybe_transform,
-        ) in visible_entity_query.iter_mut()
+        ) in &mut visible_entity_query
         {
             if !visibility.is_visible {
                 continue;
@@ -1600,7 +1600,7 @@ pub fn check_light_mesh_visibility(
         // to prevent holding unneeded memory
     }
 
-    for visible_lights in visible_point_lights.iter() {
+    for visible_lights in &visible_point_lights {
         for light_entity in visible_lights.entities.iter().copied() {
             // Point lights
             if let Ok((
@@ -1633,7 +1633,7 @@ pub fn check_light_mesh_visibility(
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
-                ) in visible_entity_query.iter_mut()
+                ) in &mut visible_entity_query
                 {
                     if !visibility.is_visible {
                         continue;

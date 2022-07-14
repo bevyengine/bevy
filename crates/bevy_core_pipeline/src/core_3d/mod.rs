@@ -236,7 +236,7 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera) in views_3d.iter() {
+    for (entity, camera) in &views_3d {
         if let Some(physical_target_size) = camera.physical_target_size {
             let cached_texture = textures
                 .entry(camera.target.clone())

@@ -200,6 +200,10 @@ impl Plugin for RenderPlugin {
                 .insert_resource(asset_server)
                 .init_resource::<RenderGraph>();
 
+            let (sender, receiver) = bevy_time::create_time_channels();
+            app.insert_resource(receiver);
+            render_app.insert_resource(sender);
+
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
                 let _render_span = bevy_utils::tracing::info_span!("renderer subapp").entered();
