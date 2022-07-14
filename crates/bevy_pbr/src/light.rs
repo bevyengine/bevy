@@ -811,7 +811,7 @@ pub(crate) fn assign_lights_to_clusters(
     lights.extend(
         point_lights_query
             .iter()
-            .filter(|(.., visibility)| visibility.is_visible_in_hierarchy())
+            .filter(|(.., visibility)| visibility.is_visible())
             .map(
                 |(entity, transform, point_light, _visibility)| PointLightAssignmentData {
                     entity,

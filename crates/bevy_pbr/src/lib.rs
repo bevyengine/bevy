@@ -158,6 +158,7 @@ impl Plugin for PbrPlugin {
                 CoreStage::PostUpdate,
                 update_directional_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
+                    // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
                     .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate),
             )
