@@ -1,5 +1,5 @@
 use crate::{
-    schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
+    schedule::{GraphNode, RunCriteriaLabel, RunCriteriaLabelId},
     system::{BoxedSystem, IntoSystem, Local},
     world::World,
 };
@@ -104,9 +104,9 @@ pub(crate) enum RunCriteriaInner {
 pub(crate) struct RunCriteriaContainer {
     pub(crate) should_run: ShouldRun,
     pub(crate) inner: RunCriteriaInner,
-    pub(crate) label: Option<BoxedRunCriteriaLabel>,
-    pub(crate) before: Vec<BoxedRunCriteriaLabel>,
-    pub(crate) after: Vec<BoxedRunCriteriaLabel>,
+    pub(crate) label: Option<RunCriteriaLabelId>,
+    pub(crate) before: Vec<RunCriteriaLabelId>,
+    pub(crate) after: Vec<RunCriteriaLabelId>,
 }
 
 impl RunCriteriaContainer {
@@ -139,7 +139,7 @@ impl RunCriteriaContainer {
 }
 
 impl GraphNode for RunCriteriaContainer {
-    type Label = BoxedRunCriteriaLabel;
+    type Label = RunCriteriaLabelId;
 
     fn name(&self) -> Cow<'static, str> {
         match &self.inner {
@@ -148,7 +148,7 @@ impl GraphNode for RunCriteriaContainer {
         }
     }
 
-    fn labels(&self) -> &[BoxedRunCriteriaLabel] {
+    fn labels(&self) -> &[RunCriteriaLabelId] {
         if let Some(ref label) = self.label {
             std::slice::from_ref(label)
         } else {
@@ -156,18 +156,18 @@ impl GraphNode for RunCriteriaContainer {
         }
     }
 
-    fn before(&self) -> &[BoxedRunCriteriaLabel] {
+    fn before(&self) -> &[RunCriteriaLabelId] {
         &self.before
     }
 
-    fn after(&self) -> &[BoxedRunCriteriaLabel] {
+    fn after(&self) -> &[RunCriteriaLabelId] {
         &self.after
     }
 }
 
 pub enum RunCriteriaDescriptorOrLabel {
     Descriptor(RunCriteriaDescriptor),
-    Label(BoxedRunCriteriaLabel),
+    Label(RunCriteriaLabelId),
 }
 
 #[derive(Clone, Copy)]
@@ -178,10 +178,10 @@ pub(crate) enum DuplicateLabelStrategy {
 
 pub struct RunCriteriaDescriptor {
     pub(crate) system: RunCriteriaSystem,
-    pub(crate) label: Option<BoxedRunCriteriaLabel>,
+    pub(crate) label: Option<RunCriteriaLabelId>,
     pub(crate) duplicate_label_strategy: DuplicateLabelStrategy,
-    pub(crate) before: Vec<BoxedRunCriteriaLabel>,
-    pub(crate) after: Vec<BoxedRunCriteriaLabel>,
+    pub(crate) before: Vec<RunCriteriaLabelId>,
+    pub(crate) after: Vec<RunCriteriaLabelId>,
 }
 
 pub(crate) enum RunCriteriaSystem {
@@ -222,12 +222,12 @@ where
     }
 }
 
-impl<L> IntoRunCriteria<BoxedRunCriteriaLabel> for L
+impl<L> IntoRunCriteria<RunCriteriaLabelId> for L
 where
     L: RunCriteriaLabel,
 {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
-        RunCriteriaDescriptorOrLabel::Label(Box::new(self))
+        RunCriteriaDescriptorOrLabel::Label(self.as_label())
     }
 }
 
@@ -254,24 +254,24 @@ pub trait RunCriteriaDescriptorCoercion<Param> {
 
 impl RunCriteriaDescriptorCoercion<()> for RunCriteriaDescriptor {
     fn label(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.label = Some(Box::new(label));
+        self.label = Some(label.as_label());
         self.duplicate_label_strategy = DuplicateLabelStrategy::Panic;
         self
     }
 
     fn label_discard_if_duplicate(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.label = Some(Box::new(label));
+        self.label = Some(label.as_label());
         self.duplicate_label_strategy = DuplicateLabelStrategy::Discard;
         self
     }
 
     fn before(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.before.push(Box::new(label));
+        self.before.push(label.as_label());
         self
     }
 
     fn after(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.after.push(Box::new(label));
+        self.after.push(label.as_label());
         self
     }
 }
@@ -327,7 +327,7 @@ where
 }
 
 pub struct RunCriteria {
-    label: BoxedRunCriteriaLabel,
+    label: RunCriteriaLabelId,
 }
 
 impl RunCriteria {
@@ -342,7 +342,7 @@ impl RunCriteria {
             label: None,
             duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
-            after: vec![Box::new(label)],
+            after: vec![label.as_label()],
         }
     }
 }
