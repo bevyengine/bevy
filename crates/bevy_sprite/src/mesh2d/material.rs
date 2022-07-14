@@ -170,11 +170,6 @@ where
     }
 }
 
-// pub struct Material2dPipelineKey<T> {
-//     mesh_key: MeshPipelineKey,
-//     material_key: T
-// }
-
 /// Render pipeline data for a given [`Material2d`]
 pub struct Material2dPipeline<M: Material2d> {
     pub mesh2d_pipeline: Mesh2dPipeline,
