@@ -98,7 +98,7 @@ mod test {
     use bevy_app::prelude::*;
     use bevy_ecs::prelude::*;
     use bevy_ecs::system::CommandQueue;
-    use bevy_math::{vec3, Affine3A};
+    use bevy_math::vec3;
 
     use crate::components::{GlobalTransform, Transform};
     use crate::systems::transform_propagate_system;
