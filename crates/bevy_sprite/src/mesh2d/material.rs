@@ -78,7 +78,7 @@ use crate::{
 ///     color_texture: Handle<Image>,
 /// }
 ///
-/// // All functions on `Material` have default impls. You only need to implement the
+/// // All functions on `Material2d` have default impls. You only need to implement the
 /// // functions that are relevant for your material.
 /// impl Material2d for CustomMaterial {
 ///     fn fragment_shader() -> ShaderRef {
@@ -374,7 +374,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 }
 
-/// Data prepared for a [`Material`] instance.
+/// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<OwnedBindingResource>,
     pub bind_group: BindGroup,
