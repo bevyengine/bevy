@@ -34,10 +34,9 @@ pub mod prelude {
         event::{EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
-            AmbiguitySetLabel, AmbiguitySetLabelId, ExclusiveSystemDescriptorCoercion,
-            ParallelSystemDescriptorCoercion, RunCriteria, RunCriteriaDescriptorCoercion,
-            RunCriteriaLabel, RunCriteriaLabelId, Schedule, Stage, StageLabel, StageLabelId, State,
-            SystemLabel, SystemLabelId, SystemSet, SystemStage,
+            AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
+            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage,
+            StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
             Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
