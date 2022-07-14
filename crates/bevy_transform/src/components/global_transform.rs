@@ -78,7 +78,7 @@ impl GlobalTransform {
 
     /// Returns the 3d affine transformation matrix as an [`Affine3A`].
     #[inline]
-    pub fn compute_affine(&self) -> Affine3A {
+    pub fn affine(&self) -> Affine3A {
         self.0
     }
 
