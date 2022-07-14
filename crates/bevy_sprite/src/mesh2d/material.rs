@@ -112,14 +112,14 @@ use crate::{
 /// var color_sampler: sampler;
 /// ```
 pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
-    /// Returns this material's vertex shader. If [`None`] is returned, the default mesh vertex shader will be used.
-    /// Defaults to [`None`].
+    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
+    /// will be used.
     fn vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's fragment shader. If [`None`] is returned, the default mesh fragment shader will be used.
-    /// Defaults to [`None`].
+    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default mesh fragment shader
+    /// will be used.
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
