@@ -61,9 +61,9 @@ jobs:
       - name: Build APK
         run: cargo apk build --example android_example
 
-  run-examples-on-windows:
+  run-examples-on-windows-dx12:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
 
@@ -91,7 +91,7 @@ jobs:
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo "running $example_name - "`date`
-            time CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
+            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
             sleep 10
           done
 

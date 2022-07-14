@@ -16,7 +16,7 @@ status = [
     "miri",
     "check-compiles",
     "build-and-install-on-iOS",
-    "run-examples-on-windows",
+    "run-examples-on-windows-dx12",
 ]
 
 use_squash_merge = true

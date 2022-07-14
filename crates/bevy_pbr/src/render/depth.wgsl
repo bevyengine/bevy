@@ -1,14 +1,14 @@
 #import bevy_pbr::mesh_view_types
 #import bevy_pbr::mesh_types
 
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var<uniform> mesh: Mesh;
 
 #ifdef SKINNED
-[[group(1), binding(1)]]
+@group(1) @binding(1)
 var<uniform> joint_matrices: SkinnedMesh;
 #import bevy_pbr::skinning
 #endif
@@ -17,18 +17,18 @@ var<uniform> joint_matrices: SkinnedMesh;
 #import bevy_pbr::mesh_functions
 
 struct Vertex {
-    [[location(0)]] position: vec3<f32>;
+    @location(0) position: vec3<f32>,
 #ifdef SKINNED
-    [[location(4)]] joint_indices: vec4<u32>;
-    [[location(5)]] joint_weights: vec4<f32>;
+    @location(4) joint_indices: vec4<u32>,
+    @location(5) joint_weights: vec4<f32>,
 #endif
 };
 
 struct VertexOutput {
-    [[builtin(position)]] clip_position: vec4<f32>;
+    @builtin(position) clip_position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef SKINNED
     let model = skin_model(vertex.joint_indices, vertex.joint_weights);

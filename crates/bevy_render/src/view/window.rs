@@ -169,6 +169,8 @@ pub fn prepare_windows(
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
                 PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
                 PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
         };
 

@@ -166,7 +166,7 @@ pub struct FragmentState {
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
     /// The color state of the render targets.
-    pub targets: Vec<ColorTargetState>,
+    pub targets: Vec<Option<ColorTargetState>>,
 }
 
 /// Describes a compute pipeline.
