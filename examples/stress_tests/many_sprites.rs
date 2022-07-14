@@ -4,7 +4,8 @@
 //! It sets up many sprites in different sizes and rotations, and at different scales in the world,
 //! and moves the camera over them to see how well frustum culling works.
 //!
-//! Add the `--colored` arg to run with color tinted sprites
+//! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
+//! in multiple batches, reducing performance but useful for testing.
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
