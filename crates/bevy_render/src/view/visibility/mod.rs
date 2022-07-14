@@ -20,7 +20,10 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
-/// User indication of whether an entity is visible. Hidden values will propagate down the entity hierarchy.
+/// User indication of whether an entity is visible. Propagates down the entity hierarchy.
+
+/// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
+/// This is done by setting the values of their [`ComputedVisibility`] component.
 #[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Component, Default)]
 pub struct Visibility {
@@ -55,7 +58,7 @@ impl ComputedVisibility {
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
-    /// This takes into account "visibility inheritance". If any of this entity's ancestors are hidden, this entity
+    /// This takes into account "visibility inheritance". If any of this entity's ancestors (see [`Parent`]) are hidden, this entity
     /// will be hidden as well. This value is updated in the [`CoreStage::PostUpdate`] stage in the
     /// [`VisibilitySystems::VisibilityPropagate`] system label.
     #[inline]
@@ -246,6 +249,7 @@ fn propagate_recursive(
     children_query: &Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
     entity: Entity,
     expected_parent: Entity,
+    // BLOCKED: https://github.com/rust-lang/rust/issues/31436
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
     let is_visible = {
