@@ -295,7 +295,7 @@ path = "examples/3d/lines.rs"
 
 [package.metadata.example.lines]
 name = "Lines"
-description = "Simple way to draw 3d lines"
+description = "Create a custom material to draw 3d lines"
 category = "3D Rendering"
 wasm = true
 
