@@ -1,4 +1,4 @@
-//! A simple way to draw lines without any plugins
+//! Create a custom material to draw basic lines in 3D
 
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
