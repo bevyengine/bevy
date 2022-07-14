@@ -114,14 +114,12 @@ use crate::{
 pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
     /// Returns this material's vertex shader. If [`None`] is returned, the default mesh vertex shader will be used.
     /// Defaults to [`None`].
-    #[allow(unused_variables)]
     fn vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's fragment shader. If [`None`] is returned, the default mesh fragment shader will be used.
     /// Defaults to [`None`].
-    #[allow(unused_variables)]
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
