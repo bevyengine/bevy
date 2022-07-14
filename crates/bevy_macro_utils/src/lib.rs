@@ -141,7 +141,7 @@ pub fn derive_label(
         .predicates
         .push(syn::parse2(quote! { Self: 'static }).unwrap());
 
-    let as_str = match input.data {
+    let (data, as_str) = match input.data {
         syn::Data::Struct(d) => {
             // see if the user tried to ignore fields incorrectly
             if let Some(attr) = d
@@ -160,7 +160,9 @@ pub fn derive_label(
             let ignore_fields = input.attrs.iter().any(|a| is_ignore(a, attr_name));
             if matches!(d.fields, syn::Fields::Unit) || ignore_fields {
                 let lit = ident.to_string();
-                quote! { #lit }
+                let data = quote! { 0 };
+                let as_str = quote! { #lit };
+                (data, as_str)
             } else {
                 let err_msg = format!("Labels cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
                 return quote_spanned! {
@@ -178,26 +180,42 @@ pub fn derive_label(
                 }
                 .into();
             }
-            let arms = d.variants.iter().map(|v| {
+
+            let mut data_arms = Vec::with_capacity(d.variants.len());
+            let mut str_arms = Vec::with_capacity(d.variants.len());
+
+            for (i, v) in d.variants.iter().enumerate() {
                 // Variants must either be fieldless, or explicitly ignore the fields.
                 let ignore_fields = v.attrs.iter().any(|a| is_ignore(a, attr_name));
                 if matches!(v.fields, syn::Fields::Unit) | ignore_fields {
                     let mut path = syn::Path::from(ident.clone());
                     path.segments.push(v.ident.clone().into());
+
+                    let i = i as u64;
+                    data_arms.push(quote! { #path { .. } => #i });
+
                     let lit = format!("{ident}::{}", v.ident.clone());
-                    quote! { #path { .. } => #lit }
+                    str_arms.push(quote! { #path { .. } => #lit });
                 } else {
                     let err_msg = format!("Label variants cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
-                    quote_spanned! {
+                    return quote_spanned! {
                         v.fields.span() => _ => { compile_error!(#err_msg); }
                     }
-                }
-            });
-            quote! {
-                match self {
-                    #(#arms),*
+                    .into();
                 }
             }
+
+            let data = quote! {
+                match self {
+                    #(#data_arms),*
+                }
+            };
+            let as_str = quote! {
+                match self {
+                    #(#str_arms),*
+                }
+            };
+            (data, as_str)
         }
         syn::Data::Union(_) => {
             return quote_spanned! {
@@ -209,6 +227,9 @@ pub fn derive_label(
 
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
+            fn data(&self) -> u64 {
+                #data
+            }
             fn as_str(&self) -> &'static str {
                 #as_str
             }

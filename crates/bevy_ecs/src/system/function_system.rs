@@ -458,6 +458,10 @@ impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
     fn as_str(&self) -> &'static str {
         std::any::type_name::<T>()
     }
+    #[inline]
+    fn data(&self) -> u64 {
+        0
+    }
 }
 
 impl<T> Debug for SystemTypeIdLabel<T> {

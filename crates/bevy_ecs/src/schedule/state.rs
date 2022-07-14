@@ -60,6 +60,9 @@ impl RunCriteriaLabel for DriverLabel {
     fn type_id(&self) -> core::any::TypeId {
         self.0
     }
+    fn data(&self) -> u64 {
+        0
+    }
     fn as_str(&self) -> &'static str {
         self.1
     }

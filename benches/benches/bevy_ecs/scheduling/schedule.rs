@@ -69,6 +69,9 @@ pub fn build_schedule(criterion: &mut Criterion) {
     struct DummyLabel;
 
     impl SystemLabel for NumLabel {
+        fn data(&self) -> u64 {
+            self.0 as u64
+        }
         fn as_str(&self) -> &'static str {
             let s = self.0.to_string();
             Box::leak(s.into_boxed_str())

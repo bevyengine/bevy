@@ -70,12 +70,12 @@ macro_rules! define_label {
         $id_name:ident $(,)?
     ) => {
         $(#[$id_attr])*
-        #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-        pub struct $id_name(::core::any::TypeId, &'static str);
+        #[derive(Clone, Copy)]
+        pub struct $id_name(::core::any::TypeId, u64, &'static str);
 
         impl ::core::fmt::Debug for $id_name {
             fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                write!(f, "{}", self.1)
+                write!(f, "{}", self.as_str())
             }
         }
 
@@ -83,14 +83,17 @@ macro_rules! define_label {
         pub trait $label_name: 'static {
             /// Converts this type into an opaque, strongly-typed label.
             fn as_label(&self) -> $id_name {
-                let id = self.type_id();
-                let label = self.as_str();
-                $id_name(id, label)
+                let ty = self.type_id();
+                let data = self.data();
+                let text = self.as_str();
+                $id_name(ty, data, text)
             }
             /// Returns the [`TypeId`] used to differentiate labels.
             fn type_id(&self) -> ::core::any::TypeId {
                 ::core::any::TypeId::of::<Self>()
             }
+            /// Returns a number used to distinguish different labels of the same type.
+            fn data(&self) -> u64;
             /// Returns the representation of this label as a string literal.
             ///
             /// In cases where you absolutely need a label to be determined at runtime,
@@ -105,14 +108,27 @@ macro_rules! define_label {
             fn type_id(&self) -> ::core::any::TypeId {
                 self.0
             }
-            fn as_str(&self) -> &'static str {
+            fn data(&self) -> u64 {
                 self.1
+            }
+            fn as_str(&self) -> &'static str {
+                self.2
             }
         }
 
-        impl $label_name for &'static str {
-            fn as_str(&self) -> Self {
-                self
+        impl PartialEq for $id_name {
+            #[inline]
+            fn eq(&self, rhs: &Self) -> bool {
+                self.type_id() == rhs.type_id() && self.data() == rhs.data()
+            }
+        }
+        impl Eq for $id_name {}
+
+
+        impl std::hash::Hash for $id_name {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                self.type_id().hash(state);
+                self.data().hash(state);
             }
         }
     };
