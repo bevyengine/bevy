@@ -44,7 +44,7 @@ pub use path::*;
 use bevy_app::{prelude::Plugin, App};
 use bevy_ecs::schedule::{StageLabel, SystemStage};
 
-/// The names of asset stages in an App Schedule
+/// The names of asset stages in an [`App`] schedule.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum AssetStage {
     /// The stage where asset storages are updated.

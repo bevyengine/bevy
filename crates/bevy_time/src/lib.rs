@@ -20,7 +20,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{prelude::*, schedule::SystemLabel};
+use bevy_ecs::prelude::*;
 
 /// Adds time functionality to Apps.
 #[derive(Default)]
