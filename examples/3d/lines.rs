@@ -105,13 +105,15 @@ impl From<LineList> for Mesh {
         // This tells wgpu that the positions are list of lines
         // where every pair is a start and end point
         let mut mesh = Mesh::new(PrimitiveTopology::LineList);
+
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+        // Normals are currently required by bevy, but they aren't used by the [`LineMaterial`]
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh
     }
 }
 
-/// A list of lines with a start and end position
+/// A list of points that will have a line drawn between each consecutive points
 #[derive(Debug, Clone)]
 pub struct LineStrip {
     pub points: Vec<Vec3>,
@@ -126,10 +128,12 @@ impl From<LineStrip> for Mesh {
             normals.push(Vec3::ZERO.to_array());
         }
 
-        // This tells wgpu that the positions are list of lines
+        // This tells wgpu that the positions are a list of points
         // where a line will be drawn between each consecutive point
         let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
+
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+        // Normals are currently required by bevy, but they aren't used by the [`LineMaterial`]
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh
     }
