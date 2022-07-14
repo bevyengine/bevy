@@ -9,7 +9,7 @@ use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Affine3A, Mat4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
@@ -249,12 +249,11 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 .spawn()
                 .insert(ExtractedView {
                     projection: projection.get_projection_matrix(),
-                    transform: Affine3A::from_translation(Vec3::new(
+                    transform: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                    ))
-                    .into(),
+                    ),
                     width: physical_size.x,
                     height: physical_size.y,
                 })

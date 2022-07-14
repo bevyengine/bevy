@@ -140,16 +140,12 @@ mod test {
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from(
-                Transform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
-            )
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
         );
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from(
-                Transform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
-            )
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
         );
     }
 
@@ -185,16 +181,12 @@ mod test {
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from(
-                Transform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
-            )
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
         );
 
         assert_eq!(
             *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from(
-                Transform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
-            )
+            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
         );
     }
 
@@ -328,7 +320,7 @@ mod test {
 
         let mut state = app.world.query::<&GlobalTransform>();
         for global in state.iter(&app.world) {
-            assert_eq!(global, &Affine3A::from_translation(translation).into());
+            assert_eq!(global, &GlobalTransform::from_translation(translation));
         }
     }
 

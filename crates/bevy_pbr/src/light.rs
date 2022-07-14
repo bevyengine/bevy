@@ -1,9 +1,7 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{
-    Affine3A, Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
-};
+use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
@@ -825,7 +823,7 @@ pub(crate) fn assign_lights_to_clusters(
             .map(
                 |(entity, transform, point_light, _visibility)| PointLightAssignmentData {
                     entity,
-                    transform: Affine3A::from_translation(transform.translation()).into(),
+                    transform: GlobalTransform::from_translation(transform.translation()),
                     shadows_enabled: point_light.shadows_enabled,
                     range: point_light.range,
                     spot_light_angle: None,

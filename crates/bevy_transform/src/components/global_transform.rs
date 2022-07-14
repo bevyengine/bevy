@@ -1,6 +1,8 @@
+use std::ops::Mul;
+
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat4, Vec3, Vec3A};
+use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
 use bevy_reflect::Reflect;
 
 /// Describe the position of an entity relative to the reference frame.
@@ -44,6 +46,30 @@ macro_rules! impl_local_axis {
 }
 
 impl GlobalTransform {
+    #[doc(hidden)]
+    #[inline]
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self::from_translation(Vec3::new(x, y, z))
+    }
+
+    #[doc(hidden)]
+    #[inline]
+    pub fn from_translation(translation: Vec3) -> Self {
+        GlobalTransform(Affine3A::from_translation(translation))
+    }
+
+    #[doc(hidden)]
+    #[inline]
+    pub fn from_rotation(rotation: Quat) -> Self {
+        GlobalTransform(Affine3A::from_rotation_translation(rotation, Vec3::ZERO))
+    }
+
+    #[doc(hidden)]
+    #[inline]
+    pub fn from_scale(scale: Vec3) -> Self {
+        GlobalTransform(Affine3A::from_scale(scale))
+    }
+
     /// Returns the 3d affine transformation matrix as a [`Mat4`].
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
@@ -81,6 +107,12 @@ impl GlobalTransform {
     #[inline]
     pub fn translation(&self) -> Vec3 {
         self.0.translation.into()
+    }
+
+    /// Mutably access the internal translation.
+    #[inline]
+    pub fn translation_mut(&mut self) -> &mut Vec3A {
+        &mut self.0.translation
     }
 
     /// Get the translation as a [`Vec3A`].
@@ -129,5 +161,32 @@ impl From<Affine3A> for GlobalTransform {
 impl From<Mat4> for GlobalTransform {
     fn from(matrix: Mat4) -> Self {
         Self(Affine3A::from_mat4(matrix))
+    }
+}
+
+impl Mul<GlobalTransform> for GlobalTransform {
+    type Output = GlobalTransform;
+
+    #[inline]
+    fn mul(self, global_transform: GlobalTransform) -> Self::Output {
+        GlobalTransform(self.0 * global_transform.0)
+    }
+}
+
+impl Mul<Transform> for GlobalTransform {
+    type Output = GlobalTransform;
+
+    #[inline]
+    fn mul(self, transform: Transform) -> Self::Output {
+        self.mul_transform(transform)
+    }
+}
+
+impl Mul<Vec3> for GlobalTransform {
+    type Output = Vec3;
+
+    #[inline]
+    fn mul(self, value: Vec3) -> Self::Output {
+        self.mul_vec3(value)
     }
 }

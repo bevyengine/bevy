@@ -966,7 +966,7 @@ pub fn prepare_lights(
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
-            let view_translation = Transform::from_translation(light.transform.translation());
+            let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
             for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                 let depth_texture_view =
@@ -997,7 +997,7 @@ pub fn prepare_lights(
                         ExtractedView {
                             width: point_light_shadow_map.size as u32,
                             height: point_light_shadow_map.size as u32,
-                            transform: GlobalTransform::from(view_translation * *view_rotation),
+                            transform: view_translation * *view_rotation,
                             projection: cube_face_projection,
                         },
                         RenderPhase::<Shadow>::default(),
