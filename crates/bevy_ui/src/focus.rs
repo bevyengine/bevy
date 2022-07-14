@@ -32,6 +32,21 @@ pub enum Interaction {
     None,
 }
 
+impl Interaction {
+    #[inline]
+    pub fn is_clicked(&self) -> bool {
+        matches!(self, Interaction::Clicked)
+    }
+    #[inline]
+    pub fn is_hovered(&self) -> bool {
+        matches!(self, Interaction::Hovered)
+    }
+    #[inline]
+    pub fn is_none(&self) -> bool {
+        matches!(self, Interaction::None)
+    }
+}
+
 /// Describes whether the node should block interactions with lower nodes
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
