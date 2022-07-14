@@ -305,13 +305,13 @@ pub fn extract_text_uinodes(
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
 
-                let transform = Transform::from(*global_transform);
-                let extracted_transform =
-                    Mat4::from_rotation_translation(transform.rotation, transform.translation)
-                        * Mat4::from_scale(transform.scale / scale_factor)
-                        * Mat4::from_translation(
-                            alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                        );
+                let (scale, rotation, translation) =
+                    global_transform.to_scale_rotation_translation();
+                let extracted_transform = Mat4::from_rotation_translation(rotation, translation)
+                    * Mat4::from_scale(scale / scale_factor)
+                    * Mat4::from_translation(
+                        alignment_offset * scale_factor + text_glyph.position.extend(0.),
+                    );
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: extracted_transform,

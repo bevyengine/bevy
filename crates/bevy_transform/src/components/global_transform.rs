@@ -83,6 +83,9 @@ impl GlobalTransform {
     }
 
     /// Returns the transformation as a [`Transform`].
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output
+    /// will be invalid.
     #[inline]
     pub fn compute_transform(&self) -> Transform {
         let (scale, rotation, translation) = self.0.to_scale_rotation_translation();
@@ -91,6 +94,15 @@ impl GlobalTransform {
             rotation,
             scale,
         }
+    }
+
+    /// Extracts `scale`, `rotation` and `translation` from `self`.
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output
+    /// will be invalid.
+    #[inline]
+    pub fn to_scale_rotation_translation(&self) -> (Vec3, Quat, Vec3) {
+        self.0.to_scale_rotation_translation()
     }
 
     /// Creates a new identity [`GlobalTransform`], that maps all points in space to themselves.
