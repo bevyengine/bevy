@@ -16,6 +16,8 @@ use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
+const COLORS: [Color; 3] = [Color::BLUE, Color::WHITE, Color::RED];
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -69,6 +71,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 },
                 sprite: Sprite {
                     custom_size: Some(tile_size),
+                    color: COLORS[rng.gen_range(0..3)],
                     ..default()
                 },
                 ..default()
