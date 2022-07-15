@@ -15,7 +15,7 @@ jobs:
   build:
     strategy:
       matrix:
-        toolchain: [stable, ${{env.NIGHTLY_TOOLCHAIN}}]
+        toolchain: [stable, ${env.NIGHTLY_TOOLCHAIN}]
         os: [windows-latest, ubuntu-latest, macos-latest]
         exclude:
           - os: macos-latest
@@ -135,7 +135,7 @@ jobs:
   build-wasm:
     strategy:
       matrix:
-        toolchain: [stable, ${{env.NIGHTLY_TOOLCHAIN}}]
+        toolchain: [stable, ${env.NIGHTLY_TOOLCHAIN}]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     needs: build
