@@ -47,6 +47,9 @@ where
     }
 }
 
+#[doc(hidden)]
+pub use concat_idents::concat_idents;
+
 /// Macro to define a new label trait
 ///
 /// # Example
@@ -57,45 +60,57 @@ where
 /// ```
 #[macro_export]
 macro_rules! define_label {
-    ($label_trait_name:ident) => {
-        /// Defines a set of strongly-typed labels for a class of objects
-        pub trait $label_trait_name:
-            $crate::label::DynHash + ::std::fmt::Debug + Send + Sync + 'static
-        {
-            #[doc(hidden)]
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
-        }
+    ($label_name:ident) => {
+        $crate::label::concat_idents!(id_name = $label_name, Id {
 
-        impl PartialEq for dyn $label_trait_name {
-            fn eq(&self, other: &Self) -> bool {
-                self.dyn_eq(other.as_dyn_eq())
+            /// Stores one of a set of strongly-typed labels for a class of objects.
+            #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+            pub struct id_name(::core::any::TypeId, &'static str);
+
+            impl ::core::fmt::Debug for id_name {
+                fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                    write!(f, "{}", self.1)
+                }
             }
-        }
 
-        impl Eq for dyn $label_trait_name {}
-
-        impl ::std::hash::Hash for dyn $label_trait_name {
-            fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-                self.dyn_hash(state);
+            /// Types that can be converted to a(n) [`id_name`].
+            ///
+            /// Check the docs for [`define_label`](bevy_ecs::define_label) for more info.
+            pub trait $label_name: 'static {
+                /// Converts this type into an opaque, strongly-typed label.
+                fn as_label(&self) -> id_name {
+                    let id = self.type_id();
+                    let label = self.as_str();
+                    id_name(id, label)
+                }
+                /// Returns the [`TypeId`] used to differentiate labels.
+                fn type_id(&self) -> ::core::any::TypeId {
+                    ::core::any::TypeId::of::<Self>()
+                }
+                /// Returns the representation of this label as a string literal.
+                ///
+                /// In cases where you absolutely need a label to be determined at runtime,
+                /// you can use [`Box::leak`] to get a `'static` reference.
+                fn as_str(&self) -> &'static str;
             }
-        }
 
-        impl Clone for Box<dyn $label_trait_name> {
-            fn clone(&self) -> Self {
-                self.dyn_clone()
+            impl $label_name for id_name {
+                fn as_label(&self) -> Self {
+                    *self
+                }
+                fn type_id(&self) -> ::core::any::TypeId {
+                    self.0
+                }
+                fn as_str(&self) -> &'static str {
+                    self.1
+                }
             }
-        }
 
-        impl $label_trait_name for ::std::borrow::Cow<'static, str> {
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                Box::new(self.clone())
+            impl $label_name for &'static str {
+                fn as_str(&self) -> Self {
+                    self
+                }
             }
-        }
-
-        impl $label_trait_name for &'static str {
-            fn dyn_clone(&self) -> Box<dyn $label_trait_name> {
-                Box::new(<&str>::clone(self))
-            }
-        }
+        });
     };
 }

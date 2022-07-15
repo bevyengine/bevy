@@ -81,14 +81,14 @@ impl Node for UiPassNode {
         };
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[RenderPassColorAttachment {
+            color_attachments: &[Some(RenderPassColorAttachment {
                 view: &target.view,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Load,
                     store: true,
                 },
-            }],
+            })],
             depth_stencil_attachment: None,
         };
 

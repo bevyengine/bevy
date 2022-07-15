@@ -196,6 +196,8 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] by the given rotation.
+    ///
+    /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation = rotation * self.rotation;
@@ -233,22 +235,44 @@ impl Transform {
         self.rotate(Quat::from_rotation_z(angle));
     }
 
-    /// Rotates this [`Transform`] around its `X` axis by `angle` (in radians).
+    /// Rotates this [`Transform`] by the given `rotation`.
+    ///
+    /// The `rotation` is relative to this [`Transform`]'s current rotation.
+    #[inline]
+    pub fn rotate_local(&mut self, rotation: Quat) {
+        self.rotation *= rotation;
+    }
+
+    /// Rotates this [`Transform`] around its local `axis` by `angle` (in radians).
+    #[inline]
+    pub fn rotate_local_axis(&mut self, axis: Vec3, angle: f32) {
+        self.rotate_local(Quat::from_axis_angle(axis, angle));
+    }
+
+    /// Rotates this [`Transform`] around its local `X` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_x(&mut self, angle: f32) {
-        self.rotate_axis(self.local_x(), angle);
+        self.rotate_local(Quat::from_rotation_x(angle));
     }
 
-    /// Rotates this [`Transform`] around its `Y` axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its local `Y` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_y(&mut self, angle: f32) {
-        self.rotate_axis(self.local_y(), angle);
+        self.rotate_local(Quat::from_rotation_y(angle));
     }
 
-    /// Rotates this [`Transform`] around its `Z` axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its local `Z` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_z(&mut self, angle: f32) {
-        self.rotate_axis(self.local_z(), angle);
+        self.rotate_local(Quat::from_rotation_z(angle));
+    }
+
+    /// Translates this [`Transform`] around a `point` in space.
+    ///
+    /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the parent.
+    #[inline]
+    pub fn translate_around(&mut self, point: Vec3, rotation: Quat) {
+        self.translation = point + rotation * (self.translation - point);
     }
 
     /// Rotates this [`Transform`] around a `point` in space.
@@ -256,8 +280,8 @@ impl Transform {
     /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the parent.
     #[inline]
     pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
-        self.translation = point + rotation * (self.translation - point);
-        self.rotation *= rotation;
+        self.translate_around(point, rotation);
+        self.rotate(rotation);
     }
 
     /// Rotates this [`Transform`] so that its local negative `Z` direction is toward

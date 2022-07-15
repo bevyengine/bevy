@@ -226,6 +226,9 @@ pub async fn initialize_renderer(
             max_compute_workgroups_per_dimension: limits
                 .max_compute_workgroups_per_dimension
                 .min(constrained_limits.max_compute_workgroups_per_dimension),
+            max_buffer_size: limits
+                .max_buffer_size
+                .min(constrained_limits.max_buffer_size),
         };
     }
 

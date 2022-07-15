@@ -48,9 +48,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 image = { version = "0.24", default-features = false }
 
 # misc
-wgpu = { version = "0.12.0", features = ["spirv"] }
+wgpu = { version = "0.13.1", features = ["spirv"] }
 codespan-reporting = "0.11.0"
-naga = { version = "0.8.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
+naga = { version = "0.9.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2.1"
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
@@ -62,7 +62,7 @@ futures-lite = "1.4.0"
 anyhow = "1.0"
 hex = "0.4.2"
 hexasphere = "7.2"
-parking_lot = "0.11.0"
+parking_lot = "0.12.1"
 regex = "1.5"
 copyless = "0.1.5"
 ddsfile = { version = "0.5.0", optional = true }

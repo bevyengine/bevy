@@ -17,7 +17,7 @@ fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .add_plugins(DefaultPlugins)
@@ -73,6 +73,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     foxes: Res<Foxes>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![
         asset_server.load("models/animated/Fox.glb#Animation2"),

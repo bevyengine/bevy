@@ -87,19 +87,19 @@ fn calculate_view(
 }
 
 struct PbrInput {
-    material: StandardMaterial;
-    occlusion: f32;
-    frag_coord: vec4<f32>;
-    world_position: vec4<f32>;
+    material: StandardMaterial,
+    occlusion: f32,
+    frag_coord: vec4<f32>,
+    world_position: vec4<f32>,
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
     // mapping
-    world_normal: vec3<f32>;
+    world_normal: vec3<f32>,
     // Normalized normal-mapped world normal used for lighting
-    N: vec3<f32>;
+    N: vec3<f32>,
     // Normalized view vector in world space, pointing from the fragment world position toward the
     // view world position
-    V: vec3<f32>;
-    is_orthographic: bool;
+    V: vec3<f32>,
+    is_orthographic: bool,
 };
 
 // Creates a PbrInput with default values

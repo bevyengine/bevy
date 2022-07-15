@@ -32,7 +32,7 @@ fn main() {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             resizable: true,
             ..default()
         })
@@ -90,6 +90,8 @@ struct BirdTexture(Handle<Image>);
 struct StatsText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    warn!(include_str!("warning_string.txt"));
+
     let texture = asset_server.load("branding/icon.png");
 
     commands.spawn_bundle(Camera2dBundle::default());

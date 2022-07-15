@@ -37,6 +37,8 @@ const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
+pub const MESH_VERTEX_OUTPUT: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
 pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
 pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
@@ -54,6 +56,12 @@ pub const SKINNING_HANDLE: HandleUntyped =
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        load_internal_asset!(
+            app,
+            MESH_VERTEX_OUTPUT,
+            "mesh_vertex_output.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             MESH_VIEW_TYPES_HANDLE,
@@ -601,11 +609,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
+                targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend,
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             layout: Some(bind_group_layout),
             primitive: PrimitiveState {
