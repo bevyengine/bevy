@@ -17,13 +17,13 @@ jobs:
       matrix:
         toolchain:
           - stable
-          - '${env.NIGHTLY_TOOLCHAIN}'
+          - ${{ env.NIGHTLY_TOOLCHAIN }}
         os: [windows-latest, ubuntu-latest, macos-latest]
         exclude:
           - os: macos-latest
-            toolchain: ${{env.NIGHTLY_TOOLCHAIN}}
+            toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           - os: windows-latest
-            toolchain: ${{env.NIGHTLY_TOOLCHAIN}}
+            toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -90,7 +90,7 @@ jobs:
           key: ${{ runner.os }}-cargo-miri-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{env.NIGHTLY_TOOLCHAIN}}
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
           override: true
       - name: Install alsa and udev
@@ -139,7 +139,7 @@ jobs:
       matrix:
         toolchain:
           - stable
-          - '${env.NIGHTLY_TOOLCHAIN}'
+          - ${{ env.NIGHTLY_TOOLCHAIN }}
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     needs: build
@@ -296,7 +296,7 @@ jobs:
           key: ${{ runner.os }}-cargo-check-unused-dependencies-${{ hashFiles('**/Cargo.toml') }}
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{env.NIGHTLY_TOOLCHAIN}}
+          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           override: true
       - name: Installs cargo-udeps
         run: cargo install --force cargo-udeps
