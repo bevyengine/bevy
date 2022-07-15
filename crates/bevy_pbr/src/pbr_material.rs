@@ -24,9 +24,21 @@ pub struct StandardMaterial {
     #[texture(1)]
     #[sampler(2)]
     pub base_color_texture: Option<Handle<Image>>,
+
     // Use a color for user friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
+    /// Color the material "emits" to the camera.
+    ///
+    /// This is typically used for monitor screens or lamppost.
+    /// Anything that should be bright even if in a dark area.
+    ///
+    /// The brightness of the emissive color depends on how light it is.
+    /// The lighter, the more part the emissive color takes into the final result.
+    ///
+    /// Beware an emissive material won't light up surrounding areas,
+    /// you need to add a light source for that.
     pub emissive: Color,
+
     #[texture(3)]
     #[sampler(4)]
     pub emissive_texture: Option<Handle<Image>>,
@@ -39,21 +51,48 @@ pub struct StandardMaterial {
     /// If used together with a roughness/metallic texture, this is factored into the final base
     /// color as `metallic * metallic_texture_value`
     pub metallic: f32,
+
     #[texture(5)]
     #[sampler(6)]
     pub metallic_roughness_texture: Option<Handle<Image>>,
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
+
+    /// Used to fake the lighting of bumps and dents on a material.
+    ///
+    /// A typical usage would be faking cobblestones on a flat 3d surface.
+    ///
+    /// # Notes
+    ///
+    /// The normal map won't work if the mesh used with this material doesn't have tangents.
+    /// To generate mesh tangents, use the [`Mesh::generate_tangents`] method.
+    /// If your material has a normal map, but still renders as a flat surface,
+    /// make sure your meshes have their tangents set.
+    ///
+    /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
     #[texture(9)]
     #[sampler(10)]
     pub normal_map_texture: Option<Handle<Image>>,
+
     /// Normal map textures authored for DirectX have their y-component flipped. Set this to flip
     /// it to right-handed conventions.
     pub flip_normal_map_y: bool,
+
+    /// Specifies the level of exposition to indirect light of the surface of the material.
+    ///
+    /// This is usually generated and backed automatically by 3d software.
+    ///
+    /// Typically, steep concave parts of a model (such as the armpit of a shirt) are darker,
+    /// because it has little exposure to light. With an occlusion map, the lighting shader is
+    /// able to account for this.
+    ///
+    /// Without an occlusion texture, you may see graphical artifacts, such as armpits being
+    /// lit up unexpectedly.
     #[texture(7)]
     #[sampler(8)]
     pub occlusion_texture: Option<Handle<Image>>,
+
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
     /// within the PBR lighting shader.
     /// Defaults to false.
