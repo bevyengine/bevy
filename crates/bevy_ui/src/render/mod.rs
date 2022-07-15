@@ -305,10 +305,9 @@ pub fn extract_text_uinodes(
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
 
-                let (scale, rotation, translation) =
-                    global_transform.to_scale_rotation_translation();
-                let extracted_transform = Mat4::from_rotation_translation(rotation, translation)
-                    * Mat4::from_scale(scale / scale_factor)
+                // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
+                let extracted_transform = global_transform.compute_matrix()
+                    * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
                     * Mat4::from_translation(
                         alignment_offset * scale_factor + text_glyph.position.extend(0.),
                     );

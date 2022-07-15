@@ -339,6 +339,8 @@ impl Default for Transform {
     }
 }
 
+/// The transform is expected to be non-degenerate and without shearing, or the output
+/// will be invalid.
 impl From<GlobalTransform> for Transform {
     fn from(transform: GlobalTransform) -> Self {
         transform.compute_transform()
