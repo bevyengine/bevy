@@ -20,7 +20,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ExtractedView, ViewUniforms, Visibility},
+    view::{ComputedVisibility, ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
@@ -182,14 +182,14 @@ pub fn extract_uinodes(
             &GlobalTransform,
             &UiColor,
             &UiImage,
-            &Visibility,
+            &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
         let image = image.0.clone_weak();
@@ -277,14 +277,14 @@ pub fn extract_text_uinodes(
             &Node,
             &GlobalTransform,
             &Text,
-            &Visibility,
+            &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)

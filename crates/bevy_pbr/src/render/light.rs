@@ -26,7 +26,8 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{
-        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
+        ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,
+        VisibleEntities,
     },
     Extract,
 };
@@ -411,8 +412,22 @@ pub fn extract_lights(
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
     global_point_lights: Extract<Res<GlobalVisiblePointLights>>,
-    point_lights: Extract<Query<(&PointLight, &CubemapVisibleEntities, &GlobalTransform)>>,
-    spot_lights: Extract<Query<(&SpotLight, &VisibleEntities, &GlobalTransform)>>,
+    point_lights: Extract<
+        Query<(
+            &PointLight,
+            &CubemapVisibleEntities,
+            &GlobalTransform,
+            &ComputedVisibility,
+        )>,
+    >,
+    spot_lights: Extract<
+        Query<(
+            &SpotLight,
+            &VisibleEntities,
+            &GlobalTransform,
+            &ComputedVisibility,
+        )>,
+    >,
     directional_lights: Extract<
         Query<
             (
@@ -420,7 +435,7 @@ pub fn extract_lights(
                 &DirectionalLight,
                 &VisibleEntities,
                 &GlobalTransform,
-                &Visibility,
+                &ComputedVisibility,
             ),
             Without<SpotLight>,
         >,
@@ -447,7 +462,12 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get(entity) {
+        if let Ok((point_light, cubemap_visible_entities, transform, visibility)) =
+            point_lights.get(entity)
+        {
+            if !visibility.is_visible() {
+                continue;
+            }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
             let render_cubemap_visible_entities = cubemap_visible_entities.clone();
@@ -481,7 +501,10 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform)) = spot_lights.get(entity) {
+        if let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) {
+            if !visibility.is_visible() {
+                continue;
+            }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
             let render_visible_entities = visible_entities.clone();
@@ -522,7 +545,7 @@ pub fn extract_lights(
     for (entity, directional_light, visible_entities, transform, visibility) in
         directional_lights.iter()
     {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
 
