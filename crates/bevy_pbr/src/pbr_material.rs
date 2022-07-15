@@ -29,17 +29,17 @@ pub struct StandardMaterial {
     // Might be used in the future for exposure correction in HDR
     /// Color the material "emits" to the camera.
     ///
-    /// This is typically used for monitor screens or lamppost.
-    /// Anything that should be bright even if in a dark area.
+    /// This is typically used for monitor screens or LED lights.
+    /// Anything that can be visible even in darkness.
     ///
-    /// The brightness of the emissive color depends on how light it is.
-    /// The lighter, the more part the emissive color takes into the final result.
+    /// The emissive color is added to what would otherwise be the material's visible color.
+    /// This means that for a light emissive value, in darkness,
+    /// you will mostly see the emissive component.
     ///
-    /// Beware an emissive material won't light up surrounding areas,
-    /// you need to add a light source for that.
+    /// The default emissive color is black, which doesn't add anything to the material color.
     ///
-    /// The default color is black. This implies that by default, a material,
-    /// doesn't emit any light.
+    /// Note that **an emissive material won't light up surrounding areas like a light source**,
+    /// it just adds a value to the color seen on screen.
     pub emissive: Color,
 
     #[texture(3)]
@@ -89,16 +89,16 @@ pub struct StandardMaterial {
     /// it to right-handed conventions.
     pub flip_normal_map_y: bool,
 
-    /// Specifies the level of exposition to indirect light of the surface of the material.
+    /// Specifies the level of exposure to ambient light.
     ///
-    /// This is usually generated and baked automatically by 3D-modelling software.
+    /// This is usually generated and stored automatically ("baked") by 3D-modelling software.
     ///
     /// Typically, steep concave parts of a model (such as the armpit of a shirt) are darker,
-    /// because it has little exposure to light. With an occlusion map, the lighting shader is
-    /// able to account for this.
+    /// because they have little exposed to light.
+    /// An occlusion map specifies those parts of the model that light doesn't reach well.
     ///
-    /// Without an occlusion texture, you may see graphical artifacts, such as armpits being
-    /// lit up unexpectedly.
+    /// The material will be less lit in places where this texture is dark.
+    /// This is similar to ambient occlusion, but built into the model.
     #[texture(7)]
     #[sampler(8)]
     pub occlusion_texture: Option<Handle<Image>>,
