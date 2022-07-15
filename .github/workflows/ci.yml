@@ -9,13 +9,16 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # KEEP THESE TWO VALUES IN SYNC
+  # If anyone can find a way to unify these, that would be much better
   NIGHTLY_TOOLCHAIN: nightly-2022-07-13
+  NIGHTLY_AND_STABLE_ARRAY: [stable, nightly-2022-07-13]
 
 jobs:
   build:
     strategy:
       matrix:
-        toolchain: [stable, ${env.NIGHTLY_TOOLCHAIN}]
+        toolchain: ${{env.NIGHTLY_AND_STABLE_ARRAY}}
         os: [windows-latest, ubuntu-latest, macos-latest]
         exclude:
           - os: macos-latest
@@ -135,7 +138,7 @@ jobs:
   build-wasm:
     strategy:
       matrix:
-        toolchain: [stable, ${env.NIGHTLY_TOOLCHAIN}]
+        toolchain: ${{env.NIGHTLY_AND_STABLE_ARRAY}}
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     needs: build
