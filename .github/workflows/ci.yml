@@ -17,7 +17,7 @@ jobs:
       matrix:
         toolchain:
           - stable
-          - ${{env.NIGHTLY_TOOLCHAIN}}
+          - ${env.NIGHTLY_TOOLCHAIN}
         os: [windows-latest, ubuntu-latest, macos-latest]
         exclude:
           - os: macos-latest
@@ -139,7 +139,7 @@ jobs:
       matrix:
         toolchain:
           - stable
-          - ${{env.NIGHTLY_TOOLCHAIN}}
+          - ${env.NIGHTLY_TOOLCHAIN}
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     needs: build
