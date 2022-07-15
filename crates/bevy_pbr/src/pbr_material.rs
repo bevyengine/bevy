@@ -37,6 +37,9 @@ pub struct StandardMaterial {
     ///
     /// Beware an emissive material won't light up surrounding areas,
     /// you need to add a light source for that.
+    ///
+    /// The default color is black. This implies that by default, a material,
+    /// doesn't emit any light.
     pub emissive: Color,
 
     #[texture(3)]
@@ -61,12 +64,19 @@ pub struct StandardMaterial {
 
     /// Used to fake the lighting of bumps and dents on a material.
     ///
-    /// A typical usage would be faking cobblestones on a flat 3d surface.
+    /// A typical usage would be faking cobblestones on a flat plane mesh in 3D.
     ///
     /// # Notes
     ///
-    /// The normal map won't work if the mesh used with this material doesn't have tangents.
-    /// To generate mesh tangents, use the [`Mesh::generate_tangents`] method.
+    ///
+    /// Normal mapping with `StandardMaterial` and the core bevy PBR shaders requires:
+    /// - A normal map texture
+    /// - Vertex UVs
+    /// - Vertex tangents
+    /// - Vertex normals
+    ///
+    /// Tangents do not have to be stored in your model,
+    /// they can be generated using the [`Mesh::generate_tangents`] method.
     /// If your material has a normal map, but still renders as a flat surface,
     /// make sure your meshes have their tangents set.
     ///
@@ -81,7 +91,7 @@ pub struct StandardMaterial {
 
     /// Specifies the level of exposition to indirect light of the surface of the material.
     ///
-    /// This is usually generated and backed automatically by 3d software.
+    /// This is usually generated and baked automatically by 3D-modelling software.
     ///
     /// Typically, steep concave parts of a model (such as the armpit of a shirt) are darker,
     /// because it has little exposure to light. With an occlusion map, the lighting shader is
