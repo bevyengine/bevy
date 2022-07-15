@@ -5,13 +5,16 @@ use std::io::Read;
 use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
 };
+use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use ktx2::SupercompressionScheme;
 use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
     Header, SampleInformation,
 };
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu::{
+    Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+};
 
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 
@@ -248,6 +251,24 @@ pub fn ktx2_buffer_to_image(
     } else {
         TextureDimension::D1
     };
+    let mut dimension = None;
+    if face_count == 6 {
+        dimension = Some(if layer_count > 1 {
+            TextureViewDimension::CubeArray
+        } else {
+            TextureViewDimension::Cube
+        });
+    } else if layer_count > 1 {
+        dimension = Some(TextureViewDimension::D2Array);
+    } else if depth > 1 {
+        dimension = Some(TextureViewDimension::D3);
+    }
+    if dimension.is_some() {
+        image.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension,
+            ..default()
+        });
+    }
     Ok(image)
 }
 
