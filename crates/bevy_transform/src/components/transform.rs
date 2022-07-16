@@ -38,6 +38,13 @@ pub struct Transform {
 }
 
 impl Transform {
+    /// An identity [`Transform`] with no translation, rotation, and a scale of 1 on all axes.
+    pub const IDENTITY: Self = Transform {
+        translation: Vec3::ZERO,
+        rotation: Quat::IDENTITY,
+        scale: Vec3::ONE,
+    };
+
     /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
@@ -49,12 +56,9 @@ impl Transform {
     /// Creates a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
     /// all axes.
     #[inline]
+    #[deprecated = "Use `Transform::IDENTITY` instead."]
     pub const fn identity() -> Self {
-        Transform {
-            translation: Vec3::ZERO,
-            rotation: Quat::IDENTITY,
-            scale: Vec3::ONE,
-        }
+        Transform::IDENTITY
     }
 
     /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
@@ -76,7 +80,7 @@ impl Transform {
     pub const fn from_translation(translation: Vec3) -> Self {
         Transform {
             translation,
-            ..Self::identity()
+            ..Self::IDENTITY
         }
     }
 
@@ -86,7 +90,7 @@ impl Transform {
     pub const fn from_rotation(rotation: Quat) -> Self {
         Transform {
             rotation,
-            ..Self::identity()
+            ..Self::IDENTITY
         }
     }
 
@@ -96,7 +100,7 @@ impl Transform {
     pub const fn from_scale(scale: Vec3) -> Self {
         Transform {
             scale,
-            ..Self::identity()
+            ..Self::IDENTITY
         }
     }
 
@@ -335,7 +339,7 @@ impl Transform {
 
 impl Default for Transform {
     fn default() -> Self {
-        Self::identity()
+        Self::IDENTITY
     }
 }
 
