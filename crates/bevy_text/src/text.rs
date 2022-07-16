@@ -54,6 +54,13 @@ impl Text {
         }
     }
 
+    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+        Self {
+            sections: sections.into_iter().collect(),
+            alignment: Default::default(),
+        }
+    }
+
     /// Returns this [`Text`] with a new [`TextAlignment`].
     pub fn with_alignment(mut self, alignment: TextAlignment) -> Self {
         self.alignment = alignment;
@@ -65,6 +72,24 @@ impl Text {
 pub struct TextSection {
     pub value: String,
     pub style: TextStyle,
+}
+
+impl TextSection {
+    /// Create a [`TextSection`] from a string of text.
+    pub fn from_text(text: impl Into<String>) -> Self {
+        Self {
+            value: text.into(),
+            style: Default::default(),
+        }
+    }
+
+    /// Create an empty [`TextSection`] from a style. Useful when the text will be set dynamically.
+    pub fn from_style(style: TextStyle) -> Self{
+        Self {
+            value: Default::default(),
+            style,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Reflect)]

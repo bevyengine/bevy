@@ -83,59 +83,50 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 ..default()
             },
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "This text changes in the bottom right".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::WHITE,
-                        },
+            text: Text::from_sections([
+                TextSection {
+                    value: "This text changes in the bottom right".to_string(),
+                    style: TextStyle {
+                        font: font.clone(),
+                        font_size: 30.0,
+                        color: Color::WHITE,
                     },
-                    TextSection {
-                        value: "\nThis text changes in the bottom right - ".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::RED,
-                        },
+                },
+                TextSection {
+                    value: "\nThis text changes in the bottom right - ".to_string(),
+                    style: TextStyle {
+                        font: font.clone(),
+                        font_size: 30.0,
+                        color: Color::RED,
                     },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::ORANGE_RED,
-                        },
+                },
+                TextSection::from_style(TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::ORANGE_RED,
+                }),
+                TextSection {
+                    value: " fps, ".to_string(),
+                    style: TextStyle {
+                        font: font.clone(),
+                        font_size: 30.0,
+                        color: Color::YELLOW,
                     },
-                    TextSection {
-                        value: " fps, ".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::YELLOW,
-                        },
+                },
+                TextSection::from_style(TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::GREEN,
+                }),
+                TextSection {
+                    value: " ms/frame".to_string(),
+                    style: TextStyle {
+                        font: font.clone(),
+                        font_size: 30.0,
+                        color: Color::BLUE,
                     },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::GREEN,
-                        },
-                    },
-                    TextSection {
-                        value: " ms/frame".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::BLUE,
-                        },
-                    },
-                ],
-                alignment: Default::default(),
-            },
+                },
+            ]),
             ..default()
         })
         .insert(TextChanges);

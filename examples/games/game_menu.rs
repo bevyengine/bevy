@@ -185,35 +185,32 @@ mod game {
                         margin: UiRect::all(Val::Px(50.0)),
                         ..default()
                     },
-                    text: Text {
-                        sections: vec![
-                            TextSection {
-                                value: format!("quality: {:?}", *display_quality),
-                                style: TextStyle {
-                                    font: font.clone(),
-                                    font_size: 60.0,
-                                    color: Color::BLUE,
-                                },
+                    text: Text::from_sections([
+                        TextSection {
+                            value: format!("quality: {:?}", *display_quality),
+                            style: TextStyle {
+                                font: font.clone(),
+                                font_size: 60.0,
+                                color: Color::BLUE,
                             },
-                            TextSection {
-                                value: " - ".to_string(),
-                                style: TextStyle {
-                                    font: font.clone(),
-                                    font_size: 60.0,
-                                    color: TEXT_COLOR,
-                                },
+                        },
+                        TextSection {
+                            value: " - ".to_string(),
+                            style: TextStyle {
+                                font: font.clone(),
+                                font_size: 60.0,
+                                color: TEXT_COLOR,
                             },
-                            TextSection {
-                                value: format!("volume: {:?}", *volume),
-                                style: TextStyle {
-                                    font: font.clone(),
-                                    font_size: 60.0,
-                                    color: Color::GREEN,
-                                },
+                        },
+                        TextSection {
+                            value: format!("volume: {:?}", *volume),
+                            style: TextStyle {
+                                font: font.clone(),
+                                font_size: 60.0,
+                                color: Color::GREEN,
                             },
-                        ],
-                        ..default()
-                    },
+                        },
+                    ]),
                     ..default()
                 });
             });
