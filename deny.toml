@@ -22,7 +22,9 @@ allow = [
     "0BSD",
     "BSD-2-Clause",
     "CC0-1.0",
-    "Unicode-DFS-2016",
+]
+exceptions = [
+    { name = "unicode-ident", allow = ["Unicode-DFS-2016"] },
 ]
 default = "deny"
 
