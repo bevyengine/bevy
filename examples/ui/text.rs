@@ -52,10 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     color: Color::WHITE,
                 },
             )
-            .with_alignment(TextAlignment {
-                horizontal: HorizontalAlign::Center,
-                ..default()
-            }),
+            .with_alignment(TextAlignment::TOP_CENTER),
             ..default()
         })
         .insert(ColorText);

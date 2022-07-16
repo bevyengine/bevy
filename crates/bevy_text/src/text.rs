@@ -127,22 +127,28 @@ pub struct TextAlignment {
 }
 
 impl TextAlignment {
-    /// A [`TextAlignment`] set to center on both axes.
+    /// A [`TextAlignment`] set to the top-left.
     pub const TOP_LEFT: Self = TextAlignment {
         vertical: VerticalAlign::Top,
         horizontal: HorizontalAlign::Left,
     };
 
-    /// A [`TextAlignment`] set to the top center.
+    /// A [`TextAlignment`] set to the top-center.
     pub const TOP_CENTER: Self = TextAlignment {
         vertical: VerticalAlign::Top,
         horizontal: HorizontalAlign::Center,
     };
 
-    /// A [`TextAlignment`] set to the top center.
+    /// A [`TextAlignment`] set to the the top-right.
     pub const TOP_RIGHT: Self = TextAlignment {
         vertical: VerticalAlign::Top,
         horizontal: HorizontalAlign::Right,
+    };
+
+    /// A [`TextAlignment`] set to center the center-left.
+    pub const CENTER_LEFT: Self = TextAlignment {
+        vertical: VerticalAlign::Center,
+        horizontal: HorizontalAlign::Left,
     };
 
     /// A [`TextAlignment`] set to center on both axes.
@@ -150,6 +156,31 @@ impl TextAlignment {
         vertical: VerticalAlign::Center,
         horizontal: HorizontalAlign::Center,
     };
+
+    /// A [`TextAlignment`] set to the center-right.
+    pub const CENTER_RIGHT: Self = TextAlignment {
+        vertical: VerticalAlign::Center,
+        horizontal: HorizontalAlign::Right,
+    };
+
+    /// A [`TextAlignment`] set to the bottom-left.
+    pub const BOTTOM_LEFT: Self = TextAlignment {
+        vertical: VerticalAlign::Bottom,
+        horizontal: HorizontalAlign::Left,
+    };
+
+    /// A [`TextAlignment`] set to the bottom-center.
+    pub const BOTTOM_CENTER: Self = TextAlignment {
+        vertical: VerticalAlign::Bottom,
+        horizontal: HorizontalAlign::Center,
+    };
+
+    /// A [`TextAlignment`] set to the bottom-right.
+    pub const BOTTOM_RIGHT: Self = TextAlignment {
+        vertical: VerticalAlign::Bottom,
+        horizontal: HorizontalAlign::Right,
+    };
+
 }
 
 impl Default for TextAlignment {
