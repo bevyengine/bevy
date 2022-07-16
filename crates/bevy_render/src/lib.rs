@@ -27,7 +27,7 @@ pub mod prelude {
         mesh::{shape, Mesh},
         render_resource::Shader,
         texture::Image,
-        view::{ComputedVisibility, Msaa, Visibility},
+        view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
 

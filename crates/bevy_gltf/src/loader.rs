@@ -26,7 +26,7 @@ use bevy_render::{
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
     renderer::RenderDevice,
     texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
-    view::VisibleEntities,
+    view::{VisibilityBundle, VisibleEntities},
 };
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
@@ -466,6 +466,7 @@ async fn load_gltf<'a, 'b>(
         world
             .spawn()
             .insert_bundle(TransformBundle::identity())
+            .insert_bundle(VisibilityBundle::default())
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
@@ -707,6 +708,7 @@ fn load_node(
     let mut node = world_builder.spawn_bundle(TransformBundle::from(Transform::from_matrix(
         Mat4::from_cols_array_2d(&transform.matrix()),
     )));
+    node.insert_bundle(VisibilityBundle::default());
 
     node.insert(node_name(gltf_node));
 

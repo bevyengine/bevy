@@ -109,6 +109,8 @@ fn setup(
             .spawn_bundle((
                 Transform::default(),
                 GlobalTransform::default(),
+                Visibility::default(),
+                ComputedVisibility::default(),
                 ring_direction,
                 Ring { radius },
             ))

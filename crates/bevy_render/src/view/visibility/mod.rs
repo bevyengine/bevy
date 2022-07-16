@@ -87,6 +87,21 @@ impl ComputedVisibility {
     }
 }
 
+/// A [`Bundle`] of the [`Visibility`] and [`ComputedVisibility`]
+/// [`Component`](bevy_ecs::component::Component)s, which describe the visibility of an entity.
+///
+/// * To show or hide an entity, you should set its [`Visibility`].
+/// * To get the computed visibility of an entity, you should get its [`ComputedVisibility`].
+/// * For visibility hierarchies to work correctly, you must have both a [`Visibility`] and a [`ComputedVisibility`].
+///   * You may use the [`VisibilityBundle`] to guarantee this.
+#[derive(Bundle, Debug, Default)]
+pub struct VisibilityBundle {
+    /// The visibility of the entity.
+    pub visibility: Visibility,
+    /// The computed visibility of the entity.
+    pub computed: ComputedVisibility,
+}
+
 /// Use this component to opt-out of built-in frustum culling for Mesh entities
 #[derive(Component)]
 pub struct NoFrustumCulling;
