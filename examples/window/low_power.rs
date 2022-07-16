@@ -131,8 +131,9 @@ pub(crate) mod test_setup {
             ExampleMode::Application => "desktop_app(), reactive",
             ExampleMode::ApplicationWithRedraw => "desktop_app(), reactive, RequestRedraw sent",
         };
-        query.get_single_mut().unwrap().sections[1].value = mode.to_string();
-        query.get_single_mut().unwrap().sections[3].value = format!("{}", *frame);
+        let mut text = query.single_mut();
+        text.sections[1].value = mode.to_string();
+        text.sections[3].value = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text
@@ -177,27 +178,27 @@ pub(crate) mod test_setup {
                     ..default()
                 },
                 text: Text::from_sections([
-                    TextSection {
-                        value: "Press spacebar to cycle modes\n".into(),
-                        style: TextStyle {
+                    TextSection::new(
+                        "Press spacebar to cycle modes\n",
+                        TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 50.0,
                             color: Color::WHITE,
                         },
-                    },
+                    ),
                     TextSection::from_style(TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
                         color: Color::GREEN,
                     }),
-                    TextSection {
-                        value: "\nFrame: ".into(),
-                        style: TextStyle {
+                    TextSection::new(
+                        "\nFrame: ",
+                        TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 50.0,
                             color: Color::YELLOW,
                         },
-                    },
+                    ),
                     TextSection::from_style(TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,

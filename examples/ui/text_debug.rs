@@ -84,48 +84,48 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             text: Text::from_sections([
-                TextSection {
-                    value: "This text changes in the bottom right".to_string(),
-                    style: TextStyle {
+                TextSection::new(
+                    "This text changes in the bottom right",
+                    TextStyle {
                         font: font.clone(),
                         font_size: 30.0,
                         color: Color::WHITE,
                     },
-                },
-                TextSection {
-                    value: "\nThis text changes in the bottom right - ".to_string(),
-                    style: TextStyle {
+                ),
+                TextSection::new(
+                    "\nThis text changes in the bottom right - ",
+                    TextStyle {
                         font: font.clone(),
                         font_size: 30.0,
                         color: Color::RED,
                     },
-                },
+                ),
                 TextSection::from_style(TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
                     color: Color::ORANGE_RED,
                 }),
-                TextSection {
-                    value: " fps, ".to_string(),
-                    style: TextStyle {
+                TextSection::new(
+                    " fps, ",
+                    TextStyle {
                         font: font.clone(),
                         font_size: 30.0,
                         color: Color::YELLOW,
                     },
-                },
+                ),
                 TextSection::from_style(TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
                     color: Color::GREEN,
                 }),
-                TextSection {
-                    value: " ms/frame".to_string(),
-                    style: TextStyle {
+                TextSection::new(
+                    " ms/frame",
+                    TextStyle {
                         font: font.clone(),
                         font_size: 30.0,
                         color: Color::BLUE,
                     },
-                },
+                ),
             ]),
             ..default()
         })
@@ -146,7 +146,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         text: Text::from_section(
-            "This\ntext has\nline breaks and also a set width in the bottom left".to_string(),
+            "This\ntext has\nline breaks and also a set width in the bottom left",
             TextStyle {
                 font,
                 font_size: 50.0,

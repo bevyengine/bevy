@@ -98,27 +98,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn_bundle(TextBundle {
             text: Text::from_sections([
-                TextSection {
-                    value: "Bird Count: ".to_string(),
-                    style: TextStyle {
+                TextSection::new(
+                    "Bird Count: ",
+                    TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.0, 1.0, 0.0),
                     },
-                },
+                ),
                 TextSection::from_style(TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 40.0,
                     color: Color::rgb(0.0, 1.0, 1.0),
                 }),
-                TextSection {
-                    value: "\nAverage FPS: ".to_string(),
-                    style: TextStyle {
+                TextSection::new(
+                    "\nAverage FPS: ",
+                    TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::rgb(0.0, 1.0, 0.0),
                     },
-                },
+                ),
                 TextSection::from_style(TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 40.0,
@@ -256,7 +256,7 @@ fn counter_system(
     let mut text = query.single_mut();
 
     if counter.is_changed() {
-        text.sections[1].value = format!("{}", counter.count);
+        text.sections[1].value = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {

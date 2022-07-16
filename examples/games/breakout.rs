@@ -218,14 +218,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Scoreboard
     commands.spawn_bundle(TextBundle {
         text: Text::from_sections([
-            TextSection {
-                value: "Score: ".to_string(),
-                style: TextStyle {
+            TextSection::new(
+                "Score: ",
+                TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: SCOREBOARD_FONT_SIZE,
                     color: TEXT_COLOR,
                 },
-            },
+            ),
             TextSection::from_style(TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: SCOREBOARD_FONT_SIZE,
@@ -345,7 +345,7 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
 
 fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
     let mut text = query.single_mut();
-    text.sections[1].value = format!("{}", scoreboard.score);
+    text.sections[1].value = scoreboard.score.to_string();
 }
 
 fn check_for_collisions(

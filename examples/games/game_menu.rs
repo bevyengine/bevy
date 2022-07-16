@@ -186,30 +186,30 @@ mod game {
                         ..default()
                     },
                     text: Text::from_sections([
-                        TextSection {
-                            value: format!("quality: {:?}", *display_quality),
-                            style: TextStyle {
+                        TextSection::new(
+                            format!("quality: {:?}", *display_quality),
+                            TextStyle {
                                 font: font.clone(),
                                 font_size: 60.0,
                                 color: Color::BLUE,
                             },
-                        },
-                        TextSection {
-                            value: " - ".to_string(),
-                            style: TextStyle {
+                        ),
+                        TextSection::new(
+                            " - ",
+                            TextStyle {
                                 font: font.clone(),
                                 font_size: 60.0,
                                 color: TEXT_COLOR,
                             },
-                        },
-                        TextSection {
-                            value: format!("volume: {:?}", *volume),
-                            style: TextStyle {
+                        ),
+                        TextSection::new(
+                            format!("volume: {:?}", *volume),
+                            TextStyle {
                                 font: font.clone(),
                                 font_size: 60.0,
                                 color: Color::GREEN,
                             },
-                        },
+                        ),
                     ]),
                     ..default()
                 });

@@ -68,14 +68,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             // Use `Text` directly
             text: Text::from_sections([
-                TextSection {
-                    value: "FPS: ".to_string(),
-                    style: TextStyle {
+                TextSection::new(
+                    "FPS: ",
+                    TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 60.0,
                         color: Color::WHITE,
                     },
-                },
+                ),
                 TextSection::from_style(TextStyle {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 60.0,
