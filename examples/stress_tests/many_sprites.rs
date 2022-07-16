@@ -26,7 +26,7 @@ struct ColorTint(bool);
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .insert_resource(ColorTint(

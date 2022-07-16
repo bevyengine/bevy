@@ -20,7 +20,7 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .add_plugins(DefaultPlugins)
@@ -173,7 +173,7 @@ fn print_mesh_count(
         info!(
             "Meshes: {} - Visible Meshes {}",
             sprites.iter().len(),
-            sprites.iter().filter(|(_, cv)| cv.is_visible).count(),
+            sprites.iter().filter(|(_, cv)| cv.is_visible()).count(),
         );
     }
 }

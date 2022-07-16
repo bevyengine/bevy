@@ -56,6 +56,7 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Vec2>()
         .register_type::<bevy_math::Vec3>()
         .register_type::<bevy_math::Vec4>()
+        .register_type::<bevy_math::Mat2>()
         .register_type::<bevy_math::Mat3>()
         .register_type::<bevy_math::Mat4>()
         .register_type::<bevy_math::Quat>();

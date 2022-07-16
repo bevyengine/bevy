@@ -17,7 +17,7 @@ fn main() {
             width: 1024.0,
             height: 768.0,
             title: "many_lights".to_string(),
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .add_plugins(DefaultPlugins)

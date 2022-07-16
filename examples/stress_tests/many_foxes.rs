@@ -17,7 +17,7 @@ fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .add_plugins(DefaultPlugins)

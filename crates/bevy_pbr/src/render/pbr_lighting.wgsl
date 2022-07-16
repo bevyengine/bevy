@@ -244,7 +244,7 @@ fn spot_light(
     R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
 ) -> vec3<f32> {
     // reuse the point light calculations
-    let point = point_light(world_position, light, roughness, NdotV, N, V, R, F0, diffuseColor);
+    let point_light = point_light(world_position, light, roughness, NdotV, N, V, R, F0, diffuseColor);
 
     // reconstruct spot dir from x/z and y-direction flag
     var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
@@ -261,7 +261,7 @@ fn spot_light(
     let attenuation = saturate(cd * light.light_custom_data.z + light.light_custom_data.w);
     let spot_attenuation = attenuation * attenuation;
 
-    return point * spot_attenuation;
+    return point_light * spot_attenuation;
 }
 
 fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {

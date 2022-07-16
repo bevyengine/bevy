@@ -5,22 +5,17 @@
 
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
-    ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
     reflect::TypeUuid,
     render::{
         camera::{Camera, RenderTarget},
-        render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
         render_resource::{
-            BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-            Extent3d, SamplerBindingType, ShaderStages, TextureDescriptor, TextureDimension,
-            TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
+            AsBindGroup, Extent3d, ShaderRef, TextureDescriptor, TextureDimension, TextureFormat,
+            TextureUsages,
         },
-        renderer::RenderDevice,
         view::RenderLayers,
     },
-    sprite::{Material2d, Material2dPipeline, Material2dPlugin, MaterialMesh2dBundle},
+    sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
 };
 
 fn main() {
@@ -44,7 +39,10 @@ fn setup(
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    asset_server: Res<AssetServer>,
 ) {
+    asset_server.watch_for_changes().unwrap();
+
     let window = windows.get_primary_mut().unwrap();
     let size = Extent3d {
         width: window.physical_width(),
@@ -166,92 +164,17 @@ fn main_camera_cube_rotator_system(
 // Region below declares of the custom material handling post processing effect
 
 /// Our custom post processing material
-#[derive(TypeUuid, Clone)]
+#[derive(AsBindGroup, TypeUuid, Clone)]
 #[uuid = "bc2f08eb-a0fb-43f1-a908-54871ea597d5"]
 struct PostProcessingMaterial {
     /// In this example, this image will be the result of the main camera.
+    #[texture(0)]
+    #[sampler(1)]
     source_image: Handle<Image>,
 }
 
-struct PostProcessingMaterialGPU {
-    bind_group: BindGroup,
-}
-
 impl Material2d for PostProcessingMaterial {
-    fn bind_group(material: &PostProcessingMaterialGPU) -> &BindGroup {
-        &material.bind_group
-    }
-
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: TextureViewDimension::D2,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-        })
-    }
-
-    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        asset_server.watch_for_changes().unwrap();
-        Some(asset_server.load("shaders/custom_material_chromatic_aberration.wgsl"))
-    }
-}
-
-impl RenderAsset for PostProcessingMaterial {
-    type ExtractedAsset = PostProcessingMaterial;
-    type PreparedAsset = PostProcessingMaterialGPU;
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<Material2dPipeline<PostProcessingMaterial>>,
-        SRes<RenderAssets<Image>>,
-    );
-
-    fn prepare_asset(
-        extracted_asset: PostProcessingMaterial,
-        (render_device, pipeline, images): &mut SystemParamItem<Self::Param>,
-    ) -> Result<PostProcessingMaterialGPU, PrepareAssetError<PostProcessingMaterial>> {
-        let (view, sampler) = if let Some(result) = pipeline
-            .mesh2d_pipeline
-            .get_image_texture(images, &Some(extracted_asset.source_image.clone()))
-        {
-            result
-        } else {
-            return Err(PrepareAssetError::RetryNextUpdate(extracted_asset));
-        };
-
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: None,
-            layout: &pipeline.material2d_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(sampler),
-                },
-            ],
-        });
-        Ok(PostProcessingMaterialGPU { bind_group })
-    }
-
-    fn extract_asset(&self) -> PostProcessingMaterial {
-        self.clone()
+    fn fragment_shader() -> ShaderRef {
+        "shaders/custom_material_chromatic_aberration.wgsl".into()
     }
 }

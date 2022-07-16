@@ -64,7 +64,7 @@ impl Node for MainPass2dNode {
             let _main_pass_2d = info_span!("main_pass_2d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_pass_2d"),
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: match camera_2d.clear_color {
                         ClearColorConfig::Default => {
                             LoadOp::Clear(world.resource::<ClearColor>().0.into())
@@ -73,7 +73,7 @@ impl Node for MainPass2dNode {
                         ClearColorConfig::None => LoadOp::Load,
                     },
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: None,
             };
 
@@ -102,10 +102,10 @@ impl Node for MainPass2dNode {
             let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_2d"),
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: None,
             };
 

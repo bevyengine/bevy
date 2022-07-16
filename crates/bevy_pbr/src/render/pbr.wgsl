@@ -9,23 +9,13 @@
 #import bevy_pbr::pbr_functions
 
 struct FragmentInput {
-    [[builtin(front_facing)]] is_front: bool;
-    [[builtin(position)]] frag_coord: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-#ifdef VERTEX_UVS
-    [[location(2)]] uv: vec2<f32>;
-#endif
-#ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
-#endif
-#ifdef VERTEX_COLORS
-    [[location(4)]] color: vec4<f32>;
-#endif
+    @builtin(front_facing) is_front: bool,
+    @builtin(position) frag_coord: vec4<f32>,
+    #import bevy_pbr::mesh_vertex_output
 };
 
-[[stage(fragment)]]
-fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
+@fragment
+fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.base_color;
 #ifdef VERTEX_COLORS
     output_color = output_color * in.color;

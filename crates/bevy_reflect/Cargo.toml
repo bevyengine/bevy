@@ -20,7 +20,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 # other
 erased-serde = "0.3"
 downcast-rs = "1.2"
-parking_lot = "0.11.0"
+parking_lot = "0.12.1"
 thiserror = "1.0"
 once_cell = "1.11"
 serde = "1"

@@ -8,27 +8,19 @@
 #import bevy_pbr::shadows
 #import bevy_pbr::pbr_functions
 
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var my_array_texture: texture_2d_array<f32>;
-[[group(1), binding(1)]]
+@group(1) @binding(1)
 var my_array_texture_sampler: sampler;
 
 struct FragmentInput {
-    [[builtin(front_facing)]] is_front: bool;
-    [[builtin(position)]] frag_coord: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
-#ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
-#endif
-#ifdef VERTEX_COLORS
-    [[location(4)]] color: vec4<f32>;
-#endif
+    @builtin(front_facing) is_front: bool,
+    @builtin(position) frag_coord: vec4<f32>,
+    #import bevy_pbr::mesh_vertex_output
 };
 
-[[stage(fragment)]]
-fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
+@fragment
+fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     let layer = i32(in.world_position.x) & 0x3;
 
     // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
