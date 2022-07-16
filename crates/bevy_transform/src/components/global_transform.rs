@@ -108,13 +108,6 @@ impl GlobalTransform {
         self.0.to_scale_rotation_translation()
     }
 
-    /// Creates a new identity [`GlobalTransform`], that maps all points in space to themselves.
-    #[inline]
-    #[deprecated = "Use `GlobalTransform::IDENTITY` instead."]
-    pub const fn identity() -> Self {
-        GlobalTransform::IDENTITY
-    }
-
     impl_local_axis!(right, left, X);
     impl_local_axis!(up, down, Y);
     impl_local_axis!(back, forward, Z);

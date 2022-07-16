@@ -466,7 +466,7 @@ async fn load_gltf<'a, 'b>(
 
         world
             .spawn()
-            .insert_bundle(SpatialBundle::visible_identity())
+            .insert_bundle(SpatialBundle::VISIBLE_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
@@ -1169,7 +1169,7 @@ mod test {
             GltfNode {
                 children: vec![],
                 mesh: None,
-                transform: bevy_transform::prelude::Transform::identity(),
+                transform: bevy_transform::prelude::Transform::IDENTITY,
             }
         }
     }

@@ -53,14 +53,6 @@ impl Transform {
         Self::from_translation(Vec3::new(x, y, z))
     }
 
-    /// Creates a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
-    /// all axes.
-    #[inline]
-    #[deprecated = "Use `Transform::IDENTITY` instead."]
-    pub const fn identity() -> Self {
-        Transform::IDENTITY
-    }
-
     /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
     /// transformation matrix.
     #[inline]
