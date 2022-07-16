@@ -18,6 +18,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev", features = ["b
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.8.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.8.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"] }
