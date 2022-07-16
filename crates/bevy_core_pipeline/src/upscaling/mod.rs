@@ -43,7 +43,7 @@ impl FromWorld for UpscalingPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let render_device = render_world.get_resource::<RenderDevice>().unwrap();
 
-        let hdr_texture_bind_group =
+        let ldr_texture_bind_group =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("upscaling_ldr_texture_bind_group_layout"),
                 entries: &[
@@ -67,7 +67,7 @@ impl FromWorld for UpscalingPipeline {
             });
 
         UpscalingPipeline {
-            ldr_texture_bind_group: hdr_texture_bind_group,
+            ldr_texture_bind_group,
         }
     }
 }
