@@ -38,35 +38,6 @@ jobs:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
-  nightly-checks:
-    strategy:
-      matrix:
-        target: [wasm32-unknown-unknown, x86_64-unknown-linux-gnu]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-          target: ${{ matrix.target }}
-          override: true
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ubuntu-latest-cargo-build-stable-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-      - name: Check wasm
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --target ${{ matrix.target }}
-
   ci:
     runs-on: ubuntu-latest
     steps:
