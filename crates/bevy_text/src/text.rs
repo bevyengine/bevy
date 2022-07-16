@@ -17,7 +17,7 @@ impl Text {
     /// Constructs a [`Text`] with a single section.
     ///
     /// ```
-    /// # use bevy_asset::{AssetServer, Handle};
+    /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
     /// # use bevy_text::{Font, Text, TextAlignment, TextStyle, HorizontalAlign, VerticalAlign};
     /// #
@@ -54,6 +54,34 @@ impl Text {
         }
     }
 
+    /// Constructs a [`Text`] from a list of sections.
+    ///
+    /// ```
+    /// # use bevy_asset::Handle;
+    /// # use bevy_render::color::Color;
+    /// # use bevy_text::{Font, Text, TextStyle, TextSection};
+    /// #
+    /// # let font_handle: Handle<Font> = Default::default();
+    /// #
+    /// let hello_world = Text::from_sections([
+    ///     TextSection::new(
+    ///         "Hello, ",
+    ///         TextStyle {
+    ///             font: font_handle.clone(),
+    ///             font_size: 60.0,
+    ///             color: Color::BLUE,
+    ///         },
+    ///     ),
+    ///     TextSection::new(
+    ///         "World!",
+    ///         TextStyle {
+    ///             font: font_handle,
+    ///             font_size: 60.0,
+    ///             color: Color::RED,
+    ///         },
+    ///     ),
+    /// ]);
+    /// ```
     pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
         Self {
             sections: sections.into_iter().collect(),
@@ -99,6 +127,24 @@ pub struct TextAlignment {
 }
 
 impl TextAlignment {
+    /// A [`TextAlignment`] set to center on both axes.
+    pub const TOP_LEFT: Self = TextAlignment {
+        vertical: VerticalAlign::Top,
+        horizontal: HorizontalAlign::Left,
+    };
+
+    /// A [`TextAlignment`] set to the top center.
+    pub const TOP_CENTER: Self = TextAlignment {
+        vertical: VerticalAlign::Top,
+        horizontal: HorizontalAlign::Center,
+    };
+
+    /// A [`TextAlignment`] set to the top center.
+    pub const TOP_RIGHT: Self = TextAlignment {
+        vertical: VerticalAlign::Top,
+        horizontal: HorizontalAlign::Right,
+    };
+
     /// A [`TextAlignment`] set to center on both axes.
     pub const CENTER: Self = TextAlignment {
         vertical: VerticalAlign::Center,
