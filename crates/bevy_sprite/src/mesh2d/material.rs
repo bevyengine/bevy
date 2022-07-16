@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
 use bevy_ecs::{
     entity::Entity,
     prelude::{Bundle, World},
@@ -24,7 +24,7 @@ use bevy_render::{
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    view::{ComputedVisibility, Msaa, Visibility, VisibleEntities},
+    view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
     RenderApp, RenderStage,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -304,19 +304,31 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderAssets<M>>,
     material2d_meshes: Query<(&Handle<M>, &Mesh2dHandle, &Mesh2dUniform)>,
-    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &VisibleEntities,
+        Option<&Tonemapping>,
+        &mut RenderPhase<Transparent2d>,
+    )>,
 ) {
     if material2d_meshes.is_empty() {
         return;
     }
     let render_device = render_device.into_inner();
-    for (visible_entities, mut transparent_phase) in &mut views {
+    for (view, visible_entities, tonemapping, mut transparent_phase) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions
             .read()
             .get_id::<DrawMaterial2d<M>>()
             .unwrap();
 
-        let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
+        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
+            | Mesh2dPipelineKey::from_hdr(view.hdr);
+
+        if let Some(tonemapping) = tonemapping {
+            if tonemapping.is_enabled && !view.hdr {
+                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+            }
+        }
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
@@ -324,7 +336,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
             {
                 if let Some(material2d) = render_materials.get(material2d_handle) {
                     if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                        let mesh_key = msaa_key
+                        let mesh_key = view_key
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
                         let material_key = M::key(render_device, material2d);
