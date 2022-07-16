@@ -2,7 +2,7 @@
 
 use std::f32::consts::{FRAC_PI_2, PI};
 
-use bevy::{prelude::*, render::view::VisibilityBundle};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
