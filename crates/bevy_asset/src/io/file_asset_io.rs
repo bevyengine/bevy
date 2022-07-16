@@ -65,6 +65,8 @@ impl FileAssetIo {
     pub fn get_base_path() -> PathBuf {
         if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
             PathBuf::from(manifest_dir)
+        } else if let Ok(env_bevy_asset_root) = env::var("BEVY_ASSET_ROOT") {
+            PathBuf::from(env_bevy_asset_root)
         } else {
             env::current_exe()
                 .map(|path| {
