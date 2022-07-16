@@ -189,7 +189,7 @@ impl SkinnedMeshJoints {
         let start = buffer.len();
         for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(MAX_JOINTS) {
             if let Ok(joint) = joints.get(*joint) {
-                buffer.push(joint.compute_affine() * *inverse_bindpose);
+                buffer.push(joint.affine() * *inverse_bindpose);
             } else {
                 buffer.truncate(start);
                 return None;

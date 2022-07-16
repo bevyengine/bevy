@@ -82,7 +82,8 @@ pub fn extract_text2d_sprite(
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, computed_visibility, text, transform, calculated_size) in text2d_query.iter() {
+    for (entity, computed_visibility, text, text_transform, calculated_size) in text2d_query.iter()
+    {
         if !computed_visibility.is_visible() {
             continue;
         }
@@ -100,9 +101,6 @@ pub fn extract_text2d_sprite(
                 HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
             };
 
-            let mut text_transform = *transform;
-            text_transform.scale /= scale_factor;
-
             for text_glyph in text_glyphs {
                 let color = text.sections[text_glyph.section_index]
                     .style
@@ -118,8 +116,10 @@ pub fn extract_text2d_sprite(
                 let glyph_transform = Transform::from_translation(
                     alignment_offset * scale_factor + text_glyph.position.extend(0.),
                 );
-
-                let transform = text_transform.mul_transform(glyph_transform);
+                // NOTE: Should match `bevy_ui::render::extract_text_uinodes`
+                let transform = *text_transform
+                    * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
+                    * glyph_transform;
 
                 extracted_sprites.sprites.push(ExtractedSprite {
                     entity,

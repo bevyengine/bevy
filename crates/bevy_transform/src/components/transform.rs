@@ -1,6 +1,6 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use std::ops::Mul;
@@ -139,6 +139,13 @@ impl Transform {
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
+    }
+
+    /// Returns the 3d affine transformation matrix from this transforms translation,
+    /// rotation, and scale.
+    #[inline]
+    pub fn compute_affine(&self) -> Affine3A {
+        Affine3A::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
     /// Get the unit vector in the local `X` direction.
@@ -332,13 +339,11 @@ impl Default for Transform {
     }
 }
 
+/// The transform is expected to be non-degenerate and without shearing, or the output
+/// will be invalid.
 impl From<GlobalTransform> for Transform {
     fn from(transform: GlobalTransform) -> Self {
-        Self {
-            translation: transform.translation,
-            rotation: transform.rotation,
-            scale: transform.scale,
-        }
+        transform.compute_transform()
     }
 }
 

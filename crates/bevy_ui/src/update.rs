@@ -108,7 +108,7 @@ fn update_clipping(
     let children_clip = match style.overflow {
         Overflow::Visible => clip,
         Overflow::Hidden => {
-            let node_center = global_transform.translation.truncate();
+            let node_center = global_transform.translation().truncate();
             let node_rect = Rect {
                 min: node_center - node.size / 2.,
                 max: node_center + node.size / 2.,
