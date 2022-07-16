@@ -4,6 +4,7 @@ use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
 };
+use std::borrow::Cow;
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
 pub struct StorageBuffer<T: ShaderType> {
@@ -11,6 +12,7 @@ pub struct StorageBuffer<T: ShaderType> {
     scratch: StorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     capacity: usize,
+    label: Option<Cow<'static, str>>,
 }
 
 impl<T: ShaderType> From<T> for StorageBuffer<T> {
@@ -20,6 +22,7 @@ impl<T: ShaderType> From<T> for StorageBuffer<T> {
             scratch: StorageBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
+            label: None,
         }
     }
 }
@@ -31,6 +34,7 @@ impl<T: ShaderType + Default> Default for StorageBuffer<T> {
             scratch: StorageBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
+            label: None,
         }
     }
 }
@@ -60,6 +64,11 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         &mut self.value
     }
 
+    /// Debug label of a buffer. This will show up in graphics debuggers for easy identification.
+    pub fn label(&mut self, label: Option<Cow<'static, str>>) {
+        self.label = label;
+    }
+
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.scratch.write(&self.value).unwrap();
 
@@ -67,7 +76,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
         if self.capacity < size {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: None,
+                label: self.label.as_deref(),
                 usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
                 contents: self.scratch.as_ref(),
             }));
@@ -83,6 +92,7 @@ pub struct DynamicStorageBuffer<T: ShaderType> {
     scratch: DynamicStorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     capacity: usize,
+    label: Option<Cow<'static, str>>,
 }
 
 impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
@@ -92,6 +102,7 @@ impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
             scratch: DynamicStorageBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
+            label: None,
         }
     }
 }
@@ -128,13 +139,18 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         offset
     }
 
+    /// Debug label of a buffer. This will show up in graphics debuggers for easy identification.
+    pub fn label(&mut self, label: Option<Cow<'static, str>>) {
+        self.label = label;
+    }
+
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         let size = self.scratch.as_ref().len();
 
         if self.capacity < size {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: None,
+                label: self.label.as_deref(),
                 usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
                 contents: self.scratch.as_ref(),
             }));
