@@ -119,11 +119,11 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
                 shader: UPSCALING_SHADER_HANDLE.typed(),
                 shader_defs: vec![],
                 entry_point: "fs_main".into(),
-                targets: vec![ColorTargetState {
+                targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             primitive: PrimitiveState::default(),
             depth_stencil: None,

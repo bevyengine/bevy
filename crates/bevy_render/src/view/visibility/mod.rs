@@ -49,6 +49,18 @@ impl Default for ComputedVisibility {
 #[derive(Component)]
 pub struct NoFrustumCulling;
 
+/// Collection of entities visible from the current view.
+///
+/// This component contains all entities which are visible from the currently
+/// rendered view. The collection is updated automatically by the [`check_visibility()`]
+/// system, and renderers can use it to optimize rendering of a particular view, to
+/// prevent drawing items not visible from that view.
+///
+/// This component is intended to be attached to the same entity as the [`Camera`] and
+/// the [`Frustum`] defining the view.
+///
+/// Currently this component is ignored by the sprite renderer, so sprite rendering
+/// is not optimized per view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
@@ -76,6 +88,8 @@ pub enum VisibilitySystems {
     UpdateOrthographicFrusta,
     UpdatePerspectiveFrusta,
     UpdateProjectionFrusta,
+    /// Label for the [`check_visibility()`] system updating each frame the [`ComputedVisibility`]
+    /// of each entity and the [`VisibleEntities`] of each view.
     CheckVisibility,
 }
 
@@ -125,7 +139,7 @@ pub fn calculate_bounds(
     meshes: Res<Assets<Mesh>>,
     without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
-    for (entity, mesh_handle) in without_aabb.iter() {
+    for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
                 commands.entity(entity).insert(aabb);
@@ -137,7 +151,7 @@ pub fn calculate_bounds(
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     mut views: Query<(&GlobalTransform, &T, &mut Frustum)>,
 ) {
-    for (transform, projection, mut frustum) in views.iter_mut() {
+    for (transform, projection, mut frustum) in &mut views {
         let view_projection =
             projection.get_projection_matrix() * transform.compute_matrix().inverse();
         *frustum = Frustum::from_view_projection(
@@ -149,6 +163,11 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     }
 }
 
+/// System updating the visibility of entities each frame.
+///
+/// The system is labelled with [`VisibilitySystems::CheckVisibility`]. Each frame, it updates the
+/// [`ComputedVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
+/// for that view.
 pub fn check_visibility(
     mut thread_queues: Local<ThreadLocal<Cell<Vec<Entity>>>>,
     mut view_query: Query<(&mut VisibleEntities, &Frustum, Option<&RenderLayers>), With<Camera>>,
@@ -170,7 +189,7 @@ pub fn check_visibility(
         computed_visibility.is_visible = false;
     }
 
-    for (mut visible_entities, frustum, maybe_view_mask) in view_query.iter_mut() {
+    for (mut visible_entities, frustum, maybe_view_mask) in &mut view_query {
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
         visible_entities.entities.clear();
         visible_entity_query.p1().par_for_each_mut(

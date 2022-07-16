@@ -5,11 +5,11 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::CameraUi, CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{const_vec3, Mat4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
@@ -21,7 +21,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
     view::{ExtractedView, ViewUniforms, Visibility},
-    RenderApp, RenderStage, RenderWorld,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
@@ -174,18 +174,19 @@ pub struct ExtractedUiNodes {
 }
 
 pub fn extract_uinodes(
-    mut render_world: ResMut<RenderWorld>,
-    images: Res<Assets<Image>>,
-    uinode_query: Query<(
-        &Node,
-        &GlobalTransform,
-        &UiColor,
-        &UiImage,
-        &Visibility,
-        Option<&CalculatedClip>,
-    )>,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    images: Extract<Res<Assets<Image>>>,
+    uinode_query: Extract<
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &UiColor,
+            &UiImage,
+            &Visibility,
+            Option<&CalculatedClip>,
+        )>,
+    >,
 ) {
-    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
@@ -226,15 +227,11 @@ pub struct DefaultCameraView(pub Entity);
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
-    render_world: Res<RenderWorld>,
-    query: Query<(Entity, &Camera, Option<&CameraUi>), With<T>>,
+    query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
     for (entity, camera, camera_ui) in query.iter() {
         // ignore cameras with disabled ui
-        if let Some(&CameraUi {
-            is_enabled: false, ..
-        }) = camera_ui
-        {
+        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
         if let (Some(logical_size), Some(physical_size)) = (
@@ -248,10 +245,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 ..Default::default()
             };
             projection.update(logical_size.x, logical_size.y);
-            // This roundabout approach is required because spawn().id() won't work in this context
-            let default_camera_view = render_world.entities().reserve_entity();
-            commands
-                .get_or_spawn(default_camera_view)
+            let default_camera_view = commands
+                .spawn()
                 .insert(ExtractedView {
                     projection: projection.get_projection_matrix(),
                     transform: GlobalTransform::from_xyz(
@@ -262,7 +257,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     width: physical_size.x,
                     height: physical_size.y,
                     hdr: camera.hdr,
-                });
+                })
+                .id();
             commands.get_or_spawn(entity).insert_bundle((
                 DefaultCameraView(default_camera_view),
                 RenderPhase::<TransparentUi>::default(),
@@ -272,23 +268,22 @@ pub fn extract_default_ui_camera_view<T: Component>(
 }
 
 pub fn extract_text_uinodes(
-    mut render_world: ResMut<RenderWorld>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    text_pipeline: Res<DefaultTextPipeline>,
-    windows: Res<Windows>,
-    uinode_query: Query<(
-        Entity,
-        &Node,
-        &GlobalTransform,
-        &Text,
-        &Visibility,
-        Option<&CalculatedClip>,
-    )>,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    text_pipeline: Extract<Res<DefaultTextPipeline>>,
+    windows: Extract<Res<Windows>>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &Node,
+            &GlobalTransform,
+            &Text,
+            &Visibility,
+            Option<&CalculatedClip>,
+        )>,
+    >,
 ) {
-    let mut extracted_uinodes = render_world.resource_mut::<ExtractedUiNodes>();
-
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
-
     for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible {
             continue;
@@ -354,10 +349,10 @@ impl Default for UiMeta {
 }
 
 const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
-    const_vec3!([-0.5, -0.5, 0.0]),
-    const_vec3!([0.5, -0.5, 0.0]),
-    const_vec3!([0.5, 0.5, 0.0]),
-    const_vec3!([-0.5, 0.5, 0.0]),
+    Vec3::new(-0.5, -0.5, 0.0),
+    Vec3::new(0.5, -0.5, 0.0),
+    Vec3::new(0.5, 0.5, 0.0),
+    Vec3::new(-0.5, 0.5, 0.0),
 ];
 
 const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
@@ -535,8 +530,8 @@ pub fn queue_uinodes(
         }));
         let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
         let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
-        for mut transparent_phase in views.iter_mut() {
-            for (entity, batch) in ui_batches.iter() {
+        for mut transparent_phase in &mut views {
+            for (entity, batch) in &ui_batches {
                 image_bind_groups
                     .values
                     .entry(batch.image.clone_weak())

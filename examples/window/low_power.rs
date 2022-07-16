@@ -27,7 +27,7 @@ fn main() {
         })
         // Turn off vsync to maximize CPU/GPU usage
         .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .insert_resource(ExampleMode::Game)
@@ -111,10 +111,9 @@ pub(crate) mod test_setup {
         time: Res<Time>,
         mut cube_transform: Query<&mut Transform, With<Rotator>>,
     ) {
-        for mut transform in cube_transform.iter_mut() {
-            let t = time.seconds_since_startup() as f32;
-            *transform =
-                transform.with_rotation(Quat::from_rotation_x(t) * Quat::from_rotation_y(t));
+        for mut transform in &mut cube_transform {
+            transform.rotate_x(time.delta_seconds());
+            transform.rotate_local_y(time.delta_seconds());
         }
     }
 

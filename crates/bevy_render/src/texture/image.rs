@@ -115,17 +115,13 @@ pub struct Image {
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
 /// [`ImageSampler::Default`], will read the sampler from the [`ImageSettings`] resource at runtime.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the [`ImageSettings`] resource.
+    #[default]
     Default,
     /// Custom sampler for this image which will override global default.
     Descriptor(wgpu::SamplerDescriptor<'static>),
-}
-impl Default for ImageSampler {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 impl ImageSampler {
@@ -385,7 +381,10 @@ impl Image {
                 let image_crate_format = format.as_image_crate_format().ok_or_else(|| {
                     TextureError::UnsupportedTextureFormat(format!("{:?}", format))
                 })?;
-                let dyn_img = image::load_from_memory_with_format(buffer, image_crate_format)?;
+                let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
+                reader.set_format(image_crate_format);
+                reader.no_limits();
+                let dyn_img = reader.decode()?;
                 Ok(image_to_texture(dyn_img, is_srgb))
             }
         }
@@ -523,6 +522,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::R16Float
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
+            | TextureFormat::R16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rgba16Uint
             | TextureFormat::Rgba16Sint
@@ -556,6 +556,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::R8Sint
             | TextureFormat::R16Uint
             | TextureFormat::R16Sint
+            | TextureFormat::R16Unorm
             | TextureFormat::R16Float
             | TextureFormat::R32Uint
             | TextureFormat::R32Sint
@@ -741,36 +742,7 @@ impl CompressedImageFormats {
             | TextureFormat::EacR11Snorm
             | TextureFormat::EacRg11Unorm
             | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Astc4x4RgbaUnorm
-            | TextureFormat::Astc4x4RgbaUnormSrgb
-            | TextureFormat::Astc5x4RgbaUnorm
-            | TextureFormat::Astc5x4RgbaUnormSrgb
-            | TextureFormat::Astc5x5RgbaUnorm
-            | TextureFormat::Astc5x5RgbaUnormSrgb
-            | TextureFormat::Astc6x5RgbaUnorm
-            | TextureFormat::Astc6x5RgbaUnormSrgb
-            | TextureFormat::Astc6x6RgbaUnorm
-            | TextureFormat::Astc6x6RgbaUnormSrgb
-            | TextureFormat::Astc8x5RgbaUnorm
-            | TextureFormat::Astc8x5RgbaUnormSrgb
-            | TextureFormat::Astc8x6RgbaUnorm
-            | TextureFormat::Astc8x6RgbaUnormSrgb
-            | TextureFormat::Astc10x5RgbaUnorm
-            | TextureFormat::Astc10x5RgbaUnormSrgb
-            | TextureFormat::Astc10x6RgbaUnorm
-            | TextureFormat::Astc10x6RgbaUnormSrgb
-            | TextureFormat::Astc8x8RgbaUnorm
-            | TextureFormat::Astc8x8RgbaUnormSrgb
-            | TextureFormat::Astc10x8RgbaUnorm
-            | TextureFormat::Astc10x8RgbaUnormSrgb
-            | TextureFormat::Astc10x10RgbaUnorm
-            | TextureFormat::Astc10x10RgbaUnormSrgb
-            | TextureFormat::Astc12x10RgbaUnorm
-            | TextureFormat::Astc12x10RgbaUnormSrgb
-            | TextureFormat::Astc12x12RgbaUnorm
-            | TextureFormat::Astc12x12RgbaUnormSrgb => {
-                self.contains(CompressedImageFormats::ASTC_LDR)
-            }
+            TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }
     }
@@ -802,6 +774,6 @@ mod test {
     #[test]
     fn image_default_size() {
         let image = Image::default();
-        assert_eq!(Vec2::new(1.0, 1.0), image.size());
+        assert_eq!(Vec2::ONE, image.size());
     }
 }

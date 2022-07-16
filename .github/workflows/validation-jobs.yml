@@ -52,9 +52,6 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
       
-      - name: Uninstall android-31
-        run: $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --uninstall "platforms;android-31"
-      
       - name: Install Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
       
@@ -62,11 +59,11 @@ jobs:
         run: cargo install --force cargo-apk
       
       - name: Build APK
-        run: cargo apk build --example android
+        run: cargo apk build --example android_example
 
-  run-examples-on-windows:
+  run-examples-on-windows-dx12:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
 
@@ -94,7 +91,7 @@ jobs:
           for example in .github/example-run/*.ron; do
             example_name=`basename $example .ron`
             echo "running $example_name - "`date`
-            time CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
+            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
             sleep 10
           done
 

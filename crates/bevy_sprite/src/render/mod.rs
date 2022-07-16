@@ -10,7 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec2, Vec2};
+use bevy_math::Vec2;
 use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
@@ -26,7 +26,7 @@ use bevy_render::{
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility,
     },
-    RenderWorld,
+    Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
@@ -41,7 +41,6 @@ pub struct SpritePipeline {
 
 impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -174,11 +173,11 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
-                    format,
+                targets: vec![Some(ColorTargetState {
+                    format: TextureFormat::bevy_default(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             layout: Some(vec![self.view_layout.clone(), self.material_layout.clone()]),
             primitive: PrimitiveState {
@@ -228,10 +227,9 @@ pub struct SpriteAssetEvents {
 }
 
 pub fn extract_sprite_events(
-    mut render_world: ResMut<RenderWorld>,
-    mut image_events: EventReader<AssetEvent<Image>>,
+    mut events: ResMut<SpriteAssetEvents>,
+    mut image_events: Extract<EventReader<AssetEvent<Image>>>,
 ) {
-    let mut events = render_world.resource_mut::<SpriteAssetEvents>();
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
 
@@ -252,17 +250,18 @@ pub fn extract_sprite_events(
 }
 
 pub fn extract_sprites(
-    mut render_world: ResMut<RenderWorld>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    sprite_query: Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>,
-    atlas_query: Query<(
-        &Visibility,
-        &TextureAtlasSprite,
-        &GlobalTransform,
-        &Handle<TextureAtlas>,
-    )>,
+    mut extracted_sprites: ResMut<ExtractedSprites>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    sprite_query: Extract<Query<(&Visibility, &Sprite, &GlobalTransform, &Handle<Image>)>>,
+    atlas_query: Extract<
+        Query<(
+            &Visibility,
+            &TextureAtlasSprite,
+            &GlobalTransform,
+            &Handle<TextureAtlas>,
+        )>,
+    >,
 ) {
-    let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
     extracted_sprites.sprites.clear();
     for (visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible {
@@ -338,17 +337,17 @@ impl Default for SpriteMeta {
 const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
-    const_vec2!([-0.5, -0.5]),
-    const_vec2!([0.5, -0.5]),
-    const_vec2!([0.5, 0.5]),
-    const_vec2!([-0.5, 0.5]),
+    Vec2::new(-0.5, -0.5),
+    Vec2::new(0.5, -0.5),
+    Vec2::new(0.5, 0.5),
+    Vec2::new(-0.5, 0.5),
 ];
 
 const QUAD_UVS: [Vec2; 4] = [
-    const_vec2!([0., 1.]),
-    const_vec2!([1., 1.]),
-    const_vec2!([1., 0.]),
-    const_vec2!([0., 0.]),
+    Vec2::new(0., 1.),
+    Vec2::new(1., 1.),
+    Vec2::new(1., 0.),
+    Vec2::new(0., 0.),
 ];
 
 #[derive(Component, Eq, PartialEq, Copy, Clone)]
@@ -419,7 +418,7 @@ pub fn queue_sprites(
         let mut colored_index = 0;
 
         // FIXME: VisibleEntities is ignored
-        for (mut transparent_phase, view, tonemapping) in views.iter_mut() {
+        for (mut transparent_phase, view, tonemapping) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
             if let Some(tonemapping) = tonemapping {
                 if tonemapping.is_enabled && !view.hdr {
@@ -467,7 +466,7 @@ pub fn queue_sprites(
             // Compatible items share the same entity.
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
             // by any other phase item (and they can interrupt other items from batching).
-            for extracted_sprite in extracted_sprites.iter() {
+            for extracted_sprite in extracted_sprites {
                 let new_batch = SpriteBatch {
                     image_handle_id: extracted_sprite.image_handle_id,
                     colored: extracted_sprite.color != Color::WHITE,

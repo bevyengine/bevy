@@ -22,7 +22,7 @@ pub struct FlexSurface {
     taffy: Taffy,
 }
 
-// SAFE: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
+// SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
 // TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
 #[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
@@ -112,7 +112,7 @@ impl FlexSurface {
 
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
         let mut taffy_children = Vec::with_capacity(children.len());
-        for child in children.iter() {
+        for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
                 taffy_children.push(*taffy_node);
             } else {
@@ -231,7 +231,7 @@ pub fn flex_node_system(
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
     ) {
         // update changed nodes
-        for (entity, style, calculated_size) in query.iter() {
+        for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
                 flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
@@ -241,7 +241,7 @@ pub fn flex_node_system(
         }
     }
 
-    for (entity, style, calculated_size) in changed_size_query.iter() {
+    for (entity, style, calculated_size) in &changed_size_query {
         flex_surface.upsert_leaf(entity, style, *calculated_size, logical_to_physical_factor);
     }
 
@@ -253,7 +253,7 @@ pub fn flex_node_system(
     }
 
     // update children
-    for (entity, children) in children_query.iter() {
+    for (entity, children) in &children_query {
         flex_surface.update_children(entity, children);
     }
 
@@ -265,7 +265,7 @@ pub fn flex_node_system(
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
-    for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
+    for (entity, mut node, mut transform, parent) in &mut node_transform_query {
         let layout = flex_surface.get_layout(entity).unwrap();
         let new_size = Vec2::new(
             to_logical(layout.size.width),
@@ -279,7 +279,7 @@ pub fn flex_node_system(
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
-            if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
+            if let Ok(parent_layout) = flex_surface.get_layout(**parent) {
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }

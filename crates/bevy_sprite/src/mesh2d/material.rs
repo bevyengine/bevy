@@ -216,8 +216,8 @@ pub struct Material2dPipeline<M: SpecializedMaterial2d> {
 
 #[derive(Eq, PartialEq, Clone, Hash)]
 pub struct Material2dKey<T> {
-    mesh_key: Mesh2dPipelineKey,
-    material_key: T,
+    pub mesh_key: Mesh2dPipelineKey,
+    pub material_key: T,
 }
 
 impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M> {
@@ -310,7 +310,7 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
         return;
     }
     let render_device = render_device.into_inner();
-    for (visible_entities, mut transparent_phase) in views.iter_mut() {
+    for (visible_entities, mut transparent_phase) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions
             .read()
             .get_id::<DrawMaterial2d<M>>()

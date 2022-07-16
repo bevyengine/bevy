@@ -10,7 +10,7 @@ use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
-    StandardMaterial,
+    SpotLight, SpotLightBundle, StandardMaterial,
 };
 use bevy_render::{
     camera::{
@@ -260,11 +260,6 @@ async fn load_gltf<'a, 'b>(
                 .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
             {
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
-            } else {
-                let len = mesh.count_vertices();
-                let uvs = vec![[0.0, 0.0]; len];
-                bevy_log::debug!("missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs");
-                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
             if let Some(vertex_attribute) = reader
@@ -368,7 +363,7 @@ async fn load_gltf<'a, 'b>(
                         scale,
                     } => Transform {
                         translation: bevy_math::Vec3::from(translation),
-                        rotation: bevy_math::Quat::from_vec4(rotation.into()),
+                        rotation: bevy_math::Quat::from_array(rotation),
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
@@ -862,9 +857,33 @@ fn load_node(
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {
-                    inner_cone_angle: _inner_cone_angle,
-                    outer_cone_angle: _outer_cone_angle,
-                } => warn!("Spot lights are not yet supported."),
+                    inner_cone_angle,
+                    outer_cone_angle,
+                } => {
+                    let mut entity = parent.spawn_bundle(SpotLightBundle {
+                        spot_light: SpotLight {
+                            color: Color::from(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
+                            // candela (lm/sr) which is luminous intensity and we need luminous power.
+                            // For a spot light, we map luminous power = 4 * pi * luminous intensity
+                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                            range: light.range().unwrap_or(20.0),
+                            radius: light.range().unwrap_or(0.0),
+                            inner_angle: inner_cone_angle,
+                            outer_angle: outer_cone_angle,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
+                    }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
+                }
             }
         }
 
@@ -1027,8 +1046,7 @@ async fn load_buffers(
                     Err(()) => {
                         // TODO: Remove this and add dep
                         let buffer_path = asset_path.parent().unwrap().join(uri);
-                        let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
-                        buffer_bytes
+                        load_context.read_asset_bytes(buffer_path).await?
                     }
                 };
                 buffer_data.push(buffer_bytes);

@@ -35,7 +35,8 @@ impl Plugin for CorePipelinePlugin {
             Shader::from_wgsl
         );
 
-        app.init_resource::<ClearColor>()
+        app.register_type::<ClearColor>()
+            .init_resource::<ClearColor>()
             .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
             .add_plugin(TonemappingPlugin)
             .add_plugin(UpscalingPlugin)

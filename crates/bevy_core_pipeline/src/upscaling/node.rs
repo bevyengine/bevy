@@ -99,14 +99,14 @@ impl Node for UpscalingNode {
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("upscaling_pass"),
-            color_attachments: &[RenderPassColorAttachment {
+            color_attachments: &[Some(RenderPassColorAttachment {
                 view: &target.out_texture,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(Default::default()), // TODO dont_care
                     store: true,
                 },
-            }],
+            })],
             depth_stencil_attachment: None,
         };
 

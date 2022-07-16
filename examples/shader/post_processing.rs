@@ -157,9 +157,9 @@ fn main_camera_cube_rotator_system(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<MainCube>>,
 ) {
-    for mut transform in query.iter_mut() {
-        transform.rotation *= Quat::from_rotation_x(0.55 * time.delta_seconds());
-        transform.rotation *= Quat::from_rotation_z(0.15 * time.delta_seconds());
+    for mut transform in &mut query {
+        transform.rotate_x(0.55 * time.delta_seconds());
+        transform.rotate_z(0.15 * time.delta_seconds());
     }
 }
 

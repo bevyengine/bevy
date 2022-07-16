@@ -109,14 +109,14 @@ impl Node for TonemappingNode {
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("tonemapping_pass"),
-            color_attachments: &[RenderPassColorAttachment {
+            color_attachments: &[Some(RenderPassColorAttachment {
                 view: ldr_texture,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
                     store: true,
                 },
-            }],
+            })],
             depth_stencil_attachment: None,
         };
 

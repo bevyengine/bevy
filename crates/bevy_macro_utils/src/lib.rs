@@ -118,12 +118,41 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
         where_token: Default::default(),
         predicates: Default::default(),
     });
-    where_clause.predicates.push(syn::parse2(quote! { Self: Eq + ::std::fmt::Debug + ::std::hash::Hash + Clone + Send + Sync + 'static }).unwrap());
+    where_clause
+        .predicates
+        .push(syn::parse2(quote! { Self: 'static }).unwrap());
+
+    let as_str = match input.data {
+        syn::Data::Struct(d) => match d.fields {
+            syn::Fields::Unit => {
+                let lit = ident.to_string();
+                quote! { #lit }
+            }
+            _ => panic!("Labels cannot contain data."),
+        },
+        syn::Data::Enum(d) => {
+            let arms = d.variants.iter().map(|v| match v.fields {
+                syn::Fields::Unit => {
+                    let mut path = syn::Path::from(ident.clone());
+                    path.segments.push(v.ident.clone().into());
+                    let lit = format!("{ident}::{}", v.ident.clone());
+                    quote! { #path => #lit }
+                }
+                _ => panic!("Label variants cannot contain data."),
+            });
+            quote! {
+                match self {
+                    #(#arms),*
+                }
+            }
+        }
+        syn::Data::Union(_) => panic!("Unions cannot be used as labels."),
+    };
 
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
-            fn dyn_clone(&self) -> std::boxed::Box<dyn #trait_path> {
-                std::boxed::Box::new(std::clone::Clone::clone(self))
+            fn as_str(&self) -> &'static str {
+                #as_str
             }
         }
     })
