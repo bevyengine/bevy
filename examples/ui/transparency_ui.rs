@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
+                text: Text::from_section(
                     "Button 1",
                     TextStyle {
                         font: font_handle.clone(),
@@ -38,7 +38,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // Alpha channel of the color controls transparency.
                         color: Color::rgba(1.0, 1.0, 1.0, 0.2),
                     },
-                    Default::default(),
                 ),
                 ..default()
             });
@@ -60,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
+                text: Text::from_section(
                     "Button 2",
                     TextStyle {
                         font: font_handle.clone(),
@@ -68,7 +67,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // Alpha channel of the color controls transparency.
                         color: Color::rgba(1.0, 1.0, 1.0, 0.2),
                     },
-                    Default::default(),
                 ),
                 ..default()
             });

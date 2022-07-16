@@ -118,10 +118,7 @@ fn setup_scene(
                             color: Color::BLACK,
                         },
                     }],
-                    alignment: TextAlignment {
-                        vertical: VerticalAlign::Center,
-                        horizontal: HorizontalAlign::Center,
-                    },
+                    alignment: TextAlignment::CENTER,
                 },
                 ..default()
             });

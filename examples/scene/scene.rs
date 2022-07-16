@@ -110,14 +110,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             align_self: AlignSelf::FlexEnd,
             ..default()
         },
-        text: Text::with_section(
+        text: Text::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
             },
-            Default::default(),
         ),
         ..default()
     });

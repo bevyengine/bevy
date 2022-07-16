@@ -170,14 +170,13 @@ mod game {
                         margin: UiRect::all(Val::Px(50.0)),
                         ..default()
                     },
-                    text: Text::with_section(
+                    text: Text::from_section(
                         "Will be back to the menu shortly...",
                         TextStyle {
                             font: font.clone(),
                             font_size: 80.0,
                             color: TEXT_COLOR,
                         },
-                        Default::default(),
                     ),
                     ..default()
                 });
@@ -437,14 +436,13 @@ mod menu {
                         margin: UiRect::all(Val::Px(50.0)),
                         ..default()
                     },
-                    text: Text::with_section(
+                    text: Text::from_section(
                         "Bevy Game Menu UI",
                         TextStyle {
                             font: font.clone(),
                             font_size: 80.0,
                             color: TEXT_COLOR,
                         },
-                        Default::default(),
                     ),
                     ..default()
                 });
@@ -468,11 +466,7 @@ mod menu {
                             ..default()
                         });
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "New Game",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
+                            text: Text::from_section("New Game", button_text_style.clone()),
                             ..default()
                         });
                     });
@@ -491,11 +485,7 @@ mod menu {
                             ..default()
                         });
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Settings",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
+                            text: Text::from_section("Settings", button_text_style.clone()),
                             ..default()
                         });
                     });
@@ -514,7 +504,7 @@ mod menu {
                             ..default()
                         });
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section("Quit", button_text_style, Default::default()),
+                            text: Text::from_section("Quit", button_text_style),
                             ..default()
                         });
                     });
@@ -558,11 +548,7 @@ mod menu {
                     .insert(MenuButtonAction::SettingsDisplay)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Display",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
+                            text: Text::from_section("Display", button_text_style.clone()),
                             ..default()
                         });
                     });
@@ -575,11 +561,7 @@ mod menu {
                     .insert(MenuButtonAction::SettingsSound)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Sound",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
+                            text: Text::from_section("Sound", button_text_style.clone()),
                             ..default()
                         });
                     });
@@ -593,7 +575,7 @@ mod menu {
                     .insert(MenuButtonAction::BackToMainMenu)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section("Back", button_text_style, Default::default()),
+                            text: Text::from_section("Back", button_text_style),
                             ..default()
                         });
                     });
@@ -645,11 +627,7 @@ mod menu {
                     .with_children(|parent| {
                         // Display a label for the current setting
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Display Quality",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
+                            text: Text::from_section("Display Quality", button_text_style.clone()),
                             ..default()
                         });
                         // Display a button for each possible value
@@ -668,10 +646,9 @@ mod menu {
                             });
                             entity.insert(quality_setting).with_children(|parent| {
                                 parent.spawn_bundle(TextBundle {
-                                    text: Text::with_section(
+                                    text: Text::from_section(
                                         format!("{:?}", quality_setting),
                                         button_text_style.clone(),
-                                        Default::default(),
                                     ),
                                     ..default()
                                 });
@@ -691,7 +668,7 @@ mod menu {
                     .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section("Back", button_text_style, Default::default()),
+                            text: Text::from_section("Back", button_text_style),
                             ..default()
                         });
                     });
@@ -740,11 +717,7 @@ mod menu {
                     })
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Volume",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
+                            text: Text::from_section("Volume", button_text_style.clone()),
                             ..default()
                         });
                         for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
@@ -771,7 +744,7 @@ mod menu {
                     .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle {
-                            text: Text::with_section("Back", button_text_style, Default::default()),
+                            text: Text::from_section("Back", button_text_style),
                             ..default()
                         });
                     });

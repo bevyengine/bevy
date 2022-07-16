@@ -62,14 +62,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::all(Val::Px(5.0)),
                                     ..default()
                                 },
-                                text: Text::with_section(
+                                text: Text::from_section(
                                     "Text Example",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 30.0,
                                         color: Color::WHITE,
                                     },
-                                    Default::default(),
                                 ),
                                 ..default()
                             });
@@ -99,14 +98,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             },
                             ..default()
                         },
-                        text: Text::with_section(
+                        text: Text::from_section(
                             "Scrolling list",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 25.,
                                 color: Color::WHITE,
                             },
-                            Default::default(),
                         ),
                         ..default()
                     });
@@ -151,7 +149,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 },
                                                 ..default()
                                             },
-                                            text: Text::with_section(
+                                            text: Text::from_section(
                                                 format!("Item {}", i),
                                                 TextStyle {
                                                     font: asset_server
@@ -159,7 +157,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     font_size: 20.,
                                                     color: Color::WHITE,
                                                 },
-                                                Default::default(),
                                             ),
                                             ..default()
                                         });

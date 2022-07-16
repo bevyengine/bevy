@@ -14,7 +14,7 @@ pub struct Text {
 }
 
 impl Text {
-    /// Constructs a [`Text`] with (initially) one section.
+    /// Constructs a [`Text`] with a single section.
     ///
     /// ```
     /// # use bevy_asset::{AssetServer, Handle};
@@ -23,44 +23,41 @@ impl Text {
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
-    /// // basic usage
-    /// let hello_world = Text::with_section(
-    ///     "hello world!".to_string(),
+    /// // Basic usage.
+    /// let hello_world = Text::from_section(
+    ///     // Accepts a String or any type that converts into a String, such as &str.
+    ///     "hello world!",
     ///     TextStyle {
     ///         font: font_handle.clone(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
-    ///     TextAlignment {
-    ///         vertical: VerticalAlign::Center,
-    ///         horizontal: HorizontalAlign::Center,
-    ///     },
     /// );
     ///
-    /// let hello_bevy = Text::with_section(
-    ///     // accepts a String or any type that converts into a String, such as &str
+    /// let hello_bevy = Text::from_section(
     ///     "hello bevy!",
     ///     TextStyle {
     ///         font: font_handle,
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
-    ///     // you can still use Default
-    ///     Default::default(),
-    /// );
+    /// ) // You can still add an alignment.
+    /// .with_alignment(TextAlignment::CENTER);
     /// ```
-    pub fn with_section<S: Into<String>>(
-        value: S,
-        style: TextStyle,
-        alignment: TextAlignment,
-    ) -> Self {
+    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
             sections: vec![TextSection {
                 value: value.into(),
                 style,
             }],
-            alignment,
+            alignment: Default::default(),
         }
+    }
+
+    /// Returns this [`Text`] with a new [`TextAlignment`].
+    pub fn with_alignment(mut self, alignment: TextAlignment) -> Self {
+        self.alignment = alignment;
+        self
     }
 }
 
@@ -74,6 +71,14 @@ pub struct TextSection {
 pub struct TextAlignment {
     pub vertical: VerticalAlign,
     pub horizontal: HorizontalAlign,
+}
+
+impl TextAlignment {
+    /// A [`TextAlignment`] set to center on both axes.
+    pub const CENTER: Self = TextAlignment {
+        vertical: VerticalAlign::Center,
+        horizontal: HorizontalAlign::Center,
+    };
 }
 
 impl Default for TextAlignment {

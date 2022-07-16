@@ -36,14 +36,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         },
-        text: Text::with_section(
+        text: Text::from_section(
             "This is\ntext with\nline breaks\nin the top left",
             TextStyle {
                 font: font.clone(),
                 font_size: 50.0,
                 color: Color::WHITE,
             },
-            Default::default(),
         ),
         ..default()
     });
@@ -62,18 +61,14 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         },
-        text: Text::with_section(
-                    "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
-                        TextStyle {
-                    font: font.clone(),
-                    font_size: 50.0,
-                    color: Color::rgb(0.8, 0.2, 0.7),
-                },
-            TextAlignment {
-                horizontal: HorizontalAlign::Center,
-                vertical: VerticalAlign::Center,
+        text: Text::from_section(
+            "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
+            TextStyle {
+                font: font.clone(),
+                font_size: 50.0,
+                color: Color::rgb(0.8, 0.2, 0.7),
             },
-        ),
+        ).with_alignment(TextAlignment::CENTER),
         ..default()
     });
     commands
@@ -159,14 +154,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         },
-        text: Text::with_section(
+        text: Text::from_section(
             "This\ntext has\nline breaks and also a set width in the bottom left".to_string(),
             TextStyle {
                 font,
                 font_size: 50.0,
                 color: Color::WHITE,
             },
-            Default::default(),
         ),
         ..default()
     });

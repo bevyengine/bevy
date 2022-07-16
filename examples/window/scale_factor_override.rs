@@ -49,14 +49,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             align_self: AlignSelf::FlexEnd,
                             ..default()
                         },
-                        text: Text::with_section(
+                        text: Text::from_section(
                             "Example text",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 30.0,
                                 color: Color::WHITE,
                             },
-                            Default::default(),
                         ),
                         ..default()
                     });

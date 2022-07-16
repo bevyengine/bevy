@@ -81,14 +81,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
     state.handle = font_handle.clone();
     commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(TextBundle {
-        text: Text::with_section(
+        text: Text::from_section(
             "a",
             TextStyle {
                 font: font_handle,
                 font_size: 60.0,
                 color: Color::YELLOW,
             },
-            Default::default(),
         ),
         ..default()
     });

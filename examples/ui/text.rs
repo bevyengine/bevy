@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             // Use the `Text::with_section` constructor
-            text: Text::with_section(
+            text: Text::from_section(
                 // Accepts a `String` or any type that converts into a `String`, such as `&str`
                 "hello\nbevy!",
                 TextStyle {
@@ -51,12 +51,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 100.0,
                     color: Color::WHITE,
                 },
-                // Note: You can use `Default::default()` in place of the `TextAlignment`
-                TextAlignment {
-                    horizontal: HorizontalAlign::Center,
-                    ..default()
-                },
-            ),
+            )
+            .with_alignment(TextAlignment {
+                horizontal: HorizontalAlign::Center,
+                ..default()
+            }),
             ..default()
         })
         .insert(ColorText);
