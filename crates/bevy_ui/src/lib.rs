@@ -25,7 +25,6 @@ pub mod prelude {
     pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction};
 }
 
-use crate::Size;
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
