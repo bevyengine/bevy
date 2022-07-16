@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Quat, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
@@ -12,7 +12,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{ComputedVisibility, RenderLayers, VisibleEntities},
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::tracing::warn;
 
 use crate::{
@@ -755,11 +755,19 @@ pub(crate) fn point_light_order(
 // data required for assigning lights to clusters
 pub(crate) struct PointLightAssignmentData {
     entity: Entity,
-    translation: Vec3,
-    rotation: Quat,
+    transform: GlobalTransform,
     range: f32,
     shadows_enabled: bool,
     spot_light_angle: Option<f32>,
+}
+
+impl PointLightAssignmentData {
+    pub fn sphere(&self) -> Sphere {
+        Sphere {
+            center: self.transform.translation_vec3a(),
+            radius: self.range,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -815,8 +823,7 @@ pub(crate) fn assign_lights_to_clusters(
             .map(
                 |(entity, transform, point_light, _visibility)| PointLightAssignmentData {
                     entity,
-                    translation: transform.translation,
-                    rotation: Quat::default(),
+                    transform: GlobalTransform::from_translation(transform.translation()),
                     shadows_enabled: point_light.shadows_enabled,
                     range: point_light.range,
                     spot_light_angle: None,
@@ -830,8 +837,7 @@ pub(crate) fn assign_lights_to_clusters(
             .map(
                 |(entity, transform, spot_light, _visibility)| PointLightAssignmentData {
                     entity,
-                    translation: transform.translation,
-                    rotation: transform.rotation,
+                    transform: *transform,
                     shadows_enabled: spot_light.shadows_enabled,
                     range: spot_light.range,
                     spot_light_angle: Some(spot_light.outer_angle),
@@ -872,11 +878,7 @@ pub(crate) fn assign_lights_to_clusters(
             if lights_in_view_count == MAX_UNIFORM_BUFFER_POINT_LIGHTS + 1 {
                 false
             } else {
-                let light_sphere = Sphere {
-                    center: Vec3A::from(light.translation),
-                    radius: light.range,
-                };
-
+                let light_sphere = light.sphere();
                 let light_in_view = frusta
                     .iter()
                     .any(|frustum| frustum.intersects_sphere(&light_sphere, true));
@@ -932,7 +934,8 @@ pub(crate) fn assign_lights_to_clusters(
                 lights
                     .iter()
                     .map(|light| {
-                        -inverse_view_row_2.dot(light.translation.extend(1.0)) + light.range
+                        -inverse_view_row_2.dot(light.transform.translation().extend(1.0))
+                            + light.range
                     })
                     .reduce(f32::max)
                     .unwrap_or(0.0)
@@ -966,10 +969,7 @@ pub(crate) fn assign_lights_to_clusters(
         if config.dynamic_resizing() {
             let mut cluster_index_estimate = 0.0;
             for light in lights.iter() {
-                let light_sphere = Sphere {
-                    center: Vec3A::from(light.translation),
-                    radius: light.range,
-                };
+                let light_sphere = light.sphere();
 
                 // Check if the light is within the view frustum
                 if !frustum.intersects_sphere(&light_sphere, true) {
@@ -1124,10 +1124,7 @@ pub(crate) fn assign_lights_to_clusters(
 
         let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
             for light in lights.iter() {
-                let light_sphere = Sphere {
-                    center: Vec3A::from(light.translation),
-                    radius: light.range,
-                };
+                let light_sphere = light.sphere();
 
                 // Check if the light is within the view frustum
                 if !frustum.intersects_sphere(&light_sphere, true) {
@@ -1177,8 +1174,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let spot_light_dir_sin_cos = light.spot_light_angle.map(|angle| {
                     let (angle_sin, angle_cos) = angle.sin_cos();
                     (
-                        (inverse_view_transform * (light.rotation * Vec3::Z).extend(0.0))
-                            .truncate(),
+                        (inverse_view_transform * light.transform.back().extend(0.0)).truncate(),
                         angle_sin,
                         angle_cos,
                     )
@@ -1432,7 +1428,7 @@ pub fn update_directional_light_frusta(
             * transform.compute_matrix().inverse();
         *frustum = Frustum::from_view_projection(
             &view_projection,
-            &transform.translation,
+            &transform.translation(),
             &transform.back(),
             directional_light.shadow_projection.far(),
         );
@@ -1451,7 +1447,7 @@ pub fn update_point_light_frusta(
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let view_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Transform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
 
     for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
@@ -1467,7 +1463,7 @@ pub fn update_point_light_frusta(
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects
         // and ignore rotation because we want the shadow map projections to align with the axes
-        let view_translation = GlobalTransform::from_translation(transform.translation);
+        let view_translation = Transform::from_translation(transform.translation());
         let view_backward = transform.back();
 
         for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
@@ -1476,7 +1472,7 @@ pub fn update_point_light_frusta(
 
             *frustum = Frustum::from_view_projection(
                 &view_projection,
-                &transform.translation,
+                &transform.translation(),
                 &view_backward,
                 point_light.range,
             );
@@ -1503,7 +1499,6 @@ pub fn update_spot_light_frusta(
 
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects
-        let view_translation = GlobalTransform::from_translation(transform.translation);
         let view_backward = transform.back();
 
         let spot_view = spot_light_view_matrix(transform);
@@ -1512,7 +1507,7 @@ pub fn update_spot_light_frusta(
 
         *frustum = Frustum::from_view_projection(
             &view_projection,
-            &view_translation.translation,
+            &transform.translation(),
             &view_backward,
             spot_light.range,
         );
@@ -1623,7 +1618,7 @@ pub fn check_light_mesh_visibility(
 
                 let view_mask = maybe_view_mask.copied().unwrap_or_default();
                 let light_sphere = Sphere {
-                    center: Vec3A::from(transform.translation),
+                    center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
                 };
 
@@ -1686,7 +1681,7 @@ pub fn check_light_mesh_visibility(
 
                 let view_mask = maybe_view_mask.copied().unwrap_or_default();
                 let light_sphere = Sphere {
-                    center: Vec3A::from(transform.translation),
+                    center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
                 };
 

@@ -226,7 +226,7 @@ fn setup_scene_after_load(
             // a Sphere, and then back to an Aabb to find the conservative min and max points.
             let sphere = Sphere {
                 center: Vec3A::from(transform.mul_vec3(Vec3::from(aabb.center))),
-                radius: (Vec3A::from(transform.scale) * aabb.half_extents).length(),
+                radius: transform.radius_vec3a(aabb.half_extents),
             };
             let aabb = Aabb::from(sphere);
             min = min.min(aabb.min());

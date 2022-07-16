@@ -410,9 +410,9 @@ pub fn queue_sprites(
         extracted_sprites.sort_unstable_by(|a, b| {
             match a
                 .transform
-                .translation
+                .translation()
                 .z
-                .partial_cmp(&b.transform.translation.z)
+                .partial_cmp(&b.transform.translation().z)
             {
                 Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
                 Some(other) => other,
@@ -517,7 +517,7 @@ pub fn queue_sprites(
                 });
 
                 // These items will be sorted by depth with other phase items
-                let sort_key = FloatOrd(extracted_sprite.transform.translation.z);
+                let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {

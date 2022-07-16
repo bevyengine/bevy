@@ -31,7 +31,7 @@ use bevy_render::{
     },
     Extract,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::FloatOrd;
 use bevy_utils::{
     tracing::{error, warn},
@@ -728,7 +728,7 @@ pub fn calculate_cluster_factors(
 // could move this onto transform but it's pretty niche
 pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
-    let fwd_dir = transform.local_z().extend(0.0);
+    let fwd_dir = transform.back().extend(0.0);
 
     let sign = 1f32.copysign(fwd_dir.z);
     let a = -1.0 / (fwd_dir.z + sign);
@@ -745,7 +745,7 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
         right_dir,
         up_dir,
         fwd_dir,
-        transform.translation.extend(1.0),
+        transform.translation().extend(1.0),
     )
 }
 
@@ -779,7 +779,7 @@ pub fn prepare_lights(
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Transform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
 
     global_light_meta.entity_to_index.clear();
@@ -893,7 +893,7 @@ pub fn prepare_lights(
                 * light.intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
-            position_radius: light.transform.translation.extend(light.radius),
+            position_radius: light.transform.translation().extend(light.radius),
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
@@ -989,7 +989,7 @@ pub fn prepare_lights(
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
-            let view_translation = GlobalTransform::from_translation(light.transform.translation);
+            let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
             for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                 let depth_texture_view =
@@ -1042,7 +1042,7 @@ pub fn prepare_lights(
             .enumerate()
         {
             let spot_view_matrix = spot_light_view_matrix(&light.transform);
-            let spot_view_transform = GlobalTransform::from_matrix(spot_view_matrix);
+            let spot_view_transform = spot_view_matrix.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
                 [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_light_shadow_maps_count] are spot lights").1;
@@ -1152,7 +1152,7 @@ pub fn prepare_lights(
                         ExtractedView {
                             width: directional_light_shadow_map.size as u32,
                             height: directional_light_shadow_map.size as u32,
-                            transform: GlobalTransform::from_matrix(view.inverse()),
+                            transform: GlobalTransform::from(view.inverse()),
                             projection,
                         },
                         RenderPhase::<Shadow>::default(),

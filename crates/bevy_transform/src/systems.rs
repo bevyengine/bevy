@@ -320,13 +320,7 @@ mod test {
 
         let mut state = app.world.query::<&GlobalTransform>();
         for global in state.iter(&app.world) {
-            assert_eq!(
-                global,
-                &GlobalTransform {
-                    translation,
-                    ..Default::default()
-                },
-            );
+            assert_eq!(global, &GlobalTransform::from_translation(translation));
         }
     }
 

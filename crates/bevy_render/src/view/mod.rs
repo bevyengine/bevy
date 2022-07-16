@@ -162,7 +162,7 @@ fn prepare_view_uniforms(
                 inverse_view,
                 projection,
                 inverse_projection,
-                world_position: camera.transform.translation,
+                world_position: camera.transform.translation(),
                 width: camera.width as f32,
                 height: camera.height as f32,
             }),

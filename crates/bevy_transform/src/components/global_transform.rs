@@ -1,8 +1,9 @@
+use std::ops::Mul;
+
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::prelude::*;
-use std::ops::Mul;
+use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
+use bevy_reflect::Reflect;
 
 /// Describe the position of an entity relative to the reference frame.
 ///
@@ -25,223 +26,129 @@ use std::ops::Mul;
 /// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
-#[reflect(Component, Default, PartialEq)]
-pub struct GlobalTransform {
-    /// The position of the global transform
-    pub translation: Vec3,
-    /// The rotation of the global transform
-    pub rotation: Quat,
-    /// The scale of the global transform
-    pub scale: Vec3,
+#[reflect(Component, PartialEq)]
+pub struct GlobalTransform(Affine3A);
+
+macro_rules! impl_local_axis {
+    ($pos_name: ident, $neg_name: ident, $axis: ident) => {
+        #[doc=std::concat!("Return the local ", std::stringify!($pos_name), " vector (", std::stringify!($axis) ,").")]
+        #[inline]
+        pub fn $pos_name(&self) -> Vec3 {
+            (self.0.matrix3 * Vec3::$axis).normalize()
+        }
+
+        #[doc=std::concat!("Return the local ", std::stringify!($neg_name), " vector (-", std::stringify!($axis) ,").")]
+        #[inline]
+        pub fn $neg_name(&self) -> Vec3 {
+            -self.$pos_name()
+        }
+    };
 }
 
 impl GlobalTransform {
     #[doc(hidden)]
     #[inline]
-    pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Self::from_translation(Vec3::new(x, y, z))
     }
 
-    /// Creates a new identity [`GlobalTransform`], with no translation, rotation, and a scale of 1
-    /// on all axes.
+    #[doc(hidden)]
     #[inline]
-    pub const fn identity() -> Self {
-        GlobalTransform {
-            translation: Vec3::ZERO,
-            rotation: Quat::IDENTITY,
-            scale: Vec3::ONE,
-        }
+    pub fn from_translation(translation: Vec3) -> Self {
+        GlobalTransform(Affine3A::from_translation(translation))
     }
 
     #[doc(hidden)]
     #[inline]
-    pub fn from_matrix(matrix: Mat4) -> Self {
-        let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
-
-        GlobalTransform {
-            translation,
-            rotation,
-            scale,
-        }
+    pub fn from_rotation(rotation: Quat) -> Self {
+        GlobalTransform(Affine3A::from_rotation_translation(rotation, Vec3::ZERO))
     }
 
     #[doc(hidden)]
     #[inline]
-    pub const fn from_translation(translation: Vec3) -> Self {
-        GlobalTransform {
-            translation,
-            ..Self::identity()
-        }
+    pub fn from_scale(scale: Vec3) -> Self {
+        GlobalTransform(Affine3A::from_scale(scale))
     }
 
-    #[doc(hidden)]
-    #[inline]
-    pub const fn from_rotation(rotation: Quat) -> Self {
-        GlobalTransform {
-            rotation,
-            ..Self::identity()
-        }
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    pub const fn from_scale(scale: Vec3) -> Self {
-        GlobalTransform {
-            scale,
-            ..Self::identity()
-        }
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    #[must_use]
-    pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
-        self.look_at(target, up);
-        self
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    #[must_use]
-    pub const fn with_translation(mut self, translation: Vec3) -> Self {
-        self.translation = translation;
-        self
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    #[must_use]
-    pub const fn with_rotation(mut self, rotation: Quat) -> Self {
-        self.rotation = rotation;
-        self
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    #[must_use]
-    pub const fn with_scale(mut self, scale: Vec3) -> Self {
-        self.scale = scale;
-        self
-    }
-
-    /// Returns the 3d affine transformation matrix from this transforms translation,
-    /// rotation, and scale.
+    /// Returns the 3d affine transformation matrix as a [`Mat4`].
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
-        Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
+        Mat4::from(self.0)
     }
 
-    /// Returns the 3d affine transformation from this transforms translation,
-    /// rotation, and scale.
+    /// Returns the 3d affine transformation matrix as an [`Affine3A`].
     #[inline]
-    pub fn compute_affine(&self) -> Affine3A {
-        Affine3A::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
+    pub fn affine(&self) -> Affine3A {
+        self.0
     }
 
-    /// Get the unit vector in the local `X` direction
+    /// Returns the transformation as a [`Transform`].
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output
+    /// will be invalid.
     #[inline]
-    pub fn local_x(&self) -> Vec3 {
-        self.rotation * Vec3::X
-    }
-
-    /// Equivalent to [`-local_x()`][GlobalTransform::local_x]
-    #[inline]
-    pub fn left(&self) -> Vec3 {
-        -self.local_x()
-    }
-
-    /// Equivalent to [`local_x()`][GlobalTransform::local_x]
-    #[inline]
-    pub fn right(&self) -> Vec3 {
-        self.local_x()
-    }
-
-    /// Get the unit vector in the local `Y` direction
-    #[inline]
-    pub fn local_y(&self) -> Vec3 {
-        self.rotation * Vec3::Y
-    }
-
-    /// Equivalent to [`local_y()`][GlobalTransform::local_y]
-    #[inline]
-    pub fn up(&self) -> Vec3 {
-        self.local_y()
-    }
-
-    /// Equivalent to [`-local_y()`][GlobalTransform::local_y]
-    #[inline]
-    pub fn down(&self) -> Vec3 {
-        -self.local_y()
-    }
-
-    /// Get the unit vector in the local `Z` direction
-    #[inline]
-    pub fn local_z(&self) -> Vec3 {
-        self.rotation * Vec3::Z
-    }
-
-    /// Equivalent to [`-local_z()`][GlobalTransform::local_z]
-    #[inline]
-    pub fn forward(&self) -> Vec3 {
-        -self.local_z()
-    }
-
-    /// Equivalent to [`local_z()`][GlobalTransform::local_z]
-    #[inline]
-    pub fn back(&self) -> Vec3 {
-        self.local_z()
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    pub fn rotate(&mut self, rotation: Quat) {
-        self.rotation = rotation * self.rotation;
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
-        self.translation = point + rotation * (self.translation - point);
-        self.rotate(rotation);
-    }
-
-    /// Multiplies `self` with `transform` component by component, returning the
-    /// resulting [`GlobalTransform`]
-    #[inline]
-    #[must_use]
-    pub fn mul_transform(&self, transform: Transform) -> Self {
-        let translation = self.mul_vec3(transform.translation);
-        let rotation = self.rotation * transform.rotation;
-        let scale = self.scale * transform.scale;
-        Self {
+    pub fn compute_transform(&self) -> Transform {
+        let (scale, rotation, translation) = self.0.to_scale_rotation_translation();
+        Transform {
             translation,
             rotation,
             scale,
         }
+    }
+
+    /// Extracts `scale`, `rotation` and `translation` from `self`.
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output
+    /// will be invalid.
+    #[inline]
+    pub fn to_scale_rotation_translation(&self) -> (Vec3, Quat, Vec3) {
+        self.0.to_scale_rotation_translation()
+    }
+
+    /// Creates a new identity [`GlobalTransform`], that maps all points in space to themselves.
+    #[inline]
+    pub const fn identity() -> Self {
+        Self(Affine3A::IDENTITY)
+    }
+
+    impl_local_axis!(right, left, X);
+    impl_local_axis!(up, down, Y);
+    impl_local_axis!(back, forward, Z);
+
+    /// Get the translation as a [`Vec3`].
+    #[inline]
+    pub fn translation(&self) -> Vec3 {
+        self.0.translation.into()
+    }
+
+    /// Mutably access the internal translation.
+    #[inline]
+    pub fn translation_mut(&mut self) -> &mut Vec3A {
+        &mut self.0.translation
+    }
+
+    /// Get the translation as a [`Vec3A`].
+    #[inline]
+    pub fn translation_vec3a(&self) -> Vec3A {
+        self.0.translation
+    }
+
+    /// Get an upper bound of the radius from the given `extents`.
+    #[inline]
+    pub fn radius_vec3a(&self, extents: Vec3A) -> f32 {
+        (self.0.matrix3 * extents).length()
     }
 
     /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
     #[inline]
-    pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
-        value = self.scale * value;
-        value = self.rotation * value;
-        value += self.translation;
-        value
+    pub fn mul_vec3(&self, v: Vec3) -> Vec3 {
+        self.0.transform_point3(v)
     }
 
-    #[doc(hidden)]
-    #[inline]
-    pub fn apply_non_uniform_scale(&mut self, scale: Vec3) {
-        self.scale *= scale;
-    }
-
-    #[doc(hidden)]
-    #[inline]
-    pub fn look_at(&mut self, target: Vec3, up: Vec3) {
-        let forward = Vec3::normalize(self.translation - target);
-        let right = up.cross(forward).normalize();
-        let up = forward.cross(right);
-        self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
+    /// Multiplies `self` with `transform` component by component, returning the
+    /// resulting [`GlobalTransform`]
+    pub fn mul_transform(&self, transform: Transform) -> Self {
+        Self(self.0 * transform.compute_affine())
     }
 }
 
@@ -253,11 +160,19 @@ impl Default for GlobalTransform {
 
 impl From<Transform> for GlobalTransform {
     fn from(transform: Transform) -> Self {
-        Self {
-            translation: transform.translation,
-            rotation: transform.rotation,
-            scale: transform.scale,
-        }
+        Self(transform.compute_affine())
+    }
+}
+
+impl From<Affine3A> for GlobalTransform {
+    fn from(affine: Affine3A) -> Self {
+        Self(affine)
+    }
+}
+
+impl From<Mat4> for GlobalTransform {
+    fn from(matrix: Mat4) -> Self {
+        Self(Affine3A::from_mat4(matrix))
     }
 }
 
@@ -266,7 +181,7 @@ impl Mul<GlobalTransform> for GlobalTransform {
 
     #[inline]
     fn mul(self, global_transform: GlobalTransform) -> Self::Output {
-        self.mul_transform(global_transform.into())
+        GlobalTransform(self.0 * global_transform.0)
     }
 }
 

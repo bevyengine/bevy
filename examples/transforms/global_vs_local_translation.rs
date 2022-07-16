@@ -1,7 +1,7 @@
 //! Illustrates the difference between direction of a translation in respect to local object or
 //! global object Transform.
 
-use bevy::prelude::*;
+use bevy::{math::Vec3A, prelude::*};
 
 // Define a marker for entities that should be changed via their global transform.
 #[derive(Component)]
@@ -129,7 +129,7 @@ fn move_cubes_according_to_global_transform(
     timer: Res<Time>,
 ) {
     for mut global_transform in &mut cubes {
-        global_transform.translation += direction.0 * timer.delta_seconds();
+        *global_transform.translation_mut() += Vec3A::from(direction.0) * timer.delta_seconds();
     }
 }
 
