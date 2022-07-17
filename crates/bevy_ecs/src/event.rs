@@ -1,10 +1,10 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::prelude::World;
 use crate::system::{
     Local, Res, ResMut, SystemMeta, SystemParam, SystemParamFetch, SystemParamState,
 };
+use crate::world::World;
 use bevy_utils::tracing::trace;
 use std::ops::{Deref, DerefMut};
 use std::{
