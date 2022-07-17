@@ -945,7 +945,7 @@ mod tests {
         world.insert_resource(Events::<TestEvent>::default());
 
         let mut reader = IntoSystem::into_system(|events: Option<EventReader<TestEvent>>| {
-            assert!(matches!(events, Some(_)))
+            assert!(matches!(events, Some(_)));
         });
         reader.initialize(&mut world);
         reader.run((), &mut world);
@@ -958,7 +958,7 @@ mod tests {
         let mut world = World::new();
 
         let mut reader = IntoSystem::into_system(|events: Option<EventReader<TestEvent>>| {
-            assert!(matches!(events, None))
+            assert!(matches!(events, None));
         });
         reader.initialize(&mut world);
         reader.run((), &mut world);
@@ -972,7 +972,7 @@ mod tests {
         world.insert_resource(Events::<TestEvent>::default());
 
         let mut reader = IntoSystem::into_system(|events: Option<EventWriter<TestEvent>>| {
-            assert!(matches!(events, Some(_)))
+            assert!(matches!(events, Some(_)));
         });
         reader.initialize(&mut world);
         reader.run((), &mut world);
@@ -985,7 +985,7 @@ mod tests {
         let mut world = World::new();
 
         let mut reader = IntoSystem::into_system(|events: Option<EventWriter<TestEvent>>| {
-            assert!(matches!(events, None))
+            assert!(matches!(events, None));
         });
         reader.initialize(&mut world);
         reader.run((), &mut world);
