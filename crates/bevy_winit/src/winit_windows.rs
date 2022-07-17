@@ -4,6 +4,8 @@ use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition};
 
+use crate::winit_grab_mode;
+
 #[derive(Debug, Default)]
 pub struct WinitWindows {
     pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
@@ -155,11 +157,9 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
-        if window_descriptor.cursor_locked {
-            match winit_window.set_cursor_grab(true) {
-                Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
-                Err(err) => Err(err).unwrap(),
-            }
+        match winit_window.set_cursor_grab(winit_grab_mode(window_descriptor.cursor_grab_mode)) {
+            Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
+            Err(err) => Err(err).unwrap(),
         }
 
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);
@@ -238,7 +238,9 @@ pub fn get_fitting_videomode(
         match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
                 match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
-                    Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                    Equal => b
+                        .refresh_rate_millihertz()
+                        .cmp(&a.refresh_rate_millihertz()),
                     default => default,
                 }
             }
@@ -255,7 +257,9 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
         use std::cmp::Ordering::*;
         match b.size().width.cmp(&a.size().width) {
             Equal => match b.size().height.cmp(&a.size().height) {
-                Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                Equal => b
+                    .refresh_rate_millihertz()
+                    .cmp(&a.refresh_rate_millihertz()),
                 default => default,
             },
             default => default,

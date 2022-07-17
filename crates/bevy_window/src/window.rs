@@ -198,7 +198,7 @@ pub struct Window {
     decorations: bool,
     cursor_icon: CursorIcon,
     cursor_visible: bool,
-    cursor_locked: bool,
+    cursor_grab_mode: CursorGrabMode,
     physical_cursor_position: Option<DVec2>,
     raw_window_handle: RawWindowHandleWrapper,
     focused: bool,
@@ -245,9 +245,10 @@ pub enum WindowCommand {
     SetDecorations {
         decorations: bool,
     },
-    /// Set whether or not the cursor's position is locked.
-    SetCursorLockMode {
-        locked: bool,
+    /// Set whether or not the cursor's postition is locked in place, confined to the window
+    /// or free to move anywhere
+    SetCursorGrabMode {
+        mode: CursorGrabMode,
     },
     /// Set the cursor's [`CursorIcon`].
     SetCursorIcon {
@@ -282,8 +283,19 @@ pub enum WindowCommand {
     Close,
 }
 
-/// Defines the way a window is displayed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Defines if and how the cursor is grabbed.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CursorGrabMode {
+    /// No grabbing of the cursor is performed
+    None,
+    /// The cursor is confined to the window area.
+    Confined,
+    /// The cursor is locked inside the window area to a certain position.
+    Locked,
+}
+
+/// Defines the way a window is displayed
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowMode {
     /// Creates a window that uses the given size.
     Windowed,
@@ -323,7 +335,7 @@ impl Window {
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
-            cursor_locked: window_descriptor.cursor_locked,
+            cursor_grab_mode: window_descriptor.cursor_grab_mode,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
             raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
@@ -584,17 +596,17 @@ impl Window {
         self.command_queue
             .push(WindowCommand::SetDecorations { decorations });
     }
-    /// Get whether or not the cursor is locked.
+    /// Get whether or not the cursor is locked in position, confined to the window, or free to move.
     ///
     /// ## Platform-specific
     ///
     /// - **`macOS`** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
     /// - **`iOS/Android`** don't have cursors.
     #[inline]
-    pub fn cursor_locked(&self) -> bool {
-        self.cursor_locked
+    pub fn cursor_grab_mode(&self) -> CursorGrabMode {
+        self.cursor_grab_mode
     }
-    /// Set whether or not the cursor is locked.
+    /// Set whether or not the cursor is locked in position, confined to the window, or free to move.
     ///
     /// This doesn't hide the cursor. For that, use [`set_cursor_visibility`](Window::set_cursor_visibility)
     ///
@@ -602,10 +614,10 @@ impl Window {
     ///
     /// - **`macOS`** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
     /// - **`iOS/Android`** don't have cursors.
-    pub fn set_cursor_lock_mode(&mut self, lock_mode: bool) {
-        self.cursor_locked = lock_mode;
+    pub fn set_cursor_grab_mode(&mut self, grab_mode: CursorGrabMode) {
+        self.cursor_grab_mode = grab_mode;
         self.command_queue
-            .push(WindowCommand::SetCursorLockMode { locked: lock_mode });
+            .push(WindowCommand::SetCursorGrabMode { mode: grab_mode });
     }
     /// Get whether or not the cursor is visible.
     ///
@@ -813,8 +825,8 @@ pub struct WindowDescriptor {
     pub decorations: bool,
     /// Sets whether the cursor is visible when the window has focus.
     pub cursor_visible: bool,
-    /// Sets whether the window locks the cursor inside its borders when the window has focus.
-    pub cursor_locked: bool,
+    /// Sets the [`CursorGrabMode`](crate::CursorGrabMode) for whether it is confined/won't move to the window area.
+    pub cursor_grab_mode: CursorGrabMode,
     /// Sets the [`WindowMode`](crate::WindowMode).
     pub mode: WindowMode,
     /// Sets whether the background of the window should be transparent.
@@ -856,7 +868,7 @@ impl Default for WindowDescriptor {
             present_mode: PresentMode::Fifo,
             resizable: true,
             decorations: true,
-            cursor_locked: false,
+            cursor_grab_mode: CursorGrabMode::None,
             cursor_visible: true,
             mode: WindowMode::Windowed,
             transparent: false,
