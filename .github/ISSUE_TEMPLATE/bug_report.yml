@@ -24,6 +24,38 @@ body:
         - 0.0.1
     validations:
       required: true
+  - type: textarea
+    id: what-you-did
+    attributes:
+      label: What you did
+      description: Describe how you arrived at the problem. If you can, consider providing a code snippet or link.
+    validations:
+      required: true
+  - type: textarea
+    id: what-went-wrong
+    attributes:
+      label: What went wrong
+      placeholder: |
+        If it's not clear, break this out into:
+
+        - what were you expecting?
+        - what actually happened?
+    validations:
+      required: true
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Additional information
+      description: |
+        Other information that can be used to further reproduce or isolate the problem.
+      placeholder: |
+        - screenshots
+        - logs
+        - theories about what might be going wrong
+        - workarounds that you used
+        - links to related bugs, PRs or discussions
+    validations:
+      required: false
   - type: input
     id: commit-hash
     attributes:
@@ -63,40 +95,6 @@ body:
         - [`winit`](https://github.com/rust-windowing/winit) for input and window management
         - [`gilrs`](https://docs.rs/gilrs/latest/gilrs/) for gamepad inputs
       placeholder: |
-        ```ignore
         `AdapterInfo { name: "NVIDIA GeForce RTX 2070", vendor: 4318, device: 7938, device_type: DiscreteGpu, backend: Vulkan }`
-        ```
-    validations:
-      required: false 
-  - type: textarea
-    id: what-you-did
-    attributes:
-      label: What you did
-      description: Describe how you arrived at the problem. If you can, consider providing a code snippet or link.
-    validations:
-      required: true
-  - type: textarea
-    id: what-went-wrong
-    attributes:
-      label: What went wrong
-      placeholder: |
-        If it's not clear, break this out into:
-
-        - what were you expecting?
-        - what actually happened?
-    validations:
-      required: true
-  - type: textarea
-    id: additional-information
-    attributes:
-      label: Additional information
-      description: |
-        Other information that can be used to further reproduce or isolate the problem.
-      placeholder: |
-        - screenshots
-        - logs
-        - theories about what might be going wrong
-        - workarounds that you used
-        - links to related bugs, PRs or discussions
     validations:
       required: false
