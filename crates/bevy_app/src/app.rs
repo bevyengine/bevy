@@ -1,7 +1,7 @@
 use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::{Event, Events},
+    event::{self, Event, Events},
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
@@ -620,6 +620,7 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Event)]
     /// # struct MyEvent;
     /// # let mut app = App::new();
     /// #
@@ -627,11 +628,81 @@ impl App {
     /// ```
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Event,
+        T: Event + event::Read + event::Write,
+    {
+        self.add_event_with_vis::<T, _, _>()
+    }
+
+    /// Setup the application to manage read-only events of type `T`.
+    /// See [`add_event`](#method.add_event) for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// pub struct MyEvent;
+    ///
+    /// // Anyone can read `MyEvent`
+    /// impl bevy_ecs::event::Read for MyEvent {}
+    ///
+    /// // You can only write `MyEvent` if you have access `PrivateKey`
+    /// struct PrivateKey;
+    /// impl bevy_ecs::event::Write<PrivateKey> for MyEvent {}
+    ///
+    /// let mut app = App::new();
+    /// app.add_read_only_event::<MyEvent, PrivateKey>();
+    /// // this also works:
+    /// app.add_read_only_event::<MyEvent, _>();
+    /// ```
+    pub fn add_read_only_event<T, Vis: 'static>(&mut self) -> &mut Self
+    where
+        T: Event + event::Read + event::Write<Vis>,
+    {
+        self.add_event_with_vis::<T, _, _>()
+    }
+
+    /// Setup the application to manage write-only events of type `T`.
+    /// See [`add_event`](#method.add_event) for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// pub struct MyEvent;
+    ///
+    /// // Anyone can write `MyEvent`
+    /// impl bevy_ecs::event::Write for MyEvent {}
+    ///
+    /// // You can only read `MyEvent` if you have access `PrivateKey`
+    /// struct PrivateKey;
+    /// impl bevy_ecs::event::Read<PrivateKey> for MyEvent {}
+    ///
+    /// let mut app = App::new();
+    /// app.add_write_only_event::<MyEvent, PrivateKey>();
+    /// // this also works:
+    /// app.add_write_only_event::<MyEvent, _>();
+    /// ```
+    pub fn add_write_only_event<T, Vis: 'static>(&mut self) -> &mut Self
+    where
+        T: Event + event::Read<Vis> + event::Write,
+    {
+        self.add_event_with_vis::<T, _, _>()
+    }
+
+    /// Like [`add_event`](#method.add_event), but supports events with restricted privacy.
+    /// When not in a generic context, consider [`add_read_only_event`](#method.add_read_only_event)
+    /// or [`add_write_only_event`](#method.add_write_only_event).
+    pub fn add_event_with_vis<T, VisA: 'static, VisB: 'static>(&mut self) -> &mut Self
+    where
+        T: Event + event::Read<VisA> + event::Write<VisB>,
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system_to_stage(CoreStage::First, Events::<T>::update_system);
+                .add_system_to_stage(CoreStage::First, Events::<T>::update_system::<VisA, VisB>);
         }
         self
     }

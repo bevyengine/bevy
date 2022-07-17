@@ -179,14 +179,32 @@ impl<E: Event> DerefMut for EventSequence<E> {
     }
 }
 
+/// Trait which allows an event type to be used with [`EventReader`].
+/// Type parameter `Vis` is a  marker that restricts the visibility of `EvnetReader<Self>`.
+pub trait Read<Vis = ()> {}
+
 /// Reads events of type `T` in order and tracks which events have already been read.
+///
+/// # Privacy
+/// For an event type `E`, access to `EventReader<E>` can be restricted through the `impl` of [`Read`] for `E`.
+/// For more info, see the docs for [`EventWriter`], which uses the same pattern for privacy.
 #[derive(SystemParam)]
-pub struct EventReader<'w, 's, E: Event> {
-    reader: Local<'s, ManualEventReader<E>>,
+pub struct EventReader<'w, 's, E, Vis = ()>
+where
+    E: Read<Vis> + Event,
+    Vis: 'static,
+{
+    reader: Local<'s, ManualEventReader<E, Vis>>,
     events: Res<'w, Events<E>>,
+    #[system_param(ignore)]
+    _marker: PhantomData<fn() -> Vis>,
 }
 
-impl<'w, 's, E: Event> EventReader<'w, 's, E> {
+impl<'w, 's, E, Vis> EventReader<'w, 's, E, Vis>
+where
+    E: Read<Vis> + Event,
+    Vis: 'static,
+{
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
@@ -248,6 +266,13 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
+/// Trait which allows an event type to be used with [`EventWriter`].
+/// Type parameter `Vis` is a  marker that restricts the visibility of `EventWriter<Self>`.
+///
+/// # Examples
+/// Restricting visibility
+pub trait Write<Vis = ()> {}
+
 /// Sends events of type `T`.
 ///
 /// # Usage
@@ -262,6 +287,53 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// }
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
+/// # Privacy
+///
+/// For an event type `E`, access to `EventWriter<E>` can be restricted through the `impl` of [`Write`] for `E`.
+///
+/// ```
+/// mod inner {
+///     # use bevy_ecs::event::{EventWriter};
+///     struct Private;
+///
+///     #[derive(Default)]
+///     pub struct MyEvent;
+///
+///     // Can only send events if you can name the type `Private`.
+///     // Here, that means only within the module `inner`.
+///     impl bevy_ecs::event::Write<Private> for MyEvent {}
+///     // No restrictions on where you can send events.
+///     impl bevy_ecs::event::Read for MyEvent {}
+///
+///     // the type `Private` is like a key that unlocks the `EventReader`.
+///     fn inner_system(mut writer: EventWriter<MyEvent, Private>) {
+///         writer.send_default();
+///     }
+/// }
+/// ```
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// # mod inner {
+/// #     struct Private;
+/// #     pub struct MyEvent;
+/// #     impl bevy_ecs::event::Write<Private> for MyEvent {}
+/// # }
+///
+/// // This doesn't compile, can't name `Private` outside of its module.
+/// fn outer_system(mut writer: EventWriter<inner::MyEvent, inner::Private>) {}
+/// ```
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// # mod inner {
+/// #     struct Private;
+/// #     pub struct MyEvent;
+/// #     impl bevy_ecs::event::Write<Private> for MyEvent {}
+/// # }
+///
+/// // ...and this doesn't compile either.
+/// fn outer_system2(mut writer: EventWriter<inner::MyEvent>) {}
 /// ```
 ///
 /// # Limitations
@@ -292,13 +364,23 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
-pub struct EventWriter<'w, 's, E: Event> {
+pub struct EventWriter<'w, 's, E, Vis = ()>
+where
+    E: Write<Vis> + Event,
+    Vis: 'static,
+{
     events: ResMut<'w, Events<E>>,
     #[system_param(ignore)]
     marker: PhantomData<&'s usize>,
+    #[system_param(ignore)]
+    _vis_marker: PhantomData<Vis>,
 }
 
-impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
+impl<'w, 's, E, Vis> EventWriter<'w, 's, E, Vis>
+where
+    E: Write<Vis> + Event,
+    Vis: 'static,
+{
     /// Sends an `event`. [`EventReader`]s can then read the event.
     /// See [`Events`] for details.
     pub fn send(&mut self, event: E) {
@@ -319,22 +401,33 @@ impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
 }
 
 #[derive(Debug)]
-pub struct ManualEventReader<E: Event> {
+pub struct ManualEventReader<E, Vis = ()>
+where
+    E: Read<Vis> + Event,
+{
     last_event_count: usize,
     _marker: PhantomData<E>,
+    _marker_vis: PhantomData<fn() -> Vis>,
 }
 
-impl<E: Event> Default for ManualEventReader<E> {
+impl<E, Vis> Default for ManualEventReader<E, Vis>
+where
+    E: Read<Vis> + Event,
+{
     fn default() -> Self {
         ManualEventReader {
             last_event_count: 0,
             _marker: Default::default(),
+            _marker_vis: Default::default(),
         }
     }
 }
 
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
-impl<E: Event> ManualEventReader<E> {
+impl<E, Vis> ManualEventReader<E, Vis>
+where
+    E: Read<Vis> + Event,
+{
     /// See [`EventReader::iter`]
     pub fn iter<'a>(
         &'a mut self,
@@ -442,7 +535,10 @@ impl<I: Iterator> ExactSizeIterator for ExactSize<I> {
 impl<E: Event> Events<E> {
     /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
     /// the event.
-    pub fn send(&mut self, event: E) {
+    pub fn send<Vis>(&mut self, event: E)
+    where
+        E: Write<Vis>,
+    {
         let event_id = EventId {
             id: self.event_count,
             _marker: PhantomData,
@@ -456,21 +552,27 @@ impl<E: Event> Events<E> {
     }
 
     /// Sends the default value of the event. Useful when the event is an empty struct.
-    pub fn send_default(&mut self)
+    pub fn send_default<Vis>(&mut self)
     where
-        E: Default,
+        E: Write<Vis> + Default,
     {
         self.send(Default::default());
     }
 
     /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> ManualEventReader<E> {
+    pub fn get_reader<Vis>(&self) -> ManualEventReader<E, Vis>
+    where
+        E: Read<Vis>,
+    {
         ManualEventReader::default()
     }
 
     /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
     /// It will read all future events.
-    pub fn get_reader_current(&self) -> ManualEventReader<E> {
+    pub fn get_reader_current<Vis>(&self) -> ManualEventReader<E, Vis>
+    where
+        E: Read<Vis>,
+    {
         ManualEventReader {
             last_event_count: self.event_count,
             ..Default::default()
@@ -479,7 +581,10 @@ impl<E: Event> Events<E> {
 
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
-    pub fn update(&mut self) {
+    pub fn update<VisA, VisB>(&mut self)
+    where
+        E: Read<VisA> + Write<VisB>,
+    {
         std::mem::swap(&mut self.events_a, &mut self.events_b);
         self.events_b.clear();
         self.events_b.start_event_count = self.event_count;
@@ -490,7 +595,10 @@ impl<E: Event> Events<E> {
     }
 
     /// A system that calls [`Events::update`] once per frame.
-    pub fn update_system(mut events: ResMut<Self>) {
+    pub fn update_system<VisA, VisB>(mut events: ResMut<Self>)
+    where
+        E: Read<VisA> + Write<VisB>,
+    {
         events.update();
     }
 
@@ -502,25 +610,37 @@ impl<E: Event> Events<E> {
 
     /// Removes all events.
     #[inline]
-    pub fn clear(&mut self) {
+    pub fn clear<Vis>(&mut self)
+    where
+        E: Write<Vis>,
+    {
         self.reset_start_event_count();
         self.events_a.clear();
         self.events_b.clear();
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
+    pub fn len<Vis>(&self) -> usize
+    where
+        E: Read<Vis>,
+    {
         self.events_a.len() + self.events_b.len()
     }
 
     /// Returns true if there are no events in this collection.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub fn is_empty<Vis>(&self) -> bool
+    where
+        E: Read<Vis>,
+    {
         self.len() == 0
     }
 
     /// Creates a draining iterator that removes all events.
-    pub fn drain(&mut self) -> impl Iterator<Item = E> + '_ {
+    pub fn drain<VisA, VisB>(&mut self) -> impl Iterator<Item = E> + '_
+    where
+        E: Read<VisA> + Write<VisB>,
+    {
         self.reset_start_event_count();
 
         // Drain the oldest events first, then the newest
@@ -536,18 +656,25 @@ impl<E: Event> Events<E> {
     /// between the last `update()` call and your call to `iter_current_update_events`.
     /// If events happen outside that window, they will not be handled. For example, any events that
     /// happen after this call and before the next `update()` call will be dropped.
-    pub fn iter_current_update_events(
+    pub fn iter_current_update_events<Vis>(
         &self,
-    ) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
+    ) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E>
+    where
+        E: Read<Vis>,
+    {
         self.events_b.iter().map(|i| &i.event)
     }
-}
 
-impl<E: Event> std::iter::Extend<E> for Events<E> {
-    fn extend<I>(&mut self, iter: I)
+    pub fn extend<I, Vis>(&mut self, iter: I)
     where
         I: IntoIterator<Item = E>,
+        E: Write<Vis>,
     {
+        // NOTE: anything that reads or writes events must protected
+        // at either the type level or the method level. This means that trait impls cannot
+        // perform reads/writes on an 'unprotected' type like `Events<_>`.
+        // That's why this type does not impl `Extend`.
+
         let mut event_count = self.event_count;
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
