@@ -1162,7 +1162,7 @@ impl World {
         self.resource_mut::<crate::event::Events<E>>().send(event);
     }
 
-    /// Sends the default value of the event.
+    /// Sends the default value of the [event](crate::event).
     #[inline]
     pub fn event_send_default<E: crate::event::Event + Default>(&mut self) {
         self.resource_mut::<crate::event::Events<E>>()
