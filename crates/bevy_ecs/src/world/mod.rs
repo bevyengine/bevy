@@ -1156,7 +1156,7 @@ impl World {
         result
     }
 
-    /// "Sends" an `event`.
+    /// "Sends" an [event](crate::event).
     #[inline]
     pub fn event_send<E: crate::event::Event>(&mut self, event: E) {
         self.resource_mut::<crate::event::Events<E>>().send(event);
