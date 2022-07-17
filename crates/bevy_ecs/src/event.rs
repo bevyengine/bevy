@@ -2,7 +2,8 @@
 
 use crate as bevy_ecs;
 use crate::system::{
-    Local, Res, ResMut, SystemMeta, SystemParam, SystemParamFetch, SystemParamState,
+    Local, ReadOnlySystemParamFetch, Res, ResMut, SystemMeta, SystemParam, SystemParamFetch,
+    SystemParamState,
 };
 use crate::world::World;
 use bevy_utils::tracing::trace;
@@ -348,6 +349,13 @@ unsafe impl<T: SystemParamState, E: Event> SystemParamState for OptionEventState
             marker: PhantomData,
         }
     }
+}
+
+// SAFETY: Only implemented for OptionEventStateWrapper for which the underlying SystemParamState
+// is read only.
+unsafe impl<T: SystemParamState + ReadOnlySystemParamFetch, E: Event> ReadOnlySystemParamFetch
+    for OptionEventStateWrapper<T, E>
+{
 }
 
 impl<'w, 's, E: Event> SystemParam for Option<EventReader<'w, 's, E>> {
