@@ -82,8 +82,10 @@ jobs:
           key: ${{ runner.os }}-windows-run-examples-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Build bevy
+        shell: bash
+        # this uses the same command as when running the example to ensure build is reused
         run: |
-          cargo build --features "bevy_ci_testing"
+          WGPU_BACKEND=dx12 CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing"
 
       - name: Run examples
         shell: bash
