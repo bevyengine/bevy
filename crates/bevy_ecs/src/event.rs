@@ -952,10 +952,15 @@ mod tests {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
-        world.insert_resource(Events::<TestEvent>::default());
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        world.insert_resource(events);
 
         let mut reader = IntoSystem::into_system(|events: Option<EventReader<TestEvent>>| {
-            assert!(matches!(events, Some(_)));
+            assert!(matches!(
+                events.expect("Expected Some(EventReader)").iter().next(),
+                Some(TestEvent { i: 0 })
+            ))
         });
         reader.initialize(&mut world);
         reader.run((), &mut world);
@@ -981,11 +986,17 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Events::<TestEvent>::default());
 
-        let mut reader = IntoSystem::into_system(|events: Option<EventWriter<TestEvent>>| {
-            assert!(matches!(events, Some(_)));
+        let mut writer = IntoSystem::into_system(|events: Option<EventWriter<TestEvent>>| {
+            events
+                .expect("Expected Some(EventWriter)")
+                .send(TestEvent { i: 0 })
         });
-        reader.initialize(&mut world);
-        reader.run((), &mut world);
+        writer.initialize(&mut world);
+        writer.run((), &mut world);
+        assert!(!world
+            .get_resource::<Events<TestEvent>>()
+            .unwrap()
+            .is_empty())
     }
 
     #[test]
@@ -994,10 +1005,10 @@ mod tests {
 
         let mut world = World::new();
 
-        let mut reader = IntoSystem::into_system(|events: Option<EventWriter<TestEvent>>| {
+        let mut writer = IntoSystem::into_system(|events: Option<EventWriter<TestEvent>>| {
             assert!(matches!(events, None));
         });
-        reader.initialize(&mut world);
-        reader.run((), &mut world);
+        writer.initialize(&mut world);
+        writer.run((), &mut world);
     }
 }
