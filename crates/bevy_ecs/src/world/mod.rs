@@ -1156,17 +1156,22 @@ impl World {
         result
     }
 
-    /// "Sends" an [event](crate::event).
+    /// Sends an [Event](crate::event::Event).
     #[inline]
-    pub fn event_send<E: crate::event::Event>(&mut self, event: E) {
-        self.resource_mut::<crate::event::Events<E>>().send(event);
+    pub fn send_event<E: crate::event::Event>(&mut self, event: E) {
+        match self.get_resource_mut::<crate::event::Events<E>>() {
+            Some(mut events) => events.send(event),
+            None => bevy_utils::tracing::error!(
+                    "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
+                    std::any::type_name::<E>()
+                ),
+        }
     }
 
-    /// Sends the default value of the [event](crate::event).
+    /// Sends the default value of the [Event](crate::event::Event) of type `E`.
     #[inline]
-    pub fn event_send_default<E: crate::event::Event + Default>(&mut self) {
-        self.resource_mut::<crate::event::Events<E>>()
-            .send_default();
+    pub fn send_default_event<E: crate::event::Event + Default>(&mut self) {
+        self.send_event(E::default());
     }
 
     /// # Safety
