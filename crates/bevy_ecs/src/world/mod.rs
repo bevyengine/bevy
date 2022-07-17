@@ -1156,13 +1156,14 @@ impl World {
         result
     }
 
-    /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
-    /// the event.
+    /// "Sends" an `event`.
+    #[inline]
     pub fn event_send<E: crate::event::Event>(&mut self, event: E) {
         self.resource_mut::<crate::event::Events<E>>().send(event);
     }
 
-    /// Sends the default value of the event. Useful when the event is an empty struct.
+    /// Sends the default value of the event.
+    #[inline]
     pub fn event_send_default<E: crate::event::Event + Default>(&mut self) {
         self.resource_mut::<crate::event::Events<E>>()
             .send_default();
