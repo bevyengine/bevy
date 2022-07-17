@@ -259,7 +259,6 @@ fn collision_system(
     let window = if let Some(window) = windows.get_primary() {
         window
     } else {
-        println!("The window was closed. Bye!");
         return;
     };
 
