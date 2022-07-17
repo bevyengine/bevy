@@ -180,15 +180,11 @@ impl TextAlignment {
         vertical: VerticalAlign::Bottom,
         horizontal: HorizontalAlign::Right,
     };
-
 }
 
 impl Default for TextAlignment {
     fn default() -> Self {
-        TextAlignment {
-            vertical: VerticalAlign::Top,
-            horizontal: HorizontalAlign::Left,
-        }
+        TextAlignment::TOP_LEFT
     }
 }
 
