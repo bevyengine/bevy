@@ -399,7 +399,9 @@ impl<'w, 's, E: Event> SystemParamFetch<'w, 's>
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        world.get_resource::<Events<E>>().map(|_event| {
+        // SAFETY: Extra map drops the `Events<E>` reference if it exists,
+        // ensuring that multiple references to it aren't held at the same time.
+        world.get_resource::<Events<E>>().map(|_| ()).map(|_| {
             <EventWriter<'w, 's, E> as SystemParam>::Fetch::get_param(
                 &mut state.state,
                 system_meta,
