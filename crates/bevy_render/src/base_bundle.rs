@@ -20,9 +20,9 @@ pub struct BaseBundle {
     /// The computed visibility of the entity.
     pub computed: ComputedVisibility,
     /// The transform of the entity.
-    pub local: Transform,
+    pub transform: Transform,
     /// The global transform of the entity.
-    pub global: GlobalTransform,
+    pub global_transform: GlobalTransform,
 }
 
 impl BaseBundle {
