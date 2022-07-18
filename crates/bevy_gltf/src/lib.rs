@@ -36,7 +36,7 @@ pub struct GltfConfiguration {
 
 /// [`App`] extension methods for adding custom vertex attributes to the glTF loader.
 ///
-/// This must be called before the GltfPlugin is added.
+/// This must be called before the `GltfPlugin` is added.
 pub trait AddCustomVertexAttributeExt {
     fn add_gltf_custom_vertex_attribute(
         &mut self,
