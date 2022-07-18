@@ -27,6 +27,9 @@ use smallvec::SmallVec;
 /// when [`ComputedVisibility::is_visible()`] is false.
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
+///
+/// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
+/// which fully collapses the layout.
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
