@@ -9,8 +9,9 @@ pub use shape::*;
 pub use symbol::*;
 
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, quote_spanned};
 use std::{env, path::PathBuf};
+use syn::spanned::Spanned;
 use toml::{map::Map, Value};
 
 pub struct BevyManifest {
@@ -125,7 +126,7 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
         .unwrap()
     }
 
-    let ident = input.ident;
+    let ident = input.ident.clone();
 
     use convert_case::{Case, Casing};
     let trait_snake_case = trait_path
@@ -145,28 +146,42 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
         .predicates
         .push(syn::parse2(quote! { Self: 'static }).unwrap());
 
-    let ignore_fields = input.attrs.iter().any(|a| is_ignore(a, &trait_snake_case));
     let as_str = match input.data {
         syn::Data::Struct(d) => {
             // see if the user tried to ignore fields incorrectly
-            if d.fields
+            if let Some(attr) = d
+                .fields
                 .iter()
                 .flat_map(|f| &f.attrs)
-                .any(|a| is_ignore(a, &trait_snake_case))
+                .find(|a| is_ignore(a, &trait_snake_case))
             {
-                panic!("`#[{trait_snake_case}(ignore_fields)]` cannot be applied to fields individually: add it to the struct declaration");
+                let err_msg = format!("`#[{trait_snake_case}(ignore_fields)]` cannot be applied to fields individually: add it to the struct declaration");
+                return quote_spanned! {
+                    attr.span() => compile_error!(#err_msg);
+                }
+                .into();
             }
             // Structs must either be fieldless, or explicitly ignore the fields.
+            let ignore_fields = input.attrs.iter().any(|a| is_ignore(a, &trait_snake_case));
             if matches!(d.fields, syn::Fields::Unit) || ignore_fields {
                 let lit = ident.to_string();
                 quote! { #lit }
             } else {
-                panic!("Labels cannot contain data, unless explicitly ignored with `#[{trait_snake_case}(ignore_fields)]`");
+                let err_msg = format!("Labels cannot contain data, unless explicitly ignored with `#[{trait_snake_case}(ignore_fields)]`");
+                return quote_spanned! {
+                    d.fields.span() => compile_error!(#err_msg);
+                }
+                .into();
             }
         }
         syn::Data::Enum(d) => {
-            if ignore_fields {
-                panic!("`#[{trait_snake_case}(ignore_fields)]` can only be applied to struct declarations or enum variants");
+            // check if the user put #[label(ignore_fields)] in the wrong place
+            if let Some(attr) = input.attrs.iter().find(|a| is_ignore(a, &trait_snake_case)) {
+                let err_msg = format!("`#[{trait_snake_case}(ignore_fields)]` can only be applied to enum variants or struct declarations");
+                return quote_spanned! {
+                    attr.span() => compile_error!(#err_msg);
+                }
+                .into();
             }
             let arms = d.variants.iter().map(|v| {
                 // Variants must either be fieldless, or explicitly ignore the fields.
@@ -177,7 +192,10 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                     let lit = format!("{ident}::{}", v.ident.clone());
                     quote! { #path { .. } => #lit }
                 } else {
-                    panic!("Label variants cannot contain data, unless explicitly ignored with `#[{trait_snake_case}(ignore_fields)]`");
+                    let err_msg = format!("Label variants cannot contain data, unless explicitly ignored with `#[{trait_snake_case}(ignore_fields)]`");
+                    quote_spanned! {
+                        v.fields.span() => _ => { compile_error!(#err_msg); }
+                    }
                 }
             });
             quote! {
@@ -186,7 +204,12 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
                 }
             }
         }
-        syn::Data::Union(_) => panic!("Unions cannot be used as labels."),
+        syn::Data::Union(_) => {
+            return quote_spanned! {
+                input.span() => compile_error!("Unions cannot be used as labels.");
+            }
+            .into();
+        }
     };
 
     (quote! {
