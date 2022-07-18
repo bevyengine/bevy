@@ -525,25 +525,25 @@ async fn load_gltf<'a, 'b>(
                             if attribute.format == loaded_format {
                                 mesh.insert_attribute(attribute, values);
                             } else {
-                                warn!("glTF vertex attribute {:?} has format {:?} but expected {:?} for target attribute {}",
+                                warn!("Vertex attribute {:?} has format {:?} but expected {:?} for target attribute {}",
                                     semantic, loaded_format, attribute.format, attribute.name
                                 );
                             }
                         }
                         Err(AccessFailed::MalformedData) => {
                             warn!(
-                                "Malformed glTF vertex attribute data in accessor {}",
+                                "Malformed vertex attribute data in accessor {}",
                                 accessor.index()
                             );
                         }
                         Err(AccessFailed::UnsupportedFormat) => {
-                            warn!("Unsupported glTF vertex attribute format {:?},{:?},normalized={} in accessor {}",
+                            warn!("Unsupported vertex attribute format {:?},{:?},normalized={} in accessor {}",
                                 accessor.data_type(), accessor.dimensions(), accessor.normalized(), accessor.index()
                             );
                         }
                     }
                 } else {
-                    warn!("Unrecognised glTF vertex attribute {:?}", semantic);
+                    warn!("Unrecognised vertex attribute {:?}", semantic);
                 }
             }
 
