@@ -129,6 +129,7 @@ pub fn ui_focus_system(
                     if !computed_visibility.is_visible() {
                         // Reset their interaction to None to avoid strange stuck state
                         if let Some(mut interaction) = interaction {
+                            // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
                             if *interaction != Interaction::None {
                                 *interaction = Interaction::None;
                             }
