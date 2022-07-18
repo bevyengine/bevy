@@ -515,7 +515,7 @@ impl ToTokens for ShaderStageVisibility {
     }
 }
 
-const VISIBILITY: Symbol = Symbol("VISIBILITY");
+const VISIBILITY: Symbol = Symbol("visibility");
 const VISIBILITY_VERTEX: Symbol = Symbol("VERTEX");
 const VISIBILITY_FRAGMENT: Symbol = Symbol("FRAGMENT");
 const VISIBILITY_COMPUTE: Symbol = Symbol("COMPUTE");
