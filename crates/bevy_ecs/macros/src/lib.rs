@@ -434,6 +434,10 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(ast)
 }
 
+/// Generates an impl of the `SystemLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[system_label(ignore_fields)]`.
 #[proc_macro_derive(SystemLabel, attributes(system_label))]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -445,6 +449,10 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
     derive_label(input, &trait_path)
 }
 
+/// Generates an impl of the `StageLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[stage_label(ignore_fields)]`.
 #[proc_macro_derive(StageLabel, attributes(stage_label))]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -454,6 +462,10 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     derive_label(input, &trait_path)
 }
 
+/// Generates an impl of the `AmbiguitySetLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[ambiguity_set_label(ignore_fields)]`.
 #[proc_macro_derive(AmbiguitySetLabel, attributes(ambiguity_set_label))]
 pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -465,6 +477,10 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     derive_label(input, &trait_path)
 }
 
+/// Generates an impl of the `RunCriteriaLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[run_criteria_label(ignore_fields)]`.
 #[proc_macro_derive(RunCriteriaLabel)]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
