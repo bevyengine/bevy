@@ -10,7 +10,7 @@ use bevy_asset::{AddAsset, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::mesh::Mesh;
+use bevy_render::mesh::{Mesh, MeshVertexAttribute};
 use bevy_scene::Scene;
 
 /// Adds support for glTF file loading to the app.
@@ -25,6 +25,26 @@ impl Plugin for GltfPlugin {
             .add_asset::<GltfNode>()
             .add_asset::<GltfPrimitive>()
             .add_asset::<GltfMesh>();
+    }
+}
+
+/// Holds configuration data for the glTF loader
+#[derive(Default)]
+pub struct GltfConfiguration {
+    custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+}
+
+/// [`App`] extension methods for adding custom vertex attributes to the glTF loader.
+trait AddCustomVertexAttributeExt {
+    fn add_gltf_custom_vertex_attribute(&mut self, name: String, attribute: MeshVertexAttribute);
+}
+
+impl AddCustomVertexAttributeExt for App {
+    fn add_gltf_custom_vertex_attribute(&mut self, name: String, attribute: MeshVertexAttribute) {
+        let mut attrs = self
+            .world
+            .get_resource_or_insert_with(GltfConfiguration::default);
+        attrs.custom_vertex_attributes.insert(name, attribute);
     }
 }
 
