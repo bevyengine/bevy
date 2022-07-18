@@ -111,7 +111,30 @@ impl BevyManifest {
 /// - `input`: The [`syn::DeriveInput`] for struct that is deriving the label trait
 /// - `trait_path`: The path [`syn::Path`] to the label trait
 pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStream {
+    // return true if the variant specified is an `ignore_fields` attribute
+    fn is_ignore(attr: &syn::Attribute, attr_name: &str) -> bool {
+        if attr.path.get_ident().as_ref().unwrap() != &attr_name {
+            return false;
+        }
+
+        syn::custom_keyword!(ignore_fields);
+        attr.parse_args_with(|input: syn::parse::ParseStream| {
+            let ignore = input.parse::<Option<ignore_fields>>()?.is_some();
+            Ok(ignore)
+        })
+        .unwrap()
+    }
+
     let ident = input.ident;
+
+    use convert_case::{Case, Casing};
+    let trait_snake_case = trait_path
+        .segments
+        .last()
+        .unwrap()
+        .ident
+        .to_string()
+        .to_case(Case::Snake);
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
@@ -123,22 +146,28 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
         .push(syn::parse2(quote! { Self: 'static }).unwrap());
 
     let as_str = match input.data {
-        syn::Data::Struct(d) => match d.fields {
-            syn::Fields::Unit => {
+        syn::Data::Struct(d) => {
+            // Structs must either be fieldless, or explicitly ignore the fields.
+            let ignore_fields = input.attrs.iter().any(|a| is_ignore(a, &trait_snake_case));
+            if matches!(d.fields, syn::Fields::Unit) || ignore_fields {
                 let lit = ident.to_string();
                 quote! { #lit }
+            } else {
+                panic!("Labels cannot contain data, unless explicitly ignored with `#[{trait_snake_case}(ignore_fields)]`");
             }
-            _ => panic!("Labels cannot contain data."),
-        },
+        }
         syn::Data::Enum(d) => {
-            let arms = d.variants.iter().map(|v| match v.fields {
-                syn::Fields::Unit => {
+            let arms = d.variants.iter().map(|v| {
+                // Variants must either be fieldless, or explicitly ignore the fields.
+                let ignore_fields = v.attrs.iter().any(|a| is_ignore(a, &trait_snake_case));
+                if matches!(v.fields, syn::Fields::Unit) | ignore_fields {
                     let mut path = syn::Path::from(ident.clone());
                     path.segments.push(v.ident.clone().into());
                     let lit = format!("{ident}::{}", v.ident.clone());
-                    quote! { #path => #lit }
+                    quote! { #path { .. } => #lit }
+                } else {
+                    panic!("Label variants cannot contain data, unless explicitly ignored with `#[{trait_snake_case}(ignore_fields)]`");
                 }
-                _ => panic!("Label variants cannot contain data."),
             });
             quote! {
                 match self {

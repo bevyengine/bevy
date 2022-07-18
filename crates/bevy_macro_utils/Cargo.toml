@@ -12,3 +12,4 @@ keywords = ["bevy"]
 toml = "0.5.8"
 syn = "1.0"
 quote = "1.0"
+convert_case = { version = "0.5.0", default-features = false }
