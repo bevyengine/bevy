@@ -125,8 +125,7 @@ fn setup(
         .insert_bundle((planet, player))
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
-            p.spawn_bundle(TransformBundle::default())
-                .insert_bundle(VisibilityBundle::default())
+            p.spawn_bundle(SpatialBundle::default())
                 // Add the Name component
                 .insert(orbit_controller)
                 .with_children(|p| {
