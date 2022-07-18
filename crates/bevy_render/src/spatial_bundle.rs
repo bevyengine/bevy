@@ -10,7 +10,7 @@ use crate::view::{ComputedVisibility, Visibility};
 /// * To show or hide an entity, you should set its [`Visibility`].
 /// * To get the computed visibility of an entity, you should get its [`ComputedVisibility`].
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For hierarchies to work correctly, you must have all four components.
 ///   * You may use the [`SpatialBundle`] to guarantee this.
 #[derive(Bundle, Debug, Default)]
