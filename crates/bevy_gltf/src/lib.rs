@@ -38,11 +38,19 @@ pub struct GltfConfiguration {
 ///
 /// This must be called before the GltfPlugin is added.
 pub trait AddCustomVertexAttributeExt {
-    fn add_gltf_custom_vertex_attribute(&mut self, name: String, attribute: MeshVertexAttribute) -> &mut Self;
+    fn add_gltf_custom_vertex_attribute(
+        &mut self,
+        name: String,
+        attribute: MeshVertexAttribute,
+    ) -> &mut Self;
 }
 
 impl AddCustomVertexAttributeExt for App {
-    fn add_gltf_custom_vertex_attribute(&mut self, name: String, attribute: MeshVertexAttribute) -> &mut Self {
+    fn add_gltf_custom_vertex_attribute(
+        &mut self,
+        name: String,
+        attribute: MeshVertexAttribute,
+    ) -> &mut Self {
         let mut attrs = self
             .world
             .get_resource_or_insert_with(GltfConfiguration::default);
