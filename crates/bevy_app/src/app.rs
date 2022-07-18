@@ -857,7 +857,7 @@ impl App {
         self
     }
 
-    /// Adds the type `T` to the [TypeRegistry](bevy_reflect::TypeRegistry) resource
+    /// Adds the type `T` to the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {
@@ -867,7 +867,8 @@ impl App {
         self
     }
 
-    /// Adds the type data `D` to type `T` in the [TypeRegistry](bevy_reflect::TypeRegistry) resource
+    /// Adds the type data `D` to type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
+    ///
     /// # Example
     /// ```rust
     /// use bevy_app::App;

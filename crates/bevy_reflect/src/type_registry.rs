@@ -100,7 +100,8 @@ impl TypeRegistry {
             .insert(registration.type_id(), registration);
     }
 
-    /// Registers the type data `D` for type `T`
+    /// Registers the type data `D` for type `T`.
+    ///
     /// # Example
     /// ```rust
     /// use bevy_reflect::{TypeRegistry, ReflectSerialize, ReflectDeserialize};
