@@ -959,7 +959,7 @@ mod tests {
             assert!(matches!(
                 events.expect("Expected Some(EventReader)").iter().next(),
                 Some(TestEvent { i: 0 })
-            ))
+            ));
         });
         reader.initialize(&mut world);
         reader.run((), &mut world);
@@ -988,14 +988,14 @@ mod tests {
         let mut writer = IntoSystem::into_system(|events: Option<EventWriter<TestEvent>>| {
             events
                 .expect("Expected Some(EventWriter)")
-                .send(TestEvent { i: 0 })
+                .send(TestEvent { i: 0 });
         });
         writer.initialize(&mut world);
         writer.run((), &mut world);
         assert!(!world
             .get_resource::<Events<TestEvent>>()
             .unwrap()
-            .is_empty())
+            .is_empty());
     }
 
     #[test]
