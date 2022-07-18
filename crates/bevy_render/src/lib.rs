@@ -1,6 +1,5 @@
 extern crate core;
 
-mod base_bundle;
 pub mod camera;
 pub mod color;
 pub mod extract_component;
@@ -15,6 +14,7 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
+mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
@@ -23,11 +23,11 @@ pub use extract_param::Extract;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        base_bundle::BaseBundle,
         camera::{Camera, OrthographicProjection, PerspectiveProjection},
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
+        spatial_bundle::SpatialBundle,
         texture::Image,
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };

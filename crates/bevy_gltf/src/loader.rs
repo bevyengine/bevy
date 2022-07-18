@@ -22,7 +22,7 @@ use bevy_render::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, Mesh, VertexAttributeValues,
     },
-    prelude::BaseBundle,
+    prelude::SpatialBundle,
     primitives::{Aabb, Frustum},
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
     renderer::RenderDevice,
@@ -466,7 +466,7 @@ async fn load_gltf<'a, 'b>(
 
         world
             .spawn()
-            .insert_bundle(BaseBundle::visible_identity())
+            .insert_bundle(SpatialBundle::visible_identity())
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
@@ -705,7 +705,7 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn_bundle(BaseBundle::from(Transform::from_matrix(
+    let mut node = world_builder.spawn_bundle(SpatialBundle::from(Transform::from_matrix(
         Mat4::from_cols_array_2d(&transform.matrix()),
     )));
 

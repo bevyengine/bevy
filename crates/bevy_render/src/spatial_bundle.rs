@@ -12,9 +12,9 @@ use crate::view::{ComputedVisibility, Visibility};
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global position of an entity, you should get its [`GlobalTransform`].
 /// * For hierarchies to work correctly, you must have all four components.
-///   * You may use the [`BaseBundle`] to guarantee this.
+///   * You may use the [`SpatialBundle`] to guarantee this.
 #[derive(Bundle, Debug, Default)]
-pub struct BaseBundle {
+pub struct SpatialBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
     /// The computed visibility of the entity.
@@ -25,24 +25,24 @@ pub struct BaseBundle {
     pub global_transform: GlobalTransform,
 }
 
-impl BaseBundle {
-    /// Creates a new [`BaseBundle`] from a [`Transform`].
+impl SpatialBundle {
+    /// Creates a new [`SpatialBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, and visibility as visible
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
-        BaseBundle {
+        SpatialBundle {
             transform,
             // Note: `..Default::default()` cannot be used here, because it isn't const
             ..Self::visible_identity()
         }
     }
 
-    /// Creates a new identity [`BaseBundle`], with no translation, rotation, and a scale of 1
+    /// Creates a new identity [`SpatialBundle`], with no translation, rotation, and a scale of 1
     /// on all axes.
     #[inline]
     pub const fn visible_identity() -> Self {
-        BaseBundle {
+        SpatialBundle {
             transform: Transform::identity(),
             global_transform: GlobalTransform::identity(),
             visibility: Visibility::visible(),
@@ -51,7 +51,7 @@ impl BaseBundle {
     }
 }
 
-impl From<Transform> for BaseBundle {
+impl From<Transform> for SpatialBundle {
     #[inline]
     fn from(transform: Transform) -> Self {
         Self::from_transform(transform)
