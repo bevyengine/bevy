@@ -45,3 +45,18 @@ pub enum GenericLabel<T> {
 pub union Foo {
     x: i32,
 }*/
+
+// FIXME: this should be a compile_fail test
+/*#[derive(SystemLabel)]
+#[system_label(ignore_fields)]
+pub enum BadLabel {
+    One,
+    Two,
+}*/
+
+// FIXME: this should be a compile_fail test
+/*#[derive(SystemLabel)]
+pub struct BadLabel2 {
+    #[system_label(ignore_fields)]
+    x: (),
+}*/

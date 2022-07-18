@@ -145,10 +145,18 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
         .predicates
         .push(syn::parse2(quote! { Self: 'static }).unwrap());
 
+    let ignore_fields = input.attrs.iter().any(|a| is_ignore(a, &trait_snake_case));
     let as_str = match input.data {
         syn::Data::Struct(d) => {
+            // see if the user tried to ignore fields incorrectly
+            if d.fields
+                .iter()
+                .flat_map(|f| &f.attrs)
+                .any(|a| is_ignore(a, &trait_snake_case))
+            {
+                panic!("`#[{trait_snake_case}(ignore_fields)]` cannot be applied to fields individually: add it to the struct declaration");
+            }
             // Structs must either be fieldless, or explicitly ignore the fields.
-            let ignore_fields = input.attrs.iter().any(|a| is_ignore(a, &trait_snake_case));
             if matches!(d.fields, syn::Fields::Unit) || ignore_fields {
                 let lit = ident.to_string();
                 quote! { #lit }
@@ -157,6 +165,9 @@ pub fn derive_label(input: syn::DeriveInput, trait_path: &syn::Path) -> TokenStr
             }
         }
         syn::Data::Enum(d) => {
+            if ignore_fields {
+                panic!("`#[{trait_snake_case}(ignore_fields)]` can only be applied to struct declarations or enum variants");
+            }
             let arms = d.variants.iter().map(|v| {
                 // Variants must either be fieldless, or explicitly ignore the fields.
                 let ignore_fields = v.attrs.iter().any(|a| is_ignore(a, &trait_snake_case));
