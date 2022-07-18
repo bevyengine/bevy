@@ -6,7 +6,6 @@ use syn::{
     parse::ParseStream, Data, DataStruct, Error, Fields, Lit, LitStr, Meta, NestedMeta, Result,
 };
 
-const BINDING_ATTRIBUTE_NAME: Symbol = Symbol("binding");
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
 const TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("texture");
 const SAMPLER_ATTRIBUTE_NAME: Symbol = Symbol("sampler");

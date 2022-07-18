@@ -3,7 +3,6 @@ mod extract_resource;
 
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
-use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
