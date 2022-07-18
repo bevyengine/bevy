@@ -53,7 +53,12 @@ where
 ///
 /// ```
 /// # use bevy_utils::define_label;
-/// define_label!(MyNewLabelTrait);
+/// define_label!(
+///     /// A class of labels.
+///     MyNewLabelTrait,
+///     /// Identifies a value that implements `MyNewLabelTrait`.
+///     MyNewLabelId,
+/// );
 /// ```
 #[macro_export]
 macro_rules! define_label {
