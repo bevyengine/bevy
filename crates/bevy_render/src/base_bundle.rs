@@ -32,7 +32,7 @@ impl BaseBundle {
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         BaseBundle {
-            local: transform,
+            transform,
             // Note: `..Default::default()` cannot be used here, because it isn't const
             ..Self::visible_identity()
         }
@@ -43,8 +43,8 @@ impl BaseBundle {
     #[inline]
     pub const fn visible_identity() -> Self {
         BaseBundle {
-            local: Transform::identity(),
-            global: GlobalTransform::identity(),
+            transform: Transform::identity(),
+            global_transform: GlobalTransform::identity(),
             visibility: Visibility::visible(),
             computed: ComputedVisibility::visible(),
         }
