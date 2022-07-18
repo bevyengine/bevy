@@ -1,10 +1,9 @@
-use bevy_macro_utils::{BevyManifest, Symbol, get_lit_str, get_lit_bool};
+use bevy_macro_utils::{get_lit_bool, get_lit_str, BevyManifest, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{
-    Error, parse::ParseStream, Result, Data, DataStruct, Fields,
-    Meta, NestedMeta, Lit, LitStr
+    parse::ParseStream, Data, DataStruct, Error, Fields, Lit, LitStr, Meta, NestedMeta, Result,
 };
 
 const BINDING_ATTRIBUTE_NAME: Symbol = Symbol("binding");
@@ -39,34 +38,20 @@ fn get_binding_nested_meta(attr: &syn::Attribute) -> Result<(u32, Vec<NestedMeta
         Ok(Meta::List(meta)) => {
             let mut nested_iter = meta.nested.into_iter();
 
-            let binding_meta = nested_iter.next().ok_or_else(|| Error::new_spanned(
-                attr,
-                "expected #[foo(u32, ...)]"
-            ))?;
+            let binding_meta = nested_iter
+                .next()
+                .ok_or_else(|| Error::new_spanned(attr, "expected #[foo(u32, ...)]"))?;
 
             let lit_int = if let NestedMeta::Lit(Lit::Int(lit_int)) = binding_meta {
                 lit_int
             } else {
-                return Err(Error::new_spanned(
-                    attr,
-                    "expected #[foo(u32, ...)]"
-                ));
+                return Err(Error::new_spanned(attr, "expected #[foo(u32, ...)]"));
             };
 
-            Ok((
-                lit_int.base10_parse()?,
-                nested_iter.collect()
-            ))
-        },
-        Ok(other) => {
-            Err(Error::new_spanned(
-                other,
-                "expected #[foo(...)]"
-            ))
+            Ok((lit_int.base10_parse()?, nested_iter.collect()))
         }
-        Err(err) => {
-            Err(err)
-        }
+        Ok(other) => Err(Error::new_spanned(other, "expected #[foo(...)]")),
+        Err(err) => Err(err),
     }
 }
 
@@ -158,10 +143,10 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
         }) => &fields.named,
         _ => {
             return Err(Error::new_spanned(
-                ast, 
-                "Expected a struct with named fields"
+                ast,
+                "Expected a struct with named fields",
             ));
-        },
+        }
     };
 
     // Read field-level attributes
@@ -170,12 +155,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             let attr_ident = if let Some(ident) = attr.path.get_ident() {
                 ident
             } else {
-                return Err(Error::new_spanned(
-                    attr, 
-                    "Expected identifier"
-                ));
+                return Err(Error::new_spanned(attr, "Expected identifier"));
             };
-            
+
             let binding_type = if attr_ident == UNIFORM_ATTRIBUTE_NAME {
                 BindingType::Uniform
             } else if attr_ident == TEXTURE_ATTRIBUTE_NAME {
@@ -211,34 +193,36 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 }
                             });
                             BindingState::Occupied {
-                            binding_type,
-                            ident: field_name,
-                        }},
+                                binding_type,
+                                ident: field_name,
+                            }
+                        }
                     }
-                },
-                BindingState::Occupied { binding_type, ident: occupied_ident} => {
+                }
+                BindingState::Occupied {
+                    binding_type,
+                    ident: occupied_ident,
+                } => {
                     return Err(Error::new_spanned(
-                        attr, 
+                        attr,
                         format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by the field '{occupied_ident}' of type {binding_type:?}.")
                     ));
-                },
+                }
                 BindingState::OccupiedConvertedUniform => {
                     return Err(Error::new_spanned(
-                        attr, 
+                        attr,
                         format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a struct-level uniform binding at the same index.")
                     ));
-                },
-                BindingState::OccupiedMergableUniform { uniform_fields } => {
-                    match binding_type {
-                        BindingType::Uniform => {
-                            uniform_fields.push(field);
-                        },
-                        _ => {
-                            return Err(Error::new_spanned(
-                                attr, 
+                }
+                BindingState::OccupiedMergableUniform { uniform_fields } => match binding_type {
+                    BindingType::Uniform => {
+                        uniform_fields.push(field);
+                    }
+                    _ => {
+                        return Err(Error::new_spanned(
+                                attr,
                                 format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a {:?}.", BindingType::Uniform)
                             ));
-                        },
                     }
                 },
             }
@@ -250,7 +234,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let texture_attrs = get_texture_attrs(nested_meta_items)?;
 
                     let sample_type = match texture_attrs.sample_type {
-                        BindingTextureSampleType::Float { filterable } => quote! { Float { filterable: #filterable } },
+                        BindingTextureSampleType::Float { filterable } => {
+                            quote! { Float { filterable: #filterable } }
+                        }
                         BindingTextureSampleType::Depth => quote! { Depth },
                         BindingTextureSampleType::Sint => quote! { Sint },
                         BindingTextureSampleType::Uint => quote! { Uint },
@@ -372,7 +358,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     &format!("_{struct_name}AsBindGroupUniformStructBindGroup{binding_index}"),
                     Span::call_site(),
                 );
-                
+
                 let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
                 let field_type = uniform_fields.iter().map(|f| &f.ty);
                 field_struct_impls.push(quote! {
@@ -476,9 +462,7 @@ enum BindingTextureDimension {
 }
 
 enum BindingTextureSampleType {
-    Float {
-        filterable: bool,
-    },
+    Float { filterable: bool },
     Depth,
     Sint,
     Uint,
@@ -492,9 +476,7 @@ struct TextureAttrs {
 
 impl Default for BindingTextureSampleType {
     fn default() -> Self {
-        BindingTextureSampleType::Float {
-            filterable: true
-        }
+        BindingTextureSampleType::Float { filterable: true }
     }
 }
 
@@ -503,7 +485,7 @@ impl Default for TextureAttrs {
         Self {
             dimension: Default::default(),
             sample_type: Default::default(),
-            multisampled: true
+            multisampled: true,
         }
     }
 }
@@ -535,36 +517,33 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
     let mut filterable_ident = None;
 
     for meta in metas {
-        use syn::{
-            Meta::NameValue,
-            NestedMeta::Meta,
-        };
+        use syn::{Meta::NameValue, NestedMeta::Meta};
         match meta {
             Meta(NameValue(m)) if m.path == DIMENSION => {
                 let value = get_lit_str(DIMENSION, &m.lit)?;
                 dimension = get_texture_dimension_value(&value)?;
-            },
+            }
             Meta(NameValue(m)) if m.path == SAMPLE_TYPE => {
                 let value = get_lit_str(SAMPLE_TYPE, &m.lit)?;
                 sample_type = get_texture_sample_type_value(&value)?;
-            },
+            }
             Meta(NameValue(m)) if m.path == MULTISAMPLED => {
                 multisampled = get_lit_bool(MULTISAMPLED, &m.lit)?;
-            },
+            }
             Meta(NameValue(m)) if m.path == FILTERABLE => {
                 filterable = get_lit_bool(FILTERABLE, &m.lit)?.into();
                 filterable_ident = m.path.into();
-            },
+            }
             Meta(NameValue(m)) => {
                 return Err(Error::new_spanned(
-                    m.path, 
+                    m.path,
                     "Not a valid name. Available attributes: `dimension`, `sample_type`, `multisampled`, or `filterable`."
                 ));
-            },
+            }
             _ => {
                 return Err(Error::new_spanned(
-                    meta, 
-                    "Not a name value pair: `foo = \"...\"`"
+                    meta,
+                    "Not a name value pair: `foo = \"...\"`",
                 ));
             }
         }
@@ -575,11 +554,13 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
     if let Some(filterable) = filterable {
         let path = filterable_ident.unwrap();
         match sample_type {
-            BindingTextureSampleType::Float { filterable: _ } => sample_type = BindingTextureSampleType::Float { filterable },
+            BindingTextureSampleType::Float { filterable: _ } => {
+                sample_type = BindingTextureSampleType::Float { filterable }
+            }
             _ => {
                 return Err(Error::new_spanned(
-                    path.clone(), 
-                    "Type must be `float` to use the `filterable` attribute."
+                    path.clone(),
+                    "Type must be `float` to use the `filterable` attribute.",
                 ));
             }
         };
@@ -602,8 +583,8 @@ fn get_texture_dimension_value(lit_str: &LitStr) -> Result<BindingTextureDimensi
         DIM_CUBE_ARRAY => Ok(BindingTextureDimension::CubeArray),
 
         _ => Err(Error::new_spanned(
-            lit_str, 
-            "Not a valid dimension. Must be `1d`, `2d`, `2d_array`, `3d`, `cube` or `cube_array`."
+            lit_str,
+            "Not a valid dimension. Must be `1d`, `2d`, `2d_array`, `3d`, `cube` or `cube_array`.",
         )),
     }
 }
@@ -616,15 +597,15 @@ fn get_texture_sample_type_value(lit_str: &LitStr) -> Result<BindingTextureSampl
         U_INT => Ok(BindingTextureSampleType::Uint),
 
         _ => Err(Error::new_spanned(
-            lit_str, 
-            "Not a valid sample type. Must be `float`, `depth`, `s_int` or `u_int`."
+            lit_str,
+            "Not a valid sample type. Must be `float`, `depth`, `s_int` or `u_int`.",
         )),
     }
 }
 
 #[derive(Default)]
 struct SamplerAttrs {
-    sampler_binding_type: SamplerBindingType
+    sampler_binding_type: SamplerBindingType,
 }
 
 #[derive(Default)]
@@ -645,25 +626,22 @@ fn get_sampler_attrs(metas: Vec<NestedMeta>) -> Result<SamplerAttrs> {
     let mut sampler_binding_type = Default::default();
 
     for meta in metas {
-        use syn::{
-            Meta::NameValue,
-            NestedMeta::Meta,
-        };
+        use syn::{Meta::NameValue, NestedMeta::Meta};
         match meta {
             Meta(NameValue(m)) if m.path == SAMPLER_TYPE => {
                 let value = get_lit_str(DIMENSION, &m.lit)?;
                 sampler_binding_type = get_sampler_binding_type_value(&value)?;
-            },
+            }
             Meta(NameValue(m)) => {
                 return Err(Error::new_spanned(
-                    m.path, 
-                    "Not a valid name. Available attributes: `sampler_type`."
+                    m.path,
+                    "Not a valid name. Available attributes: `sampler_type`.",
                 ));
-            },
+            }
             _ => {
                 return Err(Error::new_spanned(
-                    meta, 
-                    "Not a name value pair: `foo = \"...\"`"
+                    meta,
+                    "Not a name value pair: `foo = \"...\"`",
                 ));
             }
         }
@@ -681,8 +659,8 @@ fn get_sampler_binding_type_value(lit_str: &LitStr) -> Result<SamplerBindingType
         COMPARISON => Ok(SamplerBindingType::Comparison),
 
         _ => Err(Error::new_spanned(
-            lit_str, 
-            "Not a valid dimension. Must be `filtering`, `non_filtering`, or `comparison`."
+            lit_str,
+            "Not a valid dimension. Must be `filtering`, `non_filtering`, or `comparison`.",
         )),
     }
 }
