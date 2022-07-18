@@ -15,7 +15,12 @@ use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-bevy_utils::define_label!(AppLabel);
+bevy_utils::define_label!(
+    /// A strongly-typed class of labels used to identify an [`App`].
+    AppLabel,
+    /// A strongly-typed identifier for an [`AppLabel`].
+    AppLabelId,
+);
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
