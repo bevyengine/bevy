@@ -46,7 +46,7 @@ impl BaseBundle {
             transform: Transform::identity(),
             global_transform: GlobalTransform::identity(),
             visibility: Visibility::visible(),
-            computed: ComputedVisibility::visible(),
+            computed: ComputedVisibility::not_visible(),
         }
     }
 }
