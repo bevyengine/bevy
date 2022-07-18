@@ -3,6 +3,8 @@ mod extract_resource;
 
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
+use syn::{parse_macro_input, DeriveInput};
+use quote::quote;
 
 pub(crate) fn bevy_render_path() -> syn::Path {
     BevyManifest::default()
@@ -18,5 +20,8 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(AsBindGroup, attributes(uniform, texture, sampler, bind_group_data))]
 pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
     as_bind_group::derive_as_bind_group(input)
+        .unwrap_or_else(|err| err.to_compile_error().into() )
 }
