@@ -24,7 +24,7 @@ use smallvec::SmallVec;
 ///
 /// If a UI node has bothe [`Interaction`] and [`ComputedVisibility`] components,
 /// [`Interaction`] will always be [`Interaction::None`]
-/// when [`ComputedVisibility::is_visible()] is false.
+/// when [`ComputedVisibility::is_visible()`] is false.
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
 #[derive(
