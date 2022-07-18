@@ -1,7 +1,7 @@
 use bevy_macro_utils::{get_lit_bool, get_lit_str, BevyManifest, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
@@ -195,27 +195,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 BindingType::Uniform => { /* uniform codegen is deferred to account for combined uniform bindings */
                 }
                 BindingType::Texture => {
-                    let texture_attrs = get_texture_attrs(nested_meta_items)?;
-
-                    let sample_type = match texture_attrs.sample_type {
-                        BindingTextureSampleType::Float { filterable } => {
-                            quote! { Float { filterable: #filterable } }
-                        }
-                        BindingTextureSampleType::Depth => quote! { Depth },
-                        BindingTextureSampleType::Sint => quote! { Sint },
-                        BindingTextureSampleType::Uint => quote! { Uint },
-                    };
-
-                    let dimension = match texture_attrs.dimension {
-                        BindingTextureDimension::D1 => quote! { D1 },
-                        BindingTextureDimension::D2 => quote! { D2 },
-                        BindingTextureDimension::D2Array => quote! { D2Array },
-                        BindingTextureDimension::Cube => quote! { Cube },
-                        BindingTextureDimension::CubeArray => quote! { CubeArray },
-                        BindingTextureDimension::D3 => quote! { D3 },
-                    };
-
-                    let multisampled = texture_attrs.multisampled;
+                    let TextureAttrs {
+                        dimension,
+                        sample_type,
+                        multisampled,
+                        visibility,
+                    } = get_texture_attrs(nested_meta_items)?;
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::TextureView({
@@ -228,27 +213,24 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         })
                     });
 
-                    binding_layouts.push(quote!{
+                    binding_layouts.push(quote! {
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::ShaderStages::all(),
+                            visibility: #render_path::render_resource::#visibility,
                             ty: #render_path::render_resource::BindingType::Texture {
                                 multisampled: #multisampled,
-                                sample_type: #render_path::render_resource::TextureSampleType::#sample_type,
-                                view_dimension: #render_path::render_resource::TextureViewDimension::#dimension,
+                                sample_type: #render_path::render_resource::#sample_type,
+                                view_dimension: #render_path::render_resource::#dimension,
                             },
                             count: None,
                         }
                     });
                 }
                 BindingType::Sampler => {
-                    let sampler_attrs = get_sampler_attrs(nested_meta_items)?;
-
-                    let sampler_binding_type = match sampler_attrs.sampler_binding_type {
-                        SamplerBindingType::Filtering => quote! { Filtering },
-                        SamplerBindingType::NonFiltering => quote! { NonFiltering },
-                        SamplerBindingType::Comparison => quote! { Comparison },
-                    };
+                    let SamplerAttrs {
+                        sampler_binding_type,
+                        visibility,
+                    } = get_sampler_attrs(nested_meta_items)?;
 
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::Sampler({
@@ -264,8 +246,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_layouts.push(quote!{
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::ShaderStages::all(),
-                            ty: #render_path::render_resource::BindingType::Sampler(#render_path::render_resource::SamplerBindingType::#sampler_binding_type),
+                            visibility: #render_path::render_resource::#visibility,
+                            ty: #render_path::render_resource::BindingType::Sampler(#render_path::render_resource::#sampler_binding_type),
                             count: None,
                         }
                     });
@@ -495,6 +477,94 @@ fn get_binding_nested_attr(attr: &syn::Attribute) -> Result<(u32, Vec<NestedMeta
 }
 
 #[derive(Default)]
+enum ShaderStageVisibility {
+    #[default]
+    All,
+    None,
+    Flags(VisibilityFlags),
+}
+
+#[derive(Default)]
+struct VisibilityFlags {
+    vertex: bool,
+    fragment: bool,
+    compute: bool,
+}
+
+impl ToTokens for ShaderStageVisibility {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        tokens.extend(match self {
+            ShaderStageVisibility::All => quote! { ShaderStages::all() },
+            ShaderStageVisibility::None => quote! { ShaderStages::NONE },
+            ShaderStageVisibility::Flags(flags) => {
+                let mut quoted = Vec::new();
+
+                if flags.vertex {
+                    quoted.push(quote! { ShaderStages::VERTEX });
+                }
+                if flags.fragment {
+                    quoted.push(quote! { ShaderStages::FRAGMENT });
+                }
+                if flags.compute {
+                    quoted.push(quote! { ShaderStages::COMPUTE });
+                }
+
+                quote! { #(#quoted)|* }
+            }
+        });
+    }
+}
+
+const VISIBILITY: Symbol = Symbol("VISIBILITY");
+const VISIBILITY_VERTEX: Symbol = Symbol("VERTEX");
+const VISIBILITY_FRAGMENT: Symbol = Symbol("FRAGMENT");
+const VISIBILITY_COMPUTE: Symbol = Symbol("COMPUTE");
+const VISIBILITY_ALL: Symbol = Symbol("ALL");
+const VISIBILITY_NONE: Symbol = Symbol("NONE");
+
+fn get_visibility_flag_value(
+    nested_metas: &Punctuated<NestedMeta, Token![,]>,
+) -> Result<ShaderStageVisibility> {
+    let mut visibility = VisibilityFlags::default();
+
+    for meta in nested_metas {
+        use syn::{Meta::Path, NestedMeta::Meta};
+        match meta {
+            // Parse `visibility(ALL)]`.
+            Meta(Path(path)) if path == VISIBILITY_ALL => {
+                return Ok(ShaderStageVisibility::All)
+            }
+            // Parse `visibility(NONE)]`.
+            Meta(Path(path)) if path == VISIBILITY_NONE => {
+                return Ok(ShaderStageVisibility::None)
+            }
+            // Parse `visibility(VERTEX, ...)]`.
+            Meta(Path(path)) if path == VISIBILITY_VERTEX => {
+                visibility.vertex = true;
+            }
+            // Parse `visibility(FRAGMENT, ...)]`.
+            Meta(Path(path)) if path == VISIBILITY_FRAGMENT => {
+                visibility.fragment = true;
+            }
+            // Parse `visibility(COMPUTE, ...)]`.
+            Meta(Path(path)) if path == VISIBILITY_COMPUTE => {
+                visibility.compute = true;
+            }
+            Meta(Path(path)) => return Err(Error::new_spanned(
+                path,
+                "Not a valid visibility flag. Must be `ALL`, `NONE`, `VERTEX`, `FRAGMENT` or `COMPUTE`."
+            )),
+            _ => return Err(Error::new_spanned(
+                meta,
+                "Invalid visibility format: `visibility(...)`.",
+            )),
+        }
+    }
+
+    Ok(ShaderStageVisibility::Flags(visibility))
+}
+
+#[derive(Default)]
 enum BindingTextureDimension {
     D1,
     #[default]
@@ -512,10 +582,37 @@ enum BindingTextureSampleType {
     Uint,
 }
 
+impl ToTokens for BindingTextureDimension {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        tokens.extend(match self {
+            BindingTextureDimension::D1 => quote! { TextureViewDimension::D1 },
+            BindingTextureDimension::D2 => quote! { TextureViewDimension::D2 },
+            BindingTextureDimension::D2Array => quote! { TextureViewDimension::D2Array },
+            BindingTextureDimension::Cube => quote! { TextureViewDimension::Cube },
+            BindingTextureDimension::CubeArray => quote! { TextureViewDimension::CubeArray },
+            BindingTextureDimension::D3 => quote! { TextureViewDimension::D3 },
+        });
+    }
+}
+
+impl ToTokens for BindingTextureSampleType {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        tokens.extend(match self {
+            BindingTextureSampleType::Float { filterable } => {
+                quote! { TextureSampleType::Float { filterable: #filterable } }
+            }
+            BindingTextureSampleType::Depth => quote! { TextureSampleType::Depth },
+            BindingTextureSampleType::Sint => quote! { TextureSampleType::Sint },
+            BindingTextureSampleType::Uint => quote! { TextureSampleType::Uint },
+        });
+    }
+}
+
 struct TextureAttrs {
     dimension: BindingTextureDimension,
     sample_type: BindingTextureSampleType,
     multisampled: bool,
+    visibility: ShaderStageVisibility,
 }
 
 impl Default for BindingTextureSampleType {
@@ -530,6 +627,7 @@ impl Default for TextureAttrs {
             dimension: Default::default(),
             sample_type: Default::default(),
             multisampled: true,
+            visibility: Default::default(),
         }
     }
 }
@@ -560,23 +658,36 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
     let mut filterable = None;
     let mut filterable_ident = None;
 
+    let mut visibility = Default::default();
+
     for meta in metas {
-        use syn::{Meta::NameValue, NestedMeta::Meta};
+        use syn::{
+            Meta::{List, NameValue},
+            NestedMeta::Meta,
+        };
         match meta {
+            // Parse #[texture(0, dimension = "...")].
             Meta(NameValue(m)) if m.path == DIMENSION => {
                 let value = get_lit_str(DIMENSION, &m.lit)?;
                 dimension = get_texture_dimension_value(value)?;
             }
+            // Parse #[texture(0, sample_type = "...")].
             Meta(NameValue(m)) if m.path == SAMPLE_TYPE => {
                 let value = get_lit_str(SAMPLE_TYPE, &m.lit)?;
                 sample_type = get_texture_sample_type_value(value)?;
             }
+            // Parse #[texture(0, multisampled = "...")].
             Meta(NameValue(m)) if m.path == MULTISAMPLED => {
                 multisampled = get_lit_bool(MULTISAMPLED, &m.lit)?;
             }
+            // Parse #[texture(0, filterable = "...")].
             Meta(NameValue(m)) if m.path == FILTERABLE => {
                 filterable = get_lit_bool(FILTERABLE, &m.lit)?.into();
                 filterable_ident = m.path.into();
+            }
+            // Parse #[texture(0, visibility(...))].
+            Meta(List(m)) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m.nested)?;
             }
             Meta(NameValue(m)) => {
                 return Err(Error::new_spanned(
@@ -614,6 +725,7 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
         dimension,
         sample_type,
         multisampled,
+        visibility,
     })
 }
 
@@ -650,6 +762,7 @@ fn get_texture_sample_type_value(lit_str: &LitStr) -> Result<BindingTextureSampl
 #[derive(Default)]
 struct SamplerAttrs {
     sampler_binding_type: SamplerBindingType,
+    visibility: ShaderStageVisibility,
 }
 
 #[derive(Default)]
@@ -660,6 +773,16 @@ enum SamplerBindingType {
     Comparison,
 }
 
+impl ToTokens for SamplerBindingType {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        tokens.extend(match self {
+            SamplerBindingType::Filtering => quote! { SamplerBindingType::Filtering },
+            SamplerBindingType::NonFiltering => quote! { SamplerBindingType::NonFiltering },
+            SamplerBindingType::Comparison => quote! { SamplerBindingType::Comparison },
+        });
+    }
+}
+
 const SAMPLER_TYPE: Symbol = Symbol("sampler_type");
 
 const FILTERING: &str = "filtering";
@@ -668,13 +791,22 @@ const COMPARISON: &str = "comparison";
 
 fn get_sampler_attrs(metas: Vec<NestedMeta>) -> Result<SamplerAttrs> {
     let mut sampler_binding_type = Default::default();
+    let mut visibility = Default::default();
 
     for meta in metas {
-        use syn::{Meta::NameValue, NestedMeta::Meta};
+        use syn::{
+            Meta::{List, NameValue},
+            NestedMeta::Meta,
+        };
         match meta {
+            // Parse #[sampler(0, sampler_type = "..."))].
             Meta(NameValue(m)) if m.path == SAMPLER_TYPE => {
                 let value = get_lit_str(DIMENSION, &m.lit)?;
                 sampler_binding_type = get_sampler_binding_type_value(value)?;
+            }
+            // Parse #[sampler(0, visibility(...))].
+            Meta(List(m)) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m.nested)?;
             }
             Meta(NameValue(m)) => {
                 return Err(Error::new_spanned(
@@ -693,6 +825,7 @@ fn get_sampler_attrs(metas: Vec<NestedMeta>) -> Result<SamplerAttrs> {
 
     Ok(SamplerAttrs {
         sampler_binding_type,
+        visibility,
     })
 }
 
