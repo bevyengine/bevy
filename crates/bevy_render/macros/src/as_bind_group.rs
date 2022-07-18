@@ -3,7 +3,9 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{
-    parse::ParseStream, Data, DataStruct, Error, Fields, Lit, LitStr, Meta, NestedMeta, Result,
+    parse::{Parse, ParseStream},
+    punctuated::Punctuated,
+    Data, DataStruct, Error, Fields, LitInt, LitStr, NestedMeta, Result, Token,
 };
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
@@ -31,29 +33,6 @@ enum BindingState<'a> {
     },
 }
 
-fn get_binding_nested_meta(attr: &syn::Attribute) -> Result<(u32, Vec<NestedMeta>)> {
-    match attr.parse_meta() {
-        // Parse #[foo(0, ...)]
-        Ok(Meta::List(meta)) => {
-            let mut nested_iter = meta.nested.into_iter();
-
-            let binding_meta = nested_iter
-                .next()
-                .ok_or_else(|| Error::new_spanned(attr, "expected #[foo(u32, ...)]"))?;
-
-            let lit_int = if let NestedMeta::Lit(Lit::Int(lit_int)) = binding_meta {
-                lit_int
-            } else {
-                return Err(Error::new_spanned(attr, "expected #[foo(u32, ...)]"));
-            };
-
-            Ok((lit_int.base10_parse()?, nested_iter.collect()))
-        }
-        Ok(other) => Err(Error::new_spanned(other, "expected #[foo(...)]")),
-        Err(err) => Err(err),
-    }
-}
-
 pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
     let render_path = manifest.get_path("bevy_render");
@@ -75,21 +54,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     attr_prepared_data_ident = Some(prepared_data_ident);
                 }
             } else if attr_ident == UNIFORM_ATTRIBUTE_NAME {
-                let (binding_index, converted_shader_type) = attr
-                    .parse_args_with(|input: ParseStream| {
-                        let binding_index = input
-                            .parse::<syn::LitInt>()
-                            .and_then(|i| i.base10_parse::<u32>())?;
-                        input.parse::<syn::token::Comma>()?;
-                        let converted_shader_type = input.parse::<Ident>()?;
-                        Ok((binding_index, converted_shader_type))
-                    })
-                    .map_err(|_| {
-                        Error::new_spanned(
-                            attr,
-                            "struct-level uniform bindings must be in the format: uniform(BINDING_INDEX, ConvertedShaderType)"
-                        )
-                    })?;
+                let (binding_index, converted_shader_type) = get_uniform_binding_attr(attr)?;
 
                 binding_impls.push(quote! {{
                     use #render_path::render_resource::AsBindGroupShaderType;
@@ -167,7 +132,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 continue;
             };
 
-            let (binding_index, nested_meta_items) = get_binding_nested_meta(attr)?;
+            let (binding_index, nested_meta_items) = get_binding_nested_attr(attr)?;
 
             let field_name = field.ident.as_ref().unwrap();
             let required_len = binding_index as usize + 1;
@@ -449,6 +414,86 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     }))
 }
 
+/// Represents the arguments for the `uniform` binding attribute.
+///
+/// If parsed, represents an attribute
+/// like `#[uniform(LitInt, Ident)]`
+struct UniformBindingMeta {
+    lit_int: LitInt,
+    _comma: Token![,],
+    ident: Ident,
+}
+
+/// Represents the arguments for any general binding attribute.
+///
+/// If parsed, represents an attribute
+/// like `#[foo(LitInt, ...)]` where the rest is optional `NestedMeta`.
+enum BindingMeta {
+    IndexOnly(LitInt),
+    IndexWithOptions(BindingIndexOptions),
+}
+
+/// Represents the arguments for an attribute with a list of arguments.
+///
+/// This represents, for example, `#[texture(0, dimension = "2d_array")]`.
+struct BindingIndexOptions {
+    lit_int: LitInt,
+    _comma: Token![,],
+    meta_list: Punctuated<NestedMeta, Token![,]>,
+}
+
+impl Parse for BindingMeta {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek2(Token![,]) {
+            input.parse().map(Self::IndexWithOptions)
+        } else {
+            input.parse().map(Self::IndexOnly)
+        }
+    }
+}
+
+impl Parse for BindingIndexOptions {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self {
+            lit_int: input.parse()?,
+            _comma: input.parse()?,
+            meta_list: input.parse_terminated(NestedMeta::parse)?,
+        })
+    }
+}
+
+impl Parse for UniformBindingMeta {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self {
+            lit_int: input.parse()?,
+            _comma: input.parse()?,
+            ident: input.parse()?,
+        })
+    }
+}
+
+fn get_uniform_binding_attr(attr: &syn::Attribute) -> Result<(u32, Ident)> {
+    let uniform_binding_meta = attr.parse_args_with(UniformBindingMeta::parse)?;
+
+    let binding_index = uniform_binding_meta.lit_int.base10_parse()?;
+    let ident = uniform_binding_meta.ident;
+
+    Ok((binding_index, ident))
+}
+
+fn get_binding_nested_attr(attr: &syn::Attribute) -> Result<(u32, Vec<NestedMeta>)> {
+    let binding_meta = attr.parse_args_with(BindingMeta::parse)?;
+
+    match binding_meta {
+        BindingMeta::IndexOnly(lit_int) => Ok((lit_int.base10_parse()?, Vec::new())),
+        BindingMeta::IndexWithOptions(BindingIndexOptions {
+            lit_int,
+            _comma: _,
+            meta_list,
+        }) => Ok((lit_int.base10_parse()?, meta_list.into_iter().collect())),
+    }
+}
+
 #[derive(Default)]
 enum BindingTextureDimension {
     D1,
@@ -520,11 +565,11 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
         match meta {
             Meta(NameValue(m)) if m.path == DIMENSION => {
                 let value = get_lit_str(DIMENSION, &m.lit)?;
-                dimension = get_texture_dimension_value(&value)?;
+                dimension = get_texture_dimension_value(value)?;
             }
             Meta(NameValue(m)) if m.path == SAMPLE_TYPE => {
                 let value = get_lit_str(SAMPLE_TYPE, &m.lit)?;
-                sample_type = get_texture_sample_type_value(&value)?;
+                sample_type = get_texture_sample_type_value(value)?;
             }
             Meta(NameValue(m)) if m.path == MULTISAMPLED => {
                 multisampled = get_lit_bool(MULTISAMPLED, &m.lit)?;
@@ -558,7 +603,7 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
             }
             _ => {
                 return Err(Error::new_spanned(
-                    path.clone(),
+                    path,
                     "Type must be `float` to use the `filterable` attribute.",
                 ));
             }
@@ -629,7 +674,7 @@ fn get_sampler_attrs(metas: Vec<NestedMeta>) -> Result<SamplerAttrs> {
         match meta {
             Meta(NameValue(m)) if m.path == SAMPLER_TYPE => {
                 let value = get_lit_str(DIMENSION, &m.lit)?;
-                sampler_binding_type = get_sampler_binding_type_value(&value)?;
+                sampler_binding_type = get_sampler_binding_type_value(value)?;
             }
             Meta(NameValue(m)) => {
                 return Err(Error::new_spanned(
