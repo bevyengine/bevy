@@ -10,10 +10,10 @@ fn main() {
     assert_eq!(EnumLabel::One.as_label(), EnumLabel::One.as_label());
     assert_ne!(EnumLabel::One.as_label(), EnumLabel::Two.as_label());
 
-    // Shockingly, labels annotated with `ignore_fields` ignore their fields.
+    // Labels annotated with `ignore_fields` ignore their fields.
     assert_eq!(WeirdLabel(1).as_label(), WeirdLabel(2).as_label());
 
-    // Labels of different types are distinct, even if they look similar.
+    // Labels don't depend only on the variant name but on the full type
     assert_ne!(
         GenericLabel::<f64>::One.as_label(),
         GenericLabel::<char>::One.as_label(),
