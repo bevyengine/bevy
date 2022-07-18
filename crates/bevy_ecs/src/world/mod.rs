@@ -1156,7 +1156,7 @@ impl World {
         result
     }
 
-    /// Sends an [Event](crate::event::Event).
+    /// Sends an [`Event`](crate::event::Event).
     #[inline]
     pub fn send_event<E: crate::event::Event>(&mut self, event: E) {
         match self.get_resource_mut::<crate::event::Events<E>>() {
