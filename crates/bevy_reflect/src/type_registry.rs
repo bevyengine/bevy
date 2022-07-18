@@ -73,7 +73,11 @@ impl TypeRegistry {
         registry
     }
 
-    /// Registers the type `T`.
+    /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
+    /// ```rust,ignore
+    /// #[derive(Reflect)]
+    /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
+    /// ```
     pub fn register<T>(&mut self)
     where
         T: GetTypeRegistration,
@@ -101,6 +105,11 @@ impl TypeRegistry {
     }
 
     /// Registers the type data `D` for type `T`.
+    ///
+    /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you derived [`Reflect`] for.
+    /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
+    /// or where the type is generic and cannot register e.g. `ReflectSerialize` unconditionally without knowing the specific type parameters,
+    /// this method can be used to insert additional type data.
     ///
     /// # Example
     /// ```rust
