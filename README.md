@@ -67,6 +67,18 @@ git checkout latest
 cargo run --example breakout
 ```
 
+To draw a window with standard functionality enabled, use:
+
+```rust
+use bevy::prelude::*;
+
+fn main(){
+  App::new()
+    .add_plugins(DefaultPlugins)
+    .run();
+}
+```
+
 ### Fast Compiles
 
 Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
@@ -78,7 +90,6 @@ Bevy is only possible because of the hard work put into these foundational techn
 * [wgpu](https://wgpu.rs/): modern / low-level / cross-platform graphics library inspired by Vulkan
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
 * [winit](https://github.com/rust-windowing/winit): cross-platform window creation and management in Rust
-* [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): Reflection API in rust for SPIR-V shader byte code
 
 ## [Bevy Cargo Features][cargo_features]
 

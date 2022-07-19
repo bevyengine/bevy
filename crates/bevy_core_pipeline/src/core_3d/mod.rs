@@ -11,6 +11,8 @@ pub mod graph {
     }
 }
 
+use std::cmp::Reverse;
+
 pub use camera_3d::*;
 pub use main_pass_3d_node::*;
 
@@ -32,7 +34,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_utils::{FloatOrd, HashMap};
 
@@ -87,16 +89,23 @@ pub struct Opaque3d {
 }
 
 impl PhaseItem for Opaque3d {
-    type SortKey = FloatOrd;
+    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
+    type SortKey = Reverse<FloatOrd>;
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
@@ -122,16 +131,23 @@ pub struct AlphaMask3d {
 }
 
 impl PhaseItem for AlphaMask3d {
-    type SortKey = FloatOrd;
+    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
+    type SortKey = Reverse<FloatOrd>;
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
@@ -157,6 +173,7 @@ pub struct Transparent3d {
 }
 
 impl PhaseItem for Transparent3d {
+    // NOTE: Values increase towards the camera. Back-to-front ordering for transparent means we need an ascending sort.
     type SortKey = FloatOrd;
 
     #[inline]
@@ -167,6 +184,11 @@ impl PhaseItem for Transparent3d {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        radsort::sort_by_key(items, |item| item.distance);
     }
 }
 
@@ -186,7 +208,7 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 
 pub fn extract_core_3d_camera_phases(
     mut commands: Commands,
-    cameras_3d: Query<(Entity, &Camera), With<Camera3d>>,
+    cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
 ) {
     for (entity, camera) in cameras_3d.iter() {
         if camera.is_active {
@@ -214,7 +236,7 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera) in views_3d.iter() {
+    for (entity, camera) in &views_3d {
         if let Some(physical_target_size) = camera.physical_target_size {
             let cached_texture = textures
                 .entry(camera.target.clone())

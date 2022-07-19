@@ -20,8 +20,11 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        bundle::{DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle},
-        light::{AmbientLight, DirectionalLight, PointLight},
+        bundle::{
+            DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
+            SpotLightBundle,
+        },
+        light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
     };
@@ -64,6 +67,8 @@ pub const SHADOWS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11350275143789590502);
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
+pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
@@ -104,6 +109,12 @@ impl Plugin for PbrPlugin {
             "render/shadows.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            PBR_FUNCTIONS_HANDLE,
+            "render/pbr_functions.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
@@ -115,8 +126,12 @@ impl Plugin for PbrPlugin {
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<PointLight>()
+            .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .register_type::<AmbientLight>()
+            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<PointLightShadowMap>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
@@ -135,19 +150,29 @@ impl Plugin for PbrPlugin {
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
+                    .after(VisibilitySystems::CheckVisibility)
                     .after(CameraUpdateSystem)
                     .after(ModifiesWindows),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_directional_light_frusta
-                    .label(SimulationLightSystems::UpdateDirectionalLightFrusta)
+                    .label(SimulationLightSystems::UpdateLightFrusta)
+                    // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
+                    .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_point_light_frusta
-                    .label(SimulationLightSystems::UpdatePointLightFrusta)
+                    .label(SimulationLightSystems::UpdateLightFrusta)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::AssignLightsToClusters),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_spot_light_frusta
+                    .label(SimulationLightSystems::UpdateLightFrusta)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
@@ -157,8 +182,7 @@ impl Plugin for PbrPlugin {
                     .label(SimulationLightSystems::CheckLightVisibility)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CalculateBounds)
-                    .after(SimulationLightSystems::UpdateDirectionalLightFrusta)
-                    .after(SimulationLightSystems::UpdatePointLightFrusta)
+                    .after(SimulationLightSystems::UpdateLightFrusta)
                     // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                     // because that resets entity ComputedVisibility for the first view
                     // which would override any results from this otherwise

@@ -12,14 +12,14 @@ categories = ["game-engines", "graphics", "gui", "rendering"]
 [features]
 trace = [
     "bevy_app/trace",
-    "bevy_core_pipeline/trace",
+    "bevy_core_pipeline?/trace",
     "bevy_ecs/trace",
     "bevy_log/trace",
-    "bevy_render/trace",
+    "bevy_render?/trace",
     "bevy_hierarchy/trace"
 ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
-trace_tracy = ["bevy_render/tracing-tracy", "bevy_log/tracing-tracy" ]
+trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
 wgpu_trace = ["bevy_render/wgpu_trace"]
 debug_asset_server = ["bevy_asset/debug_asset_server"]
 
@@ -55,13 +55,13 @@ x11 = ["bevy_winit/x11"]
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
 # Optimise for WebGL2
-webgl = ["bevy_core_pipeline/webgl", "bevy_pbr/webgl", "bevy_render/webgl"]
+webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl"]
 
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
 
 # Enable animation support, and glTF animation loading
-animation = ["bevy_animation", "bevy_gltf/bevy_animation"]
+animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
 [dependencies]
 # bevy

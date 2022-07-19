@@ -3,10 +3,7 @@ use bevy_ecs::{
     schedule::{Stage, SystemStage},
     world::World,
 };
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-
-criterion_group!(benches, no_archetypes, added_archetypes);
-criterion_main!(benches);
+use criterion::{BenchmarkId, Criterion};
 
 #[derive(Component)]
 struct A<const N: u16>(f32);
@@ -77,7 +74,7 @@ fn add_archetypes(world: &mut World, count: u16) {
     }
 }
 
-fn no_archetypes(criterion: &mut Criterion) {
+pub fn no_archetypes(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("no_archetypes");
     for i in 0..=5 {
         let system_count = i * 20;
@@ -94,7 +91,7 @@ fn no_archetypes(criterion: &mut Criterion) {
     }
 }
 
-fn added_archetypes(criterion: &mut Criterion) {
+pub fn added_archetypes(criterion: &mut Criterion) {
     const SYSTEM_COUNT: usize = 100;
     let mut group = criterion.benchmark_group("added_archetypes");
     for archetype_count in [100, 200, 500, 1000, 2000, 5000, 10000] {

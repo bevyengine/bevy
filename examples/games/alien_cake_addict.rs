@@ -175,7 +175,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 
 // remove all entities that are not a camera
 fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
-    for entity in entities.iter() {
+    for entity in &entities {
         commands.entity(entity).despawn_recursive();
     }
 }
@@ -348,7 +348,7 @@ fn spawn_bonus(
 fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform>) {
     if let Some(entity) = game.bonus.entity {
         if let Ok(mut cake_transform) = transforms.get_mut(entity) {
-            cake_transform.rotate(Quat::from_rotation_y(time.delta_seconds()));
+            cake_transform.rotate_y(time.delta_seconds());
             cake_transform.scale = Vec3::splat(
                 1.0 + (game.score as f32 / 10.0 * time.seconds_since_startup().sin() as f32).abs(),
             );

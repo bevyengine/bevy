@@ -1,4 +1,4 @@
-use crate::{CalculatedClip, Node};
+use crate::{entity::UiCameraConfig, CalculatedClip, Node};
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -7,7 +7,8 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_render::camera::{Camera, RenderTarget};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_window::Windows;
@@ -17,7 +18,9 @@ use smallvec::SmallVec;
 /// Describes what type of input interaction has occurred for a UI node.
 ///
 /// This is commonly queried with a `Changed<Interaction>` filter.
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[derive(
+    Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
+)]
 #[reflect_value(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
     /// The node has been clicked
@@ -25,31 +28,22 @@ pub enum Interaction {
     /// The node has been hovered over
     Hovered,
     /// Nothing has happened
+    #[default]
     None,
 }
 
-impl Default for Interaction {
-    fn default() -> Self {
-        Interaction::None
-    }
-}
-
 /// Describes whether the node should block interactions with lower nodes
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[derive(
+    Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
+)]
 #[reflect_value(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     /// Blocks interaction
+    #[default]
     Block,
     /// Lets interaction pass through
     Pass,
 }
-
-impl Default for FocusPolicy {
-    fn default() -> Self {
-        FocusPolicy::Block
-    }
-}
-
 /// Contains entities whose Interaction should be set to None
 #[derive(Default)]
 pub struct State {
@@ -59,6 +53,7 @@ pub struct State {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 pub fn ui_focus_system(
     mut state: Local<State>,
+    camera: Query<(&Camera, Option<&UiCameraConfig>)>,
     windows: Res<Windows>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
@@ -71,10 +66,6 @@ pub fn ui_focus_system(
         Option<&CalculatedClip>,
     )>,
 ) {
-    let cursor_position = windows
-        .get_primary()
-        .and_then(|window| window.cursor_position());
-
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
         if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
@@ -83,7 +74,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0);
+        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
         for (_entity, _node, _global_transform, interaction, _focus_policy, _clip) in
             node_query.iter_mut()
@@ -97,13 +88,31 @@ pub fn ui_focus_system(
     }
 
     let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_pressed(0);
+        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
+
+    let is_ui_disabled =
+        |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
+
+    let cursor_position = camera
+        .iter()
+        .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
+        .filter_map(|(camera, _)| {
+            if let RenderTarget::Window(window_id) = camera.target {
+                Some(window_id)
+            } else {
+                None
+            }
+        })
+        .filter_map(|window_id| windows.get(window_id))
+        .filter(|window| window.is_focused())
+        .find_map(|window| window.cursor_position())
+        .or_else(|| touches_input.first_pressed_position());
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
         .filter_map(
             |(entity, node, global_transform, interaction, focus_policy, clip)| {
-                let position = global_transform.translation;
+                let position = global_transform.translation();
                 let ui_position = position.truncate();
                 let extents = node.size / 2.0;
                 let mut min = ui_position - extents;

@@ -84,7 +84,7 @@ fn move_text(
     mut texts: Query<(Entity, &mut Transform), With<Text>>,
     time: Res<Time>,
 ) {
-    for (entity, mut position) in texts.iter_mut() {
+    for (entity, mut position) in &mut texts {
         position.translation -= Vec3::new(0.0, 100.0 * time.delta_seconds(), 0.0);
         if position.translation.y < -300.0 {
             commands.entity(entity).despawn();

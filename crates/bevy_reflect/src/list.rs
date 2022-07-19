@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    serde::Serializable, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect,
-    ReflectMut, ReflectRef, TypeInfo, Typed,
+    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef,
+    TypeInfo, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -163,8 +163,7 @@ impl List for DynamicList {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicList {
+impl Reflect for DynamicList {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()
@@ -176,12 +175,17 @@ unsafe impl Reflect for DynamicList {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -227,10 +231,6 @@ unsafe impl Reflect for DynamicList {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         list_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 
     fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -293,6 +293,8 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 /// - `b` is a list;
 /// - `b` is the same length as `a`;
 /// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     let list = if let ReflectRef::List(list) = b.reflect_ref() {
@@ -306,8 +308,9 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     }
 
     for (a_value, b_value) in a.iter().zip(list.iter()) {
-        if let Some(false) | None = a_value.reflect_partial_eq(b_value) {
-            return Some(false);
+        let eq_result = a_value.reflect_partial_eq(b_value);
+        if let failed @ (Some(false) | None) = eq_result {
+            return failed;
         }
     }
 

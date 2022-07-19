@@ -36,7 +36,7 @@ use super::ReadOnlyWorldQuery;
 /// # struct Name { name: &'static str };
 /// #
 /// fn compliment_entity_system(query: Query<&Name, With<IsBeautiful>>) {
-///     for name in query.iter() {
+///     for name in &query {
 ///         println!("{} is looking lovely today!", name.name);
 ///     }
 /// }
@@ -177,7 +177,7 @@ impl<T> Copy for WithFetch<T> {}
 /// # struct Name { name: &'static str };
 /// #
 /// fn no_permit_system(query: Query<&Name, Without<Permit>>) {
-///     for name in query.iter() {
+///     for name in &query{
 ///         println!("{} has no permit!", name.name);
 ///     }
 /// }
@@ -324,7 +324,7 @@ impl<T> Copy for WithoutFetch<T> {}
 /// # struct Style {};
 /// #
 /// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Style>)>>) {
-///     for entity in query.iter() {
+///     for entity in &query {
 ///         println!("Entity {:?} got a new style or color", entity);
 ///     }
 /// }
@@ -480,7 +480,7 @@ macro_rules! impl_query_filter_tuple {
             }
         }
 
-        // SAFE: filters are read only
+        // SAFETY: filters are read only
         unsafe impl<$($filter: ReadOnlyWorldQuery),*> ReadOnlyWorldQuery for Or<($($filter,)*)> {}
     };
 }
@@ -685,7 +685,7 @@ impl_tick_filter!(
     /// # struct Name {};
     ///
     /// fn print_add_name_component(query: Query<&Name, Added<Name>>) {
-    ///     for name in query.iter() {
+    ///     for name in &query {
     ///         println!("Named entity created: {:?}", name)
     ///     }
     /// }
@@ -725,7 +725,7 @@ impl_tick_filter!(
     /// # struct Transform {};
     ///
     /// fn print_moving_objects_system(query: Query<&Name, Changed<Transform>>) {
-    ///     for name in query.iter() {
+    ///     for name in &query {
     ///         println!("Entity Moved: {:?}", name);
     ///     }
     /// }
@@ -739,3 +739,30 @@ impl_tick_filter!(
     ChangedFetch,
     ComponentTicks::is_changed
 );
+
+/// A marker trait to indicate that the filter works at an archetype level.
+///
+/// This is needed to implement [`ExactSizeIterator`](std::iter::ExactSizeIterator) for
+/// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
+///
+/// The trait must only be implement for filters where its corresponding [`Fetch::IS_ARCHETYPAL`](crate::query::Fetch::IS_ARCHETYPAL)
+/// is [`prim@true`]. As such, only the [`With`] and [`Without`] filters can implement the trait.
+/// [Tuples](prim@tuple) and [`Or`] filters are automatically implemented with the trait only if its containing types
+/// also implement the same trait.
+///
+/// [`Added`] and [`Changed`] works with entities, and therefore are not archetypal. As such
+/// they do not implement [`ArchetypeFilter`].
+pub trait ArchetypeFilter {}
+
+impl<T> ArchetypeFilter for With<T> {}
+impl<T> ArchetypeFilter for Without<T> {}
+
+macro_rules! impl_archetype_filter_tuple {
+    ($($filter: ident),*) => {
+        impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for ($($filter,)*) {}
+
+        impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for Or<($($filter,)*)> {}
+    };
+}
+
+all_tuples!(impl_archetype_filter_tuple, 0, 15, F);

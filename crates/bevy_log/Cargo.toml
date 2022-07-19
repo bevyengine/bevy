@@ -27,6 +27,3 @@ android_log-sys = "0.2.0"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
 tracing-wasm = "0.2.1"
-
-[dev-dependencies]
-bevy_internal = { path = "../bevy_internal", version = "0.8.0-dev" }

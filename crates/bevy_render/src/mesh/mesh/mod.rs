@@ -13,7 +13,7 @@ use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
-use bevy_utils::Hashed;
+use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{
@@ -101,19 +101,38 @@ impl Mesh {
 
     /// Sets the data for a vertex attribute (position, normal etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// # Panics
+    /// Panics when the format of the values does not match the attribute's format.
     #[inline]
     pub fn insert_attribute(
         &mut self,
         attribute: MeshVertexAttribute,
         values: impl Into<VertexAttributeValues>,
     ) {
-        self.attributes.insert(
-            attribute.id,
-            MeshAttributeData {
-                attribute,
-                values: values.into(),
-            },
-        );
+        let values: VertexAttributeValues = values.into();
+
+        let values_format = VertexFormat::from(&values);
+        if values_format != attribute.format {
+            error!(
+                "Invalid attribute format for {}. Given format is {:?} but expected {:?}",
+                attribute.name, values_format, attribute.format
+            );
+            panic!("Failed to insert attribute");
+        }
+
+        self.attributes
+            .insert(attribute.id, MeshAttributeData { attribute, values });
+    }
+
+    /// Removes the data for a vertex attribute
+    pub fn remove_attribute(
+        &mut self,
+        attribute: impl Into<MeshVertexAttributeId>,
+    ) -> Option<VertexAttributeValues> {
+        self.attributes
+            .remove(&attribute.into())
+            .map(|data| data.values)
     }
 
     #[inline]
@@ -139,6 +158,22 @@ impl Mesh {
         self.attributes
             .get_mut(&id.into())
             .map(|data| &mut data.values)
+    }
+
+    /// Returns an iterator that yields references to the data of each vertex attribute.
+    pub fn attributes(
+        &self,
+    ) -> impl Iterator<Item = (MeshVertexAttributeId, &VertexAttributeValues)> {
+        self.attributes.iter().map(|(id, data)| (*id, &data.values))
+    }
+
+    /// Returns an iterator that yields mutable references to the data of each vertex attribute.
+    pub fn attributes_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (MeshVertexAttributeId, &mut VertexAttributeValues)> {
+        self.attributes
+            .iter_mut()
+            .map(|(id, data)| (*id, &mut data.values))
     }
 
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
@@ -430,7 +465,7 @@ impl InnerMeshVertexBufferLayout {
         attribute_descriptors: &[VertexAttributeDescriptor],
     ) -> Result<VertexBufferLayout, MissingVertexAttributeError> {
         let mut attributes = Vec::with_capacity(attribute_descriptors.len());
-        for attribute_descriptor in attribute_descriptors.iter() {
+        for attribute_descriptor in attribute_descriptors {
             if let Some(index) = self
                 .attribute_ids
                 .iter()
@@ -489,8 +524,8 @@ struct MeshAttributeData {
     values: VertexAttributeValues,
 }
 
-const VEC3_MIN: Vec3 = const_vec3!([std::f32::MIN, std::f32::MIN, std::f32::MIN]);
-const VEC3_MAX: Vec3 = const_vec3!([std::f32::MAX, std::f32::MAX, std::f32::MAX]);
+const VEC3_MIN: Vec3 = Vec3::splat(std::f32::MIN);
+const VEC3_MAX: Vec3 = Vec3::splat(std::f32::MAX);
 
 fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
@@ -967,4 +1002,17 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
     }
 
     Ok(mikktspace_mesh.tangents)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Mesh;
+    use wgpu::PrimitiveTopology;
+
+    #[test]
+    #[should_panic]
+    fn panic_invalid_format() {
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+    }
 }

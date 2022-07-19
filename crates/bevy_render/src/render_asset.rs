@@ -1,4 +1,4 @@
-use crate::{RenderApp, RenderStage};
+use crate::{Extract, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_ecs::{
@@ -39,17 +39,12 @@ pub trait RenderAsset: Asset {
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>>;
 }
 
-#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
+#[derive(Clone, Hash, Debug, Default, PartialEq, Eq, SystemLabel)]
 pub enum PrepareAssetLabel {
     PreAssetPrepare,
+    #[default]
     AssetPrepare,
     PostAssetPrepare,
-}
-
-impl Default for PrepareAssetLabel {
-    fn default() -> Self {
-        Self::AssetPrepare
-    }
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -128,15 +123,15 @@ pub type RenderAssets<A> = HashMap<Handle<A>, <A as RenderAsset>::PreparedAsset>
 /// into the "render world".
 fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
-    mut events: EventReader<AssetEvent<A>>,
-    assets: Res<Assets<A>>,
+    mut events: Extract<EventReader<AssetEvent<A>>>,
+    assets: Extract<Res<Assets<A>>>,
 ) {
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.iter() {
         match event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle);
+                changed_assets.insert(handle.clone_weak());
             }
             AssetEvent::Removed { handle } => {
                 changed_assets.remove(handle);
@@ -147,8 +142,8 @@ fn extract_render_asset<A: RenderAsset>(
 
     let mut extracted_assets = Vec::new();
     for handle in changed_assets.drain() {
-        if let Some(asset) = assets.get(handle) {
-            extracted_assets.push((handle.clone_weak(), asset.extract_asset()));
+        if let Some(asset) = assets.get(&handle) {
+            extracted_assets.push((handle, asset.extract_asset()));
         }
     }
 

@@ -86,7 +86,7 @@ fn handle_tasks(
     box_mesh_handle: Res<BoxMeshHandle>,
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
-    for (entity, mut task) in transform_tasks.iter_mut() {
+    for (entity, mut task) in &mut transform_tasks {
         if let Some(transform) = future::block_on(future::poll_once(&mut task.0)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {

@@ -66,7 +66,7 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
 // load_scene_example.scn. You should immediately see the changes appear in the console.
 fn log_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
-    for (entity, component_a) in query.iter() {
+    for (entity, component_a) in &query {
         info!("  Entity({})", entity.id());
         info!(
             "    ComponentA: {{ x: {} y: {} }}\n",

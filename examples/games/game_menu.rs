@@ -356,7 +356,7 @@ mod menu {
             (Changed<Interaction>, With<Button>),
         >,
     ) {
-        for (interaction, mut color, selected) in interaction_query.iter_mut() {
+        for (interaction, mut color, selected) in &mut interaction_query {
             *color = match (*interaction, selected) {
                 (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
@@ -374,7 +374,7 @@ mod menu {
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
-        for (interaction, button_setting, entity) in interaction_query.iter() {
+        for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Clicked && *setting != *button_setting {
                 let (previous_button, mut previous_color) = selected_query.single_mut();
                 *previous_color = NORMAL_BUTTON.into();
@@ -787,7 +787,7 @@ mod menu {
         mut menu_state: ResMut<State<MenuState>>,
         mut game_state: ResMut<State<GameState>>,
     ) {
-        for (interaction, menu_button_action) in interaction_query.iter() {
+        for (interaction, menu_button_action) in &interaction_query {
             if *interaction == Interaction::Clicked {
                 match menu_button_action {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
@@ -814,7 +814,7 @@ mod menu {
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
-    for entity in to_despawn.iter() {
+    for entity in &to_despawn {
         commands.entity(entity).despawn_recursive();
     }
 }

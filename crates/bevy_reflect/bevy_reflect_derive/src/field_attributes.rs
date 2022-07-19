@@ -22,8 +22,10 @@ pub(crate) struct ReflectFieldAttr {
 }
 
 /// Controls how the default value is determined for a field.
+#[derive(Default)]
 pub(crate) enum DefaultBehavior {
     /// Field is required.
+    #[default]
     Required,
     /// Field can be defaulted using `Default::default()`.
     Default,
@@ -32,12 +34,6 @@ pub(crate) enum DefaultBehavior {
     /// This assumes the function is in scope, is callable with zero arguments,
     /// and returns the expected type.
     Func(syn::ExprPath),
-}
-
-impl Default for DefaultBehavior {
-    fn default() -> Self {
-        Self::Required
-    }
 }
 
 /// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).
@@ -107,7 +103,7 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
             Err(syn::Error::new(list.path.span(), "unexpected property"))
         }
         Meta::List(list) => {
-            for nested in list.nested.iter() {
+            for nested in &list.nested {
                 if let NestedMeta::Meta(meta) = nested {
                     parse_meta(args, meta)?;
                 }

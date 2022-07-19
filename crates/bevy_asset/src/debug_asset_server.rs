@@ -1,3 +1,7 @@
+//! Support for hot reloading internal assets.
+//!
+//! Internal assets (e.g. shaders) are bundled directly into an application and can't be hot
+//! reloaded using the conventional API.
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
     event::Events,
@@ -16,8 +20,7 @@ use crate::{
     HandleUntyped,
 };
 
-/// A "debug asset app", whose sole responsibility is hot reloading assets that are
-/// "internal" / compiled-in to Bevy Plugins.
+/// A helper [`App`] used for hot reloading internal assets, which are compiled-in to Bevy plugins.
 pub struct DebugAssetApp(App);
 
 impl Deref for DebugAssetApp {
@@ -34,17 +37,23 @@ impl DerefMut for DebugAssetApp {
     }
 }
 
+/// A label describing the system that runs [`DebugAssetApp`].
 #[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DebugAssetAppRun;
 
 /// Facilitates the creation of a "debug asset app", whose sole responsibility is hot reloading
 /// assets that are "internal" / compiled-in to Bevy Plugins.
-/// Pair with [`load_internal_asset`](crate::load_internal_asset) to load "hot reloadable" assets
-/// The `debug_asset_server` feature flag must also be enabled for hot reloading to work.
+///
+/// Pair with the [`load_internal_asset`](crate::load_internal_asset) macro to load hot-reloadable
+/// assets. The `debug_asset_server` feature flag must also be enabled for hot reloading to work.
 /// Currently only hot reloads assets stored in the `crates` folder.
 #[derive(Default)]
 pub struct DebugAssetServerPlugin;
+
+/// A collection that maps internal assets in a [`DebugAssetApp`]'s asset server to their mirrors in
+/// the main [`App`].
 pub struct HandleMap<T: Asset> {
+    /// The collection of asset handles.
     pub handles: HashMap<Handle<T>, Handle<T>>,
 }
 
@@ -106,6 +115,7 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
 
 /// Uses the return type of the given loader to register the given handle with the appropriate type
 /// and load the asset with the given `path` and parent `file_path`.
+///
 /// If this feels a bit odd ... thats because it is. This was built to improve the UX of the
 /// `load_internal_asset` macro.
 pub fn register_handle_with_loader<A: Asset>(

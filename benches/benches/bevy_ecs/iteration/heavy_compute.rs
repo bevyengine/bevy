@@ -1,23 +1,25 @@
 use bevy_ecs::prelude::*;
 use bevy_tasks::{ComputeTaskPool, TaskPool};
+use criterion::Criterion;
 use glam::*;
 
-#[derive(Component, Copy, Clone)]
-struct Position(Vec3);
+pub fn heavy_compute(c: &mut Criterion) {
+    #[derive(Component, Copy, Clone)]
+    struct Position(Vec3);
 
-#[derive(Component, Copy, Clone)]
-struct Rotation(Vec3);
+    #[derive(Component, Copy, Clone)]
+    struct Rotation(Vec3);
 
-#[derive(Component, Copy, Clone)]
-struct Velocity(Vec3);
+    #[derive(Component, Copy, Clone)]
+    struct Velocity(Vec3);
 
-#[derive(Component, Copy, Clone)]
-struct Transform(Mat4);
+    #[derive(Component, Copy, Clone)]
+    struct Transform(Mat4);
 
-pub struct Benchmark(World, Box<dyn System<In = (), Out = ()>>);
-
-impl Benchmark {
-    pub fn new() -> Self {
+    let mut group = c.benchmark_group("heavy_compute");
+    group.warm_up_time(std::time::Duration::from_millis(500));
+    group.measurement_time(std::time::Duration::from_secs(4));
+    group.bench_function("base", |b| {
         ComputeTaskPool::init(TaskPool::default);
 
         let mut world = World::default();
@@ -45,10 +47,7 @@ impl Benchmark {
         system.initialize(&mut world);
         system.update_archetype_component_access(&world);
 
-        Self(world, Box::new(system))
-    }
-
-    pub fn run(&mut self) {
-        self.1.run((), &mut self.0);
-    }
+        b.iter(move || system.run((), &mut world));
+    });
+    group.finish();
 }

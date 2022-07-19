@@ -1,6 +1,5 @@
 use crate::{
-    serde::Serializable, utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut,
-    ReflectRef, TypeInfo, Typed,
+    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -152,8 +151,7 @@ impl DynamicArray {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicArray {
+impl Reflect for DynamicArray {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()
@@ -165,12 +163,17 @@ unsafe impl Reflect for DynamicArray {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -216,10 +219,6 @@ unsafe impl Reflect for DynamicArray {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         array_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 }
 
@@ -328,13 +327,16 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
 
 /// Compares two [arrays](Array) (one concrete and one reflected) to see if they
 /// are equal.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bool> {
     match reflect.reflect_ref() {
         ReflectRef::Array(reflect_array) if reflect_array.len() == array.len() => {
             for (a, b) in array.iter().zip(reflect_array.iter()) {
-                if let Some(false) | None = a.reflect_partial_eq(b) {
-                    return Some(false);
+                let eq_result = a.reflect_partial_eq(b);
+                if let failed @ (Some(false) | None) = eq_result {
+                    return failed;
                 }
             }
         }

@@ -4,35 +4,21 @@
 
 #define_import_path bevy_pbr::skinning
 
-/// HACK: This works around naga not supporting matrix addition in SPIR-V
-// translations. See https://github.com/gfx-rs/naga/issues/1527
-fn add_matrix(
-    a: mat4x4<f32>,
-    b: mat4x4<f32>,
-) -> mat4x4<f32> {
-    return mat4x4<f32>(
-        a.x + b.x,
-        a.y + b.y,
-        a.z + b.z,
-        a.w + b.w,
-    );
-}
-
 fn skin_model(
     indexes: vec4<u32>,
     weights: vec4<f32>,
 ) -> mat4x4<f32> {
-    var matrix = weights.x * joint_matrices.data[indexes.x];
-    matrix = add_matrix(matrix, weights.y * joint_matrices.data[indexes.y]);
-    matrix = add_matrix(matrix, weights.z * joint_matrices.data[indexes.z]);
-    return add_matrix(matrix, weights.w * joint_matrices.data[indexes.w]);
+    return weights.x * joint_matrices.data[indexes.x]
+        + weights.y * joint_matrices.data[indexes.y]
+        + weights.z * joint_matrices.data[indexes.z]
+        + weights.w * joint_matrices.data[indexes.w];
 }
 
 fn inverse_transpose_3x3(in: mat3x3<f32>) -> mat3x3<f32> {
-    let x = cross(in.y, in.z);
-    let y = cross(in.z, in.x);
-    let z = cross(in.x, in.y);
-    let det = dot(in.z, z);
+    let x = cross(in[1], in[2]);
+    let y = cross(in[2], in[0]);
+    let z = cross(in[0], in[1]);
+    let det = dot(in[2], z);
     return mat3x3<f32>(
         x / det,
         y / det,

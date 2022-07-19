@@ -25,7 +25,7 @@ use bevy_render::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
 use std::num::NonZeroU64;
@@ -37,6 +37,8 @@ const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
+pub const MESH_VERTEX_OUTPUT: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
 pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
 pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
@@ -54,6 +56,12 @@ pub const SKINNING_HANDLE: HandleUntyped =
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        load_internal_asset!(
+            app,
+            MESH_VERTEX_OUTPUT,
+            "mesh_vertex_output.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             MESH_VIEW_TYPES_HANDLE,
@@ -116,79 +124,45 @@ bitflags::bitflags! {
 
 pub fn extract_meshes(
     mut commands: Commands,
-    mut previous_caster_len: Local<usize>,
-    mut previous_not_caster_len: Local<usize>,
-    caster_query: Query<
-        (
+    mut prev_caster_commands_len: Local<usize>,
+    mut prev_not_caster_commands_len: Local<usize>,
+    meshes_query: Extract<
+        Query<(
             Entity,
             &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
-            Option<&NotShadowReceiver>,
-        ),
-        Without<NotShadowCaster>,
-    >,
-    not_caster_query: Query<
-        (
-            Entity,
-            &ComputedVisibility,
-            &GlobalTransform,
-            &Handle<Mesh>,
-            Option<&NotShadowReceiver>,
-        ),
-        With<NotShadowCaster>,
+            Option<With<NotShadowReceiver>>,
+            Option<With<NotShadowCaster>>,
+        )>,
     >,
 ) {
-    let mut caster_values = Vec::with_capacity(*previous_caster_len);
-    for (entity, computed_visibility, transform, handle, not_receiver) in caster_query.iter() {
-        if !computed_visibility.is_visible {
-            continue;
-        }
-        let transform = transform.compute_matrix();
-        caster_values.push((
-            entity,
-            (
-                handle.clone_weak(),
-                MeshUniform {
-                    flags: if not_receiver.is_some() {
-                        MeshFlags::empty().bits
-                    } else {
-                        MeshFlags::SHADOW_RECEIVER.bits
-                    },
-                    transform,
-                    inverse_transpose_model: transform.inverse().transpose(),
-                },
-            ),
-        ));
-    }
-    *previous_caster_len = caster_values.len();
-    commands.insert_or_spawn_batch(caster_values);
+    let mut caster_commands = Vec::with_capacity(*prev_caster_commands_len);
+    let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
+    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.is_visible());
 
-    let mut not_caster_values = Vec::with_capacity(*previous_not_caster_len);
-    for (entity, computed_visibility, transform, mesh, not_receiver) in not_caster_query.iter() {
-        if !computed_visibility.is_visible {
-            continue;
-        }
+    for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
         let transform = transform.compute_matrix();
-        not_caster_values.push((
-            entity,
-            (
-                mesh.clone_weak(),
-                MeshUniform {
-                    flags: if not_receiver.is_some() {
-                        MeshFlags::empty().bits
-                    } else {
-                        MeshFlags::SHADOW_RECEIVER.bits
-                    },
-                    transform,
-                    inverse_transpose_model: transform.inverse().transpose(),
-                },
-                NotShadowCaster,
-            ),
-        ));
+        let shadow_receiver_flags = if not_receiver.is_some() {
+            MeshFlags::empty().bits
+        } else {
+            MeshFlags::SHADOW_RECEIVER.bits
+        };
+        let uniform = MeshUniform {
+            flags: shadow_receiver_flags,
+            transform,
+            inverse_transpose_model: transform.inverse().transpose(),
+        };
+        if not_caster.is_some() {
+            not_caster_commands.push((entity, (handle.clone_weak(), uniform, NotShadowCaster)));
+        } else {
+            caster_commands.push((entity, (handle.clone_weak(), uniform)));
+        }
     }
-    *previous_not_caster_len = not_caster_values.len();
-    commands.insert_or_spawn_batch(not_caster_values);
+    *prev_caster_commands_len = caster_commands.len();
+    *prev_not_caster_commands_len = not_caster_commands.len();
+    commands.insert_or_spawn_batch(caster_commands);
+    commands.insert_or_spawn_batch(not_caster_commands);
 }
 
 #[derive(Debug, Default)]
@@ -215,7 +189,7 @@ impl SkinnedMeshJoints {
         let start = buffer.len();
         for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(MAX_JOINTS) {
             if let Ok(joint) = joints.get(*joint) {
-                buffer.push(joint.compute_affine() * *inverse_bindpose);
+                buffer.push(joint.affine() * *inverse_bindpose);
             } else {
                 buffer.truncate(start);
                 return None;
@@ -238,19 +212,19 @@ impl SkinnedMeshJoints {
 }
 
 pub fn extract_skinned_meshes(
-    query: Query<(Entity, &ComputedVisibility, &SkinnedMesh)>,
-    inverse_bindposes: Res<Assets<SkinnedMeshInverseBindposes>>,
-    joint_query: Query<&GlobalTransform>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut previous_joint_len: Local<usize>,
+    query: Extract<Query<(Entity, &ComputedVisibility, &SkinnedMesh)>>,
+    inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
+    joint_query: Extract<Query<&GlobalTransform>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     let mut joints = Vec::with_capacity(*previous_joint_len);
     let mut last_start = 0;
 
     for (entity, computed_visibility, skin) in query.iter() {
-        if !computed_visibility.is_visible {
+        if !computed_visibility.is_visible() {
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?
@@ -576,10 +550,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut vertex_attributes = vec![
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
-            Mesh::ATTRIBUTE_UV_0.at_shader_location(2),
         ];
 
         let mut shader_defs = Vec::new();
+        if layout.contains(Mesh::ATTRIBUTE_UV_0) {
+            shader_defs.push(String::from("VERTEX_UVS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
@@ -631,11 +609,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
+                targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend,
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             layout: Some(bind_group_layout),
             primitive: PrimitiveState {
@@ -783,7 +761,7 @@ pub fn queue_mesh_view_bind_groups(
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter() {
+        for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {

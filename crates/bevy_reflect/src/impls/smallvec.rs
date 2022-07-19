@@ -55,8 +55,7 @@ where
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
+impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
 where
     T::Item: FromReflect + Clone,
 {
@@ -68,11 +67,15 @@ where
         <Self as Typed>::type_info()
     }
 
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 

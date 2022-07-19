@@ -25,7 +25,7 @@ use bevy_render::{
         DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_utils::FloatOrd;
 use std::ops::Range;
@@ -90,6 +90,11 @@ impl PhaseItem for Transparent2d {
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
     }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(|item| item.sort_key());
+    }
 }
 
 impl EntityPhaseItem for Transparent2d {
@@ -118,7 +123,7 @@ impl BatchedPhaseItem for Transparent2d {
 
 pub fn extract_core_2d_camera_phases(
     mut commands: Commands,
-    cameras_2d: Query<(Entity, &Camera), With<Camera2d>>,
+    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
 ) {
     for (entity, camera) in cameras_2d.iter() {
         if camera.is_active {

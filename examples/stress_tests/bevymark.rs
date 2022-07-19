@@ -32,7 +32,7 @@ fn main() {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             resizable: true,
             ..default()
         })
@@ -90,6 +90,8 @@ struct BirdTexture(Handle<Image>);
 struct StatsText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    warn!(include_str!("warning_string.txt"));
+
     let texture = asset_server.load("branding/icon.png");
 
     commands.spawn_bundle(Camera2dBundle::default());
@@ -223,7 +225,7 @@ fn spawn_birds(
 }
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
-    for (mut bird, mut transform) in bird_query.iter_mut() {
+    for (mut bird, mut transform) in &mut bird_query {
         transform.translation.x += bird.velocity.x * time.delta_seconds();
         transform.translation.y += bird.velocity.y * time.delta_seconds();
         bird.velocity.y += GRAVITY * time.delta_seconds();
@@ -235,7 +237,7 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
     let half_width = window.width() as f32 * 0.5;
     let half_height = window.height() as f32 * 0.5;
 
-    for (mut bird, transform) in bird_query.iter_mut() {
+    for (mut bird, transform) in &mut bird_query {
         let x_vel = bird.velocity.x;
         let y_vel = bird.velocity.y;
         let x_pos = transform.translation.x;

@@ -18,7 +18,7 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
 };
-use bevy_math::{ivec2, DVec2, Vec2};
+use bevy_math::{ivec2, DVec2, UVec2, Vec2};
 use bevy_utils::{
     tracing::{error, info, trace, warn},
     Instant,
@@ -48,9 +48,13 @@ impl Plugin for WinitPlugin {
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);
         let event_loop = EventLoop::new();
+        #[cfg(not(target_os = "android"))]
         let mut create_window_reader = WinitCreateWindowReader::default();
+        #[cfg(target_os = "android")]
+        let create_window_reader = WinitCreateWindowReader::default();
         // Note that we create a window here "early" because WASM/WebGL requires the window to exist prior to initializing
         // the renderer.
+        #[cfg(not(target_os = "android"))]
         handle_create_window_events(&mut app.world, &event_loop, &mut create_window_reader.0);
         app.insert_resource(create_window_reader)
             .insert_non_send_resource(event_loop);
@@ -70,7 +74,11 @@ fn change_window(
             match command {
                 bevy_window::WindowCommand::SetWindowMode {
                     mode,
-                    resolution: (width, height),
+                    resolution:
+                        UVec2 {
+                            x: width,
+                            y: height,
+                        },
                 } => {
                     let window = winit_windows.get_window(id).unwrap();
                     match mode {
@@ -101,7 +109,11 @@ fn change_window(
                     window_dpi_changed_events.send(WindowScaleFactorChanged { id, scale_factor });
                 }
                 bevy_window::WindowCommand::SetResolution {
-                    logical_resolution: (width, height),
+                    logical_resolution:
+                        Vec2 {
+                            x: width,
+                            y: height,
+                        },
                     scale_factor,
                 } => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -157,6 +169,31 @@ fn change_window(
                         x: position[0],
                         y: position[1],
                     });
+                }
+                bevy_window::WindowCommand::Center(monitor_selection) => {
+                    let window = winit_windows.get_window(id).unwrap();
+
+                    use bevy_window::MonitorSelection::*;
+                    let maybe_monitor = match monitor_selection {
+                        Current => window.current_monitor(),
+                        Primary => window.primary_monitor(),
+                        Number(n) => window.available_monitors().nth(n),
+                    };
+
+                    if let Some(monitor) = maybe_monitor {
+                        let screen_size = monitor.size();
+
+                        let window_size = window.outer_size();
+
+                        window.set_outer_position(PhysicalPosition {
+                            x: screen_size.width.saturating_sub(window_size.width) as f64 / 2.
+                                + monitor.position().x as f64,
+                            y: screen_size.height.saturating_sub(window_size.height) as f64 / 2.
+                                + monitor.position().y as f64,
+                        });
+                    } else {
+                        warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                    }
                 }
                 bevy_window::WindowCommand::SetResizeConstraints { resize_constraints } => {
                     let window = winit_windows.get_window(id).unwrap();

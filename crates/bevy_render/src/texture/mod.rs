@@ -2,6 +2,7 @@
 mod basis;
 #[cfg(feature = "dds")]
 mod dds;
+mod fallback_image;
 #[cfg(feature = "hdr")]
 mod hdr_texture_loader;
 #[allow(clippy::module_inception)]
@@ -21,6 +22,7 @@ pub use dds::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 
+pub use fallback_image::*;
 pub use image_texture_loader::*;
 pub use texture_cache::*;
 
@@ -77,35 +79,8 @@ impl Plugin for ImagePlugin {
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<TextureCache>()
+                .init_resource::<FallbackImage>()
                 .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
-        }
-    }
-}
-
-/// [`ImagePlugin`] settings.
-pub struct ImageSettings {
-    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
-    pub default_sampler: wgpu::SamplerDescriptor<'static>,
-}
-
-impl Default for ImageSettings {
-    fn default() -> Self {
-        ImageSettings::default_linear()
-    }
-}
-
-impl ImageSettings {
-    /// Creates image settings with default linear sampling.
-    pub fn default_linear() -> ImageSettings {
-        ImageSettings {
-            default_sampler: ImageSampler::linear_descriptor(),
-        }
-    }
-
-    /// Creates image settings with default nearest sampling.
-    pub fn default_nearest() -> ImageSettings {
-        ImageSettings {
-            default_sampler: ImageSampler::nearest_descriptor(),
         }
     }
 }

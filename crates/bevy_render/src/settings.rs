@@ -16,6 +16,12 @@ pub enum WgpuSettingsPriority {
 /// Provides configuration for renderer initialization. Use [`RenderDevice::features`](crate::renderer::RenderDevice::features),
 /// [`RenderDevice::limits`](crate::renderer::RenderDevice::limits), and the [`WgpuAdapterInfo`](crate::render_resource::WgpuAdapterInfo)
 /// resource to get runtime information about the actual adapter, backend, features, and limits.
+/// NOTE: [`Backends::DX12`](Backends::DX12), [`Backends::METAL`](Backends::METAL), and
+/// [`Backends::VULKAN`](Backends::VULKAN) are enabled by default for non-web and the best choice
+/// is automatically selected. Web using the `webgl` feature uses [`Backends::GL`](Backends::GL).
+/// NOTE: If you want to use [`Backends::GL`](Backends::GL) in a native app on Windows, you must
+/// use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle). This is because wgpu requires EGL to
+/// create a GL context without a window and only ANGLE supports that.
 #[derive(Clone)]
 pub struct WgpuSettings {
     pub device_label: Option<Cow<'static, str>>,

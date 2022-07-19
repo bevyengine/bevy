@@ -186,7 +186,7 @@ impl<'w> WorldCell<'w> {
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
         Some(WorldBorrow::new(
-            // SAFE: ComponentId matches TypeId
+            // SAFETY: ComponentId matches TypeId
             unsafe { self.world.get_resource_with_id(component_id)? },
             archetype_component_id,
             self.access.clone(),
@@ -204,7 +204,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<T>()
@@ -218,7 +218,7 @@ impl<'w> WorldCell<'w> {
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
         Some(WorldBorrowMut::new(
-            // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
+            // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
             unsafe {
                 self.world
                     .get_resource_unchecked_mut_with_id(component_id)?
@@ -239,7 +239,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<T>()
@@ -253,7 +253,7 @@ impl<'w> WorldCell<'w> {
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
         Some(WorldBorrow::new(
-            // SAFE: ComponentId matches TypeId
+            // SAFETY: ComponentId matches TypeId
             unsafe { self.world.get_non_send_with_id(component_id)? },
             archetype_component_id,
             self.access.clone(),
@@ -272,7 +272,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<T>()
             ),
@@ -285,7 +285,7 @@ impl<'w> WorldCell<'w> {
         let resource_archetype = self.world.archetypes.resource();
         let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
         Some(WorldBorrowMut::new(
-            // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
+            // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
             unsafe {
                 self.world
                     .get_non_send_unchecked_mut_with_id(component_id)?
@@ -307,7 +307,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<T>()
             ),
@@ -420,12 +420,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn world_cell_ref_and_ref() {
         let mut world = World::default();
         world.insert_resource(1u32);
         let cell = world.cell();
-        let _value_a = cell.resource_mut::<u32>();
+        let _value_a = cell.resource::<u32>();
         let _value_b = cell.resource::<u32>();
     }
 }

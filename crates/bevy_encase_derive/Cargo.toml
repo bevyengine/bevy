@@ -13,4 +13,4 @@ proc-macro = true
 
 [dependencies]
 bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.8.0-dev" }
-encase_derive_impl = "0.2"
+encase_derive_impl = "0.3.0"

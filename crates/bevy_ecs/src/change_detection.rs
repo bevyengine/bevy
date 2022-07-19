@@ -216,7 +216,7 @@ change_detection_impl!(Mut<'a, T>, T,);
 impl_into_inner!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
-/// Unique mutable borrow of a Reflected component
+/// Unique mutable borrow of a reflected component or resource
 #[cfg(feature = "bevy_reflect")]
 pub struct ReflectMut<'a> {
     pub(crate) value: &'a mut dyn Reflect,

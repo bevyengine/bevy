@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
-    for mut text in query.iter_mut() {
+    for mut text in &mut query {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(average) = fps.average() {
                 // Update the value of the second section
@@ -107,7 +107,7 @@ fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text,
 }
 
 fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
-    for mut text in query.iter_mut() {
+    for mut text in &mut query {
         let seconds = time.seconds_since_startup() as f32;
         // We used the `Text::with_section` helper method, but it is still just a `Text`,
         // so to update it, we are still updating the one and only section

@@ -26,7 +26,7 @@ pub(crate) fn impl_value(
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
-                Some(reflect.any().downcast_ref::<#type_name #ty_generics>()?.clone())
+                Some(reflect.as_any().downcast_ref::<#type_name #ty_generics>()?.clone())
             }
         }
     })

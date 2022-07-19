@@ -35,13 +35,30 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 /// Afterwards it will be sorted and rendered automatically  in the
 /// [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort) stage and
 /// [`RenderStage::Render`](crate::RenderStage::Render) stage, respectively.
-pub trait PhaseItem: Send + Sync + 'static {
+pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// The type used for ordering the items. The smallest values are drawn first.
     type SortKey: Ord;
     /// Determines the order in which the items are drawn during the corresponding [`RenderPhase`](super::RenderPhase).
     fn sort_key(&self) -> Self::SortKey;
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;
+
+    /// Sorts a slice of phase items into render order.  Generally if the same type
+    /// implements [`BatchedPhaseItem`], this should use a stable sort like [`slice::sort_by_key`].
+    /// In almost all other cases, this should not be altered from the default,
+    /// which uses a unstable sort, as this provides the best balance of CPU and GPU
+    /// performance.
+    ///
+    /// Implementers can optionally not sort the list at all. This is generally advisable if and
+    /// only if the renderer supports a depth prepass, which is by default not supported by
+    /// the rest of Bevy's first party rendering crates. Even then, this may have a negative
+    /// impact on GPU-side performance due to overdraw.
+    ///
+    /// It's advised to always profile for performance changes when changing this implementation.
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_unstable_by_key(|item| item.sort_key());
+    }
 }
 
 // TODO: make this generic?
@@ -170,6 +187,9 @@ pub trait CachedRenderPipelinePhaseItem: PhaseItem {
 ///
 /// Batching is an optimization that regroups multiple items in the same vertex buffer
 /// to render them in a single draw call.
+///
+/// If this is implemented on a type, the implementation of [`PhaseItem::sort`] should
+/// be changed to implement a stable sort, or incorrect/suboptimal batching may result.
 pub trait BatchedPhaseItem: EntityPhaseItem {
     /// Range in the vertex buffer of this item
     fn batch_range(&self) -> &Option<Range<u32>>;
