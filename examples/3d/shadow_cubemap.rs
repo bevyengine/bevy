@@ -1,3 +1,7 @@
+//! A test of point light shadow cubemaps with a single point light in the center surrounded by
+//! text indicating the cubemap face. Use RenderDoc, Xcode, or similar tools to inspect the shadow
+//! map textures.
+
 use bevy::{input::mouse::MouseMotion, pbr::NotShadowCaster, prelude::*};
 
 fn main() {
@@ -15,7 +19,6 @@ struct RightHandedLookDirection;
 #[derive(Component)]
 struct LeftHandedLookDirection;
 
-/// A test for shadow cubemaps. View the cubemap faces in RenderDoc/Xcode.
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
