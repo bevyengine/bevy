@@ -3,8 +3,9 @@
 //! Spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
 //! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
 mod flex;
-mod focus;
+// mod focus;
 mod geometry;
+mod navigation;
 mod render;
 mod ui_node;
 

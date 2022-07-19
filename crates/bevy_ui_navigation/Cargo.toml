@@ -1,0 +1,24 @@
+[package]
+name = "bevy_ui_navigation"
+version = "0.8.0-dev"
+edition = "2021"
+description = "A ECS-driven generic UI navigation for Bevy engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.8.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.8.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.8.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev", features = [
+    "bevy",
+] }
+
+# other
+non-empty-vec = { version = "0.2.2", default-features = false }

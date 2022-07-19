@@ -15,6 +15,7 @@ use bevy_render::{
 };
 use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_ui_navigation::Focusable;
 
 /// The basic UI node
 #[derive(Bundle, Clone, Debug, Default)]
@@ -140,7 +141,7 @@ impl Default for TextBundle {
 }
 
 /// A UI node that is a button
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct ButtonBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -148,10 +149,8 @@ pub struct ButtonBundle {
     pub button: Button,
     /// Describes the style including flexbox settings
     pub style: Style,
-    /// Describes whether and how the button has been interacted with by the input
-    pub interaction: Interaction,
-    /// Whether this node should block interaction with lower nodes
-    pub focus_policy: FocusPolicy,
+    /// How this button fits with other ones
+    pub focusable: Focusable,
     /// The color of the node
     pub color: UiColor,
     /// The image of the node
@@ -166,23 +165,6 @@ pub struct ButtonBundle {
     pub computed_visibility: ComputedVisibility,
 }
 
-impl Default for ButtonBundle {
-    fn default() -> Self {
-        ButtonBundle {
-            button: Button,
-            interaction: Default::default(),
-            focus_policy: Default::default(),
-            node: Default::default(),
-            style: Default::default(),
-            color: Default::default(),
-            image: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-        }
-    }
-}
 /// Configuration for cameras related to UI.
 ///
 /// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
