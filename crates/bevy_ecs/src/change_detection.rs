@@ -417,7 +417,10 @@ mod tests {
     #[test]
     fn set_if_differs() {
         let mut world = World::new();
+
         world.insert_resource(R(0));
+        // Resources are Changed when first added
+        world.increment_change_tick();
 
         let mut r = world.resource_mut::<R>();
         assert!(!r.is_changed(), "Resource must begin unchanged.");
