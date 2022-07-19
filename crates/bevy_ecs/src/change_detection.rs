@@ -421,6 +421,8 @@ mod tests {
         world.insert_resource(R(0));
         // Resources are Changed when first added
         world.increment_change_tick();
+        // This is required to update world::last_change_tick
+        world.clear_trackers();
 
         let mut r = world.resource_mut::<R>();
         assert!(!r.is_changed(), "Resource must begin unchanged.");
