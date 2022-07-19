@@ -446,7 +446,7 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("SystemLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "system_label")
 }
 
 /// Generates an impl of the `StageLabel` trait.
@@ -459,7 +459,7 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "stage_label")
 }
 
 /// Generates an impl of the `AmbiguitySetLabel` trait.
@@ -474,14 +474,14 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("AmbiguitySetLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "ambiguity_set_label")
 }
 
 /// Generates an impl of the `RunCriteriaLabel` trait.
 ///
 /// This works only for unit structs, or enums with only unit variants.
 /// You may force a struct or variant to behave as if it were fieldless with `#[run_criteria_label(ignore_fields)]`.
-#[proc_macro_derive(RunCriteriaLabel)]
+#[proc_macro_derive(RunCriteriaLabel, attributes(run_criteria_label))]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
@@ -489,7 +489,7 @@ pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "run_criteria_label")
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
