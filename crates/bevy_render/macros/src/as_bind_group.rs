@@ -119,7 +119,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             let attr_ident = if let Some(ident) = attr.path.get_ident() {
                 ident
             } else {
-                return Err(Error::new_spanned(attr, "Expected identifier"));
+                continue;
             };
 
             let binding_type = if attr_ident == UNIFORM_ATTRIBUTE_NAME {
