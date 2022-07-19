@@ -19,6 +19,9 @@ use super::{NopWorldQuery, QueryFetch, QueryItem, QueryManyIter, ROQueryItem};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 #[repr(C)]
+// SAFETY NOTE:
+// Do not add any new fields that use the `Q` or `F` generic parameters as this may
+// make `QueryState::as_transmuted_state` unsound if not done with care.
 pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
