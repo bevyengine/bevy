@@ -77,7 +77,7 @@ pub trait DetectChanges {
     ///
     /// `T` is the type stored within the smart pointer (e.g. [`Mut`] or [`ResMut`]).
     ///
-    /// This is useful to ensure change detection is only triggered when the underlying value 
+    /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time [`DerefMut`] is used.
     #[inline]
     fn set_if_differs<T>(&mut self, value: T)
@@ -85,10 +85,9 @@ pub trait DetectChanges {
         Self: Deref<Target = T> + DerefMut<Target = T>,
         T: PartialEq,
     {
-        let immutable_ref: &T = self.deref();
-        if *immutable_ref != value {
-            let mutable_ref: &mut T = self.deref_mut();
-            *mutable_ref = value;
+        // This dereference is immutable, so does not trigger change detection
+        if **self != value {
+            **self = value;
         }
     }
 }
