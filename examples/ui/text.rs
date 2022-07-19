@@ -1,11 +1,13 @@
+//! This example illustrates how to create UI text and update it in a system.
+//!
+//! It displays the current FPS in the top left corner, as well as text that changes color
+//! in the bottom right. For text within a scene, please see the text2d example.
+
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
 
-/// This example illustrates how to create UI text and update it in a system. It displays the
-/// current FPS in the top left corner, as well as text that changes colour in the bottom right.
-/// For text within a scene, please see the text2d example.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -26,7 +28,7 @@ struct ColorText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
     // Text with one section
     commands
         .spawn_bundle(TextBundle {
@@ -94,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
-    for mut text in query.iter_mut() {
+    for mut text in &mut query {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(average) = fps.average() {
                 // Update the value of the second section
@@ -105,7 +107,7 @@ fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text,
 }
 
 fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
-    for mut text in query.iter_mut() {
+    for mut text in &mut query {
         let seconds = time.seconds_since_startup() as f32;
         // We used the `Text::with_section` helper method, but it is still just a `Text`,
         // so to update it, we are still updating the one and only section

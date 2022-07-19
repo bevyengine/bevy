@@ -1,6 +1,6 @@
 use crate::{
     serde::type_fields, DynamicArray, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, Reflect, ReflectDeserialize, TypeRegistry,
+    DynamicTupleStruct, Map, Reflect, ReflectDeserialize, TypeRegistry,
 };
 use erased_serde::Deserializer;
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};

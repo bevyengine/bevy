@@ -1,3 +1,5 @@
+//! Shows how anonymous functions / closures can be used as systems.
+
 use bevy::{log::LogPlugin, prelude::*};
 
 fn main() {

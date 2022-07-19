@@ -1,8 +1,9 @@
 use smallvec::SmallVec;
 use std::any::Any;
 
+use crate::utility::GenericTypeInfoCell;
 use crate::{
-    serde::Serializable, Array, ArrayIter, FromReflect, List, Reflect, ReflectMut, ReflectRef,
+    Array, ArrayIter, FromReflect, List, ListInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
 };
 
 impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
@@ -54,8 +55,7 @@ where
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
+impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
 where
     T::Item: FromReflect + Clone,
 {
@@ -63,11 +63,19 @@ where
         std::any::type_name::<Self>()
     }
 
-    fn any(&self) -> &dyn Any {
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -100,16 +108,18 @@ where
         Box::new(List::clone_dynamic(self))
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
     }
+}
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
+impl<T: smallvec::Array + Send + Sync + 'static> Typed for SmallVec<T>
+where
+    T::Item: FromReflect + Clone,
+{
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T::Item>()))
     }
 }
 

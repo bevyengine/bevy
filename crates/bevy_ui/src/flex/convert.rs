@@ -1,13 +1,13 @@
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Direction, Display, FlexDirection, FlexWrap,
-    JustifyContent, PositionType, Size, Style, UiRect, Val,
+    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
+    PositionType, Size, Style, UiRect, Val,
 };
 
 pub fn from_rect(
     scale_factor: f64,
     rect: UiRect<Val>,
-) -> stretch::geometry::Rect<stretch::style::Dimension> {
-    stretch::geometry::Rect {
+) -> taffy::geometry::Rect<taffy::style::Dimension> {
+    taffy::geometry::Rect {
         start: from_val(scale_factor, rect.left),
         end: from_val(scale_factor, rect.right),
         // NOTE: top and bottom are intentionally flipped. stretch has a flipped y-axis
@@ -16,8 +16,8 @@ pub fn from_rect(
     }
 }
 
-pub fn from_f32_size(scale_factor: f64, size: Size<f32>) -> stretch::geometry::Size<f32> {
-    stretch::geometry::Size {
+pub fn from_f32_size(scale_factor: f64, size: Size<f32>) -> taffy::geometry::Size<f32> {
+    taffy::geometry::Size {
         width: (scale_factor * size.width as f64) as f32,
         height: (scale_factor * size.height as f64) as f32,
     }
@@ -26,19 +26,17 @@ pub fn from_f32_size(scale_factor: f64, size: Size<f32>) -> stretch::geometry::S
 pub fn from_val_size(
     scale_factor: f64,
     size: Size<Val>,
-) -> stretch::geometry::Size<stretch::style::Dimension> {
-    stretch::geometry::Size {
+) -> taffy::geometry::Size<taffy::style::Dimension> {
+    taffy::geometry::Size {
         width: from_val(scale_factor, size.width),
         height: from_val(scale_factor, size.height),
     }
 }
 
-pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
-    stretch::style::Style {
-        overflow: stretch::style::Overflow::Visible,
+pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
+    taffy::style::Style {
         display: value.display.into(),
         position_type: value.position_type.into(),
-        direction: value.direction.into(),
         flex_direction: value.flex_direction.into(),
         flex_wrap: value.flex_wrap.into(),
         align_items: value.align_items.into(),
@@ -56,117 +54,107 @@ pub fn from_style(scale_factor: f64, value: &Style) -> stretch::style::Style {
         min_size: from_val_size(scale_factor, value.min_size),
         max_size: from_val_size(scale_factor, value.max_size),
         aspect_ratio: match value.aspect_ratio {
-            Some(value) => stretch::number::Number::Defined(value),
-            None => stretch::number::Number::Undefined,
+            Some(value) => taffy::number::Number::Defined(value),
+            None => taffy::number::Number::Undefined,
         },
     }
 }
 
-pub fn from_val(scale_factor: f64, val: Val) -> stretch::style::Dimension {
+pub fn from_val(scale_factor: f64, val: Val) -> taffy::style::Dimension {
     match val {
-        Val::Auto => stretch::style::Dimension::Auto,
-        Val::Percent(value) => stretch::style::Dimension::Percent(value / 100.0),
-        Val::Px(value) => stretch::style::Dimension::Points((scale_factor * value as f64) as f32),
-        Val::Undefined => stretch::style::Dimension::Undefined,
+        Val::Auto => taffy::style::Dimension::Auto,
+        Val::Percent(value) => taffy::style::Dimension::Percent(value / 100.0),
+        Val::Px(value) => taffy::style::Dimension::Points((scale_factor * value as f64) as f32),
+        Val::Undefined => taffy::style::Dimension::Undefined,
     }
 }
 
-impl From<AlignItems> for stretch::style::AlignItems {
+impl From<AlignItems> for taffy::style::AlignItems {
     fn from(value: AlignItems) -> Self {
         match value {
-            AlignItems::FlexStart => stretch::style::AlignItems::FlexStart,
-            AlignItems::FlexEnd => stretch::style::AlignItems::FlexEnd,
-            AlignItems::Center => stretch::style::AlignItems::Center,
-            AlignItems::Baseline => stretch::style::AlignItems::Baseline,
-            AlignItems::Stretch => stretch::style::AlignItems::Stretch,
+            AlignItems::FlexStart => taffy::style::AlignItems::FlexStart,
+            AlignItems::FlexEnd => taffy::style::AlignItems::FlexEnd,
+            AlignItems::Center => taffy::style::AlignItems::Center,
+            AlignItems::Baseline => taffy::style::AlignItems::Baseline,
+            AlignItems::Stretch => taffy::style::AlignItems::Stretch,
         }
     }
 }
 
-impl From<AlignSelf> for stretch::style::AlignSelf {
+impl From<AlignSelf> for taffy::style::AlignSelf {
     fn from(value: AlignSelf) -> Self {
         match value {
-            AlignSelf::Auto => stretch::style::AlignSelf::Auto,
-            AlignSelf::FlexStart => stretch::style::AlignSelf::FlexStart,
-            AlignSelf::FlexEnd => stretch::style::AlignSelf::FlexEnd,
-            AlignSelf::Center => stretch::style::AlignSelf::Center,
-            AlignSelf::Baseline => stretch::style::AlignSelf::Baseline,
-            AlignSelf::Stretch => stretch::style::AlignSelf::Stretch,
+            AlignSelf::Auto => taffy::style::AlignSelf::Auto,
+            AlignSelf::FlexStart => taffy::style::AlignSelf::FlexStart,
+            AlignSelf::FlexEnd => taffy::style::AlignSelf::FlexEnd,
+            AlignSelf::Center => taffy::style::AlignSelf::Center,
+            AlignSelf::Baseline => taffy::style::AlignSelf::Baseline,
+            AlignSelf::Stretch => taffy::style::AlignSelf::Stretch,
         }
     }
 }
 
-impl From<AlignContent> for stretch::style::AlignContent {
+impl From<AlignContent> for taffy::style::AlignContent {
     fn from(value: AlignContent) -> Self {
         match value {
-            AlignContent::FlexStart => stretch::style::AlignContent::FlexStart,
-            AlignContent::FlexEnd => stretch::style::AlignContent::FlexEnd,
-            AlignContent::Center => stretch::style::AlignContent::Center,
-            AlignContent::Stretch => stretch::style::AlignContent::Stretch,
-            AlignContent::SpaceBetween => stretch::style::AlignContent::SpaceBetween,
-            AlignContent::SpaceAround => stretch::style::AlignContent::SpaceAround,
+            AlignContent::FlexStart => taffy::style::AlignContent::FlexStart,
+            AlignContent::FlexEnd => taffy::style::AlignContent::FlexEnd,
+            AlignContent::Center => taffy::style::AlignContent::Center,
+            AlignContent::Stretch => taffy::style::AlignContent::Stretch,
+            AlignContent::SpaceBetween => taffy::style::AlignContent::SpaceBetween,
+            AlignContent::SpaceAround => taffy::style::AlignContent::SpaceAround,
         }
     }
 }
 
-impl From<Direction> for stretch::style::Direction {
-    fn from(value: Direction) -> Self {
-        match value {
-            Direction::Inherit => stretch::style::Direction::Inherit,
-            Direction::LeftToRight => stretch::style::Direction::LTR,
-            Direction::RightToLeft => stretch::style::Direction::RTL,
-        }
-    }
-}
-
-impl From<Display> for stretch::style::Display {
+impl From<Display> for taffy::style::Display {
     fn from(value: Display) -> Self {
         match value {
-            Display::Flex => stretch::style::Display::Flex,
-            Display::None => stretch::style::Display::None,
+            Display::Flex => taffy::style::Display::Flex,
+            Display::None => taffy::style::Display::None,
         }
     }
 }
 
-impl From<FlexDirection> for stretch::style::FlexDirection {
+impl From<FlexDirection> for taffy::style::FlexDirection {
     fn from(value: FlexDirection) -> Self {
         match value {
-            FlexDirection::Row => stretch::style::FlexDirection::Row,
-            FlexDirection::Column => stretch::style::FlexDirection::Column,
-            FlexDirection::RowReverse => stretch::style::FlexDirection::RowReverse,
-            FlexDirection::ColumnReverse => stretch::style::FlexDirection::ColumnReverse,
+            FlexDirection::Row => taffy::style::FlexDirection::Row,
+            FlexDirection::Column => taffy::style::FlexDirection::Column,
+            FlexDirection::RowReverse => taffy::style::FlexDirection::RowReverse,
+            FlexDirection::ColumnReverse => taffy::style::FlexDirection::ColumnReverse,
         }
     }
 }
 
-impl From<JustifyContent> for stretch::style::JustifyContent {
+impl From<JustifyContent> for taffy::style::JustifyContent {
     fn from(value: JustifyContent) -> Self {
         match value {
-            JustifyContent::FlexStart => stretch::style::JustifyContent::FlexStart,
-            JustifyContent::FlexEnd => stretch::style::JustifyContent::FlexEnd,
-            JustifyContent::Center => stretch::style::JustifyContent::Center,
-            JustifyContent::SpaceBetween => stretch::style::JustifyContent::SpaceBetween,
-            JustifyContent::SpaceAround => stretch::style::JustifyContent::SpaceAround,
-            JustifyContent::SpaceEvenly => stretch::style::JustifyContent::SpaceEvenly,
+            JustifyContent::FlexStart => taffy::style::JustifyContent::FlexStart,
+            JustifyContent::FlexEnd => taffy::style::JustifyContent::FlexEnd,
+            JustifyContent::Center => taffy::style::JustifyContent::Center,
+            JustifyContent::SpaceBetween => taffy::style::JustifyContent::SpaceBetween,
+            JustifyContent::SpaceAround => taffy::style::JustifyContent::SpaceAround,
+            JustifyContent::SpaceEvenly => taffy::style::JustifyContent::SpaceEvenly,
         }
     }
 }
 
-impl From<PositionType> for stretch::style::PositionType {
+impl From<PositionType> for taffy::style::PositionType {
     fn from(value: PositionType) -> Self {
         match value {
-            PositionType::Relative => stretch::style::PositionType::Relative,
-            PositionType::Absolute => stretch::style::PositionType::Absolute,
+            PositionType::Relative => taffy::style::PositionType::Relative,
+            PositionType::Absolute => taffy::style::PositionType::Absolute,
         }
     }
 }
 
-impl From<FlexWrap> for stretch::style::FlexWrap {
+impl From<FlexWrap> for taffy::style::FlexWrap {
     fn from(value: FlexWrap) -> Self {
         match value {
-            FlexWrap::NoWrap => stretch::style::FlexWrap::NoWrap,
-            FlexWrap::Wrap => stretch::style::FlexWrap::Wrap,
-            FlexWrap::WrapReverse => stretch::style::FlexWrap::WrapReverse,
+            FlexWrap::NoWrap => taffy::style::FlexWrap::NoWrap,
+            FlexWrap::Wrap => taffy::style::FlexWrap::Wrap,
+            FlexWrap::WrapReverse => taffy::style::FlexWrap::WrapReverse,
         }
     }
 }

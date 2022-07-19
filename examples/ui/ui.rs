@@ -1,10 +1,11 @@
+//! This example illustrates the various features of Bevy UI.
+
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
     winit::WinitSettings,
 };
 
-/// This example illustrates the various features of Bevy UI.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -16,8 +17,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // ui camera
-    commands.spawn_bundle(UiCameraBundle::default());
+    // Camera
+    commands.spawn_bundle(Camera2dBundle::default());
 
     // root node
     commands
@@ -314,7 +315,7 @@ fn mouse_scroll(
     query_item: Query<&Node>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.iter() {
-        for (mut scrolling_list, mut style, children, uinode) in query_list.iter_mut() {
+        for (mut scrolling_list, mut style, children, uinode) in &mut query_list {
             let items_height: f32 = children
                 .iter()
                 .map(|entity| query_item.get(*entity).unwrap().size.y)

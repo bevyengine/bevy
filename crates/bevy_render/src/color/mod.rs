@@ -4,9 +4,10 @@ pub use colorspace::*;
 
 use crate::color::{HslRepresentation, SrgbColorSpace};
 use bevy_math::{Vec3, Vec4};
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
@@ -491,8 +492,8 @@ impl Color {
         }
     }
 
-    /// Converts a `Color` to a `[f32; 4]` from HLS colorspace
-    pub fn as_hlsa_f32(self: Color) -> [f32; 4] {
+    /// Converts a `Color` to a `[f32; 4]` from HSL colorspace
+    pub fn as_hsla_f32(self: Color) -> [f32; 4] {
         match self {
             Color::Rgba {
                 red,
@@ -526,10 +527,10 @@ impl Color {
         }
     }
 
-    /// Converts Color to a u32 from sRGB colorspace.
+    /// Converts `Color` to a `u32` from sRGB colorspace.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
-    /// A will be the most significant byte and R the least significant.
+    /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_rgba_u32(self: Color) -> u32 {
         match self {
             Color::Rgba {
@@ -575,7 +576,7 @@ impl Color {
     /// Converts Color to a u32 from linear RGB colorspace.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
-    /// A will be the most significant byte and R the least significant.
+    /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_linear_rgba_u32(self: Color) -> u32 {
         match self {
             Color::Rgba {
@@ -834,12 +835,8 @@ impl MulAssign<f32> for Color {
         match self {
             Color::Rgba {
                 red, green, blue, ..
-            } => {
-                *red *= rhs;
-                *green *= rhs;
-                *blue *= rhs;
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red, green, blue, ..
             } => {
                 *red *= rhs;
@@ -910,13 +907,8 @@ impl MulAssign<Vec4> for Color {
                 green,
                 blue,
                 alpha,
-            } => {
-                *red *= rhs.x;
-                *green *= rhs.y;
-                *blue *= rhs.z;
-                *alpha *= rhs.w;
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red,
                 green,
                 blue,
@@ -989,12 +981,8 @@ impl MulAssign<Vec3> for Color {
         match self {
             Color::Rgba {
                 red, green, blue, ..
-            } => {
-                *red *= rhs.x;
-                *green *= rhs.y;
-                *blue *= rhs.z;
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red, green, blue, ..
             } => {
                 *red *= rhs.x;
@@ -1065,13 +1053,8 @@ impl MulAssign<[f32; 4]> for Color {
                 green,
                 blue,
                 alpha,
-            } => {
-                *red *= rhs[0];
-                *green *= rhs[1];
-                *blue *= rhs[2];
-                *alpha *= rhs[3];
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red,
                 green,
                 blue,
@@ -1144,12 +1127,8 @@ impl MulAssign<[f32; 3]> for Color {
         match self {
             Color::Rgba {
                 red, green, blue, ..
-            } => {
-                *red *= rhs[0];
-                *green *= rhs[1];
-                *blue *= rhs[2];
             }
-            Color::RgbaLinear {
+            | Color::RgbaLinear {
                 red, green, blue, ..
             } => {
                 *red *= rhs[0];
@@ -1170,10 +1149,81 @@ impl MulAssign<[f32; 3]> for Color {
     }
 }
 
-#[derive(Debug)]
+impl encase::ShaderType for Color {
+    type ExtraMetadata = ();
+
+    const METADATA: encase::private::Metadata<Self::ExtraMetadata> = {
+        let size =
+            encase::private::SizeValue::from(<f32 as encase::private::ShaderSize>::SHADER_SIZE)
+                .mul(4);
+        let alignment = encase::private::AlignmentValue::from_next_power_of_two_size(size);
+
+        encase::private::Metadata {
+            alignment,
+            has_uniform_min_alignment: false,
+            min_size: size,
+            extra: (),
+        }
+    };
+
+    const UNIFORM_COMPAT_ASSERT: fn() = || {};
+}
+
+impl encase::private::WriteInto for Color {
+    fn write_into<B: encase::private::BufferMut>(&self, writer: &mut encase::private::Writer<B>) {
+        let linear = self.as_linear_rgba_f32();
+        for el in &linear {
+            encase::private::WriteInto::write_into(el, writer);
+        }
+    }
+}
+
+impl encase::private::ReadFrom for Color {
+    fn read_from<B: encase::private::BufferRef>(
+        &mut self,
+        reader: &mut encase::private::Reader<B>,
+    ) {
+        let mut buffer = [0.0f32; 4];
+        for el in &mut buffer {
+            encase::private::ReadFrom::read_from(el, reader);
+        }
+
+        *self = Color::RgbaLinear {
+            red: buffer[0],
+            green: buffer[1],
+            blue: buffer[2],
+            alpha: buffer[3],
+        }
+    }
+}
+impl encase::private::CreateFrom for Color {
+    fn create_from<B>(reader: &mut encase::private::Reader<B>) -> Self
+    where
+        B: encase::private::BufferRef,
+    {
+        // These are intentionally not inlined in the constructor to make this
+        // resilient to internal Color refactors / implicit type changes.
+        let red: f32 = encase::private::CreateFrom::create_from(reader);
+        let green: f32 = encase::private::CreateFrom::create_from(reader);
+        let blue: f32 = encase::private::CreateFrom::create_from(reader);
+        let alpha: f32 = encase::private::CreateFrom::create_from(reader);
+        Color::RgbaLinear {
+            red,
+            green,
+            blue,
+            alpha,
+        }
+    }
+}
+
+impl encase::ShaderSize for Color {}
+
+#[derive(Debug, Error)]
 pub enum HexColorError {
+    #[error("Unexpected length of hex string")]
     Length,
-    Hex(hex::FromHexError),
+    #[error("Error parsing hex value")]
+    Hex(#[from] hex::FromHexError),
 }
 
 fn decode_rgb(data: &[u8]) -> Result<Color, HexColorError> {

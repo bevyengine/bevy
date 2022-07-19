@@ -60,30 +60,6 @@ pub(crate) fn image_to_texture(dyn_img: DynamicImage, is_srgb: bool) -> Image {
 
             data = i.into_raw();
         }
-        DynamicImage::ImageBgr8(i) => {
-            let i = DynamicImage::ImageBgr8(i).into_bgra8();
-
-            width = i.width();
-            height = i.height();
-            format = if is_srgb {
-                TextureFormat::Bgra8UnormSrgb
-            } else {
-                TextureFormat::Bgra8Unorm
-            };
-
-            data = i.into_raw();
-        }
-        DynamicImage::ImageBgra8(i) => {
-            width = i.width();
-            height = i.height();
-            format = if is_srgb {
-                TextureFormat::Bgra8UnormSrgb
-            } else {
-                TextureFormat::Bgra8Unorm
-            };
-
-            data = i.into_raw();
-        }
         DynamicImage::ImageLuma16(i) => {
             width = i.width();
             height = i.height();
@@ -135,6 +111,48 @@ pub(crate) fn image_to_texture(dyn_img: DynamicImage, is_srgb: bool) -> Image {
 
             data = cast_slice(&raw_data).to_owned();
         }
+        DynamicImage::ImageRgb32F(image) => {
+            width = image.width();
+            height = image.height();
+            format = TextureFormat::Rgba32Float;
+
+            let mut local_data =
+                Vec::with_capacity(width as usize * height as usize * format.pixel_size());
+
+            for pixel in image.into_raw().chunks_exact(3) {
+                // TODO: use the array_chunks method once stabilised
+                // https://github.com/rust-lang/rust/issues/74985
+                let r = pixel[0];
+                let g = pixel[1];
+                let b = pixel[2];
+                let a = u16::max_value();
+
+                local_data.extend_from_slice(&r.to_ne_bytes());
+                local_data.extend_from_slice(&g.to_ne_bytes());
+                local_data.extend_from_slice(&b.to_ne_bytes());
+                local_data.extend_from_slice(&a.to_ne_bytes());
+            }
+
+            data = local_data;
+        }
+        DynamicImage::ImageRgba32F(image) => {
+            width = image.width();
+            height = image.height();
+            format = TextureFormat::Rgba32Float;
+
+            let raw_data = image.into_raw();
+
+            data = cast_slice(&raw_data).to_owned();
+        }
+        // DynamicImage is now non exhaustive, catch future variants and convert them
+        _ => {
+            let image = dyn_img.into_rgba8();
+            width = image.width();
+            height = image.height();
+            format = TextureFormat::Rgba8UnormSrgb;
+
+            data = image.into_raw();
+        }
     }
 
     Image::new(
@@ -171,12 +189,6 @@ pub(crate) fn texture_to_image(texture: &Image) -> Option<DynamicImage> {
             texture.data.clone(),
         )
         .map(DynamicImage::ImageRgba8),
-        TextureFormat::Bgra8UnormSrgb => ImageBuffer::from_raw(
-            texture.texture_descriptor.size.width,
-            texture.texture_descriptor.size.height,
-            texture.data.clone(),
-        )
-        .map(DynamicImage::ImageBgra8),
         _ => None,
     }
 }

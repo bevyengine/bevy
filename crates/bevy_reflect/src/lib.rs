@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod array;
+mod fields;
 mod list;
 mod map;
 mod path;
@@ -8,6 +9,7 @@ mod reflect;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
+mod type_info;
 mod type_registry;
 mod type_uuid;
 mod impls {
@@ -26,17 +28,19 @@ mod impls {
 
 pub mod serde;
 pub mod std_traits;
+pub mod utility;
 
 pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize, Struct,
-        TupleStruct,
+        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
+        ReflectSerialize, Struct, TupleStruct,
     };
 }
 
 pub use array::*;
+pub use fields::*;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
@@ -45,6 +49,7 @@ pub use reflect::*;
 pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
+pub use type_info::*;
 pub use type_registry::*;
 pub use type_uuid::*;
 
@@ -92,7 +97,9 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use std::fmt::{Debug, Formatter};
 
+    use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
     use crate::serde::{ReflectDeserializer, ReflectSerializer};
@@ -232,6 +239,66 @@ mod tests {
     }
 
     #[test]
+    fn from_reflect_should_use_default_field_attributes() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        struct MyStruct {
+            // Use `Default::default()`
+            // Note that this isn't an ignored field
+            #[reflect(default)]
+            foo: String,
+
+            // Use `get_bar_default()`
+            #[reflect(default = "get_bar_default")]
+            #[reflect(ignore)]
+            bar: usize,
+        }
+
+        fn get_bar_default() -> usize {
+            123
+        }
+
+        let expected = MyStruct {
+            foo: String::default(),
+            bar: 123,
+        };
+
+        let dyn_struct = DynamicStruct::default();
+        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
+
+        assert_eq!(Some(expected), my_struct);
+    }
+
+    #[test]
+    fn from_reflect_should_use_default_container_attribute() {
+        #[derive(Reflect, FromReflect, Eq, PartialEq, Debug)]
+        #[reflect(Default)]
+        struct MyStruct {
+            foo: String,
+            #[reflect(ignore)]
+            bar: usize,
+        }
+
+        impl Default for MyStruct {
+            fn default() -> Self {
+                Self {
+                    foo: String::from("Hello"),
+                    bar: 123,
+                }
+            }
+        }
+
+        let expected = MyStruct {
+            foo: String::from("Hello"),
+            bar: 123,
+        };
+
+        let dyn_struct = DynamicStruct::default();
+        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
+
+        assert_eq!(Some(expected), my_struct);
+    }
+
+    #[test]
     fn reflect_complex_patch() {
         #[derive(Reflect, Eq, PartialEq, Debug, FromReflect)]
         #[reflect(PartialEq)]
@@ -286,6 +353,7 @@ mod tests {
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
+        map.insert(3usize, 4i8);
         foo_patch.insert("d", map);
 
         let mut bar_patch = DynamicStruct::default();
@@ -327,6 +395,7 @@ mod tests {
         let mut hash_map = HashMap::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 3);
+        hash_map.insert(3, 4);
 
         let mut hash_map_baz = HashMap::default();
         hash_map_baz.insert(1, Bar { x: 7 });
@@ -349,6 +418,7 @@ mod tests {
 
         let mut hash_map = HashMap::default();
         hash_map.insert(2, 3);
+        hash_map.insert(3, 4);
 
         let expected_new_foo = Foo {
             a: 2,
@@ -419,6 +489,35 @@ mod tests {
     }
 
     #[test]
+    fn reflect_downcast() {
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Bar {
+            y: u8,
+        }
+
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Foo {
+            x: i32,
+            s: String,
+            b: Bar,
+            u: usize,
+            t: ([f32; 3], String),
+        }
+
+        let foo = Foo {
+            x: 123,
+            s: "String".to_string(),
+            b: Bar { y: 255 },
+            u: 1111111111111,
+            t: ([3.0, 2.0, 1.0], "Tuple String".to_string()),
+        };
+
+        let foo2: Box<dyn Reflect> = Box::new(foo.clone());
+
+        assert_eq!(foo, *foo2.downcast::<Foo>().unwrap());
+    }
+
+    #[test]
     fn reflect_take() {
         #[derive(Reflect, Debug, PartialEq)]
         #[reflect(PartialEq)]
@@ -475,6 +574,237 @@ mod tests {
     }
 
     #[test]
+    fn reflect_type_info() {
+        // TypeInfo
+        let info = i32::type_info();
+        assert_eq!(std::any::type_name::<i32>(), info.type_name());
+        assert_eq!(std::any::TypeId::of::<i32>(), info.type_id());
+
+        // TypeInfo (unsized)
+        assert_eq!(
+            std::any::TypeId::of::<dyn Reflect>(),
+            <dyn Reflect as Typed>::type_info().type_id()
+        );
+
+        // TypeInfo (instance)
+        let value: &dyn Reflect = &123_i32;
+        let info = value.get_type_info();
+        assert!(info.is::<i32>());
+
+        // Struct
+        #[derive(Reflect)]
+        struct MyStruct {
+            foo: i32,
+            bar: usize,
+        }
+
+        let info = MyStruct::type_info();
+        if let TypeInfo::Struct(info) = info {
+            assert!(info.is::<MyStruct>());
+            assert_eq!(std::any::type_name::<MyStruct>(), info.type_name());
+            assert_eq!(
+                std::any::type_name::<i32>(),
+                info.field("foo").unwrap().type_name()
+            );
+            assert_eq!(
+                std::any::TypeId::of::<i32>(),
+                info.field("foo").unwrap().type_id()
+            );
+            assert!(info.field("foo").unwrap().is::<i32>());
+            assert_eq!("foo", info.field("foo").unwrap().name());
+            assert_eq!(
+                std::any::type_name::<usize>(),
+                info.field_at(1).unwrap().type_name()
+            );
+        } else {
+            panic!("Expected `TypeInfo::Struct`");
+        }
+
+        let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
+        let info = value.get_type_info();
+        assert!(info.is::<MyStruct>());
+
+        // Struct (generic)
+        #[derive(Reflect)]
+        struct MyGenericStruct<T: Reflect> {
+            foo: T,
+            bar: usize,
+        }
+
+        let info = <MyGenericStruct<i32>>::type_info();
+        if let TypeInfo::Struct(info) = info {
+            assert!(info.is::<MyGenericStruct<i32>>());
+            assert_eq!(
+                std::any::type_name::<MyGenericStruct<i32>>(),
+                info.type_name()
+            );
+            assert_eq!(
+                std::any::type_name::<i32>(),
+                info.field("foo").unwrap().type_name()
+            );
+            assert_eq!("foo", info.field("foo").unwrap().name());
+            assert_eq!(
+                std::any::type_name::<usize>(),
+                info.field_at(1).unwrap().type_name()
+            );
+        } else {
+            panic!("Expected `TypeInfo::Struct`");
+        }
+
+        let value: &dyn Reflect = &MyGenericStruct {
+            foo: String::from("Hello!"),
+            bar: 321,
+        };
+        let info = value.get_type_info();
+        assert!(info.is::<MyGenericStruct<String>>());
+
+        // Tuple Struct
+        #[derive(Reflect)]
+        struct MyTupleStruct(usize, i32, MyStruct);
+
+        let info = MyTupleStruct::type_info();
+        if let TypeInfo::TupleStruct(info) = info {
+            assert!(info.is::<MyTupleStruct>());
+            assert_eq!(std::any::type_name::<MyTupleStruct>(), info.type_name());
+            assert_eq!(
+                std::any::type_name::<i32>(),
+                info.field_at(1).unwrap().type_name()
+            );
+            assert!(info.field_at(1).unwrap().is::<i32>());
+        } else {
+            panic!("Expected `TypeInfo::TupleStruct`");
+        }
+
+        let value: &dyn Reflect = &MyTupleStruct(123, 321, MyStruct { foo: 123, bar: 321 });
+        let info = value.get_type_info();
+        assert!(info.is::<MyTupleStruct>());
+
+        // Tuple
+        type MyTuple = (u32, f32, String);
+
+        let info = MyTuple::type_info();
+        if let TypeInfo::Tuple(info) = info {
+            assert!(info.is::<MyTuple>());
+            assert_eq!(std::any::type_name::<MyTuple>(), info.type_name());
+            assert_eq!(
+                std::any::type_name::<f32>(),
+                info.field_at(1).unwrap().type_name()
+            );
+        } else {
+            panic!("Expected `TypeInfo::Tuple`");
+        }
+
+        let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
+        let info = value.get_type_info();
+        assert!(info.is::<MyTuple>());
+
+        // List
+        type MyList = Vec<usize>;
+
+        let info = MyList::type_info();
+        if let TypeInfo::List(info) = info {
+            assert!(info.is::<MyList>());
+            assert!(info.item_is::<usize>());
+            assert_eq!(std::any::type_name::<MyList>(), info.type_name());
+            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
+        } else {
+            panic!("Expected `TypeInfo::List`");
+        }
+
+        let value: &dyn Reflect = &vec![123_usize];
+        let info = value.get_type_info();
+        assert!(info.is::<MyList>());
+
+        // List (SmallVec)
+        #[cfg(feature = "smallvec")]
+        {
+            type MySmallVec = smallvec::SmallVec<[String; 2]>;
+
+            let info = MySmallVec::type_info();
+            if let TypeInfo::List(info) = info {
+                assert!(info.is::<MySmallVec>());
+                assert!(info.item_is::<String>());
+                assert_eq!(std::any::type_name::<MySmallVec>(), info.type_name());
+                assert_eq!(std::any::type_name::<String>(), info.item_type_name());
+            } else {
+                panic!("Expected `TypeInfo::List`");
+            }
+
+            let value: MySmallVec = smallvec::smallvec![String::default(); 2];
+            let value: &dyn Reflect = &value;
+            let info = value.get_type_info();
+            assert!(info.is::<MySmallVec>());
+        }
+
+        // Array
+        type MyArray = [usize; 3];
+
+        let info = MyArray::type_info();
+        if let TypeInfo::Array(info) = info {
+            assert!(info.is::<MyArray>());
+            assert!(info.item_is::<usize>());
+            assert_eq!(std::any::type_name::<MyArray>(), info.type_name());
+            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
+            assert_eq!(3, info.capacity());
+        } else {
+            panic!("Expected `TypeInfo::Array`");
+        }
+
+        let value: &dyn Reflect = &[1usize, 2usize, 3usize];
+        let info = value.get_type_info();
+        assert!(info.is::<MyArray>());
+
+        // Map
+        type MyMap = HashMap<usize, f32>;
+
+        let info = MyMap::type_info();
+        if let TypeInfo::Map(info) = info {
+            assert!(info.is::<MyMap>());
+            assert!(info.key_is::<usize>());
+            assert!(info.value_is::<f32>());
+            assert_eq!(std::any::type_name::<MyMap>(), info.type_name());
+            assert_eq!(std::any::type_name::<usize>(), info.key_type_name());
+            assert_eq!(std::any::type_name::<f32>(), info.value_type_name());
+        } else {
+            panic!("Expected `TypeInfo::Map`");
+        }
+
+        let value: &dyn Reflect = &MyMap::new();
+        let info = value.get_type_info();
+        assert!(info.is::<MyMap>());
+
+        // Value
+        type MyValue = String;
+
+        let info = MyValue::type_info();
+        if let TypeInfo::Value(info) = info {
+            assert!(info.is::<MyValue>());
+            assert_eq!(std::any::type_name::<MyValue>(), info.type_name());
+        } else {
+            panic!("Expected `TypeInfo::Value`");
+        }
+
+        let value: &dyn Reflect = &String::from("Hello!");
+        let info = value.get_type_info();
+        assert!(info.is::<MyValue>());
+
+        // Dynamic
+        type MyDynamic = DynamicList;
+
+        let info = MyDynamic::type_info();
+        if let TypeInfo::Dynamic(info) = info {
+            assert!(info.is::<MyDynamic>());
+            assert_eq!(std::any::type_name::<MyDynamic>(), info.type_name());
+        } else {
+            panic!("Expected `TypeInfo::Dynamic`");
+        }
+
+        let value: &dyn Reflect = &DynamicList::default();
+        let info = value.get_type_info();
+        assert!(info.is::<MyDynamic>());
+    }
+
+    #[test]
     fn as_reflect() {
         trait TestTrait: Reflect {}
 
@@ -489,31 +819,106 @@ mod tests {
         let _ = trait_object.as_reflect();
     }
 
+    #[test]
+    fn should_reflect_debug() {
+        #[derive(Reflect)]
+        struct Test {
+            value: usize,
+            list: Vec<String>,
+            array: [f32; 3],
+            map: HashMap<i32, f32>,
+            a_struct: SomeStruct,
+            a_tuple_struct: SomeTupleStruct,
+            custom: CustomDebug,
+            unknown: Option<String>,
+            #[reflect(ignore)]
+            #[allow(dead_code)]
+            ignored: isize,
+        }
+
+        #[derive(Reflect)]
+        struct SomeStruct {
+            foo: String,
+        }
+
+        #[derive(Reflect)]
+        struct SomeTupleStruct(String);
+
+        #[derive(Reflect)]
+        #[reflect(Debug)]
+        struct CustomDebug;
+        impl Debug for CustomDebug {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str("Cool debug!")
+            }
+        }
+
+        let mut map = HashMap::new();
+        map.insert(123, 1.23);
+
+        let test = Test {
+            value: 123,
+            list: vec![String::from("A"), String::from("B"), String::from("C")],
+            array: [1.0, 2.0, 3.0],
+            map,
+            a_struct: SomeStruct {
+                foo: String::from("A Struct!"),
+            },
+            a_tuple_struct: SomeTupleStruct(String::from("A Tuple Struct!")),
+            custom: CustomDebug,
+            unknown: Some(String::from("Enums aren't supported yet :(")),
+            ignored: 321,
+        };
+
+        let reflected: &dyn Reflect = &test;
+        let expected = r#"
+bevy_reflect::tests::should_reflect_debug::Test {
+    value: 123,
+    list: [
+        "A",
+        "B",
+        "C",
+    ],
+    array: [
+        1.0,
+        2.0,
+        3.0,
+    ],
+    map: {
+        123: 1.23,
+    },
+    a_struct: bevy_reflect::tests::should_reflect_debug::SomeStruct {
+        foo: "A Struct!",
+    },
+    a_tuple_struct: bevy_reflect::tests::should_reflect_debug::SomeTupleStruct(
+        "A Tuple Struct!",
+    ),
+    custom: Cool debug!,
+    unknown: Reflect(core::option::Option<alloc::string::String>),
+}"#;
+
+        assert_eq!(expected, format!("\n{:#?}", reflected));
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
-        use ::serde::Serialize;
 
         #[test]
         fn vec3_serialization() {
             let v = vec3(12.0, 3.0, -6.9);
 
             let mut registry = TypeRegistry::default();
-            registry.add_registration(Vec3::get_type_registration());
+            registry.register::<f32>();
+            registry.register::<Vec3>();
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let mut dest = vec![];
-            let mut serializer = ron::ser::Serializer::new(&mut dest, None, false)
-                .expect("Failed to acquire serializer");
-
-            ser.serialize(&mut serializer).expect("Failed to serialize");
-
-            let result = String::from_utf8(dest).expect("Failed to convert to string");
+            let result = ron::to_string(&ser).expect("Failed to serialize to string");
 
             assert_eq!(
                 result,
-                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#
+                r#"{"type":"glam::f32::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
             );
         }
 

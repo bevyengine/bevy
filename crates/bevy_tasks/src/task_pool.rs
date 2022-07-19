@@ -14,8 +14,8 @@ use crate::Task;
 #[derive(Debug, Default, Clone)]
 #[must_use]
 pub struct TaskPoolBuilder {
-    /// If set, we'll set up the thread pool to use at most n threads. Otherwise use
-    /// the logical core count of the system
+    /// If set, we'll set up the thread pool to use at most `num_threads` threads.
+    /// Otherwise use the logical core count of the system
     num_threads: Option<usize>,
     /// If set, we'll use the given stack size rather than the system default
     stack_size: Option<usize>,
@@ -60,29 +60,9 @@ impl TaskPoolBuilder {
     }
 }
 
-#[derive(Debug)]
-struct TaskPoolInner {
-    threads: Vec<JoinHandle<()>>,
-    shutdown_tx: async_channel::Sender<()>,
-}
-
-impl Drop for TaskPoolInner {
-    fn drop(&mut self) {
-        self.shutdown_tx.close();
-
-        let panicking = thread::panicking();
-        for join_handle in self.threads.drain(..) {
-            let res = join_handle.join();
-            if !panicking {
-                res.expect("Task thread panicked while executing.");
-            }
-        }
-    }
-}
-
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TaskPool {
     /// The executor for the pool
     ///
@@ -92,7 +72,8 @@ pub struct TaskPool {
     executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
-    inner: Arc<TaskPoolInner>,
+    threads: Vec<JoinHandle<()>>,
+    shutdown_tx: async_channel::Sender<()>,
 }
 
 impl TaskPool {
@@ -121,23 +102,12 @@ impl TaskPool {
                 let ex = Arc::clone(&executor);
                 let shutdown_rx = shutdown_rx.clone();
 
-                // miri does not support setting thread names
-                // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
-                #[cfg(not(miri))]
-                let mut thread_builder = {
-                    let thread_name = if let Some(thread_name) = thread_name {
-                        format!("{} ({})", thread_name, i)
-                    } else {
-                        format!("TaskPool ({})", i)
-                    };
-                    thread::Builder::new().name(thread_name)
+                let thread_name = if let Some(thread_name) = thread_name {
+                    format!("{} ({})", thread_name, i)
+                } else {
+                    format!("TaskPool ({})", i)
                 };
-                #[cfg(miri)]
-                let mut thread_builder = {
-                    let _ = i;
-                    let _ = thread_name;
-                    thread::Builder::new()
-                };
+                let mut thread_builder = thread::Builder::new().name(thread_name);
 
                 if let Some(stack_size) = stack_size {
                     thread_builder = thread_builder.stack_size(stack_size);
@@ -155,16 +125,14 @@ impl TaskPool {
 
         Self {
             executor,
-            inner: Arc::new(TaskPoolInner {
-                threads,
-                shutdown_tx,
-            }),
+            threads,
+            shutdown_tx,
         }
     }
 
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
-        self.inner.threads.len()
+        self.threads.len()
     }
 
     /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
@@ -265,6 +233,20 @@ impl TaskPool {
 impl Default for TaskPool {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Drop for TaskPool {
+    fn drop(&mut self) {
+        self.shutdown_tx.close();
+
+        let panicking = thread::panicking();
+        for join_handle in self.threads.drain(..) {
+            let res = join_handle.join();
+            if !panicking {
+                res.expect("Task thread panicked while executing.");
+            }
+        }
     }
 }
 

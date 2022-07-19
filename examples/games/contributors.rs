@@ -1,3 +1,5 @@
+//! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
+
 use bevy::{prelude::*, utils::HashSet};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
@@ -56,7 +58,7 @@ struct Velocity {
     rotation: f32,
 }
 
-const GRAVITY: f32 = -9.821 * 100.0;
+const GRAVITY: f32 = 9.821 * 100.0;
 const SPRITE_SIZE: f32 = 75.0;
 
 const SATURATION_DESELECTED: f32 = 0.3;
@@ -130,8 +132,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
 
     commands
         .spawn()
@@ -241,8 +242,8 @@ fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Tran
 fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
     let delta = time.delta_seconds();
 
-    for mut velocity in velocity_query.iter_mut() {
-        velocity.translation += Vec3::new(0.0, GRAVITY * delta, 0.0);
+    for mut velocity in &mut velocity_query {
+        velocity.translation.y -= GRAVITY * delta;
     }
 }
 
@@ -255,9 +256,11 @@ fn collision_system(
     windows: Res<Windows>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let mut rng = rand::thread_rng();
-
-    let window = windows.primary();
+    let window = if let Some(window) = windows.get_primary() {
+        window
+    } else {
+        return;
+    };
 
     let ceiling = window.height() / 2.;
     let ground = -(window.height() / 2.);
@@ -265,7 +268,12 @@ fn collision_system(
     let wall_left = -(window.width() / 2.);
     let wall_right = window.width() / 2.;
 
-    for (mut velocity, mut transform) in query.iter_mut() {
+    // The maximum height the birbs should try to reach is one birb below the top of the window.
+    let max_bounce_height = window.height() - SPRITE_SIZE * 2.0;
+
+    let mut rng = rand::thread_rng();
+
+    for (mut velocity, mut transform) in &mut query {
         let left = transform.translation.x - SPRITE_SIZE / 2.0;
         let right = transform.translation.x + SPRITE_SIZE / 2.0;
         let top = transform.translation.y + SPRITE_SIZE / 2.0;
@@ -274,11 +282,16 @@ fn collision_system(
         // clamp the translation to not go out of the bounds
         if bottom < ground {
             transform.translation.y = ground + SPRITE_SIZE / 2.0;
-            // apply an impulse upwards
-            velocity.translation.y = rng.gen_range(700.0..1000.0);
+
+            // How high this birb will bounce.
+            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..max_bounce_height);
+
+            // Apply the velocity that would bounce the birb up to bounce_height.
+            velocity.translation.y = (bounce_height * GRAVITY * 2.).sqrt();
         }
         if top > ceiling {
             transform.translation.y = ceiling - SPRITE_SIZE / 2.0;
+            velocity.translation.y *= -1.0;
         }
         // on side walls flip the horizontal velocity
         if left < wall_left {
@@ -298,9 +311,9 @@ fn collision_system(
 fn move_system(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
 
-    for (velocity, mut transform) in query.iter_mut() {
+    for (velocity, mut transform) in &mut query {
         transform.translation += delta * velocity.translation;
-        transform.rotate(Quat::from_rotation_z(velocity.rotation * delta));
+        transform.rotate_z(velocity.rotation * delta);
     }
 }
 

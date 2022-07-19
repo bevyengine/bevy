@@ -18,7 +18,7 @@ pub mod asset {
 }
 
 pub mod core {
-    //! Contains core plugins and utilities for time.
+    //! Contains core plugins.
     pub use bevy_core::*;
 }
 
@@ -68,6 +68,11 @@ pub mod scene {
 pub mod tasks {
     //! Pools for async, IO, and compute tasks.
     pub use bevy_tasks::*;
+}
+
+pub mod time {
+    //! Contains time utilities.
+    pub use bevy_time::*;
 }
 
 pub mod hierarchy {

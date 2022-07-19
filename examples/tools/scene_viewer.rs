@@ -1,15 +1,20 @@
+//! A simple glTF scene viewer made with Bevy.
+//!
+//! Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`,
+//! replacing the path as appropriate.
+//! With no arguments it will load the `FieldHelmet` glTF model from the repository assets subdirectory.
+
 use bevy::{
     asset::{AssetServerSettings, LoadState},
     gltf::Gltf,
     input::mouse::MouseMotion,
     math::Vec3A,
     prelude::*,
-    render::{
-        camera::{ActiveCamera, Camera3d, CameraProjection},
-        primitives::{Aabb, Frustum, Sphere},
-    },
+    render::primitives::{Aabb, Sphere},
     scene::InstanceId,
 };
+
+use std::f32::consts::TAU;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 struct CameraControllerCheckSystem;
@@ -35,37 +40,41 @@ Controls:
     Enter       - Cycle through animations
 "
     );
-    App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-        })
-        .insert_resource(AssetServerSettings {
-            asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
-            watch_for_changes: true,
-        })
-        .insert_resource(WindowDescriptor {
-            title: "bevy scene viewer".to_string(),
-            ..default()
-        })
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
-        .add_system_to_stage(CoreStage::PreUpdate, camera_spawn_check)
-        .add_system(update_lights)
-        .add_system(camera_controller)
-        .add_system(start_animation)
-        .add_system(keyboard_animation_control)
-        .add_system(keyboard_cameras_control)
-        .run();
+    let mut app = App::new();
+    app.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 1.0 / 5.0f32,
+    })
+    .insert_resource(AssetServerSettings {
+        asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+        watch_for_changes: true,
+    })
+    .insert_resource(WindowDescriptor {
+        title: "bevy scene viewer".to_string(),
+        ..default()
+    })
+    .init_resource::<CameraTracker>()
+    .add_plugins(DefaultPlugins)
+    .add_startup_system(setup)
+    .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
+    .add_system_to_stage(CoreStage::PreUpdate, setup_scene_after_load)
+    .add_system(update_lights)
+    .add_system(camera_controller)
+    .add_system(camera_tracker);
+
+    #[cfg(feature = "animation")]
+    app.add_system(start_animation)
+        .add_system(keyboard_animation_control);
+
+    app.run();
 }
 
 struct SceneHandle {
-    handle: Handle<Scene>,
+    handle: Handle<Gltf>,
+    #[cfg(feature = "animation")]
     animations: Vec<Handle<AnimationClip>>,
     instance_id: Option<InstanceId>,
     is_loaded: bool,
-    has_camera: bool,
     has_light: bool,
 }
 
@@ -76,10 +85,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Loading {}", scene_path);
     commands.insert_resource(SceneHandle {
         handle: asset_server.load(&scene_path),
+        #[cfg(feature = "animation")]
         animations: Vec::new(),
         instance_id: None,
         is_loaded: false,
-        has_camera: false,
         has_light: false,
     });
 }
@@ -111,17 +120,20 @@ fn scene_load_check(
                 scene_handle.instance_id =
                     Some(scene_spawner.spawn(gltf_scene_handle.clone_weak()));
 
-                scene_handle.animations = gltf.animations.clone();
-                if !scene_handle.animations.is_empty() {
-                    info!(
-                        "Found {} animation{}",
-                        scene_handle.animations.len(),
-                        if scene_handle.animations.len() == 1 {
-                            ""
-                        } else {
-                            "s"
-                        }
-                    );
+                #[cfg(feature = "animation")]
+                {
+                    scene_handle.animations = gltf.animations.clone();
+                    if !scene_handle.animations.is_empty() {
+                        info!(
+                            "Found {} animation{}",
+                            scene_handle.animations.len(),
+                            if scene_handle.animations.len() == 1 {
+                                ""
+                            } else {
+                                "s"
+                            }
+                        );
+                    }
                 }
 
                 info!("Spawning scene...");
@@ -137,6 +149,7 @@ fn scene_load_check(
     }
 }
 
+#[cfg(feature = "animation")]
 fn start_animation(
     mut player: Query<&mut AnimationPlayer>,
     mut done: Local<bool>,
@@ -151,6 +164,8 @@ fn start_animation(
         }
     }
 }
+
+#[cfg(feature = "animation")]
 fn keyboard_animation_control(
     keyboard_input: Res<Input<KeyCode>>,
     mut animation_player: Query<&mut AnimationPlayer>,
@@ -189,68 +204,29 @@ fn keyboard_animation_control(
     }
 }
 
-fn keyboard_cameras_control(
-    mut cameras: Local<(bool, Vec<Entity>)>,
-    mut active_camera: Local<Option<usize>>, // `None` means user-controlled camera
-
-    scene_handle: Res<SceneHandle>,
-    keyboard_input: Res<Input<KeyCode>>,
-    camera_query: Query<Entity, (With<Camera3d>, Without<CameraController>)>,
-    user_camera_query: Query<Entity, (With<Camera3d>, With<CameraController>)>,
-    mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
-) {
-    if !scene_handle.is_loaded {
-        return;
-    }
-    if !cameras.0 {
-        cameras.1 = camera_query.iter().collect();
-        cameras.0 = true;
-    }
-
-    if keyboard_input.just_pressed(KeyCode::C) && !cameras.1.is_empty() {
-        *active_camera = match *active_camera {
-            Some(index) if index + 1 == cameras.1.len() => None,
-            Some(index) => Some(index + 1),
-            None => Some(0),
-        };
-
-        match *active_camera {
-            Some(i) => {
-                info!("Using camera {i}");
-                active_camera_3d.set(cameras.1[i]);
-            }
-            None => {
-                info!("Using user-controller camera");
-                active_camera_3d.set(user_camera_query.single());
-            }
-        }
-    }
-}
-
-fn camera_spawn_check(
+fn setup_scene_after_load(
     mut commands: Commands,
+    mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
-    cameras_3d: Query<(&GlobalTransform, &Camera), With<Camera3d>>,
-    mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
 ) {
-    // If the scene did not contain a camera, find an approximate bounding box of the scene from
-    // its meshes and spawn a camera that fits it in view
-    if scene_handle.is_loaded && (!scene_handle.has_camera || !scene_handle.has_light) {
+    if scene_handle.is_loaded && !*setup {
+        *setup = true;
+        // Find an approximate bounding box of the scene from its meshes
         if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
             return;
         }
 
         let mut min = Vec3A::splat(f32::MAX);
         let mut max = Vec3A::splat(f32::MIN);
-        for (transform, maybe_aabb) in meshes.iter() {
+        for (transform, maybe_aabb) in &meshes {
             let aabb = maybe_aabb.unwrap();
             // If the Aabb had not been rotated, applying the non-uniform scale would produce the
             // correct bounds. However, it could very well be rotated and so we first convert to
             // a Sphere, and then back to an Aabb to find the conservative min and max points.
             let sphere = Sphere {
                 center: Vec3A::from(transform.mul_vec3(Vec3::from(aabb.center))),
-                radius: (Vec3A::from(transform.scale) * aabb.half_extents).length(),
+                radius: transform.radius_vec3a(aabb.half_extents),
             };
             let aabb = Aabb::from(sphere);
             min = min.min(aabb.min());
@@ -260,58 +236,26 @@ fn camera_spawn_check(
         let size = (max - min).length();
         let aabb = Aabb::from_min_max(Vec3::from(min), Vec3::from(max));
 
-        if !scene_handle.has_camera {
-            let bundle = if let Some((transform, camera)) = cameras_3d.iter().next() {
-                let mut transform: Transform = (*transform).into();
-                let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
-                transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
-                PerspectiveCameraBundle {
-                    camera: camera.clone(),
-                    transform,
-                    ..PerspectiveCameraBundle::new_3d()
-                }
-            } else {
-                let transform = Transform::from_translation(
+        info!("Spawning a controllable 3D perspective camera");
+        let mut projection = PerspectiveProjection::default();
+        projection.far = projection.far.max(size * 10.0);
+        commands
+            .spawn_bundle(Camera3dBundle {
+                projection: projection.into(),
+                transform: Transform::from_translation(
                     Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
                 )
-                .looking_at(Vec3::from(aabb.center), Vec3::Y);
-                let view = transform.compute_matrix();
-                let mut perspective_projection = PerspectiveProjection::default();
-                perspective_projection.far = perspective_projection.far.max(size * 10.0);
-                let view_projection =
-                    view.inverse() * perspective_projection.get_projection_matrix();
-                let frustum = Frustum::from_view_projection(
-                    &view_projection,
-                    &transform.translation,
-                    &transform.back(),
-                    perspective_projection.far(),
-                );
-                let camera = Camera {
-                    near: perspective_projection.near,
-                    far: perspective_projection.far,
+                .looking_at(Vec3::from(aabb.center), Vec3::Y),
+                camera: Camera {
+                    is_active: false,
                     ..default()
-                };
-                PerspectiveCameraBundle {
-                    camera,
-                    perspective_projection,
-                    frustum,
-                    transform,
-                    ..PerspectiveCameraBundle::new_3d()
-                }
-            };
+                },
+                ..default()
+            })
+            .insert(CameraController::default());
 
-            info!("Spawning a 3D perspective camera");
-            let entity = commands
-                .spawn_bundle(bundle)
-                .insert(CameraController::default())
-                .id();
-            active_camera_3d.set(entity);
-
-            scene_handle.has_camera = true;
-        }
-
+        // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {
-            // The same approach as above but now for the scene
             let sphere = Sphere {
                 center: aabb.center,
                 radius: aabb.half_extents.length(),
@@ -365,7 +309,7 @@ fn update_lights(
     } else if key_input.just_pressed(KeyCode::Key0) {
         projection_adjustment.z += SCALE_STEP;
     }
-    for (_, mut light) in query.iter_mut() {
+    for (_, mut light) in &mut query {
         light.shadow_projection.left *= projection_adjustment.x;
         light.shadow_projection.right *= projection_adjustment.x;
         light.shadow_projection.bottom *= projection_adjustment.y;
@@ -381,13 +325,79 @@ fn update_lights(
         *animate_directional_light = !*animate_directional_light;
     }
     if *animate_directional_light {
-        for (mut transform, _) in query.iter_mut() {
+        for (mut transform, _) in &mut query {
             transform.rotation = Quat::from_euler(
                 EulerRot::ZYX,
                 0.0,
-                time.seconds_since_startup() as f32 * std::f32::consts::TAU / 30.0,
-                -std::f32::consts::FRAC_PI_4,
+                time.seconds_since_startup() as f32 * TAU / 30.0,
+                -TAU / 8.,
             );
+        }
+    }
+}
+
+#[derive(Default)]
+struct CameraTracker {
+    active_index: Option<usize>,
+    cameras: Vec<Entity>,
+}
+
+impl CameraTracker {
+    fn track_camera(&mut self, entity: Entity) -> bool {
+        self.cameras.push(entity);
+        if self.active_index.is_none() {
+            self.active_index = Some(self.cameras.len() - 1);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn active_camera(&self) -> Option<Entity> {
+        self.active_index.map(|i| self.cameras[i])
+    }
+
+    fn set_next_active(&mut self) -> Option<Entity> {
+        let active_index = self.active_index?;
+        let new_i = (active_index + 1) % self.cameras.len();
+        self.active_index = Some(new_i);
+        Some(self.cameras[new_i])
+    }
+}
+
+fn camera_tracker(
+    mut camera_tracker: ResMut<CameraTracker>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut queries: ParamSet<(
+        Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
+        Query<&mut Camera>,
+    )>,
+) {
+    // track added scene camera entities first, to ensure they are preferred for the
+    // default active camera
+    for (entity, mut camera) in queries.p0().iter_mut() {
+        camera.is_active = camera_tracker.track_camera(entity);
+    }
+
+    // iterate added custom camera entities second
+    for (entity, mut camera) in queries.p1().iter_mut() {
+        camera.is_active = camera_tracker.track_camera(entity);
+    }
+
+    if keyboard_input.just_pressed(KeyCode::C) {
+        // disable currently active camera
+        if let Some(e) = camera_tracker.active_camera() {
+            if let Ok(mut camera) = queries.p2().get_mut(e) {
+                camera.is_active = false;
+            }
+        }
+
+        // enable next active camera
+        if let Some(e) = camera_tracker.set_next_active() {
+            if let Ok(mut camera) = queries.p2().get_mut(e) {
+                camera.is_active = true;
+            }
         }
     }
 }

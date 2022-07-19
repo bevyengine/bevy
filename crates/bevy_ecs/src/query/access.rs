@@ -148,6 +148,23 @@ impl<T: SparseSetIndex> Access<T> {
 /// An [`Access`] that has been filtered to include and exclude certain combinations of elements.
 ///
 /// Used internally to statically check if queries are disjoint.
+///
+/// Subtle: a `read` or `write` in `access` should not be considered to imply a
+/// `with` access.
+///
+/// For example consider `Query<Option<&T>>` this only has a `read` of `T` as doing
+/// otherwise would allow for queriess to be considered disjoint that actually arent:
+/// - `Query<(&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
+/// - `Query<&mut T, Without<U>>` read/write `T`, without `U`
+/// from this we could reasonably conclude that the queries are disjoint but they aren't.
+///
+/// In order to solve this the actual access that `Query<(&mut T, Option<&U>)>` has
+/// is read/write `T`, read `U`. It must still have a read `U` access otherwise the following
+/// queries would be incorrectly considered disjoint:
+/// - `Query<&mut T>`  read/write `T`
+/// - `Query<Option<&T>` accesses nothing
+///
+/// See comments the `WorldQuery` impls of `AnyOf`/`Option`/`Or` for more information.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
@@ -210,6 +227,15 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.without.insert(index.sparse_set_index());
     }
 
+    pub fn extend_intersect_filter(&mut self, other: &FilteredAccess<T>) {
+        self.without.intersect_with(&other.without);
+        self.with.intersect_with(&other.with);
+    }
+
+    pub fn extend_access(&mut self, other: &FilteredAccess<T>) {
+        self.access.extend(&other.access);
+    }
+
     /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
         if self.access.is_compatible(&other.access) {
@@ -268,12 +294,11 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     pub fn is_compatible(&self, other: &FilteredAccessSet<T>) -> bool {
         if self.combined_access.is_compatible(other.combined_access()) {
             return true;
-        } else {
-            for filtered in self.filtered_accesses.iter() {
-                for other_filtered in other.filtered_accesses.iter() {
-                    if !filtered.is_compatible(other_filtered) {
-                        return false;
-                    }
+        }
+        for filtered in &self.filtered_accesses {
+            for other_filtered in &other.filtered_accesses {
+                if !filtered.is_compatible(other_filtered) {
+                    return false;
                 }
             }
         }
@@ -286,8 +311,8 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         // if the unfiltered access is incompatible, must check each pair
         let mut conflicts = HashSet::new();
         if !self.combined_access.is_compatible(other.combined_access()) {
-            for filtered in self.filtered_accesses.iter() {
-                for other_filtered in other.filtered_accesses.iter() {
+            for filtered in &self.filtered_accesses {
+                for other_filtered in &other.filtered_accesses {
                     conflicts.extend(filtered.get_conflicts(other_filtered).into_iter());
                 }
             }
@@ -300,7 +325,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         // if the unfiltered access is incompatible, must check each pair
         let mut conflicts = HashSet::new();
         if !self.combined_access.is_compatible(filtered_access.access()) {
-            for filtered in self.filtered_accesses.iter() {
+            for filtered in &self.filtered_accesses {
                 conflicts.extend(filtered.get_conflicts(filtered_access).into_iter());
             }
         }

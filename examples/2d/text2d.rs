@@ -1,3 +1,10 @@
+//! Shows text rendering with moving, rotating and scaling text.
+//!
+//! Note that this uses [`Text2dBundle`] to display text alongside your other entities in a 2D scene.
+//!
+//! For an example on how to render text as part of a user interface, independent from the world
+//! viewport, you may want to look at `2d/contributors.rs` or `ui/text.rs`.
+
 use bevy::{prelude::*, text::Text2dBounds};
 
 fn main() {
@@ -29,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         horizontal: HorizontalAlign::Center,
     };
     // 2d camera
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
     // Demonstrate changing translation
     commands
         .spawn_bundle(Text2dBundle {
@@ -93,7 +100,7 @@ fn animate_translation(
     time: Res<Time>,
     mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         transform.translation.x = 100.0 * time.seconds_since_startup().sin() as f32 - 400.0;
         transform.translation.y = 100.0 * time.seconds_since_startup().cos() as f32;
     }
@@ -103,7 +110,7 @@ fn animate_rotation(
     time: Res<Time>,
     mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32);
     }
 }
@@ -114,7 +121,7 @@ fn animate_scale(
 ) {
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
     // rendered quad, resulting in a pixellated look.
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         transform.translation = Vec3::new(400.0, 0.0, 0.0);
         transform.scale = Vec3::splat((time.seconds_since_startup().sin() as f32 + 1.1) * 2.0);
     }

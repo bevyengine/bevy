@@ -4,15 +4,18 @@ use crate::{
     prelude::IntoSystem,
     schedule::{
         graph_utils::{self, DependencyGraphError},
-        BoxedRunCriteria, BoxedRunCriteriaLabel, BoxedSystemLabel, DuplicateLabelStrategy,
-        ExclusiveSystemContainer, GraphNode, InsertionPoint, ParallelExecutor,
-        ParallelSystemContainer, ParallelSystemExecutor, RunCriteriaContainer,
-        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, ShouldRun,
-        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemSet,
+        BoxedRunCriteria, DuplicateLabelStrategy, ExclusiveSystemContainer, GraphNode,
+        InsertionPoint, ParallelExecutor, ParallelSystemContainer, ParallelSystemExecutor,
+        RunCriteriaContainer, RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel,
+        RunCriteriaInner, RunCriteriaLabelId, ShouldRun, SingleThreadedExecutor, SystemContainer,
+        SystemDescriptor, SystemLabelId, SystemSet,
     },
     world::{World, WorldId},
 };
-use bevy_utils::{tracing::info, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{info, warn},
+    HashMap, HashSet,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -47,6 +50,7 @@ impl_downcast!(Stage);
 ///
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
+#[derive(Default)]
 pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
@@ -87,6 +91,7 @@ pub struct SystemStage {
     last_tick_check: u32,
     /// If true, buffers will be automatically applied at the end of the stage. If false, buffers must be manually applied.
     apply_buffers: bool,
+    must_read_resource: Option<ComponentId>,
 }
 
 impl SystemStage {
@@ -109,6 +114,7 @@ impl SystemStage {
             uninitialized_at_end: vec![],
             last_tick_check: Default::default(),
             apply_buffers: true,
+            must_read_resource: None,
         }
     }
 
@@ -138,6 +144,10 @@ impl SystemStage {
         self.executor = executor;
     }
 
+    pub fn set_must_read_resource(&mut self, resource_id: ComponentId) {
+        self.must_read_resource = Some(resource_id);
+    }
+
     #[must_use]
     pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
         self.add_system(system);
@@ -161,7 +171,7 @@ impl SystemStage {
                         container.run_criteria_label = Some(label);
                     }
                     Some(RunCriteriaDescriptorOrLabel::Descriptor(criteria_descriptor)) => {
-                        container.run_criteria_label = criteria_descriptor.label.clone();
+                        container.run_criteria_label = criteria_descriptor.label;
                         container.run_criteria_index =
                             Some(self.add_run_criteria_internal(criteria_descriptor));
                     }
@@ -195,7 +205,7 @@ impl SystemStage {
                         container.run_criteria_label = Some(label);
                     }
                     Some(RunCriteriaDescriptorOrLabel::Descriptor(criteria_descriptor)) => {
-                        container.run_criteria_label = criteria_descriptor.label.clone();
+                        container.run_criteria_label = criteria_descriptor.label;
                         container.run_criteria_index =
                             Some(self.add_run_criteria_internal(criteria_descriptor));
                     }
@@ -291,11 +301,11 @@ impl SystemStage {
                         match system {
                             SystemDescriptor::Exclusive(descriptor) => {
                                 descriptor.run_criteria =
-                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()));
+                                    Some(RunCriteriaDescriptorOrLabel::Label(label));
                             }
                             SystemDescriptor::Parallel(descriptor) => {
                                 descriptor.run_criteria =
-                                    Some(RunCriteriaDescriptorOrLabel::Label(label.clone()));
+                                    Some(RunCriteriaDescriptorOrLabel::Label(label));
                             }
                         }
                     }
@@ -362,7 +372,7 @@ impl SystemStage {
             .enumerate()
             .filter_map(|(index, mut container)| {
                 let new_index = index - filtered_criteria;
-                let label = container.label.clone();
+                let label = container.label;
                 if let Some(strategy) = uninitialized_criteria.get(&index) {
                     if let Some(ref label) = label {
                         if let Some(duplicate_index) = criteria_labels.get(label) {
@@ -562,6 +572,20 @@ impl SystemStage {
         }
     }
 
+    fn check_uses_resource(&self, resource_id: ComponentId, world: &World) {
+        debug_assert!(!self.systems_modified);
+        for system in &self.parallel {
+            let access = system.component_access().unwrap();
+            if !access.has_read(resource_id) {
+                let component_name = world.components().get_info(resource_id).unwrap().name();
+                warn!(
+                    "System {} doesn't access resource {component_name}, despite being required to",
+                    system.name()
+                );
+            }
+        }
+    }
+
     /// All system and component change ticks are scanned once the world counter has incremented
     /// at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
     /// times since the previous `check_tick` scan.
@@ -597,10 +621,8 @@ impl SystemStage {
     /// Returns a map of run criteria labels to their indices.
     fn process_run_criteria(
         &mut self,
-    ) -> Result<
-        HashMap<BoxedRunCriteriaLabel, usize>,
-        DependencyGraphError<HashSet<BoxedRunCriteriaLabel>>,
-    > {
+    ) -> Result<HashMap<RunCriteriaLabelId, usize>, DependencyGraphError<HashSet<RunCriteriaLabelId>>>
+    {
         let graph = graph_utils::build_dependency_graph(&self.run_criteria);
         let order = graph_utils::topological_order(&graph)?;
         let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
@@ -613,7 +635,7 @@ impl SystemStage {
                 criteria
                     .label
                     .as_ref()
-                    .map(|label| (label.clone(), order_inverted[index].0))
+                    .map(|&label| (label, order_inverted[index].0))
             })
             .collect();
         for criteria in &mut self.run_criteria {
@@ -656,8 +678,8 @@ impl SystemStage {
 /// and run criteria.
 fn process_systems(
     systems: &mut Vec<impl SystemContainer>,
-    run_criteria_labels: &HashMap<BoxedRunCriteriaLabel, usize>,
-) -> Result<(), DependencyGraphError<HashSet<BoxedSystemLabel>>> {
+    run_criteria_labels: &HashMap<RunCriteriaLabelId, usize>,
+) -> Result<(), DependencyGraphError<HashSet<SystemLabelId>>> {
     let mut graph = graph_utils::build_dependency_graph(systems);
     let order = graph_utils::topological_order(&graph)?;
     let mut order_inverted = order.iter().enumerate().collect::<Vec<_>>();
@@ -780,6 +802,9 @@ impl Stage for SystemStage {
             self.executor_modified = false;
             if world.contains_resource::<ReportExecutionOrderAmbiguities>() {
                 self.report_ambiguities(world);
+            }
+            if let Some(resource_id) = self.must_read_resource {
+                self.check_uses_resource(resource_id, world);
             }
         } else if self.executor_modified {
             self.executor.rebuild_cached_data(&self.parallel);
@@ -925,10 +950,9 @@ impl Stage for SystemStage {
                                 }
                             }
                             match criteria.should_run {
-                                ShouldRun::Yes => {
-                                    run_system_loop = true;
-                                }
-                                ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
+                                ShouldRun::Yes
+                                | ShouldRun::YesAndCheckAgain
+                                | ShouldRun::NoAndCheckAgain => {
                                     run_system_loop = true;
                                 }
                                 ShouldRun::No => (),
@@ -948,9 +972,9 @@ impl Stage for SystemStage {
 mod tests {
     use crate::{
         schedule::{
-            BoxedSystemLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage,
-            SystemSet, SystemStage,
+            ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, RunCriteria,
+            RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage, SystemLabel,
+            SystemLabelId, SystemSet, SystemStage,
         },
         system::{In, IntoExclusiveSystem, Local, Query, ResMut},
         world::World,
@@ -1583,23 +1607,21 @@ mod tests {
 
         fn find_ambiguities_first_str_labels(
             systems: &[impl SystemContainer],
-        ) -> Vec<(BoxedSystemLabel, BoxedSystemLabel)> {
+        ) -> Vec<(SystemLabelId, SystemLabelId)> {
             find_ambiguities(systems)
                 .drain(..)
                 .map(|(index_a, index_b, _conflicts)| {
                     (
-                        systems[index_a]
+                        *systems[index_a]
                             .labels()
                             .iter()
-                            .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
-                            .unwrap()
-                            .clone(),
-                        systems[index_b]
+                            .find(|a| a.type_id() == std::any::TypeId::of::<&str>())
+                            .unwrap(),
+                        *systems[index_b]
                             .labels()
                             .iter()
-                            .find(|a| (&***a).type_id() == std::any::TypeId::of::<&str>())
-                            .unwrap()
-                            .clone(),
+                            .find(|a| a.type_id() == std::any::TypeId::of::<&str>())
+                            .unwrap(),
                     )
                 })
                 .collect()
@@ -1631,8 +1653,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "1".as_label()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1646,8 +1668,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "1".as_label()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1671,12 +1693,12 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("0"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("0")))
+            ambiguities.contains(&("0".as_label(), "3".as_label()))
+                || ambiguities.contains(&("3".as_label(), "0".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "1".as_label()))
         );
         assert_eq!(ambiguities.len(), 2);
 
@@ -1690,8 +1712,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("0"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("0")))
+            ambiguities.contains(&("0".as_label(), "3".as_label()))
+                || ambiguities.contains(&("3".as_label(), "0".as_label()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1703,8 +1725,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("0"), Box::new("1")))
-                || ambiguities.contains(&(Box::new("1"), Box::new("0")))
+            ambiguities.contains(&("0".as_label(), "1".as_label()))
+                || ambiguities.contains(&("1".as_label(), "0".as_label()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1716,8 +1738,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("2")))
-                || ambiguities.contains(&(Box::new("2"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "2".as_label()))
+                || ambiguities.contains(&("2".as_label(), "1".as_label()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1730,8 +1752,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("2")))
-                || ambiguities.contains(&(Box::new("2"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "2".as_label()))
+                || ambiguities.contains(&("2".as_label(), "1".as_label()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1754,8 +1776,8 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("2")))
-                || ambiguities.contains(&(Box::new("2"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "2".as_label()))
+                || ambiguities.contains(&("2".as_label(), "1".as_label()))
         );
         assert_eq!(ambiguities.len(), 1);
 
@@ -1784,28 +1806,28 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("2")))
-                || ambiguities.contains(&(Box::new("2"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "2".as_label()))
+                || ambiguities.contains(&("2".as_label(), "1".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "3".as_label()))
+                || ambiguities.contains(&("3".as_label(), "1".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "1".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("2")))
+            ambiguities.contains(&("2".as_label(), "3".as_label()))
+                || ambiguities.contains(&("3".as_label(), "2".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("2")))
+            ambiguities.contains(&("2".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "2".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("3"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("3")))
+            ambiguities.contains(&("3".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "3".as_label()))
         );
         assert_eq!(ambiguities.len(), 6);
 
@@ -1865,12 +1887,12 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.parallel);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "1".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("2")))
+            ambiguities.contains(&("2".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "2".as_label()))
         );
         assert_eq!(ambiguities.len(), 2);
 
@@ -1899,28 +1921,28 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "3".as_label()))
+                || ambiguities.contains(&("3".as_label(), "1".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("2")))
+            ambiguities.contains(&("2".as_label(), "3".as_label()))
+                || ambiguities.contains(&("3".as_label(), "2".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "1".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("2")))
+            ambiguities.contains(&("2".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "2".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("5")))
-                || ambiguities.contains(&(Box::new("5"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "5".as_label()))
+                || ambiguities.contains(&("5".as_label(), "1".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("5")))
-                || ambiguities.contains(&(Box::new("5"), Box::new("2")))
+            ambiguities.contains(&("2".as_label(), "5".as_label()))
+                || ambiguities.contains(&("5".as_label(), "2".as_label()))
         );
         assert_eq!(ambiguities.len(), 6);
 
@@ -1936,20 +1958,20 @@ mod tests {
         stage.rebuild_orders_and_dependencies();
         let ambiguities = find_ambiguities_first_str_labels(&stage.exclusive_at_start);
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("3")))
-                || ambiguities.contains(&(Box::new("3"), Box::new("2")))
+            ambiguities.contains(&("2".as_label(), "3".as_label()))
+                || ambiguities.contains(&("3".as_label(), "2".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("1"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("1")))
+            ambiguities.contains(&("1".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "1".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("4")))
-                || ambiguities.contains(&(Box::new("4"), Box::new("2")))
+            ambiguities.contains(&("2".as_label(), "4".as_label()))
+                || ambiguities.contains(&("4".as_label(), "2".as_label()))
         );
         assert!(
-            ambiguities.contains(&(Box::new("2"), Box::new("5")))
-                || ambiguities.contains(&(Box::new("5"), Box::new("2")))
+            ambiguities.contains(&("2".as_label(), "5".as_label()))
+                || ambiguities.contains(&("5".as_label(), "2".as_label()))
         );
         assert_eq!(ambiguities.len(), 4);
 

@@ -61,6 +61,8 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 ///
 /// This macro supports the following field attributes:
 /// * `#[reflect(ignore)]`: Ignores the field. This requires the field to implement [`Default`].
+/// * `#[reflect(default)]`: If the field's value cannot be read, uses its [`Default`] implementation.
+/// * `#[reflect(default = "some_func")]`: If the field's value cannot be read, uses the function with the given name.
 ///
 #[proc_macro_derive(FromReflect, attributes(reflect))]
 pub fn derive_from_reflect(input: TokenStream) -> TokenStream {

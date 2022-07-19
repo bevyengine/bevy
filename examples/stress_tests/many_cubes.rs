@@ -1,10 +1,28 @@
+//! Simple benchmark to test per-entity draw overhead.
+//!
+//! To measure performance realistically, be sure to run this in release mode.
+//! `cargo run --example many_cubes --release`
+//!
+//! By default, this arranges the meshes in a cubical pattern, where the number of visible meshes
+//! varies with the viewing angle. You can choose to run the demo with a spherical pattern that
+//! distributes the meshes evenly.
+//!
+//! To start the demo using the spherical layout run
+//! `cargo run --example many_cubes --release sphere`
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     prelude::*,
+    window::PresentMode,
 };
+
 fn main() {
     App::new()
+        .insert_resource(WindowDescriptor {
+            present_mode: PresentMode::AutoNoVsync,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -19,6 +37,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     const WIDTH: usize = 200;
     const HEIGHT: usize = 200;
     let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
@@ -48,7 +68,7 @@ fn setup(
             }
 
             // camera
-            commands.spawn_bundle(PerspectiveCameraBundle::default());
+            commands.spawn_bundle(Camera3dBundle::default());
         }
         _ => {
             // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
@@ -91,7 +111,7 @@ fn setup(
                 }
             }
             // camera
-            commands.spawn_bundle(PerspectiveCameraBundle {
+            commands.spawn_bundle(Camera3dBundle {
                 transform: Transform::from_xyz(WIDTH as f32, HEIGHT as f32, WIDTH as f32),
                 ..default()
             });
@@ -119,6 +139,7 @@ fn setup(
 // http://extremelearning.com.au/how-to-evenly-distribute-points-on-a-sphere-more-effectively-than-the-canonical-fibonacci-lattice/
 // for details.
 const EPSILON: f64 = 0.36;
+
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
         2.0 * std::f64::consts::PI * (i as f64 / golden_ratio),
@@ -135,8 +156,9 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 // System for rotating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.15));
-    camera_transform.rotate(Quat::from_rotation_x(time.delta_seconds() * 0.15));
+    let delta = time.delta_seconds() * 0.15;
+    camera_transform.rotate_z(delta);
+    camera_transform.rotate_x(delta);
 }
 
 // System for printing the number of meshes on every tick of the timer
@@ -151,7 +173,7 @@ fn print_mesh_count(
         info!(
             "Meshes: {} - Visible Meshes {}",
             sprites.iter().len(),
-            sprites.iter().filter(|(_, cv)| cv.is_visible).count(),
+            sprites.iter().filter(|(_, cv)| cv.is_visible()).count(),
         );
     }
 }

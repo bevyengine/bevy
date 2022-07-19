@@ -1,3 +1,5 @@
+//! Shows how to render simple primitive shapes with a single color.
+
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 fn main() {
@@ -12,7 +14,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
 
     // Rectangle
     commands.spawn_bundle(SpriteBundle {

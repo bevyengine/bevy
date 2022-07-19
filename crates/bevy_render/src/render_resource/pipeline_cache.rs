@@ -7,15 +7,18 @@ use crate::{
         ShaderProcessor, ShaderReflectError,
     },
     renderer::RenderDevice,
-    RenderWorld,
+    Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::event::EventReader;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{default, tracing::error, Entry, HashMap, HashSet};
-use std::{hash::Hash, mem, ops::Deref, sync::Arc};
+use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
-use wgpu::{PipelineLayoutDescriptor, ShaderModule, VertexBufferLayout as RawVertexBufferLayout};
+use wgpu::{
+    BufferBindingType, PipelineLayoutDescriptor, ShaderModule,
+    VertexBufferLayout as RawVertexBufferLayout,
+};
 
 enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
@@ -117,13 +120,32 @@ impl ShaderCache {
         let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
+                let mut shader_defs = shader_defs.to_vec();
+                #[cfg(feature = "webgl")]
+                shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
+
+                // TODO: 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
+                // consider exposing this in shaders in a more generally useful way, such as:
+                // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
+                // /* use storage buffers here */
+                // # elif
+                // /* use uniforms here */
+                if !matches!(
+                    render_device.get_supported_read_only_binding_type(3),
+                    BufferBindingType::Storage { .. }
+                ) {
+                    shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
+                }
+
                 let processed = self.processor.process(
                     shader,
-                    shader_defs,
+                    &shader_defs,
                     &self.shaders,
                     &self.import_path_shaders,
                 )?;
-                let module_descriptor = match processed.get_module_descriptor() {
+                let module_descriptor = match processed
+                    .get_module_descriptor(render_device.features())
+                {
                     Ok(module_descriptor) => module_descriptor,
                     Err(err) => {
                         return Err(PipelineCacheError::AsModuleDescriptorError(err, processed));
@@ -133,7 +155,7 @@ impl ShaderCache {
                 render_device
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
-                let shader_module = render_device.create_shader_module(&module_descriptor);
+                let shader_module = render_device.create_shader_module(module_descriptor);
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
@@ -388,7 +410,7 @@ impl PipelineCache {
             Some((
                 fragment_module,
                 fragment.entry_point.deref(),
-                &fragment.targets,
+                fragment.targets.as_slice(),
             ))
         } else {
             None
@@ -524,11 +546,10 @@ impl PipelineCache {
     }
 
     pub(crate) fn extract_shaders(
-        mut world: ResMut<RenderWorld>,
-        shaders: Res<Assets<Shader>>,
-        mut events: EventReader<AssetEvent<Shader>>,
+        mut cache: ResMut<Self>,
+        shaders: Extract<Res<Assets<Shader>>>,
+        mut events: Extract<EventReader<AssetEvent<Shader>>>,
     ) {
-        let mut cache = world.resource_mut::<Self>();
         for event in events.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
@@ -670,3 +691,5 @@ impl<'a> Iterator for ErrorSources<'a> {
         current
     }
 }
+
+impl<'a> FusedIterator for ErrorSources<'a> {}

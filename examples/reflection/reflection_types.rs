@@ -1,3 +1,7 @@
+#![allow(clippy::match_same_arms)]
+//! This example illustrates how reflection works for simple data structures, like
+//! structs, tuples and vectors.
+
 use bevy::{
     prelude::*,
     reflect::{DynamicList, ReflectRef},
@@ -5,7 +9,6 @@ use bevy::{
 };
 use serde::{Deserialize, Serialize};
 
-/// This example illustrates the various reflection types available
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -33,7 +36,7 @@ pub struct C(usize);
 /// These are exposed via methods like `Reflect::hash()`, `Reflect::partial_eq()`, and
 /// `Reflect::serialize()`. You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
-#[derive(Reflect, Hash, Serialize, PartialEq)]
+#[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
 #[reflect(Hash, Serialize, PartialEq)]
 pub struct D {
     x: usize,
@@ -44,7 +47,7 @@ pub struct D {
 /// generally a good idea to implement (and reflect) the `PartialEq`, `Serialize`, and `Deserialize`
 /// traits on `reflect_value` types to ensure that these values behave as expected when nested
 /// underneath Reflect-ed structs.
-#[derive(Reflect, Copy, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum E {
     X,

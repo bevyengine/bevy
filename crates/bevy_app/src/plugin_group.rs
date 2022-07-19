@@ -128,7 +128,7 @@ impl PluginGroupBuilder {
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
     /// in the order specified.
     pub fn finish(self, app: &mut App) {
-        for ty in self.order.iter() {
+        for ty in &self.order {
             if let Some(entry) = self.plugins.get(ty) {
                 if entry.enabled {
                     debug!("added plugin: {}", entry.plugin.name());
@@ -137,6 +137,22 @@ impl PluginGroupBuilder {
             }
         }
     }
+}
+
+/// A plugin group which doesn't do anything. Useful for examples:
+/// ```rust
+/// # use bevy_app::prelude::*;
+/// use bevy_app::NoopPluginGroup as MinimalPlugins;
+///
+/// fn main(){
+///     App::new().add_plugins(MinimalPlugins).run();
+/// }
+/// ```
+#[doc(hidden)]
+pub struct NoopPluginGroup;
+
+impl PluginGroup for NoopPluginGroup {
+    fn build(&mut self, _: &mut PluginGroupBuilder) {}
 }
 
 #[cfg(test)]
@@ -173,7 +189,7 @@ mod tests {
                 std::any::TypeId::of::<PluginB>(),
                 std::any::TypeId::of::<PluginC>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -190,7 +206,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -207,7 +223,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -225,7 +241,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -243,7 +259,7 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 
     #[test]
@@ -261,6 +277,6 @@ mod tests {
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
             ]
-        )
+        );
     }
 }

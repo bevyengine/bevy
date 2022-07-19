@@ -11,6 +11,7 @@ crates=(
     bevy_ecs/macros
     bevy_ecs
     bevy_app
+    bevy_time
     bevy_log
     bevy_dynamic_plugin
     bevy_asset
@@ -20,8 +21,9 @@ crates=(
     bevy_hierarchy
     bevy_transform
     bevy_window
-    bevy_crevice/bevy-crevice-derive
-    bevy_crevice
+    bevy_encase_derive
+    bevy_render/macros
+    bevy_mikktspace
     bevy_render
     bevy_core_pipeline
     bevy_input
@@ -38,13 +40,29 @@ crates=(
     bevy_dylib
 )
 
-cd crates
+if [ -n "$(git status --porcelain)" ]; then
+    echo "You have local changes!"
+    exit 1
+fi
+
+pushd crates
+
 for crate in "${crates[@]}"
 do
   echo "Publishing ${crate}"
-  (cd "$crate"; cargo publish --no-verify)
+  cp ../docs/LICENSE-MIT "$crate"
+  cp ../docs/LICENSE-APACHE "$crate"
+  pushd "$crate"
+  git add LICENSE-MIT LICENSE-APACHE
+  cargo publish --no-verify --allow-dirty
+  popd
   sleep 20
 done
 
-cd ..
-cargo publish
+popd
+
+echo "Publishing root crate"
+cargo publish --allow-dirty
+
+echo "Cleaning local state"
+git reset HEAD --hard
