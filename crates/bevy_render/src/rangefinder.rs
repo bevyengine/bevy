@@ -25,9 +25,8 @@ impl ViewRangefinder3d {
 
 #[cfg(test)]
 mod tests {
-    use bevy_math::{Mat4, Vec3};
-
     use super::ViewRangefinder3d;
+    use bevy_math::{Mat4, Vec3};
 
     #[test]
     fn distance() {

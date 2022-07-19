@@ -1,7 +1,6 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_utils::HashMap;
 pub use visibility::*;
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
@@ -24,6 +23,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
 use bevy_reflect::Reflect;
+use bevy_utils::HashMap;
 
 pub struct ViewPlugin;
 

@@ -5,7 +5,7 @@ mod bundle;
 mod light;
 mod material;
 mod pbr_material;
-pub mod render;
+mod render;
 
 pub use alpha::*;
 pub use bundle::*;

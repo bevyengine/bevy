@@ -1,4 +1,4 @@
-pub mod light;
+mod light;
 mod mesh;
 
 pub use light::*;
