@@ -14,6 +14,7 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
+mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
@@ -26,8 +27,9 @@ pub mod prelude {
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
+        spatial_bundle::SpatialBundle,
         texture::Image,
-        view::{ComputedVisibility, Msaa, Visibility},
+        view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
 

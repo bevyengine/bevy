@@ -20,7 +20,7 @@ use prelude::{GlobalTransform, Transform};
 /// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
 ///   * You may use the [`TransformBundle`] to guarantee this.
 ///

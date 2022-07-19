@@ -26,11 +26,12 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{
-        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
+        ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,
+        VisibleEntities,
     },
     Extract,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::FloatOrd;
 use bevy_utils::{
     tracing::{error, warn},
@@ -411,8 +412,22 @@ pub fn extract_lights(
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
     global_point_lights: Extract<Res<GlobalVisiblePointLights>>,
-    point_lights: Extract<Query<(&PointLight, &CubemapVisibleEntities, &GlobalTransform)>>,
-    spot_lights: Extract<Query<(&SpotLight, &VisibleEntities, &GlobalTransform)>>,
+    point_lights: Extract<
+        Query<(
+            &PointLight,
+            &CubemapVisibleEntities,
+            &GlobalTransform,
+            &ComputedVisibility,
+        )>,
+    >,
+    spot_lights: Extract<
+        Query<(
+            &SpotLight,
+            &VisibleEntities,
+            &GlobalTransform,
+            &ComputedVisibility,
+        )>,
+    >,
     directional_lights: Extract<
         Query<
             (
@@ -420,7 +435,7 @@ pub fn extract_lights(
                 &DirectionalLight,
                 &VisibleEntities,
                 &GlobalTransform,
-                &Visibility,
+                &ComputedVisibility,
             ),
             Without<SpotLight>,
         >,
@@ -447,7 +462,12 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get(entity) {
+        if let Ok((point_light, cubemap_visible_entities, transform, visibility)) =
+            point_lights.get(entity)
+        {
+            if !visibility.is_visible() {
+                continue;
+            }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
             let render_cubemap_visible_entities = cubemap_visible_entities.clone();
@@ -481,7 +501,10 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform)) = spot_lights.get(entity) {
+        if let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) {
+            if !visibility.is_visible() {
+                continue;
+            }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
             let render_visible_entities = visible_entities.clone();
@@ -522,7 +545,7 @@ pub fn extract_lights(
     for (entity, directional_light, visible_entities, transform, visibility) in
         directional_lights.iter()
     {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
 
@@ -705,7 +728,7 @@ pub fn calculate_cluster_factors(
 // could move this onto transform but it's pretty niche
 pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
-    let fwd_dir = transform.local_z().extend(0.0);
+    let fwd_dir = transform.back().extend(0.0);
 
     let sign = 1f32.copysign(fwd_dir.z);
     let a = -1.0 / (fwd_dir.z + sign);
@@ -722,7 +745,7 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
         right_dir,
         up_dir,
         fwd_dir,
-        transform.translation.extend(1.0),
+        transform.translation().extend(1.0),
     )
 }
 
@@ -756,7 +779,7 @@ pub fn prepare_lights(
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Transform::identity().looking_at(*target, *up))
         .collect::<Vec<_>>();
 
     global_light_meta.entity_to_index.clear();
@@ -870,7 +893,7 @@ pub fn prepare_lights(
                 * light.intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
-            position_radius: light.transform.translation.extend(light.radius),
+            position_radius: light.transform.translation().extend(light.radius),
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
@@ -966,7 +989,7 @@ pub fn prepare_lights(
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
-            let view_translation = GlobalTransform::from_translation(light.transform.translation);
+            let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
             for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                 let depth_texture_view =
@@ -1019,7 +1042,7 @@ pub fn prepare_lights(
             .enumerate()
         {
             let spot_view_matrix = spot_light_view_matrix(&light.transform);
-            let spot_view_transform = GlobalTransform::from_matrix(spot_view_matrix);
+            let spot_view_transform = spot_view_matrix.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
                 [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_light_shadow_maps_count] are spot lights").1;
@@ -1129,7 +1152,7 @@ pub fn prepare_lights(
                         ExtractedView {
                             width: directional_light_shadow_map.size as u32,
                             height: directional_light_shadow_map.size as u32,
-                            transform: GlobalTransform::from_matrix(view.inverse()),
+                            transform: GlobalTransform::from(view.inverse()),
                             projection,
                         },
                         RenderPhase::<Shadow>::default(),

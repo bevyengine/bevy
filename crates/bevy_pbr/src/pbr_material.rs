@@ -190,19 +190,17 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
-            match images
-                .get(self.normal_map_texture.as_ref().unwrap())
-                .unwrap()
-                .texture_format
-            {
-                // All 2-component unorm formats
-                TextureFormat::Rg8Unorm
-                | TextureFormat::Rg16Unorm
-                | TextureFormat::Bc5RgUnorm
-                | TextureFormat::EacRg11Unorm => {
-                    flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP;
+            if let Some(texture) = images.get(self.normal_map_texture.as_ref().unwrap()) {
+                match texture.texture_format {
+                    // All 2-component unorm formats
+                    TextureFormat::Rg8Unorm
+                    | TextureFormat::Rg16Unorm
+                    | TextureFormat::Bc5RgUnorm
+                    | TextureFormat::EacRg11Unorm => {
+                        flags |= StandardMaterialFlags::TWO_COMPONENT_NORMAL_MAP;
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
             if self.flip_normal_map_y {
                 flags |= StandardMaterialFlags::FLIP_NORMAL_MAP_Y;

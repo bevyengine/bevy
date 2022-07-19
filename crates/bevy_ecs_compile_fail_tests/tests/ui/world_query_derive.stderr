@@ -13,7 +13,7 @@ error[E0277]: the trait bound `&'static mut Foo: ReadOnlyWorldQuery` is not sati
             (F0, F1, F2, F3, F4)
             (F0, F1, F2, F3, F4, F5)
             (F0, F1, F2, F3, F4, F5, F6)
-          and 51 others
+          and 52 others
 note: required by a bound in `_::assert_readonly`
  --> tests/ui/world_query_derive.rs:7:10
   |
@@ -36,7 +36,7 @@ error[E0277]: the trait bound `MutableMarked: ReadOnlyWorldQuery` is not satisfi
              (F0, F1, F2, F3, F4)
              (F0, F1, F2, F3, F4, F5)
              (F0, F1, F2, F3, F4, F5, F6)
-           and 51 others
+           and 52 others
 note: required by a bound in `_::assert_readonly`
   --> tests/ui/world_query_derive.rs:18:10
    |

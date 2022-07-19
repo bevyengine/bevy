@@ -128,7 +128,7 @@ pub fn extract_mesh2d(
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, transform, handle) in query.iter() {
-        if !computed_visibility.is_visible {
+        if !computed_visibility.is_visible() {
             continue;
         }
         let transform = transform.compute_matrix();

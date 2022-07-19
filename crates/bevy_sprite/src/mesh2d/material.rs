@@ -1,34 +1,40 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{AddAsset, Asset, AssetServer, Handle};
+use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
     entity::Entity,
+    event::EventReader,
     prelude::{Bundle, World},
+    schedule::ParallelSystemDescriptorCoercion,
     system::{
         lifetimeless::{Read, SQuery, SRes},
-        Query, Res, ResMut, SystemParamItem,
+        Commands, Local, Query, Res, ResMut, SystemParamItem,
     },
     world::FromWorld,
 };
 use bevy_log::error;
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
-    render_asset::{RenderAsset, RenderAssetPlugin, RenderAssets},
+    prelude::Image,
+    render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
         SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
-        BindGroup, BindGroupLayout, PipelineCache, RenderPipelineDescriptor, Shader,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
+        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
+    texture::FallbackImage,
     view::{ComputedVisibility, Msaa, Visibility, VisibleEntities},
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::FloatOrd;
+use bevy_utils::{FloatOrd, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -39,36 +45,83 @@ use crate::{
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
-/// way to render [`Mesh2dHandle`] entities with custom shader logic. For materials that can specialize their [`RenderPipelineDescriptor`]
-/// based on specific material values, see [`SpecializedMaterial2d`]. [`Material2d`] automatically implements [`SpecializedMaterial2d`]
-/// and can be used anywhere that type is used (such as [`Material2dPlugin`]).
-pub trait Material2d: Asset + RenderAsset {
-    /// Returns this material's [`BindGroup`]. This should match the layout returned by [`Material2d::bind_group_layout`].
-    fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
-
-    /// Returns this material's [`BindGroupLayout`]. This should match the [`BindGroup`] returned by [`Material2d::bind_group`].
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
-
-    /// Returns this material's vertex shader. If [`None`] is returned, the default mesh vertex shader will be used.
-    /// Defaults to [`None`].
-    #[allow(unused_variables)]
-    fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        None
+/// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
+/// way to render [`Mesh2dHandle`] entities with custom shader logic.
+///
+/// Material2ds must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
+/// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
+///
+/// Materials must also implement [`TypeUuid`] so they can be treated as an [`Asset`](bevy_asset::Asset).
+///
+/// # Example
+///
+/// Here is a simple Material2d implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
+/// check out the [`AsBindGroup`] documentation.
+/// ```
+/// # use bevy_sprite::{Material2d, MaterialMesh2dBundle};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_reflect::TypeUuid;
+/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_asset::{Handle, AssetServer, Assets};
+///
+/// #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+/// #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+/// pub struct CustomMaterial {
+///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
+///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
+///     #[uniform(0)]
+///     color: Color,
+///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
+///     // add the sampler attribute with a different binding index.
+///     #[texture(1)]
+///     #[sampler(2)]
+///     color_texture: Handle<Image>,
+/// }
+///
+/// // All functions on `Material2d` have default impls. You only need to implement the
+/// // functions that are relevant for your material.
+/// impl Material2d for CustomMaterial {
+///     fn fragment_shader() -> ShaderRef {
+///         "shaders/custom_material.wgsl".into()
+///     }
+/// }
+///
+/// // Spawn an entity using `CustomMaterial`.
+/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+///     commands.spawn_bundle(MaterialMesh2dBundle {
+///         material: materials.add(CustomMaterial {
+///             color: Color::RED,
+///             color_texture: asset_server.load("some_image.png"),
+///         }),
+///         ..Default::default()
+///     });
+/// }
+/// ```
+/// In WGSL shaders, the material's binding would look like this:
+///
+/// ```wgsl
+/// struct CustomMaterial {
+///     color: vec4<f32>;
+/// };
+///
+/// [[group(1), binding(0)]]
+/// var<uniform> material: CustomMaterial;
+/// [[group(1), binding(1)]]
+/// var color_texture: texture_2d<f32>;
+/// [[group(1), binding(2)]]
+/// var color_sampler: sampler;
+/// ```
+pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
+    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
+    /// will be used.
+    fn vertex_shader() -> ShaderRef {
+        ShaderRef::Default
     }
 
-    /// Returns this material's fragment shader. If [`None`] is returned, the default mesh fragment shader will be used.
-    /// Defaults to [`None`].
-    #[allow(unused_variables)]
-    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        None
-    }
-
-    /// The dynamic uniform indices to set for the given `material`'s [`BindGroup`].
-    /// Defaults to an empty array / no dynamic uniform indices.
-    #[allow(unused_variables)]
-    #[inline]
-    fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
-        &[]
+    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default mesh fragment shader
+    /// will be used.
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Default
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`].
@@ -77,136 +130,48 @@ pub trait Material2d: Asset + RenderAsset {
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
+        key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
 }
 
-impl<M: Material2d> SpecializedMaterial2d for M {
-    type Key = ();
-
-    #[inline]
-    fn key(
-        _render_device: &RenderDevice,
-        _material: &<Self as RenderAsset>::PreparedAsset,
-    ) -> Self::Key {
-    }
-
-    #[inline]
-    fn specialize(
-        _key: Self::Key,
-        descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
-    ) -> Result<(), SpecializedMeshPipelineError> {
-        <M as Material2d>::specialize(descriptor, layout)
-    }
-
-    #[inline]
-    fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup {
-        <M as Material2d>::bind_group(material)
-    }
-
-    #[inline]
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        <M as Material2d>::bind_group_layout(render_device)
-    }
-
-    #[inline]
-    fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        <M as Material2d>::vertex_shader(asset_server)
-    }
-
-    #[inline]
-    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        <M as Material2d>::fragment_shader(asset_server)
-    }
-
-    #[allow(unused_variables)]
-    #[inline]
-    fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
-        <M as Material2d>::dynamic_uniform_indices(material)
-    }
-}
-
-/// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`](crate::MaterialMesh2dBundle)
-/// to spawn entities that are rendered with a specific [`SpecializedMaterial2d`] type. They serve as an easy to use high level
-/// way to render [`Mesh2dHandle`] entities with custom shader logic. [`SpecializedMaterial2d`s](SpecializedMaterial2d) use their [`SpecializedMaterial2d::Key`]
-/// to customize their [`RenderPipelineDescriptor`] based on specific material values. The slightly simpler [`Material2d`] trait
-/// should be used for materials that do not need specialization. [`Material2d`] types automatically implement [`SpecializedMaterial2d`].
-pub trait SpecializedMaterial2d: Asset + RenderAsset {
-    /// The key used to specialize this material's [`RenderPipelineDescriptor`].
-    type Key: PartialEq + Eq + Hash + Clone + Send + Sync;
-
-    /// Extract the [`SpecializedMaterial2d::Key`] for the "prepared" version of this material. This key will be
-    /// passed in to the [`SpecializedMaterial2d::specialize`] function when compiling the [`RenderPipeline`](bevy_render::render_resource::RenderPipeline)
-    /// for a given entity's material.
-    fn key(
-        render_device: &RenderDevice,
-        material: &<Self as RenderAsset>::PreparedAsset,
-    ) -> Self::Key;
-
-    /// Specializes the given `descriptor` according to the given `key`.
-    fn specialize(
-        key: Self::Key,
-        descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
-    ) -> Result<(), SpecializedMeshPipelineError>;
-
-    /// Returns this material's [`BindGroup`]. This should match the layout returned by [`SpecializedMaterial2d::bind_group_layout`].
-    fn bind_group(material: &<Self as RenderAsset>::PreparedAsset) -> &BindGroup;
-
-    /// Returns this material's [`BindGroupLayout`]. This should match the [`BindGroup`] returned by [`SpecializedMaterial2d::bind_group`].
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
-
-    /// Returns this material's vertex shader. If [`None`] is returned, the default mesh vertex shader will be used.
-    /// Defaults to [`None`].
-    #[allow(unused_variables)]
-    fn vertex_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        None
-    }
-
-    /// Returns this material's fragment shader. If [`None`] is returned, the default mesh fragment shader will be used.
-    /// Defaults to [`None`].
-    #[allow(unused_variables)]
-    fn fragment_shader(asset_server: &AssetServer) -> Option<Handle<Shader>> {
-        None
-    }
-
-    /// The dynamic uniform indices to set for the given `material`'s [`BindGroup`].
-    /// Defaults to an empty array / no dynamic uniform indices.
-    #[allow(unused_variables)]
-    #[inline]
-    fn dynamic_uniform_indices(material: &<Self as RenderAsset>::PreparedAsset) -> &[u32] {
-        &[]
-    }
-}
-
-/// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`SpecializedMaterial2d`]
+/// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
 /// asset type (which includes [`Material2d`] types).
-pub struct Material2dPlugin<M: SpecializedMaterial2d>(PhantomData<M>);
+pub struct Material2dPlugin<M: Material2d>(PhantomData<M>);
 
-impl<M: SpecializedMaterial2d> Default for Material2dPlugin<M> {
+impl<M: Material2d> Default for Material2dPlugin<M> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<M: SpecializedMaterial2d> Plugin for Material2dPlugin<M> {
+impl<M: Material2d> Plugin for Material2dPlugin<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
-            .add_plugin(RenderAssetPlugin::<M>::default());
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<Material2dPipeline<M>>()
+                .init_resource::<ExtractedMaterials2d<M>>()
+                .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+                .add_system_to_stage(RenderStage::Extract, extract_materials_2d::<M>)
+                .add_system_to_stage(
+                    RenderStage::Prepare,
+                    prepare_materials_2d::<M>.after(PrepareAssetLabel::PreAssetPrepare),
+                )
                 .add_system_to_stage(RenderStage::Queue, queue_material2d_meshes::<M>);
         }
     }
 }
 
-pub struct Material2dPipeline<M: SpecializedMaterial2d> {
+/// Render pipeline data for a given [`Material2d`]
+pub struct Material2dPipeline<M: Material2d> {
     pub mesh2d_pipeline: Mesh2dPipeline,
     pub material2d_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
@@ -214,14 +179,49 @@ pub struct Material2dPipeline<M: SpecializedMaterial2d> {
     marker: PhantomData<M>,
 }
 
-#[derive(Eq, PartialEq, Clone, Hash)]
-pub struct Material2dKey<T> {
+pub struct Material2dKey<M: Material2d> {
     pub mesh_key: Mesh2dPipelineKey,
-    pub material_key: T,
+    pub bind_group_data: M::Data,
 }
 
-impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M> {
-    type Key = Material2dKey<M::Key>;
+impl<M: Material2d> Eq for Material2dKey<M> where M::Data: PartialEq {}
+
+impl<M: Material2d> PartialEq for Material2dKey<M>
+where
+    M::Data: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data
+    }
+}
+
+impl<M: Material2d> Clone for Material2dKey<M>
+where
+    M::Data: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            mesh_key: self.mesh_key,
+            bind_group_data: self.bind_group_data.clone(),
+        }
+    }
+}
+
+impl<M: Material2d> Hash for Material2dKey<M>
+where
+    M::Data: Hash,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.mesh_key.hash(state);
+        self.bind_group_data.hash(state);
+    }
+}
+
+impl<M: Material2d> SpecializedMeshPipeline for Material2dPipeline<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
+    type Key = Material2dKey<M>;
 
     fn specialize(
         &self,
@@ -242,12 +242,12 @@ impl<M: SpecializedMaterial2d> SpecializedMeshPipeline for Material2dPipeline<M>
             self.mesh2d_pipeline.mesh_layout.clone(),
         ]);
 
-        M::specialize(key.material_key, &mut descriptor, layout)?;
+        M::specialize(&mut descriptor, layout, key)?;
         Ok(descriptor)
     }
 }
 
-impl<M: SpecializedMaterial2d> FromWorld for Material2dPipeline<M> {
+impl<M: Material2d> FromWorld for Material2dPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
         let render_device = world.resource::<RenderDevice>();
@@ -256,8 +256,16 @@ impl<M: SpecializedMaterial2d> FromWorld for Material2dPipeline<M> {
         Material2dPipeline {
             mesh2d_pipeline: world.resource::<Mesh2dPipeline>().clone(),
             material2d_layout,
-            vertex_shader: M::vertex_shader(asset_server),
-            fragment_shader: M::fragment_shader(asset_server),
+            vertex_shader: match M::vertex_shader() {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            },
+            fragment_shader: match M::fragment_shader() {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            },
             marker: PhantomData,
         }
     }
@@ -271,11 +279,9 @@ type DrawMaterial2d<M> = (
     DrawMesh2d,
 );
 
-pub struct SetMaterial2dBindGroup<M: SpecializedMaterial2d, const I: usize>(PhantomData<M>);
-impl<M: SpecializedMaterial2d, const I: usize> EntityRenderCommand
-    for SetMaterial2dBindGroup<M, I>
-{
-    type Param = (SRes<RenderAssets<M>>, SQuery<Read<Handle<M>>>);
+pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
+impl<M: Material2d, const I: usize> EntityRenderCommand for SetMaterial2dBindGroup<M, I> {
+    type Param = (SRes<RenderMaterials2d<M>>, SQuery<Read<Handle<M>>>);
     fn render<'w>(
         _view: Entity,
         item: Entity,
@@ -284,32 +290,28 @@ impl<M: SpecializedMaterial2d, const I: usize> EntityRenderCommand
     ) -> RenderCommandResult {
         let material2d_handle = query.get(item).unwrap();
         let material2d = materials.into_inner().get(material2d_handle).unwrap();
-        pass.set_bind_group(
-            I,
-            M::bind_group(material2d),
-            M::dynamic_uniform_indices(material2d),
-        );
+        pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
+pub fn queue_material2d_meshes<M: Material2d>(
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     mut pipeline_cache: ResMut<PipelineCache>,
-    render_device: Res<RenderDevice>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
-    render_materials: Res<RenderAssets<M>>,
+    render_materials: Res<RenderMaterials2d<M>>,
     material2d_meshes: Query<(&Handle<M>, &Mesh2dHandle, &Mesh2dUniform)>,
     mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
-) {
+) where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
     if material2d_meshes.is_empty() {
         return;
     }
-    let render_device = render_device.into_inner();
     for (visible_entities, mut transparent_phase) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions
             .read()
@@ -327,13 +329,12 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
                         let mesh_key = msaa_key
                             | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
-                        let material_key = M::key(render_device, material2d);
                         let pipeline_id = pipelines.specialize(
                             &mut pipeline_cache,
                             &material2d_pipeline,
                             Material2dKey {
                                 mesh_key,
-                                material_key,
+                                bind_group_data: material2d.key.clone(),
                             },
                             &mesh.layout,
                         );
@@ -366,9 +367,151 @@ pub fn queue_material2d_meshes<M: SpecializedMaterial2d>(
     }
 }
 
-/// A component bundle for entities with a [`Mesh2dHandle`] and a [`SpecializedMaterial2d`].
+/// Data prepared for a [`Material2d`] instance.
+pub struct PreparedMaterial2d<T: Material2d> {
+    pub bindings: Vec<OwnedBindingResource>,
+    pub bind_group: BindGroup,
+    pub key: T::Data,
+}
+
+struct ExtractedMaterials2d<M: Material2d> {
+    extracted: Vec<(Handle<M>, M)>,
+    removed: Vec<Handle<M>>,
+}
+
+impl<M: Material2d> Default for ExtractedMaterials2d<M> {
+    fn default() -> Self {
+        Self {
+            extracted: Default::default(),
+            removed: Default::default(),
+        }
+    }
+}
+
+/// Stores all prepared representations of [`Material2d`] assets for as long as they exist.
+pub type RenderMaterials2d<T> = HashMap<Handle<T>, PreparedMaterial2d<T>>;
+
+/// This system extracts all created or modified assets of the corresponding [`Material2d`] type
+/// into the "render world".
+fn extract_materials_2d<M: Material2d>(
+    mut commands: Commands,
+    mut events: Extract<EventReader<AssetEvent<M>>>,
+    assets: Extract<Res<Assets<M>>>,
+) {
+    let mut changed_assets = HashSet::default();
+    let mut removed = Vec::new();
+    for event in events.iter() {
+        match event {
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
+                changed_assets.insert(handle.clone_weak());
+            }
+            AssetEvent::Removed { handle } => {
+                changed_assets.remove(handle);
+                removed.push(handle.clone_weak());
+            }
+        }
+    }
+
+    let mut extracted_assets = Vec::new();
+    for handle in changed_assets.drain() {
+        if let Some(asset) = assets.get(&handle) {
+            extracted_assets.push((handle, asset.clone()));
+        }
+    }
+
+    commands.insert_resource(ExtractedMaterials2d {
+        extracted: extracted_assets,
+        removed,
+    });
+}
+
+/// All [`Material2d`] values of a given type that should be prepared next frame.
+pub struct PrepareNextFrameMaterials<M: Material2d> {
+    assets: Vec<(Handle<M>, M)>,
+}
+
+impl<M: Material2d> Default for PrepareNextFrameMaterials<M> {
+    fn default() -> Self {
+        Self {
+            assets: Default::default(),
+        }
+    }
+}
+
+/// This system prepares all assets of the corresponding [`Material2d`] type
+/// which where extracted this frame for the GPU.
+fn prepare_materials_2d<M: Material2d>(
+    mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
+    mut extracted_assets: ResMut<ExtractedMaterials2d<M>>,
+    mut render_materials: ResMut<RenderMaterials2d<M>>,
+    render_device: Res<RenderDevice>,
+    images: Res<RenderAssets<Image>>,
+    fallback_image: Res<FallbackImage>,
+    pipeline: Res<Material2dPipeline<M>>,
+) {
+    let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    for (handle, material) in queued_assets.drain(..) {
+        match prepare_material2d(
+            &material,
+            &render_device,
+            &images,
+            &fallback_image,
+            &pipeline,
+        ) {
+            Ok(prepared_asset) => {
+                render_materials.insert(handle, prepared_asset);
+            }
+            Err(AsBindGroupError::RetryNextUpdate) => {
+                prepare_next_frame.assets.push((handle, material));
+            }
+        }
+    }
+
+    for removed in std::mem::take(&mut extracted_assets.removed) {
+        render_materials.remove(&removed);
+    }
+
+    for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
+        match prepare_material2d(
+            &material,
+            &render_device,
+            &images,
+            &fallback_image,
+            &pipeline,
+        ) {
+            Ok(prepared_asset) => {
+                render_materials.insert(handle, prepared_asset);
+            }
+            Err(AsBindGroupError::RetryNextUpdate) => {
+                prepare_next_frame.assets.push((handle, material));
+            }
+        }
+    }
+}
+
+fn prepare_material2d<M: Material2d>(
+    material: &M,
+    render_device: &RenderDevice,
+    images: &RenderAssets<Image>,
+    fallback_image: &FallbackImage,
+    pipeline: &Material2dPipeline<M>,
+) -> Result<PreparedMaterial2d<M>, AsBindGroupError> {
+    let prepared = material.as_bind_group(
+        &pipeline.material2d_layout,
+        render_device,
+        images,
+        fallback_image,
+    )?;
+    Ok(PreparedMaterial2d {
+        bindings: prepared.bindings,
+        bind_group: prepared.bind_group,
+        key: prepared.data,
+    })
+}
+
+/// A component bundle for entities with a [`Mesh2dHandle`] and a [`Material2d`].
 #[derive(Bundle, Clone)]
-pub struct MaterialMesh2dBundle<M: SpecializedMaterial2d> {
+pub struct MaterialMesh2dBundle<M: Material2d> {
     pub mesh: Mesh2dHandle,
     pub material: Handle<M>,
     pub transform: Transform,
@@ -379,7 +522,7 @@ pub struct MaterialMesh2dBundle<M: SpecializedMaterial2d> {
     pub computed_visibility: ComputedVisibility,
 }
 
-impl<M: SpecializedMaterial2d> Default for MaterialMesh2dBundle<M> {
+impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
     fn default() -> Self {
         Self {
             mesh: Default::default(),
