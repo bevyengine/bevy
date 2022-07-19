@@ -202,6 +202,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         visibility,
                     } = get_texture_attrs(nested_meta_items)?;
 
+                    let visibility =
+                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::TextureView({
                             let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
@@ -216,7 +219,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_layouts.push(quote! {
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::#visibility,
+                            visibility: #visibility,
                             ty: #render_path::render_resource::BindingType::Texture {
                                 multisampled: #multisampled,
                                 sample_type: #render_path::render_resource::#sample_type,
@@ -232,6 +235,9 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         visibility,
                     } = get_sampler_attrs(nested_meta_items)?;
 
+                    let visibility =
+                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+
                     binding_impls.push(quote! {
                         #render_path::render_resource::OwnedBindingResource::Sampler({
                             let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
@@ -246,7 +252,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_layouts.push(quote!{
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
-                            visibility: #render_path::render_resource::#visibility,
+                            visibility: #visibility,
                             ty: #render_path::render_resource::BindingType::Sampler(#render_path::render_resource::#sampler_binding_type),
                             count: None,
                         }
@@ -491,68 +497,84 @@ struct VisibilityFlags {
     compute: bool,
 }
 
-impl ToTokens for ShaderStageVisibility {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        tokens.extend(match self {
-            ShaderStageVisibility::All => quote! { ShaderStages::all() },
-            ShaderStageVisibility::None => quote! { ShaderStages::NONE },
+impl ShaderStageVisibility {
+    fn vertex_fragment() -> Self {
+        Self::Flags(VisibilityFlags::vertex_fragment())
+    }
+}
+
+impl VisibilityFlags {
+    fn vertex_fragment() -> Self {
+        Self {
+            vertex: true,
+            fragment: true,
+            ..Default::default()
+        }
+    }
+}
+
+impl ShaderStageVisibility {
+    fn hygenic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+        match self {
+            ShaderStageVisibility::All => quote! { #path::ShaderStages::all() },
+            ShaderStageVisibility::None => quote! { #path::ShaderStages::NONE },
             ShaderStageVisibility::Flags(flags) => {
                 let mut quoted = Vec::new();
 
                 if flags.vertex {
-                    quoted.push(quote! { ShaderStages::VERTEX });
+                    quoted.push(quote! { #path::ShaderStages::VERTEX });
                 }
                 if flags.fragment {
-                    quoted.push(quote! { ShaderStages::FRAGMENT });
+                    quoted.push(quote! { #path::ShaderStages::FRAGMENT });
                 }
                 if flags.compute {
-                    quoted.push(quote! { ShaderStages::COMPUTE });
+                    quoted.push(quote! { #path::ShaderStages::COMPUTE });
                 }
 
                 quote! { #(#quoted)|* }
             }
-        });
+        }
     }
 }
 
 const VISIBILITY: Symbol = Symbol("visibility");
-const VISIBILITY_VERTEX: Symbol = Symbol("VERTEX");
-const VISIBILITY_FRAGMENT: Symbol = Symbol("FRAGMENT");
-const VISIBILITY_COMPUTE: Symbol = Symbol("COMPUTE");
-const VISIBILITY_ALL: Symbol = Symbol("ALL");
-const VISIBILITY_NONE: Symbol = Symbol("NONE");
+const VISIBILITY_VERTEX: Symbol = Symbol("vertex");
+const VISIBILITY_FRAGMENT: Symbol = Symbol("fragment");
+const VISIBILITY_COMPUTE: Symbol = Symbol("compute");
+const VISIBILITY_ALL: Symbol = Symbol("all");
+const VISIBILITY_NONE: Symbol = Symbol("none");
 
 fn get_visibility_flag_value(
     nested_metas: &Punctuated<NestedMeta, Token![,]>,
 ) -> Result<ShaderStageVisibility> {
-    let mut visibility = VisibilityFlags::default();
+    let mut visibility = VisibilityFlags::vertex_fragment();
 
     for meta in nested_metas {
         use syn::{Meta::Path, NestedMeta::Meta};
         match meta {
-            // Parse `visibility(ALL)]`.
+            // Parse `visibility(all)]`.
             Meta(Path(path)) if path == VISIBILITY_ALL => {
                 return Ok(ShaderStageVisibility::All)
             }
-            // Parse `visibility(NONE)]`.
+            // Parse `visibility(none)]`.
             Meta(Path(path)) if path == VISIBILITY_NONE => {
                 return Ok(ShaderStageVisibility::None)
             }
-            // Parse `visibility(VERTEX, ...)]`.
+            // Parse `visibility(vertex, ...)]`.
             Meta(Path(path)) if path == VISIBILITY_VERTEX => {
                 visibility.vertex = true;
             }
-            // Parse `visibility(FRAGMENT, ...)]`.
+            // Parse `visibility(fragment, ...)]`.
             Meta(Path(path)) if path == VISIBILITY_FRAGMENT => {
                 visibility.fragment = true;
             }
-            // Parse `visibility(COMPUTE, ...)]`.
+            // Parse `visibility(compute, ...)]`.
             Meta(Path(path)) if path == VISIBILITY_COMPUTE => {
                 visibility.compute = true;
             }
             Meta(Path(path)) => return Err(Error::new_spanned(
                 path,
-                "Not a valid visibility flag. Must be `ALL`, `NONE`, `VERTEX`, `FRAGMENT` or `COMPUTE`."
+                "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
             )),
             _ => return Err(Error::new_spanned(
                 meta,
@@ -658,7 +680,7 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
     let mut filterable = None;
     let mut filterable_ident = None;
 
-    let mut visibility = Default::default();
+    let mut visibility = ShaderStageVisibility::vertex_fragment();
 
     for meta in metas {
         use syn::{
@@ -791,7 +813,7 @@ const COMPARISON: &str = "comparison";
 
 fn get_sampler_attrs(metas: Vec<NestedMeta>) -> Result<SamplerAttrs> {
     let mut sampler_binding_type = Default::default();
-    let mut visibility = Default::default();
+    let mut visibility = ShaderStageVisibility::vertex_fragment();
 
     for meta in metas {
         use syn::{
