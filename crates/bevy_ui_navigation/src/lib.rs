@@ -1,5 +1,4 @@
 mod commands;
-pub mod event_helpers;
 pub mod events;
 mod named;
 mod resolve;
