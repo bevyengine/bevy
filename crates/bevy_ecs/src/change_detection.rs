@@ -28,6 +28,11 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// Normally change detecting is triggered by either [`DerefMut`] or [`AsMut`], however
 /// it can be manually triggered via [`DetectChanges::set_changed`].
 ///
+/// To ensure that changes are only flagged when the value actually differs,
+/// check if the value is equal before assignment.
+/// The [`set_if_differs`](DetectChanges::set_if_differs) method
+/// provides a helper method for this common functionality.
+///
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
@@ -65,6 +70,22 @@ pub trait DetectChanges {
     /// [`SystemChangeTick`](crate::system::SystemChangeTick)
     /// [`SystemParam`](crate::system::SystemParam).
     fn last_changed(&self) -> u32;
+
+    /// Sets `self` to `value`, if and only if `*self != *value`
+    ///
+    /// This is useful to avoid accidentally triggering change detection when no change is made,
+    /// as changes are usually deemed to be made when [`DerefMut`] is used.
+    #[inline]
+    fn set_if_differs(&mut self, value: Self)
+    where
+        Self: Sized + PartialEq,
+    {
+        // This uses Deref, not DerefMut as we do not need to mutate the value
+        if *self != value {
+            // This uses DerefMut, triggering change detection
+            *self = value;
+        }
+    }
 }
 
 macro_rules! change_detection_impl {
