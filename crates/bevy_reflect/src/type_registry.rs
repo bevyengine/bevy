@@ -523,7 +523,7 @@ mod test {
             let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr_mut(value) };
             match dyn_reflect.reflect_mut() {
                 bevy_reflect::ReflectMut::Struct(strukt) => {
-                    strukt.field_mut("a").unwrap().apply(&2.0f32)
+                    strukt.field_mut("a").unwrap().apply(&2.0f32);
                 }
                 _ => panic!("invalid reflection"),
             }
