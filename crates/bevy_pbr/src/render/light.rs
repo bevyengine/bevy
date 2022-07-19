@@ -22,9 +22,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{
-    Affine3A, Mat4, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles,
-};
+use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -747,21 +745,27 @@ pub fn calculate_cluster_factors(
 // we will also construct it in the fragment shader and need our implementations to match,
 // so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
 // could move this onto transform but it's pretty niche
-pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Affine3A {
+pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
-    let fwd_dir = Vec3A::from(transform.back());
+    let fwd_dir = transform.back().extend(0.0);
 
     let sign = 1f32.copysign(fwd_dir.z);
     let a = -1.0 / (fwd_dir.z + sign);
     let b = fwd_dir.x * fwd_dir.y * a;
-    let up_dir = Vec3A::new(
+    let up_dir = Vec4::new(
         1.0 + sign * fwd_dir.x * fwd_dir.x * a,
         sign * b,
         -sign * fwd_dir.x,
+        0.0,
     );
-    let right_dir = Vec3A::new(-b, -sign - fwd_dir.y * fwd_dir.y * a, fwd_dir.y);
+    let right_dir = Vec4::new(-b, -sign - fwd_dir.y * fwd_dir.y * a, fwd_dir.y, 0.0);
 
-    Affine3A::from_cols(right_dir, up_dir, fwd_dir, transform.affine().translation)
+    Mat4::from_cols(
+        right_dir,
+        up_dir,
+        fwd_dir,
+        transform.translation().extend(1.0),
+    )
 }
 
 pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
@@ -796,8 +800,8 @@ pub fn prepare_lights(
         Mat4::perspective_infinite_reverse_lh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
-        // NOTE: Inverse here as the Affine3A::look_at_* seem to produce inverse matrices
-        .map(|CubeMapFace { target, up }| Affine3A::look_at_lh(Vec3::ZERO, *target, *up).inverse())
+        // NOTE: Inverse here as the Mat4::look_at_* seem to produce inverse matrices
+        .map(|CubeMapFace { target, up }| Mat4::look_at_lh(Vec3::ZERO, *target, *up).inverse())
         .collect::<Vec<_>>();
 
     global_light_meta.entity_to_index.clear();
