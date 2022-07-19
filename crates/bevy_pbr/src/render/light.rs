@@ -14,7 +14,7 @@ use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
     PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLight, VisiblePointLights,
-    DIRECTIONAL_LIGHT_SHADOW_SHADER_HANDLE, POINT_LIGHT_SHADOW_SHADER_HANDLE,
+    DEPTH_SHADER_HANDLE, DEPTH_CUBEMAP_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
@@ -352,9 +352,9 @@ impl SpecializedMeshPipeline for ShadowPipeline {
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: if key.contains(ShadowPipelineKey::POINT_LIGHT) {
-                    POINT_LIGHT_SHADOW_SHADER_HANDLE.typed::<Shader>()
+                    DEPTH_CUBEMAP_SHADER_HANDLE.typed::<Shader>()
                 } else {
-                    DIRECTIONAL_LIGHT_SHADOW_SHADER_HANDLE.typed::<Shader>()
+                    DEPTH_SHADER_HANDLE.typed::<Shader>()
                 },
                 entry_point: "vertex".into(),
                 shader_defs,
