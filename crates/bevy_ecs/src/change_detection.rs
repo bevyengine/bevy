@@ -28,12 +28,12 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// Normally change detecting is triggered by either [`DerefMut`] or [`AsMut`], however
 /// it can be manually triggered via [`DetectChanges::set_changed`].
 ///
-/// To ensure that changes are only flagged when the value actually differs,
-/// check if the value is equal before assignment.
+/// To ensure that changes are only triggered when the value actually differs,
+/// check if the value would change before assignment, such as by checking that `new != old`.
 /// You must be *sure* that you are not mutably derefencing in this process.
 ///
-/// The [`set_if_differs`](DetectChanges::set_if_differs) method
-/// provides a helper method for this common functionality.
+/// [`set_if_differs`](DetectChanges::set_if_differs) is a helper
+/// method for this common functionality.
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
@@ -77,8 +77,8 @@ pub trait DetectChanges {
     ///
     /// `T` is the type stored within the smart pointer (e.g. [`Mut`] or [`ResMut`]).
     ///
-    /// This is useful to avoid accidentally triggering change detection when no change is made,
-    /// as changes are usually deemed to be made when [`DerefMut`] is used.
+    /// This is useful to ensure change detection is only triggered when the underlying value 
+    /// changes, instead of every time [`DerefMut`] is used.
     #[inline]
     fn set_if_differs<T>(&mut self, value: T)
     where
