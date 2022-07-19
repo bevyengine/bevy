@@ -947,6 +947,21 @@ mod tests {
         {
             let mut world = World::new();
 
+            fn mutable_query(mut query: Query<Option<&mut A>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<Option<&A>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
             fn mutable_query(mut query: Query<(&mut A, &B)>) {
                 for _ in &mut query {}
 
@@ -984,6 +999,21 @@ mod tests {
             }
 
             fn immutable_query(_: Query<(&A, &B), With<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Without<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Without<C>>) {}
 
             let mut sys = IntoSystem::into_system(mutable_query);
             sys.initialize(&mut world);
