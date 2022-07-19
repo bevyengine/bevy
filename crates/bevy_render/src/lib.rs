@@ -249,7 +249,7 @@ impl Plugin for RenderPlugin {
                     // prepare
                     let prepare = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Prepare)
+                        .get_stage_mut::<SystemStage>(RenderStage::Prepare.as_label())
                         .unwrap();
                     prepare.run(&mut render_app.world);
                 }
@@ -262,7 +262,7 @@ impl Plugin for RenderPlugin {
                     // queue
                     let queue = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Queue)
+                        .get_stage_mut::<SystemStage>(RenderStage::Queue.as_label())
                         .unwrap();
                     queue.run(&mut render_app.world);
                 }
@@ -275,7 +275,7 @@ impl Plugin for RenderPlugin {
                     // phase sort
                     let phase_sort = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::PhaseSort)
+                        .get_stage_mut::<SystemStage>(RenderStage::PhaseSort.as_label())
                         .unwrap();
                     phase_sort.run(&mut render_app.world);
                 }
@@ -288,7 +288,7 @@ impl Plugin for RenderPlugin {
                     // render
                     let render = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Render)
+                        .get_stage_mut::<SystemStage>(RenderStage::Render.as_label())
                         .unwrap();
                     render.run(&mut render_app.world);
                 }
@@ -301,7 +301,7 @@ impl Plugin for RenderPlugin {
                     // cleanup
                     let cleanup = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
+                        .get_stage_mut::<SystemStage>(RenderStage::Cleanup.as_label())
                         .unwrap();
                     cleanup.run(&mut render_app.world);
                 }
@@ -335,7 +335,7 @@ struct ScratchMainWorld(World);
 fn extract(app_world: &mut World, render_app: &mut App) {
     let extract = render_app
         .schedule
-        .get_stage_mut::<SystemStage>(&RenderStage::Extract)
+        .get_stage_mut::<SystemStage>(RenderStage::Extract.as_label())
         .unwrap();
 
     // temporarily add the app world to the render world as a resource

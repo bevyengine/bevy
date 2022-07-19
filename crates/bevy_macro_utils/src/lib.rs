@@ -141,7 +141,7 @@ pub fn derive_label(
         .predicates
         .push(syn::parse2(quote! { Self: 'static }).unwrap());
 
-    let (data, as_str) = match input.data {
+    let (data, fmt) = match input.data {
         syn::Data::Struct(d) => {
             // see if the user tried to ignore fields incorrectly
             if let Some(attr) = d
@@ -161,7 +161,7 @@ pub fn derive_label(
             if matches!(d.fields, syn::Fields::Unit) || ignore_fields {
                 let lit = ident.to_string();
                 let data = quote! { 0 };
-                let as_str = quote! { #lit };
+                let as_str = quote! { write!(f, #lit) };
                 (data, as_str)
             } else {
                 let err_msg = format!("Labels cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
@@ -182,7 +182,7 @@ pub fn derive_label(
             }
 
             let mut data_arms = Vec::with_capacity(d.variants.len());
-            let mut str_arms = Vec::with_capacity(d.variants.len());
+            let mut fmt_arms = Vec::with_capacity(d.variants.len());
 
             for (i, v) in d.variants.iter().enumerate() {
                 // Variants must either be fieldless, or explicitly ignore the fields.
@@ -195,7 +195,7 @@ pub fn derive_label(
                     data_arms.push(quote! { #path { .. } => #i });
 
                     let lit = format!("{ident}::{}", v.ident.clone());
-                    str_arms.push(quote! { #path { .. } => #lit });
+                    fmt_arms.push(quote! { #i => { write!(f, #lit) } });
                 } else {
                     let err_msg = format!("Label variants cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
                     return quote_spanned! {
@@ -210,12 +210,13 @@ pub fn derive_label(
                     #(#data_arms),*
                 }
             };
-            let as_str = quote! {
-                match self {
-                    #(#str_arms),*
+            let fmt = quote! {
+                match data {
+                    #(#fmt_arms),*
+                    _ => ::std::unreachable!(),
                 }
             };
-            (data, as_str)
+            (data, fmt)
         }
         syn::Data::Union(_) => {
             return quote_spanned! {
@@ -227,11 +228,12 @@ pub fn derive_label(
 
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
+            #[inline]
             fn data(&self) -> u64 {
                 #data
             }
-            fn as_str(&self) -> &'static str {
-                #as_str
+            fn fmt(data: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                #fmt
             }
         }
     })

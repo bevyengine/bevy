@@ -12,7 +12,11 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+use std::{
+    borrow::Cow,
+    fmt::{self, Debug},
+    marker::PhantomData,
+};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -455,17 +459,16 @@ pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
 
 impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
     #[inline]
-    fn as_str(&self) -> &'static str {
-        std::any::type_name::<T>()
-    }
-    #[inline]
     fn data(&self) -> u64 {
         0
+    }
+    fn fmt(_: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<T>())
     }
 }
 
 impl<T> Debug for SystemTypeIdLabel<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("SystemTypeIdLabel")
             .field(&std::any::type_name::<T>())
             .finish()

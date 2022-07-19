@@ -952,7 +952,7 @@ impl App {
     pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_label()),
         }
     }
 
@@ -974,7 +974,7 @@ impl App {
     pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_label()),
         }
     }
 

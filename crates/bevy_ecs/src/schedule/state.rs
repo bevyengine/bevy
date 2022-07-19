@@ -6,9 +6,9 @@ use crate::{
     system::{In, IntoChainSystem, Local, Res, ResMut, Resource},
 };
 use std::{
-    any::TypeId,
     fmt::{self, Debug},
     hash::Hash,
+    marker::PhantomData,
 };
 // Required for derive macros
 use crate as bevy_ecs;
@@ -54,24 +54,23 @@ enum ScheduledOperation<T: StateData> {
     Push(T),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-struct DriverLabel(TypeId, &'static str);
-impl RunCriteriaLabel for DriverLabel {
-    fn type_id(&self) -> core::any::TypeId {
-        self.0
+struct DriverLabel<T: StateData>(PhantomData<fn() -> T>);
+impl<T: StateData> RunCriteriaLabel for DriverLabel<T> {
+    #[inline]
+    fn type_id(&self) -> std::any::TypeId {
+        std::any::TypeId::of::<T>()
     }
+    #[inline]
     fn data(&self) -> u64 {
         0
     }
-    fn as_str(&self) -> &'static str {
-        self.1
+    fn fmt(data: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<T>())
     }
 }
 
-impl DriverLabel {
-    fn of<T: 'static>() -> Self {
-        Self(TypeId::of::<T>(), std::any::type_name::<T>())
-    }
+fn driver_label<T: StateData>() -> DriverLabel<T> {
+    DriverLabel(PhantomData)
 }
 
 impl<T> State<T>
@@ -83,7 +82,7 @@ where
             state.stack.last().unwrap() == &pred && state.transition.is_none()
         })
         .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
+        .after(driver_label::<T>())
     }
 
     pub fn on_inactive_update(pred: T) -> RunCriteriaDescriptor {
@@ -99,7 +98,7 @@ where
             None => *is_inactive,
         })
         .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
+        .after(driver_label::<T>())
     }
 
     pub fn on_in_stack_update(pred: T) -> RunCriteriaDescriptor {
@@ -122,7 +121,7 @@ where
             None => *is_in_stack,
         })
         .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
+        .after(driver_label::<T>())
     }
 
     pub fn on_enter(pred: T) -> RunCriteriaDescriptor {
@@ -137,7 +136,7 @@ where
                 })
         })
         .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
+        .after(driver_label::<T>())
     }
 
     pub fn on_exit(pred: T) -> RunCriteriaDescriptor {
@@ -152,7 +151,7 @@ where
                 })
         })
         .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
+        .after(driver_label::<T>())
     }
 
     pub fn on_pause(pred: T) -> RunCriteriaDescriptor {
@@ -166,7 +165,7 @@ where
                 })
         })
         .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
+        .after(driver_label::<T>())
     }
 
     pub fn on_resume(pred: T) -> RunCriteriaDescriptor {
@@ -180,7 +179,7 @@ where
                 })
         })
         .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
+        .after(driver_label::<T>())
     }
 
     pub fn on_update_set(s: T) -> SystemSet {
@@ -212,7 +211,7 @@ where
     /// Important note: this set must be inserted **before** all other state-dependant sets to work
     /// properly!
     pub fn get_driver() -> SystemSet {
-        SystemSet::default().with_run_criteria(state_cleaner::<T>.label(DriverLabel::of::<T>()))
+        SystemSet::default().with_run_criteria(state_cleaner::<T>.label(driver_label::<T>()))
     }
 
     pub fn new(initial: T) -> Self {

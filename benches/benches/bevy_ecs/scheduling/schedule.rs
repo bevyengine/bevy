@@ -64,17 +64,17 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // Use multiple different kinds of label to ensure that dynamic dispatch
     // doesn't somehow get optimized away.
     #[derive(Debug, Clone, Copy)]
-    struct NumLabel(usize);
+    struct NumLabel(u64);
     #[derive(Debug, Clone, Copy, SystemLabel)]
     struct DummyLabel;
 
     impl SystemLabel for NumLabel {
+        #[inline]
         fn data(&self) -> u64 {
-            self.0 as u64
+            self.0
         }
-        fn as_str(&self) -> &'static str {
-            let s = self.0.to_string();
-            Box::leak(s.into_boxed_str())
+        fn fmt(data: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.debug_tuple("NumLabel").field(&data).finish()
         }
     }
 

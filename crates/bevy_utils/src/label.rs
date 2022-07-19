@@ -71,48 +71,59 @@ macro_rules! define_label {
     ) => {
         $(#[$id_attr])*
         #[derive(Clone, Copy)]
-        pub struct $id_name(::core::any::TypeId, u64, &'static str);
+        pub struct $id_name {
+            ty: ::std::any::TypeId,
+            data: u64,
+            f: fn(u64, &mut ::std::fmt::Formatter) -> ::std::fmt::Result,
+        }
 
-        impl ::core::fmt::Debug for $id_name {
-            fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
-                write!(f, "{}", self.as_str())
+        impl ::std::fmt::Debug for $id_name {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                let data = self.data();
+                (self.f)(data, f)
             }
         }
 
         $(#[$label_attr])*
         pub trait $label_name: 'static {
             /// Converts this type into an opaque, strongly-typed label.
+            #[inline]
             fn as_label(&self) -> $id_name {
                 let ty = self.type_id();
                 let data = self.data();
-                let text = self.as_str();
-                $id_name(ty, data, text)
+                $id_name { ty, data, f: Self::fmt }
             }
             /// Returns the [`TypeId`] used to differentiate labels.
-            fn type_id(&self) -> ::core::any::TypeId {
-                ::core::any::TypeId::of::<Self>()
+            #[inline]
+            fn type_id(&self) -> ::std::any::TypeId {
+                ::std::any::TypeId::of::<Self>()
             }
             /// Returns a number used to distinguish different labels of the same type.
             fn data(&self) -> u64;
-            /// Returns the representation of this label as a string literal.
+            /// Writes debug info for a label of the current type.
+            /// * `data`: the result of calling [`data()`](#method.data) on an instance of this type.
             ///
-            /// In cases where you absolutely need a label to be determined at runtime,
-            /// you can use [`Box::leak`] to get a `'static` reference.
-            fn as_str(&self) -> &'static str;
+            /// You should not call this method directly, as it may panic for some types;
+            /// use [`as_label`](#method.as_label) instead.
+            fn fmt(data: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result;
         }
 
         impl $label_name for $id_name {
+            #[inline]
             fn as_label(&self) -> Self {
                 *self
             }
-            fn type_id(&self) -> ::core::any::TypeId {
-                self.0
+            #[inline]
+            fn type_id(&self) -> ::std::any::TypeId {
+                self.ty
             }
+            #[inline]
             fn data(&self) -> u64 {
-                self.1
+                self.data
             }
-            fn as_str(&self) -> &'static str {
-                self.2
+            #[track_caller]
+            fn fmt(data: u64, f: &mut ::std::fmt::Formatter) -> std::fmt::Result {
+                ::std::unimplemented!("do not call `Label::fmt` directly -- use the result of `as_label()` for formatting instead")
             }
         }
 
