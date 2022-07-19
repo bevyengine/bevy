@@ -214,16 +214,16 @@ pub enum Direction {
     RightToLeft,
 }
 
-/// Whether to use a flexbox layout strategy
+/// Whether to use a Flexbox layout model.
 ///
 /// Part of the [`Style`] component.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Display {
-    /// Use flexbox layout to determine the position of this [`Node`]
+    /// Use Flexbox layout model to determine the position of this [`Node`].
     #[default]
     Flex,
-    /// Use no layout, don't render this node and its children
+    /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
     /// but keep its layout in place, set its [`Visibility`](bevy_render::view::Visibility) component instead.

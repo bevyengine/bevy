@@ -29,7 +29,7 @@ use smallvec::SmallVec;
 /// and do not end up stuck in an active state if hidden at the wrong time.
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
-/// which fully collapses the layout.
+/// which fully collapses it during layout calculations.
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
