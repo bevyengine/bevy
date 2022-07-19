@@ -32,7 +32,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// check if the value would change before assignment, such as by checking that `new != old`.
 /// You must be *sure* that you are not mutably derefencing in this process.
 ///
-/// [`set_if_differs`](DetectChanges::set_if_differs) is a helper
+/// [`set_if_neq`](DetectChanges::set_if_neq) is a helper
 /// method for this common functionality.
 ///
 /// ```
@@ -80,7 +80,7 @@ pub trait DetectChanges {
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time [`DerefMut`] is used.
     #[inline]
-    fn set_if_differs<T>(&mut self, value: T)
+    fn set_if_neq<T>(&mut self, value: T)
     where
         Self: Deref<Target = T> + DerefMut<Target = T>,
         T: PartialEq,
@@ -414,7 +414,7 @@ mod tests {
     }
 
     #[test]
-    fn set_if_differs() {
+    fn set_if_neq() {
         let mut world = World::new();
 
         world.insert_resource(R(0));
@@ -426,13 +426,13 @@ mod tests {
         let mut r = world.resource_mut::<R>();
         assert!(!r.is_changed(), "Resource must begin unchanged.");
 
-        r.set_if_differs(R(0));
+        r.set_if_neq(R(0));
         assert!(
             !r.is_changed(),
             "Resource must not be changed after setting to the same value."
         );
 
-        r.set_if_differs(R(3));
+        r.set_if_neq(R(3));
         assert!(
             r.is_changed(),
             "Resource must be changed after setting to a different value."
