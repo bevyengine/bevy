@@ -16,4 +16,4 @@ bevy_input = { path = "../bevy_input", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 
 # other
-gilrs = { version = "0.8.0", features = ["wasm-bindgen"] }
+gilrs = "0.9.0"

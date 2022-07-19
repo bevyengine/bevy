@@ -1,9 +1,12 @@
+use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    serde::Serializable, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectMut, ReflectRef, TypeRegistration,
+    DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
+    ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 use serde::Deserialize;
-use std::any::Any;
+use std::any::{Any, TypeId};
+use std::fmt::{Debug, Formatter};
+use std::slice::Iter;
 
 /// A reflected Rust tuple.
 ///
@@ -123,6 +126,62 @@ impl GetTupleField for dyn Tuple {
     }
 }
 
+/// A container for compile-time tuple info.
+#[derive(Clone, Debug)]
+pub struct TupleInfo {
+    type_name: &'static str,
+    type_id: TypeId,
+    fields: Box<[UnnamedField]>,
+}
+
+impl TupleInfo {
+    /// Create a new [`TupleInfo`].
+    ///
+    /// # Arguments
+    ///
+    /// * `fields`: The fields of this tuple in the order they are defined
+    ///
+    pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
+        Self {
+            type_name: std::any::type_name::<T>(),
+            type_id: TypeId::of::<T>(),
+            fields: fields.to_vec().into_boxed_slice(),
+        }
+    }
+
+    /// Get the field at the given index.
+    pub fn field_at(&self, index: usize) -> Option<&UnnamedField> {
+        self.fields.get(index)
+    }
+
+    /// Iterate over the fields of this tuple.
+    pub fn iter(&self) -> Iter<'_, UnnamedField> {
+        self.fields.iter()
+    }
+
+    /// The total number of fields in this tuple.
+    pub fn field_len(&self) -> usize {
+        self.fields.len()
+    }
+
+    /// The [type name] of the tuple.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
+    }
+
+    /// The [`TypeId`] of the tuple.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the tuple type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+}
+
 /// A tuple which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicTuple {
@@ -208,20 +267,29 @@ impl Tuple for DynamicTuple {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicTuple {
+impl Reflect for DynamicTuple {
     #[inline]
     fn type_name(&self) -> &str {
         self.name()
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -259,16 +327,21 @@ unsafe impl Reflect for DynamicTuple {
         Ok(())
     }
 
-    fn reflect_hash(&self) -> Option<u64> {
-        None
-    }
-
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_partial_eq(self, value)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicTuple(")?;
+        tuple_debug(self, f)?;
+        write!(f, ")")
+    }
+}
+
+impl Typed for DynamicTuple {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 
@@ -296,6 +369,8 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 /// - `b` is a tuple;
 /// - `b` has the same number of elements as `a`;
 /// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     let b = if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
@@ -309,13 +384,39 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     }
 
     for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        match a_field.reflect_partial_eq(b_field) {
-            Some(false) | None => return Some(false),
-            Some(true) => {}
+        let eq_result = a_field.reflect_partial_eq(b_field);
+        if let failed @ (Some(false) | None) = eq_result {
+            return failed;
         }
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`Tuple`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+///
+/// let my_tuple: &dyn Reflect = &(1, 2, 3);
+/// println!("{:#?}", my_tuple);
+///
+/// // Output:
+///
+/// // (
+/// //   1,
+/// //   2,
+/// //   3,
+/// // )
+/// ```
+#[inline]
+pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_tuple("");
+    for field in dyn_tuple.iter_fields() {
+        debug.field(&field as &dyn Debug);
+    }
+    debug.finish()
 }
 
 macro_rules! impl_reflect_tuple {
@@ -365,17 +466,24 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        // SAFE: any and any_mut both return self
-        unsafe impl<$($name: Reflect),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect),*> Reflect for ($($name,)*) {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
             }
 
-            fn any(&self) -> &dyn Any {
+            fn get_type_info(&self) -> &'static TypeInfo {
+                <Self as Typed>::type_info()
+            }
+
+            fn into_any(self: Box<Self>) -> Box<dyn Any> {
                 self
             }
 
-            fn any_mut(&mut self) -> &mut dyn Any {
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+
+            fn as_any_mut(&mut self) -> &mut dyn Any {
                 self
             }
 
@@ -408,20 +516,25 @@ macro_rules! impl_reflect_tuple {
                 Box::new(self.clone_dynamic())
             }
 
-            fn reflect_hash(&self) -> Option<u64> {
-                None
-            }
-
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
                 crate::tuple_partial_eq(self, value)
             }
+        }
 
-            fn serializable(&self) -> Option<Serializable> {
-                None
+        impl <$($name: Reflect),*> Typed for ($($name,)*) {
+            fn type_info() -> &'static TypeInfo {
+                static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    let fields = [
+                        $(UnnamedField::new::<$name>($index),)*
+                    ];
+                    let info = TupleInfo::new::<Self>(&fields);
+                    TypeInfo::Tuple(info)
+                })
             }
         }
 
-        impl<$($name: Reflect + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + Typed + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<($($name,)*)>();
                 registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());

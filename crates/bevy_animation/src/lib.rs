@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_core::{Name, Time};
+use bevy_core::Name;
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -15,9 +15,10 @@ use bevy_ecs::{
     schedule::ParallelSystemDescriptorCoercion,
     system::{Query, Res},
 };
-use bevy_hierarchy::{Children, HierarchySystem};
+use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
 
@@ -182,7 +183,7 @@ pub fn animation_player(
     mut transforms: Query<&mut Transform>,
     children: Query<&Children>,
 ) {
-    for (entity, mut player) in animation_players.iter_mut() {
+    for (entity, mut player) in &mut animation_players {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
@@ -229,7 +230,7 @@ pub fn animation_player(
                             match &curve.keyframes {
                                 Keyframes::Rotation(keyframes) => transform.rotation = keyframes[0],
                                 Keyframes::Translation(keyframes) => {
-                                    transform.translation = keyframes[0]
+                                    transform.translation = keyframes[0];
                                 }
                                 Keyframes::Scale(keyframes) => transform.scale = keyframes[0],
                             }
@@ -261,8 +262,8 @@ pub fn animation_player(
                                     rot_end = -rot_end;
                                 }
                                 // Rotations are using a spherical linear interpolation
-                                transform.rotation = Quat::from_array(rot_start.normalize().into())
-                                    .slerp(Quat::from_array(rot_end.normalize().into()), lerp);
+                                transform.rotation =
+                                    rot_start.normalize().slerp(rot_end.normalize(), lerp);
                             }
                             Keyframes::Translation(keyframes) => {
                                 let translation_start = keyframes[step_start];
@@ -294,9 +295,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                animation_player
-                    .before(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
+                animation_player.before(TransformSystem::TransformPropagate),
             );
     }
 }

@@ -43,17 +43,15 @@ where
     Source: Asset + Decodable,
 {
     fn play_source(&self, audio_source: &Source, repeat: bool) -> Option<Sink> {
-        if let Some(stream_handle) = &self.stream_handle {
+        self.stream_handle.as_ref().map(|stream_handle| {
             let sink = Sink::try_new(stream_handle).unwrap();
             if repeat {
                 sink.append(audio_source.decoder().repeat_infinite());
             } else {
                 sink.append(audio_source.decoder());
             }
-            Some(sink)
-        } else {
-            None
-        }
+            sink
+        })
     }
 
     fn try_play_queued(

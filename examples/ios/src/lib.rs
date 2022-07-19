@@ -9,18 +9,18 @@ fn main() {
             mode: WindowMode::BorderlessFullscreen,
             ..default()
         })
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
         .add_startup_system(setup_music)
         .add_system(touch_camera)
+        .add_system(button_handler)
         .run();
 }
 
 fn touch_camera(
     windows: ResMut<Windows>,
     mut touches: EventReader<TouchInput>,
-    mut camera: Query<&mut Transform, With<Camera>>,
+    mut camera: Query<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
 ) {
     for touch in touches.iter() {
@@ -48,6 +48,7 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // plane
     commands.spawn_bundle(PbrBundle {
@@ -83,10 +84,69 @@ fn setup_scene(
         ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+
+    // Test ui
+    commands.spawn_bundle(Camera2dBundle::default());
+    commands
+        .spawn_bundle(ButtonBundle {
+            style: Style {
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    left: Val::Px(50.0),
+                    right: Val::Px(50.0),
+                    top: Val::Auto,
+                    bottom: Val::Px(50.0),
+                },
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|b| {
+            b.spawn_bundle(TextBundle {
+                text: Text {
+                    sections: vec![TextSection {
+                        value: "Test Button".to_string(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 30.0,
+                            color: Color::BLACK,
+                        },
+                    }],
+                    alignment: TextAlignment {
+                        vertical: VerticalAlign::Center,
+                        horizontal: HorizontalAlign::Center,
+                    },
+                },
+                ..default()
+            });
+        });
+}
+
+fn button_handler(
+    mut interaction_query: Query<
+        (&Interaction, &mut UiColor),
+        (Changed<Interaction>, With<Button>),
+    >,
+) {
+    for (interaction, mut color) in &mut interaction_query {
+        match *interaction {
+            Interaction::Clicked => {
+                *color = Color::BLUE.into();
+            }
+            Interaction::Hovered => {
+                *color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *color = Color::WHITE.into();
+            }
+        }
+    }
 }
 
 fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {

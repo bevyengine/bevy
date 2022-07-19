@@ -1,13 +1,15 @@
+//! Illustrates how to change window settings and shows how to affect
+//! the mouse pointer in various ways.
+
 use bevy::{prelude::*, window::PresentMode};
 
-/// This example illustrates how to customize the default window settings
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "I am a window!".to_string(),
             width: 500.,
             height: 300.,
-            present_mode: PresentMode::Fifo,
+            present_mode: PresentMode::AutoVsync,
             ..default()
         })
         .add_plugins(DefaultPlugins)

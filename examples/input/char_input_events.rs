@@ -1,3 +1,5 @@
+//! Prints out all chars as they are inputted.
+
 use bevy::{prelude::*, window::ReceivedCharacter};
 
 fn main() {

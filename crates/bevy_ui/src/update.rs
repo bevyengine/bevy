@@ -13,17 +13,17 @@ use bevy_math::Vec2;
 use bevy_sprite::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-/// The resolution of Z values for UI
+/// The resolution of `Z` values for UI
 pub const UI_Z_STEP: f32 = 0.001;
 
-/// Updates transforms of nodes to fit with the z system
+/// Updates transforms of nodes to fit with the `Z` system
 pub fn ui_z_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     mut node_query: Query<&mut Transform, With<Node>>,
     children_query: Query<&Children>,
 ) {
     let mut current_global_z = 0.0;
-    for entity in root_node_query.iter() {
+    for entity in &root_node_query {
         current_global_z = update_hierarchy(
             &children_query,
             &mut node_query,
@@ -71,7 +71,7 @@ pub fn update_clipping_system(
     mut node_query: Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     children_query: Query<&Children>,
 ) {
-    for root_node in root_node_query.iter() {
+    for root_node in &root_node_query {
         update_clipping(
             &mut commands,
             &children_query,
@@ -108,7 +108,7 @@ fn update_clipping(
     let children_clip = match style.overflow {
         Overflow::Visible => clip,
         Overflow::Hidden => {
-            let node_center = global_transform.translation.truncate();
+            let node_center = global_transform.translation().truncate();
             let node_rect = Rect {
                 min: node_center - node.size / 2.,
                 max: node_center + node.size / 2.,

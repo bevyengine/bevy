@@ -1,3 +1,6 @@
+//! Illustrates different lights of various types and colors, some static, some moving over
+//! a simple scene.
+
 use bevy::prelude::*;
 
 fn main() {
@@ -31,7 +34,7 @@ fn setup(
 
     // left wall
     let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
-    transform.rotate(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2));
+    transform.rotate_z(std::f32::consts::FRAC_PI_2);
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
@@ -44,7 +47,7 @@ fn setup(
     });
     // back (right) wall
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
-    transform.rotate(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2));
+    transform.rotate_x(std::f32::consts::FRAC_PI_2);
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
@@ -118,22 +121,28 @@ fn setup(
             });
         });
 
-    // green point light
+    // green spot light
     commands
-        .spawn_bundle(PointLightBundle {
-            // transform: Transform::from_xyz(5.0, 8.0, 2.0),
-            transform: Transform::from_xyz(-1.0, 2.0, 0.0),
-            point_light: PointLight {
+        .spawn_bundle(SpotLightBundle {
+            transform: Transform::from_xyz(-1.0, 2.0, 0.0)
+                .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+            spot_light: SpotLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::GREEN,
                 shadows_enabled: true,
+                inner_angle: 0.6,
+                outer_angle: 0.8,
                 ..default()
             },
             ..default()
         })
         .with_children(|builder| {
             builder.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere {
+                transform: Transform::from_rotation(Quat::from_rotation_x(
+                    std::f32::consts::PI / 2.0,
+                )),
+                mesh: meshes.add(Mesh::from(shape::Capsule {
+                    depth: 0.125,
                     radius: 0.1,
                     ..default()
                 })),
@@ -200,7 +209,7 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -210,8 +219,8 @@ fn animate_light_direction(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
-    for mut transform in query.iter_mut() {
-        transform.rotate(Quat::from_rotation_y(time.delta_seconds() * 0.5));
+    for mut transform in &mut query {
+        transform.rotate_y(time.delta_seconds() * 0.5);
     }
 }
 
@@ -220,7 +229,7 @@ fn movement(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Movable>>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Up) {
             direction.y += 1.0;

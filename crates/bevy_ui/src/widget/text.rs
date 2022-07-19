@@ -27,15 +27,16 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
     match (min_size, size, max_size) {
         (_, _, Val::Px(max)) => scale_value(max, scale_factor),
         (Val::Px(min), _, _) => scale_value(min, scale_factor),
-        (Val::Undefined, Val::Px(size), Val::Undefined) => scale_value(size, scale_factor),
-        (Val::Auto, Val::Px(size), Val::Auto) => scale_value(size, scale_factor),
+        (Val::Undefined, Val::Px(size), Val::Undefined) | (Val::Auto, Val::Px(size), Val::Auto) => {
+            scale_value(size, scale_factor)
+        }
         _ => f32::MAX,
     }
 }
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
     mut last_scale_factor: Local<f64>,

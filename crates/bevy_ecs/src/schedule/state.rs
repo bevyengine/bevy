@@ -53,47 +53,19 @@ enum ScheduledOperation<T: StateData> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-enum StateCallback {
-    Update,
-    InactiveUpdate,
-    InStackUpdate,
-    Enter,
-    Exit,
-    Pause,
-    Resume,
-}
-
-impl StateCallback {
-    fn into_label<T>(self, state: T) -> StateRunCriteriaLabel<T>
-    where
-        T: StateData,
-    {
-        StateRunCriteriaLabel(state, self)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-struct StateRunCriteriaLabel<T>(T, StateCallback);
-impl<T> RunCriteriaLabel for StateRunCriteriaLabel<T>
-where
-    T: StateData,
-{
-    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
-        Box::new(self.clone())
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-struct DriverLabel(TypeId);
+struct DriverLabel(TypeId, &'static str);
 impl RunCriteriaLabel for DriverLabel {
-    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
-        Box::new(self.clone())
+    fn type_id(&self) -> core::any::TypeId {
+        self.0
+    }
+    fn as_str(&self) -> &'static str {
+        self.1
     }
 }
 
 impl DriverLabel {
     fn of<T: 'static>() -> Self {
-        Self(TypeId::of::<T>())
+        Self(TypeId::of::<T>(), std::any::type_name::<T>())
     }
 }
 
@@ -102,17 +74,14 @@ where
     T: StateData,
 {
     pub fn on_update(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state.stack.last().unwrap() == &pred && state.transition.is_none()
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Update.into_label(pred_clone))
     }
 
     pub fn on_inactive_update(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>, mut is_inactive: Local<bool>| match &state.transition {
             Some(StateTransition::Pausing(ref relevant, _))
             | Some(StateTransition::Resuming(_, ref relevant)) => {
@@ -126,20 +95,13 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::InactiveUpdate.into_label(pred_clone))
     }
 
     pub fn on_in_stack_update(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>, mut is_in_stack: Local<bool>| match &state.transition {
             Some(StateTransition::Entering(ref relevant, _))
-            | Some(StateTransition::ExitingToResume(_, ref relevant)) => {
-                if relevant == &pred {
-                    *is_in_stack = !*is_in_stack;
-                }
-                false
-            }
-            Some(StateTransition::ExitingFull(_, ref relevant)) => {
+            | Some(StateTransition::ExitingToResume(_, ref relevant))
+            | Some(StateTransition::ExitingFull(_, ref relevant)) => {
                 if relevant == &pred {
                     *is_in_stack = !*is_in_stack;
                 }
@@ -156,11 +118,9 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::InStackUpdate.into_label(pred_clone))
     }
 
     pub fn on_enter(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state
                 .transition
@@ -173,11 +133,9 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Enter.into_label(pred_clone))
     }
 
     pub fn on_exit(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state
                 .transition
@@ -190,11 +148,9 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Exit.into_label(pred_clone))
     }
 
     pub fn on_pause(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state
                 .transition
@@ -206,11 +162,9 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Pause.into_label(pred_clone))
     }
 
     pub fn on_resume(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state
                 .transition
@@ -222,7 +176,6 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Resume.into_label(pred_clone))
     }
 
     pub fn on_update_set(s: T) -> SystemSet {
@@ -267,14 +220,14 @@ where
     }
 
     /// Schedule a state change that replaces the active state with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the
-    /// current state
+    /// This will fail if there is a scheduled operation, pending transition, or if the given
+    /// `state` matches the current state
     pub fn set(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
@@ -294,14 +247,14 @@ where
     }
 
     /// Schedule a state change that replaces the full stack with the given state.
-    /// This will fail if there is a scheduled operation, or if the given `state` matches the
-    /// current state
+    /// This will fail if there is a scheduled operation, pending transition, or if the given
+    /// `state` matches the current state
     pub fn replace(&mut self, state: T) -> Result<(), StateError> {
         if self.stack.last().unwrap() == &state {
             return Err(StateError::AlreadyInState);
         }
 
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
@@ -326,7 +279,7 @@ where
             return Err(StateError::AlreadyInState);
         }
 
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
@@ -347,7 +300,7 @@ where
 
     /// Same as [`Self::set`], but does a pop operation instead of a set operation
     pub fn pop(&mut self) -> Result<(), StateError> {
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
@@ -370,9 +323,9 @@ where
     }
 
     /// Schedule a state change that restarts the active state.
-    /// This will fail if there is a scheduled operation
+    /// This will fail if there is a scheduled operation or a pending transition
     pub fn restart(&mut self) -> Result<(), StateError> {
-        if self.scheduled.is_some() {
+        if self.scheduled.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 

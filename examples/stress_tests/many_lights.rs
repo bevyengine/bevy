@@ -1,9 +1,13 @@
+//! Simple benchmark to test rendering many point lights.
+//! Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::CameraProjection, primitives::Frustum, RenderApp, RenderStage},
+    render::{camera::ScalingMode, Extract, RenderApp, RenderStage},
+    window::PresentMode,
 };
 use rand::{thread_rng, Rng};
 
@@ -13,7 +17,7 @@ fn main() {
             width: 1024.0,
             height: 768.0,
             title: "many_lights".to_string(),
-            present_mode: bevy::window::PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .add_plugins(DefaultPlugins)
@@ -31,6 +35,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     const LIGHT_RADIUS: f32 = 0.3;
     const LIGHT_INTENSITY: f32 = 5.0;
     const RADIUS: f32 = 50.0;
@@ -42,7 +48,7 @@ fn setup(
             subdivisions: 9,
         })),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
-        transform: Transform::from_scale(Vec3::splat(-1.0)),
+        transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
@@ -74,21 +80,16 @@ fn setup(
 
     // camera
     match std::env::args().nth(1).as_deref() {
-        Some("orthographic") => {
-            let mut orthographic_camera_bundle = OrthographicCameraBundle::new_3d();
-            orthographic_camera_bundle.orthographic_projection.scale = 20.0;
-            let view_projection = orthographic_camera_bundle
-                .orthographic_projection
-                .get_projection_matrix();
-            orthographic_camera_bundle.frustum = Frustum::from_view_projection(
-                &view_projection,
-                &Vec3::ZERO,
-                &Vec3::Z,
-                orthographic_camera_bundle.orthographic_projection.far(),
-            );
-            commands.spawn_bundle(orthographic_camera_bundle)
-        }
-        _ => commands.spawn_bundle(PerspectiveCameraBundle::default()),
+        Some("orthographic") => commands.spawn_bundle(Camera3dBundle {
+            projection: OrthographicProjection {
+                scale: 20.0,
+                scaling_mode: ScalingMode::FixedHorizontal(1.0),
+                ..default()
+            }
+            .into(),
+            ..default()
+        }),
+        _ => commands.spawn_bundle(Camera3dBundle::default()),
     };
 
     // add one cube, the only one with strong handles
@@ -126,8 +127,9 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 // System for rotating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.15));
-    camera_transform.rotate(Quat::from_rotation_x(time.delta_seconds() * 0.15));
+    let delta = time.delta_seconds() * 0.15;
+    camera_transform.rotate_z(delta);
+    camera_transform.rotate_x(delta);
 }
 
 // System for printing the number of meshes on every tick of the timer
@@ -156,7 +158,7 @@ impl Plugin for LogVisibleLights {
 
 // System for printing the number of meshes on every tick of the timer
 fn print_visible_light_count(
-    time: Res<Time>,
+    time: Res<ExtractedTime>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
     global_light_meta: Res<GlobalLightMeta>,
@@ -172,8 +174,11 @@ fn print_visible_light_count(
     }
 }
 
-fn extract_time(mut commands: Commands, time: Res<Time>) {
-    commands.insert_resource(time.into_inner().clone());
+#[derive(Deref, DerefMut)]
+pub struct ExtractedTime(Time);
+
+fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
+    commands.insert_resource(ExtractedTime(time.clone()));
 }
 
 struct PrintingTimer(Timer);

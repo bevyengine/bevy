@@ -76,6 +76,7 @@ impl RenderLayers {
     ///
     /// # Panics
     /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
+    #[must_use]
     pub const fn with(mut self, layer: Layer) -> Self {
         assert!((layer as usize) < Self::TOTAL_LAYERS);
         self.0 |= 1 << layer;
@@ -86,6 +87,7 @@ impl RenderLayers {
     ///
     /// # Panics
     /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
+    #[must_use]
     pub const fn without(mut self, layer: Layer) -> Self {
         assert!((layer as usize) < Self::TOTAL_LAYERS);
         self.0 &= !(1 << layer);

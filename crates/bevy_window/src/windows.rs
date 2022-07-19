@@ -13,7 +13,7 @@ impl Windows {
         self.windows.insert(window.id(), window);
     }
 
-    /// Get a reference to the [`Window`] of `id`
+    /// Get a reference to the [`Window`] of `id`.
     pub fn get(&self, id: WindowId) -> Option<&Window> {
         self.windows.get(&id)
     }
@@ -32,7 +32,7 @@ impl Windows {
     ///
     /// # Panics
     ///
-    /// Panics if the primary window does not exist in [`Windows`]
+    /// Panics if the primary window does not exist in [`Windows`].
     pub fn primary(&self) -> &Window {
         self.get_primary().expect("Primary window does not exist")
     }
@@ -46,7 +46,7 @@ impl Windows {
     ///
     /// # Panics
     ///
-    /// Panics if the primary window does not exist in [`Windows`]
+    /// Panics if the primary window does not exist in [`Windows`].
     pub fn primary_mut(&mut self) -> &mut Window {
         self.get_primary_mut()
             .expect("Primary window does not exist")
@@ -61,12 +61,12 @@ impl Windows {
         }
     }
 
-    /// An iterator over all registered [`Window`]s
+    /// An iterator over all registered [`Window`]s.
     pub fn iter(&self) -> impl Iterator<Item = &Window> {
         self.windows.values()
     }
 
-    /// A mutable iterator over all registered [`Window`]s
+    /// A mutable iterator over all registered [`Window`]s.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Window> {
         self.windows.values_mut()
     }

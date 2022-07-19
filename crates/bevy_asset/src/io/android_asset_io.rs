@@ -7,6 +7,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// I/O implementation for Android devices.
+///
+/// Implementation details:
+///
+/// - `load_path` uses the [AssetManager] to load files.
+/// - `read_directory` always returns an empty itrator.
+/// - `get_metadata` will probably return an error.
+/// - Watching for changes is not supported. The watcher methods will do nothing.
+///
+/// [AssetManager]: https://developer.android.com/reference/android/content/res/AssetManager
 pub struct AndroidAssetIo {
     root_path: PathBuf,
 }

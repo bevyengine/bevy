@@ -37,22 +37,30 @@ pub struct Diagnostic {
     history: VecDeque<DiagnosticMeasurement>,
     sum: f64,
     max_history_length: usize,
+    pub is_enabled: bool,
 }
 
 impl Diagnostic {
+    /// Add a new value as a [`DiagnosticMeasurement`]. Its timestamp will be [`Instant::now`].
     pub fn add_measurement(&mut self, value: f64) {
         let time = Instant::now();
-        if self.history.len() == self.max_history_length {
-            if let Some(removed_diagnostic) = self.history.pop_front() {
-                self.sum -= removed_diagnostic.value;
+        if self.max_history_length > 1 {
+            if self.history.len() == self.max_history_length {
+                if let Some(removed_diagnostic) = self.history.pop_front() {
+                    self.sum -= removed_diagnostic.value;
+                }
             }
-        }
 
-        self.sum += value;
+            self.sum += value;
+        } else {
+            self.history.clear();
+            self.sum = value;
+        }
         self.history
             .push_back(DiagnosticMeasurement { time, value });
     }
 
+    /// Create a new diagnostic with the given ID, name and maximum history.
     pub fn new(
         id: DiagnosticId,
         name: impl Into<Cow<'static, str>>,
@@ -74,28 +82,30 @@ impl Diagnostic {
             history: VecDeque::with_capacity(max_history_length),
             max_history_length,
             sum: 0.0,
+            is_enabled: true,
         }
     }
 
+    /// Add a suffix to use when logging the value, can be used to show a unit.
     #[must_use]
     pub fn with_suffix(mut self, suffix: impl Into<Cow<'static, str>>) -> Self {
         self.suffix = suffix.into();
         self
     }
 
+    /// Get the latest measurement from this diagnostic.
     #[inline]
     pub fn measurement(&self) -> Option<&DiagnosticMeasurement> {
         self.history.back()
     }
 
+    /// Get the latest value from this diagnostic.
     pub fn value(&self) -> Option<f64> {
         self.measurement().map(|measurement| measurement.value)
     }
 
-    pub fn sum(&self) -> f64 {
-        self.sum
-    }
-
+    /// Return the mean (average) of this diagnostic's values.
+    /// N.B. this a cheap operation as the sum is cached.
     pub fn average(&self) -> Option<f64> {
         if !self.history.is_empty() {
             Some(self.sum / self.history.len() as f64)
@@ -104,10 +114,12 @@ impl Diagnostic {
         }
     }
 
+    /// Return the number of elements for this diagnostic.
     pub fn history_len(&self) -> usize {
         self.history.len()
     }
 
+    /// Return the duration between the oldest and most recent values for this diagnostic.
     pub fn duration(&self) -> Option<Duration> {
         if self.history.len() < 2 {
             return None;
@@ -122,6 +134,7 @@ impl Diagnostic {
         None
     }
 
+    /// Return the maximum number of elements for this diagnostic.
     pub fn get_max_history_length(&self) -> usize {
         self.max_history_length
     }
@@ -132,6 +145,11 @@ impl Diagnostic {
 
     pub fn measurements(&self) -> impl Iterator<Item = &DiagnosticMeasurement> {
         self.history.iter()
+    }
+
+    /// Clear the history of this diagnostic.
+    pub fn clear_history(&mut self) {
+        self.history.clear();
     }
 }
 
@@ -144,6 +162,7 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
+    /// Add a new [`Diagnostic`].
     pub fn add(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.insert(diagnostic.id, diagnostic);
     }
@@ -156,18 +175,31 @@ impl Diagnostics {
         self.diagnostics.get_mut(&id)
     }
 
+    /// Get the latest [`DiagnosticMeasurement`] from an enabled [`Diagnostic`].
     pub fn get_measurement(&self, id: DiagnosticId) -> Option<&DiagnosticMeasurement> {
         self.diagnostics
             .get(&id)
+            .filter(|diagnostic| diagnostic.is_enabled)
             .and_then(|diagnostic| diagnostic.measurement())
     }
 
-    pub fn add_measurement(&mut self, id: DiagnosticId, value: f64) {
-        if let Some(diagnostic) = self.diagnostics.get_mut(&id) {
-            diagnostic.add_measurement(value);
+    /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
+    /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
+    /// costly to calculate.
+    pub fn add_measurement<F>(&mut self, id: DiagnosticId, value: F)
+    where
+        F: FnOnce() -> f64,
+    {
+        if let Some(diagnostic) = self
+            .diagnostics
+            .get_mut(&id)
+            .filter(|diagnostic| diagnostic.is_enabled)
+        {
+            diagnostic.add_measurement(value());
         }
     }
 
+    /// Return an iterator over all [`Diagnostic`].
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.values()
     }

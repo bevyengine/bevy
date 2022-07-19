@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
-use std::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+#![no_std]
+#![warn(missing_docs)]
+
+use core::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
 
 /// Type-erased borrow of some unknown type chosen when constructing this type.
 ///
@@ -158,6 +161,7 @@ impl<'a> OwningPtr<'a> {
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
         let mut temp = MaybeUninit::new(val);
+        // SAFETY: `temp.as_mut_ptr()` is a reference to a local value on the stack, so it cannot be null
         let ptr = unsafe { NonNull::new_unchecked(temp.as_mut_ptr().cast::<u8>()) };
         f(Self(ptr, PhantomData))
     }
@@ -177,7 +181,7 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
-        self.as_ptr().cast::<T>().drop_in_place()
+        self.as_ptr().cast::<T>().drop_in_place();
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -230,6 +234,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
         Self {
+            // SAFETY: a reference can never be null
             ptr: unsafe { NonNull::new_unchecked(slice.as_ptr() as *mut T) },
             #[cfg(debug_assertions)]
             len: slice.len(),
@@ -239,7 +244,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 }
 
 mod private {
-    use std::cell::UnsafeCell;
+    use core::cell::UnsafeCell;
 
     pub trait SealedUnsafeCell {}
     impl<'a, T> SealedUnsafeCell for &'a UnsafeCell<T> {}
