@@ -14,7 +14,7 @@ use crate::{
     point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
     DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
     PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLight, VisiblePointLights,
-    DEPTH_SHADER_HANDLE, DEPTH_CUBEMAP_SHADER_HANDLE,
+    DEPTH_CUBEMAP_SHADER_HANDLE, DEPTH_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
