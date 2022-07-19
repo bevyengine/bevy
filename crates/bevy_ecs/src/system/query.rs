@@ -268,7 +268,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     }
 
     /// Convert the query to readonly.
-    pub fn to_readonly(&self) -> Query<'w, 's, Q::ReadOnly, F::ReadOnly> {
+    pub fn to_readonly(&self) -> Query<'_, '_, Q::ReadOnly, F::ReadOnly> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
         unsafe {
