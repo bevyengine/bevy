@@ -416,17 +416,20 @@ mod tests {
     fn set_if_differs() {
         let mut world = World::new();
         world.insert_resource(R(0));
-        // This is required,
-        // as added data is also flagged as changed
-        world.increment_change_tick();
 
         let mut r = world.resource_mut::<R>();
-        assert!(!r.is_changed());
+        assert!(!r.is_changed(), "Resource must begin unchanged.");
 
         r.set_if_differs(R(0));
-        assert!(!r.is_changed());
+        assert!(
+            !r.is_changed(),
+            "Resource must not be changed after setting to the same value."
+        );
 
         r.set_if_differs(R(3));
-        assert!(r.is_changed());
+        assert!(
+            r.is_changed(),
+            "Resource must be changed after setting to a different value."
+        );
     }
 }
