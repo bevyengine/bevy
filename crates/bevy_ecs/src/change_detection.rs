@@ -73,17 +73,20 @@ pub trait DetectChanges {
 
     /// Sets `self` to `value`, if and only if `*self != *value`
     ///
+    /// `T` is the type stored within the smart pointer (e.g. [`Mut`] or [`ResMut`]).
+    ///
     /// This is useful to avoid accidentally triggering change detection when no change is made,
     /// as changes are usually deemed to be made when [`DerefMut`] is used.
     #[inline]
-    fn set_if_differs(&mut self, value: Self)
+    fn set_if_differs<T>(&mut self, value: T)
     where
-        Self: Sized + PartialEq,
+        Self: Deref<Target = T> + DerefMut<Target = T>,
+        T: PartialEq,
     {
         // This uses Deref, not DerefMut as we do not need to mutate the value
-        if *self != value {
+        if **self != value {
             // This uses DerefMut, triggering change detection
-            *self = value;
+            **self = value;
         }
     }
 }
@@ -314,8 +317,13 @@ mod tests {
         world::World,
     };
 
-    #[derive(Component)]
+    use super::DetectChanges;
+
+    #[derive(Component, PartialEq)]
     struct C;
+
+    #[derive(PartialEq)]
+    struct R(u8);
 
     #[test]
     fn change_expiration() {
@@ -402,5 +410,23 @@ mod tests {
             assert!(ticks_since_insert == MAX_CHANGE_AGE);
             assert!(ticks_since_change == MAX_CHANGE_AGE);
         }
+    }
+
+    #[test]
+    fn set_if_differs() {
+        let mut world = World::new();
+        world.insert_resource(R(0));
+        // This is required,
+        // as added data is also flagged as changed
+        world.increment_change_tick();
+
+        let mut r = world.resource_mut::<R>();
+        assert!(!r.is_changed());
+
+        r.set_if_differs(R(0));
+        assert!(!r.is_changed());
+
+        r.set_if_differs(R(3));
+        assert!(r.is_changed());
     }
 }
