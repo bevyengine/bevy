@@ -30,6 +30,8 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 ///
 /// To ensure that changes are only flagged when the value actually differs,
 /// check if the value is equal before assignment.
+/// You must be *sure* that you are not mutably derefencing in this process.
+///
 /// The [`set_if_differs`](DetectChanges::set_if_differs) method
 /// provides a helper method for this common functionality.
 ///
@@ -83,10 +85,10 @@ pub trait DetectChanges {
         Self: Deref<Target = T> + DerefMut<Target = T>,
         T: PartialEq,
     {
-        // This uses Deref, not DerefMut as we do not need to mutate the value
-        if **self != value {
-            // This uses DerefMut, triggering change detection
-            **self = value;
+        let immutable_ref: &T = self.deref();
+        if *immutable_ref != value {
+            let mutable_ref: &mut T = self.deref_mut();
+            *mutable_ref = value;
         }
     }
 }
