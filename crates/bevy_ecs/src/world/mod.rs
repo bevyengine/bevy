@@ -1164,7 +1164,7 @@ impl World {
 
     /// Sends the default value of the [`Event`](crate::event::Event) of type `E`.
     #[inline]
-    pub fn send_default_event<E: crate::event::Event + Default>(&mut self) {
+    pub fn send_event_default<E: crate::event::Event + Default>(&mut self) {
         self.send_event_batch(std::iter::once(E::default()));
     }
 
