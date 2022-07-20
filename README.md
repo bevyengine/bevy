@@ -116,8 +116,6 @@ The [assets](assets) included in this repository (for our [examples](./examples/
 These will not be included in your game (unless copied in by you), and they are not distributed in the published bevy crates.
 See [CREDITS.md](CREDITS.md) for the details of the licenses of those files.
 
-Finally, Bevy relies on the excellent work done by our [many open source dependencies](https://github.com/bevyengine/bevy/blob/main/Cargo.toml), each of which is licensed under their own corresponding MIT-compatible licenses.
-
 ### Your contributions
 
 Unless you explicitly state otherwise,
