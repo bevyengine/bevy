@@ -104,7 +104,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 ///
 /// Dynamic uniform buffers are available to shaders on a read-only basis. Dynamic uniform buffers are commonly used to make
 /// available to shaders runtime-sized arrays of parameters that are otherwise constant during shader execution, and are best
-/// suited to data that is relatively small in size. For larger data, or data that must be made
+/// suited to data that is relatively small in size as they are only guaranteed to support up to 16kB per binding. For larger data, or data that must be made
 /// accessible to shaders on a read-write basis, consider [`StorageBuffer`](crate::render_resource::StorageBuffer) or
 /// [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer). Note however that
 /// WebGL2 does not support storage buffers, so other alternatives to consider are vertex/instance buffers (see
