@@ -10,10 +10,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 ///
 /// A position is used to determine where to place a UI element.
 ///
-/// In this example we are creating a UI position. It has a left value of 100px and a top value of 50px.
-/// If positioned absolutely this would correspond to a UI element which is positioned 100px to the right
-/// from the left side of the window and 50px down from the top side of the window.
-///
 /// ```
 /// # use bevy_ui::{UiRect, Val};
 /// # use bevy_utils::default;
@@ -26,13 +22,8 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 /// ```
 ///
 /// If you define opposite sides of the position, the size of the UI element will automatically be calculated
-/// if not explicitly specified. This means that if you have a [`Size`] that uses [`Val::Undefined`](crate::Val::Undefined) as a
-/// width and height, the size would be determined by the window size and the values specified in the position.
-///
-/// In this example we are creating another UI position. It has a left value of 100px, a right value of 200px,
-/// a top value of 300px and a bottom value of 400px. If positioned absolutely this would correspond to a
-/// UI element that is positioned 100px to the right from the left side of the window and 300px down from
-/// the top side of the window.
+/// if not explicitly specified. This means that if you have a [`Size`] that uses [`Val::Undefined`](crate::Val::Undefined)
+/// as a width and height, the size would be determined by the window size and the values specified in the position.
 ///
 /// ```
 /// # use bevy_ui::{UiRect, Val};
@@ -45,17 +36,12 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 /// };
 /// ```
 ///
-/// The size of the UI element would now be determined by the window size and the position values.
 /// To determine the width of the UI element you have to take the width of the window and subtract it by the
 /// left and right values of the position. To determine the height of the UI element you have to take the height
-/// of the window and subtract it by the top and bottom values of the position.
-///
-/// If we had a window with a width and height of 1000px, the UI element would have a width of 700px and a height
-/// of 300px.
+/// of the window and subtract it by the top and bottom values of the position. If we had a window with a width
+/// and height of 1000px, the UI element declared above would have a width of 700px and a height of 300px.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Val};
-/// #
 /// // Size of the window
 /// let window_width = 1000.0;
 /// let window_height = 1000.0;
@@ -89,7 +75,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 ///         top: Val::Px(300.0),
 ///         bottom: Val::Px(400.0),
 ///     },
-///     size: Size::new(Val::Px(150.0), Val::Px(65.0)), // but also explicitly specifying a size
+///     size: Size::new(Val::Percent(100.0), Val::Percent(50.0)), // but also explicitly specifying a size
 ///     ..default()
 /// };
 /// ```
@@ -98,28 +84,15 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.
 ///
-/// In this example we are creating a UI margin. It has a left value of 10px, a right value of 20px,
-/// a top value of 30px and a bottom value of 40px. This would add a margin of 10px on the left,
-/// 20px on the right, 30px on the top and 40px on the bottom of the UI element.
-///
 /// ```
 /// # use bevy_ui::{UiRect, Val};
 /// #
-/// let margin = UiRect {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
-/// };
+/// let margin = UiRect::all(Val::Auto); // Centers the UI element
 /// ```
 ///
 /// ## Padding
 ///
 /// A padding is used to create space around UI elements, inside of any defined borders.
-///
-/// In this example we are creating a UI padding. It has a left value of 10px, a right value of 20px,
-/// a top value of 30px and a bottom value of 40px. This would add a padding of 10px on the left,
-/// 20px on the right, 30px on the top and 40px on the bottom of the UI element.
 ///
 /// ```
 /// # use bevy_ui::{UiRect, Val};
@@ -135,10 +108,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 /// ## Borders
 ///
 /// A border is used to define the width of the border of a UI element.
-///
-/// In this example we are creating a UI border. It has a left value of 10px, a right value of 20px,
-/// a top value of 30px and a bottom value of 40px. This would create a border around a UI element
-/// that has a width of 10px on the left, 20px on the right, 30px on the top and 40px on the bottom.
 ///
 /// ```
 /// # use bevy_ui::{UiRect, Val};
