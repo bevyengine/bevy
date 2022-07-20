@@ -165,27 +165,22 @@ mod game {
             .insert(OnGameScreen)
             .with_children(|parent| {
                 // Display two lines of text, the second one with the current settings
-                parent.spawn_bundle(TextBundle {
-                    style: Style {
-                        margin: UiRect::all(Val::Px(50.0)),
-                        ..default()
-                    },
-                    text: Text::from_section(
+                parent.spawn_bundle(
+                    TextBundle::from_section(
                         "Will be back to the menu shortly...",
                         TextStyle {
                             font: font.clone(),
                             font_size: 80.0,
                             color: TEXT_COLOR,
                         },
-                    ),
-                    ..default()
-                });
-                parent.spawn_bundle(TextBundle {
-                    style: Style {
+                    )
+                    .with_style(Style {
                         margin: UiRect::all(Val::Px(50.0)),
                         ..default()
-                    },
-                    text: Text::from_sections([
+                    }),
+                );
+                parent.spawn_bundle(
+                    TextBundle::from_sections([
                         TextSection::new(
                             format!("quality: {:?}", *display_quality),
                             TextStyle {
@@ -210,9 +205,12 @@ mod game {
                                 color: Color::GREEN,
                             },
                         ),
-                    ]),
-                    ..default()
-                });
+                    ])
+                    .with_style(Style {
+                        margin: UiRect::all(Val::Px(50.0)),
+                        ..default()
+                    }),
+                );
             });
         // Spawn a 5 seconds timer to trigger going back to the menu
         commands.insert_resource(GameTimer(Timer::from_seconds(5.0, false)));
@@ -428,21 +426,20 @@ mod menu {
             .insert(OnMainMenuScreen)
             .with_children(|parent| {
                 // Display the game name
-                parent.spawn_bundle(TextBundle {
-                    style: Style {
-                        margin: UiRect::all(Val::Px(50.0)),
-                        ..default()
-                    },
-                    text: Text::from_section(
+                parent.spawn_bundle(
+                    TextBundle::from_section(
                         "Bevy Game Menu UI",
                         TextStyle {
                             font: font.clone(),
                             font_size: 80.0,
                             color: TEXT_COLOR,
                         },
-                    ),
-                    ..default()
-                });
+                    )
+                    .with_style(Style {
+                        margin: UiRect::all(Val::Px(50.0)),
+                        ..default()
+                    }),
+                );
 
                 // Display three buttons for each action available from the main menu:
                 // - new game
@@ -462,10 +459,10 @@ mod menu {
                             image: UiImage(icon),
                             ..default()
                         });
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("New Game", button_text_style.clone()),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section(
+                            "New Game",
+                            button_text_style.clone(),
+                        ));
                     });
                 parent
                     .spawn_bundle(ButtonBundle {
@@ -481,10 +478,10 @@ mod menu {
                             image: UiImage(icon),
                             ..default()
                         });
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("Settings", button_text_style.clone()),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section(
+                            "Settings",
+                            button_text_style.clone(),
+                        ));
                     });
                 parent
                     .spawn_bundle(ButtonBundle {
@@ -500,10 +497,7 @@ mod menu {
                             image: UiImage(icon),
                             ..default()
                         });
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("Quit", button_text_style),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section("Quit", button_text_style));
                     });
             });
     }
@@ -516,6 +510,7 @@ mod menu {
             align_items: AlignItems::Center,
             ..default()
         };
+
         let button_text_style = TextStyle {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
@@ -535,47 +530,25 @@ mod menu {
             })
             .insert(OnSettingsMenuScreen)
             .with_children(|parent| {
-                // Display two buttons for the submenus
-                parent
-                    .spawn_bundle(ButtonBundle {
-                        style: button_style.clone(),
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::SettingsDisplay)
-                    .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("Display", button_text_style.clone()),
+                for (action, text) in [
+                    (MenuButtonAction::SettingsDisplay, "Display"),
+                    (MenuButtonAction::SettingsSound, "Sound"),
+                    (MenuButtonAction::BackToMainMenu, "Back"),
+                ] {
+                    parent
+                        .spawn_bundle(ButtonBundle {
+                            style: button_style.clone(),
+                            color: NORMAL_BUTTON.into(),
                             ..default()
+                        })
+                        .insert(action)
+                        .with_children(|parent| {
+                            parent.spawn_bundle(TextBundle::from_section(
+                                text,
+                                button_text_style.clone(),
+                            ));
                         });
-                    });
-                parent
-                    .spawn_bundle(ButtonBundle {
-                        style: button_style.clone(),
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::SettingsSound)
-                    .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("Sound", button_text_style.clone()),
-                            ..default()
-                        });
-                    });
-                // Display the back button to return to the main menu screen
-                parent
-                    .spawn_bundle(ButtonBundle {
-                        style: button_style,
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::BackToMainMenu)
-                    .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("Back", button_text_style),
-                            ..default()
-                        });
-                    });
+                }
             });
     }
 
@@ -664,10 +637,7 @@ mod menu {
                     })
                     .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("Back", button_text_style),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section("Back", button_text_style));
                     });
             });
     }
@@ -713,10 +683,10 @@ mod menu {
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("Volume", button_text_style.clone()),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section(
+                            "Volume",
+                            button_text_style.clone(),
+                        ));
                         for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                             let mut entity = parent.spawn_bundle(ButtonBundle {
                                 style: Style {
@@ -740,10 +710,7 @@ mod menu {
                     })
                     .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("Back", button_text_style),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section("Back", button_text_style));
                     });
             });
     }
