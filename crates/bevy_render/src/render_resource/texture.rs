@@ -6,9 +6,19 @@ use std::{ops::Deref, sync::Arc};
 pub struct TextureId(Uuid);
 
 /// A GPU-accessible texture.
+/// 
+/// Although primarily used to to store images that "texture" the surfaces of solids, textures
+/// can also be used as general purpose storage for data of [1, 2, or 3 dimensional data]. For example,
+/// they are often used to implement [look up tables]. 
+/// 
+/// For more information, see the documentation for [`wgpu::Texture`](wgpu::Texture) and the WGPU specification
+/// entry on [`GPUTexture`]. A [`Texture`] may be converted from and dereferences to a [`wgpu::Texture`](wgpu::Texture).
+/// 
+/// It is created through a [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture) call. 
 ///
-/// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
-/// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
+/// [1, 2 or 3 dimensional data]: https://gpuweb.github.io/gpuweb/#dom-gputexturedimension-1d
+/// [look up tables]: https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-24-using-lookup-tables-accelerate-color
+/// [`GPUTexture`]: https://gpuweb.github.io/gpuweb/#texture-interface
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
