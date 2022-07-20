@@ -1,6 +1,6 @@
 //! A test of point light shadow cubemaps with a single point light in the center surrounded by
-//! text indicating the cubemap face. Use RenderDoc, Xcode, or similar tools to inspect the shadow
-//! map textures.
+//! text indicating the cubemap face. Use `RenderDoc`, `Xcode`, or similar tools to inspect the
+//! shadow map textures.
 
 use bevy::{input::mouse::MouseMotion, pbr::NotShadowCaster, prelude::*};
 

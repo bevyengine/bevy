@@ -1074,7 +1074,6 @@ pub fn prepare_lights(
             .enumerate()
         {
             let spot_view_matrix = spot_light_view_matrix(&light.transform);
-            let spot_view_transform = spot_view_matrix.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
                 [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_light_shadow_maps_count] are spot lights").1;
@@ -1104,7 +1103,7 @@ pub fn prepare_lights(
                     ExtractedView {
                         width: directional_light_shadow_map.size as u32,
                         height: directional_light_shadow_map.size as u32,
-                        view: spot_view_transform,
+                        view: spot_view_matrix,
                         position: light.transform.translation(),
                         projection: spot_projection,
                     },
