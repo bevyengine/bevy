@@ -183,6 +183,26 @@ impl<E: Event> DerefMut for EventSequence<E> {
 }
 
 /// [Label](SystemLabel) for a [`System`](crate::system::System) that reads events of type `E`.
+/// This is automatically applied to any system that contains an [`EventReader`].
+///
+/// # Examples
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::event::Reads;
+///
+/// // New event type.
+/// struct MyEvent;
+///
+/// // Declare a system that reads from it.
+/// fn reader_system(event_reader: EventReader<MyEvent>) {
+///     // ...
+///     # unimplemented!()
+/// }
+///
+/// // The system has been automatically given the label `Reads::from::<MyEvent>()`.
+/// let system = IntoSystem::into_system(reader_system);
+/// assert!(system.default_labels().contains(&Reads::from::<MyEvent>().as_label()));
+/// ```
 pub struct Reads(());
 
 impl Reads {
@@ -276,6 +296,26 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 }
 
 /// [Label](SystemLabel) for a [`System`](crate::system::System) that can write events of type `E`.
+/// This is automatically applied to any system that contains an [`EventWriter`].
+///
+/// # Examples
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::event::Writes;
+///
+/// // New event type.
+/// struct MyEvent;
+///
+/// // Declare a system that writes to it.
+/// fn writer_system(mut event_writer: EventWriter<MyEvent>) {
+///     // ...
+///     # unimplemented!()
+/// }
+///
+/// // The system has automatically been given the label `Writes::to::<MyEvent>()`.
+/// let system = IntoSystem::into_system(writer_system);
+/// assert!(system.default_labels().contains(&Writes::to::<MyEvent>().as_label()));
+/// ```
 pub struct Writes(());
 
 impl Writes {
