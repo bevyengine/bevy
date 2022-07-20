@@ -87,7 +87,7 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
     for mut text in &mut query {
         let seconds = time.seconds_since_startup() as f32;
 
-        // Update the color of the only section of this
+        // Update the color of the first and only section.
         text.sections[0].style.color = Color::Rgba {
             red: (1.25 * seconds).sin() / 2.0 + 0.5,
             green: (0.75 * seconds).sin() / 2.0 + 0.5,
