@@ -650,51 +650,51 @@ impl SpecializedMeshPipeline for MeshPipeline {
             PbrDebug::Uvs => shader_defs.push(String::from("PBR_DEBUG_UVS")),
             PbrDebug::Depth => shader_defs.push(String::from("PBR_DEBUG_DEPTH")),
             PbrDebug::InterpolatedVertexNormals => {
-                shader_defs.push(String::from("PBR_DEBUG_INTERPOLATED_VERTEX_NORMALS"))
+                shader_defs.push(String::from("PBR_DEBUG_INTERPOLATED_VERTEX_NORMALS"));
             }
             PbrDebug::InterpolatedVertexTangents => {
-                shader_defs.push(String::from("PBR_DEBUG_INTERPOLATED_VERTEX_TANGENTS"))
+                shader_defs.push(String::from("PBR_DEBUG_INTERPOLATED_VERTEX_TANGENTS"));
             }
             PbrDebug::TangentSpaceNormalMap => {
-                shader_defs.push(String::from("PBR_DEBUG_TANGENT_SPACE_NORMAL_MAP"))
+                shader_defs.push(String::from("PBR_DEBUG_TANGENT_SPACE_NORMAL_MAP"));
             }
             PbrDebug::NormalMappedNormal => {
-                shader_defs.push(String::from("PBR_DEBUG_NORMAL_MAPPED_NORMAL"))
+                shader_defs.push(String::from("PBR_DEBUG_NORMAL_MAPPED_NORMAL"));
             }
             PbrDebug::ViewSpaceNormalMappedNormal => {
-                shader_defs.push(String::from("PBR_DEBUG_VIEW_SPACE_NORMAL_MAPPED_NORMAL"))
+                shader_defs.push(String::from("PBR_DEBUG_VIEW_SPACE_NORMAL_MAPPED_NORMAL"));
             }
             PbrDebug::BaseColor => shader_defs.push(String::from("PBR_DEBUG_BASE_COLOR")),
             PbrDebug::BaseColorTexture => {
-                shader_defs.push(String::from("PBR_DEBUG_BASE_COLOR_TEXTURE"))
+                shader_defs.push(String::from("PBR_DEBUG_BASE_COLOR_TEXTURE"));
             }
             PbrDebug::Emissive => shader_defs.push(String::from("PBR_DEBUG_EMISSIVE")),
             PbrDebug::EmissiveTexture => {
-                shader_defs.push(String::from("PBR_DEBUG_EMISSIVE_TEXTURE"))
+                shader_defs.push(String::from("PBR_DEBUG_EMISSIVE_TEXTURE"));
             }
             PbrDebug::Roughness => shader_defs.push(String::from("PBR_DEBUG_ROUGHNESS")),
             PbrDebug::RoughnessTexture => {
-                shader_defs.push(String::from("PBR_DEBUG_ROUGHNESS_TEXTURE"))
+                shader_defs.push(String::from("PBR_DEBUG_ROUGHNESS_TEXTURE"));
             }
             PbrDebug::Metallic => shader_defs.push(String::from("PBR_DEBUG_METALLIC")),
             PbrDebug::MetallicTexture => {
-                shader_defs.push(String::from("PBR_DEBUG_METALLIC_TEXTURE"))
+                shader_defs.push(String::from("PBR_DEBUG_METALLIC_TEXTURE"));
             }
             PbrDebug::Reflectance => shader_defs.push(String::from("PBR_DEBUG_REFLECTANCE")),
             PbrDebug::OcclusionTexture => {
-                shader_defs.push(String::from("PBR_DEBUG_OCCLUSION_TEXTURE"))
+                shader_defs.push(String::from("PBR_DEBUG_OCCLUSION_TEXTURE"));
             }
             PbrDebug::Opaque => shader_defs.push(String::from("PBR_DEBUG_OPAQUE")),
             PbrDebug::AlphaMask => shader_defs.push(String::from("PBR_DEBUG_ALPHA_MASK")),
             PbrDebug::AlphaBlend => shader_defs.push(String::from("PBR_DEBUG_ALPHA_BLEND")),
             PbrDebug::ClusteredForwardDebugZSlices => {
-                shader_defs.push(String::from("CLUSTERED_FORWARD_DEBUG_Z_SLICES"))
+                shader_defs.push(String::from("CLUSTERED_FORWARD_DEBUG_Z_SLICES"));
             }
             PbrDebug::ClusteredForwardDebugClusterLightComplexity => shader_defs.push(
                 String::from("CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY"),
             ),
             PbrDebug::ClusteredForwardDebugClusterCoherency => {
-                shader_defs.push(String::from("CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY"))
+                shader_defs.push(String::from("CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY"));
             }
         }
 
