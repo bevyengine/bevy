@@ -200,6 +200,14 @@ where
     }
 }
 
+// This is correct as [`QueryManyIter`] always returns `None` once exhausted.
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator> FusedIterator
+    for QueryManyIter<'w, 's, Q, F, I>
+where
+    I::Item: Borrow<Entity>,
+{
+}
+
 pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
