@@ -183,19 +183,31 @@ impl<E: Event> DerefMut for EventSequence<E> {
 }
 
 /// [Label](SystemLabel) for a [`System`](crate::system::System) that reads events of type `E`.
-#[derive(SystemLabel)]
-#[system_label(ignore_fields)]
-pub struct ReadSystem<E: Event>(PhantomData<E>);
+pub struct Reads(());
 
-impl<E: Event> Default for ReadSystem<E> {
-    fn default() -> Self {
-        Self(PhantomData)
+impl Reads {
+    /// Returns a [`SystemLabel`] for a system that reads events of type `E`.
+    pub fn from<E: Event>() -> impl SystemLabel {
+        struct ReadSystem<E>(PhantomData<E>);
+
+        impl<E: 'static> SystemLabel for ReadSystem<E> {
+            fn as_str(&self) -> &'static str {
+                // FIXME: using `type_name` for equality is kinda sketchy,
+                // but we won't need it after https://github.com/bevyengine/bevy/pull/5377.
+                // This *should* be fine for the time being though, as the behavior
+                // of `type_name` is only subject to change between compiler versions,
+                // so the only place it might be able to cause issues is with dynamic plugins.
+                std::any::type_name::<Self>()
+            }
+        }
+
+        ReadSystem::<E>(PhantomData)
     }
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-#[system_param(label = ReadSystem::<E>::default())]
+#[system_param(label = Reads::from::<E>())]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
     events: Res<'w, Events<E>>,
@@ -263,14 +275,21 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
-/// [Label](SystemLabel) for a [`System`](crate::system::System) that writes events of type `E`.
-#[derive(SystemLabel)]
-#[system_label(ignore_fields)]
-pub struct WriteSystem<E: Event>(PhantomData<E>);
+/// [Label](SystemLabel) for a [`System`](crate::system::System) that can write events of type `E`.
+pub struct Writes(());
 
-impl<E: Event> Default for WriteSystem<E> {
-    fn default() -> Self {
-        Self(PhantomData)
+impl Writes {
+    /// Returns a [`SystemLabel`] for a system that can write events of type `E`.
+    pub fn to<E: Event>() -> impl SystemLabel {
+        struct WriteSystem<E>(PhantomData<E>);
+
+        impl<E: 'static> SystemLabel for WriteSystem<E> {
+            fn as_str(&self) -> &'static str {
+                std::any::type_name::<E>()
+            }
+        }
+
+        WriteSystem::<E>(PhantomData)
     }
 }
 
@@ -318,7 +337,7 @@ impl<E: Event> Default for WriteSystem<E> {
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
-#[system_param(label = WriteSystem::<E>::default())]
+#[system_param(label = Writes::to::<E>())]
 pub struct EventWriter<'w, 's, E: Event> {
     events: ResMut<'w, Events<E>>,
     #[system_param(ignore)]
