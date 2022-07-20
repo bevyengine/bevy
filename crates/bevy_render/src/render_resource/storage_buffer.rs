@@ -10,7 +10,7 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 ///
 /// Storage buffers can be made available to shaders as some combination of read/write, unlike
 /// [`UniformBuffer`](crate::render_resource::UniformBuffer) which is read-only. Furthermore, storage buffers
-/// can store much larger data than uniform buffers, which are best suited to relatively small data. Note however that
+/// can store much larger data than uniform buffers, which are only guaranteed to be up to 16kB per binding. Note however that
 /// WebGL2 does not support storage buffers, so other alternatives to consider are vertex/instance buffers (see
 /// [`BufferVec`](crate::render_resource::BufferVec)), or data textures ([`Texture`](crate::render_resource::Texture)),
 /// depending on what is most appropriate for the use case.
