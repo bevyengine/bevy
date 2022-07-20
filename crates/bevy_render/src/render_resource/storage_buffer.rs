@@ -105,8 +105,8 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 ///
 /// Dynamic storage buffers can be made available to shaders as some combination of read/write, unlike
 /// [`UniformBuffer`](crate::render_resource::UniformBuffer) which is read-only. Furthermore, dynamic storage buffers
-/// can store much larger data than uniform buffers, which are best suited to relatively small data. Dynamic storage buffers
-/// are particularly well-suited to storing like a Rust-vector (wgpu's "runtime-sized arrays") and have a
+/// can store much larger data than uniform buffers, which are only guaranteed to be up to 16kB per binding. Dynamic storage buffers
+/// support multiple separate bindings at dynamic byte offsets and so have a
 /// [`push`](crate::render_resource::DynamicStorageBuffer::push) method, unlike
 /// [`StorageBuffer`](crate::render_resource::StorageBuffer). Note however that
 /// WebGL2 does not support dynamic storage buffers, so other alternatives to consider are vertex/instance buffers (see
