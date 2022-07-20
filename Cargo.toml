@@ -510,6 +510,11 @@ description = "Skinned mesh example with mesh and joints data loaded from a glTF
 category = "Animation"
 wasm = true
 
+[[example]]
+name = "mirror_animation"
+path = "examples/animation/mirror_animation.rs"
+description = "Demonstrates how to mirror (flip) animations"
+
 # Application
 [[example]]
 name = "custom_loop"
