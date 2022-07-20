@@ -211,6 +211,11 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             impl<'w, 's, #(#param: SystemParam,)*> SystemParam for ParamSet<'w, 's, (#(#param,)*)>
             {
                 type Fetch = ParamSetState<(#(#param::Fetch,)*)>;
+                fn auto_labels() -> Vec<SystemLabelId> {
+                    let mut labels = vec![];
+                    #( labels.append(&mut <#param as SystemParam>::auto_labels());)*
+                    labels
+                }
             }
 
             // SAFETY: All parameters are constrained to ReadOnlyFetch, so World is only read
