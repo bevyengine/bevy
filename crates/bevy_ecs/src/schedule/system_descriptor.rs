@@ -126,6 +126,9 @@ pub trait ParallelSystemDescriptorCoercion<Params> {
     /// Assigns a label to the system; there can be more than one, and it doesn't have to be unique.
     fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
 
+    /// Removes the specified label from this system. Does nothing if the label is not present.
+    fn unlabel(self, label: impl SystemLabel) -> ParallelSystemDescriptor;
+
     /// Specifies that the system should run before systems with the given label.
     fn before<Marker>(self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor;
 
@@ -148,6 +151,12 @@ impl ParallelSystemDescriptorCoercion<()> for ParallelSystemDescriptor {
 
     fn label(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         self.labels.push(label.as_label());
+        self
+    }
+
+    fn unlabel(mut self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+        let label = label.as_label();
+        self.labels.retain(|item| item != &label);
         self
     }
 
@@ -183,6 +192,10 @@ where
         new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).label(label)
     }
 
+    fn unlabel(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).unlabel(label)
+    }
+
     fn before<Marker>(self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
         new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).before(label)
     }
@@ -206,6 +219,10 @@ impl ParallelSystemDescriptorCoercion<()> for BoxedSystem<(), ()> {
 
     fn label(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
         new_parallel_descriptor(self).label(label)
+    }
+
+    fn unlabel(self, label: impl SystemLabel) -> ParallelSystemDescriptor {
+        new_parallel_descriptor(self).unlabel(label)
     }
 
     fn before<Marker>(self, label: impl AsSystemLabel<Marker>) -> ParallelSystemDescriptor {
@@ -262,6 +279,9 @@ pub trait ExclusiveSystemDescriptorCoercion {
     /// Assigns a label to the system; there can be more than one, and it doesn't have to be unique.
     fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
+    /// Removes the specified label from this system. Does nothing if the label is not present.
+    fn unlabel(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
+
     /// Specifies that the system should run before systems with the given label.
     fn before(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor;
 
@@ -294,6 +314,12 @@ impl ExclusiveSystemDescriptorCoercion for ExclusiveSystemDescriptor {
 
     fn label(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
         self.labels.push(label.as_label());
+        self
+    }
+
+    fn unlabel(mut self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+        let label = label.as_label();
+        self.labels.retain(|item| item != &label);
         self
     }
 
@@ -341,6 +367,10 @@ where
 
     fn label(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
         new_exclusive_descriptor(Box::new(self)).label(label)
+    }
+
+    fn unlabel(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
+        new_exclusive_descriptor(Box::new(self)).unlabel(label)
     }
 
     fn before(self, label: impl SystemLabel) -> ExclusiveSystemDescriptor {
