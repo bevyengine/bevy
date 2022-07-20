@@ -7,7 +7,13 @@ var<private> pink: vec4<f32> = vec4<f32>(1.0, 0.0, 1.0, 1.0);
 
 fn pbr_debug(in: FragmentInput) -> vec4<f32> {
 #ifdef PBR_DEBUG_UVS
+
+#ifdef VERTEX_UVS
     return vec4<f32>(in.uv, 0.0, 1.0);
+#else
+    return pink;
+#endif // VERTEX_UVS
+
 #else
 #ifdef PBR_DEBUG_DEPTH
     return vec4<f32>(in.frag_coord.z, in.frag_coord.z, in.frag_coord.z, 1.0);
@@ -21,7 +27,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return vec4<f32>(in.world_tangent.rgb, 1.0);
 #else
     return pink;
-#endif
+#endif // VERTEX_TANGENTS
 
 #else
 #ifdef PBR_DEBUG_TANGENT_SPACE_NORMAL_MAP
@@ -32,10 +38,10 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     return vec4<f32>(Nt, 1.0);
 #else
     return pink;
-#endif
+#endif // STANDARDMATERIAL_NORMAL_MAP
 #else
     return pink;
-#endif
+#endif // VERTEX_UVS
 
 #else
 #ifdef PBR_DEBUG_NORMAL_MAPPED_NORMAL
@@ -46,14 +52,8 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     let N = prepare_normal(
         material.flags,
         in.world_normal,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
         in.world_tangent,
-#endif // STANDARDMATERIAL_NORMAL_MAP
-#endif // VERTEX_TANGENTS
-#ifdef VERTEX_UVS
         in.uv,
-#endif // VERTEX_UVS
         in.is_front,
     );
     return vec4<f32>(N, 1.0);
@@ -77,14 +77,8 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     var N: vec3<f32> = prepare_normal(
         material.flags,
         in.world_normal,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
         in.world_tangent,
-#endif // STANDARDMATERIAL_NORMAL_MAP
-#endif // VERTEX_TANGENTS
-#ifdef VERTEX_UVS
         in.uv,
-#endif // VERTEX_UVS
         in.is_front,
     );
     // Normals should be transformed by the inverse transpose of the usual transform applied to a
@@ -121,7 +115,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     }
 #else
     return pink;
-#endif
+#endif // VERTEX_UVS
 
 #else
 #ifdef PBR_DEBUG_EMISSIVE
@@ -140,7 +134,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     }
 #else
     return pink;
-#endif
+#endif // VERTEX_UVS
 
 #else
 #ifdef PBR_DEBUG_ROUGHNESS
@@ -167,7 +161,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     }
 #else
     return pink;
-#endif
+#endif // VERTEX_UVS
 
 #else
 #ifdef PBR_DEBUG_METALLIC
@@ -180,7 +174,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
 #else
 #ifdef PBR_DEBUG_METALLIC_TEXTURE
 
-#ifdef VETREX_UVS
+#ifdef VERTEX_UVS
     if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
         let metallic = textureSample(metallic_roughness_texture, metallic_roughness_sampler, in.uv).b;
         return vec4<f32>(
@@ -194,7 +188,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     }
 #else
     return pink;
-#endif
+#endif // VERTEX_UVS
 
 #else
 #ifdef PBR_DEBUG_REFLECTANCE
@@ -221,7 +215,7 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
     }
 #else
     return pink;
-#endif
+#endif // VERTEX_UVS
 
 #endif // PBR_DEBUG_OCCLUSION_TEXTURE
 #endif // PBR_DEBUG_REFLECTANCE
