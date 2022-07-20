@@ -23,7 +23,7 @@
 //!     mut query: Query<(&Player, &mut Score)>,
 //!     mut round: ResMut<Round>,
 //! ) {
-//!     for (player, mut score) in query.iter_mut() {
+//!     for (player, mut score) in &mut query {
 //!         if player.alive {
 //!             score.0 += round.0;
 //!         }
@@ -83,11 +83,45 @@ pub use system::*;
 pub use system_chaining::*;
 pub use system_param::*;
 
+/// Ensure that a given function is a system
+///
+/// This should be used when writing doc examples,
+/// to confirm that systems used in an example are
+/// valid systems
 pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
     if false {
         // Check it can be converted into a system
+        // TODO: This should ensure that the system has no conflicting system params
         IntoSystem::into_system(sys);
     }
+}
+
+/// Ensure that a given function is an exclusive system
+///
+/// This should be used when writing doc examples,
+/// to confirm that systems used in an example are
+/// valid exclusive systems
+///
+/// Passing assert
+/// ```
+/// # use bevy_ecs::prelude::World;
+/// # use bevy_ecs::system::assert_is_exclusive_system;
+/// fn an_exclusive_system(_world: &mut World) {}
+///
+/// assert_is_exclusive_system(an_exclusive_system);
+/// ```
+///
+/// Failing assert
+/// ```compile_fail
+/// # use bevy_ecs::prelude::World;
+/// # use bevy_ecs::system::assert_is_exclusive_system;
+/// fn not_an_exclusive_system(_world: &mut World, number: f32) {}
+///
+/// assert_is_exclusive_system(not_an_exclusive_system);
+/// ```
+pub fn assert_is_exclusive_system<Params, SystemType>(
+    _sys: impl IntoExclusiveSystem<Params, SystemType>,
+) {
 }
 
 #[cfg(test)]
@@ -100,10 +134,11 @@ mod tests {
         bundle::Bundles,
         component::{Component, Components},
         entity::{Entities, Entity},
+        prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
+            Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
             RemovedComponents, Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
@@ -128,7 +163,7 @@ mod tests {
     #[test]
     fn simple_system() {
         fn sys(query: Query<&A>) {
-            for a in query.iter() {
+            for a in &query {
                 println!("{:?}", a);
             }
         }
@@ -279,6 +314,65 @@ mod tests {
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
         assert_eq!(world.resource::<Changed>().0, 2);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn option_has_no_filter_with() {
+        fn sys(_: Query<(Option<&A>, &mut B)>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn option_doesnt_remove_unrelated_filter_with() {
+        fn sys(_: Query<(Option<&A>, &mut B, &A)>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn any_of_has_no_filter_with() {
+        fn sys(_: Query<(AnyOf<(&A, ())>, &mut B)>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn any_of_has_filter_with_when_both_have_it() {
+        fn sys(_: Query<(AnyOf<(&A, &A)>, &mut B)>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn any_of_doesnt_remove_unrelated_filter_with() {
+        fn sys(_: Query<(AnyOf<(&A, ())>, &mut B, &A)>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn or_has_no_filter_with() {
+        fn sys(_: Query<&mut B, Or<(With<A>, With<B>)>>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_has_filter_with_when_both_have_it() {
+        fn sys(_: Query<&mut B, Or<(With<A>, With<A>)>>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_doesnt_remove_unrelated_filter_with() {
+        fn sys(_: Query<&mut B, (Or<(With<A>, With<B>)>, With<A>)>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
     }
 
     #[test]
@@ -532,7 +626,7 @@ mod tests {
             mut modified: ResMut<bool>,
         ) {
             assert_eq!(query.iter().count(), 1, "entity exists");
-            for entity in query.iter() {
+            for entity in &query {
                 let location = entities.get(entity).unwrap();
                 let archetype = archetypes.get(location.archetype_id).unwrap();
                 let archetype_components = archetype.components().collect::<Vec<_>>();
@@ -834,6 +928,129 @@ mod tests {
     }
 
     #[test]
+    fn convert_mut_to_immut() {
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<&mut A>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<&A>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<Option<&mut A>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<Option<&A>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &B)>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B)>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B)>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B)>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), With<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), With<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Without<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Without<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Added<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Added<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Changed<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Changed<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+    }
+
+    #[test]
     fn update_archetype_component_access_works() {
         use std::collections::HashSet;
 
@@ -905,5 +1122,39 @@ mod tests {
                 .collect::<HashSet<_>>(),
             expected_ids
         );
+    }
+
+    #[test]
+    fn commands_param_set() {
+        // Regression test for #4676
+        let mut world = World::new();
+        let entity = world.spawn().id();
+
+        run_system(
+            &mut world,
+            move |mut commands_set: ParamSet<(Commands, Commands)>| {
+                commands_set.p0().entity(entity).insert(A);
+                commands_set.p1().entity(entity).insert(B);
+            },
+        );
+
+        let entity = world.entity(entity);
+        assert!(entity.contains::<A>());
+        assert!(entity.contains::<B>());
+    }
+
+    #[test]
+    fn into_iter_impl() {
+        let mut world = World::new();
+        world.spawn().insert(W(42u32));
+        run_system(&mut world, |mut q: Query<&mut W<u32>>| {
+            for mut a in &mut q {
+                assert_eq!(a.0, 42);
+                a.0 = 0;
+            }
+            for a in &q {
+                assert_eq!(a.0, 0);
+            }
+        });
     }
 }

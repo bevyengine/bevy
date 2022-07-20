@@ -1,5 +1,6 @@
 use crate::{
-    serde::type_fields, List, Map, Reflect, ReflectRef, Struct, Tuple, TupleStruct, TypeRegistry,
+    serde::type_fields, Array, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple,
+    TupleStruct, TypeRegistry,
 };
 use serde::{
     ser::{SerializeMap, SerializeSeq},
@@ -21,13 +22,19 @@ impl<'a> Serializable<'a> {
     }
 }
 
-fn get_serializable<E: serde::ser::Error>(reflect_value: &dyn Reflect) -> Result<Serializable, E> {
-    reflect_value.serializable().ok_or_else(|| {
-        serde::ser::Error::custom(format_args!(
-            "Type '{}' does not support ReflectValue serialization",
-            reflect_value.type_name()
-        ))
-    })
+fn get_serializable<'a, E: serde::ser::Error>(
+    reflect_value: &'a dyn Reflect,
+    type_registry: &TypeRegistry,
+) -> Result<Serializable<'a>, E> {
+    let reflect_serialize = type_registry
+        .get_type_data::<ReflectSerialize>(reflect_value.type_id())
+        .ok_or_else(|| {
+            serde::ser::Error::custom(format_args!(
+                "Type '{}' did not register ReflectSerialize",
+                reflect_value.type_name()
+            ))
+        })?;
+    Ok(reflect_serialize.get_serializable(reflect_value))
 }
 
 pub struct ReflectSerializer<'a> {
@@ -67,6 +74,11 @@ impl<'a> Serialize for ReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
+            ReflectRef::Array(value) => ArraySerializer {
+                array: value,
+                registry: self.registry,
+            }
+            .serialize(serializer),
             ReflectRef::Map(value) => MapSerializer {
                 map: value,
                 registry: self.registry,
@@ -95,7 +107,7 @@ impl<'a> Serialize for ReflectValueSerializer<'a> {
         state.serialize_entry(type_fields::TYPE, self.value.type_name())?;
         state.serialize_entry(
             type_fields::VALUE,
-            get_serializable::<S::Error>(self.value)?.borrow(),
+            get_serializable::<S::Error>(self.value, self.registry)?.borrow(),
         )?;
         state.end()
     }
@@ -308,6 +320,47 @@ impl<'a> Serialize for ListValueSerializer<'a> {
     {
         let mut state = serializer.serialize_seq(Some(self.list.len()))?;
         for value in self.list.iter() {
+            state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
+        }
+        state.end()
+    }
+}
+
+pub struct ArraySerializer<'a> {
+    pub array: &'a dyn Array,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for ArraySerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_map(Some(2))?;
+        state.serialize_entry(type_fields::TYPE, self.array.type_name())?;
+        state.serialize_entry(
+            type_fields::ARRAY,
+            &ArrayValueSerializer {
+                array: self.array,
+                registry: self.registry,
+            },
+        )?;
+        state.end()
+    }
+}
+
+pub struct ArrayValueSerializer<'a> {
+    pub array: &'a dyn Array,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for ArrayValueSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_seq(Some(self.array.len()))?;
+        for value in self.array.iter() {
             state.serialize_element(&ReflectSerializer::new(value, self.registry))?;
         }
         state.end()

@@ -1,3 +1,6 @@
+//! This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
+//! to spawn, poll, and complete tasks across systems and system ticks.
+
 use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
@@ -6,11 +9,8 @@ use futures_lite::future;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
-/// This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
-/// to spawn, poll, and complete tasks across systems and system ticks.
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_env)
         .add_startup_system(add_assets)
@@ -43,11 +43,15 @@ fn add_assets(
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
 
+#[derive(Component)]
+struct ComputeTransform(Task<Transform>);
+
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, `handle_tasks`, will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
-fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
+fn spawn_tasks(mut commands: Commands) {
+    let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
         for y in 0..NUM_CUBES {
             for z in 0..NUM_CUBES {
@@ -56,7 +60,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
                     let mut rng = rand::thread_rng();
                     let start_time = Instant::now();
                     let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
-                    while Instant::now() - start_time < duration {
+                    while start_time.elapsed() < duration {
                         // Spinning for 'duration', simulating doing hard
                         // compute work generating translation coords!
                     }
@@ -66,7 +70,7 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
                 });
 
                 // Spawn new entity and add our new task as a component
-                commands.spawn().insert(task);
+                commands.spawn().insert(ComputeTransform(task));
             }
         }
     }
@@ -78,12 +82,12 @@ fn spawn_tasks(mut commands: Commands, thread_pool: Res<AsyncComputeTaskPool>) {
 /// removes the task component from the entity.
 fn handle_tasks(
     mut commands: Commands,
-    mut transform_tasks: Query<(Entity, &mut Task<Transform>)>,
+    mut transform_tasks: Query<(Entity, &mut ComputeTransform)>,
     box_mesh_handle: Res<BoxMeshHandle>,
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
-    for (entity, mut task) in transform_tasks.iter_mut() {
-        if let Some(transform) = future::block_on(future::poll_once(&mut *task)) {
+    for (entity, mut task) in &mut transform_tasks {
+        if let Some(transform) = future::block_on(future::poll_once(&mut task.0)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {
                 mesh: box_mesh_handle.clone(),
@@ -93,7 +97,7 @@ fn handle_tasks(
             });
 
             // Task is complete, so remove task component from entity
-            commands.entity(entity).remove::<Task<Transform>>();
+            commands.entity(entity).remove::<ComputeTransform>();
         }
     }
 }
@@ -114,7 +118,7 @@ fn setup_env(mut commands: Commands) {
     });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
         ..default()

@@ -1,3 +1,5 @@
+//! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
+
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
@@ -109,7 +111,7 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-5.0, 5.0, 5.0)
             .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
         ..default()
@@ -122,7 +124,7 @@ fn toggle_light(
     mut directional_lights: Query<&mut DirectionalLight>,
 ) {
     if input.just_pressed(KeyCode::L) {
-        for mut light in point_lights.iter_mut() {
+        for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
                 100000000.0
@@ -130,7 +132,7 @@ fn toggle_light(
                 0.0
             };
         }
-        for mut light in directional_lights.iter_mut() {
+        for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 println!("Using DirectionalLight");
                 100000.0

@@ -3,7 +3,6 @@ pub mod gamepad;
 mod input;
 pub mod keyboard;
 pub mod mouse;
-pub mod system;
 pub mod touch;
 
 pub use axis::*;
@@ -90,13 +89,13 @@ impl Plugin for InputPlugin {
 /// The current "press" state of an element
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub enum ElementState {
+pub enum ButtonState {
     Pressed,
     Released,
 }
 
-impl ElementState {
+impl ButtonState {
     pub fn is_pressed(&self) -> bool {
-        matches!(self, ElementState::Pressed)
+        matches!(self, ButtonState::Pressed)
     }
 }

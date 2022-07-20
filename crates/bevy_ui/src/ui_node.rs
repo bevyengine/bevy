@@ -1,7 +1,9 @@
+use crate::{Size, UiRect};
 use bevy_asset::Handle;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::{Rect, Size, Vec2};
-use bevy_reflect::{Reflect, ReflectDeserialize};
+use bevy_math::Vec2;
+use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
@@ -11,17 +13,18 @@ use std::ops::{Add, AddAssign};
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in pixels
     pub size: Vec2,
 }
 
 /// An enum that describes possible types of value in flexbox layout options
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Val {
     /// No value defined
+    #[default]
     Undefined,
     /// Automatically determine this value
     Auto,
@@ -29,12 +32,6 @@ pub enum Val {
     Px(f32),
     /// Set this value in percent
     Percent(f32),
-}
-
-impl Default for Val {
-    fn default() -> Self {
-        Val::Undefined
-    }
 }
 
 impl Add<f32> for Val {
@@ -54,8 +51,7 @@ impl AddAssign<f32> for Val {
     fn add_assign(&mut self, rhs: f32) {
         match self {
             Val::Undefined | Val::Auto => {}
-            Val::Px(value) => *value += rhs,
-            Val::Percent(value) => *value += rhs,
+            Val::Px(value) | Val::Percent(value) => *value += rhs,
         }
     }
 }
@@ -67,7 +63,7 @@ impl AddAssign<f32> for Val {
 /// **Note:** Bevy's UI is upside down compared to how Flexbox normally works, to stay consistent with engine paradigms about layouting from
 /// the upper left corner of the display
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Component, PartialEq)]
+#[reflect(Component, Default, PartialEq)]
 pub struct Style {
     /// Whether to arrange this node and its children with flexbox layout
     pub display: Display,
@@ -89,13 +85,13 @@ pub struct Style {
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
     /// The position of the node as descrided by its Rect
-    pub position: Rect<Val>,
+    pub position: UiRect<Val>,
     /// The margin of the node
-    pub margin: Rect<Val>,
+    pub margin: UiRect<Val>,
     /// The padding of the node
-    pub padding: Rect<Val>,
+    pub padding: UiRect<Val>,
     /// The border of the node
-    pub border: Rect<Val>,
+    pub border: UiRect<Val>,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
@@ -143,7 +139,7 @@ impl Default for Style {
 }
 
 /// How items are aligned according to the cross axis
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
     /// Items are aligned at the start
@@ -155,20 +151,16 @@ pub enum AlignItems {
     /// Items are aligned at the baseline
     Baseline,
     /// Items are stretched across the whole cross axis
+    #[default]
     Stretch,
 }
 
-impl Default for AlignItems {
-    fn default() -> AlignItems {
-        AlignItems::Stretch
-    }
-}
-
 /// Works like [`AlignItems`] but applies only to a single item
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
     /// Use the value of [`AlignItems`]
+    #[default]
     Auto,
     /// If the parent has [`AlignItems::Center`] only this item will be at the start
     FlexStart,
@@ -182,16 +174,10 @@ pub enum AlignSelf {
     Stretch,
 }
 
-impl Default for AlignSelf {
-    fn default() -> AlignSelf {
-        AlignSelf::Auto
-    }
-}
-
 /// Defines how each line is aligned within the flexbox.
 ///
 /// It only applies if [`FlexWrap::Wrap`] is present and if there are multiple lines of items.
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
     /// Each line moves towards the start of the cross axis
@@ -201,6 +187,7 @@ pub enum AlignContent {
     /// Each line moves towards the center of the cross axis
     Center,
     /// Each line will stretch to fill the remaining space
+    #[default]
     Stretch,
     /// Each line fills the space it needs, putting the remaining space, if any
     /// inbetween the lines
@@ -210,19 +197,14 @@ pub enum AlignContent {
     SpaceAround,
 }
 
-impl Default for AlignContent {
-    fn default() -> AlignContent {
-        AlignContent::Stretch
-    }
-}
-
 /// Defines the text direction
 ///
 /// For example English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Direction {
     /// Inherit from parent node
+    #[default]
     Inherit,
     /// Text is written left to right
     LeftToRight,
@@ -230,33 +212,23 @@ pub enum Direction {
     RightToLeft,
 }
 
-impl Default for Direction {
-    fn default() -> Direction {
-        Direction::Inherit
-    }
-}
-
 /// Whether to use Flexbox layout
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Display {
     /// Use flexbox
+    #[default]
     Flex,
     /// Use no layout, don't render this node and its children
     None,
 }
 
-impl Default for Display {
-    fn default() -> Display {
-        Display::Flex
-    }
-}
-
 /// Defines how flexbox items are ordered within a flexbox
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum FlexDirection {
     /// Same way as text direction along the main axis
+    #[default]
     Row,
     /// Flex from bottom to top
     Column,
@@ -266,17 +238,12 @@ pub enum FlexDirection {
     ColumnReverse,
 }
 
-impl Default for FlexDirection {
-    fn default() -> FlexDirection {
-        FlexDirection::Row
-    }
-}
-
 /// Defines how items are aligned according to the main axis
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
     /// Pushed towards the start
+    #[default]
     FlexStart,
     /// Pushed towards the end
     FlexEnd,
@@ -290,33 +257,23 @@ pub enum JustifyContent {
     SpaceEvenly,
 }
 
-impl Default for JustifyContent {
-    fn default() -> JustifyContent {
-        JustifyContent::FlexStart
-    }
-}
-
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect, Serialize, Deserialize)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Overflow {
     /// Show overflowing items
+    #[default]
     Visible,
     /// Hide overflowing items
     Hidden,
 }
 
-impl Default for Overflow {
-    fn default() -> Overflow {
-        Overflow::Visible
-    }
-}
-
 /// The strategy used to position this node
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum PositionType {
     /// Relative to all other nodes with the [`PositionType::Relative`] value
+    #[default]
     Relative,
     /// Independent of all other nodes
     ///
@@ -324,28 +281,17 @@ pub enum PositionType {
     Absolute,
 }
 
-impl Default for PositionType {
-    fn default() -> PositionType {
-        PositionType::Relative
-    }
-}
-
 /// Defines if flexbox items appear on a single line or on multiple lines
-#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum FlexWrap {
     /// Single line, will overflow if needed
+    #[default]
     NoWrap,
     /// Multiple lines, if needed
     Wrap,
     /// Same as [`FlexWrap::Wrap`] but new lines will appear before the previous one
     WrapReverse,
-}
-
-impl Default for FlexWrap {
-    fn default() -> FlexWrap {
-        FlexWrap::NoWrap
-    }
 }
 
 /// The calculated size of the node
@@ -358,7 +304,7 @@ pub struct CalculatedSize {
 
 /// The color of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct UiColor(pub Color);
 
 impl From<Color> for UiColor {
@@ -368,8 +314,8 @@ impl From<Color> for UiColor {
 }
 
 /// The image of the node
-#[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
+#[reflect(Component, Default)]
 pub struct UiImage(pub Handle<Image>);
 
 impl Default for UiImage {

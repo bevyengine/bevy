@@ -11,6 +11,8 @@ use crate::{
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
+use bevy_time::TimeSender;
+use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
@@ -63,16 +65,22 @@ pub fn render_system(world: &mut World) {
                 if let Some(surface_texture) = texture_view.take_surface_texture() {
                     surface_texture.present();
                 }
-
-                #[cfg(feature = "tracing-tracy")]
-                bevy_utils::tracing::event!(
-                    bevy_utils::tracing::Level::INFO,
-                    message = "finished frame",
-                    tracy.frame_mark = true
-                );
             }
         }
+
+        #[cfg(feature = "tracing-tracy")]
+        bevy_utils::tracing::event!(
+            bevy_utils::tracing::Level::INFO,
+            message = "finished frame",
+            tracy.frame_mark = true
+        );
     }
+
+    // update the time and send it to the app world
+    let time_sender = world.resource::<TimeSender>();
+    time_sender.0.try_send(Instant::now()).expect(
+        "The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",
+    );
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
@@ -218,6 +226,9 @@ pub async fn initialize_renderer(
             max_compute_workgroups_per_dimension: limits
                 .max_compute_workgroups_per_dimension
                 .min(constrained_limits.max_compute_workgroups_per_dimension),
+            max_buffer_size: limits
+                .max_buffer_size
+                .min(constrained_limits.max_buffer_size),
         };
     }
 

@@ -1,14 +1,15 @@
+//! Shows various text layout options.
+
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::PresentMode,
 };
 
-/// This example is for debugging text layout
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .add_plugins(DefaultPlugins)
@@ -23,12 +24,12 @@ struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
-            position: Rect {
+            position: UiRect {
                 top: Val::Px(5.0),
                 left: Val::Px(15.0),
                 ..default()
@@ -50,7 +51,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         style: Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
-            position: Rect {
+            position: UiRect {
                 top: Val::Px(5.0),
                 right: Val::Px(15.0),
                 ..default()
@@ -80,7 +81,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect {
                     bottom: Val::Px(5.0),
                     right: Val::Px(15.0),
                     ..default()
@@ -147,7 +148,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         style: Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
-            position: Rect {
+            position: UiRect {
                 bottom: Val::Px(5.0),
                 left: Val::Px(15.0),
                 ..default()
@@ -176,7 +177,7 @@ fn change_text_system(
     diagnostics: Res<Diagnostics>,
     mut query: Query<&mut Text, With<TextChanges>>,
 ) {
-    for mut text in query.iter_mut() {
+    for mut text in &mut query {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(fps_avg) = fps_diagnostic.average() {

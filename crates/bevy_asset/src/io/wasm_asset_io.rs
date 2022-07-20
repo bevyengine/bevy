@@ -1,12 +1,25 @@
-use crate::{AssetIo, AssetIoError};
+use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 use bevy_utils::BoxedFuture;
 use js_sys::Uint8Array;
-use std::path::{Path, PathBuf};
+use std::{
+    convert::TryFrom,
+    path::{Path, PathBuf},
+};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
 
+/// I/O implementation for web builds.
+///
+/// Implementation details:
+///
+/// - `load_path` makes [fetch()] requests.
+/// - `read_directory` always returns an empty iterator.
+/// - `get_metadata` will always return an error.
+/// - Watching for changes is not supported. The watcher methods will do nothing.
+///
+/// [fetch()]: https://developer.mozilla.org/en-US/docs/Web/API/fetch
 pub struct WasmAssetIo {
     root_path: PathBuf,
 }
@@ -50,7 +63,17 @@ impl AssetIo for WasmAssetIo {
         Ok(())
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
-        self.root_path.join(path).is_dir()
+    fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
+        let full_path = self.root_path.join(path);
+        full_path
+            .metadata()
+            .and_then(Metadata::try_from)
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetIoError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
     }
 }

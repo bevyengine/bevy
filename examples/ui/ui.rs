@@ -1,10 +1,11 @@
+//! This example illustrates the various features of Bevy UI.
+
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
     winit::WinitSettings,
 };
 
-/// This example illustrates the various features of Bevy UI.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -16,8 +17,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // ui camera
-    commands.spawn_bundle(UiCameraBundle::default());
+    // Camera
+    commands.spawn_bundle(Camera2dBundle::default());
 
     // root node
     commands
@@ -36,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn_bundle(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: Rect::all(Val::Px(2.0)),
+                        border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
                     color: Color::rgb(0.65, 0.65, 0.65).into(),
@@ -58,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // text
                             parent.spawn_bundle(TextBundle {
                                 style: Style {
-                                    margin: Rect::all(Val::Px(5.0)),
+                                    margin: UiRect::all(Val::Px(5.0)),
                                     ..default()
                                 },
                                 text: Text::with_section(
@@ -91,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn_bundle(TextBundle {
                         style: Style {
                             size: Size::new(Val::Undefined, Val::Px(25.)),
-                            margin: Rect {
+                            margin: UiRect {
                                 left: Val::Auto,
                                 right: Val::Auto,
                                 ..default()
@@ -143,7 +144,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             style: Style {
                                                 flex_shrink: 0.,
                                                 size: Size::new(Val::Undefined, Val::Px(20.)),
-                                                margin: Rect {
+                                                margin: UiRect {
                                                     left: Val::Auto,
                                                     right: Val::Auto,
                                                     ..default()
@@ -172,12 +173,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Px(200.0)),
                         position_type: PositionType::Absolute,
-                        position: Rect {
+                        position: UiRect {
                             left: Val::Px(210.0),
                             bottom: Val::Px(10.0),
                             ..default()
                         },
-                        border: Rect::all(Val::Px(20.0)),
+                        border: UiRect::all(Val::Px(20.0)),
                         ..default()
                     },
                     color: Color::rgb(0.4, 0.4, 1.0).into(),
@@ -221,7 +222,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: Rect {
+                                    position: UiRect {
                                         left: Val::Px(20.0),
                                         bottom: Val::Px(20.0),
                                         ..default()
@@ -235,7 +236,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: Rect {
+                                    position: UiRect {
                                         left: Val::Px(40.0),
                                         bottom: Val::Px(40.0),
                                         ..default()
@@ -249,7 +250,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: Rect {
+                                    position: UiRect {
                                         left: Val::Px(60.0),
                                         bottom: Val::Px(60.0),
                                         ..default()
@@ -264,7 +265,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: Rect {
+                                    position: UiRect {
                                         left: Val::Px(80.0),
                                         bottom: Val::Px(80.0),
                                         ..default()
@@ -314,7 +315,7 @@ fn mouse_scroll(
     query_item: Query<&Node>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.iter() {
-        for (mut scrolling_list, mut style, children, uinode) in query_list.iter_mut() {
+        for (mut scrolling_list, mut style, children, uinode) in &mut query_list {
             let items_height: f32 = children
                 .iter()
                 .map(|entity| query_item.get(*entity).unwrap().size.y)

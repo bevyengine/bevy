@@ -81,7 +81,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         self.should_run.grow(systems.len());
 
         // Construct scheduling data for systems.
-        for container in systems.iter() {
+        for container in systems {
             let dependencies_total = container.dependencies().len();
             let system = container.system();
             let (start_sender, start_receiver) = async_channel::bounded(1);
@@ -123,10 +123,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             }
         }
 
-        let compute_pool = world
-            .get_resource_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
-            .clone();
-        compute_pool.scope(|scope| {
+        ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             self.prepare_systems(scope, systems, world);
             let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.
@@ -193,6 +190,7 @@ impl ParallelExecutor {
                         .unwrap_or_else(|error| unreachable!("{}", error));
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
+                    // SAFETY: the executor prevents two systems with conflicting access from running simultaneously.
                     unsafe { system.run_unsafe((), world) };
                     #[cfg(feature = "trace")]
                     drop(system_guard);

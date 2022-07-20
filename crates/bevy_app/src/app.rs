@@ -1,10 +1,10 @@
 use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::Events,
+    event::{Event, Events},
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
-        IntoSystemDescriptor, RunOnce, Schedule, Stage, StageLabel, State, StateData, SystemSet,
+        IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
     },
     system::Resource,
@@ -56,7 +56,7 @@ pub struct App {
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
-    sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
+    sub_apps: HashMap<AppLabelId, SubApp>,
 }
 
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
@@ -591,7 +591,7 @@ impl App {
             .add_stage(
                 StartupSchedule,
                 Schedule::default()
-                    .with_run_criteria(RunOnce::default())
+                    .with_run_criteria(ShouldRun::once)
                     .with_stage(StartupStage::PreStartup, SystemStage::parallel())
                     .with_stage(StartupStage::Startup, SystemStage::parallel())
                     .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
@@ -622,7 +622,7 @@ impl App {
     /// ```
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Resource,
+        T: Event,
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
@@ -761,6 +761,16 @@ impl App {
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
+    /// # // Dummies created to avoid using `bevy_log`,
+    /// # // which pulls in too many dependencies and breaks rust-analyzer
+    /// # pub mod bevy_log {
+    /// #     use bevy_app::prelude::*;
+    /// #     #[derive(Default)]
+    /// #     pub struct LogPlugin;
+    /// #     impl Plugin for LogPlugin{
+    /// #        fn build(&self, app: &mut App) {}
+    /// #     }
+    /// # }
     /// App::new().add_plugin(bevy_log::LogPlugin::default());
     /// ```
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
@@ -779,16 +789,12 @@ impl App {
     /// There are built-in [`PluginGroup`]s that provide core engine functionality.
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
-    /// # Examples
+    /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
+    /// before / after another plugin), see [`add_plugins_with`](Self::add_plugins_with).
     ///
+    /// ## Examples
     /// ```
-    /// # use bevy_app::{prelude::*, PluginGroupBuilder};
-    /// #
-    /// # // Dummy created to avoid using bevy_internal, which pulls in to many dependencies.
-    /// # struct MinimalPlugins;
-    /// # impl PluginGroup for MinimalPlugins {
-    /// #     fn build(&mut self, group: &mut PluginGroupBuilder){;}
-    /// # }
+    /// # use bevy_app::{prelude::*, PluginGroupBuilder, NoopPluginGroup as MinimalPlugins};
     /// #
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
@@ -805,14 +811,23 @@ impl App {
     /// Can be used to add a group of [`Plugin`]s, where the group is modified
     /// before insertion into a Bevy application. For example, you can add
     /// additional [`Plugin`]s at a specific place in the [`PluginGroup`], or deactivate
-    /// specific [`Plugin`]s while keeping the rest.
+    /// specific [`Plugin`]s while keeping the rest using a [`PluginGroupBuilder`].
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder};
     /// #
-    /// # // Dummies created to avoid using bevy_internal which pulls in too many dependencies.
+    /// # // Dummies created to avoid using `bevy_internal` and `bevy_log`,
+    /// # // which pulls in too many dependencies and breaks rust-analyzer
+    /// # pub mod bevy_log {
+    /// #     use bevy_app::prelude::*;
+    /// #     #[derive(Default)]
+    /// #     pub struct LogPlugin;
+    /// #     impl Plugin for LogPlugin{
+    /// #        fn build(&self, app: &mut App) {}
+    /// #     }
+    /// # }
     /// # struct DefaultPlugins;
     /// # impl PluginGroup for DefaultPlugins {
     /// #     fn build(&mut self, group: &mut PluginGroupBuilder){
@@ -864,7 +879,7 @@ impl App {
         sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
-            Box::new(label),
+            label.as_label(),
             SubApp {
                 app,
                 runner: Box::new(sub_app_runner),
@@ -881,15 +896,16 @@ impl App {
     pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
         }
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
-    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, AppLabelId> {
+        let label = label.as_label();
         self.sub_apps
-            .get_mut((&label) as &dyn AppLabel)
+            .get_mut(&label)
             .map(|sub_app| &mut sub_app.app)
             .ok_or(label)
     }
@@ -902,7 +918,7 @@ impl App {
     pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
         }
     }
 
@@ -910,7 +926,7 @@ impl App {
     /// an [`Err`] containing the given label.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get((&label) as &dyn AppLabel)
+            .get(&label.as_label())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }
@@ -920,6 +936,11 @@ fn run_once(mut app: App) {
     app.update();
 }
 
-/// An event that indicates the [`App`] should exit. This will fully exit the app process.
+/// An event that indicates the [`App`] should exit. This will fully exit the app process at the
+/// start of the next tick of the schedule.
+///
+/// You can also use this event to detect that an exit was requested. In order to receive it, systems
+/// subscribing to this event should run after it was emitted and before the schedule of the same
+/// frame is over.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;

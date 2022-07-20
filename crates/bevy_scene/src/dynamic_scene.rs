@@ -9,6 +9,12 @@ use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
 use serde::Serialize;
 
 /// A collection of serializable dynamic entities, each with its own run-time defined set of components.
+/// To spawn a dynamic scene, you can use either:
+/// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
+/// * adding the [`DynamicSceneBundle`](crate::DynamicSceneBundle) to an entity
+/// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
+/// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
+/// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Default, TypeUuid)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
@@ -56,8 +62,7 @@ impl DynamicScene {
                     .and_then(|registration| registration.data::<ReflectComponent>());
                 if let Some(reflect_component) = reflect_component {
                     for (i, entity) in archetype.entities().iter().enumerate() {
-                        if let Some(component) = reflect_component.reflect_component(world, *entity)
-                        {
+                        if let Some(component) = reflect_component.reflect(world, *entity) {
                             scene.entities[entities_offset + i]
                                 .components
                                 .push(component.clone_value());
@@ -107,14 +112,7 @@ impl DynamicScene {
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                if world
-                    .entity(entity)
-                    .contains_type_id(registration.type_id())
-                {
-                    reflect_component.apply_component(world, entity, &**component);
-                } else {
-                    reflect_component.add_component(world, entity, &**component);
-                }
+                reflect_component.apply_or_insert(world, entity, &**component);
             }
         }
 
@@ -145,8 +143,5 @@ where
         .decimal_floats(true)
         .indentor("  ".to_string())
         .new_line("\n".to_string());
-    let mut buf = Vec::new();
-    let mut ron_serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
-    serialize.serialize(&mut ron_serializer)?;
-    Ok(String::from_utf8(buf).unwrap())
+    ron::ser::to_string_pretty(&serialize, pretty_config)
 }

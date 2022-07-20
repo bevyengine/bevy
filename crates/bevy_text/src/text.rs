@@ -1,13 +1,13 @@
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
+use bevy_reflect::{prelude::*, FromReflect};
 use bevy_render::color::Color;
 use serde::{Deserialize, Serialize};
 
 use crate::Font;
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Text {
     pub sections: Vec<TextSection>,
     pub alignment: TextAlignment,

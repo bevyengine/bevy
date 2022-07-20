@@ -1,4 +1,7 @@
-use bevy::prelude::*;
+//! Illustrates the difference between direction of a translation in respect to local object or
+//! global object Transform.
+
+use bevy::{math::Vec3A, prelude::*};
 
 // Define a marker for entities that should be changed via their global transform.
 #[derive(Component)]
@@ -52,7 +55,7 @@ fn setup(
         .insert_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::YELLOW.into()),
-            ..Default::default()
+            ..default()
         })
         .insert(ChangeGlobal)
         .insert(Move)
@@ -68,7 +71,7 @@ fn setup(
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                 material: materials.add(Color::RED.into()),
                 transform: Transform::from_translation(Vec3::Y - Vec3::Z),
-                ..Default::default()
+                ..default()
             })
             .insert(ChangeGlobal)
             .insert(Move)
@@ -78,7 +81,7 @@ fn setup(
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                 material: materials.add(Color::GREEN.into()),
                 transform: Transform::from_translation(Vec3::Y + Vec3::Z),
-                ..Default::default()
+                ..default()
             })
             .insert(ChangeLocal)
             .insert(Move)
@@ -86,19 +89,18 @@ fn setup(
     });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // Add a light source for better 3d visibility.
     commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_translation(Vec3::splat(3.0)),
-        ..Default::default()
+        ..default()
     });
 
-    // Add a UI cam and text to explain inputs and what is happening.
-    commands.spawn_bundle(UiCameraBundle::default());
+    // Add text to explain inputs and what is happening.
     commands.spawn_bundle(TextBundle {
         text: Text::with_section(
             "Press the arrow keys to move the cubes. Toggle movement for yellow (1), red (2) and green (3) cubes via number keys.
@@ -113,10 +115,11 @@ The red cube is moved through its GlobalTransform and thus is unaffected by the 
             },
             TextAlignment {
                 horizontal: HorizontalAlign::Left,
-                ..Default::default()
-            }
+                ..default()
+            },
         ),
-        ..Default::default()});
+        ..default()
+    });
 }
 
 // This system will move all cubes that are marked as ChangeGlobal according to their global transform.
@@ -125,8 +128,8 @@ fn move_cubes_according_to_global_transform(
     direction: Res<Direction>,
     timer: Res<Time>,
 ) {
-    for mut global_transform in cubes.iter_mut() {
-        global_transform.translation += direction.0 * timer.delta_seconds();
+    for mut global_transform in &mut cubes {
+        *global_transform.translation_mut() += Vec3A::from(direction.0) * timer.delta_seconds();
     }
 }
 
@@ -136,7 +139,7 @@ fn move_cubes_according_to_local_transform(
     direction: Res<Direction>,
     timer: Res<Time>,
 ) {
-    for mut transform in cubes.iter_mut() {
+    for mut transform in &mut cubes {
         transform.translation += direction.0 * timer.delta_seconds();
     }
 }
@@ -163,7 +166,7 @@ fn toggle_movement(
 ) {
     // Update the currently movable entities and remove their Move component if the assigned key was pressed to disable their movement.
     // This will also make them transparent so they can be identified as 'disabled' in the scene.
-    for (entity, material_handle, toggled_by) in movable_entities.iter() {
+    for (entity, material_handle, toggled_by) in &movable_entities {
         if keyboard_input.just_pressed(toggled_by.0) {
             materials
                 .get_mut(material_handle)
@@ -175,7 +178,7 @@ fn toggle_movement(
     }
     // Update the currently non-movable entities and add a Move component if the assigned key was pressed to enable their movement.
     // This will also make them opaque so they can be identified as 'enabled' in the scene.
-    for (entity, material_handle, toggled_by) in static_entities.iter() {
+    for (entity, material_handle, toggled_by) in &static_entities {
         if keyboard_input.just_pressed(toggled_by.0) {
             materials
                 .get_mut(material_handle)

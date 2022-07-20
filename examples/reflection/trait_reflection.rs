@@ -1,3 +1,5 @@
+//! Allows reflection with trait objects.
+
 use bevy::{prelude::*, reflect::TypeRegistry};
 
 fn main() {

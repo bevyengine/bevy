@@ -2,12 +2,12 @@ use crate::{
     render_resource::TextureView,
     renderer::{RenderDevice, RenderInstance},
     texture::BevyDefault,
-    RenderApp, RenderStage, RenderWorld,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowId, Windows};
+use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
 
@@ -67,8 +67,11 @@ impl DerefMut for ExtractedWindows {
     }
 }
 
-fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>) {
-    let mut extracted_windows = render_world.resource_mut::<ExtractedWindows>();
+fn extract_windows(
+    mut extracted_windows: ResMut<ExtractedWindows>,
+    mut closed: Extract<EventReader<WindowClosed>>,
+    windows: Extract<Res<Windows>>,
+) {
     for window in windows.iter() {
         let (new_width, new_height) = (
             window.physical_width().max(1),
@@ -105,6 +108,9 @@ fn extract_windows(mut render_world: ResMut<RenderWorld>, windows: Res<Windows>)
             extracted_window.physical_height = new_height;
         }
     }
+    for closed_window in closed.iter() {
+        extracted_windows.remove(&closed_window.id);
+    }
 }
 
 #[derive(Default)]
@@ -114,6 +120,27 @@ pub struct WindowSurfaces {
     configured_windows: HashSet<WindowId>,
 }
 
+/// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
+///
+/// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
+/// the performance bottleneck. This can be seen in profiles as multiple prepare-stage systems all
+/// taking an unusually long time to complete, and all finishing at about the same time as the
+/// `prepare_windows` system. Improvements in bevy are planned to avoid this happening when it
+/// should not but it will still happen as it is easy for a user to create a large GPU workload
+/// relative to the GPU performance and/or CPU workload.
+/// This can be caused by many reasons, but several of them are:
+/// - GPU workload is more than your current GPU can manage
+/// - Error / performance bug in your custom shaders
+/// - wgpu was unable to detect a proper GPU hardware-accelerated device given the chosen
+///   [`Backends`](crate::settings::Backends), [`WgpuLimits`](crate::settings::WgpuLimits),
+///   and/or [`WgpuFeatures`](crate::settings::WgpuFeatures). For example, on Windows currently
+///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
+///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
+///   will be chosen and performance will be very poor. This is visible in a log message that is
+///   output during renderer initialization. Future versions of wgpu will support `DirectX 11`, but
+///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
+///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
+///   later.
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS s
@@ -142,6 +169,8 @@ pub fn prepare_windows(
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
                 PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
                 PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
         };
 

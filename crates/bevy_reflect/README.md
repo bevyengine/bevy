@@ -21,7 +21,7 @@ struct Foo {
     a: u32,
     b: Bar,
     c: Vec<i32>,
-    d: Vec<Bar>,
+    d: Vec<Baz>,
 }
 
 // this will automatically implement the Reflect trait and the TupleStruct trait (because the type is a tuple struct)
@@ -107,7 +107,7 @@ assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
 
 ### Trait "reflection"
 
-Call a trait on a given &dyn Reflect reference without knowing the underlying type!
+Call a trait on a given `&dyn Reflect` reference without knowing the underlying type!
 
 ```rust ignore
 #[derive(Reflect)]
