@@ -11,7 +11,7 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
 /// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
-/// parameters that are constant during shader execution, and are best used for data that is relatively small in size. For
+/// parameters that are constant during shader execution, and are best used for data that is relatively small in size as they are only guaranteed to support up to 16kB per binding. For
 /// larger data, or data that must be made accessible to shaders on a read-write basis, consider
 /// [`StorageBuffer`](crate::render_resource::StorageBuffer) or
 /// [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer). Note however that
