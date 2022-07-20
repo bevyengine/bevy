@@ -320,16 +320,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "pbr_debug"
-path = "examples/3d/pbr_debug.rs"
-
-[package.metadata.example.pbr_debug]
-name = "PBR Debug"
-description = "Loads and renders a glTF file as a scene and then displays rendering debug visualizations"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
