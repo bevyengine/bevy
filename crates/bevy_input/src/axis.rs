@@ -111,7 +111,7 @@ mod tests {
             assert_eq!(expected, actual);
         }
     }
-    
+
     #[test]
     fn test_axis_devices() {
         let mut axis = Axis::<GamepadButton>::default();
