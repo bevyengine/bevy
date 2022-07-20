@@ -10,25 +10,23 @@ use wgpu::BufferUsages;
 /// for use by the GPU.
 ///
 /// "Properly formatted" means that item data already meets the alignment and padding
-/// requirements for how it will be used on the GPU.
+/// requirements for how it will be used on the GPU. The item type must implement [`Pod`]
+/// for its data representation to be directly copyable.
 ///
 /// Index, vertex, and instance-rate vertex buffers have no alignment nor padding requirements and
-/// so this helper type is a good choice for them. Uniform buffers must adhere to std140
-/// alignment/padding requirements, and storage buffers to std430. There are helper types for such
-/// buffers:
-/// - Uniform buffers
-///   - Plain: [`UniformBuffer`](crate::render_resource::UniformBuffer)
-///   - Dynamic offsets: [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
-/// - Storage buffers
-///   - Plain: [`StorageBuffer`](crate::render_resource::StorageBuffer)
-///   - Dynamic offsets: [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-///
-/// The item type must implement [`Pod`] for its data representation to be directly copyable.
+/// so this helper type is a good choice for them.
 ///
 /// The contained data is stored in system RAM. Calling [`reserve`](crate::render_resource::BufferVec::reserve)
 /// allocates VRAM from the [`RenderDevice`](crate::renderer::RenderDevice).
 /// [`write_buffer`](crate::render_resource::BufferVec::write_buffer) queues copying of the data
 /// from system RAM to VRAM.
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`Texture`](crate::render_resource::Texture)
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
     buffer: Option<Buffer>,
