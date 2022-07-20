@@ -1,3 +1,5 @@
+//! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
+
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
@@ -109,7 +111,7 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-5.0, 5.0, 5.0)
             .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
         ..default()

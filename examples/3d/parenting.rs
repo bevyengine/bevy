@@ -1,10 +1,10 @@
+//! Illustrates how to create parent-child relationships between entities and how parent transforms
+//! are propagated to their descendants.
+
 use bevy::prelude::*;
 
-/// This example illustrates how to create parent->child relationships between entities how parent
-/// transforms are propagated to their descendants
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(rotator_system)
@@ -18,7 +18,7 @@ struct Rotator;
 /// rotates the parent, which will result in the child also rotating
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotator>>) {
     for mut transform in query.iter_mut() {
-        transform.rotation *= Quat::from_rotation_x(3.0 * time.delta_seconds());
+        transform.rotate_x(3.0 * time.delta_seconds());
     }
 }
 
@@ -58,7 +58,7 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

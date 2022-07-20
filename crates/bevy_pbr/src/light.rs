@@ -1,13 +1,12 @@
 use std::collections::HashSet;
 
-use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_reflect::Reflect;
+use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
-    prelude::Image,
+    extract_resource::ExtractResource,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
@@ -15,7 +14,6 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::warn;
-use bevy_window::Windows;
 
 use crate::{
     calculate_cluster_factors, CubeMapFace, CubemapVisibleEntities, ViewClusterBindings,
@@ -41,7 +39,7 @@ use crate::{
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
 #[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct PointLight {
     pub color: Color,
     pub intensity: f32,
@@ -75,7 +73,8 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -113,7 +112,7 @@ impl Default for PointLightShadowMap {
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct DirectionalLight {
     pub color: Color,
     /// Illuminance in lux
@@ -153,7 +152,8 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -168,7 +168,8 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Debug)]
+#[derive(Clone, Debug, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -185,10 +186,12 @@ impl Default for AmbientLight {
 }
 
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
-#[derive(Component)]
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
-#[derive(Component)]
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
 pub struct NotShadowReceiver;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
@@ -213,8 +216,6 @@ pub enum SimulationLightSystems {
 /// rendering
 #[derive(Debug, Copy, Clone)]
 pub enum ClusterFarZMode {
-    /// Use the camera far-plane to determine the z-depth of the furthest cluster layer
-    CameraFarPlane,
     /// Calculate the required maximum z-depth based on currently visible lights.
     /// Makes better use of available clusters, speeding up GPU lighting operations
     /// at the expense of some CPU time and using more indices in the cluster light
@@ -325,8 +326,7 @@ impl ClusterConfig {
 
     fn first_slice_depth(&self) -> f32 {
         match self {
-            ClusterConfig::None => 0.0,
-            ClusterConfig::Single => 0.0,
+            ClusterConfig::None | ClusterConfig::Single => 0.0,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.first_slice_depth
             }
@@ -485,8 +485,7 @@ fn ndc_position_to_cluster(
     view_z: f32,
 ) -> UVec3 {
     let cluster_dimensions_f32 = cluster_dimensions.as_vec3();
-    let frag_coord =
-        (ndc_p.xy() * Vec2::new(0.5, -0.5) + Vec2::splat(0.5)).clamp(Vec2::ZERO, Vec2::ONE);
+    let frag_coord = (ndc_p.xy() * VEC2_HALF_NEGATIVE_Y + VEC2_HALF).clamp(Vec2::ZERO, Vec2::ONE);
     let xy = (frag_coord * cluster_dimensions_f32.xy()).floor();
     let z_slice = view_z_to_z_slice(
         cluster_factors,
@@ -498,6 +497,9 @@ fn ndc_position_to_cluster(
         .extend(z_slice)
         .clamp(UVec3::ZERO, cluster_dimensions - UVec3::ONE)
 }
+
+const VEC2_HALF: Vec2 = Vec2::splat(0.5);
+const VEC2_HALF_NEGATIVE_Y: Vec2 = Vec2::new(0.5, -0.5);
 
 // Calculate bounds for the light using a view space aabb.
 // Returns a (Vec3, Vec3) containing min and max with
@@ -573,23 +575,21 @@ fn cluster_space_light_aabb(
             .max(light_aabb_ndc_xymax_far),
     );
 
-    // pack unadjusted z depth into the vecs
-    let (aabb_min, aabb_max) = (
-        light_aabb_ndc_min.xy().extend(light_aabb_view_min.z),
-        light_aabb_ndc_max.xy().extend(light_aabb_view_max.z),
+    // clamp to ndc coords without depth
+    let (aabb_min_ndc, aabb_max_ndc) = (
+        light_aabb_ndc_min.xy().clamp(NDC_MIN, NDC_MAX),
+        light_aabb_ndc_max.xy().clamp(NDC_MIN, NDC_MAX),
     );
-    // clamp to ndc coords
+
+    // pack unadjusted z depth into the vecs
     (
-        aabb_min.clamp(
-            Vec3::new(-1.0, -1.0, f32::MIN),
-            Vec3::new(1.0, 1.0, f32::MAX),
-        ),
-        aabb_max.clamp(
-            Vec3::new(-1.0, -1.0, f32::MIN),
-            Vec3::new(1.0, 1.0, f32::MAX),
-        ),
+        aabb_min_ndc.extend(light_aabb_view_min.z),
+        aabb_max_ndc.extend(light_aabb_view_max.z),
     )
 }
+
+const NDC_MIN: Vec2 = Vec2::NEG_ONE;
+const NDC_MAX: Vec2 = Vec2::ONE;
 
 // Sort point lights with shadows enabled first, then by a stable key so that the index
 // can be used to limit the number of point light shadows to render based on the device and
@@ -635,8 +635,6 @@ impl GlobalVisiblePointLights {
 pub(crate) fn assign_lights_to_clusters(
     mut commands: Commands,
     mut global_lights: ResMut<GlobalVisiblePointLights>,
-    windows: Res<Windows>,
-    images: Res<Assets<Image>>,
     mut views: Query<(
         Entity,
         &GlobalTransform,
@@ -739,22 +737,20 @@ pub(crate) fn assign_lights_to_clusters(
             continue;
         }
 
-        let screen_size =
-            if let Some(screen_size) = camera.target.get_physical_size(&windows, &images) {
-                screen_size
-            } else {
-                clusters.clear();
-                continue;
-            };
+        let screen_size = if let Some(screen_size) = camera.physical_viewport_size() {
+            screen_size
+        } else {
+            clusters.clear();
+            continue;
+        };
 
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
         let view_transform = camera_transform.compute_matrix();
         let inverse_view_transform = view_transform.inverse();
-        let is_orthographic = camera.projection_matrix.w_axis.w == 1.0;
+        let is_orthographic = camera.projection_matrix().w_axis.w == 1.0;
 
         let far_z = match config.far_z_mode() {
-            ClusterFarZMode::CameraFarPlane => camera.far,
             ClusterFarZMode::MaxLightRange => {
                 let inverse_view_row_2 = inverse_view_transform.row(2);
                 lights
@@ -768,7 +764,17 @@ pub(crate) fn assign_lights_to_clusters(
             ClusterFarZMode::Constant(far) => far,
         };
         let first_slice_depth = match (is_orthographic, requested_cluster_dimensions.z) {
-            (true, _) => camera.near,
+            (true, _) => {
+                // NOTE: Based on glam's Mat4::orthographic_rh(), as used to calculate the orthographic projection
+                // matrix, we can calculate the projection's view-space near plane as follows:
+                // component 3,2 = r * near and 2,2 = r where r = 1.0 / (near - far)
+                // There is a caveat here that when calculating the projection matrix, near and far were swapped to give
+                // reversed z, consistent with the perspective projection. So,
+                // 3,2 = r * far and 2,2 = r where r = 1.0 / (far - near)
+                // rearranging r = 1.0 / (far - near), r * (far - near) = 1.0, r * far - 1.0 = r * near, near = (r * far - 1.0) / r
+                // = (3,2 - 1.0) / 2,2
+                (camera.projection_matrix().w_axis.z - 1.0) / camera.projection_matrix().z_axis.z
+            }
             (false, 1) => config.first_slice_depth().max(far_z),
             _ => config.first_slice_depth(),
         };
@@ -799,7 +805,7 @@ pub(crate) fn assign_lights_to_clusters(
                 // it can overestimate more significantly when light ranges are only partially in view
                 let (light_aabb_min, light_aabb_max) = cluster_space_light_aabb(
                     inverse_view_transform,
-                    camera.projection_matrix,
+                    camera.projection_matrix(),
                     &light_sphere,
                 );
 
@@ -866,9 +872,9 @@ pub(crate) fn assign_lights_to_clusters(
             clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z <= 4096
         );
 
-        let inverse_projection = camera.projection_matrix.inverse();
+        let inverse_projection = camera.projection_matrix().inverse();
 
-        for lights in clusters.lights.iter_mut() {
+        for lights in &mut clusters.lights {
             lights.entities.clear();
         }
         clusters.lights.resize_with(
@@ -953,7 +959,7 @@ pub(crate) fn assign_lights_to_clusters(
                 let (light_aabb_xy_ndc_z_view_min, light_aabb_xy_ndc_z_view_max) =
                     cluster_space_light_aabb(
                         inverse_view_transform,
-                        camera.projection_matrix,
+                        camera.projection_matrix(),
                         &light_sphere,
                     );
 
@@ -986,7 +992,7 @@ pub(crate) fn assign_lights_to_clusters(
                     radius: light_sphere.radius,
                 };
                 let light_center_clip =
-                    camera.projection_matrix * view_light_sphere.center.extend(1.0);
+                    camera.projection_matrix() * view_light_sphere.center.extend(1.0);
                 let light_center_ndc = light_center_clip.xyz() / light_center_clip.w;
                 let cluster_coordinates = ndc_position_to_cluster(
                     clusters.dimensions,

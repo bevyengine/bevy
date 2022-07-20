@@ -47,8 +47,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///
 /// You can configure this plugin using the resource [`LogSettings`].
 /// ```no_run
-/// # use bevy_internal::DefaultPlugins;
-/// # use bevy_app::App;
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins};
 /// # use bevy_log::LogSettings;
 /// # use bevy_utils::tracing::Level;
 /// fn main() {
@@ -72,8 +71,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins` with [`App::add_plugins_with`]:
 /// ```no_run
-/// # use bevy_internal::DefaultPlugins;
-/// # use bevy_app::App;
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
 ///     App::new()
@@ -137,7 +135,11 @@ impl Plugin for LogPlugin {
         {
             #[cfg(feature = "tracing-chrome")]
             let chrome_layer = {
-                let (chrome_layer, guard) = tracing_chrome::ChromeLayerBuilder::new()
+                let mut layer = tracing_chrome::ChromeLayerBuilder::new();
+                if let Ok(path) = std::env::var("TRACE_CHROME") {
+                    layer = layer.file(path);
+                }
+                let (chrome_layer, guard) = layer
                     .name_fn(Box::new(|event_or_span| match event_or_span {
                         tracing_chrome::EventOrSpan::Event(event) => event.metadata().name().into(),
                         tracing_chrome::EventOrSpan::Span(span) => {

@@ -10,8 +10,6 @@ layout(set = 0, binding = 0) uniform CameraViewProj {
     mat4 InverseView;
     mat4 Projection;
     vec3 WorldPosition;
-    float near;
-    float far;
     float width;
     float height;
 };

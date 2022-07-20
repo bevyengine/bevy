@@ -1,3 +1,6 @@
+//! An application that runs with default plugins, but without an actual renderer.
+//! This can be very useful for integration tests or CI.
+
 use bevy::{prelude::*, render::settings::WgpuSettings};
 
 fn main() {

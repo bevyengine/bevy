@@ -1,11 +1,6 @@
-#import bevy_pbr::mesh_struct
+#import bevy_pbr::mesh_view_types
+#import bevy_pbr::mesh_types
 
-// NOTE: Keep in sync with pbr.wgsl
-struct View {
-    view_proj: mat4x4<f32>;
-    projection: mat4x4<f32>;
-    world_position: vec3<f32>;
-};
 [[group(0), binding(0)]]
 var<uniform> view: View;
 
@@ -17,6 +12,9 @@ var<uniform> mesh: Mesh;
 var<uniform> joint_matrices: SkinnedMesh;
 #import bevy_pbr::skinning
 #endif
+
+// NOTE: Bindings must come before functions that use them!
+#import bevy_pbr::mesh_functions
 
 struct Vertex {
     [[location(0)]] position: vec3<f32>;
@@ -39,6 +37,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif
 
     var out: VertexOutput;
-    out.clip_position = view.view_proj * model * vec4<f32>(vertex.position, 1.0);
+    out.clip_position = mesh_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
     return out;
 }

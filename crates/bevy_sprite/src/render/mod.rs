@@ -5,13 +5,12 @@ use crate::{
     Rect, Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
-use bevy_core::FloatOrd;
-use bevy_core_pipeline::Transparent2d;
+use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec2, Vec2};
+use bevy_math::Vec2;
 use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
@@ -20,13 +19,14 @@ use bevy_render::{
         BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, Image},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility},
     RenderWorld,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
@@ -38,7 +38,6 @@ pub struct SpritePipeline {
 
 impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -48,7 +47,7 @@ impl FromWorld for SpritePipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                    min_binding_size: Some(ViewUniform::min_size()),
                 },
                 count: None,
             }],
@@ -308,17 +307,17 @@ impl Default for SpriteMeta {
 const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
-    const_vec2!([-0.5, -0.5]),
-    const_vec2!([0.5, -0.5]),
-    const_vec2!([0.5, 0.5]),
-    const_vec2!([-0.5, 0.5]),
+    Vec2::new(-0.5, -0.5),
+    Vec2::new(0.5, -0.5),
+    Vec2::new(0.5, 0.5),
+    Vec2::new(-0.5, 0.5),
 ];
 
 const QUAD_UVS: [Vec2; 4] = [
-    const_vec2!([0., 1.]),
-    const_vec2!([1., 1.]),
-    const_vec2!([1., 0.]),
-    const_vec2!([0., 0.]),
+    Vec2::new(0., 1.),
+    Vec2::new(1., 1.),
+    Vec2::new(1., 0.),
+    Vec2::new(0., 0.),
 ];
 
 #[derive(Component, Eq, PartialEq, Copy, Clone)]
@@ -354,8 +353,9 @@ pub fn queue_sprites(
     for event in &events.images {
         match event {
             AssetEvent::Created { .. } => None,
-            AssetEvent::Modified { handle } => image_bind_groups.values.remove(handle),
-            AssetEvent::Removed { handle } => image_bind_groups.values.remove(handle),
+            AssetEvent::Modified { handle } | AssetEvent::Removed { handle } => {
+                image_bind_groups.values.remove(handle)
+            }
         };
     }
 
@@ -501,10 +501,10 @@ pub fn queue_sprites(
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
-                    for i in QUAD_INDICES.iter() {
+                    for i in QUAD_INDICES {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
-                            position: positions[*i],
-                            uv: uvs[*i].into(),
+                            position: positions[i],
+                            uv: uvs[i].into(),
                             color: extracted_sprite.color.as_linear_rgba_f32(),
                         });
                     }
@@ -520,10 +520,10 @@ pub fn queue_sprites(
                         batch_range: Some(item_start..item_end),
                     });
                 } else {
-                    for i in QUAD_INDICES.iter() {
+                    for i in QUAD_INDICES {
                         sprite_meta.vertices.push(SpriteVertex {
-                            position: positions[*i],
-                            uv: uvs[*i].into(),
+                            position: positions[i],
+                            uv: uvs[i].into(),
                         });
                     }
                     let item_start = index;

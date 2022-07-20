@@ -1,10 +1,5 @@
-#import bevy_pbr::mesh_view_bind_group
-#import bevy_pbr::mesh_struct
-
-struct Vertex {
-    [[location(0)]] position: vec3<f32>;
-    [[location(1)]] blend_color: vec4<f32>;
-};
+#import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::mesh_bindings
 
 struct CustomMaterial {
     color: vec4<f32>;
@@ -12,8 +7,13 @@ struct CustomMaterial {
 [[group(1), binding(0)]]
 var<uniform> material: CustomMaterial;
 
-[[group(2), binding(0)]]
-var<uniform> mesh: Mesh;
+// NOTE: Bindings must come before functions that use them!
+#import bevy_pbr::mesh_functions
+
+struct Vertex {
+    [[location(0)]] position: vec3<f32>;
+    [[location(1)]] blend_color: vec4<f32>;
+};
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
@@ -22,10 +22,8 @@ struct VertexOutput {
 
 [[stage(vertex)]]
 fn vertex(vertex: Vertex) -> VertexOutput {
-    let world_position = mesh.model * vec4<f32>(vertex.position, 1.0);
-
     var out: VertexOutput;
-    out.clip_position = view.view_proj * world_position;
+    out.clip_position = mesh_position_local_to_clip(mesh.model, vec4<f32>(vertex.position, 1.0));
     out.blend_color = vertex.blend_color;
     return out;
 }

@@ -1,3 +1,26 @@
+//! Shows how systems with a similar purpose can be grouped into sets.
+//!
+//! ```none
+//! Physics                     (Criteria: App has run < 1.0 seconds)
+//!     \--> update_velocity        (via label PhysicsSystem::UpdateVelocity)
+//!     \--> movement               (via label PhysicsSystem::Movement)
+//! PostPhysics                 (Criteria: Resource `done` is false)
+//!     \--> collision || sfx
+//! Exit                        (Criteria: Resource `done` is true)
+//!     \--> exit
+//! ```
+//!
+//! The `Physics` label represents a [`SystemSet`] containing two systems.
+//! This set's criteria is to stop after a second has elapsed.
+//! The two systems (`update_velocity`, `movement`) run in a specified order.
+//!
+//! Another label `PostPhysics` uses run criteria to only run after `Physics` has finished.
+//! This set's criteria is to run only when _not done_, as specified via a resource.
+//! The two systems here (collision, sfx) are not specified to run in any order, and the actual
+//! ordering can then change between invocations.
+//!
+//! Lastly a system with run criteria  _done_ is used to exit the app.
+
 use bevy::{app::AppExit, ecs::schedule::ShouldRun, prelude::*};
 
 /// A [`SystemLabel`] can be applied as a label to systems and system sets,
@@ -16,28 +39,6 @@ struct PostPhysics;
 #[derive(Default)]
 struct Done(bool);
 
-/// This example realizes the following scheme:
-///
-/// ```none
-/// Physics                     (Criteria: App has run < 1.0 seconds)
-///     \--> update_velocity        (via label PhysicsSystem::UpdateVelocity)
-///     \--> movement               (via label PhysicsSystem::Movement)
-/// PostPhysics                 (Criteria: Resource `done` is false)
-///     \--> collision || sfx
-/// Exit                        (Criteria: Resource `done` is true)
-///     \--> exit
-/// ```
-///
-/// The `Physics` label represents a [`SystemSet`] containing two systems.
-/// This set's criteria is to stop after a second has elapsed.
-/// The two systems (`update_velocity`, `movement`) run in a specified order.
-///
-/// Another label `PostPhysics` uses run criteria to only run after `Physics` has finished.
-/// This set's criteria is to run only when _not done_, as specified via a resource.
-/// The two systems here (collision, sfx) are not specified to run in any order, and the actual
-/// ordering can then change between invocations.
-///
-/// Lastly a system with run criterion _done_ is used to exit the app.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

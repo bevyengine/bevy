@@ -1,4 +1,5 @@
 mod command_queue;
+mod parallel_scope;
 
 use crate::{
     bundle::Bundle,
@@ -6,21 +7,49 @@ use crate::{
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
-use bevy_utils::tracing::{error, warn};
+use bevy_utils::tracing::{error, info, warn};
 pub use command_queue::CommandQueue;
+pub use parallel_scope::*;
 use std::marker::PhantomData;
 
 use super::Resource;
 
 /// A [`World`] mutation.
+///
+/// Should be used with [`Commands::add`].
+///
+/// # Usage
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::Command;
+/// // Our world resource
+/// #[derive(Default)]
+/// struct Counter(u64);
+///
+/// // Our custom command
+/// struct AddToCounter(u64);
+///
+/// impl Command for AddToCounter {
+///     fn write(self, world: &mut World) {
+///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+///         counter.0 += self.0;
+///     }
+/// }
+///
+/// fn some_system(mut commands: Commands) {
+///     commands.add(AddToCounter(42));
+/// }
+/// ```
 pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
-/// A list of commands that runs at the end of the stage of the system that called them.
+/// A queue of [commands](Command) that get executed at the end of the stage of the system that called them.
 ///
 /// Commands are executed one at a time in an exclusive fashion.
-//// Each command can be used to modify the [`World`] in arbitrary ways:
+///
+/// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
 /// * inserting components on new or existing entities
 /// * inserting resources
@@ -55,6 +84,11 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Create a new `Commands` from a queue and an [`Entities`] reference.
+    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
+        Self { queue, entities }
+    }
+
     /// Creates a new empty [`Entity`] and returns an [`EntityCommands`] builder for it.
     ///
     /// To directly spawn an entity with a [`Bundle`] included, you can use
@@ -65,7 +99,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     ///
     /// #[derive(Component)]
     /// struct Label(&'static str);
@@ -355,40 +389,39 @@ impl<'w, 's> Commands<'w, 's> {
         });
     }
 
-    /// Adds a command directly to the command list.
+    /// Adds a command directly to the command queue.
+    ///
+    /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
+    /// that takes [`&mut World`](World) as an argument.
     ///
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// use bevy_ecs::system::InsertBundle;
-    /// #
-    /// # struct PlayerEntity { entity: Entity }
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// # #[derive(Component)]
-    /// # struct Strength(u32);
-    /// # #[derive(Component)]
-    /// # struct Defense(u32);
-    /// #
-    /// # #[derive(Bundle)]
-    /// # struct CombatBundle {
-    /// #     health: Health,
-    /// #     strength: Strength,
-    /// #     defense: Defense,
-    /// # }
+    /// # use bevy_ecs::{system::Command, prelude::*};
+    /// #[derive(Default)]
+    /// struct Counter(u64);
     ///
-    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///     commands.add(InsertBundle {
-    ///         entity: player.entity,
-    ///         bundle: CombatBundle {
-    ///             health: Health(100),
-    ///             strength: Strength(40),
-    ///             defense: Defense(20),
-    ///         },
+    /// struct AddToCounter(u64);
+    ///
+    /// impl Command for AddToCounter {
+    ///     fn write(self, world: &mut World) {
+    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         counter.0 += self.0;
+    ///     }
+    /// }
+    ///
+    /// fn add_three_to_counter_system(mut commands: Commands) {
+    ///     commands.add(AddToCounter(3));
+    /// }
+    /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
+    ///     commands.add(|world: &mut World| {
+    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         counter.0 += 25;
     ///     });
     /// }
-    /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
+
+    /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
+    /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
@@ -577,6 +610,13 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     pub fn despawn(&mut self) {
         self.commands.add(Despawn {
+            entity: self.entity,
+        });
+    }
+
+    /// Logs the components of the entity at the info level.
+    pub fn log_components(&mut self) {
+        self.commands.add(LogComponents {
             entity: self.entity,
         });
     }
@@ -783,6 +823,22 @@ pub struct RemoveResource<R: Resource> {
 impl<R: Resource> Command for RemoveResource<R> {
     fn write(self, world: &mut World) {
         world.remove_resource::<R>();
+    }
+}
+
+/// [`Command`] to log the components of a given entity. See [`EntityCommands::log_components`].
+pub struct LogComponents {
+    entity: Entity,
+}
+
+impl Command for LogComponents {
+    fn write(self, world: &mut World) {
+        let debug_infos: Vec<_> = world
+            .inspect_entity(self.entity)
+            .into_iter()
+            .map(|component_info| component_info.name())
+            .collect();
+        info!("Entity {:?}: {:?}", self.entity, debug_infos);
     }
 }
 

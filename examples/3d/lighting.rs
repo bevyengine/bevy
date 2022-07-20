@@ -1,3 +1,6 @@
+//! Illustrates different lights of various types and colors, some static, some moving over
+//! a simple scene.
+
 use bevy::prelude::*;
 
 fn main() {
@@ -31,7 +34,7 @@ fn setup(
 
     // left wall
     let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
-    transform.rotate(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2));
+    transform.rotate_z(std::f32::consts::FRAC_PI_2);
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
@@ -44,7 +47,7 @@ fn setup(
     });
     // back (right) wall
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
-    transform.rotate(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2));
+    transform.rotate_x(std::f32::consts::FRAC_PI_2);
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
@@ -200,7 +203,7 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -211,7 +214,7 @@ fn animate_light_direction(
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
     for mut transform in query.iter_mut() {
-        transform.rotate(Quat::from_rotation_y(time.delta_seconds() * 0.5));
+        transform.rotate_y(time.delta_seconds() * 0.5);
     }
 }
 

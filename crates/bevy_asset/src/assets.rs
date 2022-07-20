@@ -129,12 +129,12 @@ impl<T: Asset> Assets<T> {
     ///
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
     /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
-    pub fn get<H: Into<HandleId>>(&self, handle: H) -> Option<&T> {
+    pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
         self.assets.get(&handle.into())
     }
 
     /// Checks if an asset exists for the given handle
-    pub fn contains<H: Into<HandleId>>(&self, handle: H) -> bool {
+    pub fn contains(&self, handle: &Handle<T>) -> bool {
         self.assets.contains_key(&handle.into())
     }
 
@@ -142,7 +142,7 @@ impl<T: Asset> Assets<T> {
     ///
     /// This is the main method for mutably accessing asset data from an [Assets] collection. If you
     /// do not need mutable access to the asset, you may also use [get](Assets::get).
-    pub fn get_mut<H: Into<HandleId>>(&mut self, handle: H) -> Option<&mut T> {
+    pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
         let id: HandleId = handle.into();
         self.events.send(AssetEvent::Modified {
             handle: Handle::weak(id),
@@ -356,8 +356,8 @@ macro_rules! load_internal_asset {
         {
             let mut debug_app = $app
                 .world
-                .non_send_resource_mut::<bevy_asset::debug_asset_server::DebugAssetApp>();
-            bevy_asset::debug_asset_server::register_handle_with_loader(
+                .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
+            $crate::debug_asset_server::register_handle_with_loader(
                 $loader,
                 &mut debug_app,
                 $handle,
@@ -365,7 +365,7 @@ macro_rules! load_internal_asset {
                 $path_str,
             );
         }
-        let mut assets = $app.world.resource_mut::<bevy_asset::Assets<_>>();
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
         assets.set_untracked($handle, ($loader)(include_str!($path_str)));
     }};
 }
@@ -374,7 +374,7 @@ macro_rules! load_internal_asset {
 #[macro_export]
 macro_rules! load_internal_asset {
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world.resource_mut::<bevy_asset::Assets<_>>();
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
         assets.set_untracked($handle, ($loader)(include_str!($path_str)));
     }};
 }
@@ -398,6 +398,6 @@ mod tests {
         let handle = assets_before.add(MyAsset);
         app.add_asset::<MyAsset>(); // Ensure this doesn't overwrite the Asset
         let assets_after = app.world.resource_mut::<Assets<MyAsset>>();
-        assert!(assets_after.get(handle).is_some());
+        assert!(assets_after.get(&handle).is_some());
     }
 }

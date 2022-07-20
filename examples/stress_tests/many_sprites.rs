@@ -1,18 +1,28 @@
+//! Renders a lot of sprites to allow performance testing.
+//! See <https://github.com/bevyengine/bevy/pull/1492>
+//!
+//! It sets up many sprites in different sizes and rotations, and at different scales in the world,
+//! and moves the camera over them to see how well frustum culling works.
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::Quat,
     prelude::*,
     render::camera::Camera,
+    window::PresentMode,
 };
 
 use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
-/// This example is for performance testing purposes.
-/// See <https://github.com/bevyengine/bevy/pull/1492>
 fn main() {
     App::new()
+        .insert_resource(WindowDescriptor {
+            present_mode: PresentMode::Immediate,
+            ..default()
+        })
+        // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins)
@@ -36,7 +46,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // Spawns the camera
     commands
         .spawn()
-        .insert_bundle(OrthographicCameraBundle::new_2d())
+        .insert_bundle(Camera2dBundle::default())
         .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
 
     // Builds and spawns the sprites
@@ -69,7 +79,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 // System for rotating and translating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
+    camera_transform.rotate_z(time.delta_seconds() * 0.5);
     *camera_transform = *camera_transform
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
 }

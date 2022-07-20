@@ -6,7 +6,7 @@ use gilrs::{EventType, Gilrs};
 
 pub fn gilrs_event_startup_system(gilrs: NonSend<Gilrs>, mut events: EventWriter<GamepadEventRaw>) {
     for (id, _) in gilrs.gamepads() {
-        events.send(GamepadEventRaw(
+        events.send(GamepadEventRaw::new(
             convert_gamepad_id(id),
             GamepadEventType::Connected,
         ));
@@ -17,20 +17,20 @@ pub fn gilrs_event_system(mut gilrs: NonSendMut<Gilrs>, mut events: EventWriter<
     while let Some(gilrs_event) = gilrs.next_event() {
         match gilrs_event.event {
             EventType::Connected => {
-                events.send(GamepadEventRaw(
+                events.send(GamepadEventRaw::new(
                     convert_gamepad_id(gilrs_event.id),
                     GamepadEventType::Connected,
                 ));
             }
             EventType::Disconnected => {
-                events.send(GamepadEventRaw(
+                events.send(GamepadEventRaw::new(
                     convert_gamepad_id(gilrs_event.id),
                     GamepadEventType::Disconnected,
                 ));
             }
             EventType::ButtonChanged(gilrs_button, value, _) => {
                 if let Some(button_type) = convert_button(gilrs_button) {
-                    events.send(GamepadEventRaw(
+                    events.send(GamepadEventRaw::new(
                         convert_gamepad_id(gilrs_event.id),
                         GamepadEventType::ButtonChanged(button_type, value),
                     ));
@@ -38,7 +38,7 @@ pub fn gilrs_event_system(mut gilrs: NonSendMut<Gilrs>, mut events: EventWriter<
             }
             EventType::AxisChanged(gilrs_axis, value, _) => {
                 if let Some(axis_type) = convert_axis(gilrs_axis) {
-                    events.send(GamepadEventRaw(
+                    events.send(GamepadEventRaw::new(
                         convert_gamepad_id(gilrs_event.id),
                         GamepadEventType::AxisChanged(axis_type, value),
                     ));

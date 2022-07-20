@@ -1,3 +1,5 @@
+//! How to use an external thread to run an infinite task and communicate with a channel.
+
 use bevy::prelude::*;
 // Using crossbeam_channel instead of std as std `Receiver` is `!Sync`
 use crossbeam_channel::{bounded, Receiver};
@@ -23,7 +25,7 @@ struct StreamEvent(u32);
 struct LoadedFont(Handle<Font>);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
 
     let (tx, rx) = bounded::<u32>(10);
     std::thread::spawn(move || loop {

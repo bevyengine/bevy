@@ -24,9 +24,6 @@ parking_lot = "0.11.0"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 rodio = { version = "0.15", default-features = false, features = ["wasm-bindgen"] }
 
-[dev-dependencies]
-# bevy
-bevy_internal = { path = "../bevy_internal", version = "0.8.0-dev" }
 
 [features]
 mp3 = ["rodio/mp3"]

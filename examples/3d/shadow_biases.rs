@@ -1,3 +1,5 @@
+//! Demonstrates how shadow biases affect shadows in a 3d scene.
+
 use bevy::{input::mouse::MouseMotion, prelude::*};
 
 fn main() {
@@ -84,7 +86,7 @@ fn setup(
 
     // camera
     commands
-        .spawn_bundle(PerspectiveCameraBundle {
+        .spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(-1.0, 1.0, 1.0)
                 .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
             ..default()

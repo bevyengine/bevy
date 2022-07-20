@@ -29,7 +29,7 @@ impl<I: PhaseItem> RenderPhase<I> {
 
     /// Sorts all of its [`PhaseItems`](PhaseItem).
     pub fn sort(&mut self) {
-        self.items.sort_by_key(|d| d.sort_key());
+        I::sort(&mut self.items);
     }
 }
 

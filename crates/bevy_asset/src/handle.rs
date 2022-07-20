@@ -10,7 +10,7 @@ use crate::{
     Asset, Assets,
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize};
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -109,16 +109,12 @@ where
     marker: PhantomData<fn() -> T>,
 }
 
+// FIXME: Default is only needed because `Handle`'s field `handle_type` is currently ignored for reflection
+#[derive(Default)]
 enum HandleType {
+    #[default]
     Weak,
     Strong(Sender<RefChange>),
-}
-
-// FIXME: This only is needed because `Handle`'s field `handle_type` is currently ignored for reflection
-impl Default for HandleType {
-    fn default() -> Self {
-        Self::Weak
-    }
 }
 
 impl Debug for HandleType {
@@ -169,7 +165,7 @@ impl<T: Asset> Handle<T> {
     /// Makes this handle Strong if it wasn't already.
     ///
     /// This method requires the corresponding [Assets](crate::Assets) collection
-    pub fn make_strong(&mut self, assets: &mut Assets<T>) {
+    pub fn make_strong(&mut self, assets: &Assets<T>) {
         if self.is_strong() {
             return;
         }
@@ -339,6 +335,14 @@ impl HandleUntyped {
 
     pub fn is_strong(&self) -> bool {
         matches!(self.handle_type, HandleType::Strong(_))
+    }
+
+    /// Create a weak typed [`Handle`] from this handle.
+    ///
+    /// If this handle is strong and dropped, there is no guarantee that the asset
+    /// will still be available (if only the returned handle is kept)
+    pub fn typed_weak<T: Asset>(&self) -> Handle<T> {
+        self.clone_weak().typed()
     }
 
     /// Convert this handle into a typed [Handle].

@@ -1,9 +1,6 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::{std140::AsStd140, *},
-    renderer::RenderDevice,
-    texture::BevyDefault,
-    view::ViewUniform,
+    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
 };
 
 pub struct UiPipeline {
@@ -13,7 +10,6 @@ pub struct UiPipeline {
 
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -23,7 +19,7 @@ impl FromWorld for UiPipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                    min_binding_size: Some(ViewUniform::min_size()),
                 },
                 count: None,
             }],

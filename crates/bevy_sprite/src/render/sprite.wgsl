@@ -28,7 +28,7 @@ fn vertex(
     out.color = vertex_color;
 #endif
     return out;
-} 
+}
 
 [[group(1), binding(0)]]
 var sprite_texture: texture_2d<f32>;
@@ -37,7 +37,7 @@ var sprite_sampler: sampler;
 
 [[stage(fragment)]]
 fn fragment(in: VertexOutput) -> [[location(0)]] vec4<f32> {
-    var color = textureSample(sprite_texture, sprite_sampler, in.uv); 
+    var color = textureSample(sprite_texture, sprite_sampler, in.uv);
 #ifdef COLORED
     color = in.color * color;
 #endif

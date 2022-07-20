@@ -1,4 +1,5 @@
-use crate::Reflect;
+use crate::serde::Serializable;
+use crate::{Reflect, TypeInfo, Typed};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -6,7 +7,6 @@ use serde::Deserialize;
 use std::{any::TypeId, fmt::Debug, sync::Arc};
 
 /// A registry of reflected types.
-#[derive(Default)]
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
     short_name_to_id: HashMap<String, TypeId>,
@@ -35,7 +35,44 @@ pub trait GetTypeRegistration {
     fn get_type_registration() -> TypeRegistration;
 }
 
+impl Default for TypeRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TypeRegistry {
+    /// Create a type registry with *no* registered types.
+    pub fn empty() -> Self {
+        Self {
+            registrations: Default::default(),
+            short_name_to_id: Default::default(),
+            full_name_to_id: Default::default(),
+            ambiguous_names: Default::default(),
+        }
+    }
+
+    /// Create a type registry with default registrations for primitive types.
+    pub fn new() -> Self {
+        let mut registry = Self::empty();
+        registry.register::<bool>();
+        registry.register::<u8>();
+        registry.register::<u16>();
+        registry.register::<u32>();
+        registry.register::<u64>();
+        registry.register::<u128>();
+        registry.register::<usize>();
+        registry.register::<i8>();
+        registry.register::<i16>();
+        registry.register::<i32>();
+        registry.register::<i64>();
+        registry.register::<i128>();
+        registry.register::<isize>();
+        registry.register::<f32>();
+        registry.register::<f64>();
+        registry
+    }
+
     /// Registers the type `T`.
     pub fn register<T>(&mut self)
     where
@@ -55,12 +92,12 @@ impl TypeRegistry {
             self.ambiguous_names.insert(short_name);
         } else {
             self.short_name_to_id
-                .insert(short_name, registration.type_id);
+                .insert(short_name, registration.type_id());
         }
         self.full_name_to_id
-            .insert(registration.name.to_string(), registration.type_id);
+            .insert(registration.type_name().to_string(), registration.type_id());
         self.registrations
-            .insert(registration.type_id, registration);
+            .insert(registration.type_id(), registration);
     }
 
     /// Returns a reference to the [`TypeRegistration`] of the type with the
@@ -104,7 +141,7 @@ impl TypeRegistry {
             .and_then(move |id| self.get_mut(id))
     }
 
-    /// Returns a mutable reference to the [`TypeRegistration`] of the type with
+    /// Returns a reference to the [`TypeRegistration`] of the type with
     /// the given short name.
     ///
     /// If the short name is ambiguous, or if no type with the given short name
@@ -115,7 +152,21 @@ impl TypeRegistry {
             .and_then(|id| self.registrations.get(id))
     }
 
-    /// Returns the [`TypeData`] of type `T` associated with the given `TypeId`.
+    /// Returns a mutable reference to the [`TypeRegistration`] of the type with
+    /// the given short name.
+    ///
+    /// If the short name is ambiguous, or if no type with the given short name
+    /// has been registered, returns `None`.
+    pub fn get_with_short_name_mut(
+        &mut self,
+        short_type_name: &str,
+    ) -> Option<&mut TypeRegistration> {
+        self.short_name_to_id
+            .get(short_type_name)
+            .and_then(|id| self.registrations.get_mut(id))
+    }
+
+    /// Returns a reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
     ///
     /// The returned value may be used to downcast [`Reflect`] trait objects to
     /// trait objects of the trait used to generate `T`, provided that the
@@ -129,10 +180,33 @@ impl TypeRegistry {
             .and_then(|registration| registration.data::<T>())
     }
 
-    /// Returns an iterator overed the [`TypeRegistration`]s of the registered
+    /// Returns a mutable reference to the [`TypeData`] of type `T` associated with the given `TypeId`.
+    ///
+    /// If the specified type has not been registered, or if `T` is not present
+    /// in its type registration, returns `None`.
+    pub fn get_type_data_mut<T: TypeData>(&mut self, type_id: TypeId) -> Option<&mut T> {
+        self.get_mut(type_id)
+            .and_then(|registration| registration.data_mut::<T>())
+    }
+
+    /// Returns the [`TypeInfo`] associated with the given `TypeId`.
+    ///
+    /// If the specified type has not been registered, returns `None`.
+    pub fn get_type_info(&self, type_id: TypeId) -> Option<&'static TypeInfo> {
+        self.get(type_id)
+            .map(|registration| registration.type_info())
+    }
+
+    /// Returns an iterator over the [`TypeRegistration`]s of the registered
     /// types.
     pub fn iter(&self) -> impl Iterator<Item = &TypeRegistration> {
         self.registrations.values()
+    }
+
+    /// Returns a mutable iterator over the [`TypeRegistration`]s of the registered
+    /// types.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TypeRegistration> {
+        self.registrations.values_mut()
     }
 }
 
@@ -150,23 +224,21 @@ impl TypeRegistryArc {
 
 /// A record of data about a type.
 ///
-/// This contains the [`TypeId`], [name], and [short name] of the type.
+/// This contains the [`TypeInfo`] of the type, as well as its [short name].
 ///
 /// For each trait specified by the [`#[reflect(_)]`][0] attribute of
 /// [`#[derive(Reflect)]`][1] on the registered type, this record also contains
 /// a [`TypeData`] which can be used to downcast [`Reflect`] trait objects of
 /// this type to trait objects of the relevant trait.
 ///
-/// [`TypeId`]: std::any::TypeId
-/// [name]: std::any::type_name
-/// [short name]: TypeRegistration::get_short_name
+/// [short name]: bevy_utils::get_short_name
+/// [`TypeInfo`]: crate::TypeInfo
 /// [0]: crate::Reflect
 /// [1]: crate::Reflect
 pub struct TypeRegistration {
-    type_id: TypeId,
     short_name: String,
-    name: &'static str,
     data: HashMap<TypeId, Box<dyn TypeData>>,
+    type_info: &'static TypeInfo,
 }
 
 impl TypeRegistration {
@@ -175,7 +247,7 @@ impl TypeRegistration {
     /// [`TypeId`]: std::any::TypeId
     #[inline]
     pub fn type_id(&self) -> TypeId {
-        self.type_id
+        self.type_info.type_id()
     }
 
     /// Returns a reference to the value of type `T` in this registration's type
@@ -198,6 +270,11 @@ impl TypeRegistration {
             .and_then(|value| value.downcast_mut())
     }
 
+    /// Returns a reference to the registration's [`TypeInfo`]
+    pub fn type_info(&self) -> &'static TypeInfo {
+        self.type_info
+    }
+
     /// Inserts an instance of `T` into this registration's type data.
     ///
     /// If another instance of `T` was previously inserted, it is replaced.
@@ -206,70 +283,27 @@ impl TypeRegistration {
     }
 
     /// Creates type registration information for `T`.
-    pub fn of<T: Reflect>() -> Self {
-        let ty = TypeId::of::<T>();
+    pub fn of<T: Reflect + Typed>() -> Self {
         let type_name = std::any::type_name::<T>();
         Self {
-            type_id: ty,
             data: HashMap::default(),
-            name: type_name,
-            short_name: Self::get_short_name(type_name),
+            short_name: bevy_utils::get_short_name(type_name),
+            type_info: T::type_info(),
         }
     }
 
     /// Returns the [short name] of the type.
     ///
-    /// [short name]: TypeRegistration::get_short_name
+    /// [short name]: bevy_utils::get_short_name
     pub fn short_name(&self) -> &str {
         &self.short_name
     }
 
-    /// Returns the name of the type.
-    pub fn name(&self) -> &'static str {
-        self.name
-    }
-
-    /// Calculates the short name of a type.
+    /// Returns the [name] of the type.
     ///
-    /// The short name of a type is its full name as returned by
-    /// [`std::any::type_name`], but with the prefix of all paths removed. For
-    /// example, the short name of `alloc::vec::Vec<core::option::Option<u32>>`
-    /// would be `Vec<Option<u32>>`.
-    pub fn get_short_name(full_name: &str) -> String {
-        let mut short_name = String::new();
-
-        {
-            // A typename may be a composition of several other type names (e.g. generic parameters)
-            // separated by the characters that we try to find below.
-            // Then, each individual typename is shortened to its last path component.
-            //
-            // Note: Instead of `find`, `split_inclusive` would be nice but it's still unstable...
-            let mut remainder = full_name;
-            while let Some(index) = remainder.find(&['<', '>', '(', ')', '[', ']', ',', ';'][..]) {
-                let (path, new_remainder) = remainder.split_at(index);
-                // Push the shortened path in front of the found character
-                short_name.push_str(path.rsplit(':').next().unwrap());
-                // Push the character that was found
-                let character = new_remainder.chars().next().unwrap();
-                short_name.push(character);
-                // Advance the remainder
-                if character == ',' || character == ';' {
-                    // A comma or semicolon is always followed by a space
-                    short_name.push(' ');
-                    remainder = &new_remainder[2..];
-                } else {
-                    remainder = &new_remainder[1..];
-                }
-            }
-
-            // The remainder will only be non-empty if there were no matches at all
-            if !remainder.is_empty() {
-                // Then, the full typename is a path that has to be shortened
-                short_name.push_str(remainder.rsplit(':').next().unwrap());
-            }
-        }
-
-        short_name
+    /// [name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        self.type_info.type_name()
     }
 }
 
@@ -282,9 +316,8 @@ impl Clone for TypeRegistration {
 
         TypeRegistration {
             data,
-            name: self.name,
             short_name: self.short_name.clone(),
-            type_id: self.type_id,
+            type_info: self.type_info,
         }
     }
 }
@@ -314,13 +347,41 @@ pub trait FromType<T> {
     fn from_type() -> Self;
 }
 
+/// A struct used to serialize reflected instances of a type.
+///
+/// A `ReflectSerialize` for type `T` can be obtained via
+/// [`FromType::from_type`].
+#[derive(Clone)]
+pub struct ReflectSerialize {
+    get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
+}
+
+impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
+    fn from_type() -> Self {
+        ReflectSerialize {
+            get_serializable: |value| {
+                let value = value.downcast_ref::<T>().unwrap_or_else(|| {
+                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.type_name(), std::any::type_name::<T>())
+                });
+                Serializable::Borrowed(value)
+            },
+        }
+    }
+}
+
+impl ReflectSerialize {
+    /// Turn the value into a serializable representation
+    pub fn get_serializable<'a>(&self, value: &'a dyn Reflect) -> Serializable<'a> {
+        (self.get_serializable)(value)
+    }
+}
+
 /// A struct used to deserialize reflected instances of a type.
 ///
 /// A `ReflectDeserialize` for type `T` can be obtained via
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectDeserialize {
-    #[allow(clippy::type_complexity)]
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
@@ -354,42 +415,6 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 mod test {
     use crate::TypeRegistration;
     use bevy_utils::HashMap;
-
-    #[test]
-    fn test_get_short_name() {
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<f64>()),
-            "f64"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<String>()),
-            "String"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<(u32, f64)>()),
-            "(u32, f64)"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<(String, String)>()),
-            "(String, String)"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[f64]>()),
-            "[f64]"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[String]>()),
-            "[String]"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[f64; 16]>()),
-            "[f64; 16]"
-        );
-        assert_eq!(
-            TypeRegistration::get_short_name(std::any::type_name::<[String; 16]>()),
-            "[String; 16]"
-        );
-    }
 
     #[test]
     fn test_property_type_registration() {

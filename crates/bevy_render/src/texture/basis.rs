@@ -114,9 +114,9 @@ pub fn basis_buffer_to_image(
     image.texture_descriptor.mip_level_count = image0_mip_level_count;
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = match texture_type {
-        BasisTextureType::TextureType2D => TextureDimension::D2,
-        BasisTextureType::TextureType2DArray => TextureDimension::D2,
-        BasisTextureType::TextureTypeCubemapArray => TextureDimension::D2,
+        BasisTextureType::TextureType2D
+        | BasisTextureType::TextureType2DArray
+        | BasisTextureType::TextureTypeCubemapArray => TextureDimension::D2,
         BasisTextureType::TextureTypeVolume => TextureDimension::D3,
         basis_texture_type => {
             return Err(TextureError::UnsupportedTextureFormat(format!(

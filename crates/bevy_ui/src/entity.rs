@@ -4,11 +4,12 @@ use crate::{
     widget::{Button, ImageMode},
     CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
 };
-use bevy_ecs::{bundle::Bundle, prelude::Component};
-use bevy_render::{
-    camera::{Camera, DepthCalculation, OrthographicProjection, WindowOrigin},
-    view::{Visibility, VisibleEntities},
+use bevy_ecs::{
+    bundle::Bundle,
+    prelude::{Component, With},
+    query::QueryItem,
 };
+use bevy_render::{camera::Camera, extract_component::ExtractComponent, view::Visibility};
 use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -135,45 +136,22 @@ impl Default for ButtonBundle {
         }
     }
 }
-#[derive(Component, Default)]
-pub struct CameraUi;
-
-/// The camera that is needed to see UI elements
-#[derive(Bundle, Debug)]
-pub struct UiCameraBundle<M: Component> {
-    /// The camera component
-    pub camera: Camera,
-    /// The orthographic projection settings
-    pub orthographic_projection: OrthographicProjection,
-    /// The transform of the camera
-    pub transform: Transform,
-    /// The global transform of the camera
-    pub global_transform: GlobalTransform,
-    /// Contains visible entities
-    // FIXME there is no frustrum culling for UI
-    pub visible_entities: VisibleEntities,
-    pub marker: M,
+#[derive(Component, Clone)]
+pub struct CameraUi {
+    pub is_enabled: bool,
 }
 
-impl Default for UiCameraBundle<CameraUi> {
+impl Default for CameraUi {
     fn default() -> Self {
-        // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
-        // the camera's translation by far and use a right handed coordinate system
-        let far = 1000.0;
-        UiCameraBundle {
-            camera: Camera {
-                ..Default::default()
-            },
-            orthographic_projection: OrthographicProjection {
-                far,
-                window_origin: WindowOrigin::BottomLeft,
-                depth_calculation: DepthCalculation::ZDifference,
-                ..Default::default()
-            },
-            transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
-            global_transform: Default::default(),
-            visible_entities: Default::default(),
-            marker: CameraUi,
-        }
+        Self { is_enabled: true }
+    }
+}
+
+impl ExtractComponent for CameraUi {
+    type Query = &'static Self;
+    type Filter = With<Camera>;
+
+    fn extract_component(item: QueryItem<Self::Query>) -> Self {
+        item.clone()
     }
 }
