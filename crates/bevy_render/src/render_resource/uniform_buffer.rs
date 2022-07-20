@@ -12,6 +12,8 @@ pub struct UniformBuffer<T: ShaderType> {
     value: T,
     scratch: UniformBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
+    label: Option<String>,
+    label_changed: bool,
 }
 
 impl<T: ShaderType> From<T> for UniformBuffer<T> {
@@ -20,6 +22,8 @@ impl<T: ShaderType> From<T> for UniformBuffer<T> {
             value,
             scratch: UniformBufferWrapper::new(Vec::new()),
             buffer: None,
+            label: None,
+            label_changed: false,
         }
     }
 }
@@ -30,6 +34,8 @@ impl<T: ShaderType + Default> Default for UniformBuffer<T> {
             value: T::default(),
             scratch: UniformBufferWrapper::new(Vec::new()),
             buffer: None,
+            label: None,
+            label_changed: false,
         }
     }
 }
@@ -59,18 +65,32 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         &mut self.value
     }
 
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.label_changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.scratch.write(&self.value).unwrap();
 
-        match &self.buffer {
-            Some(buffer) => queue.write_buffer(buffer, 0, self.scratch.as_ref()),
-            None => {
-                self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                    label: None,
-                    usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
-                    contents: self.scratch.as_ref(),
-                }));
-            }
+        if self.label_changed || self.buffer.is_none() {
+            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+                label: self.label.as_deref(),
+                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+                contents: self.scratch.as_ref(),
+            }));
+            self.label_changed = false;
+        } else if let Some(buffer) = &self.buffer {
+            queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
     }
 }
@@ -80,6 +100,8 @@ pub struct DynamicUniformBuffer<T: ShaderType> {
     scratch: DynamicUniformBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     capacity: usize,
+    label: Option<String>,
+    label_changed: bool,
 }
 
 impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
@@ -89,6 +111,8 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
             scratch: DynamicUniformBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
+            label: None,
+            label_changed: false,
         }
     }
 }
@@ -125,17 +149,32 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         offset
     }
 
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.label_changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         let size = self.scratch.as_ref().len();
 
-        if self.capacity < size {
+        if self.capacity < size || self.label_changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: None,
+                label: self.label.as_deref(),
                 usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;
+            self.label_changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
