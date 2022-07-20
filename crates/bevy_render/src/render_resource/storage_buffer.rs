@@ -114,9 +114,9 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 /// depending on what is most appropriate for the use case.
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicStorageBuffer::write_buffer)
-/// queues copying of the data from system RAM to VRAM. Dynamic storage buffers must conform to
-/// [std430 alignment/padding requirements]; whenever data is [`push`](crate::render_resource::DynamicStorageBuffer::push)ed
-/// into this structure, it is automatically aligned to these requirements. If data does not need to
+/// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
+/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to these requirements. Each item [`push`](crate::render_resource::DynamicStorageBuffer::push)ed
+/// into this structure will additionally be aligned to meet dynamic offset alignment requirements. If data does not need to
 /// be automatically padded or aligned, consider using [`BufferVec`](crate::render_resource::BufferVec).
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
