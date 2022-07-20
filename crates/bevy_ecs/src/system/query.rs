@@ -267,6 +267,24 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
+    /// Downgrades all data accessed in this query to a read-only form.
+    ///
+    /// For example, `Query<(&mut A, &B, &mut C), With<D>>` will become `Query<(&A, &B, &C), With<D>>`.
+    /// This can be useful when working around the borrow checker,
+    /// or reusing functionality between systems via functions that accept query types.
+    pub fn to_readonly(&self) -> Query<'_, '_, Q::ReadOnly, F::ReadOnly> {
+        let new_state = self.state.as_readonly();
+        // SAFETY: This is memory safe because it turns the query immutable.
+        unsafe {
+            Query::new(
+                self.world,
+                new_state,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
     /// Returns an [`Iterator`] over the query results.
     ///
     /// This can only return immutable data (mutable data will be cast to an immutable form).
