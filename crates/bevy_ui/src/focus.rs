@@ -9,6 +9,7 @@ use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::camera::{Camera, RenderTarget};
+use bevy_render::view::ComputedVisibility;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_window::Windows;
@@ -18,6 +19,17 @@ use smallvec::SmallVec;
 /// Describes what type of input interaction has occurred for a UI node.
 ///
 /// This is commonly queried with a `Changed<Interaction>` filter.
+///
+/// Updated in [`ui_focus_system`].
+///
+/// If a UI node has both [`Interaction`] and [`ComputedVisibility`] components,
+/// [`Interaction`] will always be [`Interaction::None`]
+/// when [`ComputedVisibility::is_visible()`] is false.
+/// This ensures that hidden UI nodes are not interactable,
+/// and do not end up stuck in an active state if hidden at the wrong time.
+///
+/// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
+/// which fully collapses it during layout calculations.
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
@@ -51,6 +63,8 @@ pub struct State {
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
+///
+/// Entities with a hidden [`ComputedVisibility`] are always treated as released.
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera: Query<(&Camera, Option<&UiCameraConfig>)>,
@@ -64,6 +78,7 @@ pub fn ui_focus_system(
         Option<&mut Interaction>,
         Option<&FocusPolicy>,
         Option<&CalculatedClip>,
+        Option<&ComputedVisibility>,
     )>,
 ) {
     // reset entities that were both clicked and released in the last frame
@@ -76,7 +91,7 @@ pub fn ui_focus_system(
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
-        for (_entity, _node, _global_transform, interaction, _focus_policy, _clip) in
+        for (_entity, _node, _global_transform, interaction, _focus_policy, _clip, _visibility) in
             node_query.iter_mut()
         {
             if let Some(mut interaction) = interaction {
@@ -111,7 +126,22 @@ pub fn ui_focus_system(
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
         .filter_map(
-            |(entity, node, global_transform, interaction, focus_policy, clip)| {
+            |(entity, node, global_transform, interaction, focus_policy, clip, visibility)| {
+                // Nodes that are not rendered should not be interactable
+                if let Some(computed_visibility) = visibility {
+                    if !computed_visibility.is_visible() {
+                        // Reset their interaction to None to avoid strange stuck state
+                        if let Some(mut interaction) = interaction {
+                            // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
+                            if *interaction != Interaction::None {
+                                *interaction = Interaction::None;
+                            }
+                        }
+
+                        return None;
+                    }
+                }
+
                 let position = global_transform.translation();
                 let ui_position = position.truncate();
                 let extents = node.size / 2.0;
