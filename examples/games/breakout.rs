@@ -216,8 +216,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED));
 
     // Scoreboard
-    commands.spawn_bundle(TextBundle {
-        text: Text::from_sections([
+    commands.spawn_bundle(
+        TextBundle::from_sections([
             TextSection::new(
                 "Score: ",
                 TextStyle {
@@ -231,8 +231,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: SCOREBOARD_FONT_SIZE,
                 color: SCORE_COLOR,
             }),
-        ]),
-        style: Style {
+        ])
+        .with_style(Style {
             position_type: PositionType::Absolute,
             position: UiRect {
                 top: SCOREBOARD_TEXT_PADDING,
@@ -240,9 +240,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        },
-        ..default()
-    });
+        }),
+    );
 
     // Walls
     commands.spawn_bundle(WallBundle::new(WallLocation::Left));

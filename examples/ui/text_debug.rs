@@ -25,8 +25,16 @@ struct TextChanges;
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(TextBundle {
-        style: Style {
+    commands.spawn_bundle(
+        TextBundle::from_section(
+            "This is\ntext with\nline breaks\nin the top left",
+            TextStyle {
+                font: font.clone(),
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
+        )
+        .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
             position: UiRect {
@@ -35,19 +43,18 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        },
-        text: Text::from_section(
-            "This is\ntext with\nline breaks\nin the top left",
+        }),
+    );
+    commands.spawn_bundle(TextBundle::from_section(
+            "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
             TextStyle {
                 font: font.clone(),
                 font_size: 50.0,
-                color: Color::WHITE,
+                color: Color::rgb(0.8, 0.2, 0.7),
             },
-        ),
-        ..default()
-    });
-    commands.spawn_bundle(TextBundle {
-        style: Style {
+        )
+        .with_text_alignment(TextAlignment::CENTER)
+        .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
             position: UiRect {
@@ -60,30 +67,11 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Undefined,
             },
             ..default()
-        },
-        text: Text::from_section(
-            "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
-            TextStyle {
-                font: font.clone(),
-                font_size: 50.0,
-                color: Color::rgb(0.8, 0.2, 0.7),
-            },
-        ).with_alignment(TextAlignment::CENTER),
-        ..default()
-    });
+        })
+    );
     commands
-        .spawn_bundle(TextBundle {
-            style: Style {
-                align_self: AlignSelf::FlexEnd,
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    bottom: Val::Px(5.0),
-                    right: Val::Px(15.0),
-                    ..default()
-                },
-                ..default()
-            },
-            text: Text::from_sections([
+        .spawn_bundle(
+            TextBundle::from_sections([
                 TextSection::new(
                     "This text changes in the bottom right",
                     TextStyle {
@@ -126,12 +114,29 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         color: Color::BLUE,
                     },
                 ),
-            ]),
-            ..default()
-        })
+            ])
+            .with_style(Style {
+                align_self: AlignSelf::FlexEnd,
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    bottom: Val::Px(5.0),
+                    right: Val::Px(15.0),
+                    ..default()
+                },
+                ..default()
+            }),
+        )
         .insert(TextChanges);
-    commands.spawn_bundle(TextBundle {
-        style: Style {
+    commands.spawn_bundle(
+        TextBundle::from_section(
+            "This\ntext has\nline breaks and also a set width in the bottom left",
+            TextStyle {
+                font,
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
+        )
+        .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
             position: UiRect {
@@ -144,17 +149,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        },
-        text: Text::from_section(
-            "This\ntext has\nline breaks and also a set width in the bottom left",
-            TextStyle {
-                font,
-                font_size: 50.0,
-                color: Color::WHITE,
-            },
-        ),
-        ..default()
-    });
+        }),
+    );
 }
 
 fn change_text_system(

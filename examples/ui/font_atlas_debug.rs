@@ -81,15 +81,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
     commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(TextBundle {
-        text: Text::from_section(
-            "a",
-            TextStyle {
-                font: font_handle,
-                font_size: 60.0,
-                color: Color::YELLOW,
-            },
-        ),
-        ..default()
-    });
+    commands.spawn_bundle(TextBundle::from_section(
+        "a",
+        TextStyle {
+            font: font_handle,
+            font_size: 60.0,
+            color: Color::YELLOW,
+        },
+    ));
 }

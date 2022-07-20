@@ -96,8 +96,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn_bundle(Camera2dBundle::default());
     commands
-        .spawn_bundle(TextBundle {
-            text: Text::from_sections([
+        .spawn_bundle(
+            TextBundle::from_sections([
                 TextSection::new(
                     "Bird Count: ",
                     TextStyle {
@@ -124,8 +124,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 40.0,
                     color: Color::rgb(0.0, 1.0, 1.0),
                 }),
-            ]),
-            style: Style {
+            ])
+            .with_style(Style {
                 position_type: PositionType::Absolute,
                 position: UiRect {
                     top: Val::Px(5.0),
@@ -133,9 +133,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 ..default()
-            },
-            ..default()
-        })
+            }),
+        )
         .insert(StatsText);
 
     commands.insert_resource(BirdTexture(texture));

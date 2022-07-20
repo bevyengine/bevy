@@ -596,10 +596,10 @@ mod menu {
                     })
                     .with_children(|parent| {
                         // Display a label for the current setting
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::from_section("Display Quality", button_text_style.clone()),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section(
+                            "Display Quality",
+                            button_text_style.clone(),
+                        ));
                         // Display a button for each possible value
                         for quality_setting in [
                             DisplayQuality::Low,
@@ -615,13 +615,10 @@ mod menu {
                                 ..default()
                             });
                             entity.insert(quality_setting).with_children(|parent| {
-                                parent.spawn_bundle(TextBundle {
-                                    text: Text::from_section(
-                                        format!("{:?}", quality_setting),
-                                        button_text_style.clone(),
-                                    ),
-                                    ..default()
-                                });
+                                parent.spawn_bundle(TextBundle::from_section(
+                                    format!("{quality_setting:?}"),
+                                    button_text_style.clone(),
+                                ));
                             });
                             if *display_quality == quality_setting {
                                 entity.insert(SelectedOption);

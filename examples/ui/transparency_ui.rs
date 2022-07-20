@@ -29,18 +29,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::from_section(
-                    "Button 1",
-                    TextStyle {
-                        font: font_handle.clone(),
-                        font_size: 40.0,
-                        // Alpha channel of the color controls transparency.
-                        color: Color::rgba(1.0, 1.0, 1.0, 0.2),
-                    },
-                ),
-                ..default()
-            });
+            parent.spawn_bundle(TextBundle::from_section(
+                "Button 1",
+                TextStyle {
+                    font: font_handle.clone(),
+                    font_size: 40.0,
+                    // Alpha channel of the color controls transparency.
+                    color: Color::rgba(1.0, 1.0, 1.0, 0.2),
+                },
+            ));
         });
 
     // Button with a different color,
@@ -58,17 +55,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::from_section(
-                    "Button 2",
-                    TextStyle {
-                        font: font_handle.clone(),
-                        font_size: 40.0,
-                        // Alpha channel of the color controls transparency.
-                        color: Color::rgba(1.0, 1.0, 1.0, 0.2),
-                    },
-                ),
-                ..default()
-            });
+            parent.spawn_bundle(TextBundle::from_section(
+                "Button 2",
+                TextStyle {
+                    font: font_handle.clone(),
+                    font_size: 40.0,
+                    // Alpha channel of the color controls transparency.
+                    color: Color::rgba(1.0, 1.0, 1.0, 0.2),
+                },
+            ));
         });
 }

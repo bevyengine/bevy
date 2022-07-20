@@ -108,8 +108,8 @@ fn setup_scene(
             ..default()
         })
         .with_children(|b| {
-            b.spawn_bundle(TextBundle {
-                text: Text::from_section(
+            b.spawn_bundle(
+                TextBundle::from_section(
                     "Test Button",
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -117,9 +117,8 @@ fn setup_scene(
                         color: Color::BLACK,
                     },
                 )
-                .with_alignment(TextAlignment::CENTER),
-                ..default()
-            });
+                .with_text_alignment(TextAlignment::CENTER),
+            );
         });
 }
 

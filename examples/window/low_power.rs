@@ -166,18 +166,8 @@ pub(crate) mod test_setup {
         });
         event.send(RequestRedraw);
         commands
-            .spawn_bundle(TextBundle {
-                style: Style {
-                    align_self: AlignSelf::FlexStart,
-                    position_type: PositionType::Absolute,
-                    position: UiRect {
-                        top: Val::Px(5.0),
-                        left: Val::Px(5.0),
-                        ..default()
-                    },
-                    ..default()
-                },
-                text: Text::from_sections([
+            .spawn_bundle(
+                TextBundle::from_sections([
                     TextSection::new(
                         "Press spacebar to cycle modes\n",
                         TextStyle {
@@ -204,9 +194,18 @@ pub(crate) mod test_setup {
                         font_size: 50.0,
                         color: Color::YELLOW,
                     }),
-                ]),
-                ..default()
-            })
+                ])
+                .with_style(Style {
+                    align_self: AlignSelf::FlexStart,
+                    position_type: PositionType::Absolute,
+                    position: UiRect {
+                        top: Val::Px(5.0),
+                        left: Val::Px(5.0),
+                        ..default()
+                    },
+                    ..default()
+                }),
+            )
             .insert(ModeText);
     }
 }
