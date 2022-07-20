@@ -522,7 +522,7 @@ mod tests {
             Err(error) => error,
         };
         assert_eq!(
-            format!("{}", error),
+            error.to_string(),
             "cannot convert VertexAttributeValues::Uint32x4 to alloc::vec::Vec<u32>"
         );
         assert_eq!(format!("{:?}", error),

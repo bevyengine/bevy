@@ -108,23 +108,17 @@ fn setup_scene(
             ..default()
         })
         .with_children(|b| {
-            b.spawn_bundle(TextBundle {
-                text: Text {
-                    sections: vec![TextSection {
-                        value: "Test Button".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 30.0,
-                            color: Color::BLACK,
-                        },
-                    }],
-                    alignment: TextAlignment {
-                        vertical: VerticalAlign::Center,
-                        horizontal: HorizontalAlign::Center,
+            b.spawn_bundle(
+                TextBundle::from_section(
+                    "Test Button",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 30.0,
+                        color: Color::BLACK,
                     },
-                },
-                ..default()
-            });
+                )
+                .with_text_alignment(TextAlignment::CENTER),
+            );
         });
 }
 

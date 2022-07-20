@@ -44,22 +44,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn_bundle(TextBundle {
-                        style: Style {
-                            align_self: AlignSelf::FlexEnd,
-                            ..default()
-                        },
-                        text: Text::with_section(
+                    parent.spawn_bundle(
+                        TextBundle::from_section(
                             "Example text",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 30.0,
                                 color: Color::WHITE,
                             },
-                            Default::default(),
-                        ),
-                        ..default()
-                    });
+                        )
+                        .with_style(Style {
+                            align_self: AlignSelf::FlexEnd,
+                            ..default()
+                        }),
+                    );
                 });
         });
 }

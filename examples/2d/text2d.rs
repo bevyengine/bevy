@@ -31,30 +31,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 60.0,
         color: Color::WHITE,
     };
-    let text_alignment = TextAlignment {
-        vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Center,
-    };
+    let text_alignment = TextAlignment::CENTER;
     // 2d camera
     commands.spawn_bundle(Camera2dBundle::default());
     // Demonstrate changing translation
     commands
         .spawn_bundle(Text2dBundle {
-            text: Text::with_section("translation", text_style.clone(), text_alignment),
+            text: Text::from_section("translation", text_style.clone())
+                .with_alignment(text_alignment),
             ..default()
         })
         .insert(AnimateTranslation);
     // Demonstrate changing rotation
     commands
         .spawn_bundle(Text2dBundle {
-            text: Text::with_section("rotation", text_style.clone(), text_alignment),
+            text: Text::from_section("rotation", text_style.clone()).with_alignment(text_alignment),
             ..default()
         })
         .insert(AnimateRotation);
     // Demonstrate changing scale
     commands
         .spawn_bundle(Text2dBundle {
-            text: Text::with_section("scale", text_style.clone(), text_alignment),
+            text: Text::from_section("scale", text_style.clone()).with_alignment(text_alignment),
             ..default()
         })
         .insert(AnimateScale);
@@ -70,16 +68,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_translation(box_position.extend(0.0)),
         ..default()
     });
-    let text_alignment_topleft = TextAlignment {
-        vertical: VerticalAlign::Top,
-        horizontal: HorizontalAlign::Left,
-    };
     commands.spawn_bundle(Text2dBundle {
-        text: Text::with_section(
-            "this text wraps in the box",
-            text_style,
-            text_alignment_topleft,
-        ),
+        text: Text::from_section("this text wraps in the box", text_style),
         text_2d_bounds: Text2dBounds {
             // Wrap text in the rectangle
             size: box_size,

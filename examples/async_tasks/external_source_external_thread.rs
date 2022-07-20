@@ -62,13 +62,11 @@ fn spawn_text(
         font_size: 20.0,
         color: Color::WHITE,
     };
-    let text_alignment = TextAlignment {
-        vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Center,
-    };
+
     for (per_frame, event) in reader.iter().enumerate() {
         commands.spawn_bundle(Text2dBundle {
-            text: Text::with_section(format!("{}", event.0), text_style.clone(), text_alignment),
+            text: Text::from_section(event.0.to_string(), text_style.clone())
+                .with_alignment(TextAlignment::CENTER),
             transform: Transform::from_xyz(
                 per_frame as f32 * 100.0 + rand::thread_rng().gen_range(-40.0..40.0),
                 300.0,
