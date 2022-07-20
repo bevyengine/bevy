@@ -1,3 +1,5 @@
+#![allow(clippy::doc_markdown)]
+
 use super::Buffer;
 use crate::renderer::{RenderDevice, RenderQueue};
 use encase::{
