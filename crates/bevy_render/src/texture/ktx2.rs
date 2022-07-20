@@ -243,7 +243,8 @@ pub fn ktx2_buffer_to_image(
             depth
         }
         .max(1),
-    };
+    }
+    .physical_size(texture_format);
     image.texture_descriptor.mip_level_count = level_count;
     image.texture_descriptor.dimension = if depth > 1 {
         TextureDimension::D3
