@@ -445,7 +445,9 @@ where
         );
     }
     fn default_labels(&self) -> Vec<SystemLabelId> {
-        vec![self.func.as_system_label().as_label()]
+        let mut labels = Param::auto_labels();
+        labels.push(self.func.as_system_label().as_label());
+        labels
     }
 }
 

@@ -8,6 +8,7 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
+    schedule::SystemLabelId,
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
@@ -90,6 +91,11 @@ use std::{
 /// has not been proven to the compiler.
 pub trait SystemParam: Sized {
     type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
+    /// Returns a list of auto-labels that should be applied to any system contain this `SystemParam`.
+    #[inline]
+    fn auto_labels() -> Vec<crate::schedule::SystemLabelId> {
+        vec![]
+    }
 }
 
 pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamFetch<'w, 's>>::Item;
@@ -1275,6 +1281,12 @@ macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {
         impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type Fetch = ($($param::Fetch,)*);
+            fn auto_labels() -> Vec<SystemLabelId> {
+                #[allow(unused_mut)]
+                let mut labels = vec![];
+                $(labels.append(&mut $param::auto_labels());)*
+                labels
+            }
         }
 
         // SAFETY: tuple consists only of ReadOnlySystemParamFetches

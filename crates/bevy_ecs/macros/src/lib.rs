@@ -300,6 +300,25 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+
+    let labels = ast
+        .attrs
+        .iter()
+        .filter(|a| a.path.get_ident().as_ref().unwrap() == &SYSTEM_PARAM_ATTRIBUTE_NAME)
+        .filter_map(|a| {
+            let syn::ExprAssign { left, right, .. } = a.parse_args::<syn::ExprAssign>().unwrap();
+            let left = match *left {
+                syn::Expr::Path(expr) => expr.path,
+                _ => return None,
+            };
+            if left.get_ident().unwrap() != &format_ident!("label") {
+                return None;
+            }
+
+            Some(right)
+        })
+        .collect::<Vec<_>>();
+
     let fields = match get_named_struct_fields(&ast.data) {
         Ok(fields) => &fields.named,
         Err(e) => return e.into_compile_error().into(),
@@ -381,6 +400,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         const _: () = {
             impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
                 type Fetch = FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
+                fn auto_labels() -> Vec<#path::schedule::SystemLabelId> {
+                    let mut labels = vec![ #(
+                        (#path::schedule::SystemLabel::as_label(&#labels))
+                    ),* ];
+                    #(labels.append(&mut <#field_types>::auto_labels());)*
+                    labels
+                }
             }
 
             #[doc(hidden)]
