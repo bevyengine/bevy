@@ -46,10 +46,7 @@ impl Text {
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
-            sections: vec![TextSection {
-                value: value.into(),
-                style,
-            }],
+            sections: vec![TextSection::new(value, style)],
             alignment: Default::default(),
         }
     }
@@ -90,7 +87,7 @@ impl Text {
     }
 
     /// Returns this [`Text`] with a new [`TextAlignment`].
-    pub fn with_alignment(mut self, alignment: TextAlignment) -> Self {
+    pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
         self.alignment = alignment;
         self
     }
@@ -112,9 +109,9 @@ impl TextSection {
     }
 
     /// Create an empty [`TextSection`] from a style. Useful when the value will be set dynamically.
-    pub fn from_style(style: TextStyle) -> Self {
+    pub const fn from_style(style: TextStyle) -> Self {
         Self {
-            value: Default::default(),
+            value: String::new(),
             style,
         }
     }

@@ -111,13 +111,13 @@ impl TextBundle {
     }
 
     /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
-    pub fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
+    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
         self.text.alignment = alignment;
         self
     }
 
     /// Returns this [`TextBundle`] with a new [`Style`].
-    pub fn with_style(mut self, style: Style) -> Self {
+    pub const fn with_style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
