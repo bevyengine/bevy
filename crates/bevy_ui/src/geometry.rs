@@ -178,9 +178,9 @@ impl UiRect {
     /// ```
     pub fn all(value: Val) -> Self {
         UiRect {
-            left: value.clone(),
-            right: value.clone(),
-            top: value.clone(),
+            left: value,
+            right: value,
+            top: value,
             bottom: value,
         }
     }
