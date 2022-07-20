@@ -104,14 +104,14 @@ pub struct TextSection {
 
 impl TextSection {
     /// Create a new [`TextSection`].
-    pub fn new(text: impl Into<String>, style: TextStyle) -> Self {
+    pub fn new(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
-            value: text.into(),
+            value: value.into(),
             style,
         }
     }
 
-    /// Create an empty [`TextSection`] from a style. Useful when the text will be set dynamically.
+    /// Create an empty [`TextSection`] from a style. Useful when the value will be set dynamically.
     pub fn from_style(style: TextStyle) -> Self {
         Self {
             value: Default::default(),

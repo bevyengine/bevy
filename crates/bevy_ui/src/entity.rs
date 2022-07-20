@@ -13,7 +13,7 @@ use bevy_render::{
     camera::Camera, extract_component::ExtractComponent, prelude::ComputedVisibility,
     view::Visibility,
 };
-use bevy_text::{Text, TextAlignment, TextStyle, TextSection};
+use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -91,7 +91,7 @@ pub struct TextBundle {
 
 impl TextBundle {
     /// Create a [`TextBundle`] from a single section.
-    /// 
+    ///
     /// See [`Text::from_section`] for usage.
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
@@ -101,7 +101,7 @@ impl TextBundle {
     }
 
     /// Create a [`TextBundle`] from a list of sections.
-    /// 
+    ///
     /// See [`Text::from_sections`] for usage.
     pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
         Self {
