@@ -1,7 +1,10 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::system::{Local, Res, ResMut, SystemParam};
+use crate::{
+    schedule::SystemLabel,
+    system::{Local, Res, ResMut, SystemParam},
+};
 use bevy_utils::tracing::trace;
 use std::ops::{Deref, DerefMut};
 use std::{
@@ -179,8 +182,20 @@ impl<E: Event> DerefMut for EventSequence<E> {
     }
 }
 
+/// [Label](SystemLabel) for a [`System`](crate::system::System) that reads events of type `E`.
+#[derive(SystemLabel)]
+#[system_label(ignore_fields)]
+pub struct ReadSystem<E: Event>(PhantomData<E>);
+
+impl<E: Event> Default for ReadSystem<E> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
+#[system_param(label = ReadSystem::<E>::default())]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
     events: Res<'w, Events<E>>,
@@ -248,6 +263,17 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
+/// [Label](SystemLabel) for a [`System`](crate::system::System) that writes events of type `E`.
+#[derive(SystemLabel)]
+#[system_label(ignore_fields)]
+pub struct WriteSystem<E: Event>(PhantomData<E>);
+
+impl<E: Event> Default for WriteSystem<E> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
 /// Sends events of type `T`.
 ///
 /// # Usage
@@ -292,6 +318,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
+#[system_param(label = WriteSystem::<E>::default())]
 pub struct EventWriter<'w, 's, E: Event> {
     events: ResMut<'w, Events<E>>,
     #[system_param(ignore)]
