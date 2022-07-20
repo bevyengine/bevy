@@ -613,10 +613,32 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
+        self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
-            self.update_archetypes(world);
             self.as_readonly().iter_many_unchecked_manual(
+                entities,
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            )
+        }
+    }
+
+    /// Returns an iterator over the query results of a list of [`Entity`]'s.
+    #[inline]
+    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator>(
+        &'s mut self,
+        world: &'w mut World,
+        entities: EntityList,
+    ) -> QueryManyIter<'w, 's, Q, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        self.update_archetypes(world);
+        // SAFETY: Query has unique world access.
+        unsafe {
+            self.iter_many_unchecked_manual(
                 entities,
                 world,
                 world.last_change_tick(),
