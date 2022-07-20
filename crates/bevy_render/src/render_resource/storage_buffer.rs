@@ -8,20 +8,21 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
 ///
-/// Storage buffers can be made available to shaders as some combination of read/write, unlike
-/// [`UniformBuffer`](crate::render_resource::UniformBuffer) which is read-only. Furthermore, storage buffers
-/// can store much larger data than uniform buffers, which are only guaranteed to be up to 16kB per binding. Note however that
-/// WebGL2 does not support storage buffers, so other alternatives to consider are vertex/instance buffers (see
-/// [`BufferVec`](crate::render_resource::BufferVec)), or data textures ([`Texture`](crate::render_resource::Texture)),
-/// depending on what is most appropriate for the use case.
+/// Storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts of data.
+/// Note however that WebGL2 does not support storage buffers, so consider alternative options in this case.
 ///
-/// Storage buffers can store runtime-sized arrays, but only if they are the last field in a structure. To store a
-/// runtime-sized array of data, use [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer) instead.
+/// Storage buffers can store runtime-sized arrays, but only if they are the last field in a structure.
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::StorageBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Storage buffers must conform to [std430 alignment/padding requirements], which
-/// is automatically enforced by this structure. If data does not need to be automatically padded or aligned,
-/// consider using [`BufferVec`](crate::render_resource::BufferVec).
+/// is automatically enforced by this structure.
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct StorageBuffer<T: ShaderType> {
@@ -103,21 +104,23 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
 ///
-/// Dynamic storage buffers can be made available to shaders as some combination of read/write, unlike
-/// [`UniformBuffer`](crate::render_resource::UniformBuffer) which is read-only. Furthermore, dynamic storage buffers
-/// can store much larger data than uniform buffers, which are only guaranteed to be up to 16kB per binding. Dynamic storage buffers
-/// support multiple separate bindings at dynamic byte offsets and so have a
-/// [`push`](crate::render_resource::DynamicStorageBuffer::push) method, unlike
-/// [`StorageBuffer`](crate::render_resource::StorageBuffer). Note however that
-/// WebGL2 does not support dynamic storage buffers, so other alternatives to consider are vertex/instance buffers (see
-/// [`BufferVec`](crate::render_resource::BufferVec)), or data textures ([`Texture`](crate::render_resource::Texture)),
-/// depending on what is most appropriate for the use case.
+/// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
+/// of data. Note however that WebGL2 does not support storage buffers, so consider alternative options in this case. Dynamic
+/// storage buffers support multiple separate bindings at dynamic byte offsets and so have a
+/// [`push`](crate::render_resource::DynamicStorageBuffer::push) method.
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicStorageBuffer::write_buffer)
 /// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
-/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to these requirements. Each item [`push`](crate::render_resource::DynamicStorageBuffer::push)ed
-/// into this structure will additionally be aligned to meet dynamic offset alignment requirements. If data does not need to
-/// be automatically padded or aligned, consider using [`BufferVec`](crate::render_resource::BufferVec).
+/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to
+/// these requirements. Each item [`push`](crate::render_resource::DynamicStorageBuffer::push)ed into this structure
+/// will additionally be aligned to meet dynamic offset alignment requirements.
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct DynamicStorageBuffer<T: ShaderType> {

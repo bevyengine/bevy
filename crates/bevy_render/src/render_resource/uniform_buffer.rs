@@ -11,21 +11,20 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// Stores data to be transferred to the GPU and made accessible to shaders as a uniform buffer.
 ///
 /// Uniform buffers are available to shaders on a read-only basis. Uniform buffers are commonly used to make available to shaders
-/// parameters that are constant during shader execution, and are best used for data that is relatively small in size as they are only guaranteed to support up to 16kB per binding. For
-/// larger data, or data that must be made accessible to shaders on a read-write basis, consider
-/// [`StorageBuffer`](crate::render_resource::StorageBuffer) or
-/// [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer). Note however that
-/// WebGL2 does not support storage buffers, so other alternatives to consider are vertex/instance buffers (see
-/// [`BufferVec`](crate::render_resource::BufferVec)), or data textures ([`Texture`](crate::render_resource::Texture)),
-/// depending on what is most appropriate for the use case.
+/// parameters that are constant during shader execution, and are best used for data that is relatively small in size as they are
+/// only guaranteed to support up to 16kB per binding.
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
-/// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors.
-/// If this is required within one draw command, consider `StorageBuffer`](crate::render_resource::StorageBuffer).
-/// If this is required but could be across multiple draw commands, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer).
+/// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array
+/// (vectors), or structures with fields that are vectors.
 ///
-/// If data does not need to be automatically padded or aligned, use [`BufferVec`](crate::render_resource::BufferVec).
+/// Other options for storing GPU-accessible data are:
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct UniformBuffer<T: ShaderType> {
@@ -105,20 +104,19 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 ///
 /// Dynamic uniform buffers are available to shaders on a read-only basis. Dynamic uniform buffers are commonly used to make
 /// available to shaders runtime-sized arrays of parameters that are otherwise constant during shader execution, and are best
-/// suited to data that is relatively small in size as they are only guaranteed to support up to 16kB per binding. For larger data, or data that must be made
-/// accessible to shaders on a read-write basis, consider [`StorageBuffer`](crate::render_resource::StorageBuffer) or
-/// [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer). Note however that
-/// WebGL2 does not support storage buffers, so other alternatives to consider are vertex/instance buffers (see
-/// [`BufferVec`](crate::render_resource::BufferVec)), or data textures ([`Texture`](crate::render_resource::Texture)),
-/// depending on what is most appropriate for the use case. If it is not necessary to store runtime-sized arrays,
-/// consider [`UniformBuffer`](crate::render_resource::UniformBuffer) instead.
+/// suited to data that is relatively small in size as they are only guaranteed to support up to 16kB per binding.
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicUniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
-/// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors.
-/// If this is required, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer).
+/// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array
+/// (vectors), or structures with fields that are vectors.
 ///
-/// If data does not need to be automatically padded or aligned, use [`BufferVec`](crate::render_resource::BufferVec).
+/// Other options for storing GPU-accessible data are:
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct DynamicUniformBuffer<T: ShaderType> {
