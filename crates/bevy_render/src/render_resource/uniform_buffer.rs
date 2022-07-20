@@ -22,7 +22,8 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
 /// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array (vectors), or structures with fields that are vectors.
-/// If this is required, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer).
+/// If this is required within one draw command, consider `StorageBuffer`](crate::render_resource::StorageBuffer).
+/// If this is required but could be across multiple draw commands, consider [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer).
 ///
 /// If data does not need to be automatically padded or aligned, use [`BufferVec`](crate::render_resource::BufferVec).
 ///
