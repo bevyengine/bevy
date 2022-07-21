@@ -270,14 +270,14 @@ pub fn animation_player(
                 }
             }
 
-            let mut fade_factor = 0.0;
+            let mut transition_lerp = 0.0;
             if in_transition {
-                fade_factor =
+                transition_lerp =
                     player.transition.transition_elapsed / player.transition.transition_time;
             }
 
-            if fade_factor >= 1.0 {
-                fade_factor = 1.0; // set to exactly one so the last step of the interpolation is exact
+            if transition_lerp >= 1.0 {
+                transition_lerp = 1.0; // set to exactly one so the last step of the interpolation is exact
             }
 
             let mut current_elapsed = player.elapsed;
@@ -407,15 +407,15 @@ pub fn animation_player(
                     } else if updated_transforms.len() == 2 {
                         let from = updated_transforms[0];
                         let to = updated_transforms[1];
-                        transform.rotation = from.rotation.slerp(to.rotation, fade_factor);
-                        transform.translation = from.translation.lerp(to.translation, fade_factor);
-                        transform.scale = from.scale.lerp(to.scale, fade_factor);
+                        transform.rotation = from.rotation.slerp(to.rotation, transition_lerp);
+                        transform.translation = from.translation.lerp(to.translation, transition_lerp);
+                        transform.scale = from.scale.lerp(to.scale, transition_lerp);
                     }
                 }
             }
 
             // Transition to next clip has finished
-            if fade_factor == 1.0 {
+            if transition_lerp == 1.0 {
                 let next_clip = player.transition.next_animation_clip.clone_weak();
                 let next_speed = player.transition.speed;
                 let repeat = player.transition.repeat;
