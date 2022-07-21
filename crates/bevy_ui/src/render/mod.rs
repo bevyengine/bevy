@@ -269,8 +269,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 .insert(ExtractedView {
                     projection: projection.get_projection_matrix(),
                     transform: GlobalTransform::from_xyz(
-                        0.0,
-                        0.0,
+                        ui_config.position.x,
+                        ui_config.position.y,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
                     width: physical_size.x,

@@ -5,6 +5,7 @@ use crate::{
     CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
 };
 use bevy_ecs::{bundle::Bundle, prelude::Component};
+use bevy_math::Vec2;
 use bevy_render::{
     prelude::ComputedVisibility,
     view::{RenderLayers, Visibility},
@@ -186,6 +187,8 @@ pub struct UiCameraConfig {
     pub show_ui: bool,
     /// The ui camera layers this camera can see.
     pub ui_render_layers: RenderLayers,
+    /// The position of the UI camera in UI space.
+    pub position: Vec2,
 }
 
 impl Default for UiCameraConfig {
@@ -193,6 +196,7 @@ impl Default for UiCameraConfig {
         Self {
             show_ui: true,
             ui_render_layers: Default::default(),
+            position: Vec2::ZERO,
         }
     }
 }
