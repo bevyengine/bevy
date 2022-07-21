@@ -12,10 +12,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
+    texture::{DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo},
     view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
@@ -158,9 +156,13 @@ pub struct Mesh2dPipeline {
 
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(Res<RenderDevice>, Res<DefaultImageSampler>)> =
-            SystemState::new(world);
-        let (render_device, default_sampler) = system_state.get_mut(world);
+        let mut system_state: SystemState<(
+            Res<RenderDevice>,
+            Res<DefaultImageSampler>,
+            Res<RenderTextureFormat>,
+        )> = SystemState::new(world);
+        let (render_device, default_sampler, first_available_texture_format) =
+            system_state.get_mut(world);
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -197,7 +199,7 @@ impl FromWorld for Mesh2dPipeline {
                 Extent3d::default(),
                 TextureDimension::D2,
                 &[255u8; 4],
-                TextureFormat::bevy_default(),
+                first_available_texture_format.0,
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
@@ -354,7 +356,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: self.dummy_white_gpu_image.texture_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
