@@ -284,7 +284,8 @@ pub fn animation_player(
             }
 
             if transition_lerp >= 1.0 {
-                transition_lerp = 1.0; // set to exactly one so the last step of the interpolation is exact
+                // set to exactly one so the last step of the interpolation is exact
+                transition_lerp = 1.0; 
             }
 
             let mut current_elapsed = player.elapsed;
@@ -330,13 +331,13 @@ pub fn animation_player(
                 }
                 if let Ok(mut transform) = transforms.get_mut(current_entity) {
                     let mut clip_curves = vec![curves];
-                    let mut updated_transforms = vec![transform.clone()];
+                    let mut updated_transforms = vec![*transform];
 
                     // If in transition also push the target clip to the array
                     if let Some(next_clip) = next_clip {
                         if let Some(next_curves) = next_clip.curves.get(path) {
                             clip_curves.push(next_curves);
-                            updated_transforms.push(transform.clone());
+                            updated_transforms.push(*transform);
                         }
                     }
 
@@ -409,6 +410,8 @@ pub fn animation_player(
                         }
                     }
 
+                    // if updated_transforms has length 2 the animation is in transition and we use the computed transforms
+                    // from both the current and the target curve and interpolate between them using the transition_lerp factor
                     if updated_transforms.len() == 1 {
                         *transform = updated_transforms[0];
                     } else if updated_transforms.len() == 2 {
