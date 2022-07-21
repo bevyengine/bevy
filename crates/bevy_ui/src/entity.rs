@@ -177,7 +177,7 @@ pub struct ButtonBundle {
 /// it will display the UI by default.
 ///
 /// [`Camera`]: bevy_render::camera::Camera
-#[derive(Component, Clone)]
+#[derive(Component, Debug, Clone)]
 pub struct UiCameraConfig {
     /// Whether to output UI to this camera view.
     ///

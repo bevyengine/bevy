@@ -27,9 +27,10 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
+use bevy_render::view::VisibilitySystems;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
-use update::{ui_z_system, update_clipping_system};
+use update::{ui_z_system, update_clipping_system, update_layer_visibility};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -42,6 +43,11 @@ pub enum UiSystem {
     Flex,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
+    /// Update the [`ComputedVisibility`] component of [`Node`] entities to reflect
+    /// their visibility in accordance to UI cameras.
+    ///
+    /// [`ComputedVisibility`]: bevy_render::view::ComputedVisibility
+    LayerVisibility,
 }
 
 impl Plugin for UiPlugin {
@@ -93,6 +99,12 @@ impl Plugin for UiPlugin {
                     .label(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate)
                     .after(ModifiesWindows),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_layer_visibility
+                    .label(UiSystem::LayerVisibility)
+                    .after(VisibilitySystems::CheckVisibility),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

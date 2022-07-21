@@ -1,6 +1,6 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, Overflow, Style};
+use crate::{entity::UiCameraConfig, CalculatedClip, Overflow, Style};
 
 use super::Node;
 use bevy_ecs::{
@@ -10,6 +10,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::Vec2;
+use bevy_render::view::{ComputedVisibility, RenderLayers};
 use bevy_sprite::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -62,6 +63,30 @@ fn update_hierarchy(
         }
     }
     current_global_z
+}
+
+/// Correct the `ComputedVisibility` set by [`check_visibility`] for UI nodes.
+///
+/// Since [`check_visibility`] has no concept of UI cameras, we need a "post-pass"
+/// where we re-enable UI nodes that are visible because they have a matching
+/// UI camera in their layer.
+///
+/// [`check_visibility`]: bevy_render::view::visibility::check_visibility
+pub fn update_layer_visibility(
+    ui_cams: Query<&UiCameraConfig>,
+    mut nodes: Query<(&mut ComputedVisibility, &RenderLayers), With<Node>>,
+) {
+    for config in &ui_cams {
+        // Skip configs with default render layers, since `check_visibility` assumes it
+        if config.ui_render_layers == RenderLayers::default() {
+            continue;
+        }
+        for (mut visibility, node_layers) in &mut nodes {
+            if config.ui_render_layers.intersects(node_layers) {
+                visibility.set_visible_in_view();
+            }
+        }
+    }
 }
 
 /// Updates clipping for all nodes

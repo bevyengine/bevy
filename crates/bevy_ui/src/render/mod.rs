@@ -158,6 +158,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
     ui_graph
 }
 
+#[derive(Debug)]
 pub struct ExtractedUiNode {
     pub transform: Mat4,
     pub color: Color,
@@ -224,9 +225,19 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 // TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
+/// The UI camera used by this Camera's viewport.
+///
+/// This component is inserted into the render world in the
+/// [`extract_default_ui_camera_view`] system.
+///
+/// The component is attached to the "actual" viewport's camera.
+/// The UI camera's `ExtractedView` is attached to the entity in the
+/// `entity` field.
 #[derive(Component, Debug)]
 pub struct UiCamera {
+    /// The entity for the UI camera.
     pub entity: Entity,
+    /// UI nodes layer this camera shows.
     layers: RenderLayers,
 }
 
