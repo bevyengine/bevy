@@ -66,7 +66,7 @@ fn setup(
 // This system will check if a scaled entity went above or below the entities scaling bounds
 // and change the direction of the scaling vector.
 fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
-    for (mut transform, mut cube) in cubes.iter_mut() {
+    for (mut transform, mut cube) in &mut cubes {
         // If an entity scaled beyond the maximum of its size in any dimension
         // the scaling vector is flipped so the scaling is gradually reverted.
         // Additionally, to ensure the condition does not trigger again we floor the elements to
@@ -92,7 +92,7 @@ fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
 // This system will scale any entity with assigned Scaling in each direction
 // by cycling through the directions to scale.
 fn scale_cube(mut cubes: Query<(&mut Transform, &Scaling)>, timer: Res<Time>) {
-    for (mut transform, cube) in cubes.iter_mut() {
+    for (mut transform, cube) in &mut cubes {
         transform.scale += cube.scale_direction * cube.scale_speed * timer.delta_seconds();
     }
 }

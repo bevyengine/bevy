@@ -1,3 +1,5 @@
+#![allow(clippy::doc_markdown)]
+
 use super::Buffer;
 use crate::renderer::{RenderDevice, RenderQueue};
 use encase::{
@@ -6,6 +8,25 @@ use encase::{
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
+/// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
+///
+/// Storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts of data.
+/// Note however that WebGL2 does not support storage buffers, so consider alternative options in this case.
+///
+/// Storage buffers can store runtime-sized arrays, but only if they are the last field in a structure.
+///
+/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::StorageBuffer::write_buffer) queues
+/// copying of the data from system RAM to VRAM. Storage buffers must conform to [std430 alignment/padding requirements], which
+/// is automatically enforced by this structure.
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`Texture`](crate::render_resource::Texture)
+///
+/// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct StorageBuffer<T: ShaderType> {
     value: T,
     scratch: StorageBufferWrapper<Vec<u8>>,
@@ -60,6 +81,11 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         &mut self.value
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
+    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    ///
+    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
+    /// allocated does not have enough capacity, a new GPU-side buffer is created.
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         self.scratch.write(&self.value).unwrap();
 
@@ -78,6 +104,27 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 }
 
+/// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
+///
+/// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
+/// of data. Note however that WebGL2 does not support storage buffers, so consider alternative options in this case. Dynamic
+/// storage buffers support multiple separate bindings at dynamic byte offsets and so have a
+/// [`push`](crate::render_resource::DynamicStorageBuffer::push) method.
+///
+/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicStorageBuffer::write_buffer)
+/// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
+/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to
+/// these requirements. Each item [`push`](crate::render_resource::DynamicStorageBuffer::push)ed into this structure
+/// will additionally be aligned to meet dynamic offset alignment requirements.
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`Texture`](crate::render_resource::Texture)
+///
+/// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
 pub struct DynamicStorageBuffer<T: ShaderType> {
     values: Vec<T>,
     scratch: DynamicStorageBufferWrapper<Vec<u8>>,

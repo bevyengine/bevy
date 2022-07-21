@@ -159,7 +159,7 @@ impl ComponentSparseSet {
             let dense_index = *dense_index as usize;
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index]);
-            // SAFE: if the sparse index points to something in the dense vec, it exists
+            // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe { self.dense.get_data_unchecked(dense_index) }
         })
     }
@@ -169,7 +169,7 @@ impl ComponentSparseSet {
         let dense_index = *self.sparse.get(entity.id())? as usize;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index]);
-        // SAFE: if the sparse index points to something in the dense vec, it exists
+        // SAFETY: if the sparse index points to something in the dense vec, it exists
         unsafe {
             Some((
                 self.dense.get_data_unchecked(dense_index),
@@ -183,7 +183,7 @@ impl ComponentSparseSet {
         let dense_index = *self.sparse.get(entity.id())? as usize;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index]);
-        // SAFE: if the sparse index points to something in the dense vec, it exists
+        // SAFETY: if the sparse index points to something in the dense vec, it exists
         unsafe { Some(self.dense.get_ticks_unchecked(dense_index)) }
     }
 
@@ -197,7 +197,7 @@ impl ComponentSparseSet {
             assert_eq!(entity, self.entities[dense_index]);
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;
-            // SAFE: dense_index was just removed from `sparse`, which ensures that it is valid
+            // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
             let (value, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
             if !is_last {
                 let swapped_entity = self.entities[dense_index];
@@ -218,7 +218,7 @@ impl ComponentSparseSet {
             assert_eq!(entity, self.entities[dense_index]);
             self.entities.swap_remove(dense_index);
             let is_last = dense_index == self.dense.len() - 1;
-            // SAFE: if the sparse index points to something in the dense vec, it exists
+            // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe { self.dense.swap_remove_unchecked(dense_index) }
             if !is_last {
                 let swapped_entity = self.entities[dense_index];
@@ -280,7 +280,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 
     pub fn insert(&mut self, index: I, value: V) {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
-            // SAFE: dense indices stored in self.sparse always exist
+            // SAFETY: dense indices stored in self.sparse always exist
             unsafe {
                 *self.dense.get_unchecked_mut(dense_index) = value;
             }
@@ -293,7 +293,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
-            // SAFE: dense indices stored in self.sparse always exist
+            // SAFETY: dense indices stored in self.sparse always exist
             unsafe { self.dense.get_unchecked_mut(dense_index) }
         } else {
             let value = func();
@@ -301,7 +301,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
             self.sparse.insert(index.clone(), dense_index);
             self.indices.push(index);
             self.dense.push(value);
-            // SAFE: dense index was just populated above
+            // SAFETY: dense index was just populated above
             unsafe { self.dense.get_unchecked_mut(dense_index) }
         }
     }
@@ -323,7 +323,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 
     pub fn get(&self, index: I) -> Option<&V> {
         self.sparse.get(index).map(|dense_index| {
-            // SAFE: if the sparse index points to something in the dense vec, it exists
+            // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe { self.dense.get_unchecked(*dense_index) }
         })
     }
@@ -331,7 +331,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
         let dense = &mut self.dense;
         self.sparse.get(index).map(move |dense_index| {
-            // SAFE: if the sparse index points to something in the dense vec, it exists
+            // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe { dense.get_unchecked_mut(*dense_index) }
         })
     }

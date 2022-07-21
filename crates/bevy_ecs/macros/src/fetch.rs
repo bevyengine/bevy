@@ -134,7 +134,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let mut field_idents = Vec::new();
     let mut field_types = Vec::new();
 
-    for field in fields.iter() {
+    for field in fields {
         let WorldQueryFieldInfo { is_ignored, attrs } = read_world_query_field_info(field);
 
         let field_ident = field.ident.as_ref().unwrap().clone();
@@ -177,6 +177,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
 
+            #[derive(Clone)]
             #[doc(hidden)]
             #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#field_idents: #path::query::#fetch_type_alias::<'__w, #field_types>,)*

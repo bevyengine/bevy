@@ -13,7 +13,15 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "tools/build-example-pages", "tools/build-wasm-example", "errors"]
+members = [
+  "crates/*",
+  "examples/ios",
+  "tools/ci",
+  "tools/spancmp",
+  "tools/build-example-pages",
+  "tools/build-wasm-example",
+  "errors",
+]
 
 [features]
 default = [
@@ -278,6 +286,26 @@ path = "examples/3d/lighting.rs"
 [package.metadata.example.lighting]
 name = "Lighting"
 description = "Illustrates various lighting options in a simple scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "lines"
+path = "examples/3d/lines.rs"
+
+[package.metadata.example.lines]
+name = "Lines"
+description = "Create a custom material to draw 3d lines"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "spotlight"
+path = "examples/3d/spotlight.rs"
+
+[package.metadata.example.spotlight]
+name = "Spotlight"
+description = "Illustrates spot lights"
 category = "3D Rendering"
 wasm = true
 
@@ -584,12 +612,12 @@ category = "Application"
 wasm = false
 
 [[example]]
-name = "headless_defaults"
-path = "examples/app/headless_defaults.rs"
+name = "no_renderer"
+path = "examples/app/no_renderer.rs"
 
-[package.metadata.example.headless_defaults]
-name = "Headless with Defaults"
-description = "An application that runs with default plugins, but without an actual renderer"
+[package.metadata.example.no_renderer]
+name = "No Renderer"
+description = "An application that runs with default plugins and displays an empty window, but without an actual renderer"
 category = "Application"
 wasm = false
 
@@ -1222,7 +1250,7 @@ path = "examples/stress_tests/many_animated_sprites.rs"
 
 [package.metadata.example.many_animated_sprites]
 name = "Many Animated Sprites"
-description = "Displays many animated sprites in a grid arragement with slight offsets to their animation timers. Used for performance testing."
+description = "Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
 category = "Stress Tests"
 wasm = true
 
@@ -1262,7 +1290,7 @@ path = "examples/stress_tests/many_sprites.rs"
 
 [package.metadata.example.many_sprites]
 name = "Many Sprites"
-description = "Displays many sprites in a grid arragement! Used for performance testing"
+description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
 
@@ -1435,7 +1463,7 @@ name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
 
 [package.metadata.example.scale_factor_override]
-name = "Scale Factor Iverride"
+name = "Scale Factor Override"
 description = "Illustrates how to customize the default window settings"
 category = "Window"
 wasm = true

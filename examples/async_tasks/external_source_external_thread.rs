@@ -62,13 +62,11 @@ fn spawn_text(
         font_size: 20.0,
         color: Color::WHITE,
     };
-    let text_alignment = TextAlignment {
-        vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Center,
-    };
+
     for (per_frame, event) in reader.iter().enumerate() {
         commands.spawn_bundle(Text2dBundle {
-            text: Text::with_section(format!("{}", event.0), text_style.clone(), text_alignment),
+            text: Text::from_section(event.0.to_string(), text_style.clone())
+                .with_alignment(TextAlignment::CENTER),
             transform: Transform::from_xyz(
                 per_frame as f32 * 100.0 + rand::thread_rng().gen_range(-40.0..40.0),
                 300.0,
@@ -84,7 +82,7 @@ fn move_text(
     mut texts: Query<(Entity, &mut Transform), With<Text>>,
     time: Res<Time>,
 ) {
-    for (entity, mut position) in texts.iter_mut() {
+    for (entity, mut position) in &mut texts {
         position.translation -= Vec3::new(0.0, 100.0 * time.delta_seconds(), 0.0);
         if position.translation.y < -300.0 {
             commands.entity(entity).despawn();

@@ -32,7 +32,7 @@ fn main() {
             title: "BevyMark".to_string(),
             width: 800.,
             height: 600.,
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             resizable: true,
             ..default()
         })
@@ -90,49 +90,42 @@ struct BirdTexture(Handle<Image>);
 struct StatsText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    warn!(include_str!("warning_string.txt"));
+
     let texture = asset_server.load("branding/icon.png");
 
     commands.spawn_bundle(Camera2dBundle::default());
     commands
-        .spawn_bundle(TextBundle {
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "Bird Count: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
+        .spawn_bundle(
+            TextBundle::from_sections([
+                TextSection::new(
+                    "Bird Count: ",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 0.0),
                     },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
+                ),
+                TextSection::from_style(TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgb(0.0, 1.0, 1.0),
+                }),
+                TextSection::new(
+                    "\nAverage FPS: ",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 40.0,
+                        color: Color::rgb(0.0, 1.0, 0.0),
                     },
-                    TextSection {
-                        value: "\nAverage FPS: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
-                    },
-                ],
-                ..default()
-            },
-            style: Style {
+                ),
+                TextSection::from_style(TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgb(0.0, 1.0, 1.0),
+                }),
+            ])
+            .with_style(Style {
                 position_type: PositionType::Absolute,
                 position: UiRect {
                     top: Val::Px(5.0),
@@ -140,9 +133,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 ..default()
-            },
-            ..default()
-        })
+            }),
+        )
         .insert(StatsText);
 
     commands.insert_resource(BirdTexture(texture));
@@ -223,7 +215,7 @@ fn spawn_birds(
 }
 
 fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Transform)>) {
-    for (mut bird, mut transform) in bird_query.iter_mut() {
+    for (mut bird, mut transform) in &mut bird_query {
         transform.translation.x += bird.velocity.x * time.delta_seconds();
         transform.translation.y += bird.velocity.y * time.delta_seconds();
         bird.velocity.y += GRAVITY * time.delta_seconds();
@@ -235,7 +227,7 @@ fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Tr
     let half_width = window.width() as f32 * 0.5;
     let half_height = window.height() as f32 * 0.5;
 
-    for (mut bird, transform) in bird_query.iter_mut() {
+    for (mut bird, transform) in &mut bird_query {
         let x_vel = bird.velocity.x;
         let y_vel = bird.velocity.y;
         let x_pos = transform.translation.x;
@@ -263,12 +255,12 @@ fn counter_system(
     let mut text = query.single_mut();
 
     if counter.is_changed() {
-        text.sections[1].value = format!("{}", counter.count);
+        text.sections[1].value = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(average) = fps.average() {
-            text.sections[3].value = format!("{:.2}", average);
+            text.sections[3].value = format!("{average:.2}");
         }
     };
 }

@@ -14,14 +14,13 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::HierarchySystem;
 use prelude::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
 /// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
 ///   * You may use the [`TransformBundle`] to guarantee this.
 ///
@@ -92,18 +91,14 @@ impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
-            // Adding these to startup ensures the first update is "correct"
+            // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
+                systems::transform_propagate_system.label(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::transform_propagate_system
-                    .label(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
+                systems::transform_propagate_system.label(TransformSystem::TransformPropagate),
             );
     }
 }

@@ -46,7 +46,7 @@ fn animate_light_direction(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         transform.rotation = Quat::from_euler(
             EulerRot::ZYX,
             0.0,

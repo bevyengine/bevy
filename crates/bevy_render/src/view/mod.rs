@@ -12,6 +12,7 @@ use crate::{
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
+    rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
@@ -84,6 +85,13 @@ pub struct ExtractedView {
     pub height: u32,
 }
 
+impl ExtractedView {
+    /// Creates a 3D rangefinder for a view
+    pub fn rangefinder3d(&self) -> ViewRangefinder3d {
+        ViewRangefinder3d::from_view_matrix(&self.transform.compute_matrix())
+    }
+}
+
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
     view_proj: Mat4,
@@ -141,7 +149,7 @@ fn prepare_view_uniforms(
     views: Query<(Entity, &ExtractedView)>,
 ) {
     view_uniforms.uniforms.clear();
-    for (entity, camera) in views.iter() {
+    for (entity, camera) in &views {
         let projection = camera.projection;
         let inverse_projection = projection.inverse();
         let view = camera.transform.compute_matrix();
@@ -154,7 +162,7 @@ fn prepare_view_uniforms(
                 inverse_view,
                 projection,
                 inverse_projection,
-                world_position: camera.transform.translation,
+                world_position: camera.transform.translation(),
                 width: camera.width as f32,
                 height: camera.height as f32,
             }),
@@ -179,7 +187,7 @@ fn prepare_view_targets(
     cameras: Query<(Entity, &ExtractedCamera)>,
 ) {
     let mut sampled_textures = HashMap::default();
-    for (entity, camera) in cameras.iter() {
+    for (entity, camera) in &cameras {
         if let Some(target_size) = camera.physical_target_size {
             if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
                 let sampled_target = if msaa.samples > 1 {

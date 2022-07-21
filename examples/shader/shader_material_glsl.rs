@@ -25,13 +25,16 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // cube
     commands.spawn().insert_bundle(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::GREEN,
+            color: Color::BLUE,
+            color_texture: Some(asset_server.load("branding/icon.png")),
+            alpha_mode: AlphaMode::Blend,
         }),
         ..default()
     });
@@ -43,13 +46,21 @@ fn setup(
     });
 }
 
+// This is the struct that will be passed to your shader
 #[derive(AsBindGroup, Clone, TypeUuid)]
 #[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
 pub struct CustomMaterial {
     #[uniform(0)]
     color: Color,
+    #[texture(1)]
+    #[sampler(2)]
+    color_texture: Option<Handle<Image>>,
+    alpha_mode: AlphaMode,
 }
 
+/// The Material trait is very configurable, but comes with sensible defaults for all methods.
+/// You only need to implement functions for features that need non-default behavior. See the Material api docs for details!
+/// When using the GLSL shading language for your shader, the specialize method must be overriden.
 impl Material for CustomMaterial {
     fn vertex_shader() -> ShaderRef {
         "shaders/custom_material.vert".into()
@@ -57,6 +68,10 @@ impl Material for CustomMaterial {
 
     fn fragment_shader() -> ShaderRef {
         "shaders/custom_material.frag".into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
     }
 
     // Bevy assumes by default that vertex shaders use the "vertex" entry point
