@@ -20,7 +20,7 @@ use bevy_math::{Quat, Vec3};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, Duration, HashMap};
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -90,18 +90,20 @@ impl AnimationClip {
     }
 }
 
-/// A representation of the data needed transition to a new animation
+/// The data needed to transition to a new animation
+///
+/// Stored in an [`AnimationPlayer`]
 #[derive(Clone, Debug, Reflect)]
 pub struct AnimationTransition {
     next_animation_clip: Handle<AnimationClip>,
     repeat: bool,
     speed: f32,
     /// The elapsed time of the target clip (is scaled by speed and reset on clip end)
-    clip_elapsed: f32,
+    clip_elapsed: Duration,
     /// The actual time that the transition is running in seconds
-    transition_elapsed: f32,
+    transition_elapsed: Duration,
     /// The desired duration of the transition
-    transition_time: f32,
+    transition_time: Duration,
 }
 
 impl Default for AnimationTransition {
@@ -110,9 +112,9 @@ impl Default for AnimationTransition {
             next_animation_clip: Default::default(),
             repeat: false,
             speed: 1.0,
-            clip_elapsed: 0.0,
-            transition_time: 0.0,
-            transition_elapsed: 0.0,
+            clip_elapsed: Duration::ZERO,
+            transition_time: Duration::ZERO,
+            transition_elapsed: Duration::ZERO,
         }
     }
 }
@@ -136,7 +138,7 @@ impl AnimationTransition {
     }
 
     /// Seek to a specific time in the next animation
-    pub fn set_elapsed(&mut self, elapsed: f32) -> &mut Self {
+    pub fn set_elapsed(&mut self, elapsed: Duration) -> &mut Self {
         self.clip_elapsed = elapsed;
         self
     }
@@ -149,9 +151,10 @@ pub struct AnimationPlayer {
     paused: bool,
     repeat: bool,
     speed: f32,
-    elapsed: f32,
+    elapsed: Duration,
     animation_clip: Handle<AnimationClip>,
     transition: AnimationTransition,
+    in_transition: bool,
 }
 
 impl Default for AnimationPlayer {
@@ -160,9 +163,10 @@ impl Default for AnimationPlayer {
             paused: false,
             repeat: false,
             speed: 1.0,
-            elapsed: 0.0,
+            elapsed: Duration::ZERO,
             animation_clip: Default::default(),
             transition: AnimationTransition::default(),
+            in_transition: false,
         }
     }
 }
@@ -184,7 +188,7 @@ impl AnimationPlayer {
     pub fn cross_fade(
         &mut self,
         handle: Handle<AnimationClip>,
-        transition_time: f32,
+        transition_time: Duration,
     ) -> &mut AnimationTransition {
         self.resume();
         self.transition = AnimationTransition {
@@ -192,6 +196,7 @@ impl AnimationPlayer {
             transition_time,
             ..Default::default()
         };
+        self.in_transition = true;
         &mut self.transition
     }
 
@@ -234,14 +239,19 @@ impl AnimationPlayer {
     }
 
     /// Time elapsed playing the animation
-    pub fn elapsed(&self) -> f32 {
+    pub fn elapsed(&self) -> Duration {
         self.elapsed
     }
 
     /// Seek to a specific time in the animation
-    pub fn set_elapsed(&mut self, elapsed: f32) -> &mut Self {
+    pub fn set_elapsed(&mut self, elapsed: Duration) -> &mut Self {
         self.elapsed = elapsed;
         self
+    }
+
+    /// Is the animation in transition
+    pub fn is_in_transition(&self) -> bool {
+        self.in_transition
     }
 }
 
@@ -257,9 +267,10 @@ pub fn animation_player(
 ) {
     for (entity, mut player) in &mut animation_players {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
-            // If next_clip is a valid animation the player is in transition
+            // Try to fetch the next clip in case the animation is in transition
             let next_clip = animations.get(&player.transition.next_animation_clip);
-            let in_transition = next_clip.is_some();
+
+            let mut transition_just_finished = false;
 
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
@@ -267,28 +278,30 @@ pub fn animation_player(
                 continue;
             }
             if !player.paused {
-                if in_transition {
-                    player.transition.transition_elapsed += time.delta_seconds();
+                let delta_seconds = time.delta_seconds();
+                if player.in_transition {
+                    player.transition.transition_elapsed += Duration::from_secs_f32(delta_seconds);
+                    let t_speed = player.transition.speed;
                     player.transition.clip_elapsed +=
-                        time.delta_seconds() * player.transition.speed;
-                    player.elapsed += time.delta_seconds() * player.speed;
-                } else {
-                    player.elapsed += time.delta_seconds() * player.speed;
+                        Duration::from_secs_f32(delta_seconds * t_speed);
                 }
+                let p_speed = player.speed;
+                player.elapsed += Duration::from_secs_f32(delta_seconds * p_speed);
             }
 
             let mut transition_lerp = 0.0;
-            if in_transition {
-                transition_lerp =
-                    player.transition.transition_elapsed / player.transition.transition_time;
+            if player.in_transition {
+                transition_lerp = player.transition.transition_elapsed.as_secs_f32()
+                    / player.transition.transition_time.as_secs_f32();
             }
 
             if transition_lerp >= 1.0 {
                 // set to exactly one so the last step of the interpolation is exact
                 transition_lerp = 1.0;
+                transition_just_finished = true;
             }
 
-            let mut current_elapsed = player.elapsed;
+            let mut current_elapsed = player.elapsed.as_secs_f32();
             if player.repeat {
                 current_elapsed %= animation_clip.duration;
             }
@@ -296,7 +309,7 @@ pub fn animation_player(
                 current_elapsed += animation_clip.duration;
             }
 
-            let mut next_elapsed = player.transition.clip_elapsed;
+            let mut next_elapsed = player.transition.clip_elapsed.as_secs_f32();
             if let Some(next_clip) = next_clip {
                 if player.transition.repeat {
                     next_elapsed %= next_clip.duration;
@@ -426,13 +439,13 @@ pub fn animation_player(
             }
 
             // Transition to next clip has finished
-            if transition_lerp == 1.0 {
+            if transition_just_finished {
                 let next_clip = player.transition.next_animation_clip.clone_weak();
                 let next_speed = player.transition.speed;
                 let repeat = player.transition.repeat;
                 player
                     .play(next_clip)
-                    .set_elapsed(next_elapsed)
+                    .set_elapsed(Duration::from_secs_f32(next_elapsed))
                     .set_speed(next_speed);
                 if repeat {
                     player.repeat();

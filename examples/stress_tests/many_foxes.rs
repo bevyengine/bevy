@@ -1,6 +1,8 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
+use std::time::Duration;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -258,12 +260,12 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Left) {
             let elapsed = player.elapsed();
-            player.set_elapsed(elapsed - 0.1);
+            player.set_elapsed(elapsed - Duration::from_secs_f32(0.1));
         }
 
         if keyboard_input.just_pressed(KeyCode::Right) {
             let elapsed = player.elapsed();
-            player.set_elapsed(elapsed + 0.1);
+            player.set_elapsed(elapsed + Duration::from_secs_f32(0.1));
         }
 
         if keyboard_input.just_pressed(KeyCode::Return) {
