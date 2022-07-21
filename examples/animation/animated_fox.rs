@@ -69,7 +69,8 @@ fn setup(
     println!("  - spacebar: play / pause");
     println!("  - arrow up / down: speed up / slow down animation playback");
     println!("  - arrow left / right: seek backward / forward");
-    println!("  - return: change animation");
+    println!("  - return: change animation using crossfade()");
+    println!("  - p: change animation using play()");
 }
 
 // Once the scene is loaded, start the animation
@@ -128,7 +129,7 @@ fn keyboard_animation_control(
                 .cross_fade(animations.0[*current_animation].clone_weak(), 1.5)
                 .repeat();
         }
-        
+
         if keyboard_input.just_pressed(KeyCode::P) {
             *current_animation = (*current_animation + 1) % animations.0.len();
 

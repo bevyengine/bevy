@@ -408,7 +408,8 @@ pub fn animation_player(
                         let from = updated_transforms[0];
                         let to = updated_transforms[1];
                         transform.rotation = from.rotation.slerp(to.rotation, transition_lerp);
-                        transform.translation = from.translation.lerp(to.translation, transition_lerp);
+                        transform.translation =
+                            from.translation.lerp(to.translation, transition_lerp);
                         transform.scale = from.scale.lerp(to.scale, transition_lerp);
                     }
                 }
