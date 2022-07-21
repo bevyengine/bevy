@@ -5,14 +5,17 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
+use crate::{
+    entity::{UiCameraConfig, UiCameraProjection},
+    CalculatedClip, Node, UiColor, UiImage,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
+    camera::{Camera, CameraProjection},
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -219,7 +222,7 @@ pub fn extract_uinodes(
 /// as ui elements are "stacked on top of each other", they are within the camera's view
 /// and have room to grow.
 // TODO: Consider computing this value at runtime based on the maximum z-value.
-const UI_CAMERA_FAR: f32 = 1000.0;
+pub(crate) const UI_CAMERA_FAR: f32 = 1000.0;
 
 // This value is subtracted from the far distance for the camera's z-position to ensure nodes at z == 0.0 are rendered
 // TODO: Evaluate if we still need this.
@@ -243,31 +246,29 @@ pub struct UiCamera {
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
-    query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
+    query: Extract<
+        Query<
+            (
+                Entity,
+                &Camera,
+                &UiCameraProjection,
+                Option<&UiCameraConfig>,
+            ),
+            With<T>,
+        >,
+    >,
 ) {
-    for (camera_entity, camera, opt_ui_config) in query.iter() {
+    for (camera_entity, camera, UiCameraProjection(ui_proj), opt_ui_config) in query.iter() {
         let ui_config = opt_ui_config.cloned().unwrap_or_default();
         // ignore cameras with disabled ui
         if !ui_config.show_ui {
             continue;
         }
-        let logical_size = if let Some(logical_size) = camera.logical_viewport_size() {
-            logical_size
-        } else {
-            continue;
-        };
-        let mut projection = OrthographicProjection {
-            far: UI_CAMERA_FAR,
-            window_origin: WindowOrigin::BottomLeft,
-            depth_calculation: DepthCalculation::ZDifference,
-            ..Default::default()
-        };
-        projection.update(logical_size.x, logical_size.y);
         if let Some(physical_size) = camera.physical_viewport_size() {
             let ui_camera = commands
                 .spawn()
                 .insert(ExtractedView {
-                    projection: projection.get_projection_matrix(),
+                    projection: ui_proj.get_projection_matrix(),
                     transform: GlobalTransform::from_xyz(
                         ui_config.position.x,
                         ui_config.position.y,

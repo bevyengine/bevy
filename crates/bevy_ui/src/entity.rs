@@ -7,6 +7,7 @@ use crate::{
 use bevy_ecs::{bundle::Bundle, prelude::Component};
 use bevy_math::Vec2;
 use bevy_render::{
+    camera::{OrthographicProjection, WindowOrigin},
     prelude::ComputedVisibility,
     view::{RenderLayers, Visibility},
 };
@@ -177,7 +178,11 @@ pub struct ButtonBundle {
 /// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
 /// it will display the UI by default.
 ///
+/// Note that the projection is available as the [`UiCameraProjection`] component,
+/// and is updated in the [`update_ui_camera_projection`] system.
+///
 /// [`Camera`]: bevy_render::camera::Camera
+/// [`update_ui_camera_projection`]: crate::update::update_ui_camera_projection
 #[derive(Component, Debug, Clone)]
 pub struct UiCameraConfig {
     /// Whether to output UI to this camera view.
@@ -189,6 +194,30 @@ pub struct UiCameraConfig {
     pub ui_render_layers: RenderLayers,
     /// The position of the UI camera in UI space.
     pub position: Vec2,
+    /// The scale of this camera's UI.
+    pub scale: f32,
+    /// The window origin of the UI camera's perspective.
+    pub window_origin: WindowOrigin,
+}
+
+/// The projection data for the UI camera.
+///
+/// This is read-only, use [`UiCameraProjection::projection`]
+/// to get the projection of the UI camera attached to this camera.
+///
+/// This component is on a [`Camera`] entity with a set UI camera.
+///
+/// Note that the projection is updated in the [`update_ui_camera_projection`] system.
+///
+/// [`Camera`]: bevy_render::camera::Camera
+/// [`update_ui_camera_projection`]: crate::update::update_ui_camera_projection
+#[derive(Component, Debug)]
+pub struct UiCameraProjection(pub(crate) OrthographicProjection);
+impl UiCameraProjection {
+    /// The projection of the UI camera attached to this camera.
+    pub fn projection(&self) -> &OrthographicProjection {
+        &self.0
+    }
 }
 
 impl Default for UiCameraConfig {
@@ -197,6 +226,8 @@ impl Default for UiCameraConfig {
             show_ui: true,
             ui_render_layers: Default::default(),
             position: Vec2::ZERO,
+            scale: 1.0,
+            window_origin: WindowOrigin::BottomLeft,
         }
     }
 }

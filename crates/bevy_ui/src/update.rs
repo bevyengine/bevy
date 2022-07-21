@@ -1,16 +1,23 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{entity::UiCameraConfig, CalculatedClip, Overflow, Style};
+use crate::{
+    entity::UiCameraConfig, prelude::UiCameraProjection, CalculatedClip, Overflow, Style,
+    UI_CAMERA_FAR,
+};
 
 use super::Node;
 use bevy_ecs::{
     entity::Entity,
+    prelude::{Changed, Or},
     query::{With, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::Vec2;
-use bevy_render::view::{ComputedVisibility, RenderLayers};
+use bevy_render::{
+    camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection},
+    view::{ComputedVisibility, RenderLayers},
+};
 use bevy_sprite::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -104,6 +111,43 @@ pub fn update_clipping_system(
             root_node,
             None,
         );
+    }
+}
+
+/// Update the UI camera projection based on changes to [`Camera`] and [`UiCameraConfig`].
+///
+/// It has the [`crate::UiSystem::UiCameraProjection`] label.
+pub fn update_ui_camera_projection(
+    mut commands: Commands,
+    mut query: Query<
+        (
+            Entity,
+            Option<&mut UiCameraProjection>,
+            &Camera,
+            Option<&UiCameraConfig>,
+        ),
+        Or<(Changed<Camera>, Changed<UiCameraConfig>)>,
+    >,
+) {
+    for (entity, opt_projection, camera, opt_config) in &mut query {
+        if let Some(logical_size) = camera.logical_viewport_size() {
+            let config = opt_config.cloned().unwrap_or_default();
+            if let Some(mut proj) = opt_projection {
+                proj.0.scale = config.scale;
+                proj.0.window_origin = config.window_origin;
+                proj.0.update(logical_size.x, logical_size.y);
+            } else {
+                let mut proj = OrthographicProjection {
+                    far: UI_CAMERA_FAR,
+                    window_origin: config.window_origin,
+                    depth_calculation: DepthCalculation::ZDifference,
+                    scale: config.scale,
+                    ..Default::default()
+                };
+                proj.update(logical_size.x, logical_size.y);
+                commands.entity(entity).insert(UiCameraProjection(proj));
+            }
+        }
     }
 }
 

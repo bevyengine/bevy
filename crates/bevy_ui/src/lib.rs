@@ -30,7 +30,9 @@ use bevy_input::InputSystem;
 use bevy_render::view::VisibilitySystems;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
-use update::{ui_z_system, update_clipping_system, update_layer_visibility};
+use update::{
+    ui_z_system, update_clipping_system, update_layer_visibility, update_ui_camera_projection,
+};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -48,6 +50,9 @@ pub enum UiSystem {
     ///
     /// [`ComputedVisibility`]: bevy_render::view::ComputedVisibility
     LayerVisibility,
+    /// Update UI camera projection to fit changes to the viewport logical size
+    /// or configurated UI scale.
+    UiCameraProjection,
 }
 
 impl Plugin for UiPlugin {
@@ -92,6 +97,10 @@ impl Plugin for UiPlugin {
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 widget::image_node_system.before(UiSystem::Flex),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_ui_camera_projection.label(UiSystem::UiCameraProjection),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
