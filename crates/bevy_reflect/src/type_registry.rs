@@ -120,10 +120,15 @@ impl TypeRegistry {
     /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
     /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
     /// ```
-    pub fn register_type_data<T: 'static, D: TypeData + FromType<T>>(&mut self) -> Option<()> {
-        let data = self.get_mut(TypeId::of::<T>())?;
+    pub fn register_type_data<T: Reflect + 'static, D: TypeData + FromType<T>>(&mut self) {
+        let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
+                T = std::any::type_name::<T>(),
+                D = std::any::type_name::<D>(),
+            )
+        });
         data.insert(D::from_type());
-        Some(())
     }
 
     /// Returns a reference to the [`TypeRegistration`] of the type with the
