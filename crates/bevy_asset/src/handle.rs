@@ -11,7 +11,7 @@ use crate::{
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_utils::Uuid;
+use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
 
@@ -468,5 +468,76 @@ impl Default for RefChangeChannel {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         RefChangeChannel { sender, receiver }
+    }
+}
+
+pub struct HandleMap<K: Asset, V> {
+    id_map: HashMap<u64, V>,
+    asset_path_id_map: HashMap<AssetPathId, V>,
+    // NOTE: PhantomData<fn() -> T> gives this safe Send/Sync impls
+    marker: PhantomData<fn() -> K>,
+}
+
+impl<K: Asset, V> HandleMap<K, V> {
+    pub fn with_capacity(id_map: usize, asset_path_id_map: usize) -> Self {
+        HandleMap {
+            id_map: HashMap::with_capacity(id_map),
+            asset_path_id_map: HashMap::with_capacity(asset_path_id_map),
+            marker: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub fn get(&self, handle: &Handle<K>) -> Option<&V> {
+        match &handle.id {
+            HandleId::Id(_, id) => self.id_map.get(id),
+            HandleId::AssetPathId(asset_path_id) => self.asset_path_id_map.get(asset_path_id),
+        }
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self, handle: &Handle<K>) -> Option<&mut V> {
+        match &handle.id {
+            HandleId::Id(_, id) => self.id_map.get_mut(id),
+            HandleId::AssetPathId(asset_path_id) => self.asset_path_id_map.get_mut(asset_path_id),
+        }
+    }
+
+    #[inline]
+    pub fn insert(&mut self, handle: &Handle<K>, value: V) -> Option<V> {
+        match &handle.id {
+            HandleId::Id(_, id) => self.id_map.insert(*id, value),
+            HandleId::AssetPathId(asset_path_id) => {
+                self.asset_path_id_map.insert(*asset_path_id, value)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn contains_handle(&mut self, handle: &Handle<K>) -> bool {
+        match &handle.id {
+            HandleId::Id(_, id) => self.id_map.contains_key(id),
+            HandleId::AssetPathId(asset_path_id) => {
+                self.asset_path_id_map.contains_key(asset_path_id)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn remove(&mut self, handle: &Handle<K>) -> Option<V> {
+        match &handle.id {
+            HandleId::Id(_, id) => self.id_map.remove(id),
+            HandleId::AssetPathId(asset_path_id) => self.asset_path_id_map.remove(asset_path_id),
+        }
+    }
+}
+
+impl<K: Asset, V> Default for HandleMap<K, V> {
+    fn default() -> Self {
+        HandleMap {
+            id_map: HashMap::default(),
+            asset_path_id_map: HashMap::default(),
+            marker: PhantomData,
+        }
     }
 }
