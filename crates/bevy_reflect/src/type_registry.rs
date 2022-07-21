@@ -73,7 +73,11 @@ impl TypeRegistry {
         registry
     }
 
-    /// Registers the type `T`.
+    /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
+    /// ```rust,ignore
+    /// #[derive(Reflect)]
+    /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
+    /// ```
     pub fn register<T>(&mut self)
     where
         T: GetTypeRegistration,
@@ -98,6 +102,33 @@ impl TypeRegistry {
             .insert(registration.type_name().to_string(), registration.type_id());
         self.registrations
             .insert(registration.type_id(), registration);
+    }
+
+    /// Registers the type data `D` for type `T`.
+    ///
+    /// Most of the time [`TypeRegistry::register`] can be used instead to register a type you derived [`Reflect`] for.
+    /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
+    /// or where the type is generic and cannot register e.g. `ReflectSerialize` unconditionally without knowing the specific type parameters,
+    /// this method can be used to insert additional type data.
+    ///
+    /// # Example
+    /// ```rust
+    /// use bevy_reflect::{TypeRegistry, ReflectSerialize, ReflectDeserialize};
+    ///
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<Option<String>>();
+    /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
+    /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
+    /// ```
+    pub fn register_type_data<T: Reflect + 'static, D: TypeData + FromType<T>>(&mut self) {
+        let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
+                T = std::any::type_name::<T>(),
+                D = std::any::type_name::<D>(),
+            )
+        });
+        data.insert(D::from_type());
     }
 
     /// Returns a reference to the [`TypeRegistration`] of the type with the
