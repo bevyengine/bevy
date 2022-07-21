@@ -395,7 +395,7 @@ path = "examples/3d/skybox.rs"
 
 [package.metadata.example.skybox]
 name = "Skybox"
-description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats"
+description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats. Note that the `ktx2` and `zstd` features are needed to be able to load the KTX2 textures."
 category = "3D Rendering"
 wasm = false
 
