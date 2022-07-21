@@ -57,7 +57,7 @@ pub fn schedule(c: &mut Criterion) {
     group.finish();
 }
 
-/// performs takes a value out of a reference, applies a fn, and puts it back in.
+/// takes a value out of a reference, applies a fn, and puts it back in.
 /// stores a temporary dummy value while performing the operation.
 fn map_with_temp<T>(ptr: &mut T, temp: T, f: impl FnOnce(T) -> T) {
     let val = std::mem::replace(ptr, temp);
