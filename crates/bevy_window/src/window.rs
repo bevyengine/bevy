@@ -245,7 +245,7 @@ pub enum WindowCommand {
     SetDecorations {
         decorations: bool,
     },
-    /// Set whether or not the cursor's postition is locked.
+    /// Set whether or not the cursor's position is locked.
     SetCursorLockMode {
         locked: bool,
     },
@@ -261,7 +261,7 @@ pub enum WindowCommand {
     SetCursorPosition {
         position: Vec2,
     },
-    /// Set whether or not the window is maxizimed.
+    /// Set whether or not the window is maximized.
     SetMaximized {
         maximized: bool,
     },
@@ -450,8 +450,8 @@ impl Window {
             .push(WindowCommand::SetResizeConstraints { resize_constraints });
     }
 
-    /// Request the OS to resize the window such the the client area matches the
-    /// specified width and height.
+    /// Request the OS to resize the window such the client area matches the specified
+    /// width and height.
     #[allow(clippy::float_cmp)]
     pub fn set_resolution(&mut self, width: f32, height: f32) {
         if self.requested_width == width && self.requested_height == height {

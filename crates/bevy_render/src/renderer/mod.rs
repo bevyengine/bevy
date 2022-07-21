@@ -87,7 +87,7 @@ pub fn render_system(world: &mut World) {
 pub type RenderQueue = Arc<Queue>;
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
-/// aswell as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
+/// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 pub type RenderInstance = Instance;
 
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue

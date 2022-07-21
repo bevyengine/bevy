@@ -737,7 +737,7 @@ impl World {
     #[inline]
     /// # Safety
     /// Only remove `NonSend` resources from the main thread
-    /// as they cannot be sent across theads
+    /// as they cannot be sent across threads
     #[allow(unused_unsafe)]
     pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
