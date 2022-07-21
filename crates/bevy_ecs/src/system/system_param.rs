@@ -1475,11 +1475,14 @@ unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use super::SystemParam;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
         query::WorldQuery,
-        system::Query,
+        schedule::SystemLabel,
+        system::{ParamSet, Query},
     };
 
     // Compile test for #2838
@@ -1491,5 +1494,66 @@ mod tests {
         F: WorldQuery + Send + Sync + 'static = (),
     > {
         _query: Query<'w, 's, Q, F>,
+    }
+
+    //
+    // Test auto-labels with the `SystemParam` derive
+
+    #[derive(SystemLabel)]
+    struct LabelA;
+    #[derive(SystemLabel)]
+    struct LabelB;
+
+    #[derive(SystemParam, Default)]
+    #[system_param(label = LabelA)]
+    struct A<'w, 's> {
+        #[system_param(ignore)]
+        _marker: PhantomData<Query<'w, 's, ()>>,
+    }
+    #[derive(SystemParam)]
+    #[system_param(label = LabelB)]
+    struct B<'w, 's> {
+        #[system_param(ignore)]
+        _marker: PhantomData<Query<'w, 's, ()>>,
+    }
+
+    #[test]
+    fn test_auto_labels() {
+        let a_labels = A::auto_labels();
+        assert!(a_labels.contains(&LabelA.as_label()));
+
+        let b_labels = B::auto_labels();
+        assert!(b_labels.contains(&LabelB.as_label()));
+    }
+
+    #[derive(SystemParam)]
+    struct Ab<'w, 's> {
+        _a: A<'w, 's>,
+        _b: B<'w, 's>,
+    }
+
+    #[test]
+    fn test_auto_labels_derive() {
+        let ab_labels = Ab::auto_labels();
+        assert!(ab_labels.contains(&LabelA.as_label()));
+        assert!(ab_labels.contains(&LabelB.as_label()));
+    }
+
+    // Test auto-labels in paramsets
+
+    #[test]
+    fn test_auto_labels_paramset() {
+        let set_labels = ParamSet::<(A, B)>::auto_labels();
+        assert!(set_labels.contains(&LabelA.as_label()));
+        assert!(set_labels.contains(&LabelB.as_label()));
+    }
+
+    // Test auto-labels in tuples
+
+    #[test]
+    fn test_auto_labels_tuple() {
+        let tup_labels = <(A, B)>::auto_labels();
+        assert!(tup_labels.contains(&LabelA.as_label()));
+        assert!(tup_labels.contains(&LabelB.as_label()));
     }
 }
