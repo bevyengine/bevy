@@ -311,6 +311,7 @@ Example | Description
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
+[UI Camera control](../examples/ui/ui_camera_movement.rs) | Illustrates how to move and zoom the UI camera
 
 ## Window
 

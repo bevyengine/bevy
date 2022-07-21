@@ -1427,6 +1427,16 @@ description = "Illustrates various features of Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "ui_camera_movement"
+path = "examples/ui/ui_camera_movement.rs"
+
+[package.metadata.example.ui_camera_movement]
+name = "UI Camera control"
+description = "Illustrates how to move and zoom the UI camera"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
