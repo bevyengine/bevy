@@ -7,6 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Represents a path to an asset in the file system.
 #[derive(Debug, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     path: Cow<'a, Path>,
@@ -14,6 +15,7 @@ pub struct AssetPath<'a> {
 }
 
 impl<'a> AssetPath<'a> {
+    /// Creates a new asset path using borrowed information.
     #[inline]
     pub fn new_ref(path: &'a Path, label: Option<&'a str>) -> AssetPath<'a> {
         AssetPath {
@@ -22,6 +24,7 @@ impl<'a> AssetPath<'a> {
         }
     }
 
+    /// Creates a new asset path.
     #[inline]
     pub fn new(path: PathBuf, label: Option<String>) -> AssetPath<'a> {
         AssetPath {
@@ -30,21 +33,25 @@ impl<'a> AssetPath<'a> {
         }
     }
 
+    /// Constructs an identifier from this asset path.
     #[inline]
     pub fn get_id(&self) -> AssetPathId {
         AssetPathId::from(self)
     }
 
+    /// Gets the sub-asset label.
     #[inline]
     pub fn label(&self) -> Option<&str> {
         self.label.as_ref().map(|label| label.as_ref())
     }
 
+    /// Gets the path to the asset in the filesystem.
     #[inline]
     pub fn path(&self) -> &Path {
         &self.path
     }
 
+    /// Converts the borrowed path data to owned.
     #[inline]
     pub fn to_owned(&self) -> AssetPath<'static> {
         AssetPath {
@@ -57,18 +64,21 @@ impl<'a> AssetPath<'a> {
     }
 }
 
+/// An unique identifier to an asset path.
 #[derive(
     Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
 #[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPathId(SourcePathId, LabelId);
 
+/// An unique identifier to the source path of an asset.
 #[derive(
     Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
 #[reflect_value(PartialEq, Hash, Serialize, Deserialize)]
 pub struct SourcePathId(u64);
 
+/// An unique identifier to a sub-asset label.
 #[derive(
     Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
@@ -104,10 +114,12 @@ impl<'a> From<Option<&'a str>> for LabelId {
 }
 
 impl AssetPathId {
+    /// Gets the id of the source path.
     pub fn source_path_id(&self) -> SourcePathId {
         self.0
     }
 
+    /// Gets the id of the sub-asset label.
     pub fn label_id(&self) -> LabelId {
         self.1
     }

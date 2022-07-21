@@ -12,12 +12,16 @@ use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
 
-/// Events that happen on assets of type `T`
+/// Events that involve assets of type `T`.
 ///
-/// Events sent via the [Assets] struct will always be sent with a _Weak_ handle
+/// Events sent via the [`Assets`] struct will always be sent with a _Weak_ handle, because the
+/// asset may not exist by the time the event is handled.
 pub enum AssetEvent<T: Asset> {
+    #[allow(missing_docs)]
     Created { handle: Handle<T> },
+    #[allow(missing_docs)]
     Modified { handle: Handle<T> },
+    #[allow(missing_docs)]
     Removed { handle: Handle<T> },
 }
 
@@ -81,6 +85,7 @@ impl<T: Asset> Assets<T> {
     /// Adds an asset to the collection, returning a Strong handle to that asset.
     ///
     /// # Events
+    ///
     /// * [`AssetEvent::Created`]
     pub fn add(&mut self, asset: T) -> Handle<T> {
         let id = HandleId::random::<T>();
@@ -110,8 +115,9 @@ impl<T: Asset> Assets<T> {
     /// new asset will be inserted.
     ///
     /// # Events
-    /// * [`AssetEvent::Created`]: Sent if the asset did not yet exist with the given handle
-    /// * [`AssetEvent::Modified`]: Sent if the asset with given handle already existed
+    ///
+    /// * [`AssetEvent::Created`]: Sent if the asset did not yet exist with the given handle.
+    /// * [`AssetEvent::Modified`]: Sent if the asset with given handle already existed.
     pub fn set_untracked<H: Into<HandleId>>(&mut self, handle: H, asset: T) {
         let id: HandleId = handle.into();
         if self.assets.insert(id, asset).is_some() {
@@ -125,7 +131,7 @@ impl<T: Asset> Assets<T> {
         }
     }
 
-    /// Get the asset for the given handle.
+    /// Gets the asset for the given handle.
     ///
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
     /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
@@ -150,15 +156,16 @@ impl<T: Asset> Assets<T> {
         self.assets.get_mut(&id)
     }
 
-    /// Gets a _Strong_ handle pointing to the same asset as the given one
+    /// Gets a _Strong_ handle pointing to the same asset as the given one.
     pub fn get_handle<H: Into<HandleId>>(&self, handle: H) -> Handle<T> {
         Handle::strong(handle.into(), self.ref_change_sender.clone())
     }
 
-    /// Get mutable access to an asset for the given handle, inserting a new value if none exists.
+    /// Gets mutable access to an asset for the given handle, inserting a new value if none exists.
     ///
     /// # Events
-    /// * [`AssetEvent::Created`]: Sent if the asset did not yet exist with the given handle
+    ///
+    /// * [`AssetEvent::Created`]: Sent if the asset did not yet exist with the given handle.
     pub fn get_or_insert_with<H: Into<HandleId>>(
         &mut self,
         handle: H,
@@ -179,12 +186,12 @@ impl<T: Asset> Assets<T> {
         borrowed
     }
 
-    /// Get an iterator over all assets in the collection.
+    /// Gets an iterator over all assets in the collection.
     pub fn iter(&self) -> impl Iterator<Item = (HandleId, &T)> {
         self.assets.iter().map(|(k, v)| (*k, v))
     }
 
-    /// Get a mutable iterator over all assets in the collection.
+    /// Gets a mutable iterator over all assets in the collection.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (HandleId, &mut T)> {
         self.assets.iter_mut().map(|(k, v)| {
             self.events.send(AssetEvent::Modified {
@@ -194,16 +201,17 @@ impl<T: Asset> Assets<T> {
         })
     }
 
-    /// Get an iterator over all [`HandleId`]'s in the collection.
+    /// Gets an iterator over all [`HandleId`]'s in the collection.
     pub fn ids(&self) -> impl Iterator<Item = HandleId> + '_ {
         self.assets.keys().cloned()
     }
 
-    /// Remove an asset for the given handle.
+    /// Removes an asset for the given handle.
     ///
     /// The asset is returned if it existed in the collection, otherwise `None`.
     ///
     /// # Events
+    ///
     /// * [`AssetEvent::Removed`]
     pub fn remove<H: Into<HandleId>>(&mut self, handle: H) -> Option<T> {
         let id: HandleId = handle.into();
@@ -238,6 +246,8 @@ impl<T: Asset> Assets<T> {
         self.assets.shrink_to_fit();
     }
 
+    /// A system that creates [`AssetEvent`]s at the end of the frame based on changes in the
+    /// asset storage.
     pub fn asset_event_system(
         mut events: EventWriter<AssetEvent<T>>,
         mut assets: ResMut<Assets<T>>,
@@ -249,40 +259,60 @@ impl<T: Asset> Assets<T> {
         }
     }
 
-    /// Gets the number of assets in the collection
+    /// Gets the number of assets in the collection.
     pub fn len(&self) -> usize {
         self.assets.len()
     }
 
-    /// Returns true if there are no stored assets
+    /// Returns `true` if there are no stored assets.
     pub fn is_empty(&self) -> bool {
         self.assets.is_empty()
     }
 }
 
-/// [App] extension methods for adding new asset types
+/// [`App`] extension methods for adding new asset types.
 pub trait AddAsset {
+    /// Registers `T` as a supported asset in the application.
+    ///
+    /// Adding the same type again after it has been added does nothing.
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Asset;
+
+    /// Registers `T` as a supported internal asset in the application.
+    ///
+    /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
+    /// using the conventional API. See `DebugAssetServerPlugin`.
+    ///
+    /// Adding the same type again after it has been added does nothing.
     fn add_debug_asset<T: Clone>(&mut self) -> &mut Self
     where
         T: Asset;
+
+    /// Adds an asset loader `T` using default values.
+    ///
+    /// The default values may come from the `World` or from `T::default()`.
     fn init_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
+
+    /// Adds an asset loader `T` for internal assets using default values.
+    ///
+    /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
+    /// using the conventional API. See `DebugAssetServerPlugin`.
+    ///
+    /// The default values may come from the `World` or from `T::default()`.
     fn init_debug_asset_loader<T>(&mut self) -> &mut Self
     where
         T: AssetLoader + FromWorld;
+
+    /// Adds the provided asset loader to the application.
     fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
         T: AssetLoader;
 }
 
 impl AddAsset for App {
-    /// Add an [`Asset`] to the [`App`].
-    ///
-    /// Adding the same [`Asset`] again after it has been added does nothing.
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Asset,
@@ -349,6 +379,10 @@ impl AddAsset for App {
     }
 }
 
+/// Loads an internal asset.
+///
+/// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
+/// using the conventional API. See `DebugAssetServerPlugin`.
 #[cfg(feature = "debug_asset_server")]
 #[macro_export]
 macro_rules! load_internal_asset {
@@ -370,6 +404,10 @@ macro_rules! load_internal_asset {
     }};
 }
 
+/// Loads an internal asset.
+///
+/// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
+/// using the conventional API. See `DebugAssetServerPlugin`.
 #[cfg(not(feature = "debug_asset_server"))]
 #[macro_export]
 macro_rules! load_internal_asset {

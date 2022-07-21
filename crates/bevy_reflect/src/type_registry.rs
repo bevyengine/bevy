@@ -1,5 +1,5 @@
-use crate::serde::Serializable;
-use crate::{Reflect, TypeInfo, Typed};
+use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
+use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -411,10 +411,138 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
     }
 }
 
+/// [`Reflect`] values are commonly used in situations where the actual types of values
+/// are not known at runtime. In such situations you might have access to a `*const ()` pointer
+/// that you know implements [`Reflect`], but have no way of turning it into a `&dyn Reflect`.
+///
+/// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`.
+/// Internally, this saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
+/// from a pointer.
+///
+/// # Example
+/// ```rust
+/// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
+/// use bevy_ptr::Ptr;
+/// use std::ptr::NonNull;
+///
+/// #[derive(Reflect)]
+/// struct Reflected(String);
+///
+/// let mut type_registry = TypeRegistry::default();
+/// type_registry.register::<Reflected>();
+///
+/// let mut value = Reflected("Hello world!".to_string());
+/// let value = unsafe { Ptr::new(NonNull::from(&mut value).cast()) };
+///
+/// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
+/// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
+/// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
+/// let value = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
+///
+/// assert_eq!(value.downcast_ref::<Reflected>().unwrap().0, "Hello world!");
+/// ```
+#[derive(Clone)]
+pub struct ReflectFromPtr {
+    type_id: TypeId,
+    to_reflect: for<'a> unsafe fn(Ptr<'a>) -> &'a dyn Reflect,
+    to_reflect_mut: for<'a> unsafe fn(PtrMut<'a>) -> &'a mut dyn Reflect,
+}
+
+impl ReflectFromPtr {
+    /// Returns the [`TypeId`] that the [`ReflectFromPtr`] was constructed for
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// # Safety
+    ///
+    /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
+    /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
+    pub unsafe fn as_reflect_ptr<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
+        (self.to_reflect)(val)
+    }
+
+    /// # Safety
+    ///
+    /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
+    /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
+    pub unsafe fn as_reflect_ptr_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
+        (self.to_reflect_mut)(val)
+    }
+}
+
+impl<T: Reflect> FromType<T> for ReflectFromPtr {
+    fn from_type() -> Self {
+        ReflectFromPtr {
+            type_id: std::any::TypeId::of::<T>(),
+            to_reflect: |ptr| {
+                // SAFE: only called from `as_reflect`, where the `ptr` is guaranteed to be of type `T`,
+                // and `as_reflect_ptr`, where the caller promises to call it with type `T`
+                unsafe { ptr.deref::<T>() as &dyn Reflect }
+            },
+            to_reflect_mut: |ptr| {
+                // SAFE: only called from `as_reflect_mut`, where the `ptr` is guaranteed to be of type `T`,
+                // and `as_reflect_ptr_mut`, where the caller promises to call it with type `T`
+                unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::TypeRegistration;
+    use std::ptr::NonNull;
+
+    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
+    use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
+
+    use crate as bevy_reflect;
+    use crate::Reflect;
+
+    #[test]
+    fn test_reflect_from_ptr() {
+        #[derive(Reflect)]
+        struct Foo {
+            a: f32,
+        }
+
+        let foo_registration = <Foo as GetTypeRegistration>::get_type_registration();
+        let reflect_from_ptr = foo_registration.data::<ReflectFromPtr>().unwrap();
+
+        // not required in this situation because we no nobody messed with the TypeRegistry,
+        // but in the general case somebody could have replaced the ReflectFromPtr with an
+        // instance for another type, so then we'd need to check that the type is the expected one
+        assert_eq!(reflect_from_ptr.type_id(), std::any::TypeId::of::<Foo>());
+
+        let mut value = Foo { a: 1.0 };
+        {
+            // SAFETY: lifetime doesn't outlive original value, access is unique
+            let value = unsafe { PtrMut::new(NonNull::from(&mut value).cast()) };
+            // SAFETY: reflect_from_ptr was constructed for the correct type
+            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr_mut(value) };
+            match dyn_reflect.reflect_mut() {
+                bevy_reflect::ReflectMut::Struct(strukt) => {
+                    strukt.field_mut("a").unwrap().apply(&2.0f32);
+                }
+                _ => panic!("invalid reflection"),
+            }
+        }
+
+        {
+            // SAFETY: lifetime doesn't outlive original value
+            let value = unsafe { Ptr::new(NonNull::from(&mut value).cast()) };
+            // SAFETY: reflect_from_ptr was constructed for the correct type
+            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
+            match dyn_reflect.reflect_ref() {
+                bevy_reflect::ReflectRef::Struct(strukt) => {
+                    let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
+                    assert_eq!(*a, 2.0);
+                }
+                _ => panic!("invalid reflection"),
+            }
+        }
+    }
 
     #[test]
     fn test_property_type_registration() {

@@ -2,7 +2,7 @@ use crate::{
     render_resource::TextureView,
     renderer::{RenderDevice, RenderInstance},
     texture::BevyDefault,
-    RenderApp, RenderStage, RenderWorld,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -68,11 +68,10 @@ impl DerefMut for ExtractedWindows {
 }
 
 fn extract_windows(
-    mut render_world: ResMut<RenderWorld>,
-    mut closed: EventReader<WindowClosed>,
-    windows: Res<Windows>,
+    mut extracted_windows: ResMut<ExtractedWindows>,
+    mut closed: Extract<EventReader<WindowClosed>>,
+    windows: Extract<Res<Windows>>,
 ) {
-    let mut extracted_windows = render_world.get_resource_mut::<ExtractedWindows>().unwrap();
     for window in windows.iter() {
         let (new_width, new_height) = (
             window.physical_width().max(1),
@@ -170,6 +169,8 @@ pub fn prepare_windows(
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
                 PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
                 PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
         };
 

@@ -492,7 +492,7 @@ impl Tables {
             .from_key(component_ids)
             .or_insert_with(|| {
                 let mut table = Table::with_capacity(0, component_ids.len());
-                for component_id in component_ids.iter() {
+                for component_id in component_ids {
                     table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table);

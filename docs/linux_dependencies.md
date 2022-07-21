@@ -74,10 +74,8 @@ sudo xbps-install -S pkgconf alsa-lib-devel libX11-devel eudev-libudev-devel
 Add a `shell.nix` file to the root of the project containing:
 
 ```nix
-# shell.nix
-
 { pkgs ? import <nixpkgs> {} }:
-with pkgs; mkShell {
+with pkgs; mkShell rec {
   nativeBuildInputs = [
     pkgconfig
     llvmPackages.bintools # To use lld linker

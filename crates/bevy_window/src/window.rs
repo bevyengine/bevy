@@ -1,4 +1,4 @@
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
@@ -23,20 +23,34 @@ pub struct WindowId(Uuid);
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
+    /// Chooses FifoRelaxed -> Fifo based on availability.
+    ///
+    /// Because of the fallback behavior, it is supported everywhere.
+    AutoVsync = 0,
+    /// Chooses Immediate -> Mailbox -> Fifo (on web) based on availability.
+    ///
+    /// Because of the fallback behavior, it is supported everywhere.
+    AutoNoVsync = 1,
     /// The presentation engine does **not** wait for a vertical blanking period and
     /// the request is presented immediately. This is a low-latency presentation mode,
     /// but visible tearing may be observed. Will fallback to `Fifo` if unavailable on the
     /// selected platform and backend. Not optimal for mobile.
-    Immediate = 0,
+    ///
+    /// Selecting this variant will panic if not supported, it is preferred to use
+    /// [`PresentMode::AutoNoVsync`].
+    Immediate = 2,
     /// The presentation engine waits for the next vertical blanking period to update
     /// the current image, but frames may be submitted without delay. This is a low-latency
     /// presentation mode and visible tearing will **not** be observed. Will fallback to `Fifo`
     /// if unavailable on the selected platform and backend. Not optimal for mobile.
-    Mailbox = 1,
+    ///
+    /// Selecting this variant will panic if not supported, it is preferred to use
+    /// [`PresentMode::AutoNoVsync`].
+    Mailbox = 3,
     /// The presentation engine waits for the next vertical blanking period to update
     /// the current image. The framerate will be capped at the display refresh rate,
     /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
-    Fifo = 2, // NOTE: The explicit ordinal values mirror wgpu and the vulkan spec.
+    Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
 }
 
 impl WindowId {
@@ -162,7 +176,7 @@ impl WindowResizeConstraints {
 /// # App::new().add_system(access_window_system).run();
 /// # }
 /// fn access_window_system(mut windows: ResMut<Windows>){
-///     for mut window in windows.iter_mut(){
+///     for mut window in windows.iter_mut() {
 ///         window.set_title(String::from("Yay, I'm a window!"));
 ///     }
 /// }
@@ -202,7 +216,7 @@ pub enum WindowCommand {
     /// Set the window's [`WindowMode`].
     SetWindowMode {
         mode: WindowMode,
-        resolution: (u32, u32),
+        resolution: UVec2,
     },
     /// Set the window's title.
     SetTitle {
@@ -214,7 +228,7 @@ pub enum WindowCommand {
     },
     /// Set the window's resolution.
     SetResolution {
-        logical_resolution: (f32, f32),
+        logical_resolution: Vec2,
         scale_factor: f64,
     },
     /// Set the window's [`PresentMode`].
@@ -447,7 +461,7 @@ impl Window {
         self.requested_width = width;
         self.requested_height = height;
         self.command_queue.push(WindowCommand::SetResolution {
-            logical_resolution: (self.requested_width, self.requested_height),
+            logical_resolution: Vec2::new(self.requested_width, self.requested_height),
             scale_factor: self.scale_factor(),
         });
     }
@@ -464,7 +478,7 @@ impl Window {
             scale_factor: self.scale_factor(),
         });
         self.command_queue.push(WindowCommand::SetResolution {
-            logical_resolution: (self.requested_width, self.requested_height),
+            logical_resolution: Vec2::new(self.requested_width, self.requested_height),
             scale_factor: self.scale_factor(),
         });
     }
@@ -668,7 +682,7 @@ impl Window {
         self.mode = mode;
         self.command_queue.push(WindowCommand::SetWindowMode {
             mode,
-            resolution: (self.physical_width, self.physical_height),
+            resolution: UVec2::new(self.physical_width, self.physical_height),
         });
     }
     /// Close the operating system window corresponding to this [`Window`].

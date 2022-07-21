@@ -14,53 +14,82 @@ pub struct Text {
 }
 
 impl Text {
-    /// Constructs a [`Text`] with (initially) one section.
+    /// Constructs a [`Text`] with a single section.
     ///
     /// ```
-    /// # use bevy_asset::{AssetServer, Handle};
+    /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
     /// # use bevy_text::{Font, Text, TextAlignment, TextStyle, HorizontalAlign, VerticalAlign};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
-    /// // basic usage
-    /// let hello_world = Text::with_section(
-    ///     "hello world!".to_string(),
+    /// // Basic usage.
+    /// let hello_world = Text::from_section(
+    ///     // Accepts a String or any type that converts into a String, such as &str.
+    ///     "hello world!",
     ///     TextStyle {
     ///         font: font_handle.clone(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
-    ///     TextAlignment {
-    ///         vertical: VerticalAlign::Center,
-    ///         horizontal: HorizontalAlign::Center,
-    ///     },
     /// );
     ///
-    /// let hello_bevy = Text::with_section(
-    ///     // accepts a String or any type that converts into a String, such as &str
+    /// let hello_bevy = Text::from_section(
     ///     "hello bevy!",
     ///     TextStyle {
     ///         font: font_handle,
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
-    ///     // you can still use Default
-    ///     Default::default(),
-    /// );
+    /// ) // You can still add an alignment.
+    /// .with_alignment(TextAlignment::CENTER);
     /// ```
-    pub fn with_section<S: Into<String>>(
-        value: S,
-        style: TextStyle,
-        alignment: TextAlignment,
-    ) -> Self {
+    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
-            sections: vec![TextSection {
-                value: value.into(),
-                style,
-            }],
-            alignment,
+            sections: vec![TextSection::new(value, style)],
+            alignment: Default::default(),
         }
+    }
+
+    /// Constructs a [`Text`] from a list of sections.
+    ///
+    /// ```
+    /// # use bevy_asset::Handle;
+    /// # use bevy_render::color::Color;
+    /// # use bevy_text::{Font, Text, TextStyle, TextSection};
+    /// #
+    /// # let font_handle: Handle<Font> = Default::default();
+    /// #
+    /// let hello_world = Text::from_sections([
+    ///     TextSection::new(
+    ///         "Hello, ",
+    ///         TextStyle {
+    ///             font: font_handle.clone(),
+    ///             font_size: 60.0,
+    ///             color: Color::BLUE,
+    ///         },
+    ///     ),
+    ///     TextSection::new(
+    ///         "World!",
+    ///         TextStyle {
+    ///             font: font_handle,
+    ///             font_size: 60.0,
+    ///             color: Color::RED,
+    ///         },
+    ///     ),
+    /// ]);
+    /// ```
+    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+        Self {
+            sections: sections.into_iter().collect(),
+            alignment: Default::default(),
+        }
+    }
+
+    /// Returns this [`Text`] with a new [`TextAlignment`].
+    pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
+        self.alignment = alignment;
+        self
     }
 }
 
@@ -70,18 +99,89 @@ pub struct TextSection {
     pub style: TextStyle,
 }
 
+impl TextSection {
+    /// Create a new [`TextSection`].
+    pub fn new(value: impl Into<String>, style: TextStyle) -> Self {
+        Self {
+            value: value.into(),
+            style,
+        }
+    }
+
+    /// Create an empty [`TextSection`] from a style. Useful when the value will be set dynamically.
+    pub const fn from_style(style: TextStyle) -> Self {
+        Self {
+            value: String::new(),
+            style,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct TextAlignment {
     pub vertical: VerticalAlign,
     pub horizontal: HorizontalAlign,
 }
 
+impl TextAlignment {
+    /// A [`TextAlignment`] set to the top-left.
+    pub const TOP_LEFT: Self = TextAlignment {
+        vertical: VerticalAlign::Top,
+        horizontal: HorizontalAlign::Left,
+    };
+
+    /// A [`TextAlignment`] set to the top-center.
+    pub const TOP_CENTER: Self = TextAlignment {
+        vertical: VerticalAlign::Top,
+        horizontal: HorizontalAlign::Center,
+    };
+
+    /// A [`TextAlignment`] set to the the top-right.
+    pub const TOP_RIGHT: Self = TextAlignment {
+        vertical: VerticalAlign::Top,
+        horizontal: HorizontalAlign::Right,
+    };
+
+    /// A [`TextAlignment`] set to center the center-left.
+    pub const CENTER_LEFT: Self = TextAlignment {
+        vertical: VerticalAlign::Center,
+        horizontal: HorizontalAlign::Left,
+    };
+
+    /// A [`TextAlignment`] set to center on both axes.
+    pub const CENTER: Self = TextAlignment {
+        vertical: VerticalAlign::Center,
+        horizontal: HorizontalAlign::Center,
+    };
+
+    /// A [`TextAlignment`] set to the center-right.
+    pub const CENTER_RIGHT: Self = TextAlignment {
+        vertical: VerticalAlign::Center,
+        horizontal: HorizontalAlign::Right,
+    };
+
+    /// A [`TextAlignment`] set to the bottom-left.
+    pub const BOTTOM_LEFT: Self = TextAlignment {
+        vertical: VerticalAlign::Bottom,
+        horizontal: HorizontalAlign::Left,
+    };
+
+    /// A [`TextAlignment`] set to the bottom-center.
+    pub const BOTTOM_CENTER: Self = TextAlignment {
+        vertical: VerticalAlign::Bottom,
+        horizontal: HorizontalAlign::Center,
+    };
+
+    /// A [`TextAlignment`] set to the bottom-right.
+    pub const BOTTOM_RIGHT: Self = TextAlignment {
+        vertical: VerticalAlign::Bottom,
+        horizontal: HorizontalAlign::Right,
+    };
+}
+
 impl Default for TextAlignment {
     fn default() -> Self {
-        TextAlignment {
-            vertical: VerticalAlign::Top,
-            horizontal: HorizontalAlign::Left,
-        }
+        TextAlignment::TOP_LEFT
     }
 }
 

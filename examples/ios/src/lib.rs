@@ -108,23 +108,17 @@ fn setup_scene(
             ..default()
         })
         .with_children(|b| {
-            b.spawn_bundle(TextBundle {
-                text: Text {
-                    sections: vec![TextSection {
-                        value: "Test Button".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 30.0,
-                            color: Color::BLACK,
-                        },
-                    }],
-                    alignment: TextAlignment {
-                        vertical: VerticalAlign::Center,
-                        horizontal: HorizontalAlign::Center,
+            b.spawn_bundle(
+                TextBundle::from_section(
+                    "Test Button",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 30.0,
+                        color: Color::BLACK,
                     },
-                },
-                ..default()
-            });
+                )
+                .with_text_alignment(TextAlignment::CENTER),
+            );
         });
 }
 
@@ -134,7 +128,7 @@ fn button_handler(
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut color) in interaction_query.iter_mut() {
+    for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Clicked => {
                 *color = Color::BLUE.into();

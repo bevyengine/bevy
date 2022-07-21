@@ -249,6 +249,48 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 }
 
 /// Sends events of type `T`.
+///
+/// # Usage
+///
+/// `EventWriter`s are usually declared as a [`SystemParam`].
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// pub struct MyEvent; // Custom event type.
+/// fn my_system(mut writer: EventWriter<MyEvent>) {
+///     writer.send(MyEvent);
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
+/// # Limitations
+///
+/// `EventWriter` can only send events of one specific type, which must be known at compile-time.
+/// This is not a problem most of the time, but you may find a situtation where you cannot know
+/// ahead of time every kind of event you'll need to send. In this case, you can use the "type-erased event" pattern.
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, event::Events};
+///
+/// # pub struct MyEvent;
+/// fn send_untyped(mut commands: Commands) {
+///     // Send an event of a specific type without having to declare that
+///     // type as a SystemParam.
+///     //
+///     // Effectively, we're just moving the type parameter from the /type/ to the /method/,
+///     // which allows one to do all kinds of clever things with type erasure, such as sending
+///     // custom events to unknown 3rd party plugins (modding API).
+///     //
+///     // NOTE: the event won't actually be sent until commands get flushed
+///     // at the end of the current stage.
+///     commands.add(|w: &mut World| {
+///         let mut events_resource = w.resource_mut::<Events<_>>();
+///         events_resource.send(MyEvent);
+///     });
+/// }
+/// ```
+/// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
 pub struct EventWriter<'w, 's, E: Event> {
     events: ResMut<'w, Events<E>>,

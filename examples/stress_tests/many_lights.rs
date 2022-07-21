@@ -6,7 +6,7 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::ScalingMode, RenderApp, RenderStage},
+    render::{camera::ScalingMode, Extract, RenderApp, RenderStage},
     window::PresentMode,
 };
 use rand::{thread_rng, Rng};
@@ -17,7 +17,7 @@ fn main() {
             width: 1024.0,
             height: 768.0,
             title: "many_lights".to_string(),
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .add_plugins(DefaultPlugins)
@@ -35,6 +35,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     const LIGHT_RADIUS: f32 = 0.3;
     const LIGHT_INTENSITY: f32 = 5.0;
     const RADIUS: f32 = 50.0;
@@ -156,7 +158,7 @@ impl Plugin for LogVisibleLights {
 
 // System for printing the number of meshes on every tick of the timer
 fn print_visible_light_count(
-    time: Res<Time>,
+    time: Res<ExtractedTime>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
     global_light_meta: Res<GlobalLightMeta>,
@@ -172,8 +174,11 @@ fn print_visible_light_count(
     }
 }
 
-fn extract_time(mut commands: Commands, time: Res<Time>) {
-    commands.insert_resource(time.into_inner().clone());
+#[derive(Deref, DerefMut)]
+pub struct ExtractedTime(Time);
+
+fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
+    commands.insert_resource(ExtractedTime(time.clone()));
 }
 
 struct PrintingTimer(Timer);

@@ -2,9 +2,8 @@ use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
-use futures_lite::future;
 use std::sync::Arc;
-use wgpu::{util::DeviceExt, BufferBindingType};
+use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
 
 use super::RenderQueue;
 
@@ -39,7 +38,7 @@ impl RenderDevice {
 
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
-    pub fn create_shader_module(&self, desc: &wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+    pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
         self.device.create_shader_module(desc)
     }
 
@@ -170,13 +169,13 @@ impl RenderDevice {
         &self.device
     }
 
-    pub fn map_buffer(&self, buffer: &wgpu::BufferSlice, map_mode: wgpu::MapMode) {
-        let data = buffer.map_async(map_mode);
-        self.poll(wgpu::Maintain::Wait);
-        assert!(
-            future::block_on(data).is_ok(),
-            "Failed to map buffer to host."
-        );
+    pub fn map_buffer(
+        &self,
+        buffer: &wgpu::BufferSlice,
+        map_mode: wgpu::MapMode,
+        callback: impl FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
+    ) {
+        buffer.map_async(map_mode, callback);
     }
 
     pub fn align_copy_bytes_per_row(row_bytes: usize) -> usize {

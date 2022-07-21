@@ -15,3 +15,6 @@ bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev", features = ["bevy_reflect"] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev", features = ["bevy"] }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
+
+# other
+crossbeam-channel = "0.5.0"
