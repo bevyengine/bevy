@@ -285,7 +285,7 @@ pub fn animation_player(
 
             if transition_lerp >= 1.0 {
                 // set to exactly one so the last step of the interpolation is exact
-                transition_lerp = 1.0; 
+                transition_lerp = 1.0;
             }
 
             let mut current_elapsed = player.elapsed;
