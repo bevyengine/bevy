@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use criterion::Criterion;
-use rand::RngCore;
+use rand::{rngs::SmallRng, RngCore};
 
 pub fn schedule(c: &mut Criterion) {
     #[derive(Component)]
@@ -103,7 +103,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     const OUTER_DEP_CHANCE: u32 = 10;
 
     impl Plugin {
-        fn new<const I: usize>(rng: &mut impl RngCore) -> Self {
+        fn new<const I: usize>(rng: &mut SmallRng) -> Self {
             let plugin_label = PluginLabel::<I>.as_label();
 
             let pub_labels = [
@@ -171,7 +171,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     }
 
     impl Experiment {
-        fn new(plugins: impl IntoIterator<Item = Plugin>, rng: &mut impl RngCore) -> Self {
+        fn new(plugins: impl IntoIterator<Item = Plugin>, rng: &mut SmallRng) -> Self {
             let mut plugins: Vec<_> = plugins.into_iter().collect();
 
             // Form inter-plugin dependencies
@@ -236,7 +236,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(15));
 
     use rand::SeedableRng;
-    let mut rng = rand::rngs::SmallRng::seed_from_u64(5410);
+    let mut rng = SmallRng::seed_from_u64(5410);
 
     macro_rules! experiment {
         ($($N:literal),* $(,)?) => {{
