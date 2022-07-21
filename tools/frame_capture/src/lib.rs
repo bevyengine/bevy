@@ -142,8 +142,12 @@ impl render_graph::Node for ImageCopyDriver {
                 .render_device
                 .create_command_encoder(&CommandEncoderDescriptor::default());
 
-            let padded_bytes_per_row =
-                RenderDevice::align_copy_bytes_per_row((src_image.size.x) as usize) * 4;
+            let format = src_image.texture_format.describe();
+
+            let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
+                (src_image.size.x as usize / format.block_dimensions.0 as usize)
+                    * format.block_size as usize,
+            );
 
             let texture_extent = Extent3d {
                 width: src_image.size.x as u32,
