@@ -44,9 +44,9 @@ struct RotateToPlayer {
 ///
 /// The Bevy coordinate system is the same for 2D and 3D, in terms of 2D this means that:
 ///
-/// * X axis goes from left to right (+X points right)
-/// * Y axis goes from bottom to top (+Y point up)
-/// * Z axis goes from far to near (+Z points towards you, out of the screen)
+/// * `X` axis goes from left to right (`+X` points right)
+/// * `Y` axis goes from bottom to top (`+Y` point up)
+/// * `Z` axis goes from far to near (`+Z` points towards you, out of the screen)
 ///
 /// The origin is at the center of the screen.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -156,7 +156,7 @@ fn snap_to_player_system(
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
-    for mut enemy_transform in query.iter_mut() {
+    for mut enemy_transform in &mut query {
         // get the vector from the enemy ship to the player ship in 2D and normalize it.
         let to_player = (player_translation - enemy_transform.translation.xy()).normalize();
 
@@ -198,7 +198,7 @@ fn rotate_to_player_system(
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
-    for (config, mut enemy_transform) in query.iter_mut() {
+    for (config, mut enemy_transform) in &mut query {
         // get the enemy ship forward vector in 2D (already unit length)
         let enemy_forward = (enemy_transform.rotation * Vec3::Y).xy();
 

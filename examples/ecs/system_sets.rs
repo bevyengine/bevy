@@ -104,11 +104,7 @@ fn run_for_a_second(time: Res<Time>, mut done: ResMut<Done>) -> ShouldRun {
 
 /// Another run criteria, simply using a resource.
 fn is_done(done: Res<Done>) -> ShouldRun {
-    if done.0 {
-        ShouldRun::Yes
-    } else {
-        ShouldRun::No
-    }
+    done.0.into()
 }
 
 /// Used with [`RunCritera::pipe`], inverts the result of the

@@ -2,17 +2,7 @@ use bevy::{
     asset::LoadState,
     prelude::*,
     reflect::TypeUuid,
-    render::{
-        render_asset::RenderAssets,
-        render_resource::{
-            AsBindGroup, AsBindGroupError, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-            OwnedBindingResource, PreparedBindGroup, SamplerBindingType, ShaderRef, ShaderStages,
-            TextureSampleType, TextureViewDimension,
-        },
-        renderer::RenderDevice,
-        texture::FallbackImage,
-    },
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 
 /// This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader
@@ -98,79 +88,16 @@ fn create_array_texture(
     }
 }
 
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
 #[uuid = "9c5a0ddf-1eaf-41b4-9832-ed736fd26af3"]
 struct ArrayTextureMaterial {
+    #[texture(0, dimension = "2d_array")]
+    #[sampler(1)]
     array_texture: Handle<Image>,
 }
 
 impl Material for ArrayTextureMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/array_texture.wgsl".into()
-    }
-}
-
-impl AsBindGroup for ArrayTextureMaterial {
-    type Data = ();
-
-    fn as_bind_group(
-        &self,
-        layout: &BindGroupLayout,
-        render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
-        _fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self>, AsBindGroupError> {
-        let image = images
-            .get(&self.array_texture)
-            .ok_or(AsBindGroupError::RetryNextUpdate)?;
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&image.texture_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&image.sampler),
-                },
-            ],
-            label: Some("array_texture_material_bind_group"),
-            layout,
-        });
-
-        Ok(PreparedBindGroup {
-            bind_group,
-            bindings: vec![
-                OwnedBindingResource::TextureView(image.texture_view.clone()),
-                OwnedBindingResource::Sampler(image.sampler.clone()),
-            ],
-            data: (),
-        })
-    }
-
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                // Array Texture
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2Array,
-                    },
-                    count: None,
-                },
-                // Array Texture Sampler
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: None,
-        })
     }
 }

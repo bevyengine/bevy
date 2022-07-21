@@ -27,18 +27,19 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: b
 }
 
 // this must match CLUSTER_COUNT_SIZE in light.rs
-let CLUSTER_COUNT_SIZE = 13u;
-fn unpack_offset_and_count(cluster_index: u32) -> vec2<u32> {
+let CLUSTER_COUNT_SIZE = 9u;
+fn unpack_offset_and_counts(cluster_index: u32) -> vec3<u32> {
 #ifdef NO_STORAGE_BUFFERS_SUPPORT
-    let offset_and_count = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
-    return vec2<u32>(
-        // The offset is stored in the upper 32 - CLUSTER_COUNT_SIZE = 19 bits
-        (offset_and_count >> CLUSTER_COUNT_SIZE) & ((1u << 32u - CLUSTER_COUNT_SIZE) - 1u),
-        // The count is stored in the lower CLUSTER_COUNT_SIZE = 13 bits
-        offset_and_count & ((1u << CLUSTER_COUNT_SIZE) - 1u)
+    let offset_and_counts = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
+    //  [ 31     ..     18 | 17      ..      9 | 8       ..     0 ]
+    //  [      offset      | point light count | spot light count ]
+    return vec3<u32>(
+        (offset_and_counts >> (CLUSTER_COUNT_SIZE * 2u)) & ((1u << (32u - (CLUSTER_COUNT_SIZE * 2u))) - 1u),
+        (offset_and_counts >> CLUSTER_COUNT_SIZE)        & ((1u << CLUSTER_COUNT_SIZE) - 1u),
+        offset_and_counts                                & ((1u << CLUSTER_COUNT_SIZE) - 1u),
     );
 #else
-    return cluster_offsets_and_counts.data[cluster_index];
+    return cluster_offsets_and_counts.data[cluster_index].xyz;
 #endif
 }
 
@@ -58,7 +59,7 @@ fn cluster_debug_visualization(
     output_color: vec4<f32>,
     view_z: f32,
     is_orthographic: bool,
-    offset_and_count: vec2<u32>,
+    offset_and_counts: vec3<u32>,
     cluster_index: u32,
 ) -> vec4<f32> {
     // Cluster allocation debug (using 'over' alpha blending)
@@ -82,9 +83,9 @@ fn cluster_debug_visualization(
     let cluster_overlay_alpha = 0.1;
     let max_light_complexity_per_cluster = 64.0;
     output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r
-        + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count[1]));
+        + cluster_overlay_alpha * smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_counts[1] + offset_and_counts[2]));
     output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g
-        + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_count[1])));
+        + cluster_overlay_alpha * (1.0 - smoothStep(0.0, max_light_complexity_per_cluster, f32(offset_and_counts[1] + offset_and_counts[2])));
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_LIGHT_COMPLEXITY
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
     // NOTE: Visualizes the cluster to which the fragment belongs

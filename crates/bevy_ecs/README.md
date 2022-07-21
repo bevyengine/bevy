@@ -78,7 +78,7 @@ use bevy_ecs::prelude::*;
 struct Position { x: f32, y: f32 }
 
 fn print_position(query: Query<(Entity, &Position)>) {
-    for (entity, position) in query.iter() {
+    for (entity, position) in &query {
         println!("Entity {:?} is at position: x {}, y {}", entity, position.x, position.y);
     }
 }
@@ -130,7 +130,7 @@ struct Velocity { x: f32, y: f32 }
 
 // This system moves each entity with a Position and Velocity component
 fn movement(mut query: Query<(&mut Position, &Velocity)>) {
-    for (mut position, velocity) in query.iter_mut() {
+    for (mut position, velocity) in &mut query {
         position.x += velocity.x;
         position.y += velocity.y;
     }
@@ -176,7 +176,7 @@ struct Alive;
 // Gets the Position component of all Entities with Player component and without the Alive
 // component. 
 fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
-    for position in query.iter() {
+    for position in &query {
     }
 }
 ```
@@ -197,13 +197,13 @@ struct Velocity { x: f32, y: f32 }
 
 // Gets the Position component of all Entities whose Velocity has changed since the last run of the System
 fn system_changed(query: Query<&Position, Changed<Velocity>>) {
-    for position in query.iter() {
+    for position in &query {
     }
 }
 
 // Gets the Position component of all Entities that had a Velocity component added since the last run of the System
 fn system_added(query: Query<&Position, Added<Velocity>>) {
-    for position in query.iter() {
+    for position in &query {
     }
 }
 ```

@@ -66,7 +66,7 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
 // load_scene_example.scn. You should immediately see the changes appear in the console.
 fn log_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
-    for (entity, component_a) in query.iter() {
+    for (entity, component_a) in &query {
         info!("  Entity({})", entity.id());
         info!(
             "    ComponentA: {{ x: {} y: {} }}\n",
@@ -105,20 +105,18 @@ fn save_scene_system(world: &mut World) {
 // text example.
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(TextBundle {
-        style: Style {
-            align_self: AlignSelf::FlexEnd,
-            ..default()
-        },
-        text: Text::with_section(
+    commands.spawn_bundle(
+        TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
             },
-            Default::default(),
-        ),
-        ..default()
-    });
+        )
+        .with_style(Style {
+            align_self: AlignSelf::FlexEnd,
+            ..default()
+        }),
+    );
 }

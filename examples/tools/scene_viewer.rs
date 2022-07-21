@@ -219,14 +219,14 @@ fn setup_scene_after_load(
 
         let mut min = Vec3A::splat(f32::MAX);
         let mut max = Vec3A::splat(f32::MIN);
-        for (transform, maybe_aabb) in meshes.iter() {
+        for (transform, maybe_aabb) in &meshes {
             let aabb = maybe_aabb.unwrap();
             // If the Aabb had not been rotated, applying the non-uniform scale would produce the
             // correct bounds. However, it could very well be rotated and so we first convert to
             // a Sphere, and then back to an Aabb to find the conservative min and max points.
             let sphere = Sphere {
                 center: Vec3A::from(transform.mul_vec3(Vec3::from(aabb.center))),
-                radius: (Vec3A::from(transform.scale) * aabb.half_extents).length(),
+                radius: transform.radius_vec3a(aabb.half_extents),
             };
             let aabb = Aabb::from(sphere);
             min = min.min(aabb.min());
@@ -309,7 +309,7 @@ fn update_lights(
     } else if key_input.just_pressed(KeyCode::Key0) {
         projection_adjustment.z += SCALE_STEP;
     }
-    for (_, mut light) in query.iter_mut() {
+    for (_, mut light) in &mut query {
         light.shadow_projection.left *= projection_adjustment.x;
         light.shadow_projection.right *= projection_adjustment.x;
         light.shadow_projection.bottom *= projection_adjustment.y;
@@ -325,7 +325,7 @@ fn update_lights(
         *animate_directional_light = !*animate_directional_light;
     }
     if *animate_directional_light {
-        for (mut transform, _) in query.iter_mut() {
+        for (mut transform, _) in &mut query {
             transform.rotation = Quat::from_euler(
                 EulerRot::ZYX,
                 0.0,

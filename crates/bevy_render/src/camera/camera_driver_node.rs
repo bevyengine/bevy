@@ -88,14 +88,14 @@ impl Node for CameraDriverNode {
             let _span = bevy_utils::tracing::info_span!("no_camera_clear_pass").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("no_camera_clear_pass"),
-                color_attachments: &[RenderPassColorAttachment {
+                color_attachments: &[Some(RenderPassColorAttachment {
                     view: swap_chain_texture,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(wgpu::Color::BLACK),
                         store: true,
                     },
-                }],
+                })],
                 depth_stencil_attachment: None,
             };
 
