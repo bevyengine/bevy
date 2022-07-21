@@ -1,5 +1,6 @@
+use crate::UiCamera;
+
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::UiCameraConfig, DefaultCameraView};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -16,15 +17,9 @@ use bevy_render::{
 use bevy_utils::FloatOrd;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<
-        (
-            &'static RenderPhase<TransparentUi>,
-            &'static ViewTarget,
-            Option<&'static UiCameraConfig>,
-        ),
-        With<ExtractedView>,
-    >,
-    default_camera_view_query: QueryState<&'static DefaultCameraView>,
+    view_query:
+        QueryState<(&'static RenderPhase<TransparentUi>, &'static ViewTarget), With<ExtractedView>>,
+    ui_camera_query: QueryState<&'static UiCamera>,
 }
 
 impl UiPassNode {
@@ -32,8 +27,8 @@ impl UiPassNode {
 
     pub fn new(world: &mut World) -> Self {
         Self {
-            ui_view_query: world.query_filtered(),
-            default_camera_view_query: world.query(),
+            view_query: world.query_filtered(),
+            ui_camera_query: world.query(),
         }
     }
 }
@@ -44,8 +39,8 @@ impl Node for UiPassNode {
     }
 
     fn update(&mut self, world: &mut World) {
-        self.ui_view_query.update_archetypes(world);
-        self.default_camera_view_query.update_archetypes(world);
+        self.view_query.update_archetypes(world);
+        self.ui_camera_query.update_archetypes(world);
     }
 
     fn run(
@@ -54,31 +49,25 @@ impl Node for UiPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
+        let camera_view = graph.get_input_entity(Self::IN_VIEW)?;
 
-        let (transparent_phase, target, camera_ui) =
-            if let Ok(result) = self.ui_view_query.get_manual(world, input_view_entity) {
+        let (transparent_phase, target) =
+            if let Ok(result) = self.view_query.get_manual(world, camera_view) {
                 result
             } else {
                 return Ok(());
             };
+
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
-        // Don't render UI for cameras where it is explicitly disabled
-        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false })) {
-            return Ok(());
-        }
+        let ui_view_entity =
+            if let Ok(ui_view) = self.ui_camera_query.get_manual(world, camera_view) {
+                ui_view.entity
+            } else {
+                return Ok(());
+            };
 
-        // use the "default" view entity if it is defined
-        let view_entity = if let Ok(default_view) = self
-            .default_camera_view_query
-            .get_manual(world, input_view_entity)
-        {
-            default_view.0
-        } else {
-            input_view_entity
-        };
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
@@ -102,7 +91,7 @@ impl Node for UiPassNode {
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
         for item in &transparent_phase.items {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-            draw_function.draw(world, &mut tracked_pass, view_entity, item);
+            draw_function.draw(world, &mut tracked_pass, ui_view_entity, item);
         }
         Ok(())
     }

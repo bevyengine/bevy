@@ -20,14 +20,13 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ComputedVisibility, ExtractedView, ViewUniforms},
+    view::{ComputedVisibility, ExtractedView, RenderLayers, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::FloatOrd;
-use bevy_utils::HashMap;
+use bevy_utils::{FloatOrd, HashMap};
 use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
@@ -166,6 +165,7 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub render_layers: RenderLayers,
 }
 
 #[derive(Default)]
@@ -183,12 +183,13 @@ pub fn extract_uinodes(
             &UiColor,
             &UiImage,
             &ComputedVisibility,
+            &RenderLayers,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
+    for (uinode, transform, color, image, visibility, render_layers, clip) in uinode_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
@@ -207,6 +208,7 @@ pub fn extract_uinodes(
             image,
             atlas_size: None,
             clip: clip.map(|clip| clip.clip),
+            render_layers: *render_layers,
         });
     }
 }
@@ -222,30 +224,36 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 // TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
-#[derive(Component)]
-pub struct DefaultCameraView(pub Entity);
+#[derive(Component, Debug)]
+pub struct UiCamera {
+    pub entity: Entity,
+    layers: RenderLayers,
+}
 
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
-    for (entity, camera, camera_ui) in query.iter() {
+    for (camera_entity, camera, opt_ui_config) in query.iter() {
+        let ui_config = opt_ui_config.cloned().unwrap_or_default();
         // ignore cameras with disabled ui
-        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
+        if !ui_config.show_ui {
             continue;
         }
-        if let (Some(logical_size), Some(physical_size)) = (
-            camera.logical_viewport_size(),
-            camera.physical_viewport_size(),
-        ) {
-            let mut projection = OrthographicProjection {
-                far: UI_CAMERA_FAR,
-                window_origin: WindowOrigin::BottomLeft,
-                depth_calculation: DepthCalculation::ZDifference,
-                ..Default::default()
-            };
-            projection.update(logical_size.x, logical_size.y);
-            let default_camera_view = commands
+        let logical_size = if let Some(logical_size) = camera.logical_viewport_size() {
+            logical_size
+        } else {
+            continue;
+        };
+        let mut projection = OrthographicProjection {
+            far: UI_CAMERA_FAR,
+            window_origin: WindowOrigin::BottomLeft,
+            depth_calculation: DepthCalculation::ZDifference,
+            ..Default::default()
+        };
+        projection.update(logical_size.x, logical_size.y);
+        if let Some(physical_size) = camera.physical_viewport_size() {
+            let ui_camera = commands
                 .spawn()
                 .insert(ExtractedView {
                     projection: projection.get_projection_matrix(),
@@ -258,8 +266,11 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     height: physical_size.y,
                 })
                 .id();
-            commands.get_or_spawn(entity).insert_bundle((
-                DefaultCameraView(default_camera_view),
+            commands.get_or_spawn(camera_entity).insert_bundle((
+                UiCamera {
+                    entity: ui_camera,
+                    layers: ui_config.ui_render_layers,
+                },
                 RenderPhase::<TransparentUi>::default(),
             ));
         }
@@ -278,12 +289,14 @@ pub fn extract_text_uinodes(
             &GlobalTransform,
             &Text,
             &ComputedVisibility,
+            &RenderLayers,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
-    for (entity, uinode, global_transform, text, visibility, clip) in uinode_query.iter() {
+
+    for (entity, uinode, transform, text, visibility, render_layers, clip) in uinode_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
@@ -306,7 +319,7 @@ pub fn extract_text_uinodes(
                 let atlas_size = Some(atlas.size);
 
                 // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
-                let extracted_transform = global_transform.compute_matrix()
+                let extracted_transform = transform.compute_matrix()
                     * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
                     * Mat4::from_translation(
                         alignment_offset * scale_factor + text_glyph.position.extend(0.),
@@ -319,6 +332,7 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
+                    render_layers: *render_layers,
                 });
             }
         }
@@ -356,8 +370,10 @@ const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
 
 const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
+/// UI nodes are batched per image and per layer
 #[derive(Component)]
 pub struct UiBatch {
+    pub layers: RenderLayers,
     pub range: Range<u32>,
     pub image: Handle<Image>,
     pub z: f32,
@@ -380,20 +396,26 @@ pub fn prepare_uinodes(
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_handle = Default::default();
+    let mut current_batch_layers = Default::default();
     let mut last_z = 0.0;
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
+        let same_layers = current_batch_layers == extracted_uinode.render_layers;
+        let same_handle = current_batch_handle == extracted_uinode.image;
+        if !same_handle || !same_layers {
             if start != end {
                 commands.spawn_bundle((UiBatch {
+                    layers: current_batch_layers,
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
                 },));
                 start = end;
             }
+            current_batch_layers = extracted_uinode.render_layers;
             current_batch_handle = extracted_uinode.image.clone_weak();
         }
 
+        // TODO: the following code is hard to grasp, a refactor would be welcome :)
         let uinode_rect = extracted_uinode.rect;
         let rect_size = uinode_rect.size().extend(1.0);
 
@@ -479,7 +501,6 @@ pub fn prepare_uinodes(
                 color: extracted_uinode.color.as_linear_rgba_f32(),
             });
         }
-
         last_z = extracted_uinode.transform.w_axis[2];
         end += QUAD_INDICES.len() as u32;
     }
@@ -487,6 +508,7 @@ pub fn prepare_uinodes(
     // if start != end, there is one last batch to process
     if start != end {
         commands.spawn_bundle((UiBatch {
+            layers: current_batch_layers,
             range: start..end,
             image: current_batch_handle,
             z: last_z,
@@ -513,7 +535,7 @@ pub fn queue_uinodes(
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
-    mut views: Query<&mut RenderPhase<TransparentUi>>,
+    mut views: Query<(&mut RenderPhase<TransparentUi>, &UiCamera)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -537,8 +559,11 @@ pub fn queue_uinodes(
         }));
         let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
         let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
-        for mut transparent_phase in &mut views {
+        for (mut transparent_phase, cam_data) in &mut views {
             for (entity, batch) in &ui_batches {
+                if !batch.layers.intersects(&cam_data.layers) {
+                    continue;
+                }
                 image_bind_groups
                     .values
                     .entry(batch.image.clone_weak())

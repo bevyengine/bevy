@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    render::camera::RenderTarget,
+    render::{camera::RenderTarget, view::RenderLayers},
     window::{CreateWindow, PresentMode, WindowId},
 };
 
@@ -30,10 +30,17 @@ fn setup(
         ..default()
     });
     // main camera
-    commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands
+        .spawn_bundle(Camera3dBundle {
+            transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        })
+        .insert(UiCameraConfig {
+            // We set the UI cameras of each window to use a different layer,
+            // so that we can display different text per window.
+            ui_render_layers: RenderLayers::layer(1),
+            ..default()
+        });
 
     let window_id = WindowId::new();
 
@@ -50,12 +57,34 @@ fn setup(
     });
 
     // second window camera
-    commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        camera: Camera {
-            target: RenderTarget::Window(window_id),
+    commands
+        .spawn_bundle(Camera3dBundle {
+            transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            camera: Camera {
+                target: RenderTarget::Window(window_id),
+                ..default()
+            },
             ..default()
-        },
-        ..default()
+        })
+        .insert(UiCameraConfig {
+            ui_render_layers: RenderLayers::layer(2),
+            ..default()
+        });
+    let text_style = TextStyle {
+        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font_size: 100.0,
+        color: Color::WHITE,
+    };
+    commands.spawn_bundle(TextBundle {
+        render_layers: RenderLayers::layer(1),
+        ..TextBundle::from_section("Face", text_style.clone())
+    });
+    commands.spawn_bundle(TextBundle {
+        render_layers: RenderLayers::layer(2),
+        ..TextBundle::from_section("Profile", text_style.clone())
+    });
+    commands.spawn_bundle(TextBundle {
+        render_layers: RenderLayers::all(),
+        ..TextBundle::from_section("view", text_style)
     });
 }

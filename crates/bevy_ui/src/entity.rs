@@ -4,14 +4,10 @@ use crate::{
     widget::{Button, ImageMode},
     CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
 };
-use bevy_ecs::{
-    bundle::Bundle,
-    prelude::{Component, With},
-    query::QueryItem,
-};
+use bevy_ecs::{bundle::Bundle, prelude::Component};
 use bevy_render::{
-    camera::Camera, extract_component::ExtractComponent, prelude::ComputedVisibility,
-    view::Visibility,
+    prelude::ComputedVisibility,
+    view::{RenderLayers, Visibility},
 };
 use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -37,6 +33,8 @@ pub struct NodeBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// The UI camera layers this node is visible in.
+    pub render_layers: RenderLayers,
 }
 
 /// A UI node that is an image
@@ -64,6 +62,8 @@ pub struct ImageBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// The ui camera layers this image is visible in.
+    pub render_layers: RenderLayers,
 }
 
 /// A UI node that is text
@@ -87,6 +87,8 @@ pub struct TextBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// The ui camera layers this text is visible in.
+    pub render_layers: RenderLayers,
 }
 
 impl TextBundle {
@@ -135,12 +137,13 @@ impl Default for TextBundle {
             global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
+            render_layers: Default::default(),
         }
     }
 }
 
 /// A UI node that is a button
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct ButtonBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -164,25 +167,10 @@ pub struct ButtonBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// The ui camera layers this button is visible in.
+    pub render_layers: RenderLayers,
 }
 
-impl Default for ButtonBundle {
-    fn default() -> Self {
-        ButtonBundle {
-            button: Button,
-            interaction: Default::default(),
-            focus_policy: Default::default(),
-            node: Default::default(),
-            style: Default::default(),
-            color: Default::default(),
-            image: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-        }
-    }
-}
 /// Configuration for cameras related to UI.
 ///
 /// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
@@ -196,19 +184,15 @@ pub struct UiCameraConfig {
     /// When a `Camera` doesn't have the [`UiCameraConfig`] component,
     /// it will display the UI by default.
     pub show_ui: bool,
+    /// The ui camera layers this camera can see.
+    pub ui_render_layers: RenderLayers,
 }
 
 impl Default for UiCameraConfig {
     fn default() -> Self {
-        Self { show_ui: true }
-    }
-}
-
-impl ExtractComponent for UiCameraConfig {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
+        Self {
+            show_ui: true,
+            ui_render_layers: Default::default(),
+        }
     }
 }
