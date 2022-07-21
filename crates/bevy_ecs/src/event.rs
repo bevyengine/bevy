@@ -1,10 +1,7 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::{
-    schedule::SystemLabel,
-    system::{Local, Res, ResMut, SystemParam},
-};
+use crate::system::{Local, Res, ResMut, SystemParam};
 use bevy_utils::tracing::trace;
 use std::ops::{Deref, DerefMut};
 use std::{
@@ -182,52 +179,9 @@ impl<E: Event> DerefMut for EventSequence<E> {
     }
 }
 
-/// [Label](SystemLabel) for a [`System`](crate::system::System) that reads events of type `E`.
-/// This is automatically applied to any system that contains an [`EventReader`].
-///
-/// # Examples
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::event::Reads;
-///
-/// // New event type.
-/// struct MyEvent;
-///
-/// // Declare a system that reads from it.
-/// fn reader_system(event_reader: EventReader<MyEvent>) {
-///     // ...
-///     # unimplemented!()
-/// }
-///
-/// // The system has been automatically given the label `Reads::from::<MyEvent>()`.
-/// let system = IntoSystem::into_system(reader_system);
-/// assert!(system.default_labels().contains(&Reads::from::<MyEvent>().as_label()));
-/// ```
-pub struct Reads(());
-
-impl Reads {
-    /// Returns a [`SystemLabel`] for a system that reads events of type `E`.
-    pub fn from<E: Event>() -> impl SystemLabel {
-        struct ReadSystem<E>(PhantomData<E>);
-
-        impl<E: 'static> SystemLabel for ReadSystem<E> {
-            fn as_str(&self) -> &'static str {
-                // FIXME: using `type_name` for equality is kinda sketchy,
-                // but we won't need it after https://github.com/bevyengine/bevy/pull/5377.
-                // This *should* be fine for the time being though, as the behavior
-                // of `type_name` is only subject to change between compiler versions,
-                // so the only place it might be able to cause issues is with dynamic plugins.
-                std::any::type_name::<Self>()
-            }
-        }
-
-        ReadSystem::<E>(PhantomData)
-    }
-}
-
 /// Reads events of type `T` in order and tracks which events have already been read.
 #[derive(SystemParam)]
-#[system_param(label = Reads::from::<E>())]
+#[system_param(label = crate::system::Reads::from::<E>())]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
     events: Res<'w, Events<E>>,
@@ -295,44 +249,6 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     }
 }
 
-/// [Label](SystemLabel) for a [`System`](crate::system::System) that can write events of type `E`.
-/// This is automatically applied to any system that contains an [`EventWriter`].
-///
-/// # Examples
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::event::Writes;
-///
-/// // New event type.
-/// struct MyEvent;
-///
-/// // Declare a system that writes to it.
-/// fn writer_system(mut event_writer: EventWriter<MyEvent>) {
-///     // ...
-///     # unimplemented!()
-/// }
-///
-/// // The system has automatically been given the label `Writes::to::<MyEvent>()`.
-/// let system = IntoSystem::into_system(writer_system);
-/// assert!(system.default_labels().contains(&Writes::to::<MyEvent>().as_label()));
-/// ```
-pub struct Writes(());
-
-impl Writes {
-    /// Returns a [`SystemLabel`] for a system that can write events of type `E`.
-    pub fn to<E: Event>() -> impl SystemLabel {
-        struct WriteSystem<E>(PhantomData<E>);
-
-        impl<E: 'static> SystemLabel for WriteSystem<E> {
-            fn as_str(&self) -> &'static str {
-                std::any::type_name::<E>()
-            }
-        }
-
-        WriteSystem::<E>(PhantomData)
-    }
-}
-
 /// Sends events of type `T`.
 ///
 /// # Usage
@@ -377,7 +293,7 @@ impl Writes {
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
-#[system_param(label = Writes::to::<E>())]
+#[system_param(label = crate::system::Writes::to::<E>())]
 pub struct EventWriter<'w, 's, E: Event> {
     events: ResMut<'w, Events<E>>,
     #[system_param(ignore)]

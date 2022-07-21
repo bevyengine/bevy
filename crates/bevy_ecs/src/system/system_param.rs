@@ -8,7 +8,7 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
-    schedule::SystemLabelId,
+    schedule::{SystemLabel, SystemLabelId},
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
@@ -227,6 +227,89 @@ pub trait Resource: Send + Sync + 'static {}
 
 impl<T> Resource for T where T: Send + Sync + 'static {}
 
+/// [Label](SystemLabel) for a [`System`](crate::system::System) that reads a resource.
+/// This is automatically applied to any system that contains an [`EventReader`](crate::event::EventReader).
+///
+/// # Examples
+/// ```
+/// # use bevy_ecs::{prelude::*, event::Events};
+/// use bevy_ecs::system::Reads;
+///
+/// // New event type.
+/// struct MyEvent;
+///
+/// // Declare a system that reads from it.
+/// fn reader_system(event_reader: EventReader<MyEvent>) {
+///     // ...
+///     # unimplemented!()
+/// }
+///
+/// // The system has been automatically given the label `Reads::from::<MyEvent>()`.
+/// let system = IntoSystem::into_system(reader_system);
+/// assert!(system.default_labels().contains(&Reads::from::<MyEvent>().as_label()));
+/// # assert!(system.default_labels().contains(&Reads::from::<Events<MyEvent>>().as_label()));
+/// ```
+pub struct Reads(());
+
+impl Reads {
+    /// Returns a [`SystemLabel`] for a system that can read the resource `E`.
+    pub fn from<E: Resource>() -> impl SystemLabel {
+        struct ReadSystem<E>(PhantomData<E>);
+
+        impl<E: 'static> SystemLabel for ReadSystem<E> {
+            fn as_str(&self) -> &'static str {
+                // FIXME: using `type_name` for equality is kinda sketchy,
+                // but we won't need it after https://github.com/bevyengine/bevy/pull/5377.
+                // This *should* be fine for the time being though, as the behavior
+                // of `type_name` is only subject to change between compiler versions,
+                // so the only place it might be able to cause issues is with dynamic plugins.
+                std::any::type_name::<Self>()
+            }
+        }
+
+        ReadSystem::<E>(PhantomData)
+    }
+}
+
+/// [Label](SystemLabel) for a [`System`](crate::system::System) that might modify a resource.
+/// This is automatically applied to any system that contains an [`EventWriter`](crate::event::EventWriter).
+///
+/// # Examples
+/// ```
+/// # use bevy_ecs::{prelude::*, event::Events};
+/// use bevy_ecs::system::Writes;
+///
+/// // New event type.
+/// struct MyEvent;
+///
+/// // Declare a system that writes to it.
+/// fn writer_system(mut event_writer: EventWriter<MyEvent>) {
+///     // ...
+///     # unimplemented!()
+/// }
+///
+/// // The system has automatically been given the label `Writes::to::<MyEvent>()`.
+/// let system = IntoSystem::into_system(writer_system);
+/// assert!(system.default_labels().contains(&Writes::to::<MyEvent>().as_label()));
+/// # assert!(system.default_labels().contains(&Writes::to::<Events<MyEvent>>().as_label()));
+/// ```
+pub struct Writes(());
+
+impl Writes {
+    /// Returns a [`SystemLabel`] for a system that might modify the resource `E`.
+    pub fn to<E: Resource>() -> impl SystemLabel {
+        struct WriteSystem<E>(PhantomData<E>);
+
+        impl<E: 'static> SystemLabel for WriteSystem<E> {
+            fn as_str(&self) -> &'static str {
+                std::any::type_name::<E>()
+            }
+        }
+
+        WriteSystem::<E>(PhantomData)
+    }
+}
+
 /// Shared borrow of a resource.
 ///
 /// See the [`World`] documentation to see the usage of a resource.
@@ -309,6 +392,10 @@ pub struct ResState<T> {
 
 impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Fetch = ResState<T>;
+    #[inline]
+    fn auto_labels() -> Vec<crate::schedule::SystemLabelId> {
+        vec![Reads::from::<T>().as_label()]
+    }
 }
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
@@ -417,6 +504,10 @@ pub struct ResMutState<T> {
 
 impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Fetch = ResMutState<T>;
+    #[inline]
+    fn auto_labels() -> Vec<crate::schedule::SystemLabelId> {
+        vec![Writes::to::<T>().as_label()]
+    }
 }
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
