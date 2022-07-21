@@ -390,6 +390,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "skybox"
+path = "examples/3d/skybox.rs"
+
+[package.metadata.example.skybox]
+name = "Skybox"
+description = "Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "spherical_area_lights"
 path = "examples/3d/spherical_area_lights.rs"
 
