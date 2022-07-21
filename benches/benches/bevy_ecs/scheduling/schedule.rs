@@ -103,7 +103,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     const OUTER_DEP_CHANCE: u32 = 10;
 
     impl Plugin {
-        fn new<const I: usize>() -> Self {
+        fn new<const I: usize>(rng: &mut impl RngCore) -> Self {
             let plugin_label = PluginLabel::<I>.as_label();
 
             let pub_labels = [
@@ -125,8 +125,6 @@ pub fn build_schedule(criterion: &mut Criterion) {
 
             // apply the plugin's label to each system.
             let systems = systems.map(|s| s.label(plugin_label));
-
-            let mut rng = rand::thread_rng();
 
             let mut i = 0;
             let systems = systems.map(|mut system| {
@@ -173,10 +171,8 @@ pub fn build_schedule(criterion: &mut Criterion) {
     }
 
     impl Experiment {
-        fn new(plugins: impl IntoIterator<Item = Plugin>) -> Self {
+        fn new(plugins: impl IntoIterator<Item = Plugin>, rng: &mut impl RngCore) -> Self {
             let mut plugins: Vec<_> = plugins.into_iter().collect();
-
-            let mut rng = rand::thread_rng();
 
             // Form inter-plugin dependencies
             for i in 0..plugins.len() {
@@ -239,13 +235,16 @@ pub fn build_schedule(criterion: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(15));
 
+    use rand::SeedableRng;
+    let mut rng = rand::rngs::SmallRng::seed_from_u64(5410);
+
     macro_rules! experiment {
         ($($N:literal),* $(,)?) => {{
             // this runs outside of the benchmark so we don't need to worry about `Vec::with_capacity`.
             let mut plugins = Vec::new();
             // these must be pushed one by one to avoid overflowing the stack.
-            $( plugins.push(Plugin::new::<$N>()) ;)*
-            Experiment::new(plugins)
+            $( plugins.push(Plugin::new::<$N>(&mut rng)) ;)*
+            Experiment::new(plugins, &mut rng)
         }}
     }
 
