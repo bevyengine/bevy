@@ -1,0 +1,14 @@
+[package]
+name = "frame_capture"
+version = "0.1.0"
+edition = "2021"
+description = "copy gpu textures from vram to system ram"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bevy = { path = "../../", version = "0.8.0-dev" }
+image = { version = "0.24", default-features = false }
+wgpu = "0.13"
+pollster = "0.2.5"
+futures-intrusive = "0.4.0"
