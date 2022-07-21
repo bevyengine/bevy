@@ -113,6 +113,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
                 PubLabel::<I>::ReallyReallySuperLongName.as_label(),
             ];
 
+            // Initialize a list of systems with unique types.
             let systems = [
                 my_system::<I, 0>,
                 my_system::<I, 1>,
@@ -206,10 +207,12 @@ pub fn build_schedule(criterion: &mut Criterion) {
 
             let mut rng = rand::thread_rng();
 
+            // Form inter-plugin dependencies
             for i in 0..plugins.len() {
                 let (before, after) = plugins.split_at_mut(i);
                 let (plugin, after) = after.split_first_mut().unwrap();
 
+                // Have a chance to form a dependency with plugins coming before this one
                 for other in before.iter() {
                     if rng.next_u32() % 100 < PLUGIN_DEP_CHANCE {
                         for system in &mut plugin.systems {
@@ -219,6 +222,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
                         }
                     }
                 }
+                // Have a chance to form a dependency with plugins coming after this one
                 for other in after.iter() {
                     if rng.next_u32() % 100 < PLUGIN_DEP_CHANCE {
                         for system in &mut plugin.systems {
@@ -229,6 +233,8 @@ pub fn build_schedule(criterion: &mut Criterion) {
                     }
                 }
 
+                // Have a chance for every system in the plugin to form a dependency
+                // with every public label from every other plugin.
                 for system in &mut plugin.systems {
                     for &other_label in before.iter().flat_map(|other| &other.pub_labels) {
                         if rng.next_u32() % 100 < OUTER_DEP_CHANCE {
