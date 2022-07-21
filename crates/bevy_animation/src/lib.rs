@@ -352,13 +352,13 @@ pub fn animation_player(
                             if curve.keyframe_timestamps.len() == 1 {
                                 match &curve.keyframes {
                                     Keyframes::Rotation(keyframes) => {
-                                        updated_transforms[index].rotation = keyframes[0]
+                                        updated_transforms[index].rotation = keyframes[0];
                                     }
                                     Keyframes::Translation(keyframes) => {
                                         updated_transforms[index].translation = keyframes[0];
                                     }
                                     Keyframes::Scale(keyframes) => {
-                                        updated_transforms[index].scale = keyframes[0]
+                                        updated_transforms[index].scale = keyframes[0];
                                     }
                                 }
                                 continue;
