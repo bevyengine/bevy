@@ -17,10 +17,10 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::{erased_serde::private::serde::Serialize, Reflect, TypeUuid};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_utils::{prelude::default, tracing::warn, HashMap};
+use bevy_utils::{tracing::warn, HashMap};
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -90,14 +90,18 @@ impl AnimationClip {
     }
 }
 
+/// A representation of the data needed transition to a new animation
 #[derive(Clone, Debug, Reflect)]
 pub struct AnimationTransition {
     next_animation_clip: Handle<AnimationClip>,
     repeat: bool,
     speed: f32,
+    /// The elapsed time of the target clip (is scaled by speed and reset on clip end)
     clip_elapsed: f32,
-    transition_time: f32,
+    /// The actual time that the transition is running in seconds
     transition_elapsed: f32,
+    /// The desired duration of the transition
+    transition_time: f32,
 }
 
 impl Default for AnimationTransition {
@@ -174,6 +178,9 @@ impl AnimationPlayer {
     }
 
     /// Crosfade from the current to the next animation
+    ///
+    /// - [`handle`] a handle to the target animation clip
+    /// - [`transition_time`] determines the duration of the transition in seconds
     pub fn cross_fade(
         &mut self,
         handle: Handle<AnimationClip>,
