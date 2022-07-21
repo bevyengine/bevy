@@ -133,7 +133,7 @@ impl Column {
     ///  - `src_row` must be in bounds for `other`
     ///  - `dst_row` must be in bounds for `self`
     ///  - `other[src_row]` must be initialized to a valid value.
-    ///  - `self[dst_row]` must not be initalized yet.
+    ///  - `self[dst_row]` must not be initialized yet.
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,

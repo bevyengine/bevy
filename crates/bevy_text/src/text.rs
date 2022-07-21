@@ -195,7 +195,7 @@ pub enum HorizontalAlign {
     /// Leftmost & rightmost characters are equidistant to the render position.<br/>
     /// Bounds start from the render position and advance equally left & right.
     Center,
-    /// Rightmost character is immetiately to the left of the render position.<br/>
+    /// Rightmost character is immediately to the left of the render position.<br/>
     /// Bounds start from the render position and advance leftwards.
     Right,
 }

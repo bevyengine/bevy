@@ -175,7 +175,7 @@ impl ImageSettings {
 }
 
 /// A rendering resource for the default image sampler which is set during renderer
-/// intialization.
+/// initialization.
 ///
 /// The [`ImageSettings`] resource can be set during app initialization to change the default
 /// image sampler.

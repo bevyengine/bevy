@@ -245,7 +245,7 @@ pub enum WindowCommand {
     SetDecorations {
         decorations: bool,
     },
-    /// Set whether or not the cursor's postition is locked.
+    /// Set whether or not the cursor's position is locked.
     SetCursorLockMode {
         locked: bool,
     },
@@ -261,7 +261,7 @@ pub enum WindowCommand {
     SetCursorPosition {
         position: Vec2,
     },
-    /// Set whether or not the window is maxizimed.
+    /// Set whether or not the window is maximized.
     SetMaximized {
         maximized: bool,
     },

@@ -86,7 +86,7 @@ pub struct Style {
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
-    /// The position of the node as descrided by its Rect
+    /// The position of the node as described by its Rect
     pub position: UiRect<Val>,
     /// The margin of the node
     pub margin: UiRect<Val>,

@@ -387,7 +387,7 @@ pub unsafe trait Fetch<'world>: Sized {
     const IS_DENSE: bool;
 
     /// Returns true if (and only if) this Fetch relies strictly on archetypes to limit which
-    /// components are acessed by the Query.
+    /// components are accessed by the Query.
     ///
     /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
     /// many elements are being iterated (such as `Iterator::collect()`).
