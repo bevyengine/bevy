@@ -1,4 +1,4 @@
-use crate::{entity::UiCameraConfig, CalculatedClip, Node};
+use crate::{entity::UiCameraConfig, prelude::UiCameraProjection, CalculatedClip, Node};
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -12,7 +12,7 @@ use bevy_render::camera::{Camera, RenderTarget};
 use bevy_render::view::ComputedVisibility;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
-use bevy_window::Windows;
+use bevy_window::{Window, Windows};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -67,7 +67,7 @@ pub struct State {
 /// Entities with a hidden [`ComputedVisibility`] are always treated as released.
 pub fn ui_focus_system(
     mut state: Local<State>,
-    camera: Query<(&Camera, Option<&UiCameraConfig>)>,
+    camera: Query<(&Camera, Option<&UiCameraConfig>, &UiCameraProjection)>,
     windows: Res<Windows>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
@@ -108,20 +108,31 @@ pub fn ui_focus_system(
     let is_ui_disabled =
         |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
 
+    let curosr_position =
+        |(window, cam_position, projection): (&Window, Vec2, &UiCameraProjection)| {
+            let position = match window.cursor_position() {
+                Some(pos) => pos,
+                None => touches_input.first_pressed_position()?,
+            };
+            // Adapt the cursor position based on UI cam position
+            let projection = projection.projection();
+            let proj_offset = Vec2::new(projection.left, projection.bottom);
+            Some((position + proj_offset) * projection.scale + cam_position)
+        };
     let cursor_position = camera
         .iter()
-        .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
-        .filter_map(|(camera, _)| {
+        .filter(|(_, camera_ui, _)| !is_ui_disabled(*camera_ui))
+        .filter_map(|(camera, ui_config, proj)| {
             if let RenderTarget::Window(window_id) = camera.target {
-                Some(window_id)
+                let ui_cam_position = ui_config.map_or(Vec2::ZERO, |c| c.position);
+                Some((window_id, ui_cam_position, proj))
             } else {
                 None
             }
         })
-        .filter_map(|window_id| windows.get(window_id))
-        .filter(|window| window.is_focused())
-        .find_map(|window| window.cursor_position())
-        .or_else(|| touches_input.first_pressed_position());
+        .filter_map(|(window_id, pos, proj)| windows.get(window_id).map(|w| (w, pos, proj)))
+        .filter(|(window, _, _)| window.is_focused())
+        .find_map(curosr_position);
 
     let mut moused_over_z_sorted_nodes = node_query
         .iter_mut()
