@@ -450,8 +450,8 @@ impl Window {
             .push(WindowCommand::SetResizeConstraints { resize_constraints });
     }
 
-    /// Request the OS to resize the window such the the client area matches the
-    /// specified width and height.
+    /// Request the OS to resize the window such the client area matches the specified
+    /// width and height.
     #[allow(clippy::float_cmp)]
     pub fn set_resolution(&mut self, width: f32, height: f32) {
         if self.requested_width == width && self.requested_height == height {

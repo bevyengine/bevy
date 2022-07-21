@@ -136,7 +136,7 @@ impl TextAlignment {
         horizontal: HorizontalAlign::Center,
     };
 
-    /// A [`TextAlignment`] set to the the top-right.
+    /// A [`TextAlignment`] set to the top-right.
     pub const TOP_RIGHT: Self = TextAlignment {
         vertical: VerticalAlign::Top,
         horizontal: HorizontalAlign::Right,
