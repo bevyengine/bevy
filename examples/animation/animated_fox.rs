@@ -123,6 +123,15 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Return) {
             *current_animation = (*current_animation + 1) % animations.0.len();
+
+            player
+                .cross_fade(animations.0[*current_animation].clone_weak(), 1.5)
+                .repeat();
+        }
+        
+        if keyboard_input.just_pressed(KeyCode::P) {
+            *current_animation = (*current_animation + 1) % animations.0.len();
+
             player
                 .play(animations.0[*current_animation].clone_weak())
                 .repeat();
