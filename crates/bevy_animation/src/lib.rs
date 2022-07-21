@@ -179,8 +179,8 @@ impl AnimationPlayer {
 
     /// Crosfade from the current to the next animation
     ///
-    /// - [`handle`] a handle to the target animation clip
-    /// - [`transition_time`] determines the duration of the transition in seconds
+    /// - `handle` a handle to the target animation clip
+    /// - `transition_time` determines the duration of the transition in seconds
     pub fn cross_fade(
         &mut self,
         handle: Handle<AnimationClip>,
