@@ -132,6 +132,8 @@ impl DivAssign<f32> for Val {
 #[reflect(Component, Default, PartialEq)]
 pub struct Style {
     /// Whether to arrange this node and its children with flexbox layout
+    ///
+    /// If this is set to [`Display::None`], this node will be collapsed.
     pub display: Display,
     /// Whether to arrange this node relative to other nodes, or positioned absolutely
     pub position_type: PositionType,
@@ -150,7 +152,7 @@ pub struct Style {
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
-    /// The position of the node as descrided by its Rect
+    /// The position of the node as described by its Rect
     pub position: UiRect,
     /// The margin of the node
     pub margin: UiRect,
@@ -278,14 +280,19 @@ pub enum Direction {
     RightToLeft,
 }
 
-/// Whether to use Flexbox layout
+/// Whether to use a Flexbox layout model.
+///
+/// Part of the [`Style`] component.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Display {
-    /// Use flexbox
+    /// Use Flexbox layout model to determine the position of this [`Node`].
     #[default]
     Flex,
-    /// Use no layout, don't render this node and its children
+    /// Use no layout, don't render this node and its children.
+    ///
+    /// If you want to hide a node and its children,
+    /// but keep its layout in place, set its [`Visibility`](bevy_render::view::Visibility) component instead.
     None,
 }
 

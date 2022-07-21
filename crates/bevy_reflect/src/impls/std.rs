@@ -7,8 +7,7 @@ use crate::{
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
-use bevy_utils::{Duration, HashMap, HashSet};
-use serde::{Deserialize, Serialize};
+use bevy_utils::{Duration, HashMap, HashSet, Instant};
 use std::{
     any::Any,
     borrow::Cow,
@@ -33,10 +32,12 @@ impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>(Serialize, Deserialize));
-impl_reflect_value!(HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
-impl_reflect_value!(Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>(Serialize, Deserialize));
+impl_reflect_value!(Option<T: Clone + Reflect + 'static>());
+impl_reflect_value!(Result<T: Clone + Reflect + 'static, E: Clone + Reflect + 'static>());
+impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
+impl_reflect_value!(Range<T: Clone +  Send + Sync + 'static>());
 impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Instant(Debug, Hash, PartialEq));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -55,15 +56,9 @@ impl_from_reflect_value!(isize);
 impl_from_reflect_value!(f32);
 impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
-impl_from_reflect_value!(
-    Option<T: Serialize + Clone + for<'de> Deserialize<'de> + Reflect + 'static>
-);
-impl_from_reflect_value!(
-    HashSet<T: Serialize + Hash + Eq + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>
-);
-impl_from_reflect_value!(
-    Range<T: Serialize + Clone + for<'de> Deserialize<'de> + Send + Sync + 'static>
-);
+impl_from_reflect_value!(Option<T: Clone + Reflect + 'static>);
+impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(Range<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Duration);
 
 impl<T: FromReflect> Array for Vec<T> {
@@ -171,10 +166,9 @@ impl<T: FromReflect> Typed for Vec<T> {
     }
 }
 
-impl<T: FromReflect + for<'de> Deserialize<'de>> GetTypeRegistration for Vec<T> {
+impl<T: FromReflect> GetTypeRegistration for Vec<T> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Vec<T>>();
-        registration.insert::<ReflectDeserialize>(FromType::<Vec<T>>::from_type());
         registration.insert::<ReflectFromPtr>(FromType::<Vec<T>>::from_type());
         registration
     }
@@ -323,12 +317,11 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Typed for HashMap<K, V> {
 
 impl<K, V> GetTypeRegistration for HashMap<K, V>
 where
-    K: FromReflect + Clone + Eq + Hash + for<'de> Deserialize<'de>,
-    V: FromReflect + Clone + for<'de> Deserialize<'de>,
+    K: FromReflect + Clone + Eq + Hash,
+    V: FromReflect + Clone,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<HashMap<K, V>>();
-        registration.insert::<ReflectDeserialize>(FromType::<HashMap<K, V>>::from_type());
         registration.insert::<ReflectFromPtr>(FromType::<HashMap<K, V>>::from_type());
         registration
     }
@@ -476,11 +469,9 @@ impl<T: Reflect, const N: usize> Typed for [T; N] {
 macro_rules! impl_array_get_type_registration {
     ($($N:expr)+) => {
         $(
-            impl<T: Reflect + for<'de> Deserialize<'de>> GetTypeRegistration for [T; $N] {
+            impl<T: Reflect > GetTypeRegistration for [T; $N] {
                 fn get_type_registration() -> TypeRegistration {
-                    let mut registration = TypeRegistration::of::<[T; $N]>();
-                    registration.insert::<ReflectDeserialize>(FromType::<[T; $N]>::from_type());
-                    registration
+                    TypeRegistration::of::<[T; $N]>()
                 }
             }
         )+

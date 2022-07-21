@@ -27,7 +27,8 @@ pub fn dds_buffer_to_image(
         } else {
             dds.get_depth()
         },
-    };
+    }
+    .physical_size(texture_format);
     image.texture_descriptor.mip_level_count = dds.get_num_mipmap_levels();
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
