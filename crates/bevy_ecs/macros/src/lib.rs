@@ -173,6 +173,25 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
+#[proc_macro_derive(Event, attributes(event))]
+pub fn derive_event(input: TokenStream) -> TokenStream {
+    let path = bevy_ecs_path();
+
+    let input = parse_macro_input!(input as DeriveInput);
+    let ident = input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
+        where_token: Default::default(),
+        predicates: Default::default(),
+    });
+
+    quote! {
+        impl #impl_generics #path::event::Read for #ident #ty_generics #where_clause { }
+        impl #impl_generics #path::event::Write for #ident #ty_generics #where_clause { }
+    }
+    .into()
+}
+
 fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
     (0..count)
         .map(|i| Ident::new(&fmt_string(i), Span::call_site()))

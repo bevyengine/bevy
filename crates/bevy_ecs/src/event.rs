@@ -17,6 +17,8 @@ use std::{
 pub trait Event: Send + Sync + 'static {}
 impl<T> Event for T where T: Send + Sync + 'static {}
 
+pub use bevy_ecs_macros::Event;
+
 /// An `EventId` uniquely identifies an event.
 ///
 /// An `EventId` can among other things be used to trace the flow of an event from the point it was
@@ -82,8 +84,9 @@ struct EventInstance<E: Event> {
 ///
 /// # Example
 /// ```
-/// use bevy_ecs::event::Events;
+/// use bevy_ecs::prelude::*;
 ///
+/// #[derive(Event)]
 /// struct MyEvent {
 ///     value: usize
 /// }
@@ -239,6 +242,7 @@ where
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Event)]
     /// struct CollisionEvent;
     ///
     /// fn play_collision_sound(events: EventReader<CollisionEvent>) {
@@ -281,7 +285,9 @@ pub trait Write<Vis = ()> {}
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
+/// #[derive(Event)]
 /// pub struct MyEvent; // Custom event type.
+///
 /// fn my_system(mut writer: EventWriter<MyEvent>) {
 ///     writer.send(MyEvent);
 /// }
@@ -344,7 +350,7 @@ pub trait Write<Vis = ()> {}
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, event::Events};
-///
+/// # #[derive(Event)]
 /// # pub struct MyEvent;
 /// fn send_untyped(mut commands: Commands) {
 ///     // Send an event of a specific type without having to declare that
@@ -702,7 +708,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Copy, Clone, PartialEq, Eq, Debug, Event)]
     struct TestEvent {
         i: usize,
     }
@@ -798,14 +804,14 @@ mod tests {
         );
     }
 
-    fn get_events<E: Event + Clone>(
+    fn get_events<E: Event + Clone + Read>(
         events: &Events<E>,
         reader: &mut ManualEventReader<E>,
     ) -> Vec<E> {
         reader.iter(events).cloned().collect::<Vec<E>>()
     }
 
-    #[derive(PartialEq, Eq, Debug)]
+    #[derive(Event, PartialEq, Eq, Debug)]
     struct E(usize);
 
     fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Events<E>)) {
@@ -953,7 +959,7 @@ mod tests {
         assert!(is_empty, "EventReader should be empty");
     }
 
-    #[derive(Clone, PartialEq, Debug, Default)]
+    #[derive(Clone, PartialEq, Debug, Default, Event)]
     struct EmptyTestEvent;
 
     #[test]
@@ -970,7 +976,7 @@ mod tests {
 
     #[test]
     fn ensure_reader_readonly() {
-        fn read_for<E: Event>() {
+        fn read_for<E: Event + Read>() {
             let mut world = World::new();
             world.init_resource::<Events<E>>();
             let mut state = SystemState::<EventReader<E>>::new(&mut world);

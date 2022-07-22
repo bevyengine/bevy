@@ -1058,5 +1058,5 @@ fn run_once(mut app: App) {
 /// You can also use this event to detect that an exit was requested. In order to receive it, systems
 /// subscribing to this event should run after it was emitted and before the schedule of the same
 /// frame is over.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Event)]
 pub struct AppExit;

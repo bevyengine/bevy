@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
 use super::{WindowDescriptor, WindowId};
+use bevy_ecs::event::Event;
 use bevy_math::{IVec2, Vec2};
 
 /// A window event that is sent whenever a window's logical size has changed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct WindowResized {
     pub id: WindowId,
     /// The new logical width of the window.
@@ -14,7 +15,7 @@ pub struct WindowResized {
 }
 
 /// An event that indicates that a new window should be created.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct CreateWindow {
     pub id: WindowId,
     pub descriptor: WindowDescriptor,
@@ -22,14 +23,14 @@ pub struct CreateWindow {
 
 /// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
 /// there have been no window events.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct RequestRedraw;
 
 /// An event that is sent whenever a new window is created.
 ///
 /// To create a new window, send a [`CreateWindow`] event - this
 /// event will be sent in the handler for that event.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct WindowCreated {
     pub id: WindowId,
 }
@@ -45,7 +46,7 @@ pub struct WindowCreated {
 /// [`WindowPlugin`]: crate::WindowPlugin
 /// [`Window`]: crate::Window
 /// [closing]: crate::Window::close
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct WindowCloseRequested {
     pub id: WindowId,
 }
@@ -54,7 +55,7 @@ pub struct WindowCloseRequested {
 /// handler for [`Window::close`].
 ///
 /// [`Window::close`]: crate::Window::close
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct WindowClosed {
     pub id: WindowId,
 }
@@ -67,7 +68,7 @@ pub struct WindowClosed {
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
 /// [`MouseMotion`]: bevy_input::mouse::MouseMotion
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct CursorMoved {
     /// The identifier of the window the cursor has moved on.
     pub id: WindowId,
@@ -76,45 +77,45 @@ pub struct CursorMoved {
     pub position: Vec2,
 }
 /// An event that is sent whenever the user's cursor enters a window.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct CursorEntered {
     pub id: WindowId,
 }
 /// An event that is sent whenever the user's cursor leaves a window.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct CursorLeft {
     pub id: WindowId,
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct ReceivedCharacter {
     pub id: WindowId,
     pub char: char,
 }
 
 /// An event that indicates a window has received or lost focus.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct WindowFocused {
     pub id: WindowId,
     pub focused: bool,
 }
 
 /// An event that indicates a window's scale factor has changed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct WindowScaleFactorChanged {
     pub id: WindowId,
     pub scale_factor: f64,
 }
 /// An event that indicates a window's OS-reported scale factor has changed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct WindowBackendScaleFactorChanged {
     pub id: WindowId,
     pub scale_factor: f64,
 }
 
 /// Events related to files being dragged and dropped on a window.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub enum FileDragAndDrop {
     DroppedFile { id: WindowId, path_buf: PathBuf },
 
@@ -124,7 +125,7 @@ pub enum FileDragAndDrop {
 }
 
 /// An event that is sent when a window is repositioned in physical pixels.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct WindowMoved {
     pub id: WindowId,
     pub position: IVec2,

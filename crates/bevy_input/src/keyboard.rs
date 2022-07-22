@@ -1,5 +1,8 @@
 use crate::{ButtonState, Input};
-use bevy_ecs::{event::EventReader, system::ResMut};
+use bevy_ecs::{
+    event::{Event, EventReader},
+    system::ResMut,
+};
 
 /// A keyboard input event.
 ///
@@ -10,7 +13,7 @@ use bevy_ecs::{event::EventReader, system::ResMut};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct KeyboardInput {
     /// The scan code of the key.
     pub scan_code: u32,

@@ -1,4 +1,4 @@
-use bevy_ecs::event::EventReader;
+use bevy_ecs::event::{Event, EventReader};
 use bevy_ecs::system::ResMut;
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
@@ -26,7 +26,7 @@ use bevy_utils::HashMap;
 ///
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Event)]
 pub struct TouchInput {
     /// The phase of the touch input.
     pub phase: TouchPhase,

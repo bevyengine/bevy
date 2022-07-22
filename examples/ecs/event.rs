@@ -15,11 +15,12 @@ fn main() {
         .run();
 }
 
+#[derive(Event)]
 struct MyEvent {
     pub message: String,
 }
 
-#[derive(Default)]
+#[derive(Default, Event)]
 struct PlaySound;
 
 struct EventTriggerState {

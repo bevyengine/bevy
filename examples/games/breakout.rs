@@ -82,7 +82,7 @@ struct Velocity(Vec2);
 #[derive(Component)]
 struct Collider;
 
-#[derive(Default)]
+#[derive(Default, Event)]
 struct CollisionEvent;
 
 #[derive(Component)]

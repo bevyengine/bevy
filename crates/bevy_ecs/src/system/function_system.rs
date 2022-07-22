@@ -81,6 +81,7 @@ impl SystemMeta {
 /// use bevy_ecs::{system::SystemState};
 /// use bevy_ecs::event::Events;
 ///
+/// #[derive(Event)]
 /// struct MyEvent;
 /// struct MyResource(u32);
 ///
@@ -109,6 +110,7 @@ impl SystemMeta {
 /// use bevy_ecs::{system::SystemState};
 /// use bevy_ecs::event::Events;
 ///
+/// #[derive(Event)]
 /// struct MyEvent;
 /// struct CachedSystemState<'w, 's>{
 ///    event_state: SystemState<EventReader<'w, 's, MyEvent>>

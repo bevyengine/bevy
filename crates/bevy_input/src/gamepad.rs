@@ -1,5 +1,5 @@
 use crate::{Axis, Input};
-use bevy_ecs::event::{EventReader, EventWriter};
+use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::info, HashMap, HashSet};
 
@@ -54,7 +54,7 @@ pub enum GamepadEventType {
     AxisChanged(GamepadAxisType, f32),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Event)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEvent {
     pub gamepad: Gamepad,
@@ -70,7 +70,7 @@ impl GamepadEvent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Event)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEventRaw {
     pub gamepad: Gamepad,

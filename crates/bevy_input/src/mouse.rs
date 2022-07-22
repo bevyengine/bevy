@@ -1,5 +1,8 @@
 use crate::{ButtonState, Input};
-use bevy_ecs::{event::EventReader, system::ResMut};
+use bevy_ecs::{
+    event::{Event, EventReader},
+    system::ResMut,
+};
 use bevy_math::Vec2;
 
 /// A mouse button input event.
@@ -10,7 +13,7 @@ use bevy_math::Vec2;
 ///
 /// The event is read inside of the [`mouse_button_input_system`](crate::mouse::mouse_button_input_system)
 /// to update the [`Input<MouseButton>`](crate::Input<MouseButton>) resource.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct MouseButtonInput {
     /// The mouse button assigned to the event.
     pub button: MouseButton,
@@ -50,7 +53,7 @@ pub enum MouseButton {
 /// However, the event data does not make it possible to distinguish which device it is referring to.
 ///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct MouseMotion {
     /// The change in the position of the pointing device since the last event was sent.
     pub delta: Vec2,
@@ -79,7 +82,7 @@ pub enum MouseScrollUnit {
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct MouseWheel {
     /// The mouse scroll unit.
     pub unit: MouseScrollUnit,
