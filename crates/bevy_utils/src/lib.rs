@@ -194,7 +194,7 @@ impl Hasher for PassHasher {
     }
 }
 
-/// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
+/// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] pass through hashing.
 pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;
 
 /// Extension methods intended to add functionality to [`PreHashMap`].
