@@ -127,7 +127,7 @@ pub fn ui_focus_system(
         .iter_mut()
         .filter_map(
             |(entity, node, global_transform, interaction, focus_policy, clip, visibility)| {
-                // Nodes that are not rendered should not be intractable
+                // Nodes that are not rendered should not be interactable
                 if let Some(computed_visibility) = visibility {
                     if !computed_visibility.is_visible() {
                         // Reset their interaction to None to avoid strange stuck state
