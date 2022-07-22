@@ -1,18 +1,17 @@
 mod render_layers;
 
-use smallvec::SmallVec;
-
 pub use render_layers::*;
 
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use std::cell::Cell;
 use thread_local::ThreadLocal;
 
@@ -168,58 +167,16 @@ impl VisibleEntities {
     }
 }
 
-/// Tracks which [`Entities`](Entity) have which meshes for entities whose [`Aabb`]s are managed by
-/// the [`calculate_bounds`] and [`update_bounds`] systems. This is needed because `update_bounds`
-/// recomputes `Aabb`s for entities whose mesh has been mutated. These mutations are visible via
-/// [`AssetEvent<Mesh>`](AssetEvent) which tells us which mesh was changed but not which entities
-/// have that mesh.
-#[derive(Debug, Default, Clone)]
-pub struct EntityMeshMap {
-    entities_with_mesh: HashMap<Handle<Mesh>, SmallVec<[Entity; 1]>>,
-    mesh_for_entity: HashMap<Entity, Handle<Mesh>>,
-}
-
-impl EntityMeshMap {
-    /// Register the passed `entity` as having the passed `mesh_handle`.
-    fn register(&mut self, entity: Entity, mesh_handle: &Handle<Mesh>) {
-        // Note that this list can have duplicates if an entity is registered for a mesh multiple
-        // times. This should be rare and only cause an additional `Aabb.clone()` in
-        // `update_bounds` so it is preferable to a `HashSet` for now.
-        self.entities_with_mesh
-            .entry(mesh_handle.clone_weak())
-            .or_default()
-            .push(entity);
-        self.mesh_for_entity
-            .insert(entity, mesh_handle.clone_weak());
-    }
-
-    /// Deregisters the mapping between an `Entity` and `Mesh`. Used so [`update_bounds`] can
-    /// track which mappings are still active so `Aabb`s are updated correctly.
-    fn deregister(&mut self, entity: Entity) {
-        let mut inner = || {
-            let mesh = self.mesh_for_entity.remove(&entity)?;
-
-            // This lookup failing is _probably_ an error.
-            let entities = self.entities_with_mesh.get_mut(&mesh)?;
-
-            // There could be duplicate entries in here if an entity was registered with a mesh
-            // multiple times. It's important to remove all references so that if an entity gets a
-            // new mesh and its old mesh is mutated, the entity doesn't get its old mesh's new
-            // `Aabb`. Note that there _should_ only be one entity.
-            for i in (0..entities.len()).rev() {
-                if entities[i] == entity {
-                    entities.swap_remove(i);
-                }
-            }
-            Some(())
-        };
-        inner();
-    }
+/// Tracks the [`Aabb`]s that have been provided by users or computed automatically for [`Mesh`]
+/// assets. Maintenance of the mapping is carried out by the [`update_bounds`] system. This is
+/// needed to avoid computing [`Aabb`]s per-[`Entity`] where they could be calculated per-[`Mesh`].
+#[derive(Debug, Default, Clone, Deref, DerefMut)]
+pub struct MeshAabbMap {
+    map: HashMap<Handle<Mesh>, Aabb>,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum VisibilitySystems {
-    CalculateBounds,
     UpdateBounds,
     UpdateOrthographicFrusta,
     UpdatePerspectiveFrusta,
@@ -236,11 +193,7 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.init_resource::<EntityMeshMap>()
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                calculate_bounds.label(CalculateBounds),
-            )
+        app.init_resource::<MeshAabbMap>()
             .add_system_to_stage(CoreStage::PostUpdate, update_bounds.label(UpdateBounds))
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -268,7 +221,6 @@ impl Plugin for VisibilityPlugin {
                 CoreStage::PostUpdate,
                 check_visibility
                     .label(CheckVisibility)
-                    .after(CalculateBounds)
                     .after(UpdateBounds)
                     .after(UpdateOrthographicFrusta)
                     .after(UpdatePerspectiveFrusta)
@@ -279,74 +231,97 @@ impl Plugin for VisibilityPlugin {
     }
 }
 
-/// Calculates [`Aabb`]s for [`Entities`](Entity) with [`Mesh`]es.
-pub fn calculate_bounds(
-    mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
-    mut entity_mesh_map: ResMut<EntityMeshMap>,
-) {
-    for (entity, mesh_handle) in &without_aabb {
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                entity_mesh_map.register(entity, mesh_handle);
-                commands.entity(entity).insert(aabb);
-            }
-        }
-    }
-}
-
 /// Updates [`Aabb`]s for [`Entities`](Entity) with [`Mesh`]es. This includes `Entities` that have
 /// been assigned new `Mesh`es as well as `Entities` whose `Mesh` has been directly mutated.
 ///
 /// To opt out of bound calculation for an `Entity`, give it the [`NoAabbUpdate`] component.
-///
-/// NOTE: This system needs to remove entities from their collection in
-/// [`EntityMeshMap`] whenever a mesh handle is reassigned or an entity's mesh handle is
-/// removed. This may impact performance if meshes with many entities are frequently
-/// reassigned/removed.
 pub fn update_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    mut mesh_reassigned: Query<
-        (Entity, &Handle<Mesh>, &mut Aabb),
-        (
-            Changed<Handle<Mesh>>,
-            Without<NoFrustumCulling>,
-            Without<NoAabbUpdate>,
-        ),
-    >,
-    mut entity_mesh_map: ResMut<EntityMeshMap>,
+    mut queries: ParamSet<(
+        Query<(&Handle<Mesh>, &Aabb), Changed<Aabb>>,
+        Query<
+            (
+                Entity,
+                &Handle<Mesh>,
+                Changed<Handle<Mesh>>,
+                Option<&mut Aabb>,
+            ),
+            (Without<NoFrustumCulling>, Without<NoAabbUpdate>),
+        >,
+    )>,
+    mut mesh_aabb_map: ResMut<MeshAabbMap>,
     mut mesh_events: EventReader<AssetEvent<Mesh>>,
-    entities_lost_mesh: RemovedComponents<Handle<Mesh>>,
+    mut changed_aabbs: Local<HashSet<Handle<Mesh>>>,
+    mut inserted_aabb_components: Local<HashSet<Handle<Mesh>>>,
 ) {
-    for entity in entities_lost_mesh.iter() {
-        entity_mesh_map.deregister(entity);
+    // Identify Aabbs added to / updated on entities with Handle<Mesh> outside of this system. The
+    // goal here is to avoid recomputing Aabbs for Meshes that have already been computed
+    // elsewhere.
+    for (mesh_handle, aabb) in queries.p0().iter() {
+        // If the Aabb component was inserted using Commands on the previous run of this system,
+        // do not consider it as Changed for this run.
+        if inserted_aabb_components.contains(mesh_handle) {
+            continue;
+        }
+        // NOTE: If two entities with the same Handle<Mesh> have different Aabbs then the last one
+        // will win here
+        mesh_aabb_map.insert(mesh_handle.clone_weak(), aabb.clone());
+        changed_aabbs.insert(mesh_handle.clone_weak());
     }
+    inserted_aabb_components.clear();
 
-    for (entity, mesh_handle, mut aabb) in mesh_reassigned.iter_mut() {
-        entity_mesh_map.deregister(entity);
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(new_aabb) = mesh.compute_aabb() {
-                entity_mesh_map.register(entity, mesh_handle);
-                *aabb = new_aabb;
+    // Check AssetEvents for Meshes to maintain the Handle<Mesh> -> Aabb map. If a Created or
+    // Modified event is observed for a Handle<Mesh> that is in the changed_aabbs set, then skip
+    // recomputing the Aabb.
+    let mut updated_aabbs = HashSet::new();
+    for event in mesh_events.iter() {
+        match event {
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
+                if changed_aabbs.contains(handle) {
+                    // If the Aabb was manually added for this Handle<Mesh>, do not recompute it
+                    changed_aabbs.remove(handle);
+                    continue;
+                }
+                if let Some(mesh) = meshes.get(handle) {
+                    if let Some(updated_aabb) = mesh.compute_aabb() {
+                        mesh_aabb_map.insert(handle.clone_weak(), updated_aabb);
+                        updated_aabbs.insert(handle.clone_weak());
+                    }
+                }
+            }
+            AssetEvent::Removed { handle } => {
+                mesh_aabb_map.remove(handle);
             }
         }
     }
 
-    let to_update = |event: &AssetEvent<Mesh>| {
-        let handle = match event {
-            AssetEvent::Modified { handle } => handle,
-            _ => return None,
-        };
-        let mesh = meshes.get(handle)?;
-        let entities_with_handle = entity_mesh_map.entities_with_mesh.get(handle)?;
-        let aabb = mesh.compute_aabb()?;
-        Some((aabb, entities_with_handle))
-    };
-    for (aabb, entities_with_handle) in mesh_events.iter().filter_map(to_update) {
-        for entity in entities_with_handle {
-            commands.entity(*entity).insert(aabb.clone());
+    // Check and update Aabbs on entities with Handle<Mesh>. This handles the following cases:
+    // - The Handle<Mesh> on the entity is modified.
+    // - The Aabb corresponding to the Handle<Mesh> was updated. This will happen if a Mesh itself
+    //   is modified.
+    // - An Aabb was just added to or updated on the entity outside of this system.
+    for (entity, mesh_handle, mesh_changed, aabb) in queries.p1().iter_mut() {
+        // If an Aabb was just added/modified outside of this system, skip updating the component
+        if changed_aabbs.contains(mesh_handle) {
+            continue;
+        }
+        // If the Handle<Mesh> on the entity was modified, or the Aabb was updated due to the Mesh
+        // itself being modified, then update the entity's Aabb component
+        if mesh_changed || updated_aabbs.contains(mesh_handle) {
+            if let Some(updated_aabb) = mesh_aabb_map.get(mesh_handle) {
+                if let Some(mut aabb) = aabb {
+                    // If there is an existing Aabb component, we can update it in-place
+                    *aabb = updated_aabb.clone();
+                } else {
+                    commands.entity(entity).insert(updated_aabb.clone());
+                    // NOTE: Inserting a component via Commands causes a Changed<Component> query
+                    // in this system to be hit next time the system is run. As such, track the
+                    // Handle<Mesh> for which Aabbs were inserted on this run in order to avoid
+                    // detecting them as Changed on the next run.
+                    inserted_aabb_components.insert(mesh_handle.clone_weak());
+                }
+            }
         }
     }
 }
