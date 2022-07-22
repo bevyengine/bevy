@@ -78,7 +78,12 @@ impl Plugin for MeshRenderPlugin {
             Shader::from_wgsl
         );
         load_internal_asset!(app, MESH_TYPES_HANDLE, "mesh_types.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, MESH_VIEW_USER_BINDINGS_HANDLE, "mesh_view_user_bindings.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            MESH_VIEW_USER_BINDINGS_HANDLE,
+            "mesh_view_user_bindings.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             MESH_BINDINGS_HANDLE,
@@ -273,7 +278,7 @@ pub struct UserViewBindGroupLayoutEntry {
     pub ty: BindingType,
 }
 
-pub trait GetBinding : Send + Sync {
+pub trait GetBinding: Send + Sync {
     fn get_binding(&self) -> BindingResource;
 }
 
@@ -300,7 +305,8 @@ impl FromWorld for MeshPipeline {
             Res<RenderQueue>,
             ResMut<UserViewBindingsLayouts>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue, user_entries) = system_state.get_mut(world);
+        let (render_device, default_sampler, render_queue, user_entries) =
+            system_state.get_mut(world);
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
@@ -414,14 +420,18 @@ impl FromWorld for MeshPipeline {
             },
         ];
 
-        entries.extend(user_entries.entries.iter().enumerate().map(|(i, (_key, value))| {
-            BindGroupLayoutEntry {
-                binding: 9 + i as u32,
-                visibility: value.visibility,
-                ty: value.ty,
-                count: None,
-            }
-        }));
+        entries.extend(
+            user_entries
+                .entries
+                .iter()
+                .enumerate()
+                .map(|(i, (_key, value))| BindGroupLayoutEntry {
+                    binding: 9 + i as u32,
+                    visibility: value.visibility,
+                    ty: value.ty,
+                    count: None,
+                }),
+        );
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &entries,
@@ -838,9 +848,7 @@ pub fn queue_mesh_view_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 5,
-                    resource: BindingResource::Sampler(
-                        &shadow_pipeline.directional_light_sampler,
-                    ),
+                    resource: BindingResource::Sampler(&shadow_pipeline.directional_light_sampler),
                 },
                 BindGroupEntry {
                     binding: 6,
@@ -856,12 +864,17 @@ pub fn queue_mesh_view_bind_groups(
                 },
             ];
 
-            let user_buffers: Vec<_> = user_bindings.entries.iter().map(|(key, _)| {
-                user_binding_entries.entries.get(key).unwrap().get_binding()
-            }).collect();
+            let user_buffers: Vec<_> = user_bindings
+                .entries
+                .iter()
+                .map(|(key, _)| user_binding_entries.entries.get(key).unwrap().get_binding())
+                .collect();
 
             entries.extend(user_buffers.into_iter().enumerate().map(|(i, resource)| {
-                BindGroupEntry { binding: 9 + i as u32, resource }
+                BindGroupEntry {
+                    binding: 9 + i as u32,
+                    resource,
+                }
             }));
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {

@@ -1,4 +1,20 @@
-use bevy::{prelude::*, render::{render_resource::{ShaderType, AsBindGroup, Buffer, ShaderStages, BindingType, BufferBindingType, encase::UniformBuffer, BufferInitDescriptor, BufferUsages, ShaderRef}, RenderApp, RenderStage, Extract, renderer::RenderDevice}, pbr::{GetBinding, UserViewBindingsLayouts, UserViewBindGroupLayoutEntry, MESH_VIEW_USER_BINDINGS_HANDLE, queue_mesh_view_bind_groups, UserViewBindingsEntries}, asset::load_internal_asset, reflect::TypeUuid};
+use bevy::{
+    asset::load_internal_asset,
+    pbr::{
+        queue_mesh_view_bind_groups, GetBinding, UserViewBindGroupLayoutEntry,
+        UserViewBindingsEntries, UserViewBindingsLayouts, MESH_VIEW_USER_BINDINGS_HANDLE,
+    },
+    prelude::*,
+    reflect::TypeUuid,
+    render::{
+        render_resource::{
+            encase::UniformBuffer, AsBindGroup, BindingType, Buffer, BufferBindingType,
+            BufferInitDescriptor, BufferUsages, ShaderRef, ShaderStages, ShaderType,
+        },
+        renderer::RenderDevice,
+        Extract, RenderApp, RenderStage,
+    },
+};
 
 fn main() {
     let mut app = App::new();
@@ -38,9 +54,7 @@ fn setup(
     // cube using the example material
     commands.spawn_bundle(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: custom_materials.add(CustomMaterial {
-            color: Color::PINK,
-        }),
+        material: custom_materials.add(CustomMaterial { color: Color::PINK }),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -82,27 +96,44 @@ pub struct CustomViewBindingPlugin;
 
 impl CustomViewBindingPlugin {
     pub fn add_view_bindings(app: &mut App) {
-        let mut user_bindings = app.world.get_resource_or_insert_with::<UserViewBindingsLayouts>(|| Default::default());
-        user_bindings.entries.push(("example custom view binding", UserViewBindGroupLayoutEntry {
-            visibility: ShaderStages::FRAGMENT,
-            ty: BindingType::Buffer { ty: BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: Some(CustomViewUniform::min_size()) },
-        }));
+        let mut user_bindings = app
+            .world
+            .get_resource_or_insert_with::<UserViewBindingsLayouts>(|| Default::default());
+        user_bindings.entries.push((
+            "example custom view binding",
+            UserViewBindGroupLayoutEntry {
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: Some(CustomViewUniform::min_size()),
+                },
+            },
+        ));
     }
 }
 
 impl Plugin for CustomViewBindingPlugin {
     fn build(&self, app: &mut App) {
         // override mesh view bindings
-        load_internal_asset!(app, MESH_VIEW_USER_BINDINGS_HANDLE, "custom_view_bindings.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            MESH_VIEW_USER_BINDINGS_HANDLE,
+            "custom_view_bindings.wgsl",
+            Shader::from_wgsl
+        );
 
         // extract resource
-        app.sub_app_mut(RenderApp).add_system_to_stage(RenderStage::Extract, extract_time);
+        app.sub_app_mut(RenderApp)
+            .add_system_to_stage(RenderStage::Extract, extract_time);
 
         // add custom view binding
-        app.sub_app_mut(RenderApp).add_system_to_stage(RenderStage::Queue, queue_custom_view_binding.before(queue_mesh_view_bind_groups));
+        app.sub_app_mut(RenderApp).add_system_to_stage(
+            RenderStage::Queue,
+            queue_custom_view_binding.before(queue_mesh_view_bind_groups),
+        );
     }
 }
-
 
 fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
     commands.insert_resource(time.clone());
@@ -128,8 +159,10 @@ fn queue_custom_view_binding(
     });
 
     let uniform_buffer = CustomViewUniformBuffer {
-        buffer: view_uniform_buffer
+        buffer: view_uniform_buffer,
     };
 
-    entries.entries.insert("example custom view binding", Box::new(uniform_buffer));
+    entries
+        .entries
+        .insert("example custom view binding", Box::new(uniform_buffer));
 }
