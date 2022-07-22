@@ -25,7 +25,7 @@ use smallvec::SmallVec;
 /// If a UI node has both [`Interaction`] and [`ComputedVisibility`] components,
 /// [`Interaction`] will always be [`Interaction::None`]
 /// when [`ComputedVisibility::is_visible()`] is false.
-/// This ensures that hidden UI nodes are not intractable,
+/// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
