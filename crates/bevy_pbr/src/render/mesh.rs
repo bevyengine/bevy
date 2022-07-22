@@ -420,13 +420,15 @@ impl FromWorld for MeshPipeline {
             },
         ];
 
+        let user_binding_offset = entries.len();
+
         entries.extend(
             user_entries
                 .entries
                 .iter()
                 .enumerate()
                 .map(|(i, (_key, value))| BindGroupLayoutEntry {
-                    binding: 9 + i as u32,
+                    binding: (user_binding_offset + i) as u32,
                     visibility: value.visibility,
                     ty: value.ty,
                     count: None,
@@ -864,6 +866,9 @@ pub fn queue_mesh_view_bind_groups(
                 },
             ];
 
+            let user_binding_offset = entries.len();
+
+            // collect binding resources in the layout vec order
             let user_buffers: Vec<_> = user_bindings
                 .entries
                 .iter()
@@ -872,7 +877,7 @@ pub fn queue_mesh_view_bind_groups(
 
             entries.extend(user_buffers.into_iter().enumerate().map(|(i, resource)| {
                 BindGroupEntry {
-                    binding: 9 + i as u32,
+                    binding: (user_binding_offset + i) as u32,
                     resource,
                 }
             }));

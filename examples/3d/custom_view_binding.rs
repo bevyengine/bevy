@@ -36,7 +36,6 @@ impl Material for CustomMaterial {
     }
 }
 
-// This is the struct that will be passed to your shader
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
 #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 pub struct CustomMaterial {
@@ -116,6 +115,9 @@ impl CustomViewBindingPlugin {
 impl Plugin for CustomViewBindingPlugin {
     fn build(&self, app: &mut App) {
         // override mesh view bindings
+        // note: if an app uses multiple plugins with custom view bindings, you will need to create
+        // a single view_binding .wgsl file containing all the bindings from the plugins, and override
+        // the MESH_VIEW_USER_BINDINGS_HANDLE again after adding the plugins
         load_internal_asset!(
             app,
             MESH_VIEW_USER_BINDINGS_HANDLE,
@@ -123,14 +125,16 @@ impl Plugin for CustomViewBindingPlugin {
             Shader::from_wgsl
         );
 
-        // extract resource
+        // extract example resource
         app.sub_app_mut(RenderApp)
             .add_system_to_stage(RenderStage::Extract, extract_time);
 
-        // add custom view binding
+        // create the custom view binding buffer
         app.sub_app_mut(RenderApp).add_system_to_stage(
             RenderStage::Queue,
-            queue_custom_view_binding.before(queue_mesh_view_bind_groups),
+            queue_custom_view_binding
+                // must be before queue_mesh_view_bind_groups which requests the user bindings
+                .before(queue_mesh_view_bind_groups),
         );
     }
 }
