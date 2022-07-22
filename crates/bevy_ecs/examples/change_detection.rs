@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, stage_label};
 use rand::Rng;
 use std::ops::Deref;
 
@@ -30,7 +30,8 @@ fn main() {
     update.add_system(remove_old_entities.after(SimulationSystem::Age));
     update.add_system(print_changed_entities.after(SimulationSystem::Age));
     // Add the Stage with our systems to the Schedule
-    schedule.add_stage("update", update);
+    stage_label!(Update);
+    schedule.add_stage(Update, update);
 
     // Simulate 10 frames in our world
     for iteration in 1..=10 {

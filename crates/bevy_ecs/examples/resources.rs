@@ -1,4 +1,4 @@
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, stage_label};
 use rand::Rng;
 use std::ops::Deref;
 
@@ -15,10 +15,15 @@ fn main() {
     let mut schedule = Schedule::default();
     let mut update = SystemStage::parallel();
 
+    // Declare a private stage label
+
     // Add systems to increase the counter and to print out the current value
     update.add_system(increase_counter);
     update.add_system(print_counter.after(increase_counter));
-    schedule.add_stage("update", update);
+
+    // Add the stage to the schedule.
+    stage_label!(Update);
+    schedule.add_stage(Update, update);
 
     for iteration in 1..=10 {
         println!("Simulating frame {}/10", iteration);
