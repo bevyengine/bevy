@@ -310,6 +310,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "custom_view_binding"
+path = "examples/3d/custom_view_binding.rs"
+
+[package.metadata.example.custom_view_binding]
+name = "Custom View Binding"
+description = "Illustrates a custom view binding"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
