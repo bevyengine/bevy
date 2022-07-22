@@ -869,18 +869,19 @@ pub fn queue_mesh_view_bind_groups(
             let user_binding_offset = entries.len();
 
             // collect binding resources in the layout vec order
-            let user_buffers: Vec<_> = user_bindings
+            let user_buffers = user_bindings
                 .entries
                 .iter()
-                .map(|(key, _)| user_binding_entries.entries.get(key).unwrap().get_binding())
-                .collect();
+                .map(|(key, _)| user_binding_entries.entries.get(key).unwrap().get_binding());
 
-            entries.extend(user_buffers.into_iter().enumerate().map(|(i, resource)| {
-                BindGroupEntry {
-                    binding: (user_binding_offset + i) as u32,
-                    resource,
-                }
-            }));
+            entries.extend(
+                user_buffers
+                    .enumerate()
+                    .map(|(i, resource)| BindGroupEntry {
+                        binding: (user_binding_offset + i) as u32,
+                        resource,
+                    }),
+            );
 
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &entries,
