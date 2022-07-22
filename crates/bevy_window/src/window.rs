@@ -625,10 +625,10 @@ impl Window {
     /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
-    pub fn set_cursor_visibility(&mut self, visibile_mode: bool) {
-        self.cursor_visible = visibile_mode;
+    pub fn set_cursor_visibility(&mut self, visible_mode: bool) {
+        self.cursor_visible = visible_mode;
         self.command_queue.push(WindowCommand::SetCursorVisibility {
-            visible: visibile_mode,
+            visible: visible_mode,
         });
     }
     /// Get the current [`CursorIcon`]
