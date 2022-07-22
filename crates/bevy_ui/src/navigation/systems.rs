@@ -238,8 +238,7 @@ pub fn default_keyboard_input(
     without_movement.iter().for_each(send_command);
 }
 
-/// [`SystemParam`](https://docs.rs/bevy/0.7.0/bevy/ecs/system/trait.SystemParam.html)
-/// used to compute UI focusable physical positions in mouse input systems.
+/// [`SystemParam`] used to compute UI focusable physical positions in mouse input systems.
 #[derive(SystemParam)]
 pub struct NodePosQuery<'w, 's> {
     entities: Query<'w, 's, (Entity, &'static Node, &'static GlobalTransform), With<Focusable>>,

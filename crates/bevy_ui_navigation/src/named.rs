@@ -1,17 +1,16 @@
-//! Declare menu navigation through
-//! [`Name`](https://docs.rs/bevy/0.8.0/bevy/core/struct.Name.html).
+//! Declare menu navigation through [`Name`].
 //!
 //! The most difficult part of the API to deal with was giving
-//! [`NavMenu::reachable_from`](crate::NavMenu::reachable_from) the `Entity` for of
+//! [`MenuSetting::reachable_from`](crate::MenuSetting::reachable_from) the `Entity` for of
 //! the button used to reach it.
 //!
 //! This forced you to divide the whole menu construction in multiple
 //! parts and keep track of intermediary values if you want to make multple menus.
 //!
 //! *By-name declaration* let you simply add a label to your `Focusable` and
-//! refer to it in [`NavMenu::reachable_from_named`](crate::NavMenu::reachable_from_named).
+//! refer to it in [`MenuSetting::reachable_from_named`](crate::MenuSetting::reachable_from_named).
 //! The runtime then detects labelled stuff and replace the partial
-//! [`NavMenu`](crate::NavMenu) with the full [`TreeMenu`](crate::resolve::TreeMenu)
+//! [`MenuSetting`](crate::MenuSetting) with the full [`TreeMenu`](crate::resolve::TreeMenu)
 //! with the proper entity id reference. This saves you from pre-spawning your
 //! buttons so that you can associate their `id` with the proper submenu.
 
@@ -38,7 +37,7 @@ pub(crate) fn resolve_named_menus(
                 None => {
                     let name = parent_name.as_str();
                     bevy_log::warn!(
-                        "Tried to spawn a `NavMenu` with parent focusable {name}, but no\
+                        "Tried to spawn a menu with parent focusable {name}, but no\
                          `Focusable` has a `Name` component with that value."
                     );
                     commands.entity(entity).remove::<MenuBuilder>();
