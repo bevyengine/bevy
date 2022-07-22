@@ -97,7 +97,7 @@ impl CustomViewBindingPlugin {
     pub fn add_view_bindings(app: &mut App) {
         let mut user_bindings: Mut<UserViewBindingsLayouts> = app
             .world
-            .get_resource_or_insert_with(|| UserViewBindingsLayouts::default());
+            .get_resource_or_insert_with(UserViewBindingsLayouts::default);
         user_bindings.entries.push((
             "example custom view binding",
             UserViewBindGroupLayoutEntry {
