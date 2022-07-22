@@ -3,7 +3,6 @@
 //! Spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
 //! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
 mod flex;
-// mod focus;
 mod geometry;
 mod navigation;
 mod render;
@@ -14,8 +13,8 @@ pub mod update;
 pub mod widget;
 
 use bevy_render::extract_component::ExtractComponentPlugin;
+use bevy_ui_navigation::GenericNavigationPlugin;
 pub use flex::*;
-pub use focus::*;
 pub use geometry::*;
 pub use render::*;
 pub use ui_node::*;
@@ -23,7 +22,7 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
+    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, UiScale};
 }
 
 use bevy_app::prelude::*;
@@ -36,6 +35,7 @@ use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
 use update::{ui_z_system, update_clipping_system};
 
+use crate::navigation::UiProjectionQuery;
 use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
@@ -50,6 +50,7 @@ pub enum UiSystem {
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
 }
+pub type NavigationPlugin<'w, 's> = GenericNavigationPlugin<UiProjectionQuery<'w, 's>>;
 
 /// The current scale of the UI.
 ///
@@ -80,8 +81,6 @@ impl Plugin for UiPlugin {
             .register_type::<Display>()
             .register_type::<FlexDirection>()
             .register_type::<FlexWrap>()
-            .register_type::<FocusPolicy>()
-            .register_type::<Interaction>()
             .register_type::<JustifyContent>()
             .register_type::<Node>()
             // NOTE: used by Style::aspect_ratio
@@ -96,10 +95,6 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::ImageMode>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                ui_focus_system.label(UiSystem::Focus).after(InputSystem),
-            )
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
                 CoreStage::PostUpdate,

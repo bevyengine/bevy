@@ -1,25 +1,21 @@
-#[derive(Debug, Clone, Copy)]
-pub struct Rect {
-    pub min: Vec2,
-    pub max: Vec2,
-}
-/// Camera modifiers for movement cycling.
-///
-/// This is only used by the cycling routine to find [`Focusable`]s at the
-/// opposite side of the screen. It's expected to contain the ui camera
-/// projection screen boundaries and position. See implementation of
-/// [`systems::update_boundaries`](crate::systems::update_boundaries) to
-/// see how to implement it yourself.
-///
-/// # Note
-///
-/// This is a [resource](Res). It is optional and will log a warning if
-/// a cycling request is made and it does not exist.
-#[derive(Debug)]
-pub struct ScreenBoundaries {
-    pub position: Vec2,
-    pub screen_edge: Rect,
-    pub scale: f32,
+use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_log::warn;
+use bevy_math::{Vec2, Vec3Swizzles};
+use bevy_transform::prelude::GlobalTransform;
+use bevy_ui_navigation::{events::Direction, MenuNavigationStrategy};
+use bevy_utils::FloatOrd;
+
+use crate::CalculatedClip;
+
+fn is_in(direction: Direction, reference: Vec2, other: Vec2) -> bool {
+    let coord = other - reference;
+    use Direction::*;
+    match direction {
+        South => coord.y < coord.x && coord.y < -coord.x,
+        North => coord.y > coord.x && coord.y > -coord.x,
+        East => coord.y < coord.x && coord.y > -coord.x,
+        West => coord.y > coord.x && coord.y < -coord.x,
+    }
 }
 
 /// System parameter for the default cursor navigation system.
@@ -31,20 +27,20 @@ pub struct ScreenBoundaries {
 /// in a cycling menu.
 #[derive(SystemParam)]
 pub struct UiProjectionQuery<'w, 's> {
-    boundaries: Option<Res<'w, ScreenBoundaries>>,
+    clips: Query<'w, 's, &'static CalculatedClip>,
     transforms: Query<'w, 's, &'static GlobalTransform>,
 }
-impl<'w, 's> MoveParam for UiProjectionQuery<'w, 's> {
+impl<'w, 's> MenuNavigationStrategy for UiProjectionQuery<'w, 's> {
     fn resolve_2d<'a>(
         &self,
         focused: Entity,
-        direction: events::Direction,
+        direction: Direction,
         cycles: bool,
         siblings: &'a [Entity],
     ) -> Option<&'a Entity> {
-        use events::Direction::*;
+        use Direction::*;
 
-        let pos_of = |entity: Entity| {
+        let pos_of = |entity| {
             self.transforms
                 .get(entity)
                 .expect("Focusable entities must have a GlobalTransform component")
@@ -52,54 +48,35 @@ impl<'w, 's> MoveParam for UiProjectionQuery<'w, 's> {
                 .xy()
         };
         let focused_pos = pos_of(focused);
-        let closest = siblings.iter().filter(|sibling| {
-            direction.is_in(focused_pos, pos_of(**sibling)) && **sibling != focused
-        });
-        let closest = max_by_in_iter(closest, |s| -focused_pos.distance_squared(pos_of(**s)));
-        match (closest, self.boundaries.as_ref()) {
+        let closest = siblings
+            .iter()
+            .filter(|sibling| {
+                is_in(direction, focused_pos, pos_of(**sibling)) && **sibling != focused
+            })
+            .max_by_key(|s| FloatOrd(-focused_pos.distance_squared(pos_of(**s))));
+
+        let boundaries = self.clips.get(focused).ok();
+        match (closest, boundaries) {
             (None, None) if cycles => {
                 warn!(
-                    "Tried to move in {direction:?} from Focusable {focused:?} while no other \
-                 Focusables were there. There were no `Res<ScreenBoundaries>`, so we couldn't \
-                 compute the screen edges for cycling. Make sure you either add the \
-                 bevy_ui_navigation::systems::update_boundaries system to your app or implement \
-                 your own routine to manage a `Res<ScreenBoundaries>`."
+                    "Tried to move in {direction:?} from Focusable {focused:?} while no other Focusables were there."
                 );
                 None
             }
-            (None, Some(boundaries)) if cycles => {
-                let (x, y) = (boundaries.position.x, boundaries.position.y);
-                let edge = boundaries.screen_edge;
-                let scale = boundaries.scale;
+            (None, Some(CalculatedClip { clip })) if cycles => {
+                let scale = 1.0;
                 let focused_pos = match direction {
                     // NOTE: up/down axises are inverted in bevy
-                    North => Vec2::new(focused_pos.x, y - scale * edge.min.y),
-                    South => Vec2::new(focused_pos.x, y + scale * edge.max.y),
-                    East => Vec2::new(x - edge.min.x * scale, focused_pos.y),
-                    West => Vec2::new(x + edge.max.x * scale, focused_pos.y),
+                    North => Vec2::new(focused_pos.x, scale * clip.min.y),
+                    South => Vec2::new(focused_pos.x, scale * clip.max.y),
+                    East => Vec2::new(clip.min.x * scale, focused_pos.y),
+                    West => Vec2::new(clip.max.x * scale, focused_pos.y),
                 };
-                max_by_in_iter(siblings.iter(), |s| {
-                    -focused_pos.distance_squared(pos_of(**s))
-                })
+                siblings
+                    .iter()
+                    .max_by_key(|s| FloatOrd(-focused_pos.distance_squared(pos_of(**s))))
             }
             (anyelse, _) => anyelse,
         }
-    }
-}
-
-pub type NavigationPlugin<'w, 's> = GenericNavigationPlugin<UiProjectionQuery<'w, 's>>;
-
-/// The navigation plugin and the default input scheme.
-///
-/// Add it to your app with `.add_plugins(DefaultNavigationPlugins)`.
-///
-/// This provides default implementations for input handling, if you want
-/// your own custom input handling, you should use [`NavigationPlugin`] and
-/// provide your own input handling systems.
-pub struct DefaultNavigationPlugins;
-impl PluginGroup for DefaultNavigationPlugins {
-    fn build(&mut self, group: &mut bevy::app::PluginGroupBuilder) {
-        group.add(GenericNavigationPlugin::<UiProjectionQuery>::new());
-        group.add(DefaultNavigationSystems);
     }
 }

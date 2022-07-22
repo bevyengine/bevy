@@ -14,13 +14,14 @@ use bevy_ecs::{
 
 pub use events::{NavEvent, NavRequest};
 pub use non_empty_vec::NonEmpty;
-pub use resolve::{FocusAction, FocusState, Focusable, Focused, MoveParam, NavLock};
-pub use seeds::NavMenu;
+use resolve::TreeMenu;
+pub use resolve::{FocusAction, FocusState, Focusable, Focused, MenuNavigationStrategy, NavLock};
+pub use seeds::{MenuBuilder, MenuSetting};
 
 /// The [`Bundle`](bevy::prelude::Bundle)s
 /// returned by the [`NavMenu`] methods.
 pub mod bundles {
-    pub use crate::seeds::{MenuSeed, NamedMenuSeed};
+    pub use crate::seeds::MenuBuilderBundle;
 }
 
 /// The label of the system in which the [`NavRequest`] events are handled, the
@@ -68,24 +69,30 @@ pub struct NavRequestSystem;
 /// The `MP` type parameter might seem complicated, but all you have to do
 /// is for your type to implement [`SystemParam`] and [`MoveParam`].
 /// See the [`resolve::UiProjectionQuery`] source code for implementation hints.
-pub struct GenericNavigationPlugin<MP>(PhantomData<MP>);
-unsafe impl<T> Send for GenericNavigationPlugin<T> {}
-unsafe impl<T> Sync for GenericNavigationPlugin<T> {}
+#[derive(Default)]
+pub struct GenericNavigationPlugin<MP>(PhantomData<fn() -> MP>);
 
-impl<MP: MoveParam> GenericNavigationPlugin<MP> {
+impl<STGY: MenuNavigationStrategy> GenericNavigationPlugin<STGY> {
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
-impl<MP: SystemParam + 'static> Plugin for GenericNavigationPlugin<MP>
+impl<STGY: SystemParam + 'static> Plugin for GenericNavigationPlugin<STGY>
 where
-    for<'w, 's> SystemParamItem<'w, 's, MP>: MoveParam,
+    for<'w, 's> SystemParamItem<'w, 's, STGY>: MenuNavigationStrategy,
 {
     fn build(&self, app: &mut App) {
+        // Reflection
+        app.register_type::<Focusable>()
+            .register_type::<FocusState>()
+            .register_type::<FocusAction>()
+            .register_type::<MenuSetting>()
+            .register_type::<TreeMenu>();
+
         app.add_event::<NavRequest>()
             .add_event::<NavEvent>()
             .insert_resource(NavLock::new())
-            .add_system(resolve::listen_nav_requests::<MP>.label(NavRequestSystem))
+            .add_system(resolve::listen_nav_requests::<STGY>.label(NavRequestSystem))
             .add_system(resolve::set_first_focused)
             .add_system(resolve::insert_tree_menus)
             .add_system(named::resolve_named_menus.before(resolve::insert_tree_menus));

@@ -5,14 +5,17 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
+use crate::{
+    prelude::{Node, UiCameraConfig},
+    CalculatedClip, UiColor, UiImage,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, OrthographicProjection, WindowOrigin},
+    camera::{Camera, CameraProjection, OrthographicProjection, ScalingMode, WindowOrigin},
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -229,6 +232,18 @@ const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 #[derive(Component)]
 pub struct DefaultCameraView(pub Entity);
 
+pub(crate) const DEFAULT_UI_CAMERA_PROJECTION: OrthographicProjection = OrthographicProjection {
+    far: UI_CAMERA_FAR,
+    window_origin: WindowOrigin::BottomLeft,
+    left: -1.0,
+    right: 1.0,
+    bottom: -1.0,
+    top: 1.0,
+    near: 0.0,
+    scaling_mode: ScalingMode::WindowSize,
+    scale: 1.0,
+};
+
 pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
@@ -242,11 +257,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
             camera.logical_viewport_size(),
             camera.physical_viewport_size(),
         ) {
-            let mut projection = OrthographicProjection {
-                far: UI_CAMERA_FAR,
-                window_origin: WindowOrigin::BottomLeft,
-                ..Default::default()
-            };
+            let mut projection = DEFAULT_UI_CAMERA_PROJECTION;
             projection.update(logical_size.x, logical_size.y);
             let default_camera_view = commands
                 .spawn()

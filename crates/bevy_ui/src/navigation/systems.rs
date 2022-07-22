@@ -1,12 +1,17 @@
 //! System for the navigation tree and default input systems to get started.
 
-use bevy_ecs::system::SystemParam;
+use crate::Node;
+use bevy_app::{App, Plugin};
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_input::prelude::*;
+use bevy_math::Vec2;
+use bevy_transform::prelude::GlobalTransform;
 use bevy_ui_navigation::{
     events::{Direction, NavRequest, ScopeDirection},
-    resolve::{max_by_in_iter, ScreenBoundaries},
-    Focusable, Focused, Rect,
+    Focusable, Focused,
 };
+use bevy_utils::FloatOrd;
+use bevy_window::Windows;
 
 /// Control default ui navigation input buttons
 pub struct InputMapping {
@@ -15,7 +20,7 @@ pub struct InputMapping {
     /// The gamepads to use for the UI. If empty, default to gamepad 0
     pub gamepads: Vec<Gamepad>,
     /// Deadzone on the gamepad left stick for ui navigation
-    pub joystick_ui_deadzone: f32,
+    pub gamepad_ui_deadzone: f32,
     /// X axis of gamepad stick
     pub move_x: GamepadAxisType,
     /// Y axis of gamepad stick
@@ -74,7 +79,7 @@ impl Default for InputMapping {
         InputMapping {
             keyboard_navigation: false,
             gamepads: vec![Gamepad { id: 0 }],
-            joystick_ui_deadzone: 0.36,
+            gamepad_ui_deadzone: 0.36,
             move_x: GamepadAxisType::LeftStickX,
             move_y: GamepadAxisType::LeftStickY,
             left_button: GamepadButtonType::DPadLeft,
@@ -120,7 +125,7 @@ macro_rules! mapping {
 /// when integrating in the game) in this case, you should write your own
 /// system that sends [`NavRequest`](crate::NavRequest) events
 pub fn default_gamepad_input(
-    mut nav_cmds: EventWriter<NavRequest>,
+    mut requests: EventWriter<NavRequest>,
     has_focused: Query<With<Focused>>,
     input_mapping: Res<InputMapping>,
     buttons: Res<Input<GamepadButton>>,
@@ -145,16 +150,16 @@ pub fn default_gamepad_input(
         }
 
         let delta = axis_delta!(Y, move_y) + axis_delta!(X, move_x);
-        if delta.length_squared() > input_mapping.joystick_ui_deadzone && !*ui_input_status {
+        if delta.length_squared() > input_mapping.gamepad_ui_deadzone && !*ui_input_status {
             let direction = match () {
                 () if delta.y < delta.x && delta.y < -delta.x => South,
                 () if delta.y < delta.x => East,
                 () if delta.y >= delta.x && delta.y > -delta.x => North,
                 () => West,
             };
-            nav_cmds.send(Move(direction));
+            requests.send(Move(direction));
             *ui_input_status = true;
-        } else if delta.length_squared() <= input_mapping.joystick_ui_deadzone {
+        } else if delta.length_squared() <= input_mapping.gamepad_ui_deadzone {
             *ui_input_status = false;
         }
 
@@ -175,7 +180,7 @@ pub fn default_gamepad_input(
                 button_type,
             };
             if buttons.just_pressed(button) {
-                nav_cmds.send(request)
+                requests.send(request);
             }
         }
     }
@@ -194,7 +199,7 @@ pub fn default_keyboard_input(
     has_focused: Query<(), With<Focused>>,
     keyboard: Res<Input<KeyCode>>,
     input_mapping: Res<InputMapping>,
-    mut nav_cmds: EventWriter<NavRequest>,
+    mut requests: EventWriter<NavRequest>,
 ) {
     use Direction::*;
     use NavRequest::*;
@@ -224,7 +229,7 @@ pub fn default_keyboard_input(
     };
     let mut send_command = |&(key, request)| {
         if keyboard.just_pressed(key) {
-            nav_cmds.send(request)
+            requests.send(request);
         }
     };
     if input_mapping.keyboard_navigation {
@@ -236,58 +241,28 @@ pub fn default_keyboard_input(
 /// [`SystemParam`](https://docs.rs/bevy/0.7.0/bevy/ecs/system/trait.SystemParam.html)
 /// used to compute UI focusable physical positions in mouse input systems.
 #[derive(SystemParam)]
-pub struct NodePosQuery<'w, 's, T: Component> {
-    entities: Query<'w, 's, (Entity, &'static T, &'static GlobalTransform), With<Focusable>>,
-    boundaries: Option<Res<'w, ScreenBoundaries>>,
+pub struct NodePosQuery<'w, 's> {
+    entities: Query<'w, 's, (Entity, &'static Node, &'static GlobalTransform), With<Focusable>>,
 }
-impl<'w, 's, T: Component> NodePosQuery<'w, 's, T> {
+impl<'w, 's> NodePosQuery<'w, 's> {
     fn cursor_pos(&self, at: Vec2) -> Option<Vec2> {
-        let boundaries = self.boundaries.as_ref()?;
-        Some(at * boundaries.scale + boundaries.position)
+        Some(at)
     }
 }
 
-fn is_in_node<T: ScreenSize>(at: Vec2, (_, node, trans): &(Entity, &T, &GlobalTransform)) -> bool {
+fn is_in_node(at: Vec2, (_, node, trans): &(Entity, &Node, &GlobalTransform)) -> bool {
     let ui_pos = trans.translation().truncate();
-    let node_half_size = node.size() / 2.0;
+    let node_half_size = node.size / 2.0;
     let min = ui_pos - node_half_size;
     let max = ui_pos + node_half_size;
     (min.x..max.x).contains(&at.x) && (min.y..max.y).contains(&at.y)
-}
-
-/// Check which [`Focusable`] is at position `at` if any.
-///
-/// NOTE: returns `None` if there is no [`ScreenBoundaries`] resource.
-pub fn ui_focusable_at<T>(at: Vec2, query: &NodePosQuery<T>) -> Option<Entity>
-where
-    T: ScreenSize + Component,
-{
-    let world_at = query.cursor_pos(at)?;
-    let under_mouse = query
-        .entities
-        .iter()
-        .filter(|query_elem| is_in_node(world_at, query_elem));
-    max_by_in_iter(under_mouse, |elem| elem.2.translation().z).map(|elem| elem.0)
 }
 
 fn cursor_pos(windows: &Windows) -> Option<Vec2> {
     windows.get_primary().and_then(|w| w.cursor_position())
 }
 
-pub trait ScreenSize {
-    fn size(&self) -> Vec2;
-}
-
-impl ScreenSize for Node {
-    fn size(&self) -> Vec2 {
-        self.size
-    }
-}
-
 /// A system to send mouse control events to the focus system
-///
-/// Unlike [`generic_default_mouse_input`], this system is gated by the
-/// `bevy::render::Camera` and `bevy::ui::Node`.
 ///
 /// Which button to press to cause an action event is specified in the
 /// [`InputMapping`] resource.
@@ -300,41 +275,9 @@ pub fn default_mouse_input(
     input_mapping: Res<InputMapping>,
     windows: Res<Windows>,
     mouse: Res<Input<MouseButton>>,
-    focusables: NodePosQuery<Node>,
+    focusables: NodePosQuery,
     focused: Query<Entity, With<Focused>>,
-    nav_cmds: EventWriter<NavRequest>,
-    last_pos: Local<Vec2>,
-) {
-    generic_default_mouse_input(
-        input_mapping,
-        windows,
-        mouse,
-        focusables,
-        focused,
-        nav_cmds,
-        last_pos,
-    );
-}
-
-/// A generic system to send mouse control events to the focus system
-///
-/// `T` must be a component assigned to `Focusable` elements that implements
-/// the [`ScreenSize`] trait.
-///
-/// Which button to press to cause an action event is specified in the
-/// [`InputMapping`] resource.
-///
-/// You may however need to customize the behavior of this system (typically
-/// when integrating in the game) in this case, you should write your own
-/// system that sends [`NavRequest`](crate::NavRequest) events. You may use
-/// [`ui_focusable_at`] to tell which focusable is currently being hovered.
-pub fn generic_default_mouse_input<T: ScreenSize + Component>(
-    input_mapping: Res<InputMapping>,
-    windows: Res<Windows>,
-    mouse: Res<Input<MouseButton>>,
-    focusables: NodePosQuery<T>,
-    focused: Query<Entity, With<Focused>>,
-    mut nav_cmds: EventWriter<NavRequest>,
+    mut requests: EventWriter<NavRequest>,
     mut last_pos: Local<Vec2>,
 ) {
     let cursor_pos = match cursor_pos(&windows) {
@@ -348,12 +291,10 @@ pub fn generic_default_mouse_input<T: ScreenSize + Component>(
     let released = mouse.just_released(input_mapping.mouse_action);
     let focused = focused.get_single();
     // Return early if cursor didn't move since last call
-    let camera_moved = focusables.boundaries.map_or(false, |b| b.is_changed());
-    if !released && *last_pos == cursor_pos && !camera_moved {
+    if !released && *last_pos == cursor_pos {
         return;
-    } else {
-        *last_pos = cursor_pos;
     }
+    *last_pos = cursor_pos;
     let not_hovering_focused = |focused: &Entity| {
         let focused = focusables
             .entities
@@ -370,69 +311,27 @@ pub fn generic_default_mouse_input<T: ScreenSize + Component>(
         let under_mouse = focusables
             .entities
             .iter()
-            .filter(|query_elem| is_in_node(world_cursor_pos, query_elem));
-        let under_mouse =
-            max_by_in_iter(under_mouse, |elem| elem.2.translation().z).map(|elem| elem.0);
+            .filter(|query_elem| is_in_node(world_cursor_pos, query_elem))
+            .max_by_key(|elem| FloatOrd(elem.2.translation().z))
+            .map(|elem| elem.0);
         let to_target = match under_mouse {
             Some(c) => c,
             None => return,
         };
-        nav_cmds.send(NavRequest::FocusOn(to_target));
+        requests.send(NavRequest::FocusOn(to_target));
     } else if released {
-        nav_cmds.send(NavRequest::Action);
+        requests.send(NavRequest::Action);
     }
-}
-
-/// Update [`ScreenBoundaries`] resource when the UI camera change
-/// (assuming there is a unique one).
-///
-/// See [`ScreenBoundaries`] doc for details.
-#[allow(clippy::type_complexity)]
-pub fn update_boundaries(
-    mut commands: Commands,
-    mut boundaries: Option<ResMut<ScreenBoundaries>>,
-    cam: Query<(&Camera, Option<&UiCameraConfig>), Or<(Changed<Camera>, Changed<UiCameraConfig>)>>,
-    windows: Res<Windows>,
-    images: Res<Assets<Image>>,
-) {
-    // TODO: this assumes there is only a single camera with activated UI.
-    let first_visible_ui_cam = |(cam, config): (_, Option<&UiCameraConfig>)| {
-        config.map_or(true, |c| c.show_ui).then_some(cam)
-    };
-    let mut update_boundaries = || {
-        let cam = cam.iter().find_map(first_visible_ui_cam)?;
-        let target_info = cam.target.get_render_target_info(&windows, &images)?;
-        let new_boundaries = ScreenBoundaries {
-            position: Vec2::ZERO,
-            screen_edge: Rect {
-                max: target_info.physical_size.as_vec2(),
-                min: Vec2::ZERO,
-            },
-            scale: 1.0,
-        };
-        if let Some(boundaries) = boundaries.as_mut() {
-            **boundaries = new_boundaries;
-        } else {
-            commands.insert_resource(new_boundaries);
-        }
-        Some(())
-    };
-    update_boundaries();
 }
 
 /// Default input systems for ui navigation.
 pub struct DefaultNavigationSystems;
 impl Plugin for DefaultNavigationSystems {
     fn build(&self, app: &mut App) {
-        use crate::NavRequestSystem;
+        use bevy_ui_navigation::NavRequestSystem;
         app.init_resource::<InputMapping>()
             .add_system(default_mouse_input.before(NavRequestSystem))
             .add_system(default_gamepad_input.before(NavRequestSystem))
-            .add_system(default_keyboard_input.before(NavRequestSystem))
-            .add_system(
-                update_boundaries
-                    .before(NavRequestSystem)
-                    .before(default_mouse_input),
-            );
+            .add_system(default_keyboard_input.before(NavRequestSystem));
     }
 }

@@ -16,29 +16,33 @@
 //! buttons so that you can associate their `id` with the proper submenu.
 
 use bevy_core::Name;
-use bevy_ecs::{entity::Entity, prelude::With, system::Query};
-
-use crate::{
-    seeds::{FailableOption, ParentName, TreeMenuSeed},
-    Focusable,
+use bevy_ecs::{
+    entity::Entity,
+    prelude::With,
+    system::{Commands, Query},
 };
 
+use crate::{seeds::MenuBuilder, Focusable};
+
 pub(crate) fn resolve_named_menus(
-    mut unresolved: Query<(&mut TreeMenuSeed, &ParentName)>,
+    mut commands: Commands,
+    mut unresolved: Query<(Entity, &mut MenuBuilder)>,
     named: Query<(Entity, &Name), With<Focusable>>,
 ) {
-    for (mut seed, ParentName(parent_name)) in unresolved.iter_mut() {
-        match named.iter().find(|(_, n)| *n == parent_name) {
-            Some((focus_parent, _)) => {
-                seed.focus_parent = FailableOption::Some(focus_parent);
-            }
-            None => {
-                let name = parent_name.as_str();
-                bevy_log::warn!(
-                    "Tried to spawn a `NavMenu` with parent focusable {name}, but no\
-                     `Focusable` has a `Name` component with that value."
-                );
-                continue;
+    for (entity, mut builder) in &mut unresolved {
+        if let MenuBuilder::NamedParent(parent_name) = builder.clone() {
+            match named.iter().find(|(_, n)| **n == parent_name) {
+                Some((focus_parent, _)) => {
+                    *builder = MenuBuilder::EntityParent(focus_parent);
+                }
+                None => {
+                    let name = parent_name.as_str();
+                    bevy_log::warn!(
+                        "Tried to spawn a `NavMenu` with parent focusable {name}, but no\
+                         `Focusable` has a `Name` component with that value."
+                    );
+                    commands.entity(entity).remove::<MenuBuilder>();
+                }
             }
         }
     }
