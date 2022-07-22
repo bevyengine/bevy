@@ -1,4 +1,4 @@
-use crate::UiCamera;
+use crate::UiCameraView;
 
 use super::{UiBatch, UiImageBindGroups, UiMeta};
 use bevy_ecs::{
@@ -19,7 +19,7 @@ use bevy_utils::FloatOrd;
 pub struct UiPassNode {
     view_query:
         QueryState<(&'static RenderPhase<TransparentUi>, &'static ViewTarget), With<ExtractedView>>,
-    ui_camera_query: QueryState<&'static UiCamera>,
+    ui_camera_query: QueryState<&'static UiCameraView>,
 }
 
 impl UiPassNode {

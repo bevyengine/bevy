@@ -44,9 +44,10 @@ pub enum UiSystem {
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
     /// Update the [`ComputedVisibility`] component of [`Node`] entities to reflect
-    /// their visibility in accordance to UI cameras.
+    /// their visibility based on available [`UiCameraConfig.ui_render_layers`].
     ///
     /// [`ComputedVisibility`]: bevy_render::view::ComputedVisibility
+    /// [`UiCameraConfig.ui_render_layers`]: crate::entity::UiCameraConfig::ui_render_layers
     LayerVisibility,
 }
 

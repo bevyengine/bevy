@@ -225,17 +225,18 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 // TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
-/// The UI camera used by this Camera's viewport.
+/// Extra information relevant to UI attached to cameras.
 ///
-/// This component is inserted into the render world in the
-/// [`extract_default_ui_camera_view`] system.
+/// This component only exist in the render world.
+/// You would only want to interact with it if you are creating your own
+/// UI rendering and want to re-use bevy's systems.
 ///
 /// The component is attached to the "actual" viewport's camera.
-/// The UI camera's `ExtractedView` is attached to the entity in the
+/// The UI camera's [`ExtractedView`] is attached to the entity in the
 /// `entity` field.
 #[derive(Component, Debug)]
-pub struct UiCamera {
-    /// The entity for the UI camera.
+pub struct UiCameraView {
+    /// The entity with the UI camera's `ExtractedView` component.
     pub entity: Entity,
     /// UI nodes layer this camera shows.
     layers: RenderLayers,
@@ -278,7 +279,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 })
                 .id();
             commands.get_or_spawn(camera_entity).insert_bundle((
-                UiCamera {
+                UiCameraView {
                     entity: ui_camera,
                     layers: ui_config.ui_render_layers,
                 },
@@ -546,7 +547,7 @@ pub fn queue_uinodes(
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
-    mut views: Query<(&mut RenderPhase<TransparentUi>, &UiCamera)>,
+    mut views: Query<(&mut RenderPhase<TransparentUi>, &UiCameraView)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
