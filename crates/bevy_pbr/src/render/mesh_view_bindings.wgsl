@@ -40,3 +40,5 @@ var<storage> cluster_light_index_lists: ClusterLightIndexLists;
 @group(0) @binding(8)
 var<storage> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
 #endif
+
+#import bevy_pbr::mesh_view_user_bindings
