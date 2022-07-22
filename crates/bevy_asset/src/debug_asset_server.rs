@@ -116,7 +116,7 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
 /// Uses the return type of the given loader to register the given handle with the appropriate type
 /// and load the asset with the given `path` and parent `file_path`.
 ///
-/// If this feels a bit odd ... thats because it is. This was built to improve the UX of the
+/// If this feels a bit odd ... that's because it is. This was built to improve the UX of the
 /// `load_internal_asset` macro.
 pub fn register_handle_with_loader<A: Asset>(
     _loader: fn(&'static str) -> A,

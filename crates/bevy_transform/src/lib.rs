@@ -35,7 +35,7 @@ use prelude::{GlobalTransform, Transform};
 /// [`transform_propagate_system`].
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
-/// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Bundle, Clone, Copy, Debug, Default)]
 pub struct TransformBundle {
@@ -79,7 +79,7 @@ impl From<Transform> for TransformBundle {
 /// Label enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum TransformSystem {
-    /// Propagates changes in transform to childrens' [`GlobalTransform`](crate::components::GlobalTransform)
+    /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
     TransformPropagate,
 }
 

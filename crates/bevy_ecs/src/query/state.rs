@@ -55,7 +55,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// which can be faster.
     ///
     /// This doesn't use `NopWorldQuery` as it loses filter functionality, for example
-    /// `NopWorldQuery<Changed<T>>` is functionally equivelent to `With<T>`.
+    /// `NopWorldQuery<Changed<T>>` is functionally equivalent to `With<T>`.
     pub fn as_nop(&self) -> &QueryState<NopWorldQuery<Q>, F> {
         // SAFETY: `NopWorldQuery` doesn't have any accesses and defers to
         // `Q` for table/archetype matching
