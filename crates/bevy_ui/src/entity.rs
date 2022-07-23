@@ -15,7 +15,7 @@ use bevy_render::{
 };
 use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_ui_navigation::{Focusable, MenuBuilder, MenuSetting};
+use bevy_ui_navigation::prelude::{Focusable, MenuBuilder, MenuSetting};
 
 /// The basic UI node
 #[derive(Bundle, Clone, Debug, Default)]

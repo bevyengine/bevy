@@ -28,10 +28,10 @@ fn main() {
 struct IdleColor(UiColor);
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &mut UiColor, &IdleColor), Changed<Interaction>>,
+    mut interaction_query: Query<(&Focusable, &mut UiColor, &IdleColor), Changed<Focusable>>,
 ) {
-    for (interaction, mut material, IdleColor(idle_color)) in interaction_query.iter_mut() {
-        if matches!(interaction, Interaction::Hovered) {
+    for (focus, mut material, IdleColor(idle_color)) in interaction_query.iter_mut() {
+        if matches!(focus.state(), FocusState::Focused) {
             *material = Color::ORANGE_RED.into();
         } else {
             *material = *idle_color;

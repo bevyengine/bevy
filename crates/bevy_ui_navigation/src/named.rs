@@ -21,7 +21,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 
-use crate::{seeds::MenuBuilder, Focusable};
+use crate::{resolve::Focusable, seeds::MenuBuilder};
 
 pub(crate) fn resolve_named_menus(
     mut commands: Commands,

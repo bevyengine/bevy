@@ -12,16 +12,20 @@ use bevy_ecs::{
     system::{SystemParam, SystemParamItem},
 };
 
-pub use events::{NavEvent, NavRequest};
 pub use non_empty_vec::NonEmpty;
 use resolve::TreeMenu;
-pub use resolve::{FocusAction, FocusState, Focusable, Focused, MenuNavigationStrategy, NavLock};
-pub use seeds::{MenuBuilder, MenuSetting};
 
 /// The [`Bundle`](bevy::prelude::Bundle)s
 /// returned by the [`NavMenu`] methods.
 pub mod bundles {
     pub use crate::seeds::MenuBuilderBundle;
+}
+pub mod prelude {
+    pub use crate::events::{NavEvent, NavRequest};
+    pub use crate::resolve::{
+        FocusAction, FocusState, Focusable, Focused, MenuNavigationStrategy, NavLock,
+    };
+    pub use crate::seeds::{MenuBuilder, MenuSetting};
 }
 
 /// The label of the system in which the [`NavRequest`] events are handled, the
@@ -72,26 +76,26 @@ pub struct NavRequestSystem;
 #[derive(Default)]
 pub struct GenericNavigationPlugin<MP>(PhantomData<fn() -> MP>);
 
-impl<STGY: MenuNavigationStrategy> GenericNavigationPlugin<STGY> {
+impl<STGY: resolve::MenuNavigationStrategy> GenericNavigationPlugin<STGY> {
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
 impl<STGY: SystemParam + 'static> Plugin for GenericNavigationPlugin<STGY>
 where
-    for<'w, 's> SystemParamItem<'w, 's, STGY>: MenuNavigationStrategy,
+    for<'w, 's> SystemParamItem<'w, 's, STGY>: resolve::MenuNavigationStrategy,
 {
     fn build(&self, app: &mut App) {
         // Reflection
-        app.register_type::<Focusable>()
-            .register_type::<FocusState>()
-            .register_type::<FocusAction>()
-            .register_type::<MenuSetting>()
+        app.register_type::<resolve::Focusable>()
+            .register_type::<resolve::FocusState>()
+            .register_type::<resolve::FocusAction>()
+            .register_type::<seeds::MenuSetting>()
             .register_type::<TreeMenu>();
 
-        app.add_event::<NavRequest>()
-            .add_event::<NavEvent>()
-            .insert_resource(NavLock::new())
+        app.add_event::<events::NavRequest>()
+            .add_event::<events::NavEvent>()
+            .insert_resource(resolve::NavLock::new())
             .add_system(resolve::listen_nav_requests::<STGY>.label(NavRequestSystem))
             .add_system(resolve::set_first_focused)
             .add_system(resolve::insert_tree_menus)

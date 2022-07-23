@@ -161,9 +161,9 @@ pub mod ui {
     pub use bevy_ui::*;
 }
 
-#[cfg(feature = "bevy_ui")]
+#[cfg(feature = "bevy_ui_navigation")]
 pub mod ui_navigation {
-    //! User interface navigation.
+    //! Generic cursor navigation.
     pub use bevy_ui_navigation::*;
 }
 

@@ -2,7 +2,7 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_log::warn;
 use bevy_math::{Vec2, Vec3Swizzles};
 use bevy_transform::prelude::GlobalTransform;
-use bevy_ui_navigation::{events::Direction, MenuNavigationStrategy};
+use bevy_ui_navigation::{events::Direction, prelude::MenuNavigationStrategy};
 use bevy_utils::FloatOrd;
 
 use crate::CalculatedClip;

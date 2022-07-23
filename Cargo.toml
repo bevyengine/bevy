@@ -51,6 +51,7 @@ render = [
   "bevy_internal/bevy_sprite",
   "bevy_internal/bevy_text",
   "bevy_internal/bevy_ui",
+  "bevy_internal/bevy_ui_navigation",
 ]
 
 # Optional bevy crates
@@ -66,7 +67,7 @@ bevy_render = ["bevy_internal/bevy_render"]
 bevy_scene = ["bevy_internal/bevy_scene"]
 bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
-bevy_ui = ["bevy_internal/bevy_ui"]
+bevy_ui = ["bevy_internal/bevy_ui", "bevy_internal/bevy_ui_navigation"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Tracing features
@@ -1483,15 +1484,15 @@ description = "Illustrates movement between menus"
 category = "UI navigation"
 wasm = true
 
-[[example]]
-name = "nav_3d"
-path = "examples/ui_navigation/nav_3d.rs"
+# [[example]]
+# name = "nav_3d"
+# path = "examples/ui_navigation/nav_3d.rs"
 
-[package.metadata.example.nav_3d]
-name = "UI in 3d world"
-description = "Illustrates using Focusable on 3d entities"
-category = "UI navigation"
-wasm = true
+# [package.metadata.example.nav_3d]
+# name = "UI in 3d world"
+# description = "Illustrates using Focusable on 3d entities"
+# category = "UI navigation"
+# wasm = true
 
 # Window
 [[example]]

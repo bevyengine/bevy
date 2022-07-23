@@ -49,7 +49,7 @@ fn setup(mut commands: Commands) {
 mod splash {
     use bevy::prelude::*;
 
-    use super::{despawn_screen, GameState};
+    use crate::{despawn_screen, GameState};
 
     // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
     pub struct SplashPlugin;
@@ -229,9 +229,12 @@ mod game {
 }
 
 mod menu {
-    use bevy::{app::AppExit, prelude::*};
+    use bevy::{app::AppExit, prelude::*, ui_navigation::NavRequestSystem};
 
-    use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
+    use super::{
+        despawn_screen, mark_buttons, DisplayQuality, GameState, MarkButtons, ParentMenu, Volume,
+        TEXT_COLOR,
+    };
 
     // This plugin manages the menu, with 5 different screens:
     // - a main menu with "New Game", "Settings", "Quit"
@@ -241,86 +244,27 @@ mod menu {
 
     impl Plugin for MenuPlugin {
         fn build(&self, app: &mut App) {
-            app
-                // At start, the menu is not enabled. This will be changed in `menu_setup` when
-                // entering the `GameState::Menu` state.
-                // Current screen in the menu is handled by an independent state from `GameState`
-                .add_state(MenuState::Disabled)
-                .add_system_set(SystemSet::on_enter(GameState::Menu).with_system(menu_setup))
-                // Systems to handle the main menu screen
-                .add_system_set(SystemSet::on_enter(MenuState::Main).with_system(main_menu_setup))
-                .add_system_set(
-                    SystemSet::on_exit(MenuState::Main)
-                        .with_system(despawn_screen::<OnMainMenuScreen>),
-                )
-                // Systems to handle the settings menu screen
-                .add_system_set(
-                    SystemSet::on_enter(MenuState::Settings).with_system(settings_menu_setup),
-                )
-                .add_system_set(
-                    SystemSet::on_exit(MenuState::Settings)
-                        .with_system(despawn_screen::<OnSettingsMenuScreen>),
-                )
-                // Systems to handle the display settings screen
-                .add_system_set(
-                    SystemSet::on_enter(MenuState::SettingsDisplay)
-                        .with_system(display_settings_menu_setup),
-                )
-                .add_system_set(
-                    SystemSet::on_update(MenuState::SettingsDisplay)
-                        .with_system(setting_button::<DisplayQuality>),
-                )
-                .add_system_set(
-                    SystemSet::on_exit(MenuState::SettingsDisplay)
-                        .with_system(despawn_screen::<OnDisplaySettingsMenuScreen>),
-                )
-                // Systems to handle the sound settings screen
-                .add_system_set(
-                    SystemSet::on_enter(MenuState::SettingsSound)
-                        .with_system(sound_settings_menu_setup),
-                )
-                .add_system_set(
-                    SystemSet::on_update(MenuState::SettingsSound)
-                        .with_system(setting_button::<Volume>),
-                )
-                .add_system_set(
-                    SystemSet::on_exit(MenuState::SettingsSound)
-                        .with_system(despawn_screen::<OnSoundSettingsMenuScreen>),
-                )
-                // Common systems to all screens that handles buttons behaviour
-                .add_system_set(
-                    SystemSet::on_update(GameState::Menu)
-                        .with_system(menu_action)
-                        .with_system(button_system),
-                );
+            app.add_system_set(
+                SystemSet::on_enter(GameState::Menu)
+                    .with_system(main_menu_setup)
+                    .with_system(settings_menu_setup)
+                    .with_system(display_settings_menu_setup)
+                    .with_system(sound_settings_menu_setup),
+            )
+            .add_system_set(
+                SystemSet::on_update(GameState::Menu)
+                    .with_system(mark_buttons)
+                    .with_system(update_selected_option::<DisplayQuality>.after(NavRequestSystem))
+                    .with_system(update_selected_option::<Volume>.after(NavRequestSystem))
+                    .with_system(handle_menu_change.after(NavRequestSystem))
+                    .with_system(menu_action.after(NavRequestSystem))
+                    .with_system(update_button_color.after(NavRequestSystem)),
+            )
+            .add_system_set(
+                SystemSet::on_exit(GameState::Menu).with_system(despawn_screen::<MenuSetting>),
+            );
         }
     }
-
-    // State used for the current menu screen
-    #[derive(Clone, Eq, PartialEq, Debug, Hash)]
-    enum MenuState {
-        Main,
-        Settings,
-        SettingsDisplay,
-        SettingsSound,
-        Disabled,
-    }
-
-    // Tag component used to tag entities added on the main menu screen
-    #[derive(Component)]
-    struct OnMainMenuScreen;
-
-    // Tag component used to tag entities added on the settings menu screen
-    #[derive(Component)]
-    struct OnSettingsMenuScreen;
-
-    // Tag component used to tag entities added on the display settings menu screen
-    #[derive(Component)]
-    struct OnDisplaySettingsMenuScreen;
-
-    // Tag component used to tag entities added on the sound settings menu screen
-    #[derive(Component)]
-    struct OnSoundSettingsMenuScreen;
 
     const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
     const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
@@ -329,58 +273,16 @@ mod menu {
 
     // Tag component used to mark wich setting is currently selected
     #[derive(Component)]
-    struct SelectedOption;
+    enum SelectedOption {
+        Selected,
+        Unselected,
+    }
 
     // All actions that can be triggered from a button click
     #[derive(Component)]
     enum MenuButtonAction {
         Play,
-        Settings,
-        SettingsDisplay,
-        SettingsSound,
-        BackToMainMenu,
-        BackToSettings,
         Quit,
-    }
-
-    // This system handles changing all buttons color based on mouse interaction
-    fn button_system(
-        mut interaction_query: Query<
-            (&Interaction, &mut UiColor, Option<&SelectedOption>),
-            (Changed<Interaction>, With<Button>),
-        >,
-    ) {
-        for (interaction, mut color, selected) in &mut interaction_query {
-            *color = match (*interaction, selected) {
-                (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
-                (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
-                (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
-                (Interaction::None, None) => NORMAL_BUTTON.into(),
-            }
-        }
-    }
-
-    // This system updates the settings when a new value for a setting is selected, and marks
-    // the button as the one currently selected
-    fn setting_button<T: Resource + Component + PartialEq + Copy>(
-        interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
-        mut selected_query: Query<(Entity, &mut UiColor), With<SelectedOption>>,
-        mut commands: Commands,
-        mut setting: ResMut<T>,
-    ) {
-        for (interaction, button_setting, entity) in &interaction_query {
-            if *interaction == Interaction::Clicked && *setting != *button_setting {
-                let (previous_button, mut previous_color) = selected_query.single_mut();
-                *previous_color = NORMAL_BUTTON.into();
-                commands.entity(previous_button).remove::<SelectedOption>();
-                commands.entity(entity).insert(SelectedOption);
-                *setting = *button_setting;
-            }
-        }
-    }
-
-    fn menu_setup(mut menu_state: ResMut<State<MenuState>>) {
-        let _ = menu_state.set(MenuState::Main);
     }
 
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -413,17 +315,24 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle {
-                style: Style {
-                    margin: UiRect::all(Val::Auto),
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_items: AlignItems::Center,
+            .spawn_bundle(MenuBundle {
+                node_bundle: NodeBundle {
+                    style: Style {
+                        margin: UiRect::all(Val::Auto),
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: Color::CRIMSON.into(),
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
+                setting: MenuSetting {
+                    wrapping: true,
+                    scope: false,
+                },
+                menu: MenuBuilder::Root,
             })
-            .insert(OnMainMenuScreen)
+            .insert(MarkButtons)
             .with_children(|parent| {
                 // Display the game name
                 parent.spawn_bundle(
@@ -449,6 +358,9 @@ mod menu {
                     .spawn_bundle(ButtonBundle {
                         style: button_style.clone(),
                         color: NORMAL_BUTTON.into(),
+                        // NOTE: we make sure to start navigation in the main menu
+                        // on the "New Game" button
+                        focusable: Focusable::new().prioritized(),
                         ..default()
                     })
                     .insert(MenuButtonAction::Play)
@@ -470,7 +382,7 @@ mod menu {
                         color: NORMAL_BUTTON.into(),
                         ..default()
                     })
-                    .insert(MenuButtonAction::Settings)
+                    .insert(Name::new("Settings"))
                     .with_children(|parent| {
                         let icon = asset_server.load("textures/Game Icons/wrench.png");
                         parent.spawn_bundle(ImageBundle {
@@ -518,30 +430,36 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle {
-                style: Style {
-                    margin: UiRect::all(Val::Auto),
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_items: AlignItems::Center,
+            .spawn_bundle(MenuBundle {
+                node_bundle: NodeBundle {
+                    style: Style {
+                        display: Display::None,
+                        margin: UiRect::all(Val::Auto),
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: Color::CRIMSON.into(),
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
+                menu: MenuBuilder::NamedParent(Name::new("Settings")),
+                setting: default(),
             })
-            .insert(OnSettingsMenuScreen)
+            .insert(MarkButtons)
             .with_children(|parent| {
                 for (action, text) in [
-                    (MenuButtonAction::SettingsDisplay, "Display"),
-                    (MenuButtonAction::SettingsSound, "Sound"),
-                    (MenuButtonAction::BackToMainMenu, "Back"),
+                    (Focusable::default(), "Display"),
+                    (Focusable::default(), "Sound"),
+                    (Focusable::cancel(), "Back"),
                 ] {
                     parent
                         .spawn_bundle(ButtonBundle {
                             style: button_style.clone(),
                             color: NORMAL_BUTTON.into(),
+                            focusable: action,
                             ..default()
                         })
-                        .insert(action)
+                        .insert(Name::new(text))
                         .with_children(|parent| {
                             parent.spawn_bundle(TextBundle::from_section(
                                 text,
@@ -571,17 +489,22 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle {
-                style: Style {
-                    margin: UiRect::all(Val::Auto),
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_items: AlignItems::Center,
+            .spawn_bundle(MenuBundle {
+                node_bundle: NodeBundle {
+                    style: Style {
+                        display: Display::None,
+                        margin: UiRect::all(Val::Auto),
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: Color::CRIMSON.into(),
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
+                menu: MenuBuilder::NamedParent(Name::new("Display")),
+                setting: default(),
             })
-            .insert(OnDisplaySettingsMenuScreen)
+            .insert(MarkButtons)
             .with_children(|parent| {
                 // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
                 // use the default value, `FlexDirection::Row`, from left to right.
@@ -620,9 +543,12 @@ mod menu {
                                     button_text_style.clone(),
                                 ));
                             });
-                            if *display_quality == quality_setting {
-                                entity.insert(SelectedOption);
-                            }
+                            let selected = if *display_quality == quality_setting {
+                                SelectedOption::Selected
+                            } else {
+                                SelectedOption::Unselected
+                            };
+                            entity.insert(selected);
                         }
                     });
                 // Display the back button to return to the settings screen
@@ -630,9 +556,9 @@ mod menu {
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
                         color: NORMAL_BUTTON.into(),
+                        focusable: Focusable::cancel(),
                         ..default()
                     })
-                    .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle::from_section("Back", button_text_style));
                     });
@@ -658,17 +584,22 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle {
-                style: Style {
-                    margin: UiRect::all(Val::Auto),
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_items: AlignItems::Center,
+            .spawn_bundle(MenuBundle {
+                node_bundle: NodeBundle {
+                    style: Style {
+                        display: Display::None,
+                        margin: UiRect::all(Val::Auto),
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: Color::CRIMSON.into(),
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
+                menu: MenuBuilder::NamedParent(Name::new("Sound")),
+                setting: default(),
             })
-            .insert(OnSoundSettingsMenuScreen)
+            .insert(MarkButtons)
             .with_children(|parent| {
                 parent
                     .spawn_bundle(NodeBundle {
@@ -694,52 +625,115 @@ mod menu {
                                 ..default()
                             });
                             entity.insert(Volume(volume_setting));
-                            if *volume == Volume(volume_setting) {
-                                entity.insert(SelectedOption);
-                            }
+                            let selected = if *volume == Volume(volume_setting) {
+                                SelectedOption::Selected
+                            } else {
+                                SelectedOption::Unselected
+                            };
+                            entity.insert(selected);
                         }
                     });
                 parent
                     .spawn_bundle(ButtonBundle {
                         style: button_style,
                         color: NORMAL_BUTTON.into(),
+                        focusable: Focusable::cancel(),
                         ..default()
                     })
-                    .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle::from_section("Back", button_text_style));
                     });
             });
     }
 
-    fn menu_action(
-        interaction_query: Query<
-            (&Interaction, &MenuButtonAction),
-            (Changed<Interaction>, With<Button>),
+    // This system handles changing all buttons color based on mouse interaction
+    fn update_button_color(
+        mut interaction_query: Query<
+            (&Focusable, Option<&SelectedOption>, &mut UiColor),
+            Or<(Changed<Focusable>, Changed<SelectedOption>)>,
         >,
+    ) {
+        use FocusState::*;
+        use SelectedOption::*;
+        for (interaction, selected, mut color) in &mut interaction_query {
+            let new_color = match (interaction.state(), selected) {
+                (Focused, Some(Selected)) => HOVERED_PRESSED_BUTTON,
+                (Focused, Some(Unselected) | None) => HOVERED_BUTTON,
+                (_, Some(Selected)) => PRESSED_BUTTON,
+                (_, Some(Unselected) | None) => NORMAL_BUTTON,
+            };
+            *color = new_color.into();
+        }
+    }
+
+    fn update_selected_option<T: Resource + Component + PartialEq + Copy>(
+        mut nav_events: EventReader<NavEvent>,
+        mut select_query: Query<(Entity, &mut SelectedOption, &T)>,
+        mut setting: ResMut<T>,
+    ) {
+        for event in nav_events.iter() {
+            if let NavEvent::NoChanges {
+                from,
+                request: NavRequest::Action,
+            } = event
+            {
+                let activated = *from.first();
+                // skip if the update is from another kind of setting option
+                if select_query.get(activated).is_err() {
+                    continue;
+                }
+                let old_setting = *setting;
+                for (entity, mut to_change, option_value) in &mut select_query {
+                    if *option_value == old_setting {
+                        *to_change = SelectedOption::Unselected;
+                    }
+                    if entity == activated {
+                        *to_change = SelectedOption::Selected;
+                        *setting = *option_value;
+                    }
+                }
+            }
+        }
+    }
+
+    fn handle_menu_change(
+        mut nav_events: EventReader<NavEvent>,
+        mut styles: Query<&mut Style>,
+        menu_query: Query<&ParentMenu>,
+    ) {
+        for event in nav_events.iter() {
+            if let NavEvent::FocusChanged { to, from } = event {
+                let menu_query = (menu_query.get(*from.first()), menu_query.get(*to.first()));
+                if let (Ok(from), Ok(to)) = menu_query {
+                    // Could improve perf by using `if from != to {...}` here
+                    let mut to_hide = styles.get_mut(from.0).unwrap();
+                    to_hide.display = Display::None;
+
+                    let mut to_show = styles.get_mut(to.0).unwrap();
+                    to_show.display = Display::Flex;
+                }
+            }
+        }
+    }
+
+    fn menu_action(
+        button_query: Query<&MenuButtonAction>,
+        mut nav_events: EventReader<NavEvent>,
         mut app_exit_events: EventWriter<AppExit>,
-        mut menu_state: ResMut<State<MenuState>>,
         mut game_state: ResMut<State<GameState>>,
     ) {
-        for (interaction, menu_button_action) in &interaction_query {
-            if *interaction == Interaction::Clicked {
-                match menu_button_action {
-                    MenuButtonAction::Quit => app_exit_events.send(AppExit),
-                    MenuButtonAction::Play => {
+        for event in nav_events.iter() {
+            if let NavEvent::NoChanges {
+                from,
+                request: NavRequest::Action,
+            } = event
+            {
+                match button_query.get(*from.first()) {
+                    Ok(MenuButtonAction::Quit) => app_exit_events.send(AppExit),
+                    Ok(MenuButtonAction::Play) => {
                         game_state.set(GameState::Game).unwrap();
-                        menu_state.set(MenuState::Disabled).unwrap();
                     }
-                    MenuButtonAction::Settings => menu_state.set(MenuState::Settings).unwrap(),
-                    MenuButtonAction::SettingsDisplay => {
-                        menu_state.set(MenuState::SettingsDisplay).unwrap();
-                    }
-                    MenuButtonAction::SettingsSound => {
-                        menu_state.set(MenuState::SettingsSound).unwrap();
-                    }
-                    MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main).unwrap(),
-                    MenuButtonAction::BackToSettings => {
-                        menu_state.set(MenuState::Settings).unwrap();
-                    }
+                    _ => {}
                 }
             }
         }
@@ -750,5 +744,50 @@ mod menu {
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
     for entity in &to_despawn {
         commands.entity(entity).despawn_recursive();
+    }
+}
+
+#[derive(Component, Clone, Copy, PartialEq)]
+struct ParentMenu(Entity);
+#[derive(Component)]
+struct MarkButtons;
+
+// TODO: note that bevy-ui-navigation had a dedicated module to automate this.
+/// This system adds a component that links directly to the parent menu of a focusable.
+fn mark_buttons(
+    mut cmds: Commands,
+    menu_markers: Query<Entity, With<MarkButtons>>,
+    focusables: Query<(), With<Focusable>>,
+    menus: Query<(), With<MenuSetting>>,
+    children: Query<&Children>,
+) {
+    fn mark_focusable(
+        entity_children: &Children,
+        marker: ParentMenu,
+        commands: &mut Commands,
+        focusables: &Query<(), With<Focusable>>,
+        menus: &Query<(), With<MenuSetting>>,
+        children: &Query<&Children>,
+    ) {
+        for entity in entity_children {
+            match () {
+                () if focusables.get(*entity).is_ok() => {
+                    commands.entity(*entity).insert(marker);
+                }
+                () if menus.get(*entity).is_ok() => {}
+                () => {
+                    if let Ok(entities) = children.get(*entity) {
+                        mark_focusable(entities, marker, commands, focusables, menus, children);
+                    }
+                }
+            }
+        }
+    }
+    for menu in &menu_markers {
+        if let Ok(entities) = children.get(menu) {
+            let marker = ParentMenu(menu);
+            mark_focusable(entities, marker, &mut cmds, &focusables, &menus, &children);
+        }
+        cmds.entity(menu).remove::<MarkButtons>();
     }
 }

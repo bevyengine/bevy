@@ -6,10 +6,8 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_input::prelude::*;
 use bevy_math::Vec2;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_ui_navigation::{
-    events::{Direction, NavRequest, ScopeDirection},
-    Focusable, Focused,
-};
+use bevy_ui_navigation::events::{Direction, ScopeDirection};
+use bevy_ui_navigation::prelude::{Focusable, Focused, NavRequest};
 use bevy_utils::FloatOrd;
 use bevy_window::Windows;
 

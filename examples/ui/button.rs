@@ -1,7 +1,7 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{prelude::*, ui_navigation::NavRequestSystem, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -9,7 +9,8 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_startup_system(setup)
-        .add_system(button_system)
+        .add_system(button_color.after(NavRequestSystem))
+        .add_system(press_color.after(NavRequestSystem))
         .run();
 }
 
@@ -17,29 +18,47 @@ const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
-fn button_system(
+fn press_color(
+    mut events: EventReader<NavEvent>,
+    mut interaction_query: Query<(&mut UiColor, &Children)>,
+    mut text_query: Query<&mut Text>,
+) {
+    for event in events.iter() {
+        if let NavEvent::NoChanges {
+            from,
+            request: NavRequest::Action,
+        } = event
+        {
+            if let Ok((mut color, children)) = interaction_query.get_mut(*from.first()) {
+                let mut text = text_query.get_mut(children[0]).unwrap();
+                *color = PRESSED_BUTTON.into();
+                text.sections[0].value = "Press".to_string();
+            }
+        }
+    }
+}
+
+fn button_color(
     mut interaction_query: Query<
-        (&Interaction, &mut UiColor, &Children),
-        (Changed<Interaction>, With<Button>),
+        (&Focusable, &mut UiColor, &Children),
+        (Changed<Focusable>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut color, children) in &mut interaction_query {
+    for (focusable, mut color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
-        match *interaction {
-            Interaction::Clicked => {
-                text.sections[0].value = "Press".to_string();
-                *color = PRESSED_BUTTON.into();
-            }
-            Interaction::Hovered => {
+        // TODO handle hovering with Hover component
+        let new_color = match focusable.state() {
+            FocusState::Focused => {
                 text.sections[0].value = "Hover".to_string();
-                *color = HOVERED_BUTTON.into();
+                HOVERED_BUTTON
             }
-            Interaction::None => {
+            _ => {
                 text.sections[0].value = "Button".to_string();
-                *color = NORMAL_BUTTON.into();
+                NORMAL_BUTTON
             }
-        }
+        };
+        *color = new_color.into();
     }
 }
 

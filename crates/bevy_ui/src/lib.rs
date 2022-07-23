@@ -13,9 +13,10 @@ pub mod update;
 pub mod widget;
 
 use bevy_render::extract_component::ExtractComponentPlugin;
-use bevy_ui_navigation::GenericNavigationPlugin;
+use bevy_ui_navigation::{GenericNavigationPlugin, NavRequestSystem};
 pub use flex::*;
 pub use geometry::*;
+pub use navigation::InputMapping;
 pub use render::*;
 pub use ui_node::*;
 
@@ -39,8 +40,24 @@ use crate::navigation::UiProjectionQuery;
 use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
-#[derive(Default)]
-pub struct UiPlugin;
+pub struct UiPlugin {
+    /// Whether to add a default configuration for UI navigation.
+    ///
+    /// When true (the default) a default implementation of menu navigation
+    /// is included, so that moving through the UI with mouse or gamepad
+    /// works without any more efforts.
+    ///
+    /// Set this to `false` if you want to create and add your own custom
+    /// navigation systems.
+    pub default_navigation: bool,
+}
+impl Default for UiPlugin {
+    fn default() -> Self {
+        UiPlugin {
+            default_navigation: true,
+        }
+    }
+}
 
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
@@ -70,6 +87,14 @@ impl Default for UiScale {
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        if self.default_navigation {
+            app.add_plugin(NavigationPlugin::new())
+                .init_resource::<InputMapping>()
+                .add_system(navigation::default_gamepad_input.before(NavRequestSystem))
+                .add_system(navigation::default_keyboard_input.before(NavRequestSystem))
+                .add_system(navigation::default_mouse_input.before(NavRequestSystem));
+        }
+
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
