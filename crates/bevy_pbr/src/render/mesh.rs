@@ -316,14 +316,14 @@ impl GetBinding for Buffer {
 
 impl GetBinding for Handle<Image> {
     fn get_binding<'a>(&'a self, gpu_images: &'a RenderAssets<Image>) -> BindingResource<'a> {
-        let gpu_image = gpu_images.get(&self).unwrap(); // use default instead of unwrap
+        let gpu_image = gpu_images.get(self).unwrap(); // use default instead of unwrap
         BindingResource::TextureView(&gpu_image.texture_view)
     }
 }
 
 impl GetBinding for Sampler {
     fn get_binding(&self, _: &RenderAssets<Image>) -> BindingResource {
-        BindingResource::Sampler(&self)
+        BindingResource::Sampler(self)
     }
 }
 
