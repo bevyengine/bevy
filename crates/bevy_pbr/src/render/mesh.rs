@@ -57,6 +57,8 @@ pub const MESH_SHADER_HANDLE: HandleUntyped =
 pub const SKINNING_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13215291596265391738);
 
+const MESH_VIEW_DEFAULT_BINDINGS_COUNT: usize = 9;
+
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
@@ -80,12 +82,6 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, MESH_TYPES_HANDLE, "mesh_types.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
-            MESH_VIEW_USER_BINDINGS_HANDLE,
-            "mesh_view_user_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
             MESH_BINDINGS_HANDLE,
             "mesh_bindings.wgsl",
             Shader::from_wgsl
@@ -102,8 +98,30 @@ impl Plugin for MeshRenderPlugin {
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 
         // initialise if required, then manually copy over so they are available for MeshPipeline's FromWorld
-        app.init_resource::<UserViewBindingsLayouts>();
-        let user_view_layouts = app.world.resource::<UserViewBindingsLayouts>().clone();
+        app.init_resource::<UserViewBindingsSpec>();
+        let user_view_layouts = app.world.resource::<UserViewBindingsSpec>().clone();
+
+        // construct the amalgamated user bindings shader
+        let mut offset = MESH_VIEW_DEFAULT_BINDINGS_COUNT;
+        let mut mesh_view_user_bindings =
+            String::from("#define_import_path bevy_pbr::mesh_view_user_bindings\n\n");
+        for def in user_view_layouts.binding_shaders.iter() {
+            let mut preprocessed_binding_shader = def.shader.clone();
+            for i in 0..def.num_bindings {
+                preprocessed_binding_shader = preprocessed_binding_shader.replace(
+                    format!("@binding({})", i).as_str(),
+                    format!("@binding({})", offset + i).as_str(),
+                );
+            }
+            mesh_view_user_bindings += "\n";
+            mesh_view_user_bindings += &preprocessed_binding_shader;
+            offset += def.num_bindings;
+        }
+        let mut shaders = app.world.resource_mut::<Assets<Shader>>();
+        shaders.set_untracked(
+            MESH_VIEW_USER_BINDINGS_HANDLE,
+            Shader::from_wgsl(mesh_view_user_bindings),
+        );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -262,12 +280,20 @@ pub fn extract_skinned_meshes(
     commands.insert_or_spawn_batch(values);
 }
 
+#[derive(Clone)]
+pub struct UserViewBindingsShader {
+    // wgsl, using `BINDING_INDEX + x` binding entries
+    pub shader: String,
+    pub num_bindings: usize,
+}
+
 // entries will be added to the end of the mesh view binding
 // starting from binding 9
 // bevy_pbr::mesh_view_bindings will also need to be updated to match
 #[derive(Default, Clone)]
-pub struct UserViewBindingsLayouts {
-    pub entries: Vec<(&'static str, UserViewBindGroupLayoutEntry)>,
+pub struct UserViewBindingsSpec {
+    pub layout_entries: Vec<(&'static str, UserViewBindGroupLayoutEntry)>,
+    pub binding_shaders: Vec<UserViewBindingsShader>,
 }
 
 #[derive(Clone)]
@@ -303,7 +329,7 @@ impl FromWorld for MeshPipeline {
             Res<RenderDevice>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
-            ResMut<UserViewBindingsLayouts>,
+            Res<UserViewBindingsSpec>,
         )> = SystemState::new(world);
         let (render_device, default_sampler, render_queue, user_entries) =
             system_state.get_mut(world);
@@ -420,15 +446,15 @@ impl FromWorld for MeshPipeline {
             },
         ];
 
-        let user_binding_offset = entries.len();
+        assert_eq!(MESH_VIEW_DEFAULT_BINDINGS_COUNT, entries.len());
 
         entries.extend(
             user_entries
-                .entries
+                .layout_entries
                 .iter()
                 .enumerate()
                 .map(|(i, (_key, value))| BindGroupLayoutEntry {
-                    binding: (user_binding_offset + i) as u32,
+                    binding: (MESH_VIEW_DEFAULT_BINDINGS_COUNT + i) as u32,
                     visibility: value.visibility,
                     ty: value.ty,
                     count: None,
@@ -814,7 +840,7 @@ pub fn queue_mesh_view_bind_groups(
     global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
-    user_bindings: Res<UserViewBindingsLayouts>,
+    user_bindings: Res<UserViewBindingsSpec>,
     mut user_binding_entries: ResMut<UserViewBindingsEntries>,
 ) {
     if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
@@ -870,7 +896,7 @@ pub fn queue_mesh_view_bind_groups(
 
             // collect binding resources in the layout vec order
             let user_buffers = user_bindings
-                .entries
+                .layout_entries
                 .iter()
                 .map(|(key, _)| user_binding_entries.entries.get(key).unwrap().get_binding());
 

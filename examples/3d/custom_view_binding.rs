@@ -1,8 +1,7 @@
 use bevy::{
-    asset::load_internal_asset,
     pbr::{
         queue_mesh_view_bind_groups, GetBinding, UserViewBindGroupLayoutEntry,
-        UserViewBindingsEntries, UserViewBindingsLayouts, MESH_VIEW_USER_BINDINGS_HANDLE,
+        UserViewBindingsEntries, UserViewBindingsShader, UserViewBindingsSpec,
     },
     prelude::*,
     reflect::TypeUuid,
@@ -95,10 +94,10 @@ pub struct CustomViewBindingPlugin;
 
 impl CustomViewBindingPlugin {
     pub fn add_view_bindings(app: &mut App) {
-        let mut user_bindings: Mut<UserViewBindingsLayouts> = app
+        let mut user_bindings: Mut<UserViewBindingsSpec> = app
             .world
-            .get_resource_or_insert_with(UserViewBindingsLayouts::default);
-        user_bindings.entries.push((
+            .get_resource_or_insert_with(UserViewBindingsSpec::default);
+        user_bindings.layout_entries.push((
             "example custom view binding",
             UserViewBindGroupLayoutEntry {
                 visibility: ShaderStages::FRAGMENT,
@@ -109,22 +108,15 @@ impl CustomViewBindingPlugin {
                 },
             },
         ));
+        user_bindings.binding_shaders.push(UserViewBindingsShader {
+            shader: String::from(include_str!("custom_view_bindings.wgsl")),
+            num_bindings: 1,
+        });
     }
 }
 
 impl Plugin for CustomViewBindingPlugin {
     fn build(&self, app: &mut App) {
-        // override mesh view bindings
-        // note: if an app uses multiple plugins with custom view bindings, you will need to create
-        // a single view_binding .wgsl file containing all the bindings from the plugins, and override
-        // the MESH_VIEW_USER_BINDINGS_HANDLE again after adding the plugins
-        load_internal_asset!(
-            app,
-            MESH_VIEW_USER_BINDINGS_HANDLE,
-            "custom_view_bindings.wgsl",
-            Shader::from_wgsl
-        );
-
         // extract example resource
         app.sub_app_mut(RenderApp)
             .add_system_to_stage(RenderStage::Extract, extract_time);
