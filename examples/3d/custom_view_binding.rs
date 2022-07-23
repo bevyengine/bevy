@@ -1,13 +1,13 @@
 use bevy::{
     pbr::{
-        queue_mesh_view_bind_groups, GetBinding, UserViewBindGroupLayoutEntry,
-        UserViewBindingsEntries, UserViewBindingsShader, UserViewBindingsSpec,
+        queue_mesh_view_bind_groups, UserViewBindGroupLayoutEntry, UserViewBindingsEntries,
+        UserViewBindingsShader, UserViewBindingsSpec,
     },
     prelude::*,
     reflect::TypeUuid,
     render::{
         render_resource::{
-            encase::UniformBuffer, AsBindGroup, BindingType, Buffer, BufferBindingType,
+            encase::UniformBuffer, AsBindGroup, BindingType, BufferBindingType,
             BufferInitDescriptor, BufferUsages, ShaderRef, ShaderStages, ShaderType,
         },
         renderer::RenderDevice,
@@ -80,16 +80,6 @@ struct CustomViewUniform {
     time: f32,
 }
 
-struct CustomViewUniformBuffer {
-    buffer: Buffer,
-}
-
-impl GetBinding for CustomViewUniformBuffer {
-    fn get_binding(&self) -> bevy::render::render_resource::BindingResource {
-        self.buffer.as_entire_binding()
-    }
-}
-
 pub struct CustomViewBindingPlugin;
 
 impl CustomViewBindingPlugin {
@@ -154,11 +144,7 @@ fn queue_custom_view_binding(
         contents: buffer.as_ref(),
     });
 
-    let uniform_buffer = CustomViewUniformBuffer {
-        buffer: view_uniform_buffer,
-    };
-
     entries
         .entries
-        .insert("example custom view binding", Box::new(uniform_buffer));
+        .insert("example custom view binding", Box::new(view_uniform_buffer));
 }

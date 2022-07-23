@@ -308,6 +308,12 @@ pub trait GetBinding: Send + Sync {
     fn get_binding(&self) -> BindingResource;
 }
 
+impl GetBinding for Buffer {
+    fn get_binding(&self) -> BindingResource {
+        self.as_entire_binding()
+    }
+}
+
 #[derive(Default)]
 pub struct UserViewBindingsEntries {
     pub entries: HashMap<&'static str, Box<dyn GetBinding>>,
