@@ -185,6 +185,17 @@ change_detection_impl!(ResMut<'a, T>, T, Resource);
 impl_into_inner!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
+impl<'a, T: Resource> ResMut<'a, T> {
+    /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
+    /// while losing the specificity of `ResMut` for resources.
+    pub fn into_mut(self) -> Mut<'a, T> {
+        Mut {
+            value: self.value,
+            ticks: self.ticks,
+        }
+    }
+}
+
 /// Unique borrow of a non-[`Send`] resource.
 ///
 /// Only [`Send`] resources may be accessed with the [`ResMut`] [`SystemParam`](crate::system::SystemParam). In case that the
@@ -205,6 +216,17 @@ pub struct NonSendMut<'a, T: 'static> {
 change_detection_impl!(NonSendMut<'a, T>, T,);
 impl_into_inner!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
+
+impl<'a, T: 'static> NonSendMut<'a, T> {
+    /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
+    /// while losing the specificity of `NonSendMut`.
+    pub fn into_mut(self) -> Mut<'a, T> {
+        Mut {
+            value: self.value,
+            ticks: self.ticks,
+        }
+    }
+}
 
 /// Unique mutable borrow of an entity's component
 pub struct Mut<'a, T> {
