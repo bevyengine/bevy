@@ -297,7 +297,7 @@ impl SceneSpawner {
 
     /// Get an iterator over the entities in an instance, once it's spawned.
     ///
-    /// Before the scene is spawned, the iterator will be empty. Use [`instance_is_ready`]
+    /// Before the scene is spawned, the iterator will be empty. Use [`Self::instance_is_ready`]
     /// to check if the instance is ready.
     pub fn iter_instance_entities(
         &'_ self,
