@@ -109,18 +109,41 @@ impl Deref for BindGroup {
 ///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a uniform.
 ///     [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
 ///   [`Color`](crate::color::Color). It can also be derived for custom structs.
-/// * `texture(BINDING_INDEX)`
+/// * `texture(BINDING_INDEX, [ARGS])`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
 ///     GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
-///    (with a different binding index) if a binding of the sampler for the [`Image`] is also required.
-/// * `sampler(BINDING_INDEX)`
+///     (with a different binding index) if a binding of the sampler for the [`Image`] is also required. Additional optional arguments can also be
+///     passed to the attribute for different types of textures.
+///     * `dimension = <str>`
+///         * Available values: `"1d"`, `"2d"`, `"2d_array"`, `"3d"`, `"cube"`, `"cube_array"`
+///         * Default value: `"2d"`
+///     * `sample_type = <str>`
+///         * Available values: `"float"`, `"depth"`, `"s_int"`, `"u_int"`
+///         * Default value: `"float"`
+///     * `filterable = <bool>`
+///         * Available values: `true`, `false`
+///         * Default value: `true`
+///     * `multisampled = <bool>`
+///         * Available values: `true`, `false`
+///         * Default value: `false`
+///     * `visibility(<flag>, ...)`
+///         * Available flags: `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute`
+///         * Default flags: `vertex`, `fragment`
+/// * `sampler(BINDING_INDEX, [ARGS])`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`](crate::render_resource::Sampler) GPU
 ///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
-///     (with a different binding index) if a binding of the texture for the [`Image`] is also required.
+///     (with a different binding index) if a binding of the texture for the [`Image`] is also required. Additional optional arguments can also be
+///     passed to the attribute for different types of samplers.
+///     * `sampler_type = <str>`
+///         * Available values: `"filtering"`, `"non_filtering"`, `"comparison"`
+///         * Default: `"filtering"`
+///     * `visibility(<flag>, ...)`
+///         * Available flags: `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute`
+///         * Default flags: `vertex`, `fragment`
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```
