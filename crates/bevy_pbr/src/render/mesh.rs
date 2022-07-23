@@ -105,7 +105,7 @@ impl Plugin for MeshRenderPlugin {
         let mut offset = MESH_VIEW_DEFAULT_BINDINGS_COUNT;
         let mut mesh_view_user_bindings =
             String::from("#define_import_path bevy_pbr::mesh_view_user_bindings\n\n");
-        for def in user_view_layouts.binding_shaders.iter() {
+        for def in &user_view_layouts.binding_shaders {
             let mut preprocessed_binding_shader = def.shader.clone();
             for i in 0..def.num_bindings {
                 preprocessed_binding_shader = preprocessed_binding_shader.replace(
