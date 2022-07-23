@@ -185,13 +185,13 @@ change_detection_impl!(ResMut<'a, T>, T, Resource);
 impl_into_inner!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
-impl<'a, T: Resource> ResMut<'a, T> {
+impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `ResMut` for resources.
-    pub fn into_mut(self) -> Mut<'a, T> {
+    fn from(other: ResMut<'a, T>) -> Mut<'a, T> {
         Mut {
-            value: self.value,
-            ticks: self.ticks,
+            value: other.value,
+            ticks: other.ticks,
         }
     }
 }
@@ -217,13 +217,13 @@ change_detection_impl!(NonSendMut<'a, T>, T,);
 impl_into_inner!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
-impl<'a, T: 'static> NonSendMut<'a, T> {
+impl<'a, T: Resource> From<NonSendMut<'a, T>> for Mut<'a, T> {
     /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `NonSendMut`.
-    pub fn into_mut(self) -> Mut<'a, T> {
+    fn from(other: NonSendMut<'a, T>) -> Mut<'a, T> {
         Mut {
-            value: self.value,
-            ticks: self.ticks,
+            value: other.value,
+            ticks: other.ticks,
         }
     }
 }
@@ -308,7 +308,7 @@ impl std::fmt::Debug for MutUntyped<'_> {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        change_detection::{CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
+        change_detection::{CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE, ComponentTicks, Ticks, Mut, ResMut, NonSendMut},
         component::Component,
         query::ChangeTrackers,
         system::{IntoSystem, Query, System},
@@ -317,6 +317,8 @@ mod tests {
 
     #[derive(Component)]
     struct C;
+
+    struct R; // Resource
 
     #[test]
     fn change_expiration() {
@@ -403,5 +405,53 @@ mod tests {
             assert!(ticks_since_insert == MAX_CHANGE_AGE);
             assert!(ticks_since_change == MAX_CHANGE_AGE);
         }
+    }
+
+    #[test]
+    fn mut_from_res_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: 1,
+            changed: 2,
+        };
+        let ticks = Ticks {
+            component_ticks: &mut component_ticks,
+            last_change_tick: 3,
+            change_tick: 4,
+        };
+        let mut res = R{};
+        let res_mut = ResMut {
+            value: &mut res,
+            ticks,
+        };
+
+        let into_mut: Mut<R> = res_mut.into();
+        assert_eq!(1, into_mut.ticks.component_ticks.added);
+        assert_eq!(2, into_mut.ticks.component_ticks.changed);
+        assert_eq!(3, into_mut.ticks.last_change_tick);
+        assert_eq!(4, into_mut.ticks.change_tick);
+    }
+
+    #[test]
+    fn mut_from_non_send_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: 1,
+            changed: 2,
+        };
+        let ticks = Ticks {
+            component_ticks: &mut component_ticks,
+            last_change_tick: 3,
+            change_tick: 4,
+        };
+        let mut res = R{};
+        let non_send_mut = NonSendMut {
+            value: &mut res,
+            ticks,
+        };
+
+        let into_mut: Mut<R> = non_send_mut.into();
+        assert_eq!(1, into_mut.ticks.component_ticks.added);
+        assert_eq!(2, into_mut.ticks.component_ticks.changed);
+        assert_eq!(3, into_mut.ticks.last_change_tick);
+        assert_eq!(4, into_mut.ticks.change_tick);
     }
 }
