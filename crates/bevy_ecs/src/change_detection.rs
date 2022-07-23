@@ -308,7 +308,9 @@ impl std::fmt::Debug for MutUntyped<'_> {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        change_detection::{CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE, ComponentTicks, Ticks, Mut, ResMut, NonSendMut},
+        change_detection::{
+            ComponentTicks, Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+        },
         component::Component,
         query::ChangeTrackers,
         system::{IntoSystem, Query, System},
@@ -418,7 +420,7 @@ mod tests {
             last_change_tick: 3,
             change_tick: 4,
         };
-        let mut res = R{};
+        let mut res = R {};
         let res_mut = ResMut {
             value: &mut res,
             ticks,
@@ -442,7 +444,7 @@ mod tests {
             last_change_tick: 3,
             change_tick: 4,
         };
-        let mut res = R{};
+        let mut res = R {};
         let non_send_mut = NonSendMut {
             value: &mut res,
             ticks,
