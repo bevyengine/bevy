@@ -305,12 +305,25 @@ pub struct UserViewBindGroupLayoutEntry {
 }
 
 pub trait GetBinding: Send + Sync {
-    fn get_binding(&self) -> BindingResource;
+    fn get_binding<'a>(&'a self, gpu_images: &'a RenderAssets<Image>) -> BindingResource<'a>;
 }
 
 impl GetBinding for Buffer {
-    fn get_binding(&self) -> BindingResource {
+    fn get_binding(&self, _: &RenderAssets<Image>) -> BindingResource {
         self.as_entire_binding()
+    }
+}
+
+impl GetBinding for Handle<Image> {
+    fn get_binding<'a>(&'a self, gpu_images: &'a RenderAssets<Image>) -> BindingResource<'a> {
+        let gpu_image = gpu_images.get(&self).unwrap(); // use default instead of unwrap
+        BindingResource::TextureView(&gpu_image.texture_view)
+    }
+}
+
+impl GetBinding for Sampler {
+    fn get_binding(&self, _: &RenderAssets<Image>) -> BindingResource {
+        BindingResource::Sampler(&self)
     }
 }
 
@@ -848,6 +861,7 @@ pub fn queue_mesh_view_bind_groups(
     views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
     user_bindings: Res<UserViewBindingsSpec>,
     mut user_binding_entries: ResMut<UserViewBindingsEntries>,
+    images: Res<RenderAssets<Image>>,
 ) {
     if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
         view_uniforms.uniforms.binding(),
@@ -901,10 +915,13 @@ pub fn queue_mesh_view_bind_groups(
             let user_binding_offset = entries.len();
 
             // collect binding resources in the layout vec order
-            let user_buffers = user_bindings
-                .layout_entries
-                .iter()
-                .map(|(key, _)| user_binding_entries.entries.get(key).unwrap().get_binding());
+            let user_buffers = user_bindings.layout_entries.iter().map(|(key, _)| {
+                user_binding_entries
+                    .entries
+                    .get(key)
+                    .unwrap()
+                    .get_binding(&images)
+            });
 
             entries.extend(
                 user_buffers
