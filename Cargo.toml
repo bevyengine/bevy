@@ -26,6 +26,7 @@ members = [
 [features]
 default = [
   "animation",
+  "bevy_asset",
   "bevy_audio",
   "bevy_gilrs",
   "bevy_scene",
@@ -54,6 +55,7 @@ render = [
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
+bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]

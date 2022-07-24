@@ -12,6 +12,7 @@ pub mod app {
     pub use bevy_app::*;
 }
 
+#[cfg(feature = "bevy_asset")]
 pub mod asset {
     //! Load and store assets and resources for Apps.
     pub use bevy_asset::*;

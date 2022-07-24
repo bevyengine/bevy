@@ -66,7 +66,6 @@ animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.8.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.8.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.8.0-dev" }
@@ -84,6 +83,7 @@ bevy_window = { path = "../bevy_window", version = "0.8.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.8.0-dev" }
 # bevy (optional)
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.8.0-dev" }
+bevy_asset = { path = "../bevy_asset", optional = true, version = "0.8.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.8.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.8.0-dev" }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.8.0-dev" }
