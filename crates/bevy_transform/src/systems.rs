@@ -105,6 +105,9 @@ mod test {
     use crate::TransformBundle;
     use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
 
+    #[derive(StageLabel)]
+    struct Update;
+
     #[test]
     fn did_propagate() {
         let mut world = World::default();
@@ -113,7 +116,7 @@ mod test {
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Root entity
         world
@@ -156,7 +159,7 @@ mod test {
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Root entity
         let mut queue = CommandQueue::default();
@@ -198,7 +201,7 @@ mod test {
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Add parent entities
         let mut children = Vec::new();

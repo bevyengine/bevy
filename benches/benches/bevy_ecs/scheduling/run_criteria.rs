@@ -1,6 +1,7 @@
 use bevy_ecs::{
     component::Component,
     prelude::{ParallelSystemDescriptorCoercion, Res, Resource, RunCriteriaDescriptorCoercion},
+    run_criteria_label,
     schedule::{ShouldRun, Stage, SystemStage},
     system::Query,
     world::World,
@@ -85,14 +86,16 @@ pub fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
     }
     for amount in 0..21 {
         let mut stage = SystemStage::parallel();
-        stage.add_system(empty.with_run_criteria(always_yes.label("always yes")));
+
+        run_criteria_label!(always_yes_label);
+        stage.add_system(empty.with_run_criteria(always_yes.label(always_yes_label)));
         for _ in 0..amount {
             stage
-                .add_system(empty.with_run_criteria("always yes"))
-                .add_system(empty.with_run_criteria("always yes"))
-                .add_system(empty.with_run_criteria("always yes"))
-                .add_system(empty.with_run_criteria("always yes"))
-                .add_system(empty.with_run_criteria("always yes"));
+                .add_system(empty.with_run_criteria(always_yes_label))
+                .add_system(empty.with_run_criteria(always_yes_label))
+                .add_system(empty.with_run_criteria(always_yes_label))
+                .add_system(empty.with_run_criteria(always_yes_label))
+                .add_system(empty.with_run_criteria(always_yes_label));
         }
         // run once to initialize systems
         run_stage(&mut stage, &mut world);
@@ -116,14 +119,16 @@ pub fn run_criteria_no_with_labels(criterion: &mut Criterion) {
     }
     for amount in 0..21 {
         let mut stage = SystemStage::parallel();
-        stage.add_system(empty.with_run_criteria(always_no.label("always no")));
+
+        run_criteria_label!(always_no_label);
+        stage.add_system(empty.with_run_criteria(always_no.label(always_no_label)));
         for _ in 0..amount {
             stage
-                .add_system(empty.with_run_criteria("always no"))
-                .add_system(empty.with_run_criteria("always no"))
-                .add_system(empty.with_run_criteria("always no"))
-                .add_system(empty.with_run_criteria("always no"))
-                .add_system(empty.with_run_criteria("always no"));
+                .add_system(empty.with_run_criteria(always_no_label))
+                .add_system(empty.with_run_criteria(always_no_label))
+                .add_system(empty.with_run_criteria(always_no_label))
+                .add_system(empty.with_run_criteria(always_no_label))
+                .add_system(empty.with_run_criteria(always_no_label));
         }
         // run once to initialize systems
         run_stage(&mut stage, &mut world);
