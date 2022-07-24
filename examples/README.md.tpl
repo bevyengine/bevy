@@ -238,10 +238,14 @@ Here are some.
 
 #### 1. Tweak your `Cargo.toml`
 
-Add this to your `Cargo.toml`:
+Add a new [profile](https://doc.rust-lang.org/cargo/reference/profiles.html)
+to your `Cargo.toml`:
 
 ```toml
-[profile.release]
+[profile.wasm-release]
+# Use release profile as default values
+inherits = "release"
+
 # Optimize with size in mind, also try "s", sometimes it is better.
 # This doesn't increase compilation times compared to -O3, great improvements
 opt-level = "z"
@@ -253,6 +257,13 @@ lto = "fat"
 # When building crates, optimize larger chunks at a time
 # Slows compile times, marginal improvements
 codegen-units = 1
+```
+
+Now, when building the final executable, use the `wasm-release` profile
+by replacing `--release` by `--profile wasm-release` in the cargo command.
+
+```sh
+cargo build --profile wasm-release --example lighting --target wasm32-unknown-unknown
 ```
 
 Make sure your final executable size is smaller, some of those optimizations
