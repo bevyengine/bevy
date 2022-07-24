@@ -505,10 +505,6 @@ lto = "fat"
 # When building crates, optimize larger chunks at a time
 # Slows compile times, marginal improvements
 codegen-units = 1
-
-# Remove symbols from executable (may make panics more difficult to debug)
-# This doesn't increase compilation time by a lot, great improvements
-strip = "symbols"
 ```
 
 Make sure your final executable size is smaller, some of those optimizations
