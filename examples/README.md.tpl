@@ -239,6 +239,7 @@ Here are some.
 #### 1. Tweak your `Cargo.toml`
 
 Add this to your `Cargo.toml`:
+
 ```toml
 [profile.release]
 # Optimize with size in mind, also try "s", sometimes it is better.
