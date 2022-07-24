@@ -280,6 +280,7 @@ mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 
 There are more advanced optimization options available,
 check the following pages for more info:
+
 - <https://rustwasm.github.io/book/reference/code-size.html>
 - <https://rustwasm.github.io/docs/wasm-bindgen/reference/optimize-size.html>
 - <https://rustwasm.github.io/book/game-of-life/code-size.html>
