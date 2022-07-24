@@ -60,6 +60,7 @@ pub mod reflect {
     };
 }
 
+#[cfg(feature = "bevy_scene")]
 pub mod scene {
     //! Save/load collections of entities and components to/from file.
     pub use bevy_scene::*;
