@@ -53,7 +53,7 @@ pub struct App {
     /// The [runner function](Self::set_runner) is responsible for managing
     /// the main application's event loop and running its systems.
     ///
-    /// Usually, the runner is configured by the [`WinitPlugin`][`bevy::winit::WinitPlugin`]
+    /// Usually, the runner is configured by `bevy_winit::WinitPlugin`
     /// or [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
@@ -724,7 +724,7 @@ impl App {
 
     /// Sets the function that will be used to run the [`App`]. Called once by [`App::run`].
     ///
-    /// Often set by internal plugins (e.g. [`WinitPlugin`][bevy_winit::WinitPlugin]).
+    /// Often set by internal plugins (e.g. `bevy_winit::WinitPlugin`).
     ///
     /// # Examples
     ///

@@ -712,7 +712,7 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
 ///
 /// - If you are using `bevy_ecs` as a standalone crate, `RemovedComponents` will need to be
 /// manually cleared using [`clear_trackers`](World::clear_trackers).
-/// - If you are using `bevy`, [`App`](bevy_app::app::App) schedules [`clear_trackers`]
+/// - If you are using `bevy`, the `App` schedules a `clear_trackers` system
 /// to run at the end of each update.
 ///
 /// # Examples
