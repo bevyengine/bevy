@@ -5,9 +5,9 @@
 #import bevy_pbr::utils
 #import bevy_pbr::clustered_forward
 #import bevy_pbr::lighting
+#import bevy_pbr::pbr_ambient
 #import bevy_pbr::shadows
 #import bevy_pbr::pbr_functions
-#import bevy_pbr::pbr_occlusion
 
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
@@ -87,7 +87,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         );
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
 
-        occlusion = ambient_occlusion(occlusion, pbr_input.world_position, pbr_input.N);
         pbr_input.occlusion = occlusion;
 
         output_color = tone_mapping(pbr(pbr_input));
