@@ -277,6 +277,18 @@ wasm-opt -Oz --output optimized.wasm examples/wasm/target/lighting_bg.wasm
 mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 ```
 
+For a small project with a basic 3d model and two lights,
+the generated file sizes are, as of Jully 2022 as following:
+
+|profile                           | wasm-opt | no wasm-opt |
+|----------------------------------|----------|-------------|
+|Default                           | 8.5M     | 13.0M       |
+|opt-level = "z"                   | 6.1M     | 12.7M       |
+|"z" + lto = "thin"                | 5.9M     | 12M         |
+|"z" + lto = "fat"                 | 5.1M     | 9.4M        |
+|"z" + "thin" + codegen-units = 1  | 5.3M     | 11M         |
+|"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M        |
+
 There are more advanced optimization options available,
 check the following pages for more info:
 
