@@ -23,12 +23,9 @@ bevy_utils::define_label!(
 );
 
 #[allow(clippy::needless_doctest_main)]
-/// A container of app logic and data.
+/// An ECS application that wraps a [`World`], a runner function, and a sub-[`App`] collection.
 ///
-/// Bundles together the necessary elements like [`World`] and [`Schedule`] to create
-/// an ECS-based application. It also stores a pointer to a [runner function](Self::set_runner).
-/// The runner is responsible for managing the application's event loop and applying the
-/// [`Schedule`] to the [`World`] to drive application logic.
+///[`App`] instances are constructed using a builder pattern.
 ///
 /// # Examples
 ///
@@ -49,22 +46,22 @@ bevy_utils::define_label!(
 /// }
 /// ```
 pub struct App {
-    /// The main ECS [`World`] of the [`App`].
-    /// This stores and provides access to all the main data of the application.
-    /// The systems of the [`App`] will run using this [`World`].
-    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`](App::add_sub_app)s.
+    /// Stores all data used by the main application.
+    ///
+    /// Note that each sub-app also has its own [`World`].
     pub world: World,
-    /// The [runner function](Self::set_runner) is primarily responsible for managing
-    /// the application's event loop and advancing the [`Schedule`].
-    /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
-    /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
+    /// The [runner function](Self::set_runner) is responsible for managing
+    /// the main application's event loop and running its systems.
+    ///
+    /// Usually, the runner is configured by the [`WinitPlugin`][`bevy::winit::WinitPlugin`]
+    /// or [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
 }
 
-/// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
+/// A "nested" [`App`] with its own [`World`] and runner, enabling a separation of concerns.
 struct SubApp {
     app: App,
     runner: Box<dyn Fn(&mut World, &mut App)>,
@@ -90,15 +87,16 @@ impl Default for App {
 }
 
 impl App {
-    /// Creates a new [`App`] with some default structure to enable core engine features.
+    /// Constructs a new, empty [`App`] with default engine features enabled.
+    ///
     /// This is the preferred constructor for most use cases.
     pub fn new() -> App {
         App::default()
     }
 
-    /// Creates a new empty [`App`] with minimal default configuration.
+    /// Constructs a new, empty [`App`].
     ///
-    /// This constructor should be used if you wish to provide a custom schedule, exit handling, cleanup, etc.
+    /// This constructor should be used if you wish to provide custom scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
         Self {
             world: Default::default(),
@@ -122,10 +120,7 @@ impl App {
         }
     }
 
-    /// Starts the application by calling the app's [runner function](Self::set_runner).
-    ///
-    /// Finalizes the [`App`] configuration. For general usage, see the example on the item
-    /// level documentation.
+    /// Starts the application by calling its [runner function](Self::set_runner).
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
@@ -636,12 +631,11 @@ impl App {
         self
     }
 
-    /// Inserts a [`Resource`] to the current [`App`] and overwrites any [`Resource`] previously added of the same type.
+    /// Adds the resource to the [`World`].
     ///
-    /// A [`Resource`] in Bevy represents globally unique data. [`Resource`]s must be added to Bevy apps
-    /// before using them. This happens with [`insert_resource`](Self::insert_resource).
+    /// If the resource already exists, this will overwrite its value.
     ///
-    /// See [`init_resource`](Self::init_resource) for [`Resource`]s that implement [`Default`] or [`FromWorld`].
+    /// See [`init_resource`](Self::init_resource) for resources that implement [`Default`] or [`FromWorld`].
     ///
     /// # Examples
     ///
@@ -660,10 +654,11 @@ impl App {
         self
     }
 
-    /// Inserts a non-send [`Resource`] to the app.
+    /// Adds the non-[`Send`] resource to the [`World`].
     ///
-    /// You usually want to use [`insert_resource`](Self::insert_resource),
-    /// but there are some special cases when a [`Resource`] cannot be sent across threads.
+    /// If the resource already exists, this will overwrite its value.
+    ///
+    /// See [`init_resource`](Self::init_resource) for resources that implement [`Default`] or [`FromWorld`].
     ///
     /// # Examples
     ///
@@ -682,13 +677,13 @@ impl App {
         self
     }
 
-    /// Initialize a [`Resource`] with standard starting values by adding it to the [`World`].
+    /// Adds the resource to the [`World`], initialized to its default value.
     ///
     /// If the [`Resource`] already exists, nothing happens.
     ///
     /// The [`Resource`] must implement the [`FromWorld`] trait.
-    /// If the [`Default`] trait is implemented, the [`FromWorld`] trait will use
-    /// the [`Default::default`] method to initialize the [`Resource`].
+    /// If the [`Default`] trait is implemented, the `FromWorld` trait will use
+    /// the [`Default::default`] method to initialize the resource.
     ///
     /// # Examples
     ///
@@ -715,24 +710,21 @@ impl App {
         self
     }
 
-    /// Initialize a non-send [`Resource`] with standard starting values by adding it to the [`World`].
+    /// Adds the non-[`Send`] resource to the [`World`], initialized to its default value.
+    ///
+    /// If the resource already exists, nothing happens.
     ///
     /// The [`Resource`] must implement the [`FromWorld`] trait.
-    /// If the [`Default`] trait is implemented, the [`FromWorld`] trait will use
-    /// the [`Default::default`] method to initialize the [`Resource`].
+    /// If the [`Default`] trait is implemented, the `FromWorld` trait will use
+    /// the [`Default::default`] method to initialize the resource.
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
         self.world.init_non_send_resource::<R>();
         self
     }
 
-    /// Sets the function that will be called when the app is run.
+    /// Sets the function that will be used to run the [`App`]. Called once by [`App::run`].
     ///
-    /// The runner function `run_fn` is called only once by [`App::run`]. If the
-    /// presence of a main loop in the app is desired, it is the responsibility of the runner
-    /// function to provide it.
-    ///
-    /// The runner function is usually not set manually, but by Bevy integrated plugins
-    /// (e.g. `WinitPlugin`).
+    /// Often set by internal plugins (e.g. [`WinitPlugin`][bevy_winit::WinitPlugin]).
     ///
     /// # Examples
     ///
@@ -741,25 +733,22 @@ impl App {
     /// #
     /// fn my_runner(mut app: App) {
     ///     loop {
-    ///         println!("In main loop");
+    ///         println!("in main loop");
     ///         app.update();
     ///     }
     /// }
     ///
-    /// App::new()
-    ///     .set_runner(my_runner);
+    /// App::new().set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
-        self.runner = Box::new(run_fn);
+    pub fn set_runner<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn(App) + 'static,
+    {
+        self.runner = Box::new(f);
         self
     }
 
-    /// Adds a single [`Plugin`].
-    ///
-    /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
-    /// as [`Plugin`]s. This includes internal features like the renderer.
-    ///
-    /// Bevy also provides a few sets of default [`Plugin`]s. See [`add_plugins`](Self::add_plugins).
+    /// Imports app configuration from a [`Plugin`].
     ///
     /// # Examples
     ///
@@ -787,9 +776,7 @@ impl App {
         self
     }
 
-    /// Adds a group of [`Plugin`]s.
-    ///
-    /// [`Plugin`]s can be grouped into a set by using a [`PluginGroup`].
+    /// Imports app configuration from a [`PluginGroup`].
     ///
     /// There are built-in [`PluginGroup`]s that provide core engine functionality.
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
@@ -811,12 +798,9 @@ impl App {
         self
     }
 
-    /// Adds a group of [`Plugin`]s with an initializer method.
+    /// Imports app configuration from a [`PluginGroup`], with some pre-processing function.
     ///
-    /// Can be used to add a group of [`Plugin`]s, where the group is modified
-    /// before insertion into a Bevy application. For example, you can add
-    /// additional [`Plugin`]s at a specific place in the [`PluginGroup`], or deactivate
-    /// specific [`Plugin`]s while keeping the rest using a [`PluginGroupBuilder`].
+    /// This can be used to add more plugins to the plugin group, disable plugins, etc.
     ///
     /// # Examples
     ///
@@ -850,14 +834,14 @@ impl App {
     ///             group.add_before::<bevy_log::LogPlugin, _>(MyOwnPlugin)
     ///         });
     /// ```
-    pub fn add_plugins_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
+    pub fn add_plugins_with<T, F>(&mut self, mut group: T, f: F) -> &mut Self
     where
         T: PluginGroup,
         F: FnOnce(&mut PluginGroupBuilder) -> &mut PluginGroupBuilder,
     {
         let mut plugin_group_builder = PluginGroupBuilder::default();
         group.build(&mut plugin_group_builder);
-        func(&mut plugin_group_builder);
+        f(&mut plugin_group_builder);
         plugin_group_builder.finish(self);
         self
     }
@@ -912,50 +896,27 @@ impl App {
         self
     }
 
-    /// Adds an [`App`] as a child of the current one.
+    /// Adds an [`App`] as a sub-`App` to the current one.
     ///
-    /// The provided function `f` is called by the [`update`](Self::update) method. The [`World`]
-    /// parameter represents the main app world, while the [`App`] parameter is just a mutable
-    /// reference to the `SubApp` itself.
+    /// The provided function, `runner`, takes mutable references to the main app's [`World`] and the
+    /// sub-app and is called during the main app's [`update`](Self::update).
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
         app: App,
-        sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
+        runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
             label.as_label(),
             SubApp {
                 app,
-                runner: Box::new(sub_app_runner),
+                runner: Box::new(runner),
             },
         );
         self
     }
 
-    /// Retrieves a `SubApp` stored inside this [`App`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `SubApp` doesn't exist.
-    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
-        match self.get_sub_app_mut(label) {
-            Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
-        }
-    }
-
-    /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
-    /// an [`Err`] containing the given label.
-    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, AppLabelId> {
-        let label = label.as_label();
-        self.sub_apps
-            .get_mut(&label)
-            .map(|sub_app| &mut sub_app.app)
-            .ok_or(label)
-    }
-
-    /// Retrieves a `SubApp` stored inside this [`App`].
+    /// Retrieves a sub-[`App`] stored inside this `App`.
     ///
     /// # Panics
     ///
@@ -967,12 +928,40 @@ impl App {
         }
     }
 
-    /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
-    /// an [`Err`] containing the given label.
+    /// Retrieves a [`App`] stored inside this `App`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the sub-`App` doesn't exist.
+    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
+        match self.get_sub_app_mut(label) {
+            Ok(app) => app,
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+        }
+    }
+
+    /// Returns a reference to the child [`App`] with the given label.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Err`] if the sub-app does not exist.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
             .get(&label.as_label())
             .map(|sub_app| &sub_app.app)
+            .ok_or(label)
+    }
+
+    /// Returns a mutable reference to the child [`App`] with the given label.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Err`] if the sub-app does not exist.
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, AppLabelId> {
+        let label = label.as_label();
+        self.sub_apps
+            .get_mut(&label)
+            .map(|sub_app| &mut sub_app.app)
             .ok_or(label)
     }
 }

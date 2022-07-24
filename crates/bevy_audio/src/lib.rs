@@ -39,9 +39,7 @@ pub use audio_source::*;
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 
-/// Adds support for audio playback to a Bevy Application
-///
-/// Use the [`Audio`] resource to play audio.
+/// Adds support for audio playback through an [`Audio`] resource.
 #[derive(Default)]
 pub struct AudioPlugin;
 

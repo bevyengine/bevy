@@ -2,7 +2,7 @@ use bevy_ecs::reflect::ReflectResource;
 use bevy_reflect::Reflect;
 use bevy_utils::{Duration, Instant};
 
-/// Tracks elapsed time since the last update and since the App has started
+/// Tracks how much time has advanced (and also the raw CPU time elapsed) since its previous update and since the app was started.
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Resource)]
 pub struct Time {
@@ -108,16 +108,22 @@ impl Time {
         self.delta
     }
 
-    /// The delta between the current and last tick as [`f32`] seconds
+    /// Returns how much time has advanced since the last [`update`](Self::update), as [`f32`] seconds.
     #[inline]
     pub fn delta_seconds(&self) -> f32 {
         self.delta_seconds
     }
 
-    /// The delta between the current and last tick as [`f64`] seconds
+    /// Returns how much time has advanced since the last [`update`](Self::update), as [`f64`] seconds.
     #[inline]
     pub fn delta_seconds_f64(&self) -> f64 {
         self.delta_seconds_f64
+    }
+
+    /// Returns the [`Instant`] when [`update`](Self::update) was last called, if it exists.
+    #[inline]
+    pub fn last_update(&self) -> Option<Instant> {
+        self.last_update
     }
 
     /// The time from startup to the last update in seconds
@@ -126,16 +132,10 @@ impl Time {
         self.seconds_since_startup
     }
 
-    /// The [`Instant`] the app was started
+    /// Returns the [`Instant`] the app was started.
     #[inline]
     pub fn startup(&self) -> Instant {
         self.startup
-    }
-
-    /// The [`Instant`] when [`Time::update`] was last called, if it exists
-    #[inline]
-    pub fn last_update(&self) -> Option<Instant> {
-        self.last_update
     }
 
     /// The [`Duration`] from startup to the last update
@@ -153,6 +153,7 @@ mod tests {
 
     #[test]
     fn update_test() {
+        // Create a `Time` for testing.
         let start_instant = Instant::now();
 
         // Create a `Time` for testing

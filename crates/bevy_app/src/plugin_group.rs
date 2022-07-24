@@ -2,21 +2,20 @@ use crate::{App, Plugin};
 use bevy_utils::{tracing::debug, tracing::warn, HashMap};
 use std::any::TypeId;
 
-/// Combines multiple [`Plugin`]s into a single unit.
+/// Combines multiple [`Plugin`] instances into one.
 pub trait PluginGroup {
-    /// Configures the [`Plugin`]s that are to be added.
+    /// Builds all the plugins in the group.
     fn build(&mut self, group: &mut PluginGroupBuilder);
 }
 
+/// A [`Plugin`] that is part of a [`PluginGroup`].
 struct PluginEntry {
     plugin: Box<dyn Plugin>,
     enabled: bool,
 }
 
 /// Facilitates the creation and configuration of a [`PluginGroup`].
-/// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::system::Resource)
-/// are built before/after dependent/depending [`Plugin`]s. [`Plugin`]s inside the group
-/// can be disabled, enabled or reordered.
+/// Defines a [`Plugin`] build order to enable plugins being dependent on other plugins.
 #[derive(Default)]
 pub struct PluginGroupBuilder {
     plugins: HashMap<TypeId, PluginEntry>,
@@ -68,8 +67,8 @@ impl PluginGroupBuilder {
         }
     }
 
-    /// Adds the plugin [`Plugin`] at the end of this [`PluginGroupBuilder`]. If the plugin was
-    /// already in the group, it is removed from its previous place.
+    /// Appends the [`Plugin`] to the end of the current set.
+    /// If the plugin was already in the group, it is removed from its previous place.
     pub fn add<T: Plugin>(&mut self, plugin: T) -> &mut Self {
         let target_index = self.order.len();
         self.order.push(TypeId::of::<T>());
@@ -77,9 +76,11 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Adds a [`Plugin`] in this [`PluginGroupBuilder`] before the plugin of type `Target`.
-    /// If the plugin was already the group, it is removed from its previous place. There must
-    /// be a plugin of type `Target` in the group or it will panic.
+    /// Configures the [`Plugin`] to be built before the `Target` plugin.
+    /// If the plugin was already the group, it is removed from its previous place.
+    ///
+    /// # Panics
+    /// If there is no plugin of type `Target` in the group.
     pub fn add_before<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
         let target_index = self.index_of::<Target>();
         self.order.insert(target_index, TypeId::of::<T>());
@@ -87,9 +88,11 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Adds a [`Plugin`] in this [`PluginGroupBuilder`] after the plugin of type `Target`.
-    /// If the plugin was already the group, it is removed from its previous place. There must
-    /// be a plugin of type `Target` in the group or it will panic.
+    /// Configures the [`Plugin`] to be built after the `Target` plugin.
+    /// If the plugin was already the group, it is removed from its previous place.
+    ///
+    /// # Panics
+    /// If there is no plugin of type `Target` in the group.
     pub fn add_after<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
         let target_index = self.index_of::<Target>() + 1;
         self.order.insert(target_index, TypeId::of::<T>());
@@ -97,11 +100,13 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Enables a [`Plugin`].
+    /// Enables the [`Plugin`].
     ///
-    /// [`Plugin`]s within a [`PluginGroup`] are enabled by default. This function is used to
-    /// opt back in to a [`Plugin`] after [disabling](Self::disable) it. If there are no plugins
-    /// of type `T` in this group, it will panic.
+    /// Plugins within a [`PluginGroup`] are enabled by default. This function will
+    /// re-activate a plugin if [`disable`](Self::disable) was called earlier.
+    ///
+    /// # Panics
+    /// If there is no plugin of type `T` in the group.
     pub fn enable<T: Plugin>(&mut self) -> &mut Self {
         let mut plugin_entry = self
             .plugins
@@ -111,11 +116,11 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Disables a [`Plugin`], preventing it from being added to the [`App`] with the rest of the
-    /// [`PluginGroup`]. The disabled [`Plugin`] keeps its place in the [`PluginGroup`], so it can
-    /// still be used for ordering with [`add_before`](Self::add_before) or
-    /// [`add_after`](Self::add_after), or it can be [re-enabled](Self::enable). If there are no
-    /// plugins of type `T` in this group, it will panic.
+    /// Disables the [`Plugin`], stopping it from being built by an [`App`] with the rest of the [`PluginGroup`].
+    /// It will remain in the group and can be re-enabled later.
+    ///
+    /// # Panics
+    /// If there is no plugin of type `T` in this group.
     pub fn disable<T: Plugin>(&mut self) -> &mut Self {
         let mut plugin_entry = self
             .plugins
@@ -125,8 +130,8 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
-    /// in the order specified.
+    /// Consumes the [`PluginGroupBuilder`] and runs the [`build`](Plugin::build) function of each
+    /// contained [`Plugin`] in the specified order.
     pub fn finish(self, app: &mut App) {
         for ty in &self.order {
             if let Some(entry) = self.plugins.get(ty) {

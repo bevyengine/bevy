@@ -34,16 +34,16 @@ use update::{ui_z_system, update_clipping_system};
 
 use crate::prelude::UiCameraConfig;
 
-/// The basic plugin for Bevy UI
+/// Adds support for basic UI primitives.
 #[derive(Default)]
 pub struct UiPlugin;
 
-/// The label enum labeling the types of systems in the Bevy UI
+/// Labels for UI systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiSystem {
-    /// After this label, the ui flex state has been updated
+    /// After this label, the ui flex state has been updated.
     Flex,
-    /// After this label, input interactions with UI entities have been updated for this frame
+    /// After this label, input interactions with UI entities have been updated for this frame.
     Focus,
 }
 

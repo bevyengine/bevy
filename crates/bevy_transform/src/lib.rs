@@ -76,14 +76,15 @@ impl From<Transform> for TransformBundle {
         Self::from_transform(transform)
     }
 }
-/// Label enum for the systems relating to transform propagation
+
+/// Labels for the systems involved in transform propagation.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum TransformSystem {
-    /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
+    /// Propagates [`Transform`] changes to [`GlobalTransform`](crate::components::GlobalTransform).
     TransformPropagate,
 }
 
-/// The base plugin for handling [`Transform`] components
+/// Adds [`Transform`] components and systems for managing the transform hierarchy.
 #[derive(Default)]
 pub struct TransformPlugin;
 

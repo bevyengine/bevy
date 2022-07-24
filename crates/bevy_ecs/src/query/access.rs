@@ -9,11 +9,11 @@ use std::marker::PhantomData;
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Access<T: SparseSetIndex> {
-    /// All accessed elements.
+    /// The accessed elements.
     reads_and_writes: FixedBitSet,
     /// The exclusively-accessed elements.
     writes: FixedBitSet,
-    /// Is `true` if this has access to all elements in the collection?
+    /// Does this have access to all elements in the collection?
     /// This field is a performance optimization for `&World` (also harder to mess up for soundness).
     reads_all: bool,
     marker: PhantomData<T>,
@@ -67,12 +67,12 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes.contains(index.sparse_set_index())
     }
 
-    /// Sets this as having access to all indexed elements (i.e. `&World`).
+    /// Sets this as having access to all indexed elements (i.e. `&World` or `&mut World`).
     pub fn read_all(&mut self) {
         self.reads_all = true;
     }
 
-    /// Returns `true` if this has access to all indexed elements (i.e. `&World`).
+    /// Returns `true` if this has access to all indexed elements (i.e. `&World` or `&mut World`).
     pub fn has_read_all(&self) -> bool {
         self.reads_all
     }

@@ -169,11 +169,11 @@ pub(crate) struct Ticks<'a> {
 ///
 /// See the [`World`](crate::world::World) documentation to see the usage of a resource.
 ///
-/// If you need a shared borrow, use [`Res`](crate::system::Res) instead.
+/// For a shared borrow, see [`Res<T>`](crate::system::Res).
 ///
 /// # Panics
 ///
-/// Panics when used as a [`SystemParam`](crate::system::SystemParam) if the resource does not exist.
+/// Panics when used as a `SystemParam` if `T` has not be inserted as a resource.
 ///
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
 pub struct ResMut<'a, T: Resource> {
@@ -196,16 +196,16 @@ impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
     }
 }
 
-/// Unique borrow of a non-[`Send`] resource.
+/// Unique mutable borrow of a non-[`Send`] resource.
 ///
-/// Only [`Send`] resources may be accessed with the [`ResMut`] [`SystemParam`](crate::system::SystemParam). In case that the
-/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
-/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
-/// over to another thread.
+/// Only `Send` resources may be accessed with [`ResMut<T>`]. If a resource does not implement `Send`,
+/// this [`SystemParam`](crate::system::SystemParam) must be used to ensure the accessing system runs on the same thread.
+///
+/// For a shared borrow, see [`NonSend<T>`](crate::system::NonSend).
 ///
 /// # Panics
 ///
-/// Panics when used as a `SystemParameter` if the resource does not exist.
+/// Panics when used as a `SystemParam` if `T` has not be inserted as a resource.
 ///
 /// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
 pub struct NonSendMut<'a, T: 'static> {
@@ -228,7 +228,7 @@ impl<'a, T: Resource> From<NonSendMut<'a, T>> for Mut<'a, T> {
     }
 }
 
-/// Unique mutable borrow of an entity's component
+/// Unique mutable borrow of a component.
 pub struct Mut<'a, T> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
@@ -238,7 +238,7 @@ change_detection_impl!(Mut<'a, T>, T,);
 impl_into_inner!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
-/// Unique mutable borrow of a reflected component or resource
+/// Unique mutable borrow of a reflected component.
 #[cfg(feature = "bevy_reflect")]
 pub struct ReflectMut<'a> {
     pub(crate) value: &'a mut dyn Reflect,

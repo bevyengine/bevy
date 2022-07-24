@@ -1,4 +1,4 @@
-//! Tools for controlling behavior in an ECS application.
+//! Systems are functions that can access data stored in a [`World`](crate::world::World) and define behavior.
 //!
 //! Systems define how an ECS based application behaves. They have to be registered to a
 //! [`SystemStage`](crate::schedule::SystemStage) to be able to run. A system is usually

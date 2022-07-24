@@ -219,8 +219,8 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
 
-            // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
-            // with any prior access, a panic will occur.
+            // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta.
+            // If any ParamState conflicts with any prior access, a panic will occur.
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamState for ParamSetState<(#(#param_fetch,)*)>
             {

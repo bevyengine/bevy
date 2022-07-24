@@ -6,9 +6,7 @@ use crate::{
 };
 use std::borrow::Cow;
 
-/// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
-///
-/// Systems are functions with all arguments implementing
+/// An ECS system, converted from functions and closures whose arguments all implement
 /// [`SystemParam`](crate::system::SystemParam).
 ///
 /// Systems are added to an application using `App::add_system(my_system)`
@@ -18,10 +16,9 @@ use std::borrow::Cow;
 /// It's possible to specify explicit execution order between specific systems,
 /// see [`SystemDescriptor`](crate::schedule::SystemDescriptor).
 pub trait System: Send + Sync + 'static {
-    /// The system's input. See [`In`](crate::system::In) for
-    /// [`FunctionSystem`](crate::system::FunctionSystem)s.
+    /// The input to the system.
     type In;
-    /// The system's output.
+    /// The output of the system.
     type Out;
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
@@ -43,12 +40,16 @@ pub trait System: Send + Sync + 'static {
     ///     2. This system only runs in parallel with other systems that do not conflict with the
     ///        [`System::archetype_component_access()`].
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
-    /// Runs the system with the given input in the world.
+    /// Runs the system with the given `input` on the world.
+    ///
+    /// This method ensures the system's [`Access`] is up-to-date before retrieving the data.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        // verifies world matches
         self.update_archetype_component_access(world);
-        // SAFETY: world and resources are exclusively borrowed
+        // SAFETY: world is exclusively borrowed and same one used to construct this system
         unsafe { self.run_unsafe(input, world) }
     }
+    /// Applies deferred operations such as [commands](crate::system::Command) on the world.  
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
@@ -61,7 +62,7 @@ pub trait System: Send + Sync + 'static {
     }
 }
 
-/// A convenience type alias for a boxed [`System`] trait object.
+/// A convenient type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
 pub(crate) fn check_system_change_tick(

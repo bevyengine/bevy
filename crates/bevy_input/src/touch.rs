@@ -82,7 +82,7 @@ pub enum ForceTouch {
 /// This includes a phase that indicates that a touch input has started or ended,
 /// or that a finger has moved. There is also a cancelled phase that indicates that
 /// the system cancelled the tracking of the finger.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum TouchPhase {
     /// A finger started to touch the touchscreen.

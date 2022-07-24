@@ -8,13 +8,11 @@ struct CommandMeta {
     func: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World),
 }
 
-/// A queue of [`Command`]s
+/// A queue of [`Command`] instances.
 //
-// NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` over a `Vec<Box<dyn Command>>`
-// as an optimization. Since commands are used frequently in systems as a way to spawn
-// entities/components/resources, and it's not currently possible to parallelize these
-// due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
-// preferred to simplicity of implementation.
+// NOTE: `CommandQueue` is implemented as a type-elided `Vec<u8>` instead of `Vec<Box<dyn Command>>`
+// as a memory optimization. Commands can't be processed in parallel but are still used heavily, so
+// maximizing cache locality was preferred over a simpler implementation.
 #[derive(Default)]
 pub struct CommandQueue {
     bytes: Vec<MaybeUninit<u8>>,

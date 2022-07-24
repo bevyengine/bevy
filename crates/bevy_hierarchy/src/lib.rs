@@ -24,7 +24,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 
-/// The base plugin for handling [`Parent`] and [`Children`] components
+/// Adds [`Parent`] and [`Children`] components and systems for handling them.
 #[derive(Default)]
 pub struct HierarchyPlugin;
 

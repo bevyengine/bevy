@@ -72,7 +72,7 @@ pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
-/// Sets up the entire PBR infrastructure of bevy.
+/// Adds physically-based rendering (PBR) pipeline.
 #[derive(Default)]
 pub struct PbrPlugin;
 

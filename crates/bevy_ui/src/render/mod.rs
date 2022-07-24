@@ -49,7 +49,7 @@ pub mod draw_ui_graph {
 pub const UI_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13012847047162779583);
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 pub enum RenderUiSystem {
     ExtractNode,
 }

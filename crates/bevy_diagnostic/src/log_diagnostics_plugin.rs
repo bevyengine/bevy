@@ -5,7 +5,7 @@ use bevy_log::{debug, info};
 use bevy_time::{Time, Timer};
 use bevy_utils::Duration;
 
-/// An App Plugin that logs diagnostics to the console
+/// Adds support for logging diagnostics to the console.
 pub struct LogDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,

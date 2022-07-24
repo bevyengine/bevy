@@ -285,7 +285,7 @@ pub fn animation_player(
     }
 }
 
-/// Adds animation support to an app
+/// Adds animation support.
 #[derive(Default)]
 pub struct AnimationPlugin {}
 

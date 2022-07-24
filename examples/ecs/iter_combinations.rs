@@ -3,7 +3,7 @@
 use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera, time::FixedTimestep};
 use rand::{thread_rng, Rng};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+#[derive(StageLabel)]
 struct FixedUpdateStage;
 
 const DELTA_TIME: f64 = 0.01;

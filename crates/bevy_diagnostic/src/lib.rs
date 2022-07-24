@@ -9,7 +9,7 @@ pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
 
 use bevy_app::prelude::*;
 
-/// Adds core diagnostics resources to an App.
+/// Adds core diagnostics resources.
 #[derive(Default)]
 pub struct DiagnosticsPlugin;
 

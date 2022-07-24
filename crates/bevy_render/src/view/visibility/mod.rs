@@ -217,7 +217,7 @@ impl EntityMeshMap {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 pub enum VisibilitySystems {
     CalculateBounds,
     UpdateBounds,

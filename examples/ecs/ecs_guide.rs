@@ -196,10 +196,10 @@ fn new_player_system(
     }
 }
 
-// If you really need full, immediate read/write access to the world or resources, you can use an
-// "exclusive system".
-// WARNING: These will block all parallel execution of other systems until they finish, so they
-// should generally be avoided if you care about performance.
+// If you really need full, immediate write access to the world or resources, you can borrow
+// the entire world.
+// WARNING: These systems will block all parallel execution of other systems until they finish,
+// so they should generally be avoided if you care about performance.
 #[allow(dead_code)]
 fn exclusive_player_system(world: &mut World) {
     // this does the same thing as "new_player_system"
@@ -238,7 +238,7 @@ fn print_at_end_round(mut counter: Local<u32>) {
     println!();
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+#[derive(StageLabel)]
 enum MyStage {
     BeforeRound,
     AfterRound,
