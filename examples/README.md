@@ -521,6 +521,9 @@ the file name should end in `_bg.wasm`.
 
 Then run `wasm-opt` with the `-Oz` flag. Note that `wasm-opt` is _very slow_.
 
+Note that `wasm-opt` optimizations might not be as effective if you
+didn't apply the optimizations from the previous section.
+
 ```sh
 wasm-opt -Oz --output optimized.wasm examples/wasm/target/lighting_bg.wasm
 mv optimized.wasm examples/wasm/target/lighting_bg.wasm
