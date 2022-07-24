@@ -109,5 +109,11 @@ macro_rules! define_label {
                 self.1
             }
         }
+
+        impl $label_name for &'static str {
+            fn as_str(&self) -> Self {
+                self
+            }
+        }
     };
 }
