@@ -21,7 +21,7 @@ Documentation can be spotty.
 If you need something, please feel free to [help out](CONTRIBUTING.md)!
 We're always looking for contributors, and your hands-on experience with the engine is invaluable when deciding how something should work.
 
-If you're building a project in Bevy, you will be seriously broken by API changes every release (every 3 months or so).
+If you're building a project in Bevy, it will be seriously broken by API changes every release (every 3 months or so).
 Plan ahead, and write tests!
 
 **MSRV:** Bevy relies heavily on improvements in the Rust language and compiler.
