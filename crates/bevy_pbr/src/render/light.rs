@@ -797,10 +797,14 @@ pub fn prepare_lights(
 
     let point_light_count = point_lights
         .iter()
-        .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
+        .filter(|light| light.1.spot_light_angles.is_none())
         .count();
 
-    let point_light_shadow_maps_count = point_light_count.min(max_texture_cubes);
+    let point_light_shadow_maps_count = point_lights
+        .iter()
+        .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
+        .count()
+        .min(max_texture_cubes);
 
     let directional_shadow_maps_count = directional_lights
         .iter()
@@ -1045,7 +1049,7 @@ pub fn prepare_lights(
             let spot_view_transform = spot_view_matrix.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_light_shadow_maps_count] are spot lights").1;
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
             let spot_projection = spot_light_projection_matrix(angle);
 
             let depth_texture_view =
