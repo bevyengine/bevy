@@ -504,7 +504,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-    // QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+    // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
     /// # Safety
     /// `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
     /// was initialized for.

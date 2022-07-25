@@ -908,7 +908,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         change_tick: u32,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         let mut fetch =
             <QueryFetch<Q> as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = <QueryFetch<F> as Fetch>::init(
@@ -977,7 +977,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         change_tick: u32,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         ComputeTaskPool::get().scope(|scope| {
             if <QueryFetch<'static, Q>>::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
                 let tables = &world.storages().tables;
