@@ -32,6 +32,7 @@ pub mod prelude {
     pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
 }
 
+pub use anyhow::Error;
 pub use asset_server::*;
 pub use assets::*;
 pub use bevy_utils::BoxedFuture;

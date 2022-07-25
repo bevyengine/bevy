@@ -435,11 +435,19 @@ pub fn prepare_uinodes(
 
         let transformed_rect_size = extracted_uinode.transform.transform_vector3(rect_size);
 
-        // Cull nodes that are completely clipped
-        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-        {
-            continue;
+        // Don't try to cull nodes that have a rotation
+        // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
+        // In those two cases, the culling check can proceed normally as corners will be on
+        // horizontal / vertical lines
+        // For all other angles, bypass the culling check
+        // This does not properly handles all rotations on all axis
+        if extracted_uinode.transform.x_axis[1] == 0.0 {
+            // Cull nodes that are completely clipped
+            if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+                || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
+            {
+                continue;
+            }
         }
 
         // Clip UVs (Note: y is reversed in UV space)

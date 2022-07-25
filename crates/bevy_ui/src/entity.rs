@@ -13,7 +13,7 @@ use bevy_render::{
     camera::Camera, extract_component::ExtractComponent, prelude::ComputedVisibility,
     view::Visibility,
 };
-use bevy_text::Text;
+use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -87,6 +87,40 @@ pub struct TextBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+}
+
+impl TextBundle {
+    /// Create a [`TextBundle`] from a single section.
+    ///
+    /// See [`Text::from_section`] for usage.
+    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+        Self {
+            text: Text::from_section(value, style),
+            ..Default::default()
+        }
+    }
+
+    /// Create a [`TextBundle`] from a list of sections.
+    ///
+    /// See [`Text::from_sections`] for usage.
+    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+        Self {
+            text: Text::from_sections(sections),
+            ..Default::default()
+        }
+    }
+
+    /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
+    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
+        self.text.alignment = alignment;
+        self
+    }
+
+    /// Returns this [`TextBundle`] with a new [`Style`].
+    pub const fn with_style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
 }
 
 impl Default for TextBundle {

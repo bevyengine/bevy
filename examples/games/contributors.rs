@@ -134,37 +134,27 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
 
-    commands
-        .spawn()
-        .insert(ContributorDisplay)
-        .insert_bundle(TextBundle {
-            style: Style {
-                align_self: AlignSelf::FlexEnd,
-                ..default()
-            },
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "Contributor showcase".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 60.0,
-                            color: Color::WHITE,
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 60.0,
-                            color: Color::WHITE,
-                        },
-                    },
-                ],
-                ..default()
-            },
+    commands.spawn().insert(ContributorDisplay).insert_bundle(
+        TextBundle::from_sections([
+            TextSection::new(
+                "Contributor showcase",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 60.0,
+                    color: Color::WHITE,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 60.0,
+                color: Color::WHITE,
+            }),
+        ])
+        .with_style(Style {
+            align_self: AlignSelf::FlexEnd,
             ..default()
-        });
+        }),
+    );
 }
 
 /// Finds the next contributor to display and selects the entity
