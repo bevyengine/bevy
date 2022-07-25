@@ -39,11 +39,15 @@ bevy_utils::define_label!(
 /// # use bevy_ecs::prelude::*;
 /// #
 /// fn main() {
-///    App::new()
-///        .add_system(hello_world_system)
-///        .run();
+///     // Construct a new app
+///     App::new()
+///         // Configure with the builder pattern.
+///         .add_system(hello_world_system)
+///         // Finalize it and run the app.
+///         .run();
 /// }
 ///
+/// // A system that takes no inputs and prints "hello world" when run.
 /// fn hello_world_system() {
 ///    println!("hello world");
 /// }
