@@ -26,8 +26,10 @@ members = [
 [features]
 default = [
   "animation",
+  "bevy_asset",
   "bevy_audio",
   "bevy_gilrs",
+  "bevy_scene",
   "bevy_winit",
   "render",
   "png",
@@ -53,6 +55,7 @@ render = [
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
+bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -60,6 +63,7 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
 bevy_pbr = ["bevy_internal/bevy_pbr"]
 bevy_render = ["bevy_internal/bevy_render"]
+bevy_scene = ["bevy_internal/bevy_scene"]
 bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
