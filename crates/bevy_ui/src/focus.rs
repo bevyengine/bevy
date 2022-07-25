@@ -1,5 +1,6 @@
 use crate::{entity::UiCameraConfig, CalculatedClip, Node};
 use bevy_ecs::{
+    change_detection::DetectChanges,
     entity::Entity,
     prelude::Component,
     reflect::ReflectComponent,
@@ -134,10 +135,8 @@ pub fn ui_focus_system(
                     Some((entity, focus_policy, interaction, FloatOrd(position.z)))
                 } else {
                     if let Some(mut interaction) = interaction {
-                        if *interaction == Interaction::Hovered
-                            || (cursor_position.is_none() && *interaction != Interaction::None)
-                        {
-                            *interaction = Interaction::None;
+                        if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
+                            interaction.set_if_neq(Interaction::None);
                         }
                     }
                     None
@@ -178,8 +177,8 @@ pub fn ui_focus_system(
     for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
         if let Some(mut interaction) = interaction {
             // don't reset clicked nodes because they're handled separately
-            if *interaction != Interaction::Clicked && *interaction != Interaction::None {
-                *interaction = Interaction::None;
+            if *interaction != Interaction::Clicked {
+                interaction.set_if_neq(Interaction::None);
             }
         }
     }
