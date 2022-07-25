@@ -285,8 +285,6 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// To use an `In<T>` with a [`FunctionSystem`](FunctionSystem), it has to be first parameter
 /// in its function signature.
 ///
-/// Note: This type does not implement [`SystemParam`].
-///
 /// # Examples
 ///
 /// This system takes an external [`usize`] and returns its square.

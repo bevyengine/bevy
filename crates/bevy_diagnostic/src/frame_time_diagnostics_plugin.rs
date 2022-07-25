@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_time::Time;
 
-/// Adds frame-related diagnostics—frame duration, frame-rate (fps), and total frame count.
+/// Adds frame-related diagnostics — frame duration, frame-rate (fps), and total frame count.
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;
 
