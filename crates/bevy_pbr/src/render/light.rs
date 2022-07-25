@@ -974,7 +974,7 @@ pub fn prepare_lights(
             n_directional_lights: directional_lights.iter().len() as u32,
             // spotlight shadow maps are stored in the directional light array, starting at directional_shadow_maps_count.
             // the spot lights themselves start in the light array at point_light_count. so to go from light
-            // index to shadow map index, we need to subtract point light shadowmap count and add directional shadowmap count.
+            // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: directional_shadow_maps_count as i32
                 - point_light_count as i32,
         };
