@@ -163,7 +163,7 @@ fn setup(
             point_light: PointLight {
                 intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
                 color: Color::BLUE,
-                shadows_enabled: false,
+                shadows_enabled: true,
                 ..default()
             },
             ..default()
