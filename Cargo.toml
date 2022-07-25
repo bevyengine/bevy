@@ -1534,3 +1534,9 @@ target_sdk_version = 31
 [package.metadata.android.application]
 icon = "@mipmap/ic_launcher"
 label = "Bevy Example"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
