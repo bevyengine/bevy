@@ -23,9 +23,12 @@ bevy_utils::define_label!(
 );
 
 #[allow(clippy::needless_doctest_main)]
-/// An ECS application that wraps a [`World`], a runner function, and a sub-[`App`] collection.
+/// A container of ECS app logic and data.
+/// Wraps a [`World`], a runner function, and a sub-[`App`] collection.
 ///
-///[`App`] instances are constructed using a builder pattern.
+/// `App` instances are constructed using a
+/// [builder pattern](https://rust-unofficial.github.io/patterns/patterns/creational/builder.html),
+/// meaning you chain method calls to configure the `App` as desired.
 ///
 /// # Examples
 ///

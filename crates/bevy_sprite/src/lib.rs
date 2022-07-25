@@ -45,7 +45,7 @@ pub struct SpritePlugin;
 pub const SPRITE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2763343953151597127);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum SpriteSystem {
     ExtractSprites,
 }
