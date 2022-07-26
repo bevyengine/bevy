@@ -3,6 +3,7 @@
 //! Spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
 //! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
 mod flex;
+mod focus;
 mod geometry;
 mod navigation;
 mod render;
@@ -15,6 +16,7 @@ pub mod widget;
 use bevy_render::extract_component::ExtractComponentPlugin;
 use bevy_ui_navigation::{GenericNavigationPlugin, NavRequestSystem};
 pub use flex::*;
+use focus::{mouse_hover_system, FocusPolicy, Hover};
 pub use geometry::*;
 pub use navigation::InputMapping;
 pub use render::*;
@@ -66,6 +68,8 @@ pub enum UiSystem {
     Flex,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
+    /// After this label, the [`Hover`] component has been updated.
+    Hover,
 }
 pub type NavigationPlugin<'w, 's> = GenericNavigationPlugin<UiProjectionQuery<'w, 's>>;
 
@@ -87,12 +91,13 @@ impl Default for UiScale {
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        // TODO: use feature flags here _in addition_ to config, probably?
         if self.default_navigation {
             app.add_plugin(NavigationPlugin::new())
                 .init_resource::<InputMapping>()
                 .add_system(navigation::default_gamepad_input.before(NavRequestSystem))
                 .add_system(navigation::default_keyboard_input.before(NavRequestSystem))
-                .add_system(navigation::default_mouse_input.before(NavRequestSystem));
+                .add_system(focus::ui_focus_system.before(NavRequestSystem));
         }
 
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
@@ -106,6 +111,8 @@ impl Plugin for UiPlugin {
             .register_type::<Display>()
             .register_type::<FlexDirection>()
             .register_type::<FlexWrap>()
+            .register_type::<FocusPolicy>()
+            .register_type::<Hover>()
             .register_type::<JustifyContent>()
             .register_type::<Node>()
             // NOTE: used by Style::aspect_ratio
@@ -121,6 +128,10 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Button>()
             .register_type::<widget::ImageMode>()
             // add these stages to front because these must run before transform update systems
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                mouse_hover_system.label(UiSystem::Hover),
+            )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 widget::text_system

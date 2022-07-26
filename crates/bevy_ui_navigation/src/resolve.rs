@@ -39,7 +39,7 @@ use std::num::NonZeroUsize;
 use bevy_ecs::{
     entity::Entity,
     event::{EventReader, EventWriter},
-    prelude::{Component, With, Without},
+    prelude::{Component, Resource, With, Without},
     system::{Commands, ParamSet, Query, ResMut, StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -197,6 +197,7 @@ pub enum FocusState {
 /// When locked, the navigation system doesn't process any [`NavRequest`].
 /// It only waits on a [`NavRequest::Free`] event. It will then continue
 /// processing new requests.
+#[derive(Resource)]
 pub struct NavLock {
     entity: Option<Entity>,
 }

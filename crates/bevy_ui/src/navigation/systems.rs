@@ -1,17 +1,14 @@
 //! System for the navigation tree and default input systems to get started.
 
-use crate::Node;
 use bevy_app::{App, Plugin};
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::prelude::*;
 use bevy_input::prelude::*;
 use bevy_math::Vec2;
-use bevy_transform::prelude::GlobalTransform;
 use bevy_ui_navigation::events::{Direction, ScopeDirection};
-use bevy_ui_navigation::prelude::{Focusable, Focused, NavRequest};
-use bevy_utils::FloatOrd;
-use bevy_window::Windows;
+use bevy_ui_navigation::prelude::{Focused, NavRequest};
 
 /// Control default ui navigation input buttons
+#[derive(Resource)]
 pub struct InputMapping {
     /// Whether to use keybaord keys for navigation (instead of just actions).
     pub keyboard_navigation: bool,
@@ -236,98 +233,12 @@ pub fn default_keyboard_input(
     without_movement.iter().for_each(send_command);
 }
 
-/// [`SystemParam`] used to compute UI focusable physical positions in mouse input systems.
-#[derive(SystemParam)]
-pub struct NodePosQuery<'w, 's> {
-    entities: Query<'w, 's, (Entity, &'static Node, &'static GlobalTransform), With<Focusable>>,
-}
-impl<'w, 's> NodePosQuery<'w, 's> {
-    fn cursor_pos(&self, at: Vec2) -> Option<Vec2> {
-        Some(at)
-    }
-}
-
-fn is_in_node(at: Vec2, (_, node, trans): &(Entity, &Node, &GlobalTransform)) -> bool {
-    let ui_pos = trans.translation().truncate();
-    let node_half_size = node.size / 2.0;
-    let min = ui_pos - node_half_size;
-    let max = ui_pos + node_half_size;
-    (min.x..max.x).contains(&at.x) && (min.y..max.y).contains(&at.y)
-}
-
-fn cursor_pos(windows: &Windows) -> Option<Vec2> {
-    windows.get_primary().and_then(|w| w.cursor_position())
-}
-
-/// A system to send mouse control events to the focus system
-///
-/// Which button to press to cause an action event is specified in the
-/// [`InputMapping`] resource.
-///
-/// You may however need to customize the behavior of this system (typically
-/// when integrating in the game) in this case, you should write your own
-/// system that sends [`NavRequest`](crate::NavRequest) events. You may use
-/// [`ui_focusable_at`] to tell which focusable is currently being hovered.
-pub fn default_mouse_input(
-    input_mapping: Res<InputMapping>,
-    windows: Res<Windows>,
-    mouse: Res<Input<MouseButton>>,
-    focusables: NodePosQuery,
-    focused: Query<Entity, With<Focused>>,
-    mut requests: EventWriter<NavRequest>,
-    mut last_pos: Local<Vec2>,
-) {
-    let cursor_pos = match cursor_pos(&windows) {
-        Some(c) => c,
-        None => return,
-    };
-    let world_cursor_pos = match focusables.cursor_pos(cursor_pos) {
-        Some(c) => c,
-        None => return,
-    };
-    let released = mouse.just_released(input_mapping.mouse_action);
-    let focused = focused.get_single();
-    // Return early if cursor didn't move since last call
-    if !released && *last_pos == cursor_pos {
-        return;
-    }
-    *last_pos = cursor_pos;
-    let not_hovering_focused = |focused: &Entity| {
-        let focused = focusables
-            .entities
-            .get(*focused)
-            .expect("Entity with `Focused` component must also have a `Focusable` component");
-        !is_in_node(world_cursor_pos, &focused)
-    };
-    // If the currently hovered node is the focused one, there is no need to
-    // find which node we are hovering and to switch focus to it (since we are
-    // already focused on it)
-    if focused.iter().all(not_hovering_focused) {
-        // We only run this code when we really need it because we iterate over all
-        // focusables, which can eat a lot of CPU.
-        let under_mouse = focusables
-            .entities
-            .iter()
-            .filter(|query_elem| is_in_node(world_cursor_pos, query_elem))
-            .max_by_key(|elem| FloatOrd(elem.2.translation().z))
-            .map(|elem| elem.0);
-        let to_target = match under_mouse {
-            Some(c) => c,
-            None => return,
-        };
-        requests.send(NavRequest::FocusOn(to_target));
-    } else if released {
-        requests.send(NavRequest::Action);
-    }
-}
-
 /// Default input systems for ui navigation.
 pub struct DefaultNavigationSystems;
 impl Plugin for DefaultNavigationSystems {
     fn build(&self, app: &mut App) {
         use bevy_ui_navigation::NavRequestSystem;
         app.init_resource::<InputMapping>()
-            .add_system(default_mouse_input.before(NavRequestSystem))
             .add_system(default_gamepad_input.before(NavRequestSystem))
             .add_system(default_keyboard_input.before(NavRequestSystem));
     }

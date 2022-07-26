@@ -1,9 +1,9 @@
-use crate::{entity::UiCameraConfig, CalculatedClip, Node};
 use bevy_ecs::{
     entity::Entity,
-    prelude::Component,
+    event::EventWriter,
+    prelude::{Component, With},
     reflect::ReflectComponent,
-    system::{Local, Query, Res},
+    system::{Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
@@ -11,104 +11,87 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::camera::{Camera, RenderTarget};
 use bevy_render::view::ComputedVisibility;
 use bevy_transform::components::GlobalTransform;
+use bevy_ui_navigation::{
+    events::NavRequest,
+    prelude::{FocusState, Focusable},
+};
 use bevy_utils::FloatOrd;
 use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 
-/// Describes what type of input interaction has occurred for a UI node.
+use crate::{entity::UiCameraConfig, CalculatedClip, Node};
+
+/// Whether the mouse cursor is hovering over this entity.
 ///
-/// This is commonly queried with a `Changed<Interaction>` filter.
+/// If an entity has a `Hover` component, it will be set to [`Hover::Hovered`]
+/// if the mouse cursor is hovering it.
 ///
-/// Updated in [`ui_focus_system`].
+/// Currently only works on UI.
 ///
-/// If a UI node has both [`Interaction`] and [`ComputedVisibility`] components,
-/// [`Interaction`] will always be [`Interaction::None`]
-/// when [`ComputedVisibility::is_visible()`] is false.
-/// This ensures that hidden UI nodes are not interactable,
-/// and do not end up stuck in an active state if hidden at the wrong time.
+/// There might be several entities under the cursor, so multiple entities might
+/// have their `Hover` state set to [`Hover::Hovered`].
 ///
-/// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
-/// which fully collapses it during layout calculations.
+/// Note that the `Hover` state is completely **independent from** [`FocusPolicy`].
+
+/// For UI interaction, prefer [`Focusable`], as it not only supports mouse interaction
+/// and [`FocusPolicy`] but
+/// but also gamepad navigation, out of the box.
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
-pub enum Interaction {
-    /// The node has been clicked
-    Clicked,
-    /// The node has been hovered over
-    Hovered,
-    /// Nothing has happened
+pub enum Hover {
+    /// This entity is currently not under the cursor.
     #[default]
     None,
+    /// This entity is being hovered.
+    Hovered,
 }
 
-/// Describes whether the node should block interactions with lower nodes
+/// Specify whether this entity should
+/// let pointer focus pass through to nodes behind.
+///
+/// By default, mouse interaction sends focus
+/// to the [`Focusable`] closest to the camera.
+/// This component allows disabling this behavior
+/// with the [`FocusPolicy::Pass`] variant.
+///
+/// This is useful if you expect overlapping UI elements
+/// and want a way for your users to select elements behind others.
+///
+/// Note that `FocusPolicy` is an optional component,
+/// when `FocusPolicy` is absent from the entity,
+/// it acts the same as [`FocusPolicy::Capture`].
+/// This is also only pertinent to pointer devices such as mouse and touch.
+///
+/// Also note that this does **not** affect the [`Hover`] component.
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
-    /// Blocks interaction
+    /// Take focus on hover, the default.
     #[default]
-    Block,
-    /// Lets interaction pass through
+    Capture,
+    /// Do not focus on hover and let interaction pass through
+    /// to [`Focusable`]s behind this one.
     Pass,
 }
-/// Contains entities whose Interaction should be set to None
-#[derive(Default)]
-pub struct State {
-    entities_to_reset: SmallVec<[Entity; 1]>,
+
+struct Positions {
+    cursor: Vec2,
+    node: Vec2,
+    size: Vec2,
 }
 
-/// The system that sets Interaction for all UI elements based on the mouse cursor activity
-///
-/// Entities with a hidden [`ComputedVisibility`] are always treated as released.
-pub fn ui_focus_system(
-    mut state: Local<State>,
-    camera: Query<(&Camera, Option<&UiCameraConfig>)>,
-    windows: Res<Windows>,
-    mouse_button_input: Res<Input<MouseButton>>,
-    touches_input: Res<Touches>,
-    mut node_query: Query<(
-        Entity,
-        &Node,
-        &GlobalTransform,
-        Option<&mut Interaction>,
-        Option<&FocusPolicy>,
-        Option<&CalculatedClip>,
-        Option<&ComputedVisibility>,
-    )>,
-) {
-    // reset entities that were both clicked and released in the last frame
-    for entity in state.entities_to_reset.drain(..) {
-        if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
-            *interaction = Interaction::None;
-        }
-    }
-
-    let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
-    if mouse_released {
-        for (_entity, _node, _global_transform, interaction, _focus_policy, _clip, _visibility) in
-            node_query.iter_mut()
-        {
-            if let Some(mut interaction) = interaction {
-                if *interaction == Interaction::Clicked {
-                    *interaction = Interaction::None;
-                }
-            }
-        }
-    }
-
-    let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
-
+fn get_mouse_cursor(
+    camera: &Query<(&Camera, Option<&UiCameraConfig>)>,
+    windows: &Windows,
+) -> Option<Vec2> {
     let is_ui_disabled =
         |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
 
-    let cursor_position = camera
+    camera
         .iter()
         .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
         .filter_map(|(camera, _)| {
@@ -121,96 +104,119 @@ pub fn ui_focus_system(
         .filter_map(|window_id| windows.get(window_id))
         .filter(|window| window.is_focused())
         .find_map(|window| window.cursor_position())
-        .or_else(|| touches_input.first_pressed_position());
+}
 
+fn is_under_cursor(
+    Positions { cursor, node, size }: Positions,
+    node_clip: Option<&CalculatedClip>,
+) -> bool {
+    let extents = size / 2.0;
+    let mut min = node - extents;
+    let mut max = node + extents;
+    if let Some(clip) = node_clip {
+        min = Vec2::max(min, clip.clip.min);
+        max = Vec2::min(max, clip.clip.max);
+    }
+    (min.x..max.x).contains(&cursor.x) && (min.y..max.y).contains(&cursor.y)
+}
+
+/// Sends [`NavRequest`] for UI elements based on the mouse cursor and touch activity.
+pub fn ui_focus_system(
+    camera: Query<(&Camera, Option<&UiCameraConfig>)>,
+    windows: Res<Windows>,
+    mouse_button_input: Res<Input<MouseButton>>,
+    touches_input: Res<Touches>,
+    node_query: Query<
+        (
+            Entity,
+            Option<&FocusPolicy>,
+            &GlobalTransform,
+            &Node,
+            Option<&CalculatedClip>,
+            Option<&ComputedVisibility>,
+        ),
+        With<Focusable>,
+    >,
+    focusables_query: Query<&Focusable>,
+    mut nav_requests: EventWriter<NavRequest>,
+) {
+    let mouse_released =
+        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
+
+    let cursor_position = match get_mouse_cursor(&camera, &windows) {
+        Some(pos) => pos,
+        None => return,
+    };
+    // TODO: return early of no mouse release and cursor move
+
+    // collect all (visible) entities currently under the cursor.
     let mut moused_over_z_sorted_nodes = node_query
-        .iter_mut()
-        .filter_map(
-            |(entity, node, global_transform, interaction, focus_policy, clip, visibility)| {
-                // Nodes that are not rendered should not be interactable
-                if let Some(computed_visibility) = visibility {
-                    if !computed_visibility.is_visible() {
-                        // Reset their interaction to None to avoid strange stuck state
-                        if let Some(mut interaction) = interaction {
-                            // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
-                            if *interaction != Interaction::None {
-                                *interaction = Interaction::None;
-                            }
-                        }
-
-                        return None;
-                    }
-                }
-
-                let position = global_transform.translation();
-                let ui_position = position.truncate();
-                let extents = node.size / 2.0;
-                let mut min = ui_position - extents;
-                let mut max = ui_position + extents;
-                if let Some(clip) = clip {
-                    min = Vec2::max(min, clip.clip.min);
-                    max = Vec2::min(max, clip.clip.max);
-                }
-                // if the current cursor position is within the bounds of the node, consider it for
-                // clicking
-                let contains_cursor = if let Some(cursor_position) = cursor_position {
-                    (min.x..max.x).contains(&cursor_position.x)
-                        && (min.y..max.y).contains(&cursor_position.y)
-                } else {
-                    false
-                };
-
-                if contains_cursor {
-                    Some((entity, focus_policy, interaction, FloatOrd(position.z)))
-                } else {
-                    if let Some(mut interaction) = interaction {
-                        if *interaction == Interaction::Hovered
-                            || (cursor_position.is_none() && *interaction != Interaction::None)
-                        {
-                            *interaction = Interaction::None;
-                        }
-                    }
-                    None
-                }
-            },
-        )
+        .iter()
+        .filter(|(.., visibility)| visibility.map_or(true, |v| v.is_visible()))
+        .filter(|(.., global_transform, node, clip, _)| {
+            let positions = Positions {
+                node: global_transform.translation().truncate(),
+                cursor: cursor_position,
+                size: node.size,
+            };
+            is_under_cursor(positions, *clip)
+        })
+        .map(|(entity, focus_policy, global_transform, ..)| {
+            let z_position = global_transform.translation().z;
+            (entity, focus_policy, FloatOrd(z_position))
+        })
         .collect::<Vec<_>>();
 
-    moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
+    moused_over_z_sorted_nodes.sort_by_key(|(_, _, z)| -*z);
 
-    let mut moused_over_z_sorted_nodes = moused_over_z_sorted_nodes.into_iter();
-    // set Clicked or Hovered on top nodes
-    for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes.by_ref() {
-        if let Some(mut interaction) = interaction {
-            if mouse_clicked {
-                // only consider nodes with Interaction "clickable"
-                if *interaction != Interaction::Clicked {
-                    *interaction = Interaction::Clicked;
-                    // if the mouse was simultaneously released, reset this Interaction in the next
-                    // frame
-                    if mouse_released {
-                        state.entities_to_reset.push(entity);
-                    }
+    for (entity, focus_policy, _) in moused_over_z_sorted_nodes.into_iter() {
+        match focus_policy {
+            Some(FocusPolicy::Pass) => {}
+            None | Some(FocusPolicy::Capture) => {
+                // unwrap: entity taked from a query with a `With<Focusable>` filter
+                let focus_state = focusables_query.get(entity).unwrap().state();
+                if focus_state != FocusState::Focused {
+                    nav_requests.send(NavRequest::FocusOn(entity));
+                } else if mouse_released {
+                    nav_requests.send(NavRequest::Action);
                 }
-            } else if *interaction == Interaction::None {
-                *interaction = Interaction::Hovered;
-            }
-        }
-
-        match focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
-            FocusPolicy::Block => {
                 break;
             }
-            FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
         }
     }
-    // reset lower nodes to None
-    for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
-        if let Some(mut interaction) = interaction {
-            // don't reset clicked nodes because they're handled separately
-            if *interaction != Interaction::Clicked && *interaction != Interaction::None {
-                *interaction = Interaction::None;
-            }
+}
+
+/// System responsible to update the [`Hover`] component.
+pub fn mouse_hover_system(
+    camera: Query<(&Camera, Option<&UiCameraConfig>)>,
+    windows: Res<Windows>,
+    mut hover_query: Query<(
+        &mut Hover,
+        Option<&CalculatedClip>,
+        Option<&ComputedVisibility>,
+        &GlobalTransform,
+        &Node,
+    )>,
+) {
+    use Hover::Hovered;
+    let cursor_position = get_mouse_cursor(&camera, &windows);
+
+    for (mut old_hover, clip, visibility, global_transform, node) in &mut hover_query {
+        if visibility.map_or(false, |v| !v.is_visible()) {
+            continue;
+        }
+        let positions = |cursor| Positions {
+            cursor,
+            size: node.size,
+            node: global_transform.translation().truncate(),
+        };
+        let is_hovered = cursor_position
+            .map(positions)
+            .map_or(false, |pos| is_under_cursor(pos, clip));
+
+        let new_hover_state = if is_hovered { Hovered } else { Hover::None };
+        if *old_hover != new_hover_state {
+            *old_hover = new_hover_state;
         }
     }
 }
