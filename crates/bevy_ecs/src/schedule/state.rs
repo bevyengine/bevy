@@ -14,21 +14,15 @@ use std::{
 pub trait StateData: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
 impl<T> StateData for T where T: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
 
-/// ### Stack based state machine
+/// A simple finite-state machine whose transitions (enter and exit) can have associated run criteria
+/// ([`on_enter`](#method.on_enter) and [`on_exit`](#method.on_exit)).
 ///
-/// This state machine has four operations: Push, Pop, Set and Replace.
-/// * Push pushes a new state to the state stack, pausing the previous state
-/// * Pop removes the current state, and unpauses the last paused state
-/// * Set replaces the active state with a new one
-/// * Replace unwinds the state stack, and replaces the entire stack with a single new state
+/// A state transition can be scheduled with [`State::set`](#method.set).
 #[derive(Debug)]
 pub struct State<T: StateData> {
+    current_state: T,
+    next_state: Option<T>,
     transition: Option<StateTransition<T>>,
-    /// The current states in the stack.
-    ///
-    /// There is always guaranteed to be at least one.
-    stack: Vec<T>,
-    scheduled: Option<ScheduledOperation<T>>,
     end_next_loop: bool,
 }
 
@@ -37,19 +31,8 @@ enum StateTransition<T: StateData> {
     PreStartup,
     Startup,
     // The parameter order is always (leaving, entering)
-    ExitingToResume(T, T),
-    ExitingFull(T, T),
+    Exiting(T, T),
     Entering(T, T),
-    Resuming(T, T),
-    Pausing(T, T),
-}
-
-#[derive(Debug)]
-enum ScheduledOperation<T: StateData> {
-    Set(T),
-    Replace(T),
-    Pop,
-    Push(T),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
@@ -74,50 +57,9 @@ where
     T: StateData,
 {
     pub fn on_update(pred: T) -> RunCriteriaDescriptor {
-        (move |state: Res<State<T>>| {
-            state.stack.last().unwrap() == &pred && state.transition.is_none()
-        })
-        .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
-    }
-
-    pub fn on_inactive_update(pred: T) -> RunCriteriaDescriptor {
-        (move |state: Res<State<T>>, mut is_inactive: Local<bool>| match &state.transition {
-            Some(StateTransition::Pausing(ref relevant, _))
-            | Some(StateTransition::Resuming(_, ref relevant)) => {
-                if relevant == &pred {
-                    *is_inactive = !*is_inactive;
-                }
-                false
-            }
-            Some(_) => false,
-            None => *is_inactive,
-        })
-        .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
-    }
-
-    pub fn on_in_stack_update(pred: T) -> RunCriteriaDescriptor {
-        (move |state: Res<State<T>>, mut is_in_stack: Local<bool>| match &state.transition {
-            Some(StateTransition::Entering(ref relevant, _))
-            | Some(StateTransition::ExitingToResume(_, ref relevant))
-            | Some(StateTransition::ExitingFull(_, ref relevant)) => {
-                if relevant == &pred {
-                    *is_in_stack = !*is_in_stack;
-                }
-                false
-            }
-            Some(StateTransition::Startup) => {
-                if state.stack.last().unwrap() == &pred {
-                    *is_in_stack = !*is_in_stack;
-                }
-                false
-            }
-            Some(_) => false,
-            None => *is_in_stack,
-        })
-        .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
+        (move |state: Res<State<T>>| state.current_state == pred && state.transition.is_none())
+            .chain(should_run_adapter::<T>)
+            .after(DriverLabel::of::<T>())
     }
 
     pub fn on_enter(pred: T) -> RunCriteriaDescriptor {
@@ -127,7 +69,7 @@ where
                 .as_ref()
                 .map_or(false, |transition| match transition {
                     StateTransition::Entering(_, entering) => entering == &pred,
-                    StateTransition::Startup => state.stack.last().unwrap() == &pred,
+                    StateTransition::Startup => state.current_state == pred,
                     _ => false,
                 })
         })
@@ -141,36 +83,7 @@ where
                 .transition
                 .as_ref()
                 .map_or(false, |transition| match transition {
-                    StateTransition::ExitingToResume(exiting, _)
-                    | StateTransition::ExitingFull(exiting, _) => exiting == &pred,
-                    _ => false,
-                })
-        })
-        .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
-    }
-
-    pub fn on_pause(pred: T) -> RunCriteriaDescriptor {
-        (move |state: Res<State<T>>| {
-            state
-                .transition
-                .as_ref()
-                .map_or(false, |transition| match transition {
-                    StateTransition::Pausing(pausing, _) => pausing == &pred,
-                    _ => false,
-                })
-        })
-        .chain(should_run_adapter::<T>)
-        .after(DriverLabel::of::<T>())
-    }
-
-    pub fn on_resume(pred: T) -> RunCriteriaDescriptor {
-        (move |state: Res<State<T>>| {
-            state
-                .transition
-                .as_ref()
-                .map_or(false, |transition| match transition {
-                    StateTransition::Resuming(_, resuming) => resuming == &pred,
+                    StateTransition::Exiting(exiting, _) => exiting == &pred,
                     _ => false,
                 })
         })
@@ -182,24 +95,12 @@ where
         SystemSet::new().with_run_criteria(Self::on_update(s))
     }
 
-    pub fn on_inactive_update_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criteria(Self::on_inactive_update(s))
-    }
-
     pub fn on_enter_set(s: T) -> SystemSet {
         SystemSet::new().with_run_criteria(Self::on_enter(s))
     }
 
     pub fn on_exit_set(s: T) -> SystemSet {
         SystemSet::new().with_run_criteria(Self::on_exit(s))
-    }
-
-    pub fn on_pause_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criteria(Self::on_pause(s))
-    }
-
-    pub fn on_resume_set(s: T) -> SystemSet {
-        SystemSet::new().with_run_criteria(Self::on_resume(s))
     }
 
     /// Creates a driver set for the State.
@@ -212,9 +113,9 @@ where
 
     pub fn new(initial: T) -> Self {
         Self {
-            stack: vec![initial],
+            current_state: initial,
+            next_state: None,
             transition: Some(StateTransition::PreStartup),
-            scheduled: None,
             end_next_loop: false,
         }
     }
@@ -223,135 +124,56 @@ where
     /// This will fail if there is a scheduled operation, pending transition, or if the given
     /// `state` matches the current state
     pub fn set(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
+        if self.current_state == state {
             return Err(StateError::AlreadyInState);
         }
 
-        if self.scheduled.is_some() || self.transition.is_some() {
+        if self.next_state.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
-        self.scheduled = Some(ScheduledOperation::Set(state));
+        self.next_state = Some(state);
         Ok(())
     }
 
     /// Same as [`Self::set`], but if there is already a next state, it will be overwritten
     /// instead of failing
     pub fn overwrite_set(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
+        if self.current_state == state {
             return Err(StateError::AlreadyInState);
         }
 
-        self.scheduled = Some(ScheduledOperation::Set(state));
-        Ok(())
-    }
-
-    /// Schedule a state change that replaces the full stack with the given state.
-    /// This will fail if there is a scheduled operation, pending transition, or if the given
-    /// `state` matches the current state
-    pub fn replace(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
-        if self.scheduled.is_some() || self.transition.is_some() {
-            return Err(StateError::StateAlreadyQueued);
-        }
-
-        self.scheduled = Some(ScheduledOperation::Replace(state));
-        Ok(())
-    }
-
-    /// Same as [`Self::replace`], but if there is already a next state, it will be overwritten
-    /// instead of failing
-    pub fn overwrite_replace(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
-        self.scheduled = Some(ScheduledOperation::Replace(state));
-        Ok(())
-    }
-
-    /// Same as [`Self::set`], but does a push operation instead of a next operation
-    pub fn push(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
-        if self.scheduled.is_some() || self.transition.is_some() {
-            return Err(StateError::StateAlreadyQueued);
-        }
-
-        self.scheduled = Some(ScheduledOperation::Push(state));
-        Ok(())
-    }
-
-    /// Same as [`Self::push`], but if there is already a next state, it will be overwritten
-    /// instead of failing
-    pub fn overwrite_push(&mut self, state: T) -> Result<(), StateError> {
-        if self.stack.last().unwrap() == &state {
-            return Err(StateError::AlreadyInState);
-        }
-
-        self.scheduled = Some(ScheduledOperation::Push(state));
-        Ok(())
-    }
-
-    /// Same as [`Self::set`], but does a pop operation instead of a set operation
-    pub fn pop(&mut self) -> Result<(), StateError> {
-        if self.scheduled.is_some() || self.transition.is_some() {
-            return Err(StateError::StateAlreadyQueued);
-        }
-
-        if self.stack.len() == 1 {
-            return Err(StateError::StackEmpty);
-        }
-
-        self.scheduled = Some(ScheduledOperation::Pop);
-        Ok(())
-    }
-
-    /// Same as [`Self::pop`], but if there is already a next state, it will be overwritten
-    /// instead of failing
-    pub fn overwrite_pop(&mut self) -> Result<(), StateError> {
-        if self.stack.len() == 1 {
-            return Err(StateError::StackEmpty);
-        }
-        self.scheduled = Some(ScheduledOperation::Pop);
+        self.next_state = Some(state);
         Ok(())
     }
 
     /// Schedule a state change that restarts the active state.
     /// This will fail if there is a scheduled operation or a pending transition
     pub fn restart(&mut self) -> Result<(), StateError> {
-        if self.scheduled.is_some() || self.transition.is_some() {
+        if self.next_state.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
-        let state = self.stack.last().unwrap();
-        self.scheduled = Some(ScheduledOperation::Set(state.clone()));
+        let state = self.current_state.clone();
+        self.next_state = Some(state);
         Ok(())
     }
 
     /// Same as [`Self::restart`], but if there is already a scheduled state operation,
     /// it will be overwritten instead of failing
     pub fn overwrite_restart(&mut self) {
-        let state = self.stack.last().unwrap();
-        self.scheduled = Some(ScheduledOperation::Set(state.clone()));
+        let state = self.current_state.clone();
+        self.next_state = Some(state);
     }
 
+    /// Returns the current state.
     pub fn current(&self) -> &T {
-        self.stack.last().unwrap()
+        &self.current_state
     }
 
-    pub fn inactives(&self) -> &[T] {
-        self.stack.split_last().map(|(_, rest)| rest).unwrap()
-    }
-
-    /// Clears the scheduled state operation.
+    /// Clears any scheduled state operation.
     pub fn clear_schedule(&mut self) {
-        self.scheduled = None;
+        self.next_state = None;
     }
 }
 
@@ -398,7 +220,7 @@ fn state_cleaner<T: StateData>(
 ) -> ShouldRun {
     if *prep_exit {
         *prep_exit = false;
-        if state.scheduled.is_none() {
+        if state.next_state.is_none() {
             state.end_next_loop = true;
             return ShouldRun::YesAndCheckAgain;
         }
@@ -406,57 +228,14 @@ fn state_cleaner<T: StateData>(
         state.end_next_loop = false;
         return ShouldRun::No;
     }
-    match state.scheduled.take() {
-        Some(ScheduledOperation::Set(next)) => {
-            state.transition = Some(StateTransition::ExitingFull(
-                state.stack.last().unwrap().clone(),
-                next,
-            ));
-        }
-        Some(ScheduledOperation::Replace(next)) => {
-            if state.stack.len() <= 1 {
-                state.transition = Some(StateTransition::ExitingFull(
-                    state.stack.last().unwrap().clone(),
-                    next,
-                ));
-            } else {
-                state.scheduled = Some(ScheduledOperation::Replace(next));
-                match state.transition.take() {
-                    Some(StateTransition::ExitingToResume(p, n)) => {
-                        state.stack.pop();
-                        state.transition = Some(StateTransition::Resuming(p, n));
-                    }
-                    _ => {
-                        state.transition = Some(StateTransition::ExitingToResume(
-                            state.stack[state.stack.len() - 1].clone(),
-                            state.stack[state.stack.len() - 2].clone(),
-                        ));
-                    }
-                }
-            }
-        }
-        Some(ScheduledOperation::Push(next)) => {
-            let last_type_id = state.stack.last().unwrap().clone();
-            state.transition = Some(StateTransition::Pausing(last_type_id, next));
-        }
-        Some(ScheduledOperation::Pop) => {
-            state.transition = Some(StateTransition::ExitingToResume(
-                state.stack[state.stack.len() - 1].clone(),
-                state.stack[state.stack.len() - 2].clone(),
-            ));
+    match state.next_state.take() {
+        Some(next) => {
+            state.transition = Some(StateTransition::Exiting(state.current_state.clone(), next));
         }
         None => match state.transition.take() {
-            Some(StateTransition::ExitingFull(p, n)) => {
+            Some(StateTransition::Exiting(p, n)) => {
                 state.transition = Some(StateTransition::Entering(p, n.clone()));
-                *state.stack.last_mut().unwrap() = n;
-            }
-            Some(StateTransition::Pausing(p, n)) => {
-                state.transition = Some(StateTransition::Entering(p, n.clone()));
-                state.stack.push(n);
-            }
-            Some(StateTransition::ExitingToResume(p, n)) => {
-                state.stack.pop();
-                state.transition = Some(StateTransition::Resuming(p, n));
+                state.current_state = n;
             }
             Some(StateTransition::PreStartup) => {
                 state.transition = Some(StateTransition::Startup);
@@ -505,7 +284,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S1).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S1");
-                    s.overwrite_replace(MyState::S2).unwrap();
+                    s.overwrite_set(MyState::S2).unwrap();
                 },
             ))
             .add_system_set(
@@ -515,7 +294,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S2).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S2");
-                    s.overwrite_replace(MyState::S3).unwrap();
+                    s.overwrite_set(MyState::S3).unwrap();
                 },
             ))
             .add_system_set(
@@ -529,55 +308,31 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S3).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S3");
-                    s.overwrite_push(MyState::S4).unwrap();
+                    s.overwrite_set(MyState::S4).unwrap();
                 },
             ))
-            .add_system_set(
-                State::on_pause_set(MyState::S3)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("pause S3")),
-            )
             .add_system_set(State::on_update_set(MyState::S4).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S4");
-                    s.overwrite_push(MyState::S5).unwrap();
+                    s.overwrite_set(MyState::S5).unwrap();
                 },
             ))
-            .add_system_set(State::on_inactive_update_set(MyState::S4).with_system(
-                (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S4")).label("inactive s4"),
+            .add_system_set(State::on_update_set(MyState::S5).with_system(
+                |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
+                    r.push("update S5");
+                    s.overwrite_set(MyState::S6).unwrap();
+                },
             ))
             .add_system_set(
-                State::on_update_set(MyState::S5).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S5");
-                        s.overwrite_push(MyState::S6).unwrap();
-                    })
-                    .after("inactive s4"),
-                ),
-            )
-            .add_system_set(
-                State::on_inactive_update_set(MyState::S5).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S5"))
-                        .label("inactive s5")
-                        .after("inactive s4"),
-                ),
-            )
-            .add_system_set(
-                State::on_update_set(MyState::S6).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S6");
-                        s.overwrite_push(MyState::Final).unwrap();
-                    })
-                    .after("inactive s5"),
-                ),
-            )
-            .add_system_set(
-                State::on_resume_set(MyState::S4)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("resume S4")),
-            )
-            .add_system_set(
                 State::on_exit_set(MyState::S5)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("exit S4")),
-            );
+                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("exit S5")),
+            )
+            .add_system_set(State::on_update_set(MyState::S6).with_system(
+                |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
+                    r.push("update S6");
+                    s.overwrite_set(MyState::Final).unwrap();
+                },
+            ));
 
         const EXPECTED: &[&str] = &[
             //
@@ -591,18 +346,12 @@ mod test {
             "enter S3",
             "update S3",
             //
-            "pause S3",
             "update S4",
             //
-            "inactive S4",
             "update S5",
             //
-            "inactive S4",
-            "inactive S5",
+            "exit S5",
             "update S6",
-            //
-            "inactive S4",
-            "inactive S5",
         ];
 
         stage.run(&mut world);

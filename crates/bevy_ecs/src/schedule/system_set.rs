@@ -27,20 +27,6 @@ impl SystemSet {
         Self::new().with_run_criteria(State::<T>::on_update(s))
     }
 
-    pub fn on_inactive_update<T>(s: T) -> SystemSet
-    where
-        T: StateData,
-    {
-        Self::new().with_run_criteria(State::<T>::on_inactive_update(s))
-    }
-
-    pub fn on_in_stack_update<T>(s: T) -> SystemSet
-    where
-        T: StateData,
-    {
-        Self::new().with_run_criteria(State::<T>::on_in_stack_update(s))
-    }
-
     pub fn on_enter<T>(s: T) -> SystemSet
     where
         T: StateData,
@@ -53,20 +39,6 @@ impl SystemSet {
         T: StateData,
     {
         Self::new().with_run_criteria(State::<T>::on_exit(s))
-    }
-
-    pub fn on_pause<T>(s: T) -> SystemSet
-    where
-        T: StateData,
-    {
-        Self::new().with_run_criteria(State::<T>::on_pause(s))
-    }
-
-    pub fn on_resume<T>(s: T) -> SystemSet
-    where
-        T: StateData,
-    {
-        Self::new().with_run_criteria(State::<T>::on_resume(s))
     }
 
     #[must_use]
