@@ -141,7 +141,7 @@ pub fn derive_label(
         .predicates
         .push(syn::parse2(quote! { Self: 'static }).unwrap());
 
-    let (data, fmt) = match input.data {
+    let (data, mut fmt) = match input.data {
         syn::Data::Struct(d) => {
             // see if the user tried to ignore fields incorrectly
             if let Some(attr) = d
@@ -225,6 +225,27 @@ pub fn derive_label(
             .into();
         }
     };
+
+    // Formatting for generics
+    let mut ty_args = input.generics.params.iter().filter_map(|p| match p {
+        syn::GenericParam::Type(ty) => Some({
+            let ty = &ty.ident;
+            quote! { ::std::any::type_name::<#ty>() }
+        }),
+        _ => None,
+    });
+    if let Some(first_arg) = ty_args.next() {
+        // Note: We're doing this manually instead of using magic `syn` methods,
+        // because those methods insert ugly whitespace everywhere.
+        // Those are for codegen, not user-facing formatting.
+        fmt = quote! {
+            ( #fmt )?;
+            write!(f, "::<")?;
+            write!(f, "{}", #first_arg)?;
+            #( write!(f, ", {}", #ty_args)?; )*
+            write!(f, ">")
+        }
+    }
 
     (quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {

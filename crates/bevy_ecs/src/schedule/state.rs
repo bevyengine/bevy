@@ -1,4 +1,5 @@
 use crate::{
+    self as bevy_ecs,
     schedule::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
@@ -10,8 +11,6 @@ use std::{
     hash::Hash,
     marker::PhantomData,
 };
-// Required for derive macros
-use crate as bevy_ecs;
 
 pub trait StateData: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
 impl<T> StateData for T where T: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
@@ -54,20 +53,9 @@ enum ScheduledOperation<T: StateData> {
     Push(T),
 }
 
+#[derive(RunCriteriaLabel)]
+#[run_criteria_label(ignore_fields)]
 struct DriverLabel<T: StateData>(PhantomData<fn() -> T>);
-impl<T: StateData> RunCriteriaLabel for DriverLabel<T> {
-    #[inline]
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<T>()
-    }
-    #[inline]
-    fn data(&self) -> u64 {
-        0
-    }
-    fn fmt(data: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", std::any::type_name::<T>())
-    }
-}
 
 fn driver_label<T: StateData>() -> DriverLabel<T> {
     DriverLabel(PhantomData)

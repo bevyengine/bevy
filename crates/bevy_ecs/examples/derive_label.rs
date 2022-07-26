@@ -18,6 +18,14 @@ fn main() {
         GenericLabel::<f64>::One.as_label(),
         GenericLabel::<char>::One.as_label(),
     );
+
+    assert_eq!(format!("{:?}", UnitLabel.as_label()), "UnitLabel");
+    assert_eq!(format!("{:?}", WeirdLabel(1).as_label()), "WeirdLabel");
+    assert_eq!(format!("{:?}", WeirdLabel(2).as_label()), "WeirdLabel");
+    assert_eq!(
+        format!("{:?}", GenericLabel::<f64>::One.as_label()),
+        "GenericLabel::One::<f64>"
+    );
 }
 
 #[derive(SystemLabel)]
