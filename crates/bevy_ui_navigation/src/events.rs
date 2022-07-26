@@ -13,7 +13,12 @@
 //!   navigation system. See examples directory for how to read those
 //! * Output [`EventReader<NavEvent>`], contains specific information about what
 //!   the navigation system is doing.
-use bevy_ecs::entity::Entity;
+use bevy_ecs::{
+    entity::Entity,
+    event::EventReader,
+    query::{QueryItem, WorldQuery},
+    system::Query,
+};
 use non_empty_vec::NonEmpty;
 
 /// Requests to send to the navigation system to update focus.
@@ -66,7 +71,7 @@ pub enum NavEvent {
     /// Meaning: whenever you spawn a new UI with [`crate::Focusable`] elements.
     InitiallyFocused(Entity),
 
-    /// Focus changed
+    /// Focus changed.
     ///
     /// ## Notes
     ///
@@ -86,26 +91,26 @@ pub enum NavEvent {
     },
     /// The [`NavRequest`] didn't lead to any change in focus.
     NoChanges {
-        /// The list of active elements from the focused one to the last
-        /// active which is affected by the focus change
+        /// The active elements from the focused one to the last
+        /// active which is affected by the focus change.
         from: NonEmpty<Entity>,
-        /// The [`NavRequest`] that didn't do anything
+        /// The [`NavRequest`] that didn't do anything.
         request: NavRequest,
     },
-    /// A [lock focusable](crate::Focusable::lock) has been triggered
+    /// A [lock focusable](crate::Focusable::lock) has been triggered.
     ///
     /// Once the navigation plugin enters a locked state, the only way to exit
     /// it is to send a [`NavRequest::Free`].
     Locked(Entity),
 
-    /// A [lock focusable](crate::Focusable::lock) has been triggered
+    /// A [lock focusable](crate::Focusable::lock) has been released.
     ///
-    /// Once the navigation plugin enters a locked state, the only way to exit
-    /// it is to send a [`NavRequest::Free`].
+    /// The navigation system was in a locked state triggered by `Entity`,
+    /// is now unlocked, and receiving events again.
     Unlocked(Entity),
 }
 impl NavEvent {
-    /// Convenience function to construct a `FocusChanged` with a single `to`
+    /// Create a `FocusChanged` with a single `to`
     ///
     /// Usually the `NavEvent::FocusChanged.to` field has a unique value.
     pub(crate) fn focus_changed(to: Entity, from: NonEmpty<Entity>) -> NavEvent {
@@ -113,5 +118,66 @@ impl NavEvent {
             from,
             to: NonEmpty::new(to),
         }
+    }
+
+    /// Whether this event is a [`NavEvent::NoChange`]
+    /// triggered by a [`NavRequest::Action`]
+    /// if `entity` is the currently focused element.
+    pub fn is_activated(&self, entity: Entity) -> bool {
+        matches!(self, NavEvent::NoChanges { from,  request: NavRequest::Action } if *from.first() == entity)
+    }
+}
+
+/// Extend [`EventReader<NavEvent>`] with methods
+/// to simplify working with [`NavEvent`]s.
+///
+/// See the [`NavEventReader`] documentation for details.
+///
+/// [`EventReader<NavEvent>`]: EventReader
+pub trait NavEventReaderExt<'w, 's> {
+    /// Create a [`NavEventReader`] from this event reader.
+    fn nav_iter(&mut self) -> NavEventReader<'w, 's, '_>;
+}
+impl<'w, 's> NavEventReaderExt<'w, 's> for EventReader<'w, 's, NavEvent> {
+    fn nav_iter(&mut self) -> NavEventReader<'w, 's, '_> {
+        NavEventReader { event_reader: self }
+    }
+}
+
+/// A wrapper for `EventReader<NavEvent>` to simplify dealing with [`NavEvent`]s.
+pub struct NavEventReader<'w, 's, 'a> {
+    event_reader: &'a mut EventReader<'w, 's, NavEvent>,
+}
+
+impl<'w, 's, 'a> NavEventReader<'w, 's, 'a> {
+    /// Iterate over [`NavEvent::NoChanges`] focused entity
+    /// triggered by `request` type requests.
+    pub fn with_request(&mut self, request: NavRequest) -> impl Iterator<Item = Entity> + '_ {
+        self.event_reader
+            .iter()
+            .filter_map(move |nav_event| match nav_event {
+                NavEvent::NoChanges {
+                    from,
+                    request: event_request,
+                } if *event_request == request => Some(*from.first()),
+                _ => None,
+            })
+    }
+    /// Iterate over _activated_ [`Focusable`]s.
+    ///
+    /// A [`Focusable`] is _activated_ when a [`NavRequest::Action`] is sent
+    /// while it is focused, and it doesn't lead to a new menu.
+    pub fn activated(&mut self) -> impl Iterator<Item = Entity> + '_ {
+        self.with_request(NavRequest::Action)
+    }
+
+    /// Iterate over query items of _activated_ focusables.
+    ///
+    /// see [`Self::activated`] for meaning of _"activated"_.
+    pub fn activated_in_query<'b, 'c: 'b, Q: WorldQuery<ReadOnly = Q>, F: WorldQuery>(
+        &'b mut self,
+        query: &'c Query<Q, F>,
+    ) -> impl Iterator<Item = QueryItem<Q>> + 'b {
+        query.iter_many(self.activated())
     }
 }

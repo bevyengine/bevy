@@ -21,7 +21,7 @@ pub mod bundles {
     pub use crate::seeds::MenuBuilderBundle;
 }
 pub mod prelude {
-    pub use crate::events::{NavEvent, NavRequest};
+    pub use crate::events::{NavEvent, NavEventReaderExt, NavRequest};
     pub use crate::resolve::{
         FocusAction, FocusState, Focusable, Focused, MenuNavigationStrategy, NavLock,
     };
