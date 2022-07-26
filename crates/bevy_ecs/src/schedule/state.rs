@@ -126,15 +126,14 @@ where
     /// If `state` is the same as the current one, this does nothing.
     /// Use [`restart`](#method.restart) to trigger `on_exit` and `on_enter` for the current state.
     pub fn set(&mut self, state: T) -> Result<(), StateError> {
-        if self.current_state == state {
-            return Ok(());
-        }
-
         if self.next_state.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
         }
 
-        self.next_state = Some(state);
+        // Only schedule a transition if the passed `state` is distinct from the current one.
+        if self.current_state != state {
+            self.next_state = Some(state);
+        }
         Ok(())
     }
 
