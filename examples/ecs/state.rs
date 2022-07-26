@@ -10,7 +10,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
         .add_system_set(
-            SystemSet::on_update(AppState::Menu).with_system(focus_color.after(NavRequestSystem)),
+            SystemSet::on_update(AppState::Menu).with_system(hover_color.after(NavRequestSystem)),
         )
         .add_system_set(
             SystemSet::on_update(AppState::Menu)
@@ -39,7 +39,6 @@ struct MenuData {
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-// const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle::default());
@@ -61,6 +60,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
             color: NORMAL_BUTTON.into(),
             ..default()
         })
+        .insert(Hover::default())
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle::from_section(
                 "Play",
@@ -81,24 +81,17 @@ fn activate_button(
     data: Res<MenuData>,
 ) {
     for event in events.iter() {
-        if let NavEvent::NoChanges {
-            from,
-            request: NavRequest::Action,
-        } = event
-        {
-            if *from.first() == data.button_entity {
-                state.set(AppState::InGame).unwrap();
-            }
+        if event.is_activated(data.button_entity) {
+            state.set(AppState::InGame).unwrap();
         }
     }
 }
 
-// TODO: set different color if hovered (note this makes gamepad control confusing)
-fn focus_color(mut interaction_query: Query<(&Focusable, &mut UiColor), Changed<Focusable>>) {
-    for (focusable, mut color) in &mut interaction_query {
-        let updated_color = match focusable.state() {
-            FocusState::Focused => HOVERED_BUTTON,
-            _ => NORMAL_BUTTON,
+fn hover_color(mut interaction_query: Query<(&Hover, &mut UiColor), Changed<Hover>>) {
+    for (hover, mut color) in &mut interaction_query {
+        let updated_color = match hover {
+            Hover::Hovered => HOVERED_BUTTON,
+            Hover::None => NORMAL_BUTTON,
         };
         *color = updated_color.into();
     }

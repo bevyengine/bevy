@@ -671,26 +671,19 @@ mod menu {
         mut select_query: Query<(Entity, &mut SelectedOption, &T)>,
         mut setting: ResMut<T>,
     ) {
-        for event in nav_events.iter() {
-            if let NavEvent::NoChanges {
-                from,
-                request: NavRequest::Action,
-            } = event
-            {
-                let activated = *from.first();
-                // skip if the update is from another kind of setting option
-                if select_query.get(activated).is_err() {
-                    continue;
+        for activated in nav_events.nav_iter().activated() {
+            // skip if the update is from another kind of setting option
+            if select_query.get(activated).is_err() {
+                continue;
+            }
+            let old_setting = *setting;
+            for (entity, mut to_change, option_value) in &mut select_query {
+                if *option_value == old_setting {
+                    *to_change = SelectedOption::Unselected;
                 }
-                let old_setting = *setting;
-                for (entity, mut to_change, option_value) in &mut select_query {
-                    if *option_value == old_setting {
-                        *to_change = SelectedOption::Unselected;
-                    }
-                    if entity == activated {
-                        *to_change = SelectedOption::Selected;
-                        *setting = *option_value;
-                    }
+                if entity == activated {
+                    *to_change = SelectedOption::Selected;
+                    *setting = *option_value;
                 }
             }
         }
@@ -722,19 +715,12 @@ mod menu {
         mut app_exit_events: EventWriter<AppExit>,
         mut game_state: ResMut<State<GameState>>,
     ) {
-        for event in nav_events.iter() {
-            if let NavEvent::NoChanges {
-                from,
-                request: NavRequest::Action,
-            } = event
-            {
-                match button_query.get(*from.first()) {
-                    Ok(MenuButtonAction::Quit) => app_exit_events.send(AppExit),
-                    Ok(MenuButtonAction::Play) => {
-                        game_state.set(GameState::Game).unwrap();
-                    }
-                    _ => {}
+        for button in nav_events.nav_iter().activated_in_query(&button_query) {
+            match button {
+                MenuButtonAction::Play => {
+                    game_state.set(GameState::Game).unwrap();
                 }
+                MenuButtonAction::Quit => app_exit_events.send(AppExit),
             }
         }
     }

@@ -23,41 +23,26 @@ fn press_color(
     mut interaction_query: Query<(&mut UiColor, &Children)>,
     mut text_query: Query<&mut Text>,
 ) {
-    for event in events.iter() {
-        if let NavEvent::NoChanges {
-            from,
-            request: NavRequest::Action,
-        } = event
-        {
-            if let Ok((mut color, children)) = interaction_query.get_mut(*from.first()) {
-                let mut text = text_query.get_mut(children[0]).unwrap();
-                *color = PRESSED_BUTTON.into();
-                text.sections[0].value = "Press".to_string();
-            }
+    for activated in events.nav_iter().activated() {
+        if let Ok((mut color, children)) = interaction_query.get_mut(activated) {
+            *color = PRESSED_BUTTON.into();
+            let mut text = text_query.get_mut(children[0]).unwrap();
+            text.sections[0].value = "Clicked!".to_string();
         }
     }
 }
 
 fn button_color(
-    mut interaction_query: Query<
-        (&Focusable, &mut UiColor, &Children),
-        (Changed<Focusable>, With<Button>),
-    >,
+    mut interaction_query: Query<(&Hover, &mut UiColor, &Children), (Changed<Hover>, With<Button>)>,
     mut text_query: Query<&mut Text>,
 ) {
-    for (focusable, mut color, children) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
-        // TODO handle hovering with Hover component
-        let new_color = match focusable.state() {
-            FocusState::Focused => {
-                text.sections[0].value = "Hover".to_string();
-                HOVERED_BUTTON
-            }
-            _ => {
-                text.sections[0].value = "Button".to_string();
-                NORMAL_BUTTON
-            }
+    for (hover, mut color, children) in &mut interaction_query {
+        let (new_color, new_text) = match hover {
+            Hover::Hovered => (HOVERED_BUTTON, "Hover"),
+            Hover::None => (NORMAL_BUTTON, "Button"),
         };
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        text.sections[0].value = new_text.to_string();
         *color = new_color.into();
     }
 }
@@ -80,6 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             color: NORMAL_BUTTON.into(),
             ..default()
         })
+        .insert(Hover::default())
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle::from_section(
                 "Button",
