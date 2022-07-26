@@ -16,7 +16,7 @@ pub mod widget;
 use bevy_render::extract_component::ExtractComponentPlugin;
 use bevy_ui_navigation::{GenericNavigationPlugin, NavRequestSystem};
 pub use flex::*;
-use focus::{mouse_hover_system, FocusPolicy, Hover};
+pub use focus::{mouse_hover_system, FocusPolicy, Hover};
 pub use geometry::*;
 pub use navigation::InputMapping;
 pub use render::*;
@@ -25,7 +25,14 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, UiScale};
+    pub use crate::{
+        entity::*,
+        focus::{FocusPolicy, Hover},
+        geometry::*,
+        ui_node::*,
+        widget::Button,
+        UiScale,
+    };
 }
 
 use bevy_app::prelude::*;
