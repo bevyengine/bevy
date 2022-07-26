@@ -121,11 +121,13 @@ where
     }
 
     /// Schedule a state change that replaces the active state with the given state.
-    /// This will fail if there is a scheduled operation, pending transition, or if the given
-    /// `state` matches the current state
+    /// This will fail if there is a scheduled operation or a pending transition.
+    ///
+    /// If `state` is the same as the current one, this does nothing.
+    /// Use [`restart`](#method.restart) to trigger `on_exit` and `on_enter` for the current state.
     pub fn set(&mut self, state: T) -> Result<(), StateError> {
         if self.current_state == state {
-            return Err(StateError::AlreadyInState);
+            return Ok(());
         }
 
         if self.next_state.is_some() || self.transition.is_some() {
@@ -136,19 +138,29 @@ where
         Ok(())
     }
 
-    /// Same as [`Self::set`], but if there is already a next state, it will be overwritten
-    /// instead of failing
-    pub fn overwrite_set(&mut self, state: T) -> Result<(), StateError> {
-        if self.current_state == state {
-            return Err(StateError::AlreadyInState);
+    /// Schedule a state change that replaces the active state with the given state.
+    /// Overwrites any previously scheduled transition.
+    ///
+    /// If `state` is the same as the current one, this does nothing.
+    /// Use [`overwrite_restart`](#method.overwrite_restart) to forcibly trigger
+    /// [`on_exit`](#method.on_exit) and [`on_enter`](#method.on_enter) for the current state.
+    pub fn overwrite_set(&mut self, state: T) {
+        // If `state` is distinct from the current one, schedule a transition.
+        if self.current_state != state {
+            self.next_state = Some(state);
         }
-
-        self.next_state = Some(state);
-        Ok(())
+        // We don't need to perform a state transition, but check if we need
+        // to cancel any previously scheduled transitions.
+        else if self.next_state != Some(state) {
+            self.next_state = None;
+        }
     }
 
-    /// Schedule a state change that restarts the active state.
-    /// This will fail if there is a scheduled operation or a pending transition
+    /// Schedules a state transition from the current state, back to the current state.
+    /// This is useful if you want to forcibly trigger [`on_exit`](#method.on_exit) and
+    /// [`on_enter`](#method.on_enter) for the current state.
+    ///
+    /// This will fail if there is already a scheduled operation or pending transition.
     pub fn restart(&mut self) -> Result<(), StateError> {
         if self.next_state.is_some() || self.transition.is_some() {
             return Err(StateError::StateAlreadyQueued);
@@ -159,8 +171,8 @@ where
         Ok(())
     }
 
-    /// Same as [`Self::restart`], but if there is already a scheduled state operation,
-    /// it will be overwritten instead of failing
+    /// Schedules a state transition from the current state, back to the current state.
+    /// This is useful if you want to forcibly trigger `on_exit` and `on_enter` for the current state.
     pub fn overwrite_restart(&mut self) {
         let state = self.current_state.clone();
         self.next_state = Some(state);
@@ -179,7 +191,6 @@ where
 
 #[derive(Debug)]
 pub enum StateError {
-    AlreadyInState,
     StateAlreadyQueued,
 }
 
@@ -188,9 +199,6 @@ impl std::error::Error for StateError {}
 impl fmt::Display for StateError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            StateError::AlreadyInState => {
-                write!(f, "Attempted to change the state to the current state.")
-            }
             StateError::StateAlreadyQueued => write!(
                 f,
                 "Attempted to queue a state change, but there was already a state queued."
@@ -280,7 +288,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S1).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S1");
-                    s.overwrite_set(MyState::S2).unwrap();
+                    s.overwrite_set(MyState::S2);
                 },
             ))
             .add_system_set(
@@ -290,7 +298,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S2).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S2");
-                    s.overwrite_set(MyState::S3).unwrap();
+                    s.overwrite_set(MyState::S3);
                 },
             ))
             .add_system_set(
@@ -304,19 +312,19 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S3).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S3");
-                    s.overwrite_set(MyState::S4).unwrap();
+                    s.overwrite_set(MyState::S4);
                 },
             ))
             .add_system_set(State::on_update_set(MyState::S4).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S4");
-                    s.overwrite_set(MyState::S5).unwrap();
+                    s.overwrite_set(MyState::S5);
                 },
             ))
             .add_system_set(State::on_update_set(MyState::S5).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S5");
-                    s.overwrite_set(MyState::S6).unwrap();
+                    s.overwrite_set(MyState::S6);
                 },
             ))
             .add_system_set(
@@ -326,7 +334,7 @@ mod test {
             .add_system_set(State::on_update_set(MyState::S6).with_system(
                 |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
                     r.push("update S6");
-                    s.overwrite_set(MyState::Final).unwrap();
+                    s.overwrite_set(MyState::Final);
                 },
             ));
 
