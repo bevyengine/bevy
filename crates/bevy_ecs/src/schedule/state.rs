@@ -181,7 +181,6 @@ where
 pub enum StateError {
     AlreadyInState,
     StateAlreadyQueued,
-    StackEmpty,
 }
 
 impl std::error::Error for StateError {}
@@ -196,9 +195,6 @@ impl fmt::Display for StateError {
                 f,
                 "Attempted to queue a state change, but there was already a state queued."
             ),
-            StateError::StackEmpty => {
-                write!(f, "Attempted to queue a pop, but there is nothing to pop.")
-            }
         }
     }
 }
