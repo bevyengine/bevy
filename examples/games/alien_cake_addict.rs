@@ -301,8 +301,7 @@ fn spawn_bonus(
         commands.entity(entity).despawn_recursive();
         game.bonus.entity = None;
         if game.score <= -5 {
-            // We don't particularly care if this operation fails
-            let _ = state.overwrite_set(GameState::GameOver);
+            state.overwrite_set(GameState::GameOver);
             return;
         }
     }
