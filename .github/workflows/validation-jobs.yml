@@ -59,7 +59,7 @@ jobs:
         run: cargo install --force cargo-apk
       
       - name: Build APK
-        run: cargo apk build --example android_example
+        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --example android_example
 
   run-examples-on-windows-dx12:
     runs-on: windows-latest
