@@ -492,6 +492,21 @@ pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     derive_label(input, &trait_path, "run_criteria_label")
 }
 
+/// Generates an impl of the `ScheduleLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[schedule_label(ignore_fields)]`.
+#[proc_macro_derive(ScheduleLabel, attributes(schedule_label))]
+pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let mut trait_path = bevy_ecs_path();
+    trait_path.segments.push(format_ident!("schedule").into());
+    trait_path
+        .segments
+        .push(format_ident!("ScheduleLabel").into());
+    derive_label(input, &trait_path, "schedule_label")
+}
+
 pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_ecs")
 }

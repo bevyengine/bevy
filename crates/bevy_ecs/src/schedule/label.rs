@@ -1,4 +1,6 @@
-pub use bevy_ecs_macros::{AmbiguitySetLabel, RunCriteriaLabel, StageLabel, SystemLabel};
+pub use bevy_ecs_macros::{
+    AmbiguitySetLabel, RunCriteriaLabel, ScheduleLabel, StageLabel, SystemLabel,
+};
 use bevy_utils::define_label;
 
 define_label!(
@@ -24,4 +26,12 @@ define_label!(
     RunCriteriaLabel,
     /// Strongly-typed identifier for a [`RunCriteriaLabel`].
     RunCriteriaLabelId,
+);
+
+// note: this type won't be necessary come stageless, but we need it for now.
+define_label!(
+    /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
+    ScheduleLabel,
+    /// Strongly-typed identifier for a [`ScheduleLabel`].
+    ScheduleLabelId,
 );

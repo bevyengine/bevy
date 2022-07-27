@@ -1,11 +1,15 @@
-use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
+use crate::{
+    CoreStage, IntoSubSchedule, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule,
+    StartupStage, SubSchedules,
+};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    change_detection::Mut,
     event::{Event, Events},
     prelude::{FromWorld, IntoExclusiveSystem},
     schedule::{
-        IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
-        SystemStage,
+        IntoSystemDescriptor, Schedule, ScheduleLabel, ShouldRun, Stage, StageLabel, State,
+        StateData, SystemSet, SystemStage,
     },
     system::Resource,
     world::World,
@@ -308,6 +312,87 @@ impl App {
         func: F,
     ) -> &mut Self {
         self.schedule.stage(label, func);
+        self
+    }
+
+    /// Adds a [`SubSchedule`](crate::SubSchedule) to the app.
+    ///
+    /// If a [label](bevy_ecs::schedule::ScheduleLabel) has been applied to it,
+    /// it can be accessed in the resource [`SubSchedules`].
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut app = App::new();
+    /// # fn foo_system() {}
+    /// # fn bar_system() {}
+    /// #
+    /// // Define a label for the a schedule.
+    /// #[derive(ScheduleLabel)]
+    /// struct MySched;
+    ///
+    /// // Add a new sub-schedule. If the schedule only needs one stage,
+    /// // you can avoid some overhead by adding the stage directly.
+    /// app.add_sub_schedule(
+    ///     SystemStage::parallel()
+    ///         .with_system(foo_system)
+    ///         .with_system(bar_system)
+    ///         .label(MySched),
+    /// );
+    /// ```
+    #[track_caller]
+    pub fn add_sub_schedule(&mut self, sched: impl IntoSubSchedule) -> &mut Self {
+        crate::sub_schedule::add_to_app(self, IntoSubSchedule::into_sched(sched));
+        self
+    }
+
+    /// Allows you to modify a [`SubSchedule`](crate::SubSchedule) by executing a closure on it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(ScheduleLabel)]
+    /// # struct FixedUpdate;
+    /// #
+    /// # let mut app = App::new();
+    /// # app.add_sub_schedule(
+    /// #   Schedule::default()
+    /// #       .with_stage(CoreStage::Update, SystemStage::parallel())
+    /// #       .label(FixedUpdate),
+    /// # );
+    /// # fn my_system() {}
+    /// #
+    /// // Access a previously-added sub-schedule and add a system to it.
+    /// app.sub_schedule(FixedUpdate, |sched: &mut Schedule| {
+    ///     sched.add_system_to_stage(CoreStage::Update, my_system);
+    /// });
+    /// ```
+    ///
+    /// # Panics
+    /// If `label` refers to a non-existent `SubSchedule`, or if it is not of type `S`.
+    pub fn sub_schedule<S: Stage, F>(&mut self, label: impl ScheduleLabel, f: F) -> &mut Self
+    where
+        F: FnOnce(&mut S),
+    {
+        #[inline(never)]
+        fn panic(label: impl Debug, ty: impl Debug) -> ! {
+            panic!("there is no sub-schedule labeled '{label:?}', or it does not match the type `{ty:?}`");
+        }
+
+        let label = label.as_label();
+
+        // Make sure the resource is initialized, so we get a more helpful panic message.
+        let mut schedules: Mut<SubSchedules> =
+            self.world.get_resource_or_insert_with(Default::default);
+        let sched: &mut S = match schedules.get_mut(label) {
+            Some(x) => x,
+            None => panic(label, std::any::type_name::<S>()),
+        };
+        f(sched);
         self
     }
 

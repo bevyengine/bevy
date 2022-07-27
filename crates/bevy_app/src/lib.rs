@@ -6,6 +6,7 @@ mod app;
 mod plugin;
 mod plugin_group;
 mod schedule_runner;
+mod sub_schedule;
 
 #[cfg(feature = "bevy_ci_testing")]
 mod ci_testing;
@@ -15,12 +16,14 @@ pub use bevy_derive::DynamicPlugin;
 pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
+pub use sub_schedule::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupSchedule, StartupStage,
+        app::App, CoreStage, DynamicPlugin, IntoSubSchedule, Plugin, PluginGroup, StartupSchedule,
+        StartupStage,
     };
 }
 
