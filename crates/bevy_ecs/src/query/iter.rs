@@ -306,7 +306,7 @@ where
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        // Safety: it is safe to alias for ReadOnlyFetch
+        // Safety: it is safe to alias for ReadOnlyWorldQuery
         unsafe { QueryCombinationIter::fetch_next_aliased_unchecked(self) }
     }
 

@@ -54,6 +54,17 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
+/// You can use the [`ReadOnlyWorldQuery`] trait to abstract over read only query generics:
+/// ```
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::query::{QueryItem, ReadOnlyWorldQuery};
+/// fn system<Q: ReadOnlyWorldQuery>(
+///     query: Query<Q>,
+/// ) {
+///     let _: Option<QueryItem<Q>> = query.iter().next();
+/// }
+/// ```
+///
 /// ## Mutable component access
 ///
 /// The following example is similar to the previous one, with the exception of `ComponentA`
