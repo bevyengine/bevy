@@ -16,11 +16,9 @@ fn main() {
             ..default()
         })
         .add_startup_system(generate_bodies)
-        .add_stage_after(
-            CoreStage::Update,
-            FixedUpdateStage,
+        .add_fixed_schedule(
+            FixedTimestep::step(DELTA_TIME),
             SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(DELTA_TIME))
                 .with_system(interact_bodies)
                 .with_system(integrate),
         )

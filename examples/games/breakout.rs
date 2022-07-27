@@ -57,9 +57,9 @@ fn main() {
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_startup_system(setup)
         .add_event::<CollisionEvent>()
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+        .add_fixed_schedule(
+            FixedTimestep::step(TIME_STEP as f64),
+            SystemStage::parallel()
                 .with_system(check_for_collisions)
                 .with_system(move_paddle.before(check_for_collisions))
                 .with_system(apply_velocity.before(check_for_collisions))

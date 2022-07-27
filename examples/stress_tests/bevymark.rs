@@ -48,10 +48,10 @@ fn main() {
         .add_system(movement_system)
         .add_system(collision_system)
         .add_system(counter_system)
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(0.2))
-                .with_system(scheduled_spawner),
+        // System that runs every 0.2 seconds
+        .add_fixed_schedule(
+            FixedTimestep::step(0.2),
+            SystemStage::single_threaded().with_system(scheduled_spawner),
         )
         .run();
 }

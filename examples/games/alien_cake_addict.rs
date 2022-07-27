@@ -27,10 +27,9 @@ fn main() {
         .add_system_set(SystemSet::on_enter(GameState::GameOver).with_system(display_score))
         .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard))
         .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(5.0))
-                .with_system(spawn_bonus),
+        .add_fixed_schedule(
+            FixedTimestep::step(5.0),
+            SystemStage::single_threaded().with_system(spawn_bonus),
         )
         .add_system(bevy::window::close_on_esc)
         .run();

@@ -9,9 +9,9 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+        .add_fixed_schedule(
+            FixedTimestep::step(TIME_STEP as f64),
+            SystemStage::parallel()
                 .with_system(player_movement_system)
                 .with_system(snap_to_player_system)
                 .with_system(rotate_to_player_system),
