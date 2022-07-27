@@ -247,8 +247,7 @@ pub struct UntypedArchetypeInvariant {
 impl UntypedArchetypeInvariant {
     /// Asserts that the provided iterator of [`ComponentId`]s obeys this archetype invariant.
     ///
-    /// `component_ids` is generally provided via the `components` field on [`Archetype`](crate::archetype::Archetype).
-    /// When testing against multiple archetypes, [`ArchetypeInvariants::test_archetype`] is preferred,
+    /// When testing against multiple archetype invariants, [`ArchetypeInvariants::test_archetype`] is preferred,
     /// as it can more efficiently cache checks between archetypes.
     ///
     /// # Panics
@@ -428,8 +427,6 @@ impl ArchetypeInvariants {
     }
 
     /// Asserts that the provided iterator of [`ComponentId`]s obeys all archetype invariants.
-    ///
-    /// `component_ids` is generally provided via the `components` field on [`Archetype`](crate::archetype::Archetype).
     ///
     /// # Panics
     ///
