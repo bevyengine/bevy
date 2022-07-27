@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
@@ -9,6 +9,8 @@ use bevy::{
 };
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
+use image::io::Reader;
+
 use crate::image_copy::{ImageCopier, ImageCopyPlugin};
 
 #[derive(Component, Default)]
@@ -18,8 +20,6 @@ pub struct CaptureCamera;
 struct ImageToSave(Handle<Image>);
 
 fn modifies_windows() {}
-
-pub struct SceneName(pub String);
 
 pub struct SceneTesterPlugin;
 impl Plugin for SceneTesterPlugin {
@@ -42,17 +42,46 @@ impl Plugin for SceneTesterPlugin {
         .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0, //Don't run faster than 60fps
         )))
-        .insert_resource(SceneController(SceneState::BuildScene))
+        .init_resource::<SceneController>()
         .add_plugin(ScheduleRunnerPlugin)
         .add_plugin(ImageCopyPlugin)
         .add_event::<SceneController>()
-        .add_startup_system(setup)
         .add_system_to_stage(CoreStage::PostUpdate, update);
     }
 }
 
 #[derive(Debug)]
-pub struct SceneController(pub SceneState);
+pub struct SceneController {
+    state: SceneState,
+    name: String,
+    create_images: bool,
+    width: u32,
+    height: u32,
+}
+
+impl SceneController {
+    pub fn new(create_images: bool) -> SceneController {
+        SceneController {
+            state: SceneState::BuildScene,
+            name: String::from(""),
+            create_images,
+            width: 512,
+            height: 512,
+        }
+    }
+}
+
+impl Default for SceneController {
+    fn default() -> SceneController {
+        SceneController {
+            state: SceneState::BuildScene,
+            name: String::from(""),
+            create_images: false,
+            width: 512,
+            height: 512,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum SceneState {
@@ -60,14 +89,17 @@ pub enum SceneState {
     Render(u32),
 }
 
-fn setup(
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-    render_device: Res<RenderDevice>,
-) {
+pub fn setup_test(
+    commands: &mut Commands,
+    images: &mut ResMut<Assets<Image>>,
+    render_device: &Res<RenderDevice>,
+    scene_controller: &mut ResMut<SceneController>,
+    pre_roll_frames: u32,
+    scene_name: String,
+) -> RenderTarget {
     let size = Extent3d {
-        width: 512,
-        height: 512,
+        width: scene_controller.width,
+        height: scene_controller.height,
         ..Default::default()
     };
 
@@ -117,14 +149,9 @@ fn setup(
         .spawn()
         .insert(ImageToSave(cpu_image_handle.clone()));
 
-    commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        camera: Camera {
-            target: RenderTarget::Image(render_target_image_handle),
-            ..default()
-        },
-        ..default()
-    });
+    scene_controller.state = SceneState::Render(pre_roll_frames);
+    scene_controller.name = scene_name;
+    RenderTarget::Image(render_target_image_handle)
 }
 
 fn update(
@@ -132,14 +159,12 @@ fn update(
     mut images: ResMut<Assets<Image>>,
     mut scene_controller: ResMut<SceneController>,
     mut app_exit_writer: EventWriter<AppExit>,
-    scene_name: Res<SceneName>,
 ) {
-    if let SceneState::Render(n) = scene_controller.0 {
+    if let SceneState::Render(n) = scene_controller.state {
         if n > 0 {
-            scene_controller.0 = SceneState::Render(n - 1)
+            scene_controller.state = SceneState::Render(n - 1)
         } else {
             for image in images_to_save.iter() {
-                dbg!(&scene_controller);
                 //convert to rgba
                 let data = &mut images.get_mut(image).unwrap().data;
                 for src in data.chunks_exact_mut(4) {
@@ -153,14 +178,36 @@ fn update(
                     src[3] = a;
                 }
 
-                image::save_buffer(
-                    &format!("./../scene{}.png", scene_name.0),
-                    &data,
-                    512,
-                    512,
-                    image::ColorType::Rgba8,
-                )
-                .unwrap();
+                let images_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_images");
+                let image_path = images_path.join(format!("{}.png", scene_controller.name));
+                if scene_controller.create_images {
+                    image::save_buffer(
+                        image_path,
+                        &data,
+                        scene_controller.width,
+                        scene_controller.height,
+                        image::ColorType::Rgba8,
+                    )
+                    .unwrap();
+                } else {
+                    match Reader::open(&image_path) {
+                        Ok(file) => {
+                            let existing_image = file.decode().unwrap();
+                            if data != existing_image.as_flat_samples_u8().unwrap().samples {
+                                panic!(
+                                    "{} failed, {:?} does not match",
+                                    scene_controller.name, image_path
+                                )
+                            }
+                        }
+                        Err(_) => {
+                            panic!(
+                                "{} failed, could not find file {:?}",
+                                scene_controller.name, image_path
+                            )
+                        }
+                    }
+                }
             }
             app_exit_writer.send(AppExit);
         }

@@ -1,13 +1,12 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::renderer::RenderDevice};
 
-use crate::scene_tester::{SceneController, SceneName, SceneState, SceneTesterPlugin};
+use crate::scene_tester::{setup_test, SceneController};
 
-pub fn run() {
-    App::new()
-        .insert_resource(SceneName(String::from("basic_cube_scene")))
-        .add_plugin(SceneTesterPlugin)
-        .add_startup_system(scene)
-        .run();
+pub struct ScenePlugin;
+impl Plugin for ScenePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_startup_system(scene);
+    }
 }
 
 fn scene(
@@ -15,26 +14,49 @@ fn scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut scene_controller: ResMut<SceneController>,
+    mut images: ResMut<Assets<Image>>,
+    render_device: Res<RenderDevice>,
 ) {
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
-    let cube_material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.7, 0.7, 0.7),
-        reflectance: 0.02,
-        unlit: false,
-        ..default()
-    });
-
+    // plane
     commands.spawn_bundle(PbrBundle {
-        mesh: cube_handle,
-        material: cube_material_handle,
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
-
+    // cube
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        ..default()
+    });
+    // light
     commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+        point_light: PointLight {
+            intensity: 1500.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
 
-    scene_controller.0 = SceneState::Render(15);
+    let render_target = setup_test(
+        &mut commands,
+        &mut images,
+        &render_device,
+        &mut scene_controller,
+        15,
+        String::from("basic_cube_scene"),
+    );
+
+    // camera
+    commands.spawn_bundle(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        camera: Camera {
+            target: render_target,
+            ..default()
+        },
+        ..default()
+    });
 }
