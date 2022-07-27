@@ -12,7 +12,7 @@ use bevy_render::{
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use bevy_utils::tracing::debug_span;
 
 pub struct MainPass3dNode {
     query: QueryState<
@@ -68,7 +68,7 @@ impl Node for MainPass3dNode {
             // Run the opaque pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
-            let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
+            let _main_opaque_pass_3d_span = debug_span!("main_opaque_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
@@ -115,7 +115,7 @@ impl Node for MainPass3dNode {
             // Run the alpha mask pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
-            let _main_alpha_mask_pass_3d_span = info_span!("main_alpha_mask_pass_3d").entered();
+            let _main_alpha_mask_pass_3d_span = debug_span!("main_alpha_mask_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
@@ -154,7 +154,7 @@ impl Node for MainPass3dNode {
             // Run the transparent pass, sorted back-to-front
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
-            let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
+            let _main_transparent_pass_3d_span = debug_span!("main_transparent_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
@@ -199,7 +199,7 @@ impl Node for MainPass3dNode {
         #[cfg(feature = "webgl")]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]
-            let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
+            let _reset_viewport_pass_3d = debug_span!("reset_viewport_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_3d"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {

@@ -830,7 +830,7 @@ impl Stage for SystemStage {
 
                 #[cfg(feature = "trace")]
                 let _span =
-                    bevy_utils::tracing::info_span!("run criteria", name = &*criteria.name())
+                    bevy_utils::tracing::debug_span!("run criteria", name = &*criteria.name())
                         .entered();
 
                 match &mut criteria.inner {

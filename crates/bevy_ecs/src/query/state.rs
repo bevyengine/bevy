@@ -1014,7 +1014,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             }
                         };
                         #[cfg(feature = "trace")]
-                        let span = bevy_utils::tracing::info_span!(
+                        let span = bevy_utils::tracing::debug_span!(
                             "par_for_each",
                             query = std::any::type_name::<Q>(),
                             filter = std::any::type_name::<F>(),
@@ -1061,7 +1061,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                         };
 
                         #[cfg(feature = "trace")]
-                        let span = bevy_utils::tracing::info_span!(
+                        let span = bevy_utils::tracing::debug_span!(
                             "par_for_each",
                             query = std::any::type_name::<Q>(),
                             filter = std::any::type_name::<F>(),

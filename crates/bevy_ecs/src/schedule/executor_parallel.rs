@@ -113,7 +113,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
 
         {
             #[cfg(feature = "trace")]
-            let _span = bevy_utils::tracing::info_span!("update_archetypes").entered();
+            let _span = bevy_utils::tracing::debug_span!("update_archetypes").entered();
             for (index, container) in systems.iter_mut().enumerate() {
                 let meta = &mut self.system_metadata[index];
                 let system = container.system_mut();
@@ -149,7 +149,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
                 }
             };
             #[cfg(feature = "trace")]
-            let span = bevy_utils::tracing::info_span!("parallel executor");
+            let span = bevy_utils::tracing::debug_span!("parallel executor");
             #[cfg(feature = "trace")]
             let parallel_executor = parallel_executor.instrument(span);
             scope.spawn(parallel_executor);
@@ -167,7 +167,7 @@ impl ParallelExecutor {
         world: &'scope World,
     ) {
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("prepare_systems").entered();
+        let _span = bevy_utils::tracing::debug_span!("prepare_systems").entered();
         self.should_run.clear();
         for (index, (system_data, system)) in
             self.system_metadata.iter_mut().zip(systems).enumerate()
@@ -182,7 +182,7 @@ impl ParallelExecutor {
                 let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
                 #[cfg(feature = "trace")]
                 let overhead_span =
-                    bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
+                    bevy_utils::tracing::debug_span!("system overhead", name = &*system.name());
                 let task = async move {
                     start_receiver
                         .recv()
