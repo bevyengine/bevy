@@ -125,6 +125,16 @@ pub enum ImageSampler {
 }
 
 impl ImageSampler {
+    /// Returns an image sampler with `Linear` min and mag filters
+    pub fn linear() -> ImageSampler {
+        ImageSampler::Descriptor(Self::linear_descriptor())
+    }
+
+    /// Returns an image sampler with `nearest` min and mag filters
+    pub fn nearest() -> ImageSampler {
+        ImageSampler::Descriptor(Self::nearest_descriptor())
+    }
+
     /// Returns a sampler descriptor with `Linear` min and mag filters
     pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
