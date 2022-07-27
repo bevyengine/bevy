@@ -16,7 +16,7 @@ use crossbeam_channel::{Receiver, Sender};
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
-    pub use crate::{Time, Timer};
+    pub use crate::{Time, Timer, TimestepAppExt};
 }
 
 use bevy_app::prelude::*;
@@ -34,7 +34,6 @@ pub struct TimeSystem;
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
-            .init_resource::<FixedTimesteps>()
             .register_type::<Timer>()
             // time system is added as an "exclusive system" to ensure it runs before other systems
             // in CoreStage::First

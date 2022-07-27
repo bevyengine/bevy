@@ -1,17 +1,109 @@
-use crate::Time;
+use std::fmt::Debug;
+
+use bevy_app::{App, CoreStage, IntoSubSchedule};
 use bevy_ecs::{
-    archetype::ArchetypeComponentId,
-    component::ComponentId,
-    query::Access,
-    schedule::ShouldRun,
-    system::{IntoSystem, Res, ResMut, System},
+    change_detection::Mut,
+    schedule::{ScheduleLabel, ScheduleLabelId, Stage, StageLabel},
     world::World,
 };
 use bevy_utils::HashMap;
-use std::borrow::Cow;
+
+use crate::Time;
+
+/// Extends [`App`] with methods for constructing schedules with a fixed time-step.
+pub trait TimestepAppExt {
+    /// Adds a new fixed time-step schedule to the stage identified by `stage_label`.
+    /// If `timestep` has a label, it is applied to the schedule as well.
+    ///
+    /// # Panics
+    /// If there is already a fixed schedule identified by `label`.
+    fn add_fixed_schedule_to_stage<S: Stage>(
+        &mut self,
+        stage_label: impl StageLabel,
+        timestep: FixedTimestep,
+        schedule: S,
+    ) -> &mut Self;
+    /// Adds a new fixed time-step schedule to [`CoreStage::Update`].
+    /// If `timestep` has a label, it is applied to the schedule as well.
+    ///
+    /// # Panics
+    /// If there is already a fixed schedule identified by `label`.
+    fn add_fixed_schedule(&mut self, timestep: FixedTimestep, schedule: impl Stage) -> &mut Self {
+        self.add_fixed_schedule_to_stage(CoreStage::Update, timestep, schedule)
+    }
+}
+
+impl TimestepAppExt for App {
+    #[track_caller]
+    fn add_fixed_schedule_to_stage<S: Stage>(
+        &mut self,
+        stage: impl StageLabel,
+        FixedTimestep { label, step }: FixedTimestep,
+        schedule: S,
+    ) -> &mut Self {
+        // If it has a label, add it to the resource so it can be modified or peeked later.
+        if let Some(label) = label {
+            let mut timesteps: Mut<FixedTimesteps> =
+                self.world.get_resource_or_insert_with(Default::default);
+            let state = FixedTimestepState {
+                step,
+                accumulator: 0.0,
+            };
+
+            // Insert the state into the map.
+            // Panic if there already was one.
+            if timesteps.insert(label, state).is_some() {
+                #[inline(never)]
+                #[track_caller]
+                fn panic(label: impl Debug) -> ! {
+                    panic!("there is already a fixed timestep labeled '{label:?}'");
+                }
+                panic(label)
+            }
+
+            let runner = move |s: &mut S, w: &mut World| {
+                let mut state = *w.resource::<FixedTimesteps>().get(label).unwrap();
+
+                // Core looping functionality.
+                let time = w.resource::<Time>();
+                state.accumulator += time.delta_seconds_f64();
+                while state.accumulator > state.step {
+                    state.accumulator -= state.step;
+
+                    s.run(w);
+                }
+
+                // Update the resource (we've only been operating on a copy).
+                w.resource_mut::<FixedTimesteps>().insert(label, state);
+            };
+            self.add_sub_schedule(schedule.label(label).with_runner(stage, runner));
+        }
+        // If there's no label, we can keep everything local
+        // since there's no way to refer to the schedule again anyway.
+        else {
+            let mut state = FixedTimestepState {
+                step,
+                accumulator: 0.0,
+            };
+            let runner = move |sched: &mut S, w: &mut World| {
+                // Core looping functionality.
+                let time = w.resource::<Time>();
+                state.accumulator += time.delta_seconds_f64();
+                while state.accumulator > state.step {
+                    state.accumulator -= state.step;
+
+                    sched.run(w);
+                }
+            };
+            self.add_sub_schedule(schedule.with_runner(stage, runner));
+        }
+
+        self
+    }
+}
 
 /// The internal state of each [`FixedTimestep`].
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct FixedTimestepState {
     step: f64,
     accumulator: f64,
@@ -39,190 +131,72 @@ impl FixedTimestepState {
     }
 }
 
-/// A global resource that tracks the individual [`FixedTimestepState`]s
-/// for every labeled [`FixedTimestep`].
+/// A global resource that tracks the state for every labeled [`FixedTimestep`].
 #[derive(Default)]
 pub struct FixedTimesteps {
-    fixed_timesteps: HashMap<String, FixedTimestepState>,
+    fixed_timesteps: HashMap<ScheduleLabelId, FixedTimestepState>,
 }
 
 impl FixedTimesteps {
     /// Gets the [`FixedTimestepState`] for a given label.
-    pub fn get(&self, name: &str) -> Option<&FixedTimestepState> {
-        self.fixed_timesteps.get(name)
+    pub fn get(&self, label: impl ScheduleLabel) -> Option<&FixedTimestepState> {
+        self.fixed_timesteps.get(&label.as_label())
+    }
+
+    fn insert(
+        &mut self,
+        label: impl ScheduleLabel,
+        state: FixedTimestepState,
+    ) -> Option<FixedTimestepState> {
+        self.fixed_timesteps.insert(label.as_label(), state)
     }
 }
 
-/// A system run criteria that enables systems or stages to run at a fixed timestep between executions.
+/// Enables a sub-schedule to run at a fixed timestep between executions.
 ///
 /// This does not guarantee that the time elapsed between executions is exactly the provided
 /// fixed timestep, but will guarantee that the execution will run multiple times per game tick
 /// until the number of repetitions is as expected.
 ///
-/// For example, a system with a fixed timestep run criteria of 120 times per second will run
+/// For example, a schedule with a fixed timestep of 120 times per second will run
 /// two times during a ~16.667ms frame, once during a ~8.333ms frame, and once every two frames
 /// with ~4.167ms frames. However, the same criteria may not result in exactly 8.333ms passing
 /// between each execution.
 ///
-/// When using this run criteria, it is advised not to rely on [`Time::delta`] or any of it's
+/// When using this pattern, it is advised not to rely on [`Time::delta`] or any of its
 /// variants for game simulation, but rather use the constant time delta used to initialize the
 /// [`FixedTimestep`] instead.
 ///
 /// For more fine tuned information about the execution status of a given fixed timestep,
 /// use the [`FixedTimesteps`] resource.
 pub struct FixedTimestep {
-    state: LocalFixedTimestepState,
-    internal_system: Box<dyn System<In = (), Out = ShouldRun>>,
+    label: Option<ScheduleLabelId>,
+    step: f64,
 }
 
 impl Default for FixedTimestep {
     fn default() -> Self {
-        Self {
-            state: LocalFixedTimestepState::default(),
-            internal_system: Box::new(IntoSystem::into_system(Self::prepare_system(
-                Default::default(),
-            ))),
-        }
+        Self::steps_per_second(60.0)
     }
 }
 
 impl FixedTimestep {
     /// Creates a [`FixedTimestep`] that ticks once every `step` seconds.
     pub fn step(step: f64) -> Self {
-        Self {
-            state: LocalFixedTimestepState {
-                step,
-                ..Default::default()
-            },
-            ..Default::default()
-        }
+        Self { step, label: None }
     }
 
     /// Creates a [`FixedTimestep`] that ticks once every `rate` times per second.
     pub fn steps_per_second(rate: f64) -> Self {
-        Self {
-            state: LocalFixedTimestepState {
-                step: 1.0 / rate,
-                ..Default::default()
-            },
-            ..Default::default()
-        }
+        Self::step(rate.recip())
     }
 
     /// Sets the label for the timestep. Setting a label allows a timestep
     /// to be observed by the global [`FixedTimesteps`] resource.
     #[must_use]
-    pub fn with_label(mut self, label: &str) -> Self {
-        self.state.label = Some(label.to_string());
+    pub fn with_label(mut self, label: impl ScheduleLabel) -> Self {
+        self.label = Some(label.as_label());
         self
-    }
-
-    fn prepare_system(
-        mut state: LocalFixedTimestepState,
-    ) -> impl FnMut(Res<Time>, ResMut<FixedTimesteps>) -> ShouldRun {
-        move |time, mut fixed_timesteps| {
-            let should_run = state.update(&time);
-            if let Some(ref label) = state.label {
-                let res_state = fixed_timesteps.fixed_timesteps.get_mut(label).unwrap();
-                res_state.step = state.step;
-                res_state.accumulator = state.accumulator;
-            }
-
-            should_run
-        }
-    }
-}
-
-#[derive(Clone)]
-struct LocalFixedTimestepState {
-    label: Option<String>, // TODO: consider making this a TypedLabel
-    step: f64,
-    accumulator: f64,
-    looping: bool,
-}
-
-impl Default for LocalFixedTimestepState {
-    fn default() -> Self {
-        Self {
-            step: 1.0 / 60.0,
-            accumulator: 0.0,
-            label: None,
-            looping: false,
-        }
-    }
-}
-
-impl LocalFixedTimestepState {
-    fn update(&mut self, time: &Time) -> ShouldRun {
-        if !self.looping {
-            self.accumulator += time.delta_seconds_f64();
-        }
-
-        if self.accumulator >= self.step {
-            self.accumulator -= self.step;
-            self.looping = true;
-            ShouldRun::YesAndCheckAgain
-        } else {
-            self.looping = false;
-            ShouldRun::No
-        }
-    }
-}
-
-impl System for FixedTimestep {
-    type In = ();
-    type Out = ShouldRun;
-
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<FixedTimestep>())
-    }
-
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        self.internal_system.archetype_component_access()
-    }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        self.internal_system.component_access()
-    }
-
-    fn is_send(&self) -> bool {
-        self.internal_system.is_send()
-    }
-
-    unsafe fn run_unsafe(&mut self, _input: (), world: &World) -> ShouldRun {
-        // SAFETY: this system inherits the internal system's component access and archetype component
-        // access, which means the caller has ensured running the internal system is safe
-        self.internal_system.run_unsafe((), world)
-    }
-
-    fn apply_buffers(&mut self, world: &mut World) {
-        self.internal_system.apply_buffers(world);
-    }
-
-    fn initialize(&mut self, world: &mut World) {
-        self.internal_system = Box::new(IntoSystem::into_system(Self::prepare_system(
-            self.state.clone(),
-        )));
-        self.internal_system.initialize(world);
-        if let Some(ref label) = self.state.label {
-            let mut fixed_timesteps = world.resource_mut::<FixedTimesteps>();
-            fixed_timesteps.fixed_timesteps.insert(
-                label.clone(),
-                FixedTimestepState {
-                    accumulator: 0.0,
-                    step: self.state.step,
-                },
-            );
-        }
-    }
-
-    fn update_archetype_component_access(&mut self, world: &World) {
-        self.internal_system
-            .update_archetype_component_access(world);
-    }
-
-    fn check_change_tick(&mut self, change_tick: u32) {
-        self.internal_system.check_change_tick(change_tick);
     }
 }
 
@@ -235,65 +209,64 @@ mod test {
     use std::time::Duration;
 
     type Count = usize;
-    const LABEL: &str = "test_step";
+
+    #[derive(ScheduleLabel)]
+    struct FixedUpdate;
 
     #[test]
     fn test() {
-        let mut world = World::default();
+        let mut app = App::new();
         let mut time = Time::default();
         let instance = Instant::now();
         time.update_with_instant(instance);
-        world.insert_resource(time);
-        world.insert_resource(FixedTimesteps::default());
-        world.insert_resource::<Count>(0);
-        let mut schedule = Schedule::default();
+        app.insert_resource(time);
+        app.insert_resource::<Count>(0);
 
-        schedule.add_stage(
-            "update",
-            SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(0.5).with_label(LABEL))
-                .with_system(fixed_update),
+        // Add a new fixed timestep that runs every 0.5 seconds.
+        app.add_fixed_schedule(
+            FixedTimestep::step(0.5).with_label(FixedUpdate),
+            SystemStage::single_threaded().with_system(fixed_update),
         );
 
         // if time does not progress, the step does not run
-        schedule.run(&mut world);
-        schedule.run(&mut world);
-        assert_eq!(0, *world.resource::<Count>());
-        assert_eq!(0., get_accumulator_deciseconds(&world));
+        app.update();
+        app.update();
+        assert_eq!(0, *app.world.resource::<Count>());
+        assert_eq!(0., get_accumulator_deciseconds(&app.world));
 
         // let's progress less than one step
-        advance_time(&mut world, instance, 0.4);
-        schedule.run(&mut world);
-        assert_eq!(0, *world.resource::<Count>());
-        assert_eq!(4., get_accumulator_deciseconds(&world));
+        advance_time(&mut app.world, instance, 0.4);
+        app.update();
+        assert_eq!(0, *app.world.resource::<Count>());
+        assert_eq!(4., get_accumulator_deciseconds(&app.world));
 
         // finish the first step with 0.1s above the step length
-        advance_time(&mut world, instance, 0.6);
-        schedule.run(&mut world);
-        assert_eq!(1, *world.resource::<Count>());
-        assert_eq!(1., get_accumulator_deciseconds(&world));
+        advance_time(&mut app.world, instance, 0.6);
+        app.update();
+        assert_eq!(1, *app.world.resource::<Count>());
+        assert_eq!(1., get_accumulator_deciseconds(&app.world));
 
         // runs multiple times if the delta is multiple step lengths
-        advance_time(&mut world, instance, 1.7);
-        schedule.run(&mut world);
-        assert_eq!(3, *world.resource::<Count>());
-        assert_eq!(2., get_accumulator_deciseconds(&world));
+        advance_time(&mut app.world, instance, 1.7);
+        app.update();
+        assert_eq!(3, *app.world.resource::<Count>());
+        assert_eq!(2., get_accumulator_deciseconds(&app.world));
     }
 
     fn fixed_update(mut count: ResMut<Count>) {
         *count += 1;
     }
 
-    fn advance_time(world: &mut World, instance: Instant, seconds: f32) {
+    fn advance_time(world: &mut World, instance: Instant, seconds: f64) {
         world
             .resource_mut::<Time>()
-            .update_with_instant(instance.add(Duration::from_secs_f32(seconds)));
+            .update_with_instant(instance.add(Duration::from_secs_f64(seconds)));
     }
 
     fn get_accumulator_deciseconds(world: &World) -> f64 {
         world
             .resource::<FixedTimesteps>()
-            .get(LABEL)
+            .get(FixedUpdate)
             .unwrap()
             .accumulator
             .mul(10.)
