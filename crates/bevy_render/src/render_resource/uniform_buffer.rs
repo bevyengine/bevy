@@ -85,7 +85,6 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         &mut self.value
     }
 
-
     pub fn set_label(&mut self, label: Option<&str>) {
         let label = label.map(str::to_string);
 
@@ -99,7 +98,6 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     pub fn get_label(&self) -> Option<&str> {
         self.label.as_deref()
     }
-
 
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
     /// and the provided [`RenderQueue`](crate::renderer::RenderQueue), if a GPU-side backing buffer already exists.
