@@ -93,9 +93,8 @@ jobs:
           # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
           # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
           # -Zmiri-permissive-provenance disables warnings against int2ptr casts (since those are used by once_cell)
-          # -Zmiri-disable-weak-memory-emulation works around https://github.com/bevyengine/bevy/issues/5164.
           # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
-          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation
+          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance
 
   check-compiles:
     runs-on: ubuntu-latest
