@@ -19,7 +19,7 @@ pub struct TextureId(Uuid);
 /// [`Texture`](crate::render_resource::Texture).
 ///
 /// For general information about textures, see the documentation for [`wgpu::Texture`](wgpu::Texture) and the
-/// WGPU specification entry on [`GPUTexture`]. A [`Texture`] may be converted from and dereferences into a
+/// WebGPU specification entry on [`GPUTexture`]. A [`Texture`] may be converted from and dereferences into a
 /// [`wgpu::Texture`](wgpu::Texture).
 ///
 /// [`GPUTexture`]: https://gpuweb.github.io/gpuweb/#texture-interface
