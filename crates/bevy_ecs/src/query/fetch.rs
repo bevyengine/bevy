@@ -168,7 +168,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// ```
 ///
 /// **Note:** if you omit the `mutable` attribute for a query that doesn't implement
-/// `ReadOnlyFetch`, compilation will fail. We insert static checks as in the example above for
+/// [`ReadOnlyWorldQuery`], compilation will fail. We insert static checks as in the example above for
 /// every query component and a nested query.
 /// (The checks neither affect the runtime, nor pollute your local namespace.)
 ///
@@ -318,7 +318,8 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// ```
 /// # Safety
 ///
-/// component access of `ROQueryFetch<Self>` should be a subset of `QueryFetch<Self>`
+/// component access of `ROQueryFetch<Self>` must be a subset of `QueryFetch<Self>`
+/// and `ROQueryFetch<Self>` must match exactly the same archetypes/tables as `QueryFetch<Self>`
 pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
     type ReadOnly: ReadOnlyWorldQuery<State = Self::State>;
     type State: FetchState;
@@ -332,7 +333,7 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
 /// # Safety
 ///
 /// This must only be implemented for read-only [`WorldQuery`]'s.
-pub unsafe trait ReadOnlyWorldQuery: WorldQuery {}
+pub unsafe trait ReadOnlyWorldQuery: WorldQuery<ReadOnly = Self> {}
 
 /// The [`Fetch`] of a [`WorldQuery`], which declares which data it needs access to
 pub type QueryFetch<'w, Q> = <Q as WorldQueryGats<'w>>::Fetch;
@@ -386,7 +387,7 @@ pub unsafe trait Fetch<'world>: Sized {
     const IS_DENSE: bool;
 
     /// Returns true if (and only if) this Fetch relies strictly on archetypes to limit which
-    /// components are acessed by the Query.
+    /// components are accessed by the Query.
     ///
     /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
     /// many elements are being iterated (such as `Iterator::collect()`).
@@ -1608,6 +1609,25 @@ macro_rules! impl_anytuple_fetch {
 all_tuples!(impl_tuple_fetch, 0, 15, F, S);
 all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 
+/// [`WorldQuery`] used to nullify queries by turning `Query<Q>` into `Query<NopWorldQuery<Q>>`
+///
+/// This will rarely be useful to consumers of `bevy_ecs`.
+pub struct NopWorldQuery<Q: WorldQuery>(PhantomData<Q>);
+
+/// SAFETY: `Self::ReadOnly` is `Self`
+unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
+    type ReadOnly = Self;
+    type State = Q::State;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(_: ()) {}
+}
+impl<'a, Q: WorldQuery> WorldQueryGats<'a> for NopWorldQuery<Q> {
+    type Fetch = NopFetch<QueryFetch<'a, Q>>;
+    type _State = <Q as WorldQueryGats<'a>>::_State;
+}
+/// SAFETY: `NopFetch` never accesses any data
+unsafe impl<Q: WorldQuery> ReadOnlyWorldQuery for NopWorldQuery<Q> {}
+
 /// [`Fetch`] that does not actually fetch anything
 ///
 /// Mostly useful when something is generic over the Fetch and you don't want to fetch as you will discard the result
@@ -1616,18 +1636,18 @@ pub struct NopFetch<State> {
 }
 
 // SAFETY: NopFetch doesnt access anything
-unsafe impl<'w, State: FetchState> Fetch<'w> for NopFetch<State> {
+unsafe impl<'w, F: Fetch<'w>> Fetch<'w> for NopFetch<F> {
     type Item = ();
-    type State = State;
+    type State = F::State;
 
-    const IS_DENSE: bool = true;
+    const IS_DENSE: bool = F::IS_DENSE;
 
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
     unsafe fn init(
         _world: &'w World,
-        _state: &State,
+        _state: &F::State,
         _last_change_tick: u32,
         _change_tick: u32,
     ) -> Self {

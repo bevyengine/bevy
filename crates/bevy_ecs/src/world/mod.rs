@@ -737,7 +737,7 @@ impl World {
     #[inline]
     /// # Safety
     /// Only remove `NonSend` resources from the main thread
-    /// as they cannot be sent across theads
+    /// as they cannot be sent across threads
     #[allow(unused_unsafe)]
     pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -1154,6 +1154,30 @@ impl World {
             }
         });
         result
+    }
+
+    /// Sends an [`Event`](crate::event::Event).
+    #[inline]
+    pub fn send_event<E: crate::event::Event>(&mut self, event: E) {
+        self.send_event_batch(std::iter::once(event));
+    }
+
+    /// Sends the default value of the [`Event`](crate::event::Event) of type `E`.
+    #[inline]
+    pub fn send_event_default<E: crate::event::Event + Default>(&mut self) {
+        self.send_event_batch(std::iter::once(E::default()));
+    }
+
+    /// Sends a batch of [`Event`](crate::event::Event)s from an iterator.
+    #[inline]
+    pub fn send_event_batch<E: crate::event::Event>(&mut self, events: impl Iterator<Item = E>) {
+        match self.get_resource_mut::<crate::event::Events<E>>() {
+            Some(mut events_resource) => events_resource.extend(events),
+            None => bevy_utils::tracing::error!(
+                    "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
+                    std::any::type_name::<E>()
+                ),
+        }
     }
 
     /// # Safety

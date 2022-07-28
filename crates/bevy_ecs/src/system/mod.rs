@@ -928,6 +928,129 @@ mod tests {
     }
 
     #[test]
+    fn convert_mut_to_immut() {
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<&mut A>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<&A>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<Option<&mut A>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<Option<&A>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &B)>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B)>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B)>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B)>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), With<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), With<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Without<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Without<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Added<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Added<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Changed<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Changed<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+    }
+
+    #[test]
     fn update_archetype_component_access_works() {
         use std::collections::HashSet;
 

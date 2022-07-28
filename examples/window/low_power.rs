@@ -131,8 +131,9 @@ pub(crate) mod test_setup {
             ExampleMode::Application => "desktop_app(), reactive",
             ExampleMode::ApplicationWithRedraw => "desktop_app(), reactive, RequestRedraw sent",
         };
-        query.get_single_mut().unwrap().sections[1].value = mode.to_string();
-        query.get_single_mut().unwrap().sections[3].value = format!("{}", *frame);
+        let mut text = query.single_mut();
+        text.sections[1].value = mode.to_string();
+        text.sections[3].value = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text
@@ -165,8 +166,36 @@ pub(crate) mod test_setup {
         });
         event.send(RequestRedraw);
         commands
-            .spawn_bundle(TextBundle {
-                style: Style {
+            .spawn_bundle(
+                TextBundle::from_sections([
+                    TextSection::new(
+                        "Press spacebar to cycle modes\n",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 50.0,
+                            color: Color::WHITE,
+                        },
+                    ),
+                    TextSection::from_style(TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 50.0,
+                        color: Color::GREEN,
+                    }),
+                    TextSection::new(
+                        "\nFrame: ",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 50.0,
+                            color: Color::YELLOW,
+                        },
+                    ),
+                    TextSection::from_style(TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 50.0,
+                        color: Color::YELLOW,
+                    }),
+                ])
+                .with_style(Style {
                     align_self: AlignSelf::FlexStart,
                     position_type: PositionType::Absolute,
                     position: UiRect {
@@ -175,46 +204,8 @@ pub(crate) mod test_setup {
                         ..default()
                     },
                     ..default()
-                },
-                text: Text {
-                    sections: vec![
-                        TextSection {
-                            value: "Press spacebar to cycle modes\n".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::WHITE,
-                            },
-                        },
-                        TextSection {
-                            value: "".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::GREEN,
-                            },
-                        },
-                        TextSection {
-                            value: "\nFrame: ".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::YELLOW,
-                            },
-                        },
-                        TextSection {
-                            value: "".into(),
-                            style: TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 50.0,
-                                color: Color::YELLOW,
-                            },
-                        },
-                    ],
-                    alignment: TextAlignment::default(),
-                },
-                ..default()
-            })
+                }),
+            )
             .insert(ModeText);
     }
 }

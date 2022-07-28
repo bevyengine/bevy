@@ -12,7 +12,7 @@ use std::{
 /// Implementation details:
 ///
 /// - `load_path` uses the [AssetManager] to load files.
-/// - `read_directory` always returns an empty itrator.
+/// - `read_directory` always returns an empty iterator.
 /// - `get_metadata` will probably return an error.
 /// - Watching for changes is not supported. The watcher methods will do nothing.
 ///

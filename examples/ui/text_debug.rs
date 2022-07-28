@@ -25,8 +25,16 @@ struct TextChanges;
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(TextBundle {
-        style: Style {
+    commands.spawn_bundle(
+        TextBundle::from_section(
+            "This is\ntext with\nline breaks\nin the top left",
+            TextStyle {
+                font: font.clone(),
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
+        )
+        .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
             position: UiRect {
@@ -35,20 +43,18 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        },
-        text: Text::with_section(
-            "This is\ntext with\nline breaks\nin the top left",
+        }),
+    );
+    commands.spawn_bundle(TextBundle::from_section(
+            "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
             TextStyle {
                 font: font.clone(),
                 font_size: 50.0,
-                color: Color::WHITE,
+                color: Color::rgb(0.8, 0.2, 0.7),
             },
-            Default::default(),
-        ),
-        ..default()
-    });
-    commands.spawn_bundle(TextBundle {
-        style: Style {
+        )
+        .with_text_alignment(TextAlignment::CENTER)
+        .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
             position: UiRect {
@@ -61,24 +67,55 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Undefined,
             },
             ..default()
-        },
-        text: Text::with_section(
-                    "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
-                        TextStyle {
-                    font: font.clone(),
-                    font_size: 50.0,
-                    color: Color::rgb(0.8, 0.2, 0.7),
-                },
-            TextAlignment {
-                horizontal: HorizontalAlign::Center,
-                vertical: VerticalAlign::Center,
-            },
-        ),
-        ..default()
-    });
+        })
+    );
     commands
-        .spawn_bundle(TextBundle {
-            style: Style {
+        .spawn_bundle(
+            TextBundle::from_sections([
+                TextSection::new(
+                    "This text changes in the bottom right",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 30.0,
+                        color: Color::WHITE,
+                    },
+                ),
+                TextSection::new(
+                    "\nThis text changes in the bottom right - ",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 30.0,
+                        color: Color::RED,
+                    },
+                ),
+                TextSection::from_style(TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::ORANGE_RED,
+                }),
+                TextSection::new(
+                    " fps, ",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 30.0,
+                        color: Color::YELLOW,
+                    },
+                ),
+                TextSection::from_style(TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::GREEN,
+                }),
+                TextSection::new(
+                    " ms/frame",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 30.0,
+                        color: Color::BLUE,
+                    },
+                ),
+            ])
+            .with_style(Style {
                 align_self: AlignSelf::FlexEnd,
                 position_type: PositionType::Absolute,
                 position: UiRect {
@@ -87,65 +124,19 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 ..default()
-            },
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "This text changes in the bottom right".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::WHITE,
-                        },
-                    },
-                    TextSection {
-                        value: "\nThis text changes in the bottom right - ".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::RED,
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::ORANGE_RED,
-                        },
-                    },
-                    TextSection {
-                        value: " fps, ".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::YELLOW,
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::GREEN,
-                        },
-                    },
-                    TextSection {
-                        value: " ms/frame".to_string(),
-                        style: TextStyle {
-                            font: font.clone(),
-                            font_size: 30.0,
-                            color: Color::BLUE,
-                        },
-                    },
-                ],
-                alignment: Default::default(),
-            },
-            ..default()
-        })
+            }),
+        )
         .insert(TextChanges);
-    commands.spawn_bundle(TextBundle {
-        style: Style {
+    commands.spawn_bundle(
+        TextBundle::from_section(
+            "This\ntext has\nline breaks and also a set width in the bottom left",
+            TextStyle {
+                font,
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
+        )
+        .with_style(Style {
             align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
             position: UiRect {
@@ -158,18 +149,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        },
-        text: Text::with_section(
-            "This\ntext has\nline breaks and also a set width in the bottom left".to_string(),
-            TextStyle {
-                font,
-                font_size: 50.0,
-                color: Color::WHITE,
-            },
-            Default::default(),
-        ),
-        ..default()
-    });
+        }),
+    );
 }
 
 fn change_text_system(

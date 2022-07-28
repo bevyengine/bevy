@@ -3,11 +3,15 @@
 
 use bevy::{
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::{
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        texture::ImageSettings,
+    },
 };
 
 fn main() {
     App::new()
+        .insert_resource(ImageSettings::default_nearest())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(rotate)
