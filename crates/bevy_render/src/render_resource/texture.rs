@@ -7,8 +7,8 @@ pub struct TextureId(Uuid);
 
 /// A GPU-accessible texture.
 ///
-/// Although primarily used to to store data that "texture" the surfaces of solids, textures can also be used as general purpose
-/// storage for data of 1, 2, or 3 dimensional data.
+/// Although most-commonly used to store data about surface properties, textures can also be used
+/// as general purpose storage for 1-, 2-, or 3-dimensional data.
 ///
 /// It is created by setting up a [`TextureDescriptor`](crate::render_resource::TextureDescriptor)
 /// and then calling [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture) or  
