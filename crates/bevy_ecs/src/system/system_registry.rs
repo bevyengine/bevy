@@ -10,7 +10,7 @@ use crate::world::{Mut, World};
 use crate as bevy_ecs;
 use bevy_ecs_macros::Component;
 
-/// Stores initialized [`Systems`](crate::system::System), so they can be reused and run in an ad-hoc fashion
+/// Stores initialized [`System`]s, so they can be reused and run in an ad-hoc fashion.
 ///
 /// Systems are keyed by their [`SystemLabel`]:
 ///  - all systems with a given label will be run (in linear registration order) when a given label is run
