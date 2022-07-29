@@ -231,7 +231,6 @@ pub struct Window {
     scale_factor_override: Option<f64>,
     backend_scale_factor: f64,
     title: String,
-    icon: Option<WindowIcon>,
     present_mode: PresentMode,
     resizable: bool,
     decorations: bool,
@@ -260,10 +259,6 @@ pub enum WindowCommand {
     /// Set the window's title.
     SetTitle {
         title: String,
-    },
-    /// Set the window's icon.
-    SetIcon {
-        icon: Option<WindowIcon>,
     },
     /// Set the window's scale factor.
     SetScaleFactor {
@@ -362,7 +357,6 @@ impl Window {
             scale_factor_override: window_descriptor.scale_factor_override,
             backend_scale_factor: scale_factor,
             title: window_descriptor.title.clone(),
-            icon: None,
             present_mode: window_descriptor.present_mode,
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
@@ -577,16 +571,6 @@ impl Window {
     pub fn set_title(&mut self, title: String) {
         self.title = title.to_string();
         self.command_queue.push(WindowCommand::SetTitle { title });
-    }
-    /// Get the window's icon.
-    #[inline]
-    pub fn icon(&self) -> &Option<WindowIcon> {
-        &self.icon
-    }
-    /// Set the window's icon.
-    pub fn set_icon(&mut self, icon: Option<WindowIcon>) {
-        self.icon = icon.clone();
-        self.command_queue.push(WindowCommand::SetIcon { icon });
     }
 
     #[inline]

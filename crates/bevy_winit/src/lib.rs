@@ -105,20 +105,6 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_title(&title);
                 }
-                bevy_window::WindowCommand::SetIcon { icon } => {
-                    let window = winit_windows.get_window(id).unwrap();
-
-                    window.set_window_icon(if let Some(window_icon) = icon {
-                        winit::window::Icon::from_rgba(
-                            window_icon.rgba.clone(),
-                            window_icon.width,
-                            window_icon.height,
-                        )
-                        .ok()
-                    } else {
-                        None
-                    });
-                }
                 bevy_window::WindowCommand::SetScaleFactor { scale_factor } => {
                     window_dpi_changed_events.send(WindowScaleFactorChanged { id, scale_factor });
                 }
