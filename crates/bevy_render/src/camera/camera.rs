@@ -4,6 +4,7 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::TextureView,
     view::{ExtractedView, ExtractedWindows, VisibleEntities},
+    Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -188,6 +189,7 @@ impl Camera {
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
+    #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
         camera_transform: &GlobalTransform,
@@ -307,19 +309,14 @@ impl RenderTarget {
     }
 }
 
-#[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Reflect, Serialize, Deserialize)]
 #[reflect_value(Serialize, Deserialize)]
 pub enum DepthCalculation {
     /// Pythagorean distance; works everywhere, more expensive to compute.
+    #[default]
     Distance,
-    /// Optimization for 2D; assuming the camera points towards -Z.
+    /// Optimization for 2D; assuming the camera points towards `-Z`.
     ZDifference,
-}
-
-impl Default for DepthCalculation {
-    fn default() -> Self {
-        DepthCalculation::Distance
-    }
 }
 
 pub fn camera_system<T: CameraProjection + Component>(
@@ -366,10 +363,10 @@ pub fn camera_system<T: CameraProjection + Component>(
         .collect();
 
     let mut added_cameras = vec![];
-    for entity in &mut queries.p1().iter() {
+    for entity in &queries.p1() {
         added_cameras.push(entity);
     }
-    for (entity, mut camera, mut camera_projection) in queries.p0().iter_mut() {
+    for (entity, mut camera, mut camera_projection) in &mut queries.p0() {
         if camera
             .target
             .is_changed(&changed_window_ids, &changed_image_handles)
@@ -398,13 +395,15 @@ pub struct ExtractedCamera {
 
 pub fn extract_cameras(
     mut commands: Commands,
-    query: Query<(
-        Entity,
-        &Camera,
-        &CameraRenderGraph,
-        &GlobalTransform,
-        &VisibleEntities,
-    )>,
+    query: Extract<
+        Query<(
+            Entity,
+            &Camera,
+            &CameraRenderGraph,
+            &GlobalTransform,
+            &VisibleEntities,
+        )>,
+    >,
 ) {
     for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
         if !camera.is_active {

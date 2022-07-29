@@ -55,8 +55,8 @@ impl FixedTimesteps {
 
 /// A system run criteria that enables systems or stages to run at a fixed timestep between executions.
 ///
-/// This does not guarentee that the time elapsed between executions is exactly the provided
-/// fixed timestep, but will guarentee that the execution will run multiple times per game tick
+/// This does not guarantee that the time elapsed between executions is exactly the provided
+/// fixed timestep, but will guarantee that the execution will run multiple times per game tick
 /// until the number of repetitions is as expected.
 ///
 /// For example, a system with a fixed timestep run criteria of 120 times per second will run
@@ -190,7 +190,7 @@ impl System for FixedTimestep {
     }
 
     unsafe fn run_unsafe(&mut self, _input: (), world: &World) -> ShouldRun {
-        // SAFE: this system inherits the internal system's component access and archetype component
+        // SAFETY: this system inherits the internal system's component access and archetype component
         // access, which means the caller has ensured running the internal system is safe
         self.internal_system.run_unsafe((), world)
     }

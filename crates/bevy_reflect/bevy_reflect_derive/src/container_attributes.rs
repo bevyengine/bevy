@@ -24,9 +24,10 @@ const HASH_ATTR: &str = "Hash";
 pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
 
 /// A marker for trait implementations registered via the `Reflect` derive macro.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) enum TraitImpl {
     /// The trait is not registered as implemented.
+    #[default]
     NotImplemented,
     /// The trait is registered as implemented.
     Implemented,
@@ -35,13 +36,6 @@ pub(crate) enum TraitImpl {
     /// The trait is registered with a custom function rather than an actual implementation.
     Custom(Ident),
 }
-
-impl Default for TraitImpl {
-    fn default() -> Self {
-        Self::NotImplemented
-    }
-}
-
 /// A collection of traits that have been registered for a reflected type.
 ///
 /// This keeps track of a few traits that are utilized internally for reflection

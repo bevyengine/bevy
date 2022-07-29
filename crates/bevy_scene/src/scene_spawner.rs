@@ -199,12 +199,7 @@ impl SceneSpawner {
                                     }
                                 })
                             })?;
-                        reflect_component.copy_component(
-                            &scene.world,
-                            world,
-                            *scene_entity,
-                            entity,
-                        );
+                        reflect_component.copy(&scene.world, world, *scene_entity, entity);
                     }
                 }
             }
@@ -232,7 +227,7 @@ impl SceneSpawner {
     ) -> Result<(), SceneSpawnError> {
         for scene_handle in scene_handles {
             if let Some(spawned_instances) = self.spawned_dynamic_scenes.get(scene_handle) {
-                for instance_id in spawned_instances.iter() {
+                for instance_id in spawned_instances {
                     if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
                         Self::spawn_dynamic_internal(
                             world,

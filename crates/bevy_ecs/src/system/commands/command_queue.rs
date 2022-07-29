@@ -21,10 +21,10 @@ pub struct CommandQueue {
     metas: Vec<CommandMeta>,
 }
 
-// SAFE: All commands [`Command`] implement [`Send`]
+// SAFETY: All commands [`Command`] implement [`Send`]
 unsafe impl Send for CommandQueue {}
 
-// SAFE: `&CommandQueue` never gives access to the inner commands.
+// SAFETY: `&CommandQueue` never gives access to the inner commands.
 unsafe impl Sync for CommandQueue {}
 
 impl CommandQueue {
@@ -34,7 +34,7 @@ impl CommandQueue {
     where
         C: Command,
     {
-        /// SAFE: This function is only every called when the `command` bytes is the associated
+        /// SAFETY: This function is only every called when the `command` bytes is the associated
         /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
         /// accesses are safe.
         unsafe fn write_command<T: Command>(command: *mut MaybeUninit<u8>, world: &mut World) {
@@ -57,7 +57,7 @@ impl CommandQueue {
         if size > 0 {
             self.bytes.reserve(size);
 
-            // SAFE: The internal `bytes` vector has enough storage for the
+            // SAFETY: The internal `bytes` vector has enough storage for the
             // command (see the call the `reserve` above), the vector has
             // its length set appropriately and can contain any kind of bytes.
             // In case we're writing a ZST and the `Vec` hasn't allocated yet
@@ -83,13 +83,13 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
-        // SAFE: In the iteration below, `meta.func` will safely consume and drop each pushed command.
+        // SAFETY: In the iteration below, `meta.func` will safely consume and drop each pushed command.
         // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
         // unnecessary allocations.
         unsafe { self.bytes.set_len(0) };
 
         for meta in self.metas.drain(..) {
-            // SAFE: The implementation of `write_command` is safe for the according Command type.
+            // SAFETY: The implementation of `write_command` is safe for the according Command type.
             // It's ok to read from `bytes.as_mut_ptr()` because we just wrote to it in `push`.
             // The bytes are safely cast to their original type, safely read, and then dropped.
             unsafe {

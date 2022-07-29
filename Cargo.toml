@@ -13,13 +13,23 @@ repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
-members = ["crates/*", "examples/ios", "tools/ci", "tools/spancmp", "tools/build-example-pages", "tools/build-wasm-example", "errors"]
+members = [
+  "crates/*",
+  "examples/ios",
+  "tools/ci",
+  "tools/spancmp",
+  "tools/build-example-pages",
+  "tools/build-wasm-example",
+  "errors",
+]
 
 [features]
 default = [
   "animation",
+  "bevy_asset",
   "bevy_audio",
   "bevy_gilrs",
+  "bevy_scene",
   "bevy_winit",
   "render",
   "png",
@@ -45,6 +55,7 @@ render = [
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
+bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
@@ -52,6 +63,7 @@ bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
 bevy_pbr = ["bevy_internal/bevy_pbr"]
 bevy_render = ["bevy_internal/bevy_render"]
+bevy_scene = ["bevy_internal/bevy_scene"]
 bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
@@ -278,6 +290,26 @@ path = "examples/3d/lighting.rs"
 [package.metadata.example.lighting]
 name = "Lighting"
 description = "Illustrates various lighting options in a simple scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "lines"
+path = "examples/3d/lines.rs"
+
+[package.metadata.example.lines]
+name = "Lines"
+description = "Create a custom material to draw 3d lines"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "spotlight"
+path = "examples/3d/spotlight.rs"
+
+[package.metadata.example.spotlight]
+name = "Spotlight"
+description = "Illustrates spot lights"
 category = "3D Rendering"
 wasm = true
 
@@ -584,12 +616,12 @@ category = "Application"
 wasm = false
 
 [[example]]
-name = "headless_defaults"
-path = "examples/app/headless_defaults.rs"
+name = "no_renderer"
+path = "examples/app/no_renderer.rs"
 
-[package.metadata.example.headless_defaults]
-name = "Headless with Defaults"
-description = "An application that runs with default plugins, but without an actual renderer"
+[package.metadata.example.no_renderer]
+name = "No Renderer"
+description = "An application that runs with default plugins and displays an empty window, but without an actual renderer"
 category = "Application"
 wasm = false
 
@@ -1227,6 +1259,26 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_animated_sprites"
+path = "examples/stress_tests/many_animated_sprites.rs"
+
+[package.metadata.example.many_animated_sprites]
+name = "Many Animated Sprites"
+description = "Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_buttons"
+path = "examples/stress_tests/many_buttons.rs"
+
+[package.metadata.example.many_buttons]
+name = "Many Buttons"
+description = "Test rendering of many UI elements"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 
@@ -1262,7 +1314,7 @@ path = "examples/stress_tests/many_sprites.rs"
 
 [package.metadata.example.many_sprites]
 name = "Many Sprites"
-description = "Displays many sprites in a grid arragement! Used for performance testing"
+description = "Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites."
 category = "Stress Tests"
 wasm = true
 
@@ -1435,7 +1487,7 @@ name = "scale_factor_override"
 path = "examples/window/scale_factor_override.rs"
 
 [package.metadata.example.scale_factor_override]
-name = "Scale Factor Iverride"
+name = "Scale Factor Override"
 description = "Illustrates how to customize the default window settings"
 category = "Window"
 wasm = true
@@ -1477,19 +1529,28 @@ hidden = true
 # Android
 [[example]]
 crate-type = ["cdylib"]
-name = "android"
+name = "android_example"
 path = "examples/android/android.rs"
 
-[package.metadata.example.android]
+[package.metadata.example.android_example]
 hidden = true
 
 [package.metadata.android]
-apk_label = "Bevy Example"
+package = "org.bevyengine.example"
+apk_name = "bevyexample"
 assets = "assets"
 resources = "assets/android-res"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-min_sdk_version = 16
-target_sdk_version = 29
+
+[package.metadata.android.sdk]
+target_sdk_version = 31
 
 [package.metadata.android.application]
 icon = "@mipmap/ic_launcher"
+label = "Bevy Example"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = "fat"
+codegen-units = 1

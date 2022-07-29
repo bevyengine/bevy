@@ -353,6 +353,7 @@ mod tests {
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
+        map.insert(3usize, 4i8);
         foo_patch.insert("d", map);
 
         let mut bar_patch = DynamicStruct::default();
@@ -394,6 +395,7 @@ mod tests {
         let mut hash_map = HashMap::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 3);
+        hash_map.insert(3, 4);
 
         let mut hash_map_baz = HashMap::default();
         hash_map_baz.insert(1, Bar { x: 7 });
@@ -416,6 +418,7 @@ mod tests {
 
         let mut hash_map = HashMap::default();
         hash_map.insert(2, 3);
+        hash_map.insert(3, 4);
 
         let expected_new_foo = Foo {
             a: 2,
@@ -490,7 +493,6 @@ mod tests {
         #[derive(Reflect, Clone, Debug, PartialEq)]
         struct Bar {
             y: u8,
-            z: ::glam::Mat4,
         }
 
         #[derive(Reflect, Clone, Debug, PartialEq)]
@@ -499,21 +501,15 @@ mod tests {
             s: String,
             b: Bar,
             u: usize,
-            t: (Vec3, String),
+            t: ([f32; 3], String),
         }
 
         let foo = Foo {
             x: 123,
             s: "String".to_string(),
-            b: Bar {
-                y: 255,
-                z: ::glam::Mat4::from_cols_array(&[
-                    0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
-                    15.0,
-                ]),
-            },
+            b: Bar { y: 255 },
             u: 1111111111111,
-            t: (Vec3::new(3.0, 2.0, 1.0), "Tuple String".to_string()),
+            t: ([3.0, 2.0, 1.0], "Tuple String".to_string()),
         };
 
         let foo2: Box<dyn Reflect> = Box::new(foo.clone());
@@ -922,7 +918,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             assert_eq!(
                 result,
-                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
+                r#"{"type":"glam::f32::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
             );
         }
 

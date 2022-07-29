@@ -3,11 +3,15 @@
 
 use bevy::{
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    render::{
+        render_resource::{Extent3d, TextureDimension, TextureFormat},
+        texture::ImageSettings,
+    },
 };
 
 fn main() {
     App::new()
+        .insert_resource(ImageSettings::default_nearest())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(rotate)
@@ -53,6 +57,7 @@ fn setup(
                         2.0,
                         0.0,
                     ),
+                    rotation: Quat::from_rotation_x(-std::f32::consts::PI / 4.),
                     ..default()
                 },
                 ..default()
@@ -85,9 +90,8 @@ fn setup(
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
-    for mut transform in query.iter_mut() {
-        transform.rotation = Quat::from_rotation_y(time.seconds_since_startup() as f32 / 2.)
-            * Quat::from_rotation_x(-std::f32::consts::PI / 4.);
+    for mut transform in &mut query {
+        transform.rotate_y(time.delta_seconds() / 2.);
     }
 }
 

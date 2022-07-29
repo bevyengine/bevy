@@ -31,6 +31,3 @@ ron = { version = "0.7.0", optional = true }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [ "Window" ] }
 
-[dev-dependencies]
-# bevy
-bevy_log = { path = "../bevy_log", version = "0.8.0-dev" }

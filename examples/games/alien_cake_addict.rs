@@ -150,17 +150,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.bonus.handle = asset_server.load("models/AlienCake/cakeBirthday.glb#Scene0");
 
     // scoreboard
-    commands.spawn_bundle(TextBundle {
-        text: Text::with_section(
+    commands.spawn_bundle(
+        TextBundle::from_section(
             "Score:",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color: Color::rgb(0.5, 0.5, 1.0),
             },
-            Default::default(),
-        ),
-        style: Style {
+        )
+        .with_style(Style {
             position_type: PositionType::Absolute,
             position: UiRect {
                 top: Val::Px(5.0),
@@ -168,14 +167,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 ..default()
             },
             ..default()
-        },
-        ..default()
-    });
+        }),
+    );
 }
 
 // remove all entities that are not a camera
 fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
-    for entity in entities.iter() {
+    for entity in &entities {
         commands.entity(entity).despawn_recursive();
     }
 }
@@ -348,7 +346,7 @@ fn spawn_bonus(
 fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform>) {
     if let Some(entity) = game.bonus.entity {
         if let Ok(mut cake_transform) = transforms.get_mut(entity) {
-            cake_transform.rotate(Quat::from_rotation_y(time.delta_seconds()));
+            cake_transform.rotate_y(time.delta_seconds());
             cake_transform.scale = Vec3::splat(
                 1.0 + (game.score as f32 / 10.0 * time.seconds_since_startup().sin() as f32).abs(),
             );
@@ -383,17 +381,13 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    format!("Cake eaten: {}", game.cake_eaten),
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 80.0,
-                        color: Color::rgb(0.5, 0.5, 1.0),
-                    },
-                    Default::default(),
-                ),
-                ..default()
-            });
+            parent.spawn_bundle(TextBundle::from_section(
+                format!("Cake eaten: {}", game.cake_eaten),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 80.0,
+                    color: Color::rgb(0.5, 0.5, 1.0),
+                },
+            ));
         });
 }

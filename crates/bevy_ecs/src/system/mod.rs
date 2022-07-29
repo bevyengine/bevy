@@ -23,7 +23,7 @@
 //!     mut query: Query<(&Player, &mut Score)>,
 //!     mut round: ResMut<Round>,
 //! ) {
-//!     for (player, mut score) in query.iter_mut() {
+//!     for (player, mut score) in &mut query {
 //!         if player.alive {
 //!             score.0 += round.0;
 //!         }
@@ -98,6 +98,34 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
     }
 }
 
+/// Ensure that a given function is an exclusive system
+///
+/// This should be used when writing doc examples,
+/// to confirm that systems used in an example are
+/// valid exclusive systems
+///
+/// Passing assert
+/// ```
+/// # use bevy_ecs::prelude::World;
+/// # use bevy_ecs::system::assert_is_exclusive_system;
+/// fn an_exclusive_system(_world: &mut World) {}
+///
+/// assert_is_exclusive_system(an_exclusive_system);
+/// ```
+///
+/// Failing assert
+/// ```compile_fail
+/// # use bevy_ecs::prelude::World;
+/// # use bevy_ecs::system::assert_is_exclusive_system;
+/// fn not_an_exclusive_system(_world: &mut World, number: f32) {}
+///
+/// assert_is_exclusive_system(not_an_exclusive_system);
+/// ```
+pub fn assert_is_exclusive_system<Params, SystemType>(
+    _sys: impl IntoExclusiveSystem<Params, SystemType>,
+) {
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
@@ -137,7 +165,7 @@ mod tests {
     #[test]
     fn simple_system() {
         fn sys(query: Query<&A>) {
-            for a in query.iter() {
+            for a in &query {
                 println!("{:?}", a);
             }
         }
@@ -600,7 +628,7 @@ mod tests {
             mut modified: ResMut<bool>,
         ) {
             assert_eq!(query.iter().count(), 1, "entity exists");
-            for entity in query.iter() {
+            for entity in &query {
                 let location = entities.get(entity).unwrap();
                 let archetype = archetypes.get(location.archetype_id).unwrap();
                 let archetype_components = archetype.components().collect::<Vec<_>>();
@@ -898,6 +926,129 @@ mod tests {
                 vec![&A(1), &A(2)],
                 "both components returned by iter of &mut"
             );
+        }
+    }
+
+    #[test]
+    fn convert_mut_to_immut() {
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<&mut A>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<&A>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<Option<&mut A>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<Option<&A>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &B)>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B)>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B)>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B)>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), With<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), With<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Without<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Without<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Added<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Added<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
+        }
+
+        {
+            let mut world = World::new();
+
+            fn mutable_query(mut query: Query<(&mut A, &mut B), Changed<C>>) {
+                for _ in &mut query {}
+
+                immutable_query(query.to_readonly());
+            }
+
+            fn immutable_query(_: Query<(&A, &B), Changed<C>>) {}
+
+            let mut sys = IntoSystem::into_system(mutable_query);
+            sys.initialize(&mut world);
         }
     }
 
