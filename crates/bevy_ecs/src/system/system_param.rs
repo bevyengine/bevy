@@ -218,9 +218,9 @@ pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
 impl_param_set!();
 
-pub trait Resource: Send + 'static {}
+pub trait Resource: Send + Sync + 'static {}
 
-impl<T> Resource for T where T: Send + 'static {}
+impl<T> Resource for T where T: Send + Sync + 'static {}
 
 /// Shared borrow of a resource.
 ///
@@ -302,13 +302,13 @@ pub struct ResState<T> {
     marker: PhantomData<T>,
 }
 
-impl<'a, T: Resource + Sync> SystemParam for Res<'a, T> {
+impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Fetch = ResState<T>;
 }
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
-unsafe impl<T: Resource + Sync> SystemParamState for ResState<T> {
+unsafe impl<T: Resource> SystemParamState for ResState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let component_id = world.initialize_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
@@ -334,7 +334,7 @@ unsafe impl<T: Resource + Sync> SystemParamState for ResState<T> {
     }
 }
 
-impl<'w, 's, T: Resource + Sync> SystemParamFetch<'w, 's> for ResState<T> {
+impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
     type Item = Res<'w, T>;
 
     #[inline]
@@ -367,7 +367,7 @@ impl<'w, 's, T: Resource + Sync> SystemParamFetch<'w, 's> for ResState<T> {
 #[doc(hidden)]
 pub struct OptionResState<T>(ResState<T>);
 
-impl<'a, T: Resource + Sync> SystemParam for Option<Res<'a, T>> {
+impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     type Fetch = OptionResState<T>;
 }
 
@@ -376,13 +376,13 @@ unsafe impl<T: Resource> ReadOnlySystemParamFetch for OptionResState<T> {}
 
 // SAFETY: this impl defers to `ResState`, which initializes
 // and validates the correct world access
-unsafe impl<T: Resource + Sync> SystemParamState for OptionResState<T> {
+unsafe impl<T: Resource> SystemParamState for OptionResState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(ResState::init(world, system_meta))
     }
 }
 
-impl<'w, 's, T: Resource + Sync> SystemParamFetch<'w, 's> for OptionResState<T> {
+impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
     type Item = Option<Res<'w, T>>;
 
     #[inline]
@@ -410,13 +410,13 @@ pub struct ResMutState<T> {
     marker: PhantomData<T>,
 }
 
-impl<'a, T: Resource + Sync> SystemParam for ResMut<'a, T> {
+impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Fetch = ResMutState<T>;
 }
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
-unsafe impl<T: Resource + Sync> SystemParamState for ResMutState<T> {
+unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let component_id = world.initialize_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access_mut();
@@ -445,7 +445,7 @@ unsafe impl<T: Resource + Sync> SystemParamState for ResMutState<T> {
     }
 }
 
-impl<'w, 's, T: Resource + Sync> SystemParamFetch<'w, 's> for ResMutState<T> {
+impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
     type Item = ResMut<'w, T>;
 
     #[inline]
@@ -480,19 +480,19 @@ impl<'w, 's, T: Resource + Sync> SystemParamFetch<'w, 's> for ResMutState<T> {
 #[doc(hidden)]
 pub struct OptionResMutState<T>(ResMutState<T>);
 
-impl<'a, T: Resource + Sync> SystemParam for Option<ResMut<'a, T>> {
+impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     type Fetch = OptionResMutState<T>;
 }
 
 // SAFETY: this impl defers to `ResMutState`, which initializes
 // and validates the correct world access
-unsafe impl<T: Resource + Sync> SystemParamState for OptionResMutState<T> {
+unsafe impl<T: Resource> SystemParamState for OptionResMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(ResMutState::init(world, system_meta))
     }
 }
 
-impl<'w, 's, T: Resource + Sync> SystemParamFetch<'w, 's> for OptionResMutState<T> {
+impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
     type Item = Option<ResMut<'w, T>>;
 
     #[inline]
@@ -641,7 +641,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// // .add_system(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
-pub struct Local<'a, T: Resource>(&'a mut T);
+pub struct Local<'a, T: Send + 'static>(&'a mut T);
 
 // SAFETY: Local only accesses internal state
 unsafe impl<T: Resource> ReadOnlySystemParamFetch for LocalState<T> {}
@@ -673,7 +673,7 @@ impl<'a, T: Resource> DerefMut for Local<'a, T> {
 
 /// The [`SystemParamState`] of [`Local<T>`].
 #[doc(hidden)]
-pub struct LocalState<T: Resource>(SyncCell<T>);
+pub struct LocalState<T: Send + 'static>(SyncCell<T>);
 
 impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T> {
     type Fetch = LocalState<T>;
