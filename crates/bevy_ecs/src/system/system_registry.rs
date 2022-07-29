@@ -292,7 +292,7 @@ impl SystemRegistry {
 impl World {
     /// Register system a system with any number of [`SystemLabel`]s.
     ///
-    /// Calls the method of the same name on [`SystemRegistry`].
+    /// Calls [`SystemRegistry::register_system`].
     pub fn register_system<
         Params,
         S: IntoSystem<(), (), Params> + 'static,
@@ -310,7 +310,7 @@ impl World {
 
     /// Runs the supplied system on the [`World`] a single time.
     ///
-    /// Calls the method of the same name on [`SystemRegistry`].
+    /// Calls [`SystemRegistry::run_system`].
     #[inline]
     pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
@@ -320,7 +320,7 @@ impl World {
 
     /// Runs the systems corresponding to the supplied [`SystemLabel`] on the [`World`] a single time.
     ///
-    /// Calls the method of the same name on [`SystemRegistry`].
+    /// Calls [`SystemRegistry::run_systems_by_label`].
     #[inline]
     pub fn run_systems_by_label<L: SystemLabel>(
         &mut self,
@@ -333,7 +333,7 @@ impl World {
 
     /// Run the systems corresponding to the label stored in the provided [`Callback`]
     ///
-    /// Calls the method of the same name on [`SystemRegistry`].
+    /// Calls [`SystemRegistry::run_callback`].
     #[inline]
     pub fn run_callback(&mut self, callback: Callback) -> Result<(), SystemRegistryError> {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
