@@ -145,7 +145,7 @@ impl WindowResizeConstraints {
     }
 }
 
-/// Mirror of `Icon` from `winit`.
+/// Mirror of [`Icon`](https://docs.rs/winit/latest/winit/index.html) from [`winit`](https://github.com/rust-windowing/winit).
 #[derive(Debug, Clone)]
 pub struct WindowIcon {
     /// 32-bit-per-pixel RGBA image data.
