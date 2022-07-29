@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 use bevy_ecs::{
     change_detection::Mut,
@@ -7,6 +7,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::HashMap;
+use thiserror::Error;
 
 use crate::App;
 
@@ -92,61 +93,99 @@ pub struct SubSchedules {
 }
 
 struct SubSlot(Option<Box<dyn Stage>>);
+
+/// Error type returned by [`SubSchedules::extract_from`](SubSchedules#method.extract_from).
+#[derive(Error)]
+#[non_exhaustive]
+pub enum ExtractError {
+    /// Schedule could not be found.
+    #[error("there is no sub-schedule with label '{0:?}'")]
+    NotFound(ScheduleLabelId),
+    /// Schedule is being extracted by someone else right now.
+    #[error("cannot extract sub-schedule '{0:?}', as it is currently extracted already")]
+    AlreadyExtracted(ScheduleLabelId),
+    /// The [`SubSchedules`] resource got removed during the scope.
+    #[error("the `SubSchedules` resource got removed during the scope for schedule '{0:?}'")]
+    ResourceLost(ScheduleLabelId),
+}
+impl Debug for ExtractError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+#[derive(Error)]
+/// Error type returned by [`SubSchedules::insert`](SubSchedules#method.insert).
+#[non_exhaustive]
+pub enum InsertError {
+    /// A schedule with this label already exists.
+    #[error("there is no sub-schedule with label '{0:?}'")]
+    Duplicate(ScheduleLabelId),
+}
+impl Debug for InsertError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
 impl SubSchedules {
     /// Inserts a new sub-schedule.
     ///
-    /// # Panics
+    /// # Errors
     /// If there is already a sub-schedule labeled `label`.
-    #[track_caller]
-    pub fn insert(&mut self, label: impl ScheduleLabel, sched: Box<dyn Stage>) {
+    pub fn insert(
+        &mut self,
+        label: impl ScheduleLabel,
+        sched: Box<dyn Stage>,
+    ) -> Result<(), InsertError> {
         let label = label.as_label();
-        let old = self.map.insert(label, SubSlot(Some(sched)));
-        if old.is_some() {
-            panic!("there is already a sub-schedule with label '{label:?}'");
+        if self.map.contains_key(&label) {
+            return Err(InsertError::Duplicate(label));
         }
+        self.map.insert(label, SubSlot(Some(sched)));
+        Ok(())
     }
 
     /// Temporarily extracts a [`SubSchedule`] from the world, and provides a scope
     /// that has mutable access to both the schedule and the [`World`].
     /// At the end of this scope, the sub-schedule is automatically reinserted.
     ///
-    /// # Panics
+    /// # Errors
     /// If there is no schedule associated with `label`, or if that schedule
     /// is currently already extracted.
-    #[track_caller]
-    pub fn extract_scope<F, T>(world: &mut World, label: impl ScheduleLabel, f: F) -> T
+    pub fn extract_scope<F, T>(
+        world: &mut World,
+        label: impl ScheduleLabel,
+        f: F,
+    ) -> Result<T, ExtractError>
     where
         F: FnOnce(&mut World, &mut dyn Stage) -> T,
     {
-        #[inline(never)]
-        fn panic_none(label: impl Debug) -> ! {
-            panic!("there is no sub-schedule with label '{label:?}'")
-        }
-        #[inline(never)]
-        fn panic_extracted(label: impl Debug) -> ! {
-            panic!("cannot extract sub-schedule '{label:?}', as it is currently extracted already")
-        }
-
         let label = label.as_label();
 
         // Extract.
         let mut schedules = world.resource_mut::<Self>();
-        let mut sched = match schedules.map.get_mut(&label) {
-            Some(x) => match x.0.take() {
-                Some(x) => x,
-                None => panic_extracted(label),
-            },
-            None => panic_none(label),
-        };
+        let mut sched = schedules
+            .map
+            .get_mut(&label)
+            .ok_or(ExtractError::NotFound(label))?
+            .0
+            .take()
+            .ok_or(ExtractError::AlreadyExtracted(label))?;
 
         // Execute.
         let val = f(world, sched.as_mut());
 
         // Re-insert.
-        let mut schedules = world.resource_mut::<Self>();
-        schedules.map.get_mut(&label).unwrap().0 = Some(sched);
+        world
+            .get_resource_mut::<Self>()
+            .ok_or(ExtractError::ResourceLost(label))?
+            .map
+            .get_mut(&label)
+            .expect("schedule must exist in the map since we found it previously")
+            .0 = Some(sched);
 
-        val
+        Ok(val)
     }
 
     /// Gets a mutable reference to the sub-schedule identified by `label`.
@@ -179,7 +218,7 @@ pub(crate) fn add_to_app<S: Stage>(app: &mut App, schedule: impl IntoSubSchedule
     // If it has a label, insert it to the public resource.
     if let Some(label) = label {
         let mut res: Mut<SubSchedules> = app.world.get_resource_or_insert_with(Default::default);
-        res.insert(label, Box::new(schedule));
+        res.insert(label, Box::new(schedule)).unwrap();
 
         if let Some((stage, mut runner)) = runner {
             // Driver which extracts the schedule from the world and runs it.
@@ -199,7 +238,7 @@ pub(crate) fn add_to_app<S: Stage>(app: &mut App, schedule: impl IntoSubSchedule
                         }
                     };
                     runner(sched, w);
-                });
+                }).unwrap();
             };
             app.add_system_to_stage(stage, driver.exclusive_system());
         }
