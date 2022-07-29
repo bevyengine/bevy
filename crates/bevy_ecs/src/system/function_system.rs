@@ -527,8 +527,8 @@ where
     F::Param: ReadOnlySystemParam,
 {
     #[inline]
-    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
-        vec![Box::new(self.func.as_system_label())]
+    fn default_labels(&self) -> Vec<SystemLabelId> {
+        vec![self.func.as_system_label().as_label()]
     }
 }
 
@@ -543,6 +543,13 @@ impl<T: 'static> SystemTypeIdLabel<T> {
     /// of your function type.
     pub fn new() -> Self {
         Self(PhantomData::default())
+    }
+}
+
+impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
+    #[inline]
+    fn as_str(&self) -> &'static str {
+        std::any::type_name::<T>()
     }
 }
 
