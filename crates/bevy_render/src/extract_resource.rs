@@ -12,8 +12,8 @@ use crate::{Extract, RenderApp, RenderStage};
 ///
 /// Therefore the resource is transferred from the "main world" into the "render world"
 /// in the [`RenderStage::Extract`](crate::RenderStage::Extract) step.
-pub trait ExtractResource: Resource {
-    type Source: Resource;
+pub trait ExtractResource: Resource + Sync {
+    type Source: Resource + Sync;
 
     /// Defines how the resource is transferred into the "render world".
     fn extract_resource(source: &Self::Source) -> Self;
