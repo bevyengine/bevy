@@ -3,24 +3,12 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::system::{Callback, SystemRegistryError};
 
 impl App {
-    /// Registers the supplied system in the [`SystemRegistry`](bevy_ecs::system::SystemRegistry) resource.
-    ///
-    /// Calls the method of the same name on [`SystemRegistry`](bevy_ecs::system::SystemRegistry).
-    #[inline]
-    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(
-        &mut self,
-        system: S,
-    ) -> &mut Self {
-        self.world.register_system(system);
-        self
-    }
-
     /// Register a system with any number of [`SystemLabel`]s.
     ///
     /// Calls the method of the same name on [`SystemRegistry`].
     ///
     /// [`SystemRegistry`]: bevy_ecs::system::SystemRegistry
-    pub fn register_system_with_labels<
+    pub fn register_system<
         Params,
         S: IntoSystem<(), (), Params> + 'static,
         LI: IntoIterator<Item = L>,
@@ -30,7 +18,7 @@ impl App {
         system: S,
         labels: LI,
     ) -> &mut Self {
-        self.world.register_system_with_labels(system, labels);
+        self.world.register_system(system, labels);
         self
     }
 
