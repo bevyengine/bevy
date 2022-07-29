@@ -329,10 +329,10 @@ impl UntypedArchetypeStatement {
         }
     }
 
-    /// Returns formatted string describing this archetype invariant.
+    /// Returns formatted string describing this archetype statement.
     ///
     /// For Rust types, the names should match the type name.
-    /// If any [`ComponentId`]s in the invariant have not been registered in the world,
+    /// If any [`ComponentId`]s in the statement have not been registered in the world,
     /// then the raw component id will be returned instead.
     pub fn display(&self, components: &Components) -> String {
         let component_names = display_component_id_types(
