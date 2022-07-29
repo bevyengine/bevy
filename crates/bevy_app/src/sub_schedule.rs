@@ -228,7 +228,15 @@ pub(crate) fn add_to_app<S: Stage>(app: &mut App, schedule: impl IntoSubSchedule
                         s
                     } else {
                         #[cfg(debug_assertions)]
-                        unreachable!("the sub-schedule '{label:?}' somehow changed type after being inserted!");
+                        unreachable!(
+                            r#"
+                            The sub-schedule '{label:?}' changed types after being inserted:
+                            it should be of type `{expect}`, but it's really of type `{actual}`.
+                            This should be impossible.
+                            If run into this error, please file an issue at https://github.com/bevyengine/bevy/issues/new/choose"#,
+                            expect = std::any::type_name::<S>(),
+                            actual = AnyTypeName::name(sched),
+                        );
                         // SAFETY: Due to the invariant on `SubSchedules`, we can be sure that
                         // `sched` is the same instance that we inserted.
                         // Thus, we can rely on its type matching `S`.
@@ -238,7 +246,8 @@ pub(crate) fn add_to_app<S: Stage>(app: &mut App, schedule: impl IntoSubSchedule
                         }
                     };
                     runner(sched, w);
-                }).unwrap();
+                })
+                .unwrap();
             };
             app.add_system_to_stage(stage, driver.exclusive_system());
         }
@@ -251,5 +260,15 @@ pub(crate) fn add_to_app<S: Stage>(app: &mut App, schedule: impl IntoSubSchedule
         app.add_system_to_stage(stage, driver.exclusive_system());
     } else {
         panic!("inserted sub-schedule can never be accessed, as it has neither a label nor a runner function")
+    }
+}
+
+/// Trait that lets us get the type name of a trait object for debugging purposes.
+trait AnyTypeName: 'static {
+    fn name(&self) -> &'static str;
+}
+impl<T: ?Sized + 'static> AnyTypeName for T {
+    fn name(&self) -> &'static str {
+        std::any::type_name::<Self>()
     }
 }
