@@ -13,16 +13,14 @@ use crate::App;
 
 /// Methods for converting a schedule into a [sub-Schedule](SubSchedule) descriptor.
 pub trait IntoSubSchedule: Sized {
-    /// The wrapped schedule type.
-    type Sched: Stage;
     /// The type that controls the behaviour of the exclusive system
     /// which runs [`SubSchedule`]s of this type.
-    type Runner: FnMut(&mut Self::Sched, &mut World) + Send + Sync + 'static;
+    type Runner: FnMut(&mut dyn Stage, &mut World) + Send + Sync + 'static;
 
     /// Applies the specified label to the current schedule.
     /// This means it will be accessible in the [`SubSchedules`] resource after
     /// being added to the [`App`].
-    fn label(self, label: impl ScheduleLabel) -> SubSchedule<Self::Sched, Self::Runner> {
+    fn label(self, label: impl ScheduleLabel) -> SubSchedule<Self::Runner> {
         let mut sub = Self::into_sched(self);
         sub.label = Some(label.as_label());
         sub
@@ -31,9 +29,9 @@ pub trait IntoSubSchedule: Sized {
     /// an exclusive system within the stage `stage`.
     ///
     /// Overwrites any previously set runner or stage.
-    fn with_runner<F>(self, stage: impl StageLabel, f: F) -> SubSchedule<Self::Sched, F>
+    fn with_runner<F>(self, stage: impl StageLabel, f: F) -> SubSchedule<F>
     where
-        F: FnMut(&mut Self::Sched, &mut World) + Send + Sync + 'static,
+        F: FnMut(&mut dyn Stage, &mut World) + Send + Sync + 'static,
     {
         let SubSchedule {
             schedule, label, ..
@@ -46,39 +44,37 @@ pub trait IntoSubSchedule: Sized {
     }
 
     /// Performs the conversion. You usually do not need to call this directly.
-    fn into_sched(_: Self) -> SubSchedule<Self::Sched, Self::Runner>;
+    fn into_sched(_: Self) -> SubSchedule<Self::Runner>;
 }
 
 impl<S: Stage> IntoSubSchedule for S {
-    type Sched = Self;
-    type Runner = fn(&mut Self, &mut World);
-    fn into_sched(schedule: Self) -> SubSchedule<Self, Self::Runner> {
+    type Runner = fn(&mut dyn Stage, &mut World);
+    fn into_sched(schedule: Self) -> SubSchedule<Self::Runner> {
         SubSchedule {
-            schedule,
+            schedule: Box::new(schedule),
             label: None,
             runner: None,
         }
     }
 }
 
-impl<S: Stage, R> IntoSubSchedule for SubSchedule<S, R>
+impl<R> IntoSubSchedule for SubSchedule<R>
 where
-    R: FnMut(&mut S, &mut World) + Send + Sync + 'static,
+    R: FnMut(&mut dyn Stage, &mut World) + Send + Sync + 'static,
 {
-    type Sched = S;
     type Runner = R;
     #[inline]
-    fn into_sched(sched: Self) -> SubSchedule<S, R> {
+    fn into_sched(sched: Self) -> SubSchedule<R> {
         sched
     }
 }
 
 /// A schedule that may run independently of the main app schedule.
-pub struct SubSchedule<S: Stage, F>
+pub struct SubSchedule<F>
 where
-    F: FnMut(&mut S, &mut World) + Send + Sync + 'static,
+    F: FnMut(&mut dyn Stage, &mut World) + Send + Sync + 'static,
 {
-    schedule: S,
+    schedule: Box<dyn Stage>,
     label: Option<ScheduleLabelId>,
     runner: Option<(StageLabelId, F)>,
 }
@@ -208,7 +204,7 @@ impl SubSchedules {
 }
 
 #[track_caller]
-pub(crate) fn add_to_app<S: Stage>(app: &mut App, schedule: impl IntoSubSchedule<Sched = S>) {
+pub(crate) fn add_to_app(app: &mut App, schedule: impl IntoSubSchedule) {
     let SubSchedule {
         mut schedule,
         label,
@@ -218,33 +214,12 @@ pub(crate) fn add_to_app<S: Stage>(app: &mut App, schedule: impl IntoSubSchedule
     // If it has a label, insert it to the public resource.
     if let Some(label) = label {
         let mut res: Mut<SubSchedules> = app.world.get_resource_or_insert_with(Default::default);
-        res.insert(label, Box::new(schedule)).unwrap();
+        res.insert(label, schedule).unwrap();
 
         if let Some((stage, mut runner)) = runner {
             // Driver which extracts the schedule from the world and runs it.
             let driver = move |w: &mut World| {
                 SubSchedules::extract_scope(w, label, |w, sched| {
-                    let sched = if let Some(s) = sched.downcast_mut::<S>() {
-                        s
-                    } else {
-                        #[cfg(debug_assertions)]
-                        unreachable!(
-                            r#"
-                            The sub-schedule '{label:?}' changed types after being inserted:
-                            it should be of type `{expect}`, but it's really of type `{actual}`.
-                            This should be impossible.
-                            If run into this error, please file an issue at https://github.com/bevyengine/bevy/issues/new/choose"#,
-                            expect = std::any::type_name::<S>(),
-                            actual = AnyTypeName::name(sched),
-                        );
-                        // SAFETY: Due to the invariant on `SubSchedules`, we can be sure that
-                        // `sched` is the same instance that we inserted.
-                        // Thus, we can rely on its type matching `S`.
-                        #[cfg(not(debug_assertions))]
-                        unsafe {
-                            std::hint::unreachable_unchecked()
-                        }
-                    };
                     runner(sched, w);
                 })
                 .unwrap();
@@ -255,7 +230,7 @@ pub(crate) fn add_to_app<S: Stage>(app: &mut App, schedule: impl IntoSubSchedule
         // If there's no label, then the schedule isn't visible publicly.
         // We can just store it locally
         let driver = move |w: &mut World| {
-            runner(&mut schedule, w);
+            runner(schedule.as_mut(), w);
         };
         app.add_system_to_stage(stage, driver.exclusive_system());
     } else {
