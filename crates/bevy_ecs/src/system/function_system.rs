@@ -63,7 +63,7 @@ impl SystemMeta {
 /// This is a powerful and convenient tool for working with exclusive world access,
 /// allowing you to fetch data from the [`World`] as if you were running a [`System`].
 /// However, simply calling `world::run_system(my_system)` using a [`SystemRegistry`](crate::system::SystemRegistry)
-/// can be significantly simpler and more reliable.
+/// can be significantly simpler and ensures that change detection and command flushing work as expected.
 ///
 /// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
 /// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
