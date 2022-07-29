@@ -13,7 +13,7 @@ Bevy provides default inputs and UI in the [`bevy_ui`](../bevy_ui) crate.
 This implementation follows the specification of [RFC 41][rfc41],
 and is a fork of the [bevy-ui-navigation] crate.
 
-### Examples
+## Examples
 
 Check the [`ui_navigation`][examples] directory
 in the `examples` directory at the root of the bevy crate.
