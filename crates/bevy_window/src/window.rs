@@ -168,13 +168,17 @@ impl WindowIcon {
     }
 
     /// Creates a new `WindowIcon` with equal width and height.
-    /// `rgba` should be 32-bit-per-pixel RGBA image data.
+    /// `rgba` should be 32-bit-per-pixel RGBA image data. Returns `None` if input is unable to be easily made into a square.
     #[must_use]
-    pub fn new_square(rgba: Vec<u8>) -> Self {
-        Self {
-            width: (rgba.len() / 8).try_into().unwrap(),
-            height: (rgba.len() / 8).try_into().unwrap(),
-            rgba,
+    pub fn new_square(rgba: Vec<u8>) -> Option<Self> {
+        if (rgba.len() as f32).sqrt().fract() == 0.0 {
+            None
+        } else {
+            Some(Self {
+                width: (rgba.len() / 8).try_into().unwrap(),
+                height: (rgba.len() / 8).try_into().unwrap(),
+                rgba,
+            })
         }
     }
 }
