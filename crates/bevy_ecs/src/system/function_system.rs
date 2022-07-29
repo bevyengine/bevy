@@ -448,7 +448,7 @@ where
             self.system_meta.name.as_ref(),
         );
     }
-    
+
     fn default_labels(&self) -> Vec<SystemLabelId> {
         vec![self.func.as_system_label().as_label()]
     }
@@ -458,7 +458,7 @@ where
 #[derive(Default)]
 pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
 
-impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
+impl<T: 'static> SystemTypeIdLabel<T> {
     /// Constructs a new copy of the [`SystemTypeIdLabel`] for the type `T`
     ///
     /// You can also construct this by using [`.as_system_label()`](crate::system::AsSystemLabel) on a concrete instance
@@ -466,7 +466,9 @@ impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
     pub fn new() -> Self {
         Self(PhantomData::default())
     }
+}
 
+impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
     #[inline]
     fn as_str(&self) -> &'static str {
         std::any::type_name::<T>()
