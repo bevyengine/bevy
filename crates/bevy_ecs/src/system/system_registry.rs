@@ -418,10 +418,6 @@ impl Command for RunSystemsByLabelCommand {
 /// Unless you need to inspect the list of events or add additional information,
 /// prefer the simpler `commands.run_system` over storing callbacks as events,
 ///
-/// When working with callbacks, consider your architecture carefully.
-/// Callbacks are typically harder to reason about and debug than scheduled systems,
-/// and it's easy to get into a tangled mess if you don't consider the system as a whole before starting.
-///
 /// Systems must be registered via the `register_system` methods on [`SystemRegistry`], [`World`] or `App`
 /// before they can be run by their label using a callback.
 #[derive(Debug, Component, Clone, Eq)]
