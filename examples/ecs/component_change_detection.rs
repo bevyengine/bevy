@@ -14,7 +14,7 @@ fn main() {
 }
 
 #[derive(Component, Debug)]
-struct MyComponent(f64);
+struct MyComponent(f32);
 
 fn setup(mut commands: Commands) {
     commands.spawn().insert(MyComponent(0.));

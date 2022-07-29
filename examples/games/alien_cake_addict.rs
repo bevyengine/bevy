@@ -1,6 +1,7 @@
 //! Eat the cakes. Eat them all. An example 3D game.
 
-use bevy::{ecs::schedule::SystemSet, prelude::*, time::FixedTimestep};
+use bevy::ecs::schedule::ShouldRun;
+use bevy::prelude::*;
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -9,9 +10,12 @@ enum GameState {
     GameOver,
 }
 
+struct SpawnTimer(Timer);
+
 fn main() {
     App::new()
         .init_resource::<Game>()
+        .insert_resource(SpawnTimer(Timer::from_seconds(5.0, false)))
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
         .add_startup_system(setup_cameras)
@@ -29,7 +33,15 @@ fn main() {
         .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
         .add_system_set(
             SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(5.0))
+                .with_run_criteria(|time: Res<Time>, mut timer: ResMut<SpawnTimer>| {
+                    timer.0.tick(time.delta());
+                    if timer.0.finished() {
+                        timer.0.reset();
+                        ShouldRun::Yes
+                    } else {
+                        ShouldRun::No
+                    }
+                })
                 .with_system(spawn_bonus),
         )
         .add_system(bevy::window::close_on_esc)

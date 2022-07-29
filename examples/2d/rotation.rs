@@ -1,17 +1,19 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
-use bevy::{math::Vec3Swizzles, prelude::*, time::FixedTimestep};
+use bevy::{math::Vec3Swizzles, prelude::*};
 
-const TIME_STEP: f32 = 1.0 / 60.0;
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_startup_system(|mut fixed_time: ResMut<FixedTime>| {
+            fixed_time.set_steps_per_second(60.0);
+        })
         .add_startup_system(setup)
         .add_system_set(
             SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+                .with_run_criteria(FixedTimestep::step)
                 .with_system(player_movement_system)
                 .with_system(snap_to_player_system)
                 .with_system(rotate_to_player_system),
@@ -110,6 +112,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Demonstrates applying rotation and movement based on keyboard input.
 fn player_movement_system(
+    fixed_time: Res<FixedTime>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Player, &mut Transform)>,
 ) {
@@ -131,12 +134,12 @@ fn player_movement_system(
     }
 
     // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    transform.rotate_z(rotation_factor * ship.rotation_speed * TIME_STEP);
+    transform.rotate_z(rotation_factor * ship.rotation_speed * fixed_time.delta_seconds());
 
     // get the ship's forward vector by applying the current rotation to the ships initial facing vector
     let movement_direction = transform.rotation * Vec3::Y;
     // get the distance the ship will move based on direction, the ship's movement speed and delta time
-    let movement_distance = movement_factor * ship.movement_speed * TIME_STEP;
+    let movement_distance = movement_factor * ship.movement_speed * fixed_time.delta_seconds();
     // create the change in translation using the new movement direction and distance
     let translation_delta = movement_direction * movement_distance;
     // update the ship translation with our new translation delta
@@ -191,6 +194,7 @@ fn snap_to_player_system(
 /// floating point precision loss, so it pays to clamp your dot product value before calling
 /// `acos`.
 fn rotate_to_player_system(
+    fixed_time: Res<FixedTime>,
     mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
     player_query: Query<&Transform, With<Player>>,
 ) {
@@ -235,7 +239,8 @@ fn rotate_to_player_system(
         let max_angle = forward_dot_player.clamp(-1.0, 1.0).acos(); // clamp acos for safety
 
         // calculate angle of rotation with limit
-        let rotation_angle = rotation_sign * (config.rotation_speed * TIME_STEP).min(max_angle);
+        let rotation_angle =
+            rotation_sign * (config.rotation_speed * fixed_time.delta_seconds()).min(max_angle);
 
         // rotate the enemy to face the player
         enemy_transform.rotate_z(rotation_angle);

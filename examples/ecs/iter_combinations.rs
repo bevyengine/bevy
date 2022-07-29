@@ -1,12 +1,10 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera, time::FixedTimestep};
+use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera};
 use rand::{thread_rng, Rng};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 struct FixedUpdateStage;
-
-const DELTA_TIME: f64 = 0.01;
 
 fn main() {
     App::new()
@@ -15,12 +13,15 @@ fn main() {
             brightness: 0.03,
             ..default()
         })
+        .add_startup_system(|mut fixed_time: ResMut<FixedTime>| {
+            fixed_time.set_steps_per_second(10.0);
+        })
         .add_startup_system(generate_bodies)
         .add_stage_after(
             CoreStage::Update,
             FixedUpdateStage,
             SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(DELTA_TIME))
+                .with_run_criteria(FixedTimestep::step)
                 .with_system(interact_bodies)
                 .with_system(integrate),
         )
@@ -54,6 +55,7 @@ fn generate_bodies(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    fixed_time: Res<FixedTime>,
 ) {
     let mesh = meshes.add(Mesh::from(shape::Icosphere {
         radius: 1.0,
@@ -103,7 +105,7 @@ fn generate_bodies(
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
                         rng.gen_range(vel_range.clone()),
-                    ) * DELTA_TIME as f32,
+                    ) * fixed_time.delta_seconds(),
             ),
         });
     }
@@ -162,8 +164,11 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
     }
 }
 
-fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
-    let dt_sq = (DELTA_TIME * DELTA_TIME) as f32;
+fn integrate(
+    fixed_time: Res<FixedTime>,
+    mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>,
+) {
+    let dt_sq = fixed_time.delta_seconds() * fixed_time.delta_seconds();
     for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)

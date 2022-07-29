@@ -3,11 +3,7 @@
 use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
-    time::FixedTimestep,
 };
-
-// Defines the amount of time that should elapse between each physics step.
-const TIME_STEP: f32 = 1.0 / 60.0;
 
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
@@ -55,11 +51,14 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(Scoreboard { score: 0 })
         .insert_resource(ClearColor(BACKGROUND_COLOR))
+        .add_startup_system(|mut fixed_time: ResMut<FixedTime>| {
+            fixed_time.set_steps_per_second(60.0);
+        })
         .add_startup_system(setup)
         .add_event::<CollisionEvent>()
         .add_system_set(
             SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+                .with_run_criteria(FixedTimestep::step)
                 .with_system(check_for_collisions)
                 .with_system(move_paddle.before(check_for_collisions))
                 .with_system(apply_velocity.before(check_for_collisions))
@@ -310,6 +309,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn move_paddle(
+    fixed_time: Res<FixedTime>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Paddle>>,
 ) {
@@ -325,7 +325,8 @@ fn move_paddle(
     }
 
     // Calculate the new horizontal paddle position based on player input
-    let new_paddle_position = paddle_transform.translation.x + direction * PADDLE_SPEED * TIME_STEP;
+    let new_paddle_position =
+        paddle_transform.translation.x + direction * PADDLE_SPEED * fixed_time.delta_seconds();
 
     // Update the paddle position,
     // making sure it doesn't cause the paddle to leave the arena
@@ -335,10 +336,10 @@ fn move_paddle(
     paddle_transform.translation.x = new_paddle_position.clamp(left_bound, right_bound);
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>) {
+fn apply_velocity(fixed_time: Res<FixedTime>, mut query: Query<(&mut Transform, &Velocity)>) {
     for (mut transform, velocity) in &mut query {
-        transform.translation.x += velocity.x * TIME_STEP;
-        transform.translation.y += velocity.y * TIME_STEP;
+        transform.translation.x += velocity.x * fixed_time.delta_seconds();
+        transform.translation.y += velocity.y * fixed_time.delta_seconds();
     }
 }
 
