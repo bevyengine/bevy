@@ -105,9 +105,17 @@ where
         app.add_event::<events::NavRequest>()
             .add_event::<events::NavEvent>()
             .insert_resource(resolve::NavLock::new())
+            .add_system(resolve::set_first_focused.before(NavRequestSystem))
             .add_system(resolve::listen_nav_requests::<STGY>.label(NavRequestSystem))
-            .add_system(resolve::set_first_focused)
-            .add_system(resolve::insert_tree_menus)
-            .add_system(named::resolve_named_menus.before(resolve::insert_tree_menus));
+            // PostUpdate because we want the Menus to be setup correctly before the
+            // next call to `set_first_focused`, which depends on the Menu tree layout
+            // existing already to chose a "intuitively correct" first focusable.
+            // The user is most likely to spawn his UI in the Update stage, so it makes
+            // sense to react to changes in the PostUpdate stage.
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                named::resolve_named_menus.before(resolve::insert_tree_menus),
+            )
+            .add_system_to_stage(CoreStage::PostUpdate, resolve::insert_tree_menus);
     }
 }

@@ -99,21 +99,29 @@ impl<'w, 's> NavQueries<'w, 's> {
     fn focused(&self) -> Option<Entity> {
         use FocusState::{Focused, Prioritized};
         let menu_prioritized =
-            |menu: &TreeMenu| menu.focus_parent.is_none().then_some(menu.active_child);
+            |menu: &TreeMenu| menu.focus_parent.is_none().then(|| menu.active_child);
         let any_prioritized =
-            |(e, focus): (Entity, &Focusable)| (focus.state == Prioritized).then_some(e);
+            |(e, focus): (Entity, &Focusable)| (focus.state == Prioritized).then(|| e);
         let any_prioritized = || self.focusables.iter().find_map(any_prioritized);
         let root_prioritized = || {
             self.menus
                 .iter()
                 .find_map(|(_, menu, _)| menu_prioritized(menu))
         };
+        let any_in_root = || {
+            let root_menu = self
+                .menus
+                .iter()
+                .find_map(|(entity, menu, _)| menu.focus_parent.is_none().then(|| entity))?;
+            Some(*self.children.focusables_of(root_menu).first())
+        };
         let fallback = || self.focusables.iter().next().map(|(entity, _)| entity);
         self.focusables
             .iter()
-            .find_map(|(e, focus)| (focus.state == Focused).then_some(e))
+            .find_map(|(e, focus)| (focus.state == Focused).then(|| e))
             .or_else(root_prioritized)
             .or_else(any_prioritized)
+            .or_else(any_in_root)
             .or_else(fallback)
     }
 }

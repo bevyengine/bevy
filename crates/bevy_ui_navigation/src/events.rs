@@ -89,6 +89,12 @@ pub enum NavEvent {
     /// This will be sent whenever the number of focused elements go from 0 to 1.
     /// Meaning: whenever you spawn a new UI with [`Focusable`] elements.
     ///
+    /// The order of selection when no [`Focusable`] is focused yet is as follow:
+    /// - The prioritized `Focusable` of the root menu
+    /// - Any prioritized `Focusable`
+    /// - Any `Focusable` in the root menu
+    /// - Any `Focusable`
+    ///
     /// [`Focusable`]: crate::resolve::Focusable
     InitiallyFocused(Entity),
 
