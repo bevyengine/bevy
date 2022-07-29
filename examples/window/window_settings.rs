@@ -1,12 +1,23 @@
 //! Illustrates how to change window settings and shows how to affect
 //! the mouse pointer in various ways.
 
-use bevy::{prelude::*, window::PresentMode};
+use bevy::{
+    prelude::*,
+    window::{PresentMode, WindowIcon},
+};
 
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "I am a window!".to_string(),
+            icon: Some(WindowIcon::new(
+                [
+                    255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+                ]
+                .to_vec(),
+                2,
+                2,
+            )),
             width: 500.,
             height: 300.,
             present_mode: PresentMode::AutoVsync,
@@ -16,6 +27,7 @@ fn main() {
         .add_system(change_title)
         .add_system(toggle_cursor)
         .add_system(cycle_cursor_icon)
+        .add_system(change_window_icon)
         .run();
 }
 
@@ -62,4 +74,18 @@ fn cycle_cursor_icon(
         };
         window.set_cursor_icon(ICONS[*index]);
     }
+}
+
+/// This system changes the window icon every second.
+fn change_window_icon(mut windows: ResMut<Windows>, time: Res<Time>) {
+    let window = windows.primary_mut();
+
+    let rgba_data: Vec<u8> = match time.seconds_since_startup().round() {
+        x if x % 2.0 == 0.0 => vec![
+            255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+        ],
+        _ => vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 0, 0, 0],
+    };
+
+    window.set_icon(Some(WindowIcon::new_square(rgba_data)));
 }
