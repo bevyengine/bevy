@@ -61,7 +61,7 @@ impl TimestepAppExt for App {
                 panic(label)
             }
 
-            let runner = move |s: &mut S, w: &mut World| {
+            let runner = move |s: &mut dyn Stage, w: &mut World| {
                 let mut state = *w.resource::<FixedTimesteps>().get(label).unwrap();
 
                 // Core looping functionality.
@@ -85,7 +85,7 @@ impl TimestepAppExt for App {
                 step,
                 accumulator: 0.0,
             };
-            let runner = move |sched: &mut S, w: &mut World| {
+            let runner = move |sched: &mut dyn Stage, w: &mut World| {
                 // Core looping functionality.
                 let time = w.resource::<Time>();
                 state.accumulator += time.delta_seconds_f64();
