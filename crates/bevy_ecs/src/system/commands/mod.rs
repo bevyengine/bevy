@@ -525,7 +525,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Runs the supplied system on the [`World`] a single time.
     ///
-    /// Calls the method of the same name on [`SystemRegistry`](crate::system::SystemRegistry).
+    /// Calls [`SystemRegistry::run_system`](crate::SystemRegistry::run_system).
     pub fn run_system<
         Params: Send + Sync + 'static,
         S: IntoSystem<(), (), Params> + Send + Sync + 'static,
@@ -538,7 +538,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Runs the systems corresponding to the supplied [`SystemLabel`] on the [`World`] a single time.
     ///
-    /// Calls the method of the same name on [`SystemRegistry`](crate::system::SystemRegistry).
+    /// Calls [`SystemRegistry::run_systems_by_label`](crate::SystemRegistry::run_systems_by_label).
     pub fn run_systems_by_label(&mut self, label: impl SystemLabel) {
         self.queue.push(RunSystemsByLabelCommand {
             callback: Callback {
@@ -549,7 +549,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Run the systems corresponding to the label stored in the provided [`Callback`]
     ///
-    /// Calls the method of the same name on [`SystemRegistry`](crate::system::SystemRegistry).
+    /// Calls [`SystemRegistry::run_callback`](crate::SystemRegistry::run_callback).
     pub fn run_callback(&mut self, callback: Callback) {
         self.queue.push(RunSystemsByLabelCommand { callback });
     }

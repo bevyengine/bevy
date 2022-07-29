@@ -5,9 +5,7 @@ use bevy_ecs::system::{Callback, SystemRegistryError};
 impl App {
     /// Register a system with any number of [`SystemLabel`]s.
     ///
-    /// Calls the method of the same name on [`SystemRegistry`].
-    ///
-    /// [`SystemRegistry`]: bevy_ecs::system::SystemRegistry
+    /// Calls [`SystemRegistry::register_system`](bevy_ecs::system::SystemRegistry::register_system).
     pub fn register_system<
         Params,
         S: IntoSystem<(), (), Params> + 'static,
@@ -24,7 +22,7 @@ impl App {
 
     /// Runs the supplied system on the [`World`] a single time.
     ///
-    /// Calls the method of the same name on [`SystemRegistry`](bevy_ecs::system::SystemRegistry).
+    /// Calls [`SystemRegistry::run_system`](bevy_ecs::system::SystemRegistry::run_system).
     #[inline]
     pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
@@ -36,7 +34,7 @@ impl App {
 
     /// Runs the systems corresponding to the supplied [`SystemLabel`] on the [`World`] a single time.
     ///
-    /// Calls the method of the same name on [`SystemRegistry`](bevy_ecs::system::SystemRegistry).
+    /// Calls [`SystemRegistry::run_systems_by_label`](bevy_ecs::system::SystemRegistry::run_systems_by_label).
     #[inline]
     pub fn run_systems_by_label<L: SystemLabel>(
         &mut self,
@@ -47,7 +45,7 @@ impl App {
 
     /// Run the systems corresponding to the label stored in the provided [`Callback`]
     ///
-    /// Calls the method of the same name on [`SystemRegistry`](bevy_ecs::system::SystemRegistry).
+    /// Calls [`SystemRegistry::run_callback`](bevy_ecs::system::SystemRegistry::run_callback).
     #[inline]
     pub fn run_callback(&mut self, callback: Callback) -> Result<(), SystemRegistryError> {
         self.world.run_callback(callback)
