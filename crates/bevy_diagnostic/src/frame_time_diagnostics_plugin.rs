@@ -42,13 +42,13 @@ impl FrameTimeDiagnosticsPlugin {
             state.frame_count as f64
         });
 
-        if time.delta_seconds_f64() == 0.0 {
+        if time.raw_delta_seconds_f64() == 0.0 {
             return;
         }
 
-        diagnostics.add_measurement(Self::FRAME_TIME, || time.delta_seconds_f64());
+        diagnostics.add_measurement(Self::FRAME_TIME, || time.raw_delta_seconds_f64());
 
-        diagnostics.add_measurement(Self::FPS, || 1.0 / time.delta_seconds_f64());
+        diagnostics.add_measurement(Self::FPS, || 1.0 / time.raw_delta_seconds_f64());
     }
 }
 
