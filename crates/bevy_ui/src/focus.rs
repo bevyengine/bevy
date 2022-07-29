@@ -143,7 +143,9 @@ pub fn ui_focus_system(
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
 
-    let cursor_position = match get_mouse_cursor(&camera, &windows) {
+    let cursor =
+        get_mouse_cursor(&camera, &windows).or_else(|| touches_input.first_pressed_position());
+    let cursor_position = match cursor {
         Some(pos) => pos,
         None => return,
     };

@@ -149,14 +149,14 @@ fn setup(mut commands: Commands, materials: Res<Materials>, mut game: ResMut<Gam
             commands
                 .spawn_bundle(menu(&materials))
                 // Note: when next_menu_button is None,
-                // `with_parent(next_menu_button)` represents the root menu
-                .insert_bundle(
+                // `MenuBuilder::from(next_menu_button)` represents the root menu
+                .insert_bundle((
+                    MenuBuilder::from(next_menu_button),
                     MenuSetting {
                         scope: false,
                         wrapping: true,
-                    }
-                    .with_parent(next_menu_button),
-                )
+                    },
+                ))
                 .with_children(|commands| {
                     for i in 0..4 {
                         let mut button = commands.spawn_bundle(button());

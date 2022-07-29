@@ -14,7 +14,7 @@ pub mod update;
 pub mod widget;
 
 use bevy_render::extract_component::ExtractComponentPlugin;
-use bevy_ui_navigation::{GenericNavigationPlugin, NavRequestSystem};
+use bevy_ui_navigation::{NavRequestSystem, NavigationPlugin};
 pub use flex::*;
 pub use focus::{mouse_hover_system, FocusPolicy, Hover};
 pub use geometry::*;
@@ -78,7 +78,7 @@ pub enum UiSystem {
     /// After this label, the [`Hover`] component has been updated.
     Hover,
 }
-pub type NavigationPlugin<'w, 's> = GenericNavigationPlugin<UiProjectionQuery<'w, 's>>;
+pub type BevyUiNavigationPlugin<'w, 's> = NavigationPlugin<UiProjectionQuery<'w, 's>>;
 
 /// The current scale of the UI.
 ///
@@ -100,7 +100,7 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         // TODO: use feature flags here _in addition_ to config, probably?
         if self.default_navigation {
-            app.add_plugin(NavigationPlugin::new())
+            app.add_plugin(BevyUiNavigationPlugin::new())
                 .init_resource::<InputMapping>()
                 .add_system(navigation::default_gamepad_input.before(NavRequestSystem))
                 .add_system(navigation::default_keyboard_input.before(NavRequestSystem))

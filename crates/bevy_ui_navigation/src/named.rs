@@ -1,18 +1,20 @@
 //! Declare menu navigation through [`Name`].
 //!
-//! The most difficult part of the API to deal with was giving
-//! [`MenuSetting::reachable_from`](crate::MenuSetting::reachable_from) the `Entity` for of
-//! the button used to reach it.
+//! The most difficult part of the API when creating UI scenes,
+//! was using [`MenuBuilder::EntityParent`],
+//! providing the [`Entity`] for the [`Focusable`] the menu is reachable from,
+//! forced users to separate and order the creation of their menus.
 //!
-//! This forced you to divide the whole menu construction in multiple
-//! parts and keep track of intermediary values if you want to make multple menus.
+//! *By-name declaration* let you simply add a [`Name`] to your [`Focusable`]
+//! and refer to it in [`MenuBuilder::NamedParent`].
 //!
-//! *By-name declaration* let you simply add a label to your `Focusable` and
-//! refer to it in [`MenuSetting::reachable_from_named`](crate::MenuSetting::reachable_from_named).
-//! The runtime then detects labelled stuff and replace the partial
-//! [`MenuSetting`](crate::MenuSetting) with the full [`TreeMenu`](crate::resolve::TreeMenu)
-//! with the proper entity id reference. This saves you from pre-spawning your
-//! buttons so that you can associate their `id` with the proper submenu.
+//! The runtime then detects labelled stuff
+//! and replace the partial [`MenuBuilder`]
+//! with the full [`TreeMenu`] with the proper entity id reference.
+//! This saves you from pre-spawning your buttons
+//! so that you can associate their `id` with the proper submenu.
+//!
+//! [`TreeMenu`]: crate::resolve::TreeMenu
 
 use bevy_core::Name;
 use bevy_ecs::{
@@ -21,7 +23,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 
-use crate::{resolve::Focusable, seeds::MenuBuilder};
+use crate::{menu::MenuBuilder, resolve::Focusable};
 
 pub(crate) fn resolve_named_menus(
     mut commands: Commands,

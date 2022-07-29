@@ -55,6 +55,7 @@ git checkout v0.4.0
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
+  - [UI navigation](#ui-navigation)
   - [Window](#window)
 
 - [Tests](#tests)
@@ -314,6 +315,13 @@ Example | Description
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/scaling.rs) | Illustrates how to scale the UI
+
+## UI navigation
+
+Example | Description
+--- | ---
+[UI locking](../examples/ui_navigation/locking.rs) | Illustrates UI locking
+[menu navigation](../examples/ui_navigation/menu_navigation.rs) | Illustrates movement between menus
 
 ## Window
 

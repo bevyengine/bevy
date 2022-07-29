@@ -1485,6 +1485,26 @@ category = "UI navigation"
 wasm = true
 
 # [[example]]
+# name = "button_navigation"
+# path = "examples/ui_navigation/button_navigation.rs"
+# 
+# [package.metadata.example.button_navigation]
+# name = "Simple navigation"
+# description = "Illustrates the default navigation behaviors between four buttons"
+# category = "UI navigation"
+# wasm = true
+# 
+# [[example]]
+# name = "custom_navigation"
+# path = "examples/ui_navigation/custom_navigation.rs"
+# 
+# [package.metadata.example.custom_navigation]
+# name = "User navigation input"
+# description = "Illustrates how to provide custom menu navigation input"
+# category = "UI navigation"
+# wasm = true
+# 
+# [[example]]
 # name = "nav_3d"
 # path = "examples/ui_navigation/nav_3d.rs"
 
