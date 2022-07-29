@@ -94,17 +94,12 @@ impl SystemRegistry {
     /// This allows the system to be run by their [`SystemTypeIdLabel`] using the `run_systems_by_label` method.
     /// Repeatedly registering a system will have no effect.
     ///
-    /// Ordinarily, systems are automatically registered when [`run_system`](SystemRegistry::run_system) is called.
-    /// When this occurs, they will be registered using their [`SystemTypeIdLabel`].
-    /// However, manual registration allows you to provide one or more labels for the system.
-    /// This also allows you to register multiple distinct copies of the system under distinct labels.
-    ///
     /// When [`run_systems_by_label`](SystemRegistry::run_systems_by_label) is called,
     /// all registered systems that match that label will be evaluated (in insertion order).
     ///
     /// To provide explicit label(s), use [`register_system_with_labels`](SystemRegistry::register_system_with_labels).
     #[inline]
-    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(
+    fn register_system_with_type_label<Params, S: IntoSystem<(), (), Params> + 'static>(
         &mut self,
         world: &mut World,
         system: S,
@@ -115,26 +110,23 @@ impl SystemRegistry {
         if !self.is_label_registered(automatic_system_label) {
             let boxed_system: Box<dyn System<In = (), Out = ()>> =
                 Box::new(IntoSystem::into_system(system));
-            self.register_boxed_system_with_labels(
-                world,
-                boxed_system,
-                vec![Box::new(automatic_system_label)],
-            );
+            self.register_boxed_system(world, boxed_system, vec![Box::new(automatic_system_label)]);
         } else {
             let type_name = std::any::type_name::<S>();
             warn!("A system of type {type_name} was registered more than once!");
         };
     }
 
-    /// Register system a system with any number of [`SystemLabel`]s.
+    /// Register a system so that it may be run by any of their [`SystemLabel`]s.
     ///
-    /// This allows the system to be run whenever any of its labels are run using [`run_systems_by_label`](SystemRegistry::run_systems_by_label).
+    /// This is only needed if you want to run a system by a particular label;
+    /// the `run_system` label will automatically register systems under their [`SystemTypeIdLabel`] when first used.
     ///
     /// # Warning
     ///
-    /// Unlike the `register_system` method, duplicate systems may be added;
-    /// each copy will be called seperately if they share a label.
-    pub fn register_system_with_labels<
+    /// Duplicate systems may be added if this method is called repeatedly.
+    /// Each copy will be called seperately if they share a label.
+    pub fn register_system<
         Params,
         S: IntoSystem<(), (), Params> + 'static,
         LI: IntoIterator<Item = L>,
@@ -156,10 +148,10 @@ impl SystemRegistry {
             })
             .collect();
 
-        self.register_boxed_system_with_labels(world, boxed_system, collected_labels);
+        self.register_boxed_system(world, boxed_system, collected_labels);
     }
 
-    /// A more exacting version of [`register_system_with_labels`](Self::register_system_with_labels).
+    /// A less generic version of [`register_system`](Self::register_system_with_labels).
     ///
     /// Returns the index in the vector of systems that this new system is stored at.
     /// This is only useful for debugging as an external user of this method.
@@ -167,7 +159,7 @@ impl SystemRegistry {
     /// This can be useful when you have a boxed system or boxed labels,
     /// as the corresponding traits are not implemented for boxed trait objects
     /// to avoid indefinite nesting.
-    pub fn register_boxed_system_with_labels(
+    pub fn register_boxed_system(
         &mut self,
         world: &mut World,
         mut boxed_system: Box<dyn System<In = (), Out = ()>>,
@@ -271,7 +263,11 @@ impl SystemRegistry {
 
     /// Runs the supplied system on the [`World`] a single time.
     ///
+    /// You do not need to register systems before they are run in this way.
+    /// Instead, systems will be automatically registered according to their [`SystemTypeIdLabel`] the first time this method is called on them.
+    ///
     /// System state will be reused between runs, ensuring that [`Local`](crate::system::Local) variables and change detection works correctly.
+    ///
     /// If, via manual system registration, you have somehow managed to insert more than one system with the same [`SystemTypeIdLabel`],
     /// only the first will be run.
     pub fn run_system<Params, S: IntoSystem<(), (), Params> + 'static>(
@@ -286,7 +282,7 @@ impl SystemRegistry {
             let boxed_system: Box<dyn System<In = (), Out = ()>> =
                 Box::new(IntoSystem::into_system(system));
             let labels = boxed_system.default_labels();
-            self.register_boxed_system_with_labels(world, boxed_system, labels)
+            self.register_boxed_system(world, boxed_system, labels)
         };
 
         self.run_system_at_index(world, index);
@@ -300,7 +296,7 @@ impl World {
     #[inline]
     pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.register_system(world, system);
+            registry.register_system_with_type_label(world, system);
         });
     }
 
@@ -318,7 +314,7 @@ impl World {
         labels: LI,
     ) {
         self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.register_system_with_labels(world, system, labels);
+            registry.register_system(world, system, labels);
         });
     }
 
