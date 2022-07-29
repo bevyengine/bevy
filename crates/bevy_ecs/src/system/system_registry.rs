@@ -211,7 +211,7 @@ impl SystemRegistry {
         stored_system.system.apply_buffers(world);
     }
 
-    /// Is at least one system in the [`SystemRegistry`] is associated with the provided [`SystemLabel`]?
+    /// Is at least one system in the [`SystemRegistry`] associated with the provided [`SystemLabel`]?
     #[inline]
     pub fn is_label_registered<L: SystemLabel>(&self, label: L) -> bool {
         let boxed_label: Box<dyn SystemLabel> = Box::new(label);
