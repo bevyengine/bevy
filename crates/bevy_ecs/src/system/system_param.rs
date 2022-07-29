@@ -644,7 +644,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 pub struct Local<'a, T: Send + 'static>(&'a mut T);
 
 // SAFETY: Local only accesses internal state
-unsafe impl<T: Resource> ReadOnlySystemParamFetch for LocalState<T> {}
+unsafe impl<T: Send + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
 
 impl<'a, T: Resource> Debug for Local<'a, T>
 where
@@ -675,18 +675,18 @@ impl<'a, T: Resource> DerefMut for Local<'a, T> {
 #[doc(hidden)]
 pub struct LocalState<T: Send + 'static>(SyncCell<T>);
 
-impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T> {
+impl<'a, T: Send + FromWorld + 'static> SystemParam for Local<'a, T> {
     type Fetch = LocalState<T>;
 }
 
 // SAFETY: only local state is accessed
-unsafe impl<T: Resource + FromWorld> SystemParamState for LocalState<T> {
+unsafe impl<T: Send + FromWorld + 'static> SystemParamState for LocalState<T> {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self(SyncCell::new(T::from_world(world)))
     }
 }
 
-impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T> {
+impl<'w, 's, T: Send + FromWorld + 'static> SystemParamFetch<'w, 's> for LocalState<T> {
     type Item = Local<'s, T>;
 
     #[inline]
