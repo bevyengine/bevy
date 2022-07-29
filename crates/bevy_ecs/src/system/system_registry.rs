@@ -290,20 +290,10 @@ impl SystemRegistry {
 }
 
 impl World {
-    /// Registers the supplied system in the [`SystemRegistry`] resource.
-    ///
-    /// Calls the method of the same name on [`SystemRegistry`].
-    #[inline]
-    pub fn register_system<Params, S: IntoSystem<(), (), Params> + 'static>(&mut self, system: S) {
-        self.resource_scope(|world, mut registry: Mut<SystemRegistry>| {
-            registry.register_system_with_type_label(world, system);
-        });
-    }
-
     /// Register system a system with any number of [`SystemLabel`]s.
     ///
     /// Calls the method of the same name on [`SystemRegistry`].
-    pub fn register_system_with_labels<
+    pub fn register_system<
         Params,
         S: IntoSystem<(), (), Params> + 'static,
         LI: IntoIterator<Item = L>,
@@ -495,8 +485,8 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.register_system_with_labels(count_up, ["count"]);
-        world.register_system_with_labels(count_up, ["count"]);
+        world.register_system(count_up, ["count"]);
+        world.register_system(count_up, ["count"]);
         world.run_systems_by_label("count").unwrap();
         // All systems matching the label will be run.
         assert_eq!(*world.resource::<Counter>(), Counter(2));
