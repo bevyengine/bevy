@@ -21,4 +21,3 @@ bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }
-num_enum = "0.5.7"
