@@ -130,11 +130,7 @@ impl<'w> EntityRef<'w> {
 
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
     fn from(entity_mut: EntityMut<'w>) -> EntityRef<'w> {
-        EntityRef {
-            world: entity_mut.world,
-            entity: entity_mut.entity,
-            location: entity_mut.location,
-        }
+        EntityRef::new(entity_mut.world, entity_mut.entity, entity_mut.location)
     }
 }
 
