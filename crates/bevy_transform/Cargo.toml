@@ -14,4 +14,4 @@ bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev", features = ["bevy_reflect"] }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.8.0-dev"}
 bevy_math = { path = "../bevy_math", version = "0.8.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev", features = ["bevy"] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.8.0", features = ["bevy"] }
