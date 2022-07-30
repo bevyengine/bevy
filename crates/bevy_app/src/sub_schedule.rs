@@ -237,13 +237,3 @@ pub(crate) fn add_to_app(app: &mut App, schedule: impl IntoSubSchedule) {
         panic!("inserted sub-schedule can never be accessed, as it has neither a label nor a runner function")
     }
 }
-
-/// Trait that lets us get the type name of a trait object for debugging purposes.
-trait AnyTypeName: 'static {
-    fn name(&self) -> &'static str;
-}
-impl<T: ?Sized + 'static> AnyTypeName for T {
-    fn name(&self) -> &'static str {
-        std::any::type_name::<Self>()
-    }
-}
