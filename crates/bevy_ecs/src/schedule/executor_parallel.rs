@@ -1,10 +1,11 @@
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
-    schedule::{ParallelSystemContainer, ParallelSystemExecutor},
+    schedule::{FunctionSystemContainer, ParallelSystemExecutor},
     world::World,
 };
 use async_channel::{Receiver, Sender};
+use bevy_ptr::SemiSafeCell;
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
@@ -74,7 +75,7 @@ impl Default for ParallelExecutor {
 }
 
 impl ParallelSystemExecutor for ParallelExecutor {
-    fn rebuild_cached_data(&mut self, systems: &[ParallelSystemContainer]) {
+    fn rebuild_cached_data(&mut self, systems: &[FunctionSystemContainer]) {
         self.system_metadata.clear();
         self.queued.grow(systems.len());
         self.running.grow(systems.len());
@@ -82,6 +83,10 @@ impl ParallelSystemExecutor for ParallelExecutor {
 
         // Construct scheduling data for systems.
         for container in systems {
+            if container.system().is_exclusive() {
+                panic!("executor cannot run exclusive systems");
+            }
+
             let dependencies_total = container.dependencies().len();
             let system = container.system();
             let (start_sender, start_receiver) = async_channel::bounded(1);
@@ -103,7 +108,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         }
     }
 
-    fn run_systems(&mut self, systems: &mut [ParallelSystemContainer], world: &mut World) {
+    fn run_systems(&mut self, systems: &mut [FunctionSystemContainer], world: &mut World) {
         #[cfg(test)]
         if self.events_sender.is_none() {
             let (sender, receiver) = async_channel::unbounded::<SchedulingEvent>();
@@ -163,7 +168,7 @@ impl ParallelExecutor {
     fn prepare_systems<'scope>(
         &mut self,
         scope: &mut Scope<'scope, ()>,
-        systems: &'scope mut [ParallelSystemContainer],
+        systems: &'scope mut [FunctionSystemContainer],
         world: &'scope World,
     ) {
         #[cfg(feature = "trace")]
@@ -191,7 +196,7 @@ impl ParallelExecutor {
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
                     // SAFETY: the executor prevents two systems with conflicting access from running simultaneously.
-                    unsafe { system.run_unsafe((), world) };
+                    unsafe { system.run_unsafe((), SemiSafeCell::from_ref(world)) };
                     #[cfg(feature = "trace")]
                     drop(system_guard);
                     finish_sender

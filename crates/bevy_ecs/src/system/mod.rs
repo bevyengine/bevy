@@ -67,7 +67,6 @@
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
 
 mod commands;
-mod exclusive_system;
 mod function_system;
 mod query;
 #[allow(clippy::module_inception)]
@@ -76,7 +75,6 @@ mod system_chaining;
 mod system_param;
 
 pub use commands::*;
-pub use exclusive_system::*;
 pub use function_system::*;
 pub use query::*;
 pub use system::*;
@@ -96,34 +94,6 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
     }
 }
 
-/// Ensure that a given function is an exclusive system
-///
-/// This should be used when writing doc examples,
-/// to confirm that systems used in an example are
-/// valid exclusive systems
-///
-/// Passing assert
-/// ```
-/// # use bevy_ecs::prelude::World;
-/// # use bevy_ecs::system::assert_is_exclusive_system;
-/// fn an_exclusive_system(_world: &mut World) {}
-///
-/// assert_is_exclusive_system(an_exclusive_system);
-/// ```
-///
-/// Failing assert
-/// ```compile_fail
-/// # use bevy_ecs::prelude::World;
-/// # use bevy_ecs::system::assert_is_exclusive_system;
-/// fn not_an_exclusive_system(_world: &mut World, number: f32) {}
-///
-/// assert_is_exclusive_system(not_an_exclusive_system);
-/// ```
-pub fn assert_is_exclusive_system<Params, SystemType>(
-    _sys: impl IntoExclusiveSystem<Params, SystemType>,
-) {
-}
-
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
@@ -136,10 +106,10 @@ mod tests {
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::{IntoSystemDescriptor, Schedule, Stage, SystemStage},
         system::{
-            Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            RemovedComponents, Res, ResMut, System, SystemState,
+            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, RemovedComponents,
+            Res, ResMut, System, SystemState,
         },
         world::{FromWorld, World},
     };
