@@ -12,7 +12,7 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.8.0" }
 
 # other
 libloading = { version = "0.7" }

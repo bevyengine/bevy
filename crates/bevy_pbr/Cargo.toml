@@ -13,7 +13,7 @@ webgl = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.8.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.8.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.8.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0" }
