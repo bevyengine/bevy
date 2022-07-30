@@ -392,6 +392,7 @@ wasm = true
 [[example]]
 name = "skybox"
 path = "examples/3d/skybox.rs"
+required-features = ["ktx2", "zstd"]
 
 [package.metadata.example.skybox]
 name = "Skybox"
