@@ -5,10 +5,8 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
-    query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
-    },
-    system::{CommandQueue, Commands, Query, SystemMeta},
+    query::{FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery},
+    system::{CommandQueue, Commands, MaybeUnsafeCell, Query, SystemMeta},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Resource;
@@ -22,6 +20,20 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+
+/// The level of access a [`SystemParam`] needs from the [`World`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorldAccessLevel {
+    None,
+    Shared,
+    Exclusive,
+}
+
+/// Asserts that a given [`SystemParam`] (or tuple) has a valid [`WorldAccessLevel`].
+pub fn assert_valid_world_access_level<Params: SystemParam>() {
+    // this will panic on params/tuples whose fields/members have conflicting access levels
+    let _ = <Params::Fetch as SystemParamState>::world_access_level();
+}
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -113,6 +125,22 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
     #[inline]
     fn apply(&mut self, _world: &mut World) {}
+
+    /// # Safety
+    ///
+    /// This function must return:
+    /// - [`WorldAccessLevel::Exclusive`] if [`get_param`](SystemParamFetch::get_param)
+    /// internally constructs a [`&mut World`](World) (or a type that can make one).
+    /// - [`WorldAccessLevel::Shared`] if [`get_param`](SystemParamFetch::get_param)
+    /// internally constructs a [`&World`](World) (or a type that can make one).
+    /// - [`WorldAccessLevel::None`] otherwise.
+    ///
+    /// # Panics
+    ///
+    /// During system construction, [`SystemParam`] tuples and implementations
+    /// produced by the [`#[derive(SystemParam)`](`derive@super::SystemParam`)
+    /// macro will panic on invalid combinations that would be undefined behavior.
+    fn world_access_level() -> WorldAccessLevel;
 }
 
 /// A [`SystemParamFetch`] that only reads a given [`World`].
@@ -130,7 +158,7 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     unsafe fn get_param(
         state: &'state mut Self,
         system_meta: &SystemMeta,
-        world: &'world World,
+        world: MaybeUnsafeCell<'world, World>,
         change_tick: u32,
     ) -> Self::Item;
 }
@@ -177,6 +205,10 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
             .archetype_component_access
             .extend(&self.archetype_component_access);
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParamFetch<'w, 's>
@@ -188,9 +220,10 @@ impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPar
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         Query::new(world, state, system_meta.last_change_tick, change_tick)
     }
 }
@@ -218,7 +251,7 @@ fn assert_component_access_compatibility(
 
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::Fetch,
-    world: &'w World,
+    world: MaybeUnsafeCell<'w, World>,
     system_meta: SystemMeta,
     change_tick: u32,
 }
@@ -370,6 +403,10 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
             marker: PhantomData,
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
@@ -379,9 +416,10 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         let column = world
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
@@ -418,6 +456,10 @@ unsafe impl<T: Resource> SystemParamState for OptionResState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(ResState::init(world, system_meta))
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
@@ -427,9 +469,10 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world
             .get_populated_resource_column(state.0.component_id)
             .map(|column| Res {
@@ -481,6 +524,10 @@ unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
             marker: PhantomData,
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
@@ -490,9 +537,10 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         let value = world
             .get_resource_unchecked_mut_with_id(state.component_id)
             .unwrap_or_else(|| {
@@ -528,6 +576,10 @@ unsafe impl<T: Resource> SystemParamState for OptionResMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(ResMutState::init(world, system_meta))
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
@@ -537,9 +589,10 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world
             .get_resource_unchecked_mut_with_id(state.0.component_id)
             .map(|value| ResMut {
@@ -569,6 +622,10 @@ unsafe impl SystemParamState for CommandQueue {
     fn apply(&mut self, world: &mut World) {
         self.apply(world);
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
@@ -578,9 +635,10 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         Commands::new(state, world)
     }
 }
@@ -599,29 +657,32 @@ impl<'w> SystemParam for &'w World {
 // SAFETY: `read_all` access is set and conflicts result in a panic
 unsafe impl SystemParamState for WorldState {
     fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
-        let mut access = Access::default();
-        access.read_all();
-        if !system_meta
-            .archetype_component_access
-            .is_compatible(&access)
-        {
-            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
-        }
-        system_meta.archetype_component_access.extend(&access);
+        let mut world_access = FilteredAccess::default();
+        world_access.read_all();
 
-        let mut filtered_access = FilteredAccess::default();
-
-        filtered_access.read_all();
+        // conflict with any preceding param
         if !system_meta
             .component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
+            .is_compatible_single(&world_access)
         {
-            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
+            panic!(
+                "&World conflicts with another system param in {}. \
+                Mutable access must be unique.",
+                system_meta.name,
+            );
         }
-        system_meta.component_access_set.add(filtered_access);
+
+        // conflict with any following param
+        system_meta.component_access_set.add(world_access);
+
+        // executor
+        system_meta.archetype_component_access.read_all();
 
         WorldState
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
     }
 }
 
@@ -630,10 +691,64 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
-        world
+        world.into_ref()
+    }
+}
+
+/// The [`SystemParamState`] of [`&mut World`](crate::world::World).
+#[doc(hidden)]
+pub struct WorldMutState;
+
+impl<'w> SystemParam for &'w mut World {
+    type Fetch = WorldMutState;
+}
+
+unsafe impl SystemParamState for WorldMutState {
+    fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        let mut world_access = FilteredAccess::default();
+        world_access.write_all();
+
+        // conflict with any preceding param
+        if !system_meta
+            .component_access_set
+            .is_compatible_single(&world_access)
+        {
+            panic!(
+                "&mut World conflicts with another system param in {}. \
+                Mutable access must be unique.",
+                system_meta.name,
+            );
+        }
+
+        // conflict with any following param
+        system_meta.component_access_set.add(world_access);
+
+        // executor
+        system_meta.archetype_component_access.write_all();
+
+        // world can contain non-send resources, must run on its local thread
+        system_meta.set_non_send();
+
+        WorldMutState
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Exclusive
+    }
+}
+
+impl<'w, 's> SystemParamFetch<'w, 's> for WorldMutState {
+    type Item = &'w mut World;
+    unsafe fn get_param(
+        _state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        world: MaybeUnsafeCell<'w, World>,
+        _change_tick: u32,
+    ) -> Self::Item {
+        &mut *world.into_cell_ref().get()
     }
 }
 
@@ -723,6 +838,10 @@ unsafe impl<T: FromWorld + Send + 'static> SystemParamState for LocalState<T> {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self(SyncCell::new(T::from_world(world)))
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
+    }
 }
 
 impl<'w, 's, T: FromWorld + Send + 'static> SystemParamFetch<'w, 's> for LocalState<T> {
@@ -732,7 +851,7 @@ impl<'w, 's, T: FromWorld + Send + 'static> SystemParamFetch<'w, 's> for LocalSt
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
         Local(state.0.get())
@@ -818,6 +937,10 @@ unsafe impl<T: Component> SystemParamState for RemovedComponentsState<T> {
             marker: PhantomData,
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T> {
@@ -827,9 +950,10 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         RemovedComponents {
             world,
             component_id: state.component_id,
@@ -939,6 +1063,10 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
             marker: PhantomData,
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
@@ -948,9 +1076,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world.validate_non_send_access::<T>();
         let column = world
             .get_populated_resource_column(state.component_id)
@@ -989,6 +1118,10 @@ unsafe impl<T: 'static> SystemParamState for OptionNonSendState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(NonSendState::init(world, system_meta))
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
@@ -998,9 +1131,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world.validate_non_send_access::<T>();
         world
             .get_populated_resource_column(state.0.component_id)
@@ -1055,6 +1189,10 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
             marker: PhantomData,
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
@@ -1064,9 +1202,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world.validate_non_send_access::<T>();
         let column = world
             .get_populated_resource_column(state.component_id)
@@ -1103,6 +1242,10 @@ unsafe impl<T: 'static> SystemParamState for OptionNonSendMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(NonSendMutState::init(world, system_meta))
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
@@ -1112,9 +1255,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world.validate_non_send_access::<T>();
         world
             .get_populated_resource_column(state.0.component_id)
@@ -1145,6 +1289,10 @@ unsafe impl SystemParamState for ArchetypesState {
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for ArchetypesState {
@@ -1154,9 +1302,10 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ArchetypesState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world.archetypes()
     }
 }
@@ -1177,6 +1326,10 @@ unsafe impl SystemParamState for ComponentsState {
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for ComponentsState {
@@ -1186,9 +1339,10 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ComponentsState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world.components()
     }
 }
@@ -1209,6 +1363,10 @@ unsafe impl SystemParamState for EntitiesState {
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for EntitiesState {
@@ -1218,9 +1376,10 @@ impl<'w, 's> SystemParamFetch<'w, 's> for EntitiesState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world.entities()
     }
 }
@@ -1241,6 +1400,10 @@ unsafe impl SystemParamState for BundlesState {
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
@@ -1250,9 +1413,10 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
+        let world = world.into_ref();
         world.bundles()
     }
 }
@@ -1302,6 +1466,10 @@ unsafe impl SystemParamState for SystemChangeTickState {
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self {}
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
+    }
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
@@ -1310,7 +1478,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
     unsafe fn get_param(
         _state: &'s mut Self,
         system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
         SystemChangeTick {
@@ -1424,7 +1592,7 @@ macro_rules! impl_system_param_tuple {
             unsafe fn get_param(
                 state: &'s mut Self,
                 system_meta: &SystemMeta,
-                world: &'w World,
+                world: MaybeUnsafeCell<'w, World>,
                 change_tick: u32,
             ) -> Self::Item {
 
@@ -1452,6 +1620,40 @@ macro_rules! impl_system_param_tuple {
             fn apply(&mut self, _world: &mut World) {
                 let ($($param,)*) = self;
                 $($param.apply(_world);)*
+            }
+
+            #[inline]
+            #[allow(unused_mut)]
+            fn world_access_level() -> WorldAccessLevel {
+                let mut exclusive = false;
+                let mut shared = false;
+                $(
+                    match $param::world_access_level() {
+                        WorldAccessLevel::Exclusive => {
+                            if shared || exclusive {
+                                panic!("Invalid combination of system params.");
+                            } else {
+                                exclusive = true;
+                            }
+                        }
+                        WorldAccessLevel::Shared => {
+                            if exclusive {
+                                panic!("Invalid combination of system params.");
+                            } else {
+                                shared = true;
+                            }
+                        }
+                        WorldAccessLevel::None => (),
+                    }
+                )*
+
+                if exclusive {
+                    WorldAccessLevel::Exclusive
+                } else if shared {
+                    WorldAccessLevel::Shared
+                } else {
+                    WorldAccessLevel::None
+                }
             }
         }
     };
@@ -1570,7 +1772,7 @@ where
     unsafe fn get_param(
         state: &'state mut Self,
         system_meta: &SystemMeta,
-        world: &'world World,
+        world: MaybeUnsafeCell<'world, World>,
         change_tick: u32,
     ) -> Self::Item {
         // SAFETY: We properly delegate SystemParamState
@@ -1592,6 +1794,10 @@ unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
 
     fn apply(&mut self, world: &mut World) {
         self.0.apply(world);
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        S::world_access_level()
     }
 }
 

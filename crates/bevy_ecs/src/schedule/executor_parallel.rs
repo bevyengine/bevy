@@ -1,7 +1,8 @@
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
-    schedule::{ParallelSystemContainer, ParallelSystemExecutor},
+    schedule::{FunctionSystemContainer, ParallelSystemExecutor},
+    system::MaybeUnsafeCell,
     world::World,
 };
 use async_channel::{Receiver, Sender};
@@ -77,7 +78,7 @@ impl Default for ParallelExecutor {
 }
 
 impl ParallelSystemExecutor for ParallelExecutor {
-    fn rebuild_cached_data(&mut self, systems: &[ParallelSystemContainer]) {
+    fn rebuild_cached_data(&mut self, systems: &[FunctionSystemContainer]) {
         self.system_metadata.clear();
         self.queued.grow(systems.len());
         self.running.grow(systems.len());
@@ -85,6 +86,10 @@ impl ParallelSystemExecutor for ParallelExecutor {
 
         // Construct scheduling data for systems.
         for container in systems {
+            if container.system().is_exclusive() {
+                panic!("executor cannot run exclusive systems");
+            }
+
             let dependencies_total = container.dependencies().len();
             let system = container.system();
             self.system_metadata.push(SystemSchedulingMetadata {
@@ -104,7 +109,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         }
     }
 
-    fn run_systems(&mut self, systems: &mut [ParallelSystemContainer], world: &mut World) {
+    fn run_systems(&mut self, systems: &mut [FunctionSystemContainer], world: &mut World) {
         #[cfg(test)]
         if self.events_sender.is_none() {
             let (sender, receiver) = async_channel::unbounded::<SchedulingEvent>();
@@ -167,7 +172,7 @@ impl ParallelExecutor {
     fn prepare_systems<'scope>(
         &mut self,
         scope: &mut Scope<'scope, ()>,
-        systems: &'scope mut [ParallelSystemContainer],
+        systems: &'scope mut [FunctionSystemContainer],
         world: &'scope World,
     ) {
         // These are used as a part of a unit test.
@@ -215,7 +220,7 @@ impl ParallelExecutor {
                 #[cfg(feature = "trace")]
                 let _system_guard = system_span.enter();
                 // SAFETY: the executor prevents two systems with conflicting access from running simultaneously.
-                unsafe { system.run_unsafe((), world) };
+                unsafe { system.run_unsafe((), MaybeUnsafeCell::from_ref(world)) };
             };
 
             if can_start {

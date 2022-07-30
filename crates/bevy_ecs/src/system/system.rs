@@ -1,5 +1,6 @@
 use bevy_utils::tracing::warn;
 
+use crate::system::MaybeUnsafeCell;
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
     query::Access, schedule::SystemLabelId, world::World,
@@ -31,7 +32,8 @@ pub trait System: Send + Sync + 'static {
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
-
+    /// Returns `true` if the system cannot run in parallel with other systems.
+    fn is_exclusive(&self) -> bool;
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// takes a shared reference to [`World`] and may therefore break Rust's aliasing rules, making
     /// it unsafe to call.
@@ -43,12 +45,12 @@ pub trait System: Send + Sync + 'static {
     ///     1. This system is the only system running on the given world across all threads.
     ///     2. This system only runs in parallel with other systems that do not conflict with the
     ///        [`System::archetype_component_access()`].
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: MaybeUnsafeCell<World>) -> Self::Out;
     /// Runs the system with the given input in the world.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         self.update_archetype_component_access(world);
         // SAFETY: world and resources are exclusively borrowed
-        unsafe { self.run_unsafe(input, world) }
+        unsafe { self.run_unsafe(input, MaybeUnsafeCell::from_mut(world)) }
     }
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.

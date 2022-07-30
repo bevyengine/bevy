@@ -5,7 +5,7 @@ use thread_local::ThreadLocal;
 use crate::{
     entity::Entities,
     prelude::World,
-    system::{SystemParam, SystemParamFetch, SystemParamState},
+    system::{MaybeUnsafeCell, SystemParam, SystemParamFetch, SystemParamState},
 };
 
 use super::{CommandQueue, Commands};
@@ -58,12 +58,12 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ParallelCommandsState {
     unsafe fn get_param(
         state: &'s mut Self,
         _: &crate::system::SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         _: u32,
     ) -> Self::Item {
         ParallelCommands {
             state,
-            entities: world.entities(),
+            entities: world.into_ref().entities(),
         }
     }
 }
@@ -78,6 +78,10 @@ unsafe impl SystemParamState for ParallelCommandsState {
         for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
         }
+    }
+
+    fn world_access_level() -> crate::system::WorldAccessLevel {
+        crate::system::WorldAccessLevel::Shared
     }
 }
 

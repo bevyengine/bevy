@@ -227,6 +227,30 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 fn apply(&mut self, world: &mut World) {
                     self.0.apply(world)
                 }
+
+                fn world_access_level() -> WorldAccessLevel {
+                    let mut exclusive = false;
+                    let mut shared = false;
+                    #(
+                        match #param_fetch::world_access_level() {
+                            WorldAccessLevel::Exclusive => {
+                                exclusive = true;
+                            }
+                            WorldAccessLevel::Shared => {
+                                shared = true;
+                            }
+                            WorldAccessLevel::None => (),
+                        }
+                    )*
+
+                    if exclusive {
+                        WorldAccessLevel::Exclusive
+                    } else if shared {
+                        WorldAccessLevel::Shared
+                    } else {
+                        WorldAccessLevel::None
+                    }
+                }
             }
 
 
@@ -239,7 +263,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 unsafe fn get_param(
                     state: &'s mut Self,
                     system_meta: &SystemMeta,
-                    world: &'w World,
+                    world: MaybeUnsafeCell<'w, World>,
                     change_tick: u32,
                 ) -> Self::Item {
                     ParamSet {
@@ -377,6 +401,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 fn apply(&mut self, world: &mut #path::world::World) {
                     self.state.apply(world)
                 }
+
+                fn world_access_level() -> #path::system::WorldAccessLevel {
+                    TSystemParamState::world_access_level()
+                }
             }
 
             impl #impl_generics #path::system::SystemParamFetch<'w, 's> for FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
@@ -384,7 +412,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 unsafe fn get_param(
                     state: &'s mut Self,
                     system_meta: &#path::system::SystemMeta,
-                    world: &'w #path::world::World,
+                    world: #path::system::MaybeUnsafeCell<'w, #path::world::World>,
                     change_tick: u32,
                 ) -> Self::Item {
                     #struct_name {

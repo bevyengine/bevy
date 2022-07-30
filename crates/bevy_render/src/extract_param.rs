@@ -2,8 +2,8 @@ use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
     system::{
-        ReadOnlySystemParamFetch, ResState, SystemMeta, SystemParam, SystemParamFetch,
-        SystemParamItem, SystemParamState, SystemState,
+        MaybeUnsafeCell, ReadOnlySystemParamFetch, ResState, SystemMeta, SystemParam,
+        SystemParamFetch, SystemParamItem, SystemParamState, SystemState, WorldAccessLevel,
     },
 };
 use std::ops::{Deref, DerefMut};
@@ -72,6 +72,10 @@ unsafe impl<P: SystemParam + 'static> SystemParamState for ExtractState<P> {
             main_world_state: ResState::init(world, system_meta),
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 impl<'w, 's, P: SystemParam + 'static> SystemParamFetch<'w, 's> for ExtractState<P>
@@ -83,7 +87,7 @@ where
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: MaybeUnsafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
         let main_world = ResState::<MainWorld>::get_param(

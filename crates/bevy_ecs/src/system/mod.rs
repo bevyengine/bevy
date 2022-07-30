@@ -69,7 +69,6 @@
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
 
 mod commands;
-mod exclusive_system;
 mod function_system;
 mod query;
 #[allow(clippy::module_inception)]
@@ -78,12 +77,13 @@ mod system_chaining;
 mod system_param;
 
 pub use commands::*;
-pub use exclusive_system::*;
 pub use function_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_chaining::*;
 pub use system_param::*;
+
+pub use bevy_ptr::MaybeUnsafeCell;
 
 /// Ensure that a given function is a system
 ///
@@ -96,34 +96,6 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
         // TODO: This should ensure that the system has no conflicting system params
         IntoSystem::into_system(sys);
     }
-}
-
-/// Ensure that a given function is an exclusive system
-///
-/// This should be used when writing doc examples,
-/// to confirm that systems used in an example are
-/// valid exclusive systems
-///
-/// Passing assert
-/// ```
-/// # use bevy_ecs::prelude::World;
-/// # use bevy_ecs::system::assert_is_exclusive_system;
-/// fn an_exclusive_system(_world: &mut World) {}
-///
-/// assert_is_exclusive_system(an_exclusive_system);
-/// ```
-///
-/// Failing assert
-/// ```compile_fail
-/// # use bevy_ecs::prelude::World;
-/// # use bevy_ecs::system::assert_is_exclusive_system;
-/// fn not_an_exclusive_system(_world: &mut World, number: f32) {}
-///
-/// assert_is_exclusive_system(not_an_exclusive_system);
-/// ```
-pub fn assert_is_exclusive_system<Params, SystemType>(
-    _sys: impl IntoExclusiveSystem<Params, SystemType>,
-) {
 }
 
 #[cfg(test)]
@@ -142,8 +114,8 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            RemovedComponents, Res, ResMut, Resource, System, SystemState,
+            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, RemovedComponents,
+            Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -324,7 +296,7 @@ mod tests {
         schedule.add_stage(UpdateStage, update);
         schedule.add_stage(
             ClearTrackers,
-            SystemStage::single(World::clear_trackers.exclusive_system()),
+            SystemStage::single(World::clear_trackers),
         );
 
         schedule.run(&mut world);
@@ -497,6 +469,63 @@ mod tests {
     fn nonconflicting_system_resources() {
         fn sys(_: Local<BufferRes>, _: ResMut<BufferRes>, _: Local<A>, _: ResMut<A>) {}
         test_for_conflicting_resources(sys);
+    }
+
+    #[test]
+    fn detect_exclusive_system() {
+        let c1 = |_world: &mut World| {};
+        let c2 = |_params: ParamSet<(&mut World, ())>| {};
+        let c3 = |_world: &World| {};
+        let sys1 = IntoSystem::into_system(c1);
+        let sys2 = IntoSystem::into_system(c2);
+        let sys3 = IntoSystem::into_system(c3);
+        assert!(sys1.is_exclusive());
+        assert!(sys2.is_exclusive());
+        assert!(!sys3.is_exclusive());
+    }
+
+    #[test]
+    fn exclusive_with_local_params() {
+        let mut world = World::new();
+        let sys = |mut _local: Local<()>, _world: &mut World| {};
+        let mut system = IntoSystem::into_system(sys);
+        system.initialize(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_conflicting_params_1() {
+        let sys = |_params: ParamSet<(Query<()>, ())>, _world: &mut World| {};
+        IntoSystem::into_system(sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_conflicting_params_2() {
+        let sys = |_world1: &mut World, _world2: &mut World| {};
+        IntoSystem::into_system(sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_conflicting_params_3() {
+        // Commands has a reference to Entities (which is a field on World)
+        let sys = |mut _commands: Commands, _world: &mut World| {};
+        IntoSystem::into_system(sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_conflicting_params_4() {
+        let sys = |_world: &mut World, _empty: Query<()>| {};
+        IntoSystem::into_system(sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_conflicting_params_5() {
+        let sys = |_params: ParamSet<((&mut World, Query<()>), ())>| {};
+        IntoSystem::into_system(sys);
     }
 
     #[test]

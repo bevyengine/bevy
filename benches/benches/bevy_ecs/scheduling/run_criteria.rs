@@ -1,6 +1,6 @@
 use bevy_ecs::{
     component::Component,
-    prelude::{ParallelSystemDescriptorCoercion, Res, Resource, RunCriteriaDescriptorCoercion},
+    prelude::{IntoSystemDescriptor, Res, Resource, RunCriteriaDescriptorCoercion},
     schedule::{RunCriteriaLabel, ShouldRun, Stage, SystemStage},
     system::Query,
     world::World,
