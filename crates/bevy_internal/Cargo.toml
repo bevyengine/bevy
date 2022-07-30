@@ -94,7 +94,7 @@ bevy_scene = { path = "../bevy_scene", optional = true, version = "0.8.0" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.8.0" }
 bevy_text = { path = "../bevy_text", optional = true, version = "0.8.0" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.8.0" }
-bevy_winit = { path = "../bevy_winit", optional = true, version = "0.8.0-dev" }
+bevy_winit = { path = "../bevy_winit", optional = true, version = "0.8.0" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.8.0" }
 
 [target.'cfg(target_os = "android")'.dependencies]
