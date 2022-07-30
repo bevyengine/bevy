@@ -1,5 +1,6 @@
 use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
+use num_enum::FromPrimitive;
 
 /// A keyboard input event.
 ///
@@ -27,10 +28,11 @@ pub struct KeyboardInput {
 /// The main difference between the [`KeyboardInput`] event and the [`Input<KeyCode>`] resource is that
 /// the latter has convenient functions like [`Input::pressed`], [`Input::just_pressed`] and [`Input::just_released`].
 pub fn keyboard_input_system(
-    mut keyboard_input: ResMut<Input<KeyCode>>,
+    mut scan_input: ResMut<Input<ScanCode>>,
+    mut key_input: ResMut<Input<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
-    keyboard_input.clear();
+    key_input.clear();
     for event in keyboard_input_events.iter() {
         if let KeyboardInput {
             key_code: Some(key_code),
@@ -39,9 +41,16 @@ pub fn keyboard_input_system(
         } = event
         {
             match state {
-                ButtonState::Pressed => keyboard_input.press(*key_code),
-                ButtonState::Released => keyboard_input.release(*key_code),
+                ButtonState::Pressed => key_input.press(*key_code),
+                ButtonState::Released => key_input.release(*key_code),
             }
+        }
+        let KeyboardInput {
+            scan_code, state, ..
+        } = event;
+        match state {
+            ButtonState::Pressed => scan_input.press(ScanCode::from(*scan_code)),
+            ButtonState::Released => scan_input.release(ScanCode::from(*scan_code)),
         }
     }
 }
@@ -406,4 +415,111 @@ pub enum KeyCode {
     Paste,
     /// The `Cut` key.
     Cut,
+}
+
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, FromPrimitive)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[repr(u32)]
+pub enum ScanCode {
+    #[num_enum(default)]
+    Zero,
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+    Ten,
+    Eleven,
+    Twelve,
+    Thirteen,
+    Fourteen,
+    Fifteen,
+    Sixteen,
+    Seventeen,
+    Eighteen,
+    Nineteen,
+    Twenty,
+    TwentyOne,
+    TwentyTwo,
+    TwentyThree,
+    TwentyFour,
+    TwentyFive,
+    TwentySix,
+    TwentySeven,
+    TwentyEight,
+    TwentyNine,
+    Thirty,
+    ThirtyOne,
+    ThirtyTwo,
+    ThirtyThree,
+    ThirtyFour,
+    ThirtyFive,
+    ThirtySix,
+    ThirtySeven,
+    ThirtyEight,
+    ThirtyNine,
+    Forty,
+    FortyOne,
+    FortyTwo,
+    FortyThree,
+    FortyFour,
+    FortyFive,
+    FortySix,
+    FortySeven,
+    FortyEight,
+    FortyNine,
+    Fifty,
+    FiftyOne,
+    FiftyTwo,
+    FiftyThree,
+    FiftyFour,
+    FiftyFive,
+    FiftySix,
+    FiftySeven,
+    FiftyEight,
+    FiftyNine,
+    Sixty,
+    SixtyOne,
+    SixtyTwo,
+    SixtyThree,
+    SixtyFour,
+    SixtyFive,
+    SixtySix,
+    SixtySeven,
+    SixtyEight,
+    SixtyNine,
+    Seventy,
+    SeventyOne,
+    SeventyTwo,
+    SeventyThree,
+    SeventyFour,
+    SeventyFive,
+    SeventySix,
+    SeventySeven,
+    SeventyEight,
+    SeventyNine,
+    Eighty,
+    EightyOne,
+    EightyTwo,
+    EightyThree,
+    EightyFour,
+    EightyFive,
+    EightySix,
+    EightySeven,
+    EightyEight,
+    EightyNine,
+    Ninety,
+    NinetyOne,
+    NinetyTwo,
+    NinetyThree,
+    NinetyFour,
+    NinetyFive,
+    NinetySix,
+    NinetySeven,
+    NinetyEight,
+    NinetyNine,
 }
