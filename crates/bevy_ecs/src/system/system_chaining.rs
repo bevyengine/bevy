@@ -1,6 +1,7 @@
 use crate::{
     archetype::ArchetypeComponentId,
     component::ComponentId,
+    ptr::SemiSafeCell,
     query::Access,
     system::{IntoSystem, System},
     world::World,
@@ -72,7 +73,11 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.system_a.is_send() && self.system_b.is_send()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    fn is_exclusive(&self) -> bool {
+        self.system_a.is_exclusive() || self.system_b.is_exclusive()
+    }
+
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: SemiSafeCell<World>) -> Self::Out {
         let out = self.system_a.run_unsafe(input, world);
         self.system_b.run_unsafe(out, world)
     }

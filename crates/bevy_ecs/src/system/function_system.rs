@@ -3,11 +3,12 @@ use crate::{
     change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     prelude::FromWorld,
+    ptr::SemiSafeCell,
     query::{Access, FilteredAccessSet},
     schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
-        SystemParamItem, SystemParamState,
+        check_system_change_tick, MaybeExclusive, ReadOnlySystemParamFetch, System, SystemParam,
+        SystemParamFetch, SystemParamItem, SystemParamState,
     },
     world::{World, WorldId},
 };
@@ -167,7 +168,7 @@ impl<Param: SystemParam> SystemState<Param> {
     {
         self.validate_world_and_update_archetypes(world);
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
-        unsafe { self.get_unchecked_manual(world) }
+        unsafe { self.get_unchecked_manual(SemiSafeCell::from_ref(world)) }
     }
 
     /// Retrieve the mutable [`SystemParam`] values.
@@ -178,7 +179,7 @@ impl<Param: SystemParam> SystemState<Param> {
     ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         self.validate_world_and_update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
-        unsafe { self.get_unchecked_manual(world) }
+        unsafe { self.get_unchecked_manual(SemiSafeCell::from_mut(world)) }
     }
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
@@ -218,13 +219,14 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
-        world: &'w World,
+        mut world: SemiSafeCell<'w, World>,
     ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
-        let change_tick = world.increment_change_tick();
+        let mut cell = world;
+        let change_tick = cell.take_ref().increment_change_tick();
         let param = <Param::Fetch as SystemParamFetch>::get_param(
             &mut self.param_state,
             &self.meta,
-            world,
+            &mut world,
             change_tick,
         );
         self.meta.last_change_tick = change_tick;
@@ -387,22 +389,54 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
-        let change_tick = world.increment_change_tick();
+    fn is_exclusive(&self) -> bool {
+        <Param::Fetch as MaybeExclusive>::is_exclusive()
+    }
 
-        // Safety:
-        // We update the archetype component access correctly based on `Param`'s requirements
-        // in `update_archetype_component_access`.
-        // Our caller upholds the requirements.
-        let params = <Param as SystemParam>::Fetch::get_param(
-            self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
-            &self.system_meta,
-            world,
-            change_tick,
-        );
-        let out = self.func.run(input, params);
-        self.system_meta.last_change_tick = change_tick;
-        out
+    #[inline]
+    unsafe fn run_unsafe(&mut self, input: Self::In, mut world: SemiSafeCell<World>) -> Self::Out {
+        if self.is_exclusive() {
+            // exclusive systems temporarily swap out the world's previous change tick
+            // so that smart pointers directly created from the world work as expected
+            let mut cell = world;
+            let world_mut = cell.clone().take_mut();
+            let original_last_change_tick = world_mut.last_change_tick;
+            world_mut.last_change_tick = self.system_meta.last_change_tick;
+            let change_tick = *world_mut.change_tick.get_mut();
+
+            let params = <Param as SystemParam>::Fetch::get_param(
+                self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
+                &self.system_meta,
+                &mut world,
+                change_tick,
+            );
+            let out = self.func.run(input, params);
+
+            let world_mut = cell.take_mut();
+            let change_tick = world_mut.change_tick.get_mut();
+            self.system_meta.last_change_tick = *change_tick;
+            *change_tick += 1;
+            world_mut.last_change_tick = original_last_change_tick;
+            out
+        } else {
+            let mut cell = world;
+            let world_ref = cell.take_ref();
+            let change_tick = world_ref.increment_change_tick();
+
+            // Safety:
+            // We update the archetype component access correctly based on `Param`'s requirements
+            // in `update_archetype_component_access`.
+            // Our caller upholds the requirements.
+            let params = <Param as SystemParam>::Fetch::get_param(
+                self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
+                &self.system_meta,
+                &mut world,
+                change_tick,
+            );
+            let out = self.func.run(input, params);
+            self.system_meta.last_change_tick = change_tick;
+            out
+        }
     }
 
     #[inline]
