@@ -1,6 +1,6 @@
 [package]
 name = "bevy_gilrs"
-version = "0.8.0-dev"
+version = "0.8.0"
 edition = "2021"
 description = "Gamepad system made using Gilrs for Bevy Engine"
 homepage = "https://bevyengine.org"
