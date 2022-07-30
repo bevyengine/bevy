@@ -17,7 +17,7 @@ serialize = ["serde"]
 bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.8.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.8.0" }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }

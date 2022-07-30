@@ -27,7 +27,7 @@ bevy_sprite = { path = "../bevy_sprite", version = "0.8.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.8.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.8.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.8.0" }
 
 # other
 taffy = "0.1.0"

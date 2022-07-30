@@ -25,7 +25,7 @@ bevy_render = { path = "../bevy_render", version = "0.8.0-dev" }
 bevy_scene = { path = "../bevy_scene", version = "0.8.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.8.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.8.0" }
 
 # other
 gltf = { version = "1.0.0", default-features = false, features = [

@@ -13,7 +13,7 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.8.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.8.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.8.0" }
 
 # other
 gilrs = "0.9.0"
