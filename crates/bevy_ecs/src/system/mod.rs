@@ -445,6 +445,69 @@ mod tests {
     }
 
     #[test]
+    fn detect_exclusive_system() {
+        let c1 = |_world: &mut World| {};
+        let c2 = |_params: ParamSet<(&mut World, ())>| {};
+        let c3 = |_world: &World| {};
+        let sys1 = IntoSystem::into_system(c1);
+        let sys2 = IntoSystem::into_system(c2);
+        let sys3 = IntoSystem::into_system(c3);
+        assert!(sys1.is_exclusive());
+        assert!(sys2.is_exclusive());
+        assert!(!sys3.is_exclusive());
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_conflicting_params_1() {
+        let mut world = World::new();
+        let sys = |_params: ParamSet<((), ())>, _world: &mut World| {};
+        let mut system = IntoSystem::into_system(sys);
+        system.initialize(&mut world);
+        system.run((), &mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_conflicting_params_2() {
+        let mut world = World::new();
+        let sys = |_world: &mut World, _params: ParamSet<((), ())>| {};
+        let mut system = IntoSystem::into_system(sys);
+        system.initialize(&mut world);
+        system.run((), &mut world);
+    }
+
+    #[test]
+    fn exclusive_conflicting_params_3() {
+        let mut world = World::new();
+        let sys = |mut _local: Local<()>, _world: &mut World| {};
+        let mut system = IntoSystem::into_system(sys);
+        system.initialize(&mut world);
+        system.run((), &mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_conflicting_params_4() {
+        let mut world = World::new();
+        // Commands has a reference to Entities (which is a field on World)
+        let sys = |mut _commands: Commands, _world: &mut World| {};
+        let mut system = IntoSystem::into_system(sys);
+        system.initialize(&mut world);
+        system.run((), &mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn exclusive_conflicting_params_5() {
+        let mut world = World::new();
+        let sys = |_world: &mut World, _empty: Query<()>| {};
+        let mut system = IntoSystem::into_system(sys);
+        system.initialize(&mut world);
+        system.run((), &mut world);
+    }
+
+    #[test]
     fn local_system() {
         let mut world = World::default();
         world.insert_resource(1u32);
