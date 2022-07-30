@@ -633,9 +633,10 @@ count():       {count}"#
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
-                b_query.many_for_each_mut(&has_a, |mut b| {
+                let mut iter = b_query.iter_many_mut(&has_a);
+                while let Some(mut b) = iter.fetch_next() {
                     b.0 = 1;
-                });
+                }
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
