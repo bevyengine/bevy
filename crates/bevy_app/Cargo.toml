@@ -16,7 +16,7 @@ bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
 
 [dependencies]
 # bevy
-bevy_derive = { path = "../bevy_derive", version = "0.8.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.8.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev", optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
