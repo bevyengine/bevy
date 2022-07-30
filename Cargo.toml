@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.8.0-dev"
+version = "0.8.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
