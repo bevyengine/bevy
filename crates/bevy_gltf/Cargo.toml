@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_animation = { path = "../bevy_animation", version = "0.8.0-dev", optional = true }
+bevy_animation = { path = "../bevy_animation", version = "0.8.0", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.8.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.8.0" }
 bevy_core = { path = "../bevy_core", version = "0.8.0" }
