@@ -3,13 +3,6 @@
 #ifdef CUBEMAP_ARRAY
 @group(1) @binding(0)
 var base_color_texture: texture_cube_array<f32>;
-
-// struct CubemapLayer {
-//     layer: u32,
-// };
-// @group(1) @binding(1)
-// var layer: Layer;
-
 #else
 @group(1) @binding(0)
 var base_color_texture: texture_cube<f32>;
@@ -26,11 +19,6 @@ fn fragment(
     return textureSample(
         base_color_texture,
         base_color_sampler,
-#ifdef CUBEMAP_ARRAY
-        fragment_position_view_lh,
-        2
-#else
         fragment_position_view_lh
-#endif
     );
 }
