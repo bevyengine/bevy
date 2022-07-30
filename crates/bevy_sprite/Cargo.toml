@@ -20,7 +20,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.8.0", features = [
     "bevy",
 ] }
 bevy_render = { path = "../bevy_render", version = "0.8.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.8.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.8.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0" }
 
 # other
