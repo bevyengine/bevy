@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect_derive"
-version = "0.8.0-dev"
+version = "0.8.0"
 edition = "2021"
 description = "Derive implementations for bevy_reflect"
 homepage = "https://bevyengine.org"
