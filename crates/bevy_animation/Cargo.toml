@@ -13,7 +13,7 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.8.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.8.0" }
 bevy_core = { path = "../bevy_core", version = "0.8.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.8.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.8.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.8.0", features = ["bevy"] }
 bevy_time = { path = "../bevy_time", version = "0.8.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0" }

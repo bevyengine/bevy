@@ -16,7 +16,7 @@ subpixel_glyph_atlas = []
 bevy_app = { path = "../bevy_app", version = "0.8.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.8.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0" }
-bevy_math = { path = "../bevy_math", version = "0.8.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.8.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.8.0", features = ["bevy"] }
 bevy_render = { path = "../bevy_render", version = "0.8.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.8.0-dev" }
