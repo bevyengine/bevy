@@ -115,7 +115,7 @@ impl Debug for ExtractError {
 #[non_exhaustive]
 pub enum InsertError {
     /// A schedule with this label already exists.
-    #[error("there is no sub-schedule with label '{0:?}'")]
+    #[error("a sub-schedule with label '{0:?}' already exists")]
     Duplicate(ScheduleLabelId),
 }
 impl Debug for InsertError {
