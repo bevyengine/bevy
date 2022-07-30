@@ -30,7 +30,7 @@ webgl = ["wgpu/webgl"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.8.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.8.0" }
-bevy_core = { path = "../bevy_core", version = "0.8.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.8.0" }
 bevy_derive = { path = "../bevy_derive", version = "0.8.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.8.0-dev" }

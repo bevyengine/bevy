@@ -45,4 +45,4 @@ ndk-glue = { version = "0.5" }
 [dev-dependencies]
 futures-lite = "1.4.0"
 tempfile = "3.2.0"
-bevy_core = { path = "../bevy_core", version = "0.8.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.8.0" }

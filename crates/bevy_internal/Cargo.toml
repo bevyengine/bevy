@@ -66,7 +66,7 @@ animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.8.0" }
-bevy_core = { path = "../bevy_core", version = "0.8.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.8.0" }
 bevy_derive = { path = "../bevy_derive", version = "0.8.0" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.8.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.8.0" }
