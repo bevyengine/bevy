@@ -5,14 +5,13 @@ use crate::{
     change_detection::Ticks,
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
-    query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
-    },
+    query::{FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery},
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_param_set};
+pub use bevy_ptr::SemiSafeCell;
 use bevy_ptr::UnsafeCellDeref;
 use std::{
     fmt::Debug,
@@ -116,7 +115,7 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 /// This must only be implemented for [`SystemParamFetch`] impls that exclusively read the World passed in to [`SystemParamFetch::get_param`]
 pub unsafe trait ReadOnlySystemParamFetch {}
 
-pub trait SystemParamFetch<'world, 'state>: SystemParamState {
+pub trait SystemParamFetch<'world, 'state>: SystemParamState + MaybeExclusive {
     type Item: SystemParam<Fetch = Self>;
     /// # Safety
     ///
@@ -125,9 +124,20 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     unsafe fn get_param(
         state: &'state mut Self,
         system_meta: &SystemMeta,
-        world: &'world World,
+        world: &mut SemiSafeCell<'world, World>,
         change_tick: u32,
     ) -> Self::Item;
+}
+
+/// A [`SystemParamFetch`] type that knows if it mutably references the [`World`].
+///
+/// # Safety
+///
+/// - [`is_exclusive`](MaybeExclusive::is_exclusive) must return `true`
+/// if the type's [`get_param`](SystemParamFetch::get_param) constructs a [`&mut World`](World)
+/// or a type that can do so.
+pub unsafe trait MaybeExclusive {
+    fn is_exclusive() -> bool;
 }
 
 impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F> {
@@ -178,10 +188,22 @@ impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
-        Query::new(world, state, system_meta.last_change_tick, change_tick)
+        Query::new(
+            world.take_ref(),
+            state,
+            system_meta.last_change_tick,
+            change_tick,
+        )
+    }
+}
+
+// SAFETY: QueryState<Q, F>::get_param constructs a &World.
+unsafe impl<Q: WorldQuery, F: WorldQuery> MaybeExclusive for QueryState<Q, F> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -208,7 +230,7 @@ fn assert_component_access_compatibility(
 
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::Fetch,
-    world: &'w World,
+    world: SemiSafeCell<'w, World>,
     system_meta: SystemMeta,
     change_tick: u32,
 }
@@ -340,10 +362,11 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
         let column = world
+            .take_ref()
             .get_populated_resource_column(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -358,6 +381,13 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
+    }
+}
+
+// SAFETY: ResState<T>::get_param constructs a &World.
+unsafe impl<T: Resource> MaybeExclusive for ResState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -388,10 +418,11 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
         world
+            .take_ref()
             .get_populated_resource_column(state.0.component_id)
             .map(|column| Res {
                 value: column.get_data_ptr().deref::<T>(),
@@ -399,6 +430,13 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
+    }
+}
+
+// SAFETY: Option<ResState<T>>::get_param constructs a &World.
+unsafe impl<T: Resource> MaybeExclusive for OptionResState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -451,10 +489,11 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
         let value = world
+            .take_ref()
             .get_resource_unchecked_mut_with_id(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -471,6 +510,13 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
                 change_tick,
             },
         }
+    }
+}
+
+// SAFETY: ResMutState<T>::get_param constructs a &World.
+unsafe impl<T: Resource> MaybeExclusive for ResMutState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -498,10 +544,11 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
         world
+            .take_ref()
             .get_resource_unchecked_mut_with_id(state.0.component_id)
             .map(|value| ResMut {
                 value: value.value,
@@ -511,6 +558,13 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
                     change_tick,
                 },
             })
+    }
+}
+
+// SAFETY: OptionResMutState<T>::get_param constructs a &World.
+unsafe impl<T: Resource> MaybeExclusive for OptionResMutState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -539,10 +593,17 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
-        Commands::new(state, world)
+        Commands::new(state, world.take_ref())
+    }
+}
+
+// SAFETY: CommandQueue::get_param constructs a &World.
+unsafe impl MaybeExclusive for CommandQueue {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -560,27 +621,26 @@ impl<'w> SystemParam for &'w World {
 // SAFETY: `read_all` access is set and conflicts result in a panic
 unsafe impl SystemParamState for WorldState {
     fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
-        let mut access = Access::default();
-        access.read_all();
-        if !system_meta
-            .archetype_component_access
-            .is_compatible(&access)
-        {
-            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
-        }
-        system_meta.archetype_component_access.extend(&access);
+        let mut world_access = FilteredAccess::default();
+        world_access.read_all();
 
-        let mut filtered_access = FilteredAccess::default();
-
-        filtered_access.read_all();
+        // conflict with any preceding param
         if !system_meta
             .component_access_set
-            .get_conflicts_single(&filtered_access)
-            .is_empty()
+            .is_compatible_single(&world_access)
         {
-            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
+            panic!(
+                "&World conflicts with another system param in {}. \
+                Mutable access must be unique.",
+                system_meta.name,
+            );
         }
-        system_meta.component_access_set.add(filtered_access);
+
+        // conflict with any following param
+        system_meta.component_access_set.add(world_access);
+
+        // executor
+        system_meta.archetype_component_access.read_all();
 
         WorldState
     }
@@ -591,10 +651,74 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
-        world
+        world.take_ref()
+    }
+}
+
+// SAFETY: WorldState::get_param constructs a &World.
+unsafe impl MaybeExclusive for WorldState {
+    fn is_exclusive() -> bool {
+        false
+    }
+}
+
+/// The [`SystemParamState`] of [`&mut World`](crate::world::World).
+#[doc(hidden)]
+pub struct WorldMutState;
+
+impl<'w> SystemParam for &'w mut World {
+    type Fetch = WorldMutState;
+}
+
+unsafe impl SystemParamState for WorldMutState {
+    fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        let mut world_access = FilteredAccess::default();
+        world_access.write_all();
+
+        // conflict with any preceding param
+        if !system_meta
+            .component_access_set
+            .is_compatible_single(&world_access)
+        {
+            panic!(
+                "&mut World conflicts with another system param in {}. \
+                Mutable access must be unique.",
+                system_meta.name,
+            );
+        }
+
+        // conflict with any following param
+        system_meta.component_access_set.add(world_access);
+
+        // executor
+        system_meta.archetype_component_access.write_all();
+
+        // world can contain non-send resources, must run on its local thread
+        system_meta.set_non_send();
+
+        WorldMutState
+    }
+}
+
+impl<'w, 's> SystemParamFetch<'w, 's> for WorldMutState {
+    type Item = &'w mut World;
+    unsafe fn get_param(
+        _state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        world: &mut SemiSafeCell<'w, World>,
+        _change_tick: u32,
+    ) -> Self::Item {
+        world.take_mut()
+    }
+}
+
+// SAFETY: WorldMutState::get_param does construct a `&mut World`.
+unsafe impl MaybeExclusive for WorldMutState {
+    fn is_exclusive() -> bool {
+        true
     }
 }
 
@@ -692,10 +816,17 @@ impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T>
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: &mut SemiSafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
         Local(&mut state.0)
+    }
+}
+
+// SAFETY: LocalState<T>::get_param does not construct any `World` pointer or reference.
+unsafe impl<T: Resource> MaybeExclusive for LocalState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -778,14 +909,21 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
         RemovedComponents {
-            world,
+            world: world.take_ref(),
             component_id: state.component_id,
             marker: PhantomData,
         }
+    }
+}
+
+// SAFETY: RemovedComponentsState<T>::get_param constructs a &World.
+unsafe impl<T: Component> MaybeExclusive for RemovedComponentsState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -899,9 +1037,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.take_ref();
         world.validate_non_send_access::<T>();
         let column = world
             .get_populated_resource_column(state.component_id)
@@ -919,6 +1058,13 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
+    }
+}
+
+// SAFETY: NonSendState<T>::get_param constructs a &World.
+unsafe impl<T> MaybeExclusive for NonSendState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -949,9 +1095,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.take_ref();
         world.validate_non_send_access::<T>();
         world
             .get_populated_resource_column(state.0.component_id)
@@ -961,6 +1108,13 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
+    }
+}
+
+// SAFETY: OptionNonSendState<T>::get_param constructs a &World.
+unsafe impl<T> MaybeExclusive for OptionNonSendState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -1015,9 +1169,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.take_ref();
         world.validate_non_send_access::<T>();
         let column = world
             .get_populated_resource_column(state.component_id)
@@ -1036,6 +1191,13 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
                 change_tick,
             },
         }
+    }
+}
+
+// SAFETY: NonSendMutState<T>::get_param constructs a &World.
+unsafe impl<T> MaybeExclusive for NonSendMutState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -1063,9 +1225,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
+        let world = world.take_ref();
         world.validate_non_send_access::<T>();
         world
             .get_populated_resource_column(state.0.component_id)
@@ -1077,6 +1240,13 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
                     change_tick,
                 },
             })
+    }
+}
+
+// SAFETY: OptionNonSendMutState<T>::get_param constructs a &World.
+unsafe impl<T> MaybeExclusive for OptionNonSendMutState<T> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -1105,10 +1275,17 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ArchetypesState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
-        world.archetypes()
+        world.take_ref().archetypes()
+    }
+}
+
+// SAFETY: ArchetypesState::get_param constructs a &World.
+unsafe impl MaybeExclusive for ArchetypesState {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -1137,10 +1314,17 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ComponentsState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
-        world.components()
+        world.take_ref().components()
+    }
+}
+
+// SAFETY: ComponentsState::get_param constructs a &World.
+unsafe impl MaybeExclusive for ComponentsState {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -1169,10 +1353,17 @@ impl<'w, 's> SystemParamFetch<'w, 's> for EntitiesState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
-        world.entities()
+        world.take_ref().entities()
+    }
+}
+
+// SAFETY: EntitiesState::get_param constructs a &World.
+unsafe impl MaybeExclusive for EntitiesState {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -1201,10 +1392,17 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
-        world.bundles()
+        world.take_ref().bundles()
+    }
+}
+
+// SAFETY: BundlesState::get_param constructs a &World.
+unsafe impl MaybeExclusive for BundlesState {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -1261,13 +1459,20 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
     unsafe fn get_param(
         _state: &'s mut Self,
         system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
         SystemChangeTick {
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
+    }
+}
+
+// SAFETY: SystemChangeTickState::get_param does not construct a World pointer or reference.
+unsafe impl MaybeExclusive for SystemChangeTickState {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
@@ -1280,6 +1485,12 @@ macro_rules! impl_system_param_tuple {
         // SAFETY: tuple consists only of ReadOnlySystemParamFetches
         unsafe impl<$($param: ReadOnlySystemParamFetch),*> ReadOnlySystemParamFetch for ($($param,)*) {}
 
+        unsafe impl<$($param: MaybeExclusive),*> MaybeExclusive for ($($param,)*) {
+            fn is_exclusive() -> bool {
+                [$($param::is_exclusive()),*].iter().any(|&b| b)
+            }
+        }
+
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         impl<'w, 's, $($param: SystemParamFetch<'w, 's>),*> SystemParamFetch<'w, 's> for ($($param,)*) {
@@ -1290,7 +1501,7 @@ macro_rules! impl_system_param_tuple {
             unsafe fn get_param(
                 state: &'s mut Self,
                 system_meta: &SystemMeta,
-                world: &'w World,
+                world: &mut SemiSafeCell<'w, World>,
                 change_tick: u32,
             ) -> Self::Item {
 
@@ -1420,6 +1631,13 @@ unsafe impl<S: ReadOnlySystemParamFetch, P> ReadOnlySystemParamFetch
 {
 }
 
+// SAFETY: Delegates to S
+unsafe impl<S: MaybeExclusive, P> MaybeExclusive for StaticSystemParamState<S, P> {
+    fn is_exclusive() -> bool {
+        S::is_exclusive()
+    }
+}
+
 impl<'world, 'state, P: SystemParam + 'static> SystemParam
     for StaticSystemParam<'world, 'state, P>
 {
@@ -1436,7 +1654,7 @@ where
     unsafe fn get_param(
         state: &'state mut Self,
         system_meta: &SystemMeta,
-        world: &'world World,
+        world: &mut SemiSafeCell<'world, World>,
         change_tick: u32,
     ) -> Self::Item {
         // SAFETY: We properly delegate SystemParamState

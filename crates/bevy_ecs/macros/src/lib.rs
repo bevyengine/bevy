@@ -196,7 +196,8 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
+                    let mut world = self.world;
+                    <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, &mut world, self.change_tick)
                 }
             }
         });
@@ -218,6 +219,14 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_fetch,)*)>
             where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
+
+            // SAFETY: ParamSet will inherit the exclusivity (and safety) of its params.
+            unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> MaybeExclusive for ParamSetState<(#(#param_fetch,)*)>
+            {
+                fn is_exclusive() -> bool {
+                    [#(<#param_fetch as MaybeExclusive>::is_exclusive()),*].iter().any(|&b| b)
+                }
+            }
 
             // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
@@ -266,15 +275,23 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 unsafe fn get_param(
                     state: &'s mut Self,
                     system_meta: &SystemMeta,
-                    world: &'w World,
+                    world: &mut SemiSafeCell<'w, World>,
                     change_tick: u32,
                 ) -> Self::Item {
-                    ParamSet {
+                    let param_set = ParamSet {
                         param_states: &mut state.0,
                         system_meta: system_meta.clone(),
-                        world,
+                        world: world.clone(),
                         change_tick,
+                    };
+
+                    if <Self as MaybeExclusive>::is_exclusive() {
+                        world.take_mut();
+                    } else {
+                        world.take_ref();
                     }
+
+                    param_set
                 }
             }
 
@@ -411,7 +428,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 unsafe fn get_param(
                     state: &'s mut Self,
                     system_meta: &#path::system::SystemMeta,
-                    world: &'w #path::world::World,
+                    world: &mut #path::system::SemiSafeCell<'w, #path::world::World>,
                     change_tick: u32,
                 ) -> Self::Item {
                     #struct_name {
@@ -423,6 +440,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             // Safety: The `ParamState` is `ReadOnlySystemParamFetch`, so this can only read from the `World`
             unsafe impl<TSystemParamState: #path::system::SystemParamState + #path::system::ReadOnlySystemParamFetch, #punctuated_generics> #path::system::ReadOnlySystemParamFetch for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {}
+
+            // SAFETY: Delegates to the param field types.
+            unsafe impl #impl_generics #path::system::MaybeExclusive for FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
+                fn is_exclusive() -> bool {
+                    [#(<<#field_types as #path::system::SystemParam>::Fetch as #path::system::MaybeExclusive>::is_exclusive(),)*].iter().any(|&b| b)
+                }
+            }
         };
     })
 }
