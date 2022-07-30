@@ -14,7 +14,7 @@ trace = []
 default = ["bevy_reflect"]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.8.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.8.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.8.0-dev", optional = true }
 bevy_tasks = { path = "../bevy_tasks", version = "0.8.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.8.0-dev" }
