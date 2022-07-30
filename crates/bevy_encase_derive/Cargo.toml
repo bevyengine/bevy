@@ -1,6 +1,6 @@
 [package]
 name = "bevy_encase_derive"
-version = "0.8.0-dev"
+version = "0.8.0"
 edition = "2021"
 description = "Bevy derive macro for encase"
 homepage = "https://bevyengine.org"
