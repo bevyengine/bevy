@@ -516,7 +516,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Calls a closure on each result of [`Query`] where the entities match.
+    /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
+    ///
     /// # Examples
     ///
     /// ```
