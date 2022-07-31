@@ -22,39 +22,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // root node
     commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                justify_content: JustifyContent::SpaceBetween,
-                ..default()
-            },
-            color: Color::NONE.into(),
+        .spawn_bundle(NodeBundle::transparent().with_style(Style {
+            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+            justify_content: JustifyContent::SpaceBetween,
             ..default()
-        })
+        }))
         .with_children(|parent| {
             // left vertical fill (border)
             parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
+                .spawn_bundle(NodeBundle::new(
+                    Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
-                    color: Color::rgb(0.65, 0.65, 0.65).into(),
-                    ..default()
-                })
+                    Color::rgb(0.65, 0.65, 0.65),
+                ))
                 .with_children(|parent| {
                     // left vertical fill (content)
                     parent
-                        .spawn_bundle(NodeBundle {
-                            style: Style {
+                        .spawn_bundle(NodeBundle::new(
+                            Style {
                                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                                 align_items: AlignItems::FlexEnd,
                                 ..default()
                             },
-                            color: Color::rgb(0.15, 0.15, 0.15).into(),
-                            ..default()
-                        })
+                            Color::rgb(0.15, 0.15, 0.15),
+                        ))
                         .with_children(|parent| {
                             // text
                             parent.spawn_bundle(
@@ -75,16 +69,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             // right vertical fill
             parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
+                .spawn_bundle(NodeBundle::new(
+                    Style {
                         flex_direction: FlexDirection::ColumnReverse,
                         justify_content: JustifyContent::Center,
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         ..default()
                     },
-                    color: Color::rgb(0.15, 0.15, 0.15).into(),
-                    ..default()
-                })
+                    Color::rgb(0.15, 0.15, 0.15),
+                ))
                 .with_children(|parent| {
                     // Title
                     parent.spawn_bundle(
@@ -108,30 +101,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     );
                     // List with hidden overflow
                     parent
-                        .spawn_bundle(NodeBundle {
-                            style: Style {
+                        .spawn_bundle(NodeBundle::new(
+                            Style {
                                 flex_direction: FlexDirection::ColumnReverse,
                                 align_self: AlignSelf::Center,
                                 size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
                                 overflow: Overflow::Hidden,
                                 ..default()
                             },
-                            color: Color::rgb(0.10, 0.10, 0.10).into(),
-                            ..default()
-                        })
+                            Color::rgb(0.10, 0.10, 0.10),
+                        ))
                         .with_children(|parent| {
                             // Moving panel
                             parent
-                                .spawn_bundle(NodeBundle {
-                                    style: Style {
-                                        flex_direction: FlexDirection::ColumnReverse,
-                                        flex_grow: 1.0,
-                                        max_size: Size::new(Val::Undefined, Val::Undefined),
-                                        ..default()
-                                    },
-                                    color: Color::NONE.into(),
+                                .spawn_bundle(NodeBundle::transparent().with_style(Style {
+                                    flex_direction: FlexDirection::ColumnReverse,
+                                    flex_grow: 1.0,
+                                    max_size: Size::new(Val::Undefined, Val::Undefined),
                                     ..default()
-                                })
+                                }))
                                 .insert(ScrollingList::default())
                                 .with_children(|parent| {
                                     // List items
@@ -163,8 +151,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             // absolute positioning
             parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
+                .spawn_bundle(NodeBundle::new(
+                    Style {
                         size: Size::new(Val::Px(200.0), Val::Px(200.0)),
                         position_type: PositionType::Absolute,
                         position: UiRect {
@@ -175,45 +163,38 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(20.0)),
                         ..default()
                     },
-                    color: Color::rgb(0.4, 0.4, 1.0).into(),
-                    ..default()
-                })
+                    Color::rgb(0.4, 0.4, 1.0),
+                ))
                 .with_children(|parent| {
-                    parent.spawn_bundle(NodeBundle {
-                        style: Style {
+                    parent.spawn_bundle(NodeBundle::new(
+                        Style {
                             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                             ..default()
                         },
-                        color: Color::rgb(0.8, 0.8, 1.0).into(),
-                        ..default()
-                    });
+                        Color::rgb(0.8, 0.8, 1.0),
+                    ));
                 });
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                        position_type: PositionType::Absolute,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    color: Color::NONE.into(),
+                .spawn_bundle(NodeBundle::transparent().with_style(Style {
+                    size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                    position_type: PositionType::Absolute,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
-                })
+                }))
                 .with_children(|parent| {
                     parent
-                        .spawn_bundle(NodeBundle {
-                            style: Style {
+                        .spawn_bundle(NodeBundle::new(
+                            Style {
                                 size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                 ..default()
                             },
-                            color: Color::rgb(1.0, 0.0, 0.0).into(),
-                            ..default()
-                        })
+                            Color::rgb(1.0, 0.0, 0.0),
+                        ))
                         .with_children(|parent| {
-                            parent.spawn_bundle(NodeBundle {
-                                style: Style {
+                            parent.spawn_bundle(NodeBundle::new(
+                                Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
                                     position: UiRect {
@@ -223,11 +204,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..default()
                                 },
-                                color: Color::rgb(1.0, 0.3, 0.3).into(),
-                                ..default()
-                            });
-                            parent.spawn_bundle(NodeBundle {
-                                style: Style {
+                                Color::rgb(1.0, 0.3, 0.3),
+                            ));
+                            parent.spawn_bundle(NodeBundle::new(
+                                Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
                                     position: UiRect {
@@ -237,11 +217,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..default()
                                 },
-                                color: Color::rgb(1.0, 0.5, 0.5).into(),
-                                ..default()
-                            });
-                            parent.spawn_bundle(NodeBundle {
-                                style: Style {
+                                Color::rgb(1.0, 0.5, 0.5),
+                            ));
+                            parent.spawn_bundle(NodeBundle::new(
+                                Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
                                     position: UiRect {
@@ -251,12 +230,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..default()
                                 },
-                                color: Color::rgb(1.0, 0.7, 0.7).into(),
-                                ..default()
-                            });
+                                Color::rgb(1.0, 0.7, 0.7),
+                            ));
                             // alpha test
-                            parent.spawn_bundle(NodeBundle {
-                                style: Style {
+                            parent.spawn_bundle(NodeBundle::new(
+                                Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
                                     position: UiRect {
@@ -266,24 +244,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..default()
                                 },
-                                color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
-                                ..default()
-                            });
+                                Color::rgba(1.0, 0.9, 0.9, 0.4),
+                            ));
                         });
                 });
             // bevy logo (flex center)
             parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                        position_type: PositionType::Absolute,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::FlexEnd,
-                        ..default()
-                    },
-                    color: Color::NONE.into(),
+                .spawn_bundle(NodeBundle::transparent().with_style(Style {
+                    size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                    position_type: PositionType::Absolute,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::FlexEnd,
                     ..default()
-                })
+                }))
                 .with_children(|parent| {
                     // bevy logo (image)
                     parent.spawn_bundle(ImageBundle {
