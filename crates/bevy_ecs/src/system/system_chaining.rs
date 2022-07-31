@@ -1,9 +1,8 @@
 use crate::{
     archetype::ArchetypeComponentId,
     component::ComponentId,
-    ptr::SemiSafeCell,
     query::Access,
-    system::{IntoSystem, System},
+    system::{IntoSystem, MaybeUnsafeCell, System},
     world::World,
 };
 use std::borrow::Cow;
@@ -77,7 +76,7 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.system_a.is_exclusive() || self.system_b.is_exclusive()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: SemiSafeCell<World>) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: MaybeUnsafeCell<World>) -> Self::Out {
         let out = self.system_a.run_unsafe(input, world);
         self.system_b.run_unsafe(out, world)
     }

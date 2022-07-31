@@ -1,8 +1,9 @@
 use bevy_utils::tracing::warn;
 
+use crate::system::MaybeUnsafeCell;
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    ptr::SemiSafeCell, query::Access, schedule::SystemLabelId, world::World,
+    query::Access, schedule::SystemLabelId, world::World,
 };
 use std::borrow::Cow;
 
@@ -44,12 +45,12 @@ pub trait System: Send + Sync + 'static {
     ///     1. This system is the only system running on the given world across all threads.
     ///     2. This system only runs in parallel with other systems that do not conflict with the
     ///        [`System::archetype_component_access()`].
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: SemiSafeCell<World>) -> Self::Out;
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: MaybeUnsafeCell<World>) -> Self::Out;
     /// Runs the system with the given input in the world.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         self.update_archetype_component_access(world);
         // SAFETY: world and resources are exclusively borrowed
-        unsafe { self.run_unsafe(input, SemiSafeCell::from_mut(world)) }
+        unsafe { self.run_unsafe(input, MaybeUnsafeCell::from_mut(world)) }
     }
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.

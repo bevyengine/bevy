@@ -16,6 +16,7 @@ use bevy_utils::{
     tracing::{info, warn},
     HashMap, HashSet,
 };
+use core::panic;
 use downcast_rs::{impl_downcast, Downcast};
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -355,11 +356,8 @@ impl SystemStage {
 
             match system_type {
                 SystemType::Parallel => {
-                    if container.system().is_exclusive() {
-                        self.exclusive_at_start.push(container);
-                    } else {
-                        self.parallel.push(container);
-                    }
+                    assert!(!container.system().is_exclusive());
+                    self.parallel.push(container);
                 }
                 SystemType::Exclusive(insertion_point) => match insertion_point {
                     InsertionPoint::AtStart => {

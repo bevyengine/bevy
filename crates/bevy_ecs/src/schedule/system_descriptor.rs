@@ -57,7 +57,13 @@ pub struct SystemDescriptor {
     pub(crate) system_type: SystemType,
 }
 
-fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> SystemDescriptor {
+fn new_system_descriptor(system: BoxedSystem<(), ()>) -> SystemDescriptor {
+    let system_type = if system.is_exclusive() {
+        SystemType::Exclusive(InsertionPoint::AtStart)
+    } else {
+        SystemType::Parallel
+    };
+
     SystemDescriptor {
         labels: system.default_labels(),
         system,
@@ -65,7 +71,7 @@ fn new_parallel_descriptor(system: BoxedSystem<(), ()>) -> SystemDescriptor {
         before: Vec::new(),
         after: Vec::new(),
         ambiguity_sets: Vec::new(),
-        system_type: SystemType::Parallel,
+        system_type,
     }
 }
 
@@ -139,7 +145,7 @@ pub trait IntoSystemDescriptor<Params> {
 
     /// Add a system that has a `&mut World` parameter (or coerce any system to be exclusive).
     ///
-    /// Defaults to the "at start" insertion point.
+    /// Equivalent to calling [`at_start`](IntoSystemDescriptor::at_start).
     ///
     /// As of [#4166](https://github.com/bevyengine/bevy/pull/4166),
     /// this method is no longer required and will be removed in the future.
@@ -207,91 +213,91 @@ where
     S: IntoSystem<(), (), Params>,
 {
     fn into_descriptor(self) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self)))
+        new_system_descriptor(Box::new(IntoSystem::into_system(self)))
     }
 
     fn with_run_criteria<Marker>(
         self,
         run_criteria: impl IntoRunCriteria<Marker>,
     ) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self)))
+        new_system_descriptor(Box::new(IntoSystem::into_system(self)))
             .with_run_criteria(run_criteria)
     }
 
     fn label(self, label: impl SystemLabel) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).label(label)
+        new_system_descriptor(Box::new(IntoSystem::into_system(self))).label(label)
     }
 
     fn before<Marker>(self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).before(label)
+        new_system_descriptor(Box::new(IntoSystem::into_system(self))).before(label)
     }
 
     fn after<Marker>(self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).after(label)
+        new_system_descriptor(Box::new(IntoSystem::into_system(self))).after(label)
     }
 
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).in_ambiguity_set(set)
+        new_system_descriptor(Box::new(IntoSystem::into_system(self))).in_ambiguity_set(set)
     }
 
     fn exclusive_system(self) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).at_start()
+        new_system_descriptor(Box::new(IntoSystem::into_system(self))).at_start()
     }
 
     fn at_start(self) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).at_start()
+        new_system_descriptor(Box::new(IntoSystem::into_system(self))).at_start()
     }
 
     fn before_commands(self) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).before_commands()
+        new_system_descriptor(Box::new(IntoSystem::into_system(self))).before_commands()
     }
 
     fn at_end(self) -> SystemDescriptor {
-        new_parallel_descriptor(Box::new(IntoSystem::into_system(self))).at_end()
+        new_system_descriptor(Box::new(IntoSystem::into_system(self))).at_end()
     }
 }
 
 impl IntoSystemDescriptor<()> for BoxedSystem<(), ()> {
     fn into_descriptor(self) -> SystemDescriptor {
-        new_parallel_descriptor(self)
+        new_system_descriptor(self)
     }
 
     fn with_run_criteria<Marker>(
         self,
         run_criteria: impl IntoRunCriteria<Marker>,
     ) -> SystemDescriptor {
-        new_parallel_descriptor(self).with_run_criteria(run_criteria)
+        new_system_descriptor(self).with_run_criteria(run_criteria)
     }
 
     fn label(self, label: impl SystemLabel) -> SystemDescriptor {
-        new_parallel_descriptor(self).label(label)
+        new_system_descriptor(self).label(label)
     }
 
     fn before<Marker>(self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor {
-        new_parallel_descriptor(self).before(label)
+        new_system_descriptor(self).before(label)
     }
 
     fn after<Marker>(self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor {
-        new_parallel_descriptor(self).after(label)
+        new_system_descriptor(self).after(label)
     }
 
     fn in_ambiguity_set(self, set: impl AmbiguitySetLabel) -> SystemDescriptor {
-        new_parallel_descriptor(self).in_ambiguity_set(set)
+        new_system_descriptor(self).in_ambiguity_set(set)
     }
 
     fn exclusive_system(self) -> SystemDescriptor {
-        new_parallel_descriptor(self).at_start()
+        new_system_descriptor(self).at_start()
     }
 
     fn at_start(self) -> SystemDescriptor {
-        new_parallel_descriptor(self).at_start()
+        new_system_descriptor(self).at_start()
     }
 
     fn before_commands(self) -> SystemDescriptor {
-        new_parallel_descriptor(self).before_commands()
+        new_system_descriptor(self).before_commands()
     }
 
     fn at_end(self) -> SystemDescriptor {
-        new_parallel_descriptor(self).at_end()
+        new_system_descriptor(self).at_end()
     }
 }

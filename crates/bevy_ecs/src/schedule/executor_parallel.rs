@@ -2,10 +2,10 @@ use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
     schedule::{FunctionSystemContainer, ParallelSystemExecutor},
+    system::MaybeUnsafeCell,
     world::World,
 };
 use async_channel::{Receiver, Sender};
-use bevy_ptr::SemiSafeCell;
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
@@ -196,7 +196,7 @@ impl ParallelExecutor {
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
                     // SAFETY: the executor prevents two systems with conflicting access from running simultaneously.
-                    unsafe { system.run_unsafe((), SemiSafeCell::from_ref(world)) };
+                    unsafe { system.run_unsafe((), MaybeUnsafeCell::from_ref(world)) };
                     #[cfg(feature = "trace")]
                     drop(system_guard);
                     finish_sender
