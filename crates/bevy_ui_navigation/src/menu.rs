@@ -141,6 +141,29 @@ pub struct MenuSetting {
     pub scope: bool,
 }
 impl MenuSetting {
+    /// New default settings.
+    pub fn new() -> Self {
+        Self::default()
+    }
+    /// Set wrapping.
+    ///
+    /// When the player moves to a direction where there aren't any focusables,
+    /// if this is true, the focus will "wrap" to the other direction of the screen.
+    pub fn wrap(mut self) -> Self {
+        self.wrapping = true;
+        self
+    }
+    /// Set scope.
+    ///
+    /// A scope menu is controlled with [`NavRequest::ScopeMove`]
+    /// even when the focused element is not in this menu, but in a submenu
+    /// reachable from this one.
+    ///
+    /// [`NavRequest::ScopeMove`]: crate::prelude::NavRequest::ScopeMove
+    pub fn scope(mut self) -> Self {
+        self.scope = true;
+        self
+    }
     pub(crate) fn bound(&self) -> bool {
         !self.wrapping
     }

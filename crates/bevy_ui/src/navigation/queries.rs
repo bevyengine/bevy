@@ -1,11 +1,8 @@
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_log::warn;
 use bevy_math::{Vec2, Vec3Swizzles};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_ui_navigation::{events::Direction, prelude::MenuNavigationStrategy};
 use bevy_utils::FloatOrd;
-
-use crate::CalculatedClip;
 
 fn is_in(direction: Direction, reference: Vec2, other: Vec2) -> bool {
     let coord = other - reference;
@@ -22,15 +19,11 @@ fn is_in(direction: Direction, reference: Vec2, other: Vec2) -> bool {
 ///
 /// It uses the bevy [`GlobalTransform`] to compute relative positions
 /// and change focus to the correct entity.
-/// It uses the [`ScreenBoundaries`] resource to compute screen boundaries
-/// and move the cursor accordingly when it reaches a screen border
-/// in a cycling menu.
 #[derive(SystemParam)]
-pub struct UiProjectionQuery<'w, 's> {
-    clips: Query<'w, 's, &'static CalculatedClip>,
+pub struct BevyUiNavigationStrategy<'w, 's> {
     transforms: Query<'w, 's, &'static GlobalTransform>,
 }
-impl<'w, 's> MenuNavigationStrategy for UiProjectionQuery<'w, 's> {
+impl<'w, 's> MenuNavigationStrategy for BevyUiNavigationStrategy<'w, 's> {
     fn resolve_2d<'a>(
         &self,
         focused: Entity,
@@ -48,35 +41,38 @@ impl<'w, 's> MenuNavigationStrategy for UiProjectionQuery<'w, 's> {
                 .xy()
         };
         let focused_pos = pos_of(focused);
-        let closest = siblings
+        let siblings_positions: Vec<_> = siblings
             .iter()
-            .filter(|sibling| {
-                is_in(direction, focused_pos, pos_of(**sibling)) && **sibling != focused
+            .map(|entity| (entity, pos_of(*entity)))
+            .collect();
+        let closest = siblings_positions
+            .iter()
+            .filter(|(sibling, position)| {
+                is_in(direction, focused_pos, *position) && **sibling != focused
             })
-            .max_by_key(|s| FloatOrd(-focused_pos.distance_squared(pos_of(**s))));
+            .max_by_key(|(_, position)| FloatOrd(-focused_pos.distance_squared(*position)));
 
-        let boundaries = self.clips.get(focused).ok();
-        match (closest, boundaries) {
-            (None, None) if cycles => {
-                warn!(
-                    "Tried to move in {direction:?} from Focusable {focused:?} while no other Focusables were there."
-                );
-                None
-            }
-            (None, Some(CalculatedClip { clip })) if cycles => {
-                let scale = 1.0;
-                let focused_pos = match direction {
-                    // NOTE: up/down axises are inverted in bevy
-                    North => Vec2::new(focused_pos.x, scale * clip.min.y),
-                    South => Vec2::new(focused_pos.x, scale * clip.max.y),
-                    East => Vec2::new(clip.min.x * scale, focused_pos.y),
-                    West => Vec2::new(clip.max.x * scale, focused_pos.y),
+        match closest {
+            None if cycles => {
+                let opposite_lookup: fn(&Vec2) -> f32 = match direction {
+                    East => |v| -v.x,
+                    West => |v| v.x,
+                    North => |v| -v.y,
+                    South => |v| v.y,
                 };
+                let (_, opposite_pos) = siblings_positions
+                    .iter()
+                    .max_by_key(|(_, pos)| FloatOrd(opposite_lookup(pos)))?;
+                let mut focused_pos = focused_pos;
+                match direction {
+                    North | South => focused_pos.y = opposite_pos.y,
+                    East | West => focused_pos.x = opposite_pos.x,
+                }
                 siblings
                     .iter()
                     .max_by_key(|s| FloatOrd(-focused_pos.distance_squared(pos_of(**s))))
             }
-            (anyelse, _) => anyelse,
+            anyelse => anyelse.map(|(entity, _)| *entity),
         }
     }
 }

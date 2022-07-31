@@ -45,7 +45,7 @@ use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
 use update::{ui_z_system, update_clipping_system};
 
-use crate::navigation::UiProjectionQuery;
+use crate::navigation::BevyUiNavigationStrategy;
 use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
@@ -78,7 +78,7 @@ pub enum UiSystem {
     /// After this label, the [`Hover`] component has been updated.
     Hover,
 }
-pub type BevyUiNavigationPlugin<'w, 's> = NavigationPlugin<UiProjectionQuery<'w, 's>>;
+pub type BevyUiNavigationPlugin<'w, 's> = NavigationPlugin<BevyUiNavigationStrategy<'w, 's>>;
 
 /// The current scale of the UI.
 ///

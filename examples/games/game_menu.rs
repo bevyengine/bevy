@@ -597,7 +597,7 @@ mod menu {
                     ..default()
                 },
                 menu: MenuBuilder::NamedParent(Name::new("Sound")),
-                setting: default(),
+                setting: MenuSetting::new().wrap(),
             })
             .insert(MarkButtons)
             .with_children(|parent| {
