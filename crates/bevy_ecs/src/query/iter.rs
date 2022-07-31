@@ -72,9 +72,9 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F> 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
 
-/// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
+/// An [`Iterator`] over [`Query`](crate::system::Query) results of a list of [`Entity`]s.
 ///
-/// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) method.
+/// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
 pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator>
 where
     I::Item: Borrow<Entity>,
@@ -126,16 +126,15 @@ where
             entity_iter: entity_list.into_iter(),
         }
     }
-}
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator> Iterator for QueryManyIter<'w, 's, Q, F, I>
-where
-    I::Item: Borrow<Entity>,
-{
-    type Item = QueryItem<'w, Q>;
-
+    /// Safety:
+    /// The lifetime here is not restrictive enough for Fetch with &mut access,
+    /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
+    /// references to the same component, leading to unique reference aliasing.
+    ///
+    /// It is always safe for shared access.
     #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<QueryItem<'w, Q>> {
         for entity in self.entity_iter.by_ref() {
             let location = match self.entities.get(*entity.borrow()) {
                 Some(location) => location,
@@ -154,30 +153,59 @@ where
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            unsafe {
-                self.fetch
-                    .set_archetype(&self.query_state.fetch_state, archetype, self.tables);
-            }
+            self.fetch
+                .set_archetype(&self.query_state.fetch_state, archetype, self.tables);
+
             // SAFETY: `table` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            unsafe {
-                self.filter
-                    .set_archetype(&self.query_state.filter_state, archetype, self.tables);
-            }
+            self.filter
+                .set_archetype(&self.query_state.filter_state, archetype, self.tables);
+
             // SAFETY: set_archetype was called prior.
             // `location.index` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if unsafe { self.filter.archetype_filter_fetch(location.index) } {
+            if self.filter.archetype_filter_fetch(location.index) {
                 // SAFETY: set_archetype was called prior, `location.index` is an archetype index in range of the current archetype
-                return Some(unsafe { self.fetch.archetype_fetch(location.index) });
+                return Some(self.fetch.archetype_fetch(location.index));
             }
         }
         None
+    }
+
+    /// Get next result from the query
+    #[inline(always)]
+    pub fn fetch_next(&mut self) -> Option<QueryItem<'_, Q>> {
+        // SAFETY: we are limiting the returned reference to self,
+        // making sure this method cannot be called multiple times without getting rid
+        // of any previously returned unique references first, thus preventing aliasing.
+        unsafe { self.fetch_next_aliased_unchecked().map(Q::shrink) }
+    }
+}
+
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator> Iterator
+    for QueryManyIter<'w, 's, Q, F, I>
+where
+    I::Item: Borrow<Entity>,
+{
+    type Item = QueryItem<'w, Q>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY: It is safe to alias for ReadOnlyWorldQuery.
+        unsafe { self.fetch_next_aliased_unchecked() }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (_, max_size) = self.entity_iter.size_hint();
         (0, max_size)
     }
+}
+
+// This is correct as [`QueryManyIter`] always returns `None` once exhausted.
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator> FusedIterator
+    for QueryManyIter<'w, 's, Q, F, I>
+where
+    I::Item: Borrow<Entity>,
+{
 }
 
 pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> {
@@ -476,7 +504,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-    // QueryIterationCursor, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+    // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
     /// # Safety
     /// `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
     /// was initialized for.
