@@ -56,6 +56,7 @@ pub fn keyboard_input_system(
 ///
 /// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `Res<Input<KeyCode>>`.
 /// The resource stores the data of the buttons of a keyboard and can be accessed inside of a system.
+/// Use [`KeyCode`](ScanCode) for keyboard-layout independent controls
 ///
 /// ## Updating
 ///
@@ -418,7 +419,7 @@ pub enum KeyCode {
 ///
 /// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `Res<Input<ScanCode>>`.
 /// The resource stores the numeration of the buttons of a keyboard and can be accessed inside of a system.
-/// Can be used instead of [`KeyCode`](KeyCode) for keyboard-layout independent controls
+/// Use ['KeyCode'](KeyCode) for more meaningful/readable code
 ///
 /// ## Updating
 ///
