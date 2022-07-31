@@ -306,7 +306,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Downgrades all data accessed in this query to a read-only form.
+    /// Returns another `Query` from this that fetches the read-only version of the query items.
     ///
     /// For example, `Query<(&mut A, &B, &mut C), With<D>>` will become `Query<(&A, &B, &C), With<D>>`.
     /// This can be useful when working around the borrow checker,
