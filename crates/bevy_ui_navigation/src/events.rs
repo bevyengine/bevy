@@ -19,7 +19,7 @@
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    query::{QueryItem, WorldQuery},
+    query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
     system::Query,
 };
 use non_empty_vec::NonEmpty;
@@ -207,7 +207,7 @@ impl<'w, 's, 'a> NavEventReader<'w, 's, 'a> {
     /// Iterate over query items of _activated_ focusables.
     ///
     /// see [`Self::activated`] for meaning of _"activated"_.
-    pub fn activated_in_query<'b, 'c: 'b, Q: WorldQuery<ReadOnly = Q>, F: WorldQuery>(
+    pub fn activated_in_query<'b, 'c: 'b, Q: ReadOnlyWorldQuery, F: WorldQuery>(
         &'b mut self,
         query: &'c Query<Q, F>,
     ) -> impl Iterator<Item = QueryItem<Q>> + 'b {
