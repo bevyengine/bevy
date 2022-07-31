@@ -1,3 +1,5 @@
+use std::collections::linked_list;
+
 use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
 
@@ -34,20 +36,15 @@ pub fn keyboard_input_system(
     scan_input.clear();
     key_input.clear();
     for event in keyboard_input_events.iter() {
-        if let KeyboardInput {
-            key_code: Some(key_code),
-            state,
-            ..
-        } = event
-        {
-            match state {
-                ButtonState::Pressed => key_input.press(*key_code),
-                ButtonState::Released => key_input.release(*key_code),
-            }
-        }
         let KeyboardInput {
             scan_code, state, ..
         } = event;
+        if let Some(key_code) = event.key_code {
+            match state {
+                ButtonState::Pressed => key_input.press(key_code),
+                ButtonState::Released => key_input.release(key_code),
+            }
+        }
         match state {
             ButtonState::Pressed => scan_input.press(ScanCode(*scan_code)),
             ButtonState::Released => scan_input.release(ScanCode(*scan_code)),
@@ -417,6 +414,16 @@ pub enum KeyCode {
     Cut,
 }
 
+/// The scan code of a [`KeyboardInput`](crate::keyboard::KeyboardInput).
+///
+/// ## Usage
+///
+/// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `Res<Input<ScanCode>>`.
+/// The resource stores the numeration of the buttons of a keyboard and can be accessed inside of a system.
+///
+/// ## Updating
+///
+/// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ScanCode(u32);
