@@ -350,14 +350,14 @@ pub fn animation_player(
                 }
                 if let Ok(mut transform) = transforms.get_mut(current_entity) {
                     if !player.in_transition {
-                        update_transform(curves, current_elapsed, &mut transform);
+                        update_transforms(curves, current_elapsed, &mut transform);
                     } else if let Some(next_clip) = next_clip {
                         if let Some(next_curves) = next_clip.curves.get(path) {
                             let mut from = *transform;
                             let mut to = *transform;
 
-                            update_transform(curves, current_elapsed, &mut from);
-                            update_transform(next_curves, next_elapsed, &mut to);
+                            update_transforms(curves, current_elapsed, &mut from);
+                            update_transforms(next_curves, next_elapsed, &mut to);
 
                             transform.rotation = from.rotation.slerp(to.rotation, transition_lerp);
                             transform.translation =
@@ -386,7 +386,7 @@ pub fn animation_player(
 }
 
 #[inline(always)]
-fn update_transform(curves: &Vec<VariableCurve>, elapsed: f32, mut transform: &mut Transform) {
+fn update_transforms(curves: &Vec<VariableCurve>, elapsed: f32, mut transform: &mut Transform) {
     for curve in curves {
         // Some curves have only one keyframe used to set a transform
         if curve.keyframe_timestamps.len() == 1 {
