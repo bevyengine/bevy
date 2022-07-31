@@ -1441,6 +1441,16 @@ description = "Illustrates various features of Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "text_wrap"
+path = "examples/ui/text_wrap.rs"
+
+[package.metadata.example.text_wrap]
+name = "Text Wrap"
+description = "Illustrates wrapping text"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"

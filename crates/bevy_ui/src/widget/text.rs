@@ -5,11 +5,13 @@ use bevy_ecs::{
     query::{Changed, Or, With},
     system::{Local, ParamSet, Query, Res, ResMut},
 };
+
+use bevy_hierarchy::Parent;
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
-use bevy_window::{WindowId, Windows};
+use bevy_window::Windows;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -22,13 +24,27 @@ fn scale_value(value: f32, factor: f64) -> f32 {
 
 /// Defines how `min_size`, `size`, and `max_size` affects the bounds of a text
 /// block.
-pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f64) -> f32 {
+pub fn text_constraint(
+    min_size: Val,
+    size: Val,
+    max_size: Val,
+    scale_factor: f64,
+    window_size: f32,
+) -> f32 {
     // Needs support for percentages
     match (min_size, size, max_size) {
         (_, _, Val::Px(max)) => scale_value(max, scale_factor),
         (Val::Px(min), _, _) => scale_value(min, scale_factor),
         (Val::Undefined, Val::Px(size), Val::Undefined) | (Val::Auto, Val::Px(size), Val::Auto) => {
             scale_value(size, scale_factor)
+        }
+        (Val::Percent(min), _, _) => scale_value((min / 100.) * window_size, scale_factor),
+        (_, _, Val::Percent(max)) => scale_value((max / 100.) * window_size, scale_factor),
+        (Val::Undefined, Val::Percent(size), Val::Undefined) => {
+            scale_value((size / 100.) * window_size, scale_factor)
+        }
+        (Val::Auto, Val::Percent(size), Val::Auto) => {
+            scale_value((size / 100.) * window_size, scale_factor)
         }
         _ => f32::MAX,
     }
@@ -49,10 +65,16 @@ pub fn text_system(
     mut text_queries: ParamSet<(
         Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
-        Query<(&Text, &Style, &mut CalculatedSize)>,
+        Query<(&Text, &Style, &mut CalculatedSize, Option<&Parent>)>,
     )>,
+    parent_query: Query<&Style>,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary());
+    let (scale_factor, width_constraint, height_constraint) =
+        if let Some(window) = windows.get_primary() {
+            (window.scale_factor(), window.width(), window.height())
+        } else {
+            (1., f32::MAX, f32::MAX)
+        };
 
     let inv_scale_factor = 1. / scale_factor;
 
@@ -78,19 +100,40 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
+        if let Ok((text, style, mut calculated_size, parent)) = query.get_mut(entity) {
+            let mut scale_factor_width = scale_factor;
+            let mut scale_factor_height = scale_factor;
+            if let Some(parent) = parent {
+                if let Ok(style) = parent_query.get(parent.get()) {
+                    match style.size.width {
+                        Val::Percent(percentage) => {
+                            scale_factor_width = percentage as f64 / (scale_factor * 100.)
+                        }
+                        _ => {}
+                    }
+                    match style.size.height {
+                        Val::Percent(percentage) => {
+                            scale_factor_height = percentage as f64 / (scale_factor * 100.)
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
             let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
                     style.size.width,
                     style.max_size.width,
-                    scale_factor,
+                    scale_factor_width,
+                    width_constraint,
                 ),
                 text_constraint(
                     style.min_size.height,
                     style.size.height,
                     style.max_size.height,
-                    scale_factor,
+                    scale_factor_height,
+                    height_constraint,
                 ),
             );
 
