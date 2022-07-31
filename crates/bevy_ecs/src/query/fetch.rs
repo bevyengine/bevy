@@ -43,13 +43,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behaviour.
 ///
-/// [`Query`]: crate::system::Query
-/// [`With`]: crate::query::With
-/// [`Without`]: crate::query::Without
-/// [`Or`]: crate::query::Or
-/// [`Added`]: crate::query::Added
-/// [`Changed`]: crate::query::Changed
-///
 /// # Trait derivation
 ///
 /// Query design can be easily structured by deriving `WorldQuery` for custom types.
@@ -280,15 +273,32 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+///
 /// # Safety
 ///
-/// component access of `ROQueryFetch<Self>` must be a subset of `QueryFetch<Self>`
+/// Component access of `ROQueryFetch<Self>` must be a subset of `QueryFetch<Self>`
 /// and `ROQueryFetch<Self>` must match exactly the same archetypes/tables as `QueryFetch<Self>`
 ///
-/// Implementor must ensure that [`WorldQuery::update_component_access`] and
-/// [`WorldQuery::update_archetype_component_access`] exactly reflects the results of
-/// [`WorldQuery::matches_component_set`], [`WorldQuery::archetype_fetch`], and
-/// [`WorldQuery::table_fetch`].
+/// Implementor must ensure that
+/// [`update_component_access`] and [`update_archetype_component_access`]
+/// exactly reflects the results of the following methods:
+///
+/// - [`matches_component_set`]
+/// - [`archetype_fetch`]
+/// - [`table_fetch`]
+///
+/// [`archetype_fetch`]: Self::archetype_fetch
+/// [`Added`]: crate::query::Added
+/// [`Changed`]: crate::query::Changed
+/// [`Fetch`]: crate::query::WorldQueryGats::Fetch
+/// [`matches_component_set`]: Self::matches_component_set
+/// [`Or`]: crate::query::Or
+/// [`Query`]: crate::system::Query
+/// [`table_fetch`]: Self::table_fetch
+/// [`update_archetype_component_access`]: Self::update_archetype_component_access
+/// [`update_component_access`]: Self::update_component_access
+/// [`With`]: crate::query::With
+/// [`Without`]: crate::query::Without
 pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     /// The read-only variant of this [`WorldQuery`], which satisfies the [`ReadOnlyWorldQuery`] trait.
     type ReadOnly: ReadOnlyWorldQuery<State = Self::State>;

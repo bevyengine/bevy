@@ -228,13 +228,7 @@ where
 ///
 /// It implements [`Iterator`] only if it iterates over read-only query items ([learn more]).
 ///
-/// In the case of mutable query items, it can be iterated by calling [`fetch_next`](Self::fetch_next) in a `while let` loop.
-///
-/// [`Query`]: crate::system::Query
-/// [performance section]: crate::system::Query#performance
-/// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
-/// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
-/// [learn more]: Self#impl-Iterator
+/// In the case of mutable query items, it can be iterated by calling [`fetch_next`] in a `while let` loop.
 ///
 /// # Examples
 ///
@@ -266,6 +260,13 @@ where
 ///     }
 /// }
 /// ```
+///
+/// [`fetch_next`]: Self::fetch_next
+/// [learn more]: Self#impl-Iterator
+/// [performance section]: crate::system::Query#performance
+/// [`Query`]: crate::system::Query
+/// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
+/// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
 pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
