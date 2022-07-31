@@ -380,7 +380,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
 }
 
 /// Iterator type is intentionally implemented only for read-only access.
-/// Doing so for mutable references would be unsound, because  calling `next` multiple times would allow multiple owned references to the same data to exist.
+/// Doing so for mutable references would be unsound,
+/// because calling `next` multiple times would allow multiple owned references to the same data to exist.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 where
