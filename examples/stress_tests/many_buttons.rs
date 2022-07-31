@@ -53,13 +53,10 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
     let as_rainbow = |i: usize| Color::hsl((i as f32 / count_f) * 360.0, 0.9, 0.8);
     commands.spawn_bundle(Camera2dBundle::default());
     commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                ..default()
-            },
+        .spawn_bundle(NodeBundle::transparent().with_style(Style {
+            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
             ..default()
-        })
+        }))
         .with_children(|commands| {
             for i in 0..count {
                 for j in 0..count {

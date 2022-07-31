@@ -22,27 +22,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
     // root node
     commands
-        .spawn_bundle(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                justify_content: JustifyContent::SpaceBetween,
-                ..default()
-            },
-            color: Color::NONE.into(),
+        .spawn_bundle(NodeBundle::transparent().with_style(Style {
+            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+            justify_content: JustifyContent::SpaceBetween,
             ..default()
-        })
+        }))
         .with_children(|parent| {
             // left vertical fill (border)
             parent
-                .spawn_bundle(NodeBundle {
-                    style: Style {
+                .spawn_bundle(NodeBundle::new(
+                    Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
-                    color: Color::rgb(0.65, 0.65, 0.65).into(),
-                    ..default()
-                })
+                    Color::rgb(0.65, 0.65, 0.65),
+                ))
                 .with_children(|parent| {
                     parent.spawn_bundle(
                         TextBundle::from_section(

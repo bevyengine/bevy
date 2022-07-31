@@ -146,8 +146,8 @@ mod game {
 
         commands
             // First create a `NodeBundle` for centering what we want to display
-            .spawn_bundle(NodeBundle {
-                style: Style {
+            .spawn_bundle(NodeBundle::new(
+                Style {
                     // This will center the current node
                     margin: UiRect::all(Val::Auto),
                     // This will display its children in a column, from top to bottom. Unlike
@@ -159,9 +159,8 @@ mod game {
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                color: Color::BLACK.into(),
-                ..default()
-            })
+                Color::BLACK,
+            ))
             .insert(OnGameScreen)
             .with_children(|parent| {
                 // Display two lines of text, the second one with the current settings
@@ -413,16 +412,15 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle {
-                style: Style {
+            .spawn_bundle(NodeBundle::new(
+                Style {
                     margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
-            })
+                Color::CRIMSON,
+            ))
             .insert(OnMainMenuScreen)
             .with_children(|parent| {
                 // Display the game name
@@ -518,16 +516,15 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle {
-                style: Style {
+            .spawn_bundle(NodeBundle::new(
+                Style {
                     margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
-            })
+                Color::CRIMSON,
+            ))
             .insert(OnSettingsMenuScreen)
             .with_children(|parent| {
                 for (action, text) in [
@@ -571,29 +568,27 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle {
-                style: Style {
+            .spawn_bundle(NodeBundle::new(
+                Style {
                     margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
-            })
+                Color::CRIMSON,
+            ))
             .insert(OnDisplaySettingsMenuScreen)
             .with_children(|parent| {
                 // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
                 // use the default value, `FlexDirection::Row`, from left to right.
                 parent
-                    .spawn_bundle(NodeBundle {
-                        style: Style {
+                    .spawn_bundle(NodeBundle::new(
+                        Style {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        color: Color::CRIMSON.into(),
-                        ..default()
-                    })
+                        Color::CRIMSON,
+                    ))
                     .with_children(|parent| {
                         // Display a label for the current setting
                         parent.spawn_bundle(TextBundle::from_section(
@@ -658,27 +653,25 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle {
-                style: Style {
+            .spawn_bundle(NodeBundle::new(
+                Style {
                     margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
-            })
+                Color::CRIMSON,
+            ))
             .insert(OnSoundSettingsMenuScreen)
             .with_children(|parent| {
                 parent
-                    .spawn_bundle(NodeBundle {
-                        style: Style {
+                    .spawn_bundle(NodeBundle::new(
+                        Style {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        color: Color::CRIMSON.into(),
-                        ..default()
-                    })
+                        Color::CRIMSON,
+                    ))
                     .with_children(|parent| {
                         parent.spawn_bundle(TextBundle::from_section(
                             "Volume",
