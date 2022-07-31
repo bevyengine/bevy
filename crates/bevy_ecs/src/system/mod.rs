@@ -459,19 +459,15 @@ mod tests {
     #[test]
     #[should_panic]
     fn exclusive_conflicting_params_1() {
-        let mut world = World::new();
         let sys = |_params: ParamSet<(Query<()>, ())>, _world: &mut World| {};
-        let mut system = IntoSystem::into_system(sys);
-        system.initialize(&mut world);
+        IntoSystem::into_system(sys);
     }
 
     #[test]
     #[should_panic]
     fn exclusive_conflicting_params_2() {
-        let mut world = World::new();
-        let sys = |_world: &mut World, _params: ParamSet<(Query<()>, ())>| {};
-        let mut system = IntoSystem::into_system(sys);
-        system.initialize(&mut world);
+        let sys = |_world1: &mut World, _world2: &mut World| {};
+        IntoSystem::into_system(sys);
     }
 
     #[test]
@@ -485,29 +481,23 @@ mod tests {
     #[test]
     #[should_panic]
     fn exclusive_conflicting_params_4() {
-        let mut world = World::new();
         // Commands has a reference to Entities (which is a field on World)
         let sys = |mut _commands: Commands, _world: &mut World| {};
-        let mut system = IntoSystem::into_system(sys);
-        system.initialize(&mut world);
+        IntoSystem::into_system(sys);
     }
 
     #[test]
     #[should_panic]
     fn exclusive_conflicting_params_5() {
-        let mut world = World::new();
         let sys = |_world: &mut World, _empty: Query<()>| {};
-        let mut system = IntoSystem::into_system(sys);
-        system.initialize(&mut world);
+        IntoSystem::into_system(sys);
     }
 
     #[test]
     #[should_panic]
     fn exclusive_conflicting_params_6() {
-        let mut world = World::new();
         let sys = |_params: ParamSet<((&mut World, Query<()>), ())>| {};
-        let mut system = IntoSystem::into_system(sys);
-        system.initialize(&mut world);
+        IntoSystem::into_system(sys);
     }
 
     #[test]

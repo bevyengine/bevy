@@ -335,6 +335,7 @@ where
 {
     type System = FunctionSystem<In, Out, Param, Marker, F>;
     fn into_system(func: Self) -> Self::System {
+        let _ = <Param::Fetch as SystemParamState>::world_access_level();
         FunctionSystem {
             func,
             param_state: None,
@@ -443,7 +444,6 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
-        let _ = <Param::Fetch as SystemParamState>::world_access_level();
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
