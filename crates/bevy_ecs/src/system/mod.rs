@@ -81,63 +81,7 @@ pub use system::*;
 pub use system_chaining::*;
 pub use system_param::*;
 
-use core::cell::UnsafeCell;
-
-/// Union of `&'a T` and `&'a UnsafeCell<T>`.
-///
-/// This type tries to act "borrow-like" like which means that:
-/// - It must always reference a valid instance of `T`.
-/// - The lifetime `'a` accurately represents how long it is valid.
-///
-/// The user is responsible for upholding Rust's aliasing rules.
-/// - A `&T` reference may be released to safe code and may co-exist with other `&T` references,
-/// but not with a `&mut T` reference.
-/// - A `&mut T` reference may be released to safe code provided no other `&mut T` or `&T` exists.
-/// A `&mut T` must always be unique.
-// We may eventually be able to replace this with `&UnsafeCell<T>.
-// <https://github.com/rust-lang/unsafe-code-guidelines/issues/303>
-pub union MaybeUnsafeCell<'a, T> {
-    as_ref: &'a T,
-    as_mut: &'a UnsafeCell<T>,
-}
-
-impl<'a, T> MaybeUnsafeCell<'a, T> {
-    /// Constructs a cell from a shared reference.
-    pub fn from_ref(value: &'a T) -> Self {
-        Self { as_ref: value }
-    }
-
-    /// Constructs a cell from a mutable reference.
-    pub fn from_mut(value: &'a mut T) -> Self {
-        // SAFETY: `&mut` ensures unique access.
-        unsafe {
-            Self {
-                as_mut: &*(value as *mut T as *const UnsafeCell<T>),
-            }
-        }
-    }
-
-    /// # Safety
-    ///
-    /// Caller must ensure that no active mutable reference exists.
-    pub unsafe fn into_ref(self) -> &'a T {
-        self.as_ref
-    }
-
-    /// # Safety
-    ///
-    /// Caller must ensure the cell was created from a `&mut T` and that no other active references exist.
-    pub unsafe fn into_mut(self) -> &'a mut T {
-        &mut *self.as_mut.get()
-    }
-}
-
-impl<T> Copy for MaybeUnsafeCell<'_, T> {}
-impl<T> Clone for MaybeUnsafeCell<'_, T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
+pub use bevy_ptr::MaybeUnsafeCell;
 
 /// Ensure that a given function is a system
 ///
