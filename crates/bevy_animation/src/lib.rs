@@ -267,8 +267,11 @@ pub fn animation_player(
 ) {
     for (entity, mut player) in &mut animation_players {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
-            // Try to fetch the next clip in case the animation is in transition
-            let next_clip = animations.get(&player.transition.next_animation_clip);
+            let next_clip = if player.in_transition {
+                animations.get(&player.transition.next_animation_clip)
+            } else {
+                None
+            };
 
             let mut transition_just_finished = false;
 
@@ -309,13 +312,16 @@ pub fn animation_player(
                 current_elapsed += animation_clip.duration;
             }
 
-            let mut next_elapsed = player.transition.clip_elapsed.as_secs_f32();
-            if let Some(next_clip) = next_clip {
-                if player.transition.repeat {
-                    next_elapsed %= next_clip.duration;
-                }
-                if next_elapsed < 0.0 {
-                    next_elapsed += next_clip.duration;
+            let mut next_elapsed = 0.0;
+            if player.in_transition {
+                if let Some(next_clip) = next_clip {
+                    next_elapsed = player.transition.clip_elapsed.as_secs_f32();
+                    if player.transition.repeat {
+                        next_elapsed %= next_clip.duration;
+                    }
+                    if next_elapsed < 0.0 {
+                        next_elapsed += next_clip.duration;
+                    }
                 }
             }
 
@@ -343,102 +349,26 @@ pub fn animation_player(
                     }
                 }
                 if let Ok(mut transform) = transforms.get_mut(current_entity) {
-                    let mut clip_curves = vec![curves];
-                    let mut updated_transforms = vec![*transform];
-
-                    // If in transition also push the target clip to the array
-                    if let Some(next_clip) = next_clip {
+                    if !player.in_transition {
+                        update_transforms(curves, current_elapsed, &mut transform);
+                    } else if let Some(next_clip) = next_clip {
                         if let Some(next_curves) = next_clip.curves.get(path) {
-                            clip_curves.push(next_curves);
-                            updated_transforms.push(*transform);
+                            let mut from = *transform;
+                            let mut to = *transform;
+
+                            update_transforms(curves, current_elapsed, &mut from);
+                            update_transforms(next_curves, next_elapsed, &mut to);
+
+                            transform.rotation = from.rotation.slerp(to.rotation, transition_lerp);
+                            transform.translation =
+                                from.translation.lerp(to.translation, transition_lerp);
+                            transform.scale = from.scale.lerp(to.scale, transition_lerp);
                         }
-                    }
-
-                    for (index, curves) in clip_curves.iter().enumerate() {
-                        let local_elapsed = if index == 0 {
-                            current_elapsed
-                        } else {
-                            next_elapsed
-                        };
-                        for curve in *curves {
-                            // Some curves have only one keyframe used to set a transform
-                            if curve.keyframe_timestamps.len() == 1 {
-                                match &curve.keyframes {
-                                    Keyframes::Rotation(keyframes) => {
-                                        updated_transforms[index].rotation = keyframes[0];
-                                    }
-                                    Keyframes::Translation(keyframes) => {
-                                        updated_transforms[index].translation = keyframes[0];
-                                    }
-                                    Keyframes::Scale(keyframes) => {
-                                        updated_transforms[index].scale = keyframes[0];
-                                    }
-                                }
-                                continue;
-                            }
-
-                            // Find the current keyframe
-                            // PERF: finding the current keyframe can be optimised
-                            let step_start =
-                                match curve.keyframe_timestamps.binary_search_by(|probe| {
-                                    probe.partial_cmp(&local_elapsed).unwrap()
-                                }) {
-                                    Ok(i) => i,
-                                    Err(0) => continue, // this curve isn't started yet
-                                    Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                                    Err(i) => i - 1,
-                                };
-                            let ts_start = curve.keyframe_timestamps[step_start];
-                            let ts_end = curve.keyframe_timestamps[step_start + 1];
-                            let lerp = (local_elapsed - ts_start) / (ts_end - ts_start);
-
-                            // Apply the keyframe
-                            match &curve.keyframes {
-                                Keyframes::Rotation(keyframes) => {
-                                    let rot_start = keyframes[step_start];
-                                    let mut rot_end = keyframes[step_start + 1];
-                                    // Choose the smallest angle for the rotation
-                                    if rot_end.dot(rot_start) < 0.0 {
-                                        rot_end = -rot_end;
-                                    }
-
-                                    // Rotations are using a spherical linear interpolation
-                                    let result =
-                                        rot_start.normalize().slerp(rot_end.normalize(), lerp);
-                                    updated_transforms[index].rotation = result;
-                                }
-                                Keyframes::Translation(keyframes) => {
-                                    let translation_start = keyframes[step_start];
-                                    let translation_end = keyframes[step_start + 1];
-                                    let result = translation_start.lerp(translation_end, lerp);
-                                    updated_transforms[index].translation = result;
-                                }
-                                Keyframes::Scale(keyframes) => {
-                                    let scale_start = keyframes[step_start];
-                                    let scale_end = keyframes[step_start + 1];
-                                    let result = scale_start.lerp(scale_end, lerp);
-                                    updated_transforms[index].scale = result;
-                                }
-                            }
-                        }
-                    }
-
-                    // if updated_transforms has length 2 the animation is in transition and we use the computed transforms
-                    // from both the current and the target curve and interpolate between them using the transition_lerp factor
-                    if updated_transforms.len() == 1 {
-                        *transform = updated_transforms[0];
-                    } else if updated_transforms.len() == 2 {
-                        let from = updated_transforms[0];
-                        let to = updated_transforms[1];
-                        transform.rotation = from.rotation.slerp(to.rotation, transition_lerp);
-                        transform.translation =
-                            from.translation.lerp(to.translation, transition_lerp);
-                        transform.scale = from.scale.lerp(to.scale, transition_lerp);
                     }
                 }
             }
 
-            // Transition to next clip has finished
+            // Execute if transition to next clip has finished
             if transition_just_finished {
                 let next_clip = player.transition.next_animation_clip.clone_weak();
                 let next_speed = player.transition.speed;
@@ -450,6 +380,70 @@ pub fn animation_player(
                 if repeat {
                     player.repeat();
                 }
+            }
+        }
+    }
+}
+
+#[inline(always)]
+fn update_transforms(curves: &Vec<VariableCurve>, elapsed: f32, mut transform: &mut Transform) {
+    for curve in curves {
+        // Some curves have only one keyframe used to set a transform
+        if curve.keyframe_timestamps.len() == 1 {
+            match &curve.keyframes {
+                Keyframes::Rotation(keyframes) => {
+                    transform.rotation = keyframes[0];
+                }
+                Keyframes::Translation(keyframes) => {
+                    transform.translation = keyframes[0];
+                }
+                Keyframes::Scale(keyframes) => {
+                    transform.scale = keyframes[0];
+                }
+            }
+            continue;
+        }
+
+        // Find the current keyframe
+        // PERF: finding the current keyframe can be optimised
+        let step_start = match curve
+            .keyframe_timestamps
+            .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
+        {
+            Ok(i) => i,
+            Err(0) => continue, // this curve isn't started yet
+            Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+            Err(i) => i - 1,
+        };
+        let ts_start = curve.keyframe_timestamps[step_start];
+        let ts_end = curve.keyframe_timestamps[step_start + 1];
+        let lerp = (elapsed - ts_start) / (ts_end - ts_start);
+
+        // Apply the keyframe
+        match &curve.keyframes {
+            Keyframes::Rotation(keyframes) => {
+                let rot_start = keyframes[step_start];
+                let mut rot_end = keyframes[step_start + 1];
+                // Choose the smallest angle for the rotation
+                if rot_end.dot(rot_start) < 0.0 {
+                    rot_end = -rot_end;
+                }
+
+                // Rotations are using a spherical linear interpolation
+                let result = rot_start.normalize().slerp(rot_end.normalize(), lerp);
+                transform.rotation = result;
+            }
+            Keyframes::Translation(keyframes) => {
+                let translation_start = keyframes[step_start];
+                let translation_end = keyframes[step_start + 1];
+                let result = translation_start.lerp(translation_end, lerp);
+                transform.translation = result;
+            }
+            Keyframes::Scale(keyframes) => {
+                let scale_start = keyframes[step_start];
+                let scale_end = keyframes[step_start + 1];
+                let result = scale_start.lerp(scale_end, lerp);
+                transform.scale = result;
             }
         }
     }
