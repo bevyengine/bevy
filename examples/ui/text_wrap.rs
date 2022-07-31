@@ -63,8 +63,5 @@ fn spawn_left_panel(parent: &mut ChildBuilder, asset_server: &Res<AssetServer>) 
                             max_size: Size::new(Val::Percent(100.0), Val::Undefined),
                             ..Default::default()
                         }));
-                    
                 });
-
-                
 }
