@@ -5,7 +5,7 @@ pub use render_layers::*;
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::{Children, Parent};
+use bevy_hierarchy::{propagate_system, ComputedGlobal};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
@@ -21,14 +21,14 @@ use crate::{
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 
-/// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
+/// If an entity is hidden in this way,  all [`Children`](bevy_hierarchy::Children) (and all of their children and so on) will also be hidden.
 /// This is done by setting the values of their [`ComputedVisibility`] component.
 #[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Component, Default)]
 pub struct Visibility {
     /// Indicates whether this entity is visible. Hidden values will propagate down the entity hierarchy.
-    /// If this entity is hidden, all of its descendants will be hidden as well. See [`Children`] and [`Parent`] for
-    /// hierarchy info.
+    /// If this entity is hidden, all of its descendants will be hidden as well. See [`Children`](bevy_hierarchy::Children)
+    /// and [`Parent`](bevy_hierarchy::Parent) for hierarchy info.
     pub is_visible: bool,
 }
 
@@ -78,8 +78,8 @@ impl ComputedVisibility {
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
-    /// This takes into account "visibility inheritance". If any of this entity's ancestors (see [`Parent`]) are hidden, this entity
-    /// will be hidden as well. This value is updated in the [`CoreStage::PostUpdate`] stage in the
+    /// This takes into account "visibility inheritance". If any of this entity's ancestors (see [`Parent`](bevy_hierarchy::Parent))
+    /// are hidden, this entity will be hidden as well. This value is updated in the [`CoreStage::PostUpdate`] stage in the
     /// [`VisibilitySystems::VisibilityPropagate`] system label.
     #[inline]
     pub fn is_visible_in_hierarchy(&self) -> bool {
@@ -202,7 +202,7 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            visibility_propagate_system.label(VisibilityPropagate),
+            propagate_system::<ComputedVisibility>.label(VisibilityPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
@@ -247,63 +247,33 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     }
 }
 
-fn visibility_propagate_system(
-    mut root_query: Query<
-        (
-            Option<&Children>,
-            &Visibility,
-            &mut ComputedVisibility,
-            Entity,
-        ),
-        Without<Parent>,
-    >,
-    mut visibility_query: Query<(&Visibility, &mut ComputedVisibility, &Parent)>,
-    children_query: Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
-) {
-    for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible;
-        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.is_visible_in_view = false;
-        if let Some(children) = children {
-            for child in children.iter() {
-                let _ = propagate_recursive(
-                    computed_visibility.is_visible_in_hierarchy,
-                    &mut visibility_query,
-                    &children_query,
-                    *child,
-                    entity,
-                );
-            }
+impl ComputedGlobal for ComputedVisibility {
+    type Local = Visibility;
+
+    type ToPropagate = bool;
+
+    #[inline(always)]
+    fn from_local(local: &Self::Local) -> Self {
+        ComputedVisibility {
+            is_visible_in_hierarchy: local.is_visible,
+            // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
+            is_visible_in_view: false,
         }
     }
-}
 
-fn propagate_recursive(
-    parent_visible: bool,
-    visibility_query: &mut Query<(&Visibility, &mut ComputedVisibility, &Parent)>,
-    children_query: &Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
-    entity: Entity,
-    expected_parent: Entity,
-    // BLOCKED: https://github.com/rust-lang/rust/issues/31436
-    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
-) -> Result<(), ()> {
-    let is_visible = {
-        let (visibility, mut computed_visibility, child_parent) =
-            visibility_query.get_mut(entity).map_err(drop)?;
-        assert_eq!(
-            child_parent.get(), expected_parent,
-            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-        );
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible && parent_visible;
-        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.is_visible_in_view = false;
-        computed_visibility.is_visible_in_hierarchy
-    };
-
-    for child in children_query.get(entity).map_err(drop)?.iter() {
-        let _ = propagate_recursive(is_visible, visibility_query, children_query, *child, entity);
+    #[inline(always)]
+    fn combine_with_local(propagated: &Self::ToPropagate, local: &Self::Local) -> Self {
+        ComputedVisibility {
+            is_visible_in_hierarchy: local.is_visible && *propagated,
+            // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
+            is_visible_in_view: false,
+        }
     }
-    Ok(())
+
+    #[inline(always)]
+    fn value_to_propagate(&self) -> Self::ToPropagate {
+        self.is_visible_in_hierarchy
+    }
 }
 
 // the batch size used for check_visibility, chosen because this number tends to perform well
@@ -419,7 +389,7 @@ mod test {
     #[test]
     fn visibility_propagation() {
         let mut app = App::new();
-        app.add_system(visibility_propagate_system);
+        app.add_system(propagate_system::<ComputedVisibility>);
 
         let root1 = app
             .world

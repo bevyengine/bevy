@@ -16,6 +16,9 @@ pub use child_builder::*;
 mod events;
 pub use events::*;
 
+mod propagation;
+pub use propagation::*;
+
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
