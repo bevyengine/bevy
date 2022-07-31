@@ -419,7 +419,7 @@ pub enum KeyCode {
 ///
 /// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `Res<Input<ScanCode>>`.
 /// The resource stores the numeration of the buttons of a keyboard and can be accessed inside of a system.
-/// Use ['KeyCode'](KeyCode) for more meaningful/readable code
+/// Use [`KeyCode`](KeyCode) for more meaningful/readable code
 ///
 /// ## Updating
 ///
