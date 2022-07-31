@@ -226,7 +226,10 @@ impl Plugin for RenderPlugin {
                     // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
                     // these entities cannot be accessed without spawning directly onto them
                     // this _only_ works as expected because clear_entities() is called at the end of every frame.
-                    unsafe { render_app.world.entities_mut() }.flush_as_invalid();
+
+                    // flushing with a no-op instead of setting the ArchetypeId to invalid as with flush_as_invalid is safe because
+                    // the current state of `Entities` ensures that the code path taken will initialize this way
+                    unsafe { render_app.world.entities_mut().flush(|_, _| {}) };
                 }
 
                 {
