@@ -24,8 +24,8 @@ pub struct KeyboardInput {
 ///
 /// ## Differences
 ///
-/// The main difference between the [`KeyboardInput`] event and the [`Input<KeyCode>`] resource is that
-/// the latter has convenient functions like [`Input::pressed`], [`Input::just_pressed`] and [`Input::just_released`].
+/// The main difference between the [`KeyboardInput`] event and the [`Input<KeyCode>`] or [`Input<ScanCode>`] resources is that
+/// the latter have convenient functions such as [`Input::pressed`], [`Input::just_pressed`] and [`Input::just_released`].
 pub fn keyboard_input_system(
     mut scan_input: ResMut<Input<ScanCode>>,
     mut key_input: ResMut<Input<KeyCode>>,
@@ -418,6 +418,7 @@ pub enum KeyCode {
 ///
 /// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `Res<Input<ScanCode>>`.
 /// The resource stores the numeration of the buttons of a keyboard and can be accessed inside of a system.
+/// Can be used instead of [`KeyCode`](KeyCode) for keyboard-layout independent controls
 ///
 /// ## Updating
 ///
