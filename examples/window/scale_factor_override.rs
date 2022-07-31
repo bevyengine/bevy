@@ -22,7 +22,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
     // root node
     commands
-        .spawn_bundle(NodeBundle::transparent().with_style(Style {
+        .spawn_bundle(NodeBundle::container().with_style(Style {
             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
             justify_content: JustifyContent::SpaceBetween,
             ..default()

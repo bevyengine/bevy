@@ -370,7 +370,7 @@ fn gameover_keyboard(mut state: ResMut<State<GameState>>, keyboard_input: Res<In
 // display the number of cake eaten before losing
 fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: Res<Game>) {
     commands
-        .spawn_bundle(NodeBundle::transparent().with_style(Style {
+        .spawn_bundle(NodeBundle::container().with_style(Style {
             margin: UiRect::all(Val::Auto),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,

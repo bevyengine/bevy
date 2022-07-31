@@ -53,7 +53,7 @@ impl NodeBundle {
 
     /// Returns a node without a background color and that will let interactions go through them
     /// A transparent node is like a <div> element in HTML
-    pub fn transparent() -> Self {
+    pub fn container() -> Self {
         Self {
             color: Color::NONE.into(),
             focus_policy: FocusPolicy::Pass,

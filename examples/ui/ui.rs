@@ -22,7 +22,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // root node
     commands
-        .spawn_bundle(NodeBundle::transparent().with_style(Style {
+        .spawn_bundle(NodeBundle::container().with_style(Style {
             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
             justify_content: JustifyContent::SpaceBetween,
             ..default()
@@ -114,7 +114,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // Moving panel
                             parent
-                                .spawn_bundle(NodeBundle::transparent().with_style(Style {
+                                .spawn_bundle(NodeBundle::container().with_style(Style {
                                     flex_direction: FlexDirection::ColumnReverse,
                                     flex_grow: 1.0,
                                     max_size: Size::new(Val::Undefined, Val::Undefined),
@@ -176,7 +176,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
-                .spawn_bundle(NodeBundle::transparent().with_style(Style {
+                .spawn_bundle(NodeBundle::container().with_style(Style {
                     size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                     position_type: PositionType::Absolute,
                     align_items: AlignItems::Center,
@@ -250,7 +250,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             // bevy logo (flex center)
             parent
-                .spawn_bundle(NodeBundle::transparent().with_style(Style {
+                .spawn_bundle(NodeBundle::container().with_style(Style {
                     size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                     position_type: PositionType::Absolute,
                     justify_content: JustifyContent::Center,
