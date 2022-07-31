@@ -52,7 +52,7 @@ impl NodeBundle {
     }
 
     /// Returns a node without a background color and that will let interactions go through them
-    /// A transparent node is like a <div> element in HTML
+    /// A container node is like a <div> element in HTML
     pub fn container() -> Self {
         Self {
             color: Color::NONE.into(),
