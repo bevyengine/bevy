@@ -40,10 +40,8 @@ pub fn text_constraint(
         }
         (Val::Percent(min), _, _) => scale_value((min / 100.) * window_size, scale_factor),
         (_, _, Val::Percent(max)) => scale_value((max / 100.) * window_size, scale_factor),
-        (Val::Undefined, Val::Percent(size), Val::Undefined) => {
-            scale_value((size / 100.) * window_size, scale_factor)
-        }
-        (Val::Auto, Val::Percent(size), Val::Auto) => {
+        (Val::Undefined, Val::Percent(size), Val::Undefined)
+        | (Val::Auto, Val::Percent(size), Val::Auto) => {
             scale_value((size / 100.) * window_size, scale_factor)
         }
         _ => f32::MAX,
@@ -105,17 +103,11 @@ pub fn text_system(
             let mut scale_factor_height = scale_factor;
             if let Some(parent) = parent {
                 if let Ok(style) = parent_query.get(parent.get()) {
-                    match style.size.width {
-                        Val::Percent(percentage) => {
-                            scale_factor_width = percentage as f64 / (scale_factor * 100.)
-                        }
-                        _ => {}
+                    if let Val::Percent(percentage) = style.size.width {
+                        scale_factor_width = percentage as f64 / (scale_factor * 100.);
                     }
-                    match style.size.height {
-                        Val::Percent(percentage) => {
-                            scale_factor_height = percentage as f64 / (scale_factor * 100.)
-                        }
-                        _ => {}
+                    if let Val::Percent(percentage) = style.size.height {
+                        scale_factor_height = percentage as f64 / (scale_factor * 100.);
                     }
                 }
             }
