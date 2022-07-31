@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{IntoSystem, Res, ResMut, System},
+    system::{IntoSystem, Res, ResMut, SemiSafeCell, System},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -189,7 +189,11 @@ impl System for FixedTimestep {
         self.internal_system.is_send()
     }
 
-    unsafe fn run_unsafe(&mut self, _input: (), world: &World) -> ShouldRun {
+    fn is_exclusive(&self) -> bool {
+        self.internal_system.is_exclusive()
+    }
+
+    unsafe fn run_unsafe(&mut self, _input: (), world: SemiSafeCell<World>) -> ShouldRun {
         // SAFETY: this system inherits the internal system's component access and archetype component
         // access, which means the caller has ensured running the internal system is safe
         self.internal_system.run_unsafe((), world)
