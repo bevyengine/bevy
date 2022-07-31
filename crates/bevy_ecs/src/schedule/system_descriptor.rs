@@ -45,7 +45,7 @@ pub(crate) enum SystemType {
 /// SystemStage::parallel()
 ///     .with_system(do_something.label(Something))
 ///     .with_system(do_the_other_thing.after(Something))
-///     .with_system(do_something_else.exclusive_system().at_end());
+///     .with_system(do_something_else.at_end());
 /// ```
 pub struct SystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
@@ -143,7 +143,7 @@ pub trait IntoSystemDescriptor<Params> {
     ///
     /// As of [#4166](https://github.com/bevyengine/bevy/pull/4166),
     /// this method is no longer required and will be removed in the future.
-    // #[deprecated(since = "0.8.1", note = "`.exclusive_system()` is no longer needed")]
+    #[deprecated(since = "0.8.1", note = "`.exclusive_system()` is no longer needed")]
     fn exclusive_system(self) -> SystemDescriptor;
 
     /// Specifies that the system should run with other exclusive systems at the start of stage.

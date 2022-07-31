@@ -106,7 +106,7 @@ mod tests {
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
-        schedule::{IntoSystemDescriptor, Schedule, Stage, SystemStage},
+        schedule::{Schedule, Stage, SystemStage},
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, RemovedComponents,
             Res, ResMut, System, SystemState,
@@ -267,10 +267,7 @@ mod tests {
         let mut update = SystemStage::parallel();
         update.add_system(incr_e_on_flip);
         schedule.add_stage("update", update);
-        schedule.add_stage(
-            "clear_trackers",
-            SystemStage::single(World::clear_trackers.exclusive_system()),
-        );
+        schedule.add_stage("clear_trackers", SystemStage::single(World::clear_trackers));
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);

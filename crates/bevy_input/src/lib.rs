@@ -6,7 +6,7 @@ pub mod mouse;
 pub mod touch;
 
 pub use axis::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
 pub use input::*;
 
 pub mod prelude {

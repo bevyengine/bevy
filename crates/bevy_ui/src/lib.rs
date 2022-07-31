@@ -26,7 +26,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;

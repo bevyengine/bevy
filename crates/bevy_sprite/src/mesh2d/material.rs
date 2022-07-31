@@ -5,7 +5,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::{Bundle, World},
-    schedule::ParallelSystemDescriptorCoercion,
+    schedule::IntoSystemDescriptor,
     system::{
         lifetimeless::{Read, SQuery, SRes},
         Commands, Local, Query, Res, ResMut, SystemParamItem,
