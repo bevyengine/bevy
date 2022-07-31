@@ -2,8 +2,8 @@ use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
     system::{
-        ReadOnlySystemParamFetch, ResState, SystemMeta, SystemParam, SystemParamFetch,
-        SystemParamState, SystemState,
+        MaybeExclusive, ReadOnlySystemParamFetch, ResState, SemiSafeCell, SystemMeta, SystemParam,
+        SystemParamFetch, SystemParamState, SystemState,
     },
 };
 use std::ops::{Deref, DerefMut};
@@ -83,7 +83,7 @@ where
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
-        world: &'w World,
+        world: &mut SemiSafeCell<'w, World>,
         change_tick: u32,
     ) -> Self::Item {
         let main_world = ResState::<MainWorld>::get_param(
@@ -94,6 +94,13 @@ where
         );
         let item = state.state.get(main_world.into_inner());
         Extract { item }
+    }
+}
+
+// SAFETY: ExtractState::get_param constructs a &World (through its resource access).
+unsafe impl<P: SystemParam + 'static> MaybeExclusive for ExtractState<P> {
+    fn is_exclusive() -> bool {
+        false
     }
 }
 
