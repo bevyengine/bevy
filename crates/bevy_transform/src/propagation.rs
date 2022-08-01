@@ -8,7 +8,7 @@ impl ComputedGlobal for GlobalTransform {
 
     #[inline(always)]
     fn from_local(local: &Self::Local) -> Self {
-        (*local).into()
+        GlobalTransform::from(*local)
     }
 
     #[inline(always)]
