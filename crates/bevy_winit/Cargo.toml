@@ -27,7 +27,6 @@ approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = { version = "0.27", default-features = false }
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
 crossbeam-channel = "0.5"
