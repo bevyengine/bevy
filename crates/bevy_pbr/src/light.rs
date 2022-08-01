@@ -92,8 +92,8 @@ impl Default for PointLightShadowMap {
 /// approximation for light sources VERY far away, like the sun or
 /// the moon.
 ///
-/// By default, the light shines along the negative-Z axis and the local
-/// rotation adjusts its direction.
+/// The light shines along the forward direction of the entity's transform. With a default transform
+/// this would be along the negative-Z axis.
 ///
 /// Valid values for `illuminance` are:
 ///
