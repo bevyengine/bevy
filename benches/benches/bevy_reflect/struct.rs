@@ -43,7 +43,7 @@ fn concrete_struct_field(criterion: &mut Criterion) {
                     .collect::<Vec<_>>();
 
                 bencher.iter(|| {
-                    for name in field_names.iter() {
+                    for name in &field_names {
                         s.field(black_box(name));
                     }
                 });

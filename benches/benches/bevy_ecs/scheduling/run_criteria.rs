@@ -147,12 +147,7 @@ pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
     fn yes_with_query(query: Query<&TestBool>) -> ShouldRun {
-        let test_bool = query.single();
-        if test_bool.0 {
-            ShouldRun::Yes
-        } else {
-            ShouldRun::No
-        }
+        query.single().0.into()
     }
     for amount in 0..21 {
         let mut stage = SystemStage::parallel();
@@ -184,11 +179,7 @@ pub fn run_criteria_yes_with_resource(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
     fn yes_with_resource(res: Res<TestBool>) -> ShouldRun {
-        if res.0 {
-            ShouldRun::Yes
-        } else {
-            ShouldRun::No
-        }
+        res.0.into()
     }
     for amount in 0..21 {
         let mut stage = SystemStage::parallel();

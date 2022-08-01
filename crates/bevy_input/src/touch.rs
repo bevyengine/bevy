@@ -310,7 +310,7 @@ impl Touches {
     /// Clears the `just_pressed`, `just_released`, and `just_cancelled` collections.
     ///
     /// This is not clearing the `pressed` collection, because it could incorrectly mark
-    /// a touch input as not pressed eventhough it is pressed. This could happen if the
+    /// a touch input as not pressed even though it is pressed. This could happen if the
     /// touch input is not moving for a single frame and would therefore be marked as
     /// not pressed, because this function is called on every single frame no matter
     /// if there was an event or not.

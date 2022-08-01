@@ -1,6 +1,6 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use std::ops::Mul;
@@ -9,7 +9,7 @@ use std::ops::Mul;
 /// to its parent position.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To get the global position of an entity, you should get its [`GlobalTransform`].
+/// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
 ///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
 ///
@@ -24,7 +24,7 @@ use std::ops::Mul;
 /// [`transform_propagate_system`](crate::transform_propagate_system).
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
-/// update the[`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, Default, PartialEq)]
@@ -101,7 +101,7 @@ impl Transform {
     }
 
     /// Updates and returns this [`Transform`] by rotating it so that its unit vector in the
-    /// local z direction is toward `target` and its unit vector in the local y direction
+    /// local `Z` direction is toward `target` and its unit vector in the local `Y` direction
     /// is toward `up`.
     #[inline]
     #[must_use]
@@ -141,7 +141,14 @@ impl Transform {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
-    /// Get the unit vector in the local x direction.
+    /// Returns the 3d affine transformation matrix from this transforms translation,
+    /// rotation, and scale.
+    #[inline]
+    pub fn compute_affine(&self) -> Affine3A {
+        Affine3A::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
+    }
+
+    /// Get the unit vector in the local `X` direction.
     #[inline]
     pub fn local_x(&self) -> Vec3 {
         self.rotation * Vec3::X
@@ -159,7 +166,7 @@ impl Transform {
         self.local_x()
     }
 
-    /// Get the unit vector in the local y direction.
+    /// Get the unit vector in the local `Y` direction.
     #[inline]
     pub fn local_y(&self) -> Vec3 {
         self.rotation * Vec3::Y
@@ -177,7 +184,7 @@ impl Transform {
         -self.local_y()
     }
 
-    /// Get the unit vector in the local z direction.
+    /// Get the unit vector in the local `Z` direction.
     #[inline]
     pub fn local_z(&self) -> Vec3 {
         self.rotation * Vec3::Z
@@ -196,6 +203,8 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] by the given rotation.
+    ///
+    /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation = rotation * self.rotation;
@@ -209,7 +218,7 @@ impl Transform {
         self.rotate(Quat::from_axis_angle(axis, angle));
     }
 
-    /// Rotates this [`Transform`] around the X axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around the `X` axis by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
@@ -217,7 +226,7 @@ impl Transform {
         self.rotate(Quat::from_rotation_x(angle));
     }
 
-    /// Rotates this [`Transform`] around the Y axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around the `Y` axis by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
@@ -225,7 +234,7 @@ impl Transform {
         self.rotate(Quat::from_rotation_y(angle));
     }
 
-    /// Rotates this [`Transform`] around the Z axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around the `Z` axis by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the axis is relative to the rotation of the parent.
     #[inline]
@@ -233,22 +242,44 @@ impl Transform {
         self.rotate(Quat::from_rotation_z(angle));
     }
 
-    /// Rotates this [`Transform`] around its X axis by `angle` (in radians).
+    /// Rotates this [`Transform`] by the given `rotation`.
+    ///
+    /// The `rotation` is relative to this [`Transform`]'s current rotation.
+    #[inline]
+    pub fn rotate_local(&mut self, rotation: Quat) {
+        self.rotation *= rotation;
+    }
+
+    /// Rotates this [`Transform`] around its local `axis` by `angle` (in radians).
+    #[inline]
+    pub fn rotate_local_axis(&mut self, axis: Vec3, angle: f32) {
+        self.rotate_local(Quat::from_axis_angle(axis, angle));
+    }
+
+    /// Rotates this [`Transform`] around its local `X` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_x(&mut self, angle: f32) {
-        self.rotate_axis(self.local_x(), angle);
+        self.rotate_local(Quat::from_rotation_x(angle));
     }
 
-    /// Rotates this [`Transform`] around its Y axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its local `Y` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_y(&mut self, angle: f32) {
-        self.rotate_axis(self.local_y(), angle);
+        self.rotate_local(Quat::from_rotation_y(angle));
     }
 
-    /// Rotates this [`Transform`] around its Z axis by `angle` (in radians).
+    /// Rotates this [`Transform`] around its local `Z` axis by `angle` (in radians).
     #[inline]
     pub fn rotate_local_z(&mut self, angle: f32) {
-        self.rotate_axis(self.local_z(), angle);
+        self.rotate_local(Quat::from_rotation_z(angle));
+    }
+
+    /// Translates this [`Transform`] around a `point` in space.
+    ///
+    /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the parent.
+    #[inline]
+    pub fn translate_around(&mut self, point: Vec3, rotation: Quat) {
+        self.translation = point + rotation * (self.translation - point);
     }
 
     /// Rotates this [`Transform`] around a `point` in space.
@@ -256,12 +287,12 @@ impl Transform {
     /// If this [`Transform`] has a parent, the `point` is relative to the [`Transform`] of the parent.
     #[inline]
     pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
-        self.translation = point + rotation * (self.translation - point);
-        self.rotation *= rotation;
+        self.translate_around(point, rotation);
+        self.rotate(rotation);
     }
 
-    /// Rotates this [`Transform`] so that its local negative z direction is toward
-    /// `target` and its local y direction is toward `up`.
+    /// Rotates this [`Transform`] so that its local negative `Z` direction is toward
+    /// `target` and its local `Y` direction is toward `up`.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         let forward = Vec3::normalize(self.translation - target);
@@ -308,13 +339,11 @@ impl Default for Transform {
     }
 }
 
+/// The transform is expected to be non-degenerate and without shearing, or the output
+/// will be invalid.
 impl From<GlobalTransform> for Transform {
     fn from(transform: GlobalTransform) -> Self {
-        Self {
-            translation: transform.translation,
-            rotation: transform.rotation,
-            scale: transform.scale,
-        }
+        transform.compute_transform()
     }
 }
 

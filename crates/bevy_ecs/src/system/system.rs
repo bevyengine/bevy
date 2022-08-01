@@ -2,7 +2,7 @@ use bevy_utils::tracing::warn;
 
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    query::Access, schedule::SystemLabel, world::World,
+    query::Access, schedule::SystemLabelId, world::World,
 };
 use std::borrow::Cow;
 
@@ -56,7 +56,7 @@ pub trait System: Send + Sync + 'static {
     fn update_archetype_component_access(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
     /// The default labels for the system
-    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+    fn default_labels(&self) -> Vec<SystemLabelId> {
         Vec::new()
     }
 }

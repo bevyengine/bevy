@@ -10,31 +10,31 @@ use wgpu::BufferUsages;
 /// for use by the GPU.
 ///
 /// "Properly formatted" means that item data already meets the alignment and padding
-/// requirements for how it will be used on the GPU.
+/// requirements for how it will be used on the GPU. The item type must implement [`Pod`]
+/// for its data representation to be directly copyable.
 ///
 /// Index, vertex, and instance-rate vertex buffers have no alignment nor padding requirements and
-/// so this helper type is a good choice for them. Uniform buffers must adhere to std140
-/// alignment/padding requirements, and storage buffers to std430. There are helper types for such
-/// buffers:
-/// - Uniform buffers
-///   - Plain: [`UniformBuffer`](crate::render_resource::UniformBuffer)
-///   - Dynamic offsets: [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
-/// - Storage buffers
-///   - Plain: [`StorageBuffer`](crate::render_resource::StorageBuffer)
-///   - Dynamic offsets: [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-///
-/// The item type must implement [`Pod`] for its data representation to be directly copyable.
+/// so this helper type is a good choice for them.
 ///
 /// The contained data is stored in system RAM. Calling [`reserve`](crate::render_resource::BufferVec::reserve)
 /// allocates VRAM from the [`RenderDevice`](crate::renderer::RenderDevice).
 /// [`write_buffer`](crate::render_resource::BufferVec::write_buffer) queues copying of the data
 /// from system RAM to VRAM.
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`Texture`](crate::render_resource::Texture)
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
     buffer: Option<Buffer>,
     capacity: usize,
     item_size: usize,
     buffer_usage: BufferUsages,
+    label: Option<String>,
+    label_changed: bool,
 }
 
 impl<T: Pod> BufferVec<T> {
@@ -45,6 +45,8 @@ impl<T: Pod> BufferVec<T> {
             capacity: 0,
             item_size: std::mem::size_of::<T>(),
             buffer_usage,
+            label: None,
+            label_changed: false,
         }
     }
 
@@ -74,6 +76,20 @@ impl<T: Pod> BufferVec<T> {
         index
     }
 
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.label_changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
     /// Creates a [`Buffer`](crate::render_resource::Buffer) on the [`RenderDevice`](crate::renderer::RenderDevice) with size
     /// at least `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
     ///
@@ -86,15 +102,16 @@ impl<T: Pod> BufferVec<T> {
     /// the `BufferVec` was created, the buffer on the [`RenderDevice`](crate::renderer::RenderDevice)
     /// is marked as [`BufferUsages::COPY_DST`](crate::render_resource::BufferUsages).
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
-        if capacity > self.capacity {
+        if capacity > self.capacity || self.label_changed {
             self.capacity = capacity;
             let size = self.item_size * capacity;
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
-                label: None,
+                label: self.label.as_deref(),
                 size: size as wgpu::BufferAddress,
                 usage: BufferUsages::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
             }));
+            self.label_changed = false;
         }
     }
 

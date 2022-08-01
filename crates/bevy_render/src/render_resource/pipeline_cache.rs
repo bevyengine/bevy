@@ -7,7 +7,7 @@ use crate::{
         ShaderProcessor, ShaderReflectError,
     },
     renderer::RenderDevice,
-    RenderWorld,
+    Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::event::EventReader;
@@ -155,7 +155,7 @@ impl ShaderCache {
                 render_device
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
-                let shader_module = render_device.create_shader_module(&module_descriptor);
+                let shader_module = render_device.create_shader_module(module_descriptor);
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
@@ -410,7 +410,7 @@ impl PipelineCache {
             Some((
                 fragment_module,
                 fragment.entry_point.deref(),
-                &fragment.targets,
+                fragment.targets.as_slice(),
             ))
         } else {
             None
@@ -546,11 +546,10 @@ impl PipelineCache {
     }
 
     pub(crate) fn extract_shaders(
-        mut world: ResMut<RenderWorld>,
-        shaders: Res<Assets<Shader>>,
-        mut events: EventReader<AssetEvent<Shader>>,
+        mut cache: ResMut<Self>,
+        shaders: Extract<Res<Assets<Shader>>>,
+        mut events: Extract<EventReader<AssetEvent<Shader>>>,
     ) {
-        let mut cache = world.resource_mut::<Self>();
         for event in events.iter() {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {

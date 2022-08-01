@@ -75,7 +75,7 @@ unsafe impl SystemParamState for ParallelCommandsState {
     }
 
     fn apply(&mut self, world: &mut World) {
-        for cq in self.thread_local_storage.iter_mut() {
+        for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
         }
     }

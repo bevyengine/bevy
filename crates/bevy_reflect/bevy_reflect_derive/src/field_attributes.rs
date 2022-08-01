@@ -103,7 +103,7 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
             Err(syn::Error::new(list.path.span(), "unexpected property"))
         }
         Meta::List(list) => {
-            for nested in list.nested.iter() {
+            for nested in &list.nested {
                 if let NestedMeta::Meta(meta) = nested {
                     parse_meta(args, meta)?;
                 }

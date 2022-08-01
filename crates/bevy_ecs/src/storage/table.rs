@@ -133,7 +133,7 @@ impl Column {
     ///  - `src_row` must be in bounds for `other`
     ///  - `dst_row` must be in bounds for `self`
     ///  - `other[src_row]` must be initialized to a valid value.
-    ///  - `self[dst_row]` must not be initalized yet.
+    ///  - `self[dst_row]` must not be initialized yet.
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
@@ -492,7 +492,7 @@ impl Tables {
             .from_key(component_ids)
             .or_insert_with(|| {
                 let mut table = Table::with_capacity(0, component_ids.len());
-                for component_id in component_ids.iter() {
+                for component_id in component_ids {
                     table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table);

@@ -90,7 +90,7 @@ fn setup(
 
 // This system will move the cube forward.
 fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time>) {
-    for (mut transform, cube) in cubes.iter_mut() {
+    for (mut transform, cube) in &mut cubes {
         // Move the cube forward smoothly at a given move_speed.
         let forward = transform.forward();
         transform.translation += forward * cube.move_speed * timer.delta_seconds();
@@ -107,11 +107,11 @@ fn rotate_cube(
 ) {
     // Calculate the point to circle around. (The position of the center_sphere)
     let mut center: Vec3 = Vec3::ZERO;
-    for sphere in center_spheres.iter() {
+    for sphere in &center_spheres {
         center += sphere.translation;
     }
     // Update the rotation of the cube(s).
-    for (mut transform, cube) in cubes.iter_mut() {
+    for (mut transform, cube) in &mut cubes {
         // Calculate the rotation of the cube if it would be looking at the sphere in the center.
         let look_at_sphere = transform.looking_at(center, transform.local_y());
         // Interpolate between the current rotation and the fully turned rotation
@@ -132,11 +132,11 @@ fn scale_down_sphere_proportional_to_cube_travel_distance(
     // First we need to calculate the length of between
     // the current position of the orbiting cube and the spawn position.
     let mut distances = 0.0;
-    for (cube_transform, cube_state) in cubes.iter() {
+    for (cube_transform, cube_state) in &cubes {
         distances += (cube_state.start_pos - cube_transform.translation).length();
     }
     // Now we use the calculated value to scale the sphere in the center accordingly.
-    for (mut transform, center) in centers.iter_mut() {
+    for (mut transform, center) in &mut centers {
         // Calculate the new size from the calculated distances and the centers scale_factor.
         // Since we want to have the sphere at its max_size at the cubes spawn location we start by
         // using the max_size as start value and subtract the distances scaled by a scaling factor.

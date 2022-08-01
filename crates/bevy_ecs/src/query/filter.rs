@@ -36,7 +36,7 @@ use super::ReadOnlyWorldQuery;
 /// # struct Name { name: &'static str };
 /// #
 /// fn compliment_entity_system(query: Query<&Name, With<IsBeautiful>>) {
-///     for name in query.iter() {
+///     for name in &query {
 ///         println!("{} is looking lovely today!", name.name);
 ///     }
 /// }
@@ -177,7 +177,7 @@ impl<T> Copy for WithFetch<T> {}
 /// # struct Name { name: &'static str };
 /// #
 /// fn no_permit_system(query: Query<&Name, Without<Permit>>) {
-///     for name in query.iter() {
+///     for name in &query{
 ///         println!("{} has no permit!", name.name);
 ///     }
 /// }
@@ -324,7 +324,7 @@ impl<T> Copy for WithoutFetch<T> {}
 /// # struct Style {};
 /// #
 /// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Style>)>>) {
-///     for entity in query.iter() {
+///     for entity in &query {
 ///         println!("Entity {:?} got a new style or color", entity);
 ///     }
 /// }
@@ -685,7 +685,7 @@ impl_tick_filter!(
     /// # struct Name {};
     ///
     /// fn print_add_name_component(query: Query<&Name, Added<Name>>) {
-    ///     for name in query.iter() {
+    ///     for name in &query {
     ///         println!("Named entity created: {:?}", name)
     ///     }
     /// }
@@ -725,7 +725,7 @@ impl_tick_filter!(
     /// # struct Transform {};
     ///
     /// fn print_moving_objects_system(query: Query<&Name, Changed<Transform>>) {
-    ///     for name in query.iter() {
+    ///     for name in &query {
     ///         println!("Entity Moved: {:?}", name);
     ///     }
     /// }

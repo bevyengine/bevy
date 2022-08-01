@@ -53,47 +53,19 @@ enum ScheduledOperation<T: StateData> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-enum StateCallback {
-    Update,
-    InactiveUpdate,
-    InStackUpdate,
-    Enter,
-    Exit,
-    Pause,
-    Resume,
-}
-
-impl StateCallback {
-    fn into_label<T>(self, state: T) -> StateRunCriteriaLabel<T>
-    where
-        T: StateData,
-    {
-        StateRunCriteriaLabel(state, self)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-struct StateRunCriteriaLabel<T>(T, StateCallback);
-impl<T> RunCriteriaLabel for StateRunCriteriaLabel<T>
-where
-    T: StateData,
-{
-    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
-        Box::new(self.clone())
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-struct DriverLabel(TypeId);
+struct DriverLabel(TypeId, &'static str);
 impl RunCriteriaLabel for DriverLabel {
-    fn dyn_clone(&self) -> Box<dyn RunCriteriaLabel> {
-        Box::new(self.clone())
+    fn type_id(&self) -> core::any::TypeId {
+        self.0
+    }
+    fn as_str(&self) -> &'static str {
+        self.1
     }
 }
 
 impl DriverLabel {
     fn of<T: 'static>() -> Self {
-        Self(TypeId::of::<T>())
+        Self(TypeId::of::<T>(), std::any::type_name::<T>())
     }
 }
 
@@ -102,17 +74,14 @@ where
     T: StateData,
 {
     pub fn on_update(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state.stack.last().unwrap() == &pred && state.transition.is_none()
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Update.into_label(pred_clone))
     }
 
     pub fn on_inactive_update(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>, mut is_inactive: Local<bool>| match &state.transition {
             Some(StateTransition::Pausing(ref relevant, _))
             | Some(StateTransition::Resuming(_, ref relevant)) => {
@@ -126,11 +95,9 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::InactiveUpdate.into_label(pred_clone))
     }
 
     pub fn on_in_stack_update(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>, mut is_in_stack: Local<bool>| match &state.transition {
             Some(StateTransition::Entering(ref relevant, _))
             | Some(StateTransition::ExitingToResume(_, ref relevant))
@@ -151,11 +118,9 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::InStackUpdate.into_label(pred_clone))
     }
 
     pub fn on_enter(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state
                 .transition
@@ -168,11 +133,9 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Enter.into_label(pred_clone))
     }
 
     pub fn on_exit(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state
                 .transition
@@ -185,11 +148,9 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Exit.into_label(pred_clone))
     }
 
     pub fn on_pause(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state
                 .transition
@@ -201,11 +162,9 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Pause.into_label(pred_clone))
     }
 
     pub fn on_resume(pred: T) -> RunCriteriaDescriptor {
-        let pred_clone = pred.clone();
         (move |state: Res<State<T>>| {
             state
                 .transition
@@ -217,7 +176,6 @@ where
         })
         .chain(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
-        .label_discard_if_duplicate(StateCallback::Resume.into_label(pred_clone))
     }
 
     pub fn on_update_set(s: T) -> SystemSet {

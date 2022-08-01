@@ -9,7 +9,7 @@ use bevy_render::{
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Clone, Default, Reflect)]
@@ -56,6 +56,72 @@ impl AddAssign<f32> for Val {
     }
 }
 
+impl Sub<f32> for Val {
+    type Output = Val;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        match self {
+            Val::Undefined => Val::Undefined,
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value - rhs),
+            Val::Percent(value) => Val::Percent(value - rhs),
+        }
+    }
+}
+
+impl SubAssign<f32> for Val {
+    fn sub_assign(&mut self, rhs: f32) {
+        match self {
+            Val::Undefined | Val::Auto => {}
+            Val::Px(value) | Val::Percent(value) => *value -= rhs,
+        }
+    }
+}
+
+impl Mul<f32> for Val {
+    type Output = Val;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            Val::Undefined => Val::Undefined,
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value * rhs),
+            Val::Percent(value) => Val::Percent(value * rhs),
+        }
+    }
+}
+
+impl MulAssign<f32> for Val {
+    fn mul_assign(&mut self, rhs: f32) {
+        match self {
+            Val::Undefined | Val::Auto => {}
+            Val::Px(value) | Val::Percent(value) => *value *= rhs,
+        }
+    }
+}
+
+impl Div<f32> for Val {
+    type Output = Val;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        match self {
+            Val::Undefined => Val::Undefined,
+            Val::Auto => Val::Auto,
+            Val::Px(value) => Val::Px(value / rhs),
+            Val::Percent(value) => Val::Percent(value / rhs),
+        }
+    }
+}
+
+impl DivAssign<f32> for Val {
+    fn div_assign(&mut self, rhs: f32) {
+        match self {
+            Val::Undefined | Val::Auto => {}
+            Val::Px(value) | Val::Percent(value) => *value /= rhs,
+        }
+    }
+}
+
 /// Describes the style of a UI node
 ///
 /// It uses the [Flexbox](https://cssreference.io/flexbox/) system.
@@ -66,6 +132,8 @@ impl AddAssign<f32> for Val {
 #[reflect(Component, Default, PartialEq)]
 pub struct Style {
     /// Whether to arrange this node and its children with flexbox layout
+    ///
+    /// If this is set to [`Display::None`], this node will be collapsed.
     pub display: Display,
     /// Whether to arrange this node relative to other nodes, or positioned absolutely
     pub position_type: PositionType,
@@ -84,14 +152,14 @@ pub struct Style {
     pub align_content: AlignContent,
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
-    /// The position of the node as descrided by its Rect
-    pub position: UiRect<Val>,
+    /// The position of the node as described by its Rect
+    pub position: UiRect,
     /// The margin of the node
-    pub margin: UiRect<Val>,
+    pub margin: UiRect,
     /// The padding of the node
-    pub padding: UiRect<Val>,
+    pub padding: UiRect,
     /// The border of the node
-    pub border: UiRect<Val>,
+    pub border: UiRect,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
@@ -99,11 +167,11 @@ pub struct Style {
     /// The initial size of the item
     pub flex_basis: Val,
     /// The size of the flexbox
-    pub size: Size<Val>,
+    pub size: Size,
     /// The minimum size of the flexbox
-    pub min_size: Size<Val>,
+    pub min_size: Size,
     /// The maximum size of the flexbox
-    pub max_size: Size<Val>,
+    pub max_size: Size,
     /// The aspect ratio of the flexbox
     pub aspect_ratio: Option<f32>,
     /// How to handle overflow
@@ -212,14 +280,19 @@ pub enum Direction {
     RightToLeft,
 }
 
-/// Whether to use Flexbox layout
+/// Whether to use a Flexbox layout model.
+///
+/// Part of the [`Style`] component.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
 pub enum Display {
-    /// Use flexbox
+    /// Use Flexbox layout model to determine the position of this [`Node`].
     #[default]
     Flex,
-    /// Use no layout, don't render this node and its children
+    /// Use no layout, don't render this node and its children.
+    ///
+    /// If you want to hide a node and its children,
+    /// but keep its layout in place, set its [`Visibility`](bevy_render::view::Visibility) component instead.
     None,
 }
 

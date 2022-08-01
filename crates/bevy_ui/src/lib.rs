@@ -25,7 +25,6 @@ pub mod prelude {
     pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction};
 }
 
-use crate::Size;
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 use bevy_input::InputSystem;
@@ -33,7 +32,7 @@ use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
 use update::{ui_z_system, update_clipping_system};
 
-use crate::prelude::CameraUi;
+use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -50,7 +49,7 @@ pub enum UiSystem {
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<CameraUi>::default())
+        app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<FlexSurface>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
@@ -68,9 +67,8 @@ impl Plugin for UiPlugin {
             .register_type::<Option<f32>>()
             .register_type::<Overflow>()
             .register_type::<PositionType>()
-            .register_type::<Size<f32>>()
-            .register_type::<Size<Val>>()
-            .register_type::<UiRect<Val>>()
+            .register_type::<Size>()
+            .register_type::<UiRect>()
             .register_type::<Style>()
             .register_type::<UiColor>()
             .register_type::<UiImage>()

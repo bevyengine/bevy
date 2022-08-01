@@ -244,7 +244,7 @@ struct Update(f32);
 
 /// update positions system
 fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut Update)>) {
-    for (mut t, mut u) in query.iter_mut() {
+    for (mut t, mut u) in &mut query {
         u.0 += time.delta_seconds() * 0.1;
         set_translation(&mut t.translation, u.0);
     }
@@ -257,7 +257,10 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 }
 
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
+    warn!(include_str!("warning_string.txt"));
+
     let mut cam = Camera2dBundle::default();
+
     cam.transform.translation.z = 100.0;
     commands.spawn_bundle(cam);
 

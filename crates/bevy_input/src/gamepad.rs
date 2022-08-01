@@ -15,7 +15,7 @@ impl Gamepad {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 /// Container of unique connected [`Gamepad`]s
 ///
 /// [`Gamepad`]s are registered and deregistered in [`gamepad_connection_system`]
@@ -135,8 +135,6 @@ pub enum GamepadAxisType {
     RightStickX,
     RightStickY,
     RightZ,
-    DPadX,
-    DPadY,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -412,15 +410,13 @@ const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
     GamepadButtonType::DPadRight,
 ];
 
-const ALL_AXIS_TYPES: [GamepadAxisType; 8] = [
+const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
     GamepadAxisType::LeftStickX,
     GamepadAxisType::LeftStickY,
     GamepadAxisType::LeftZ,
     GamepadAxisType::RightStickX,
     GamepadAxisType::RightStickY,
     GamepadAxisType::RightZ,
-    GamepadAxisType::DPadX,
-    GamepadAxisType::DPadY,
 ];
 
 #[cfg(test)]

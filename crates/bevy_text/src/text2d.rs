@@ -10,7 +10,12 @@ use bevy_ecs::{
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
-use bevy_render::{texture::Image, view::Visibility, RenderWorld};
+use bevy_render::{
+    prelude::Color,
+    texture::Image,
+    view::{ComputedVisibility, Visibility},
+    Extract,
+};
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
@@ -59,30 +64,31 @@ pub struct Text2dBundle {
     pub text_2d_size: Text2dSize,
     pub text_2d_bounds: Text2dBounds,
     pub visibility: Visibility,
+    pub computed_visibility: ComputedVisibility,
 }
 
 pub fn extract_text2d_sprite(
-    mut render_world: ResMut<RenderWorld>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    text_pipeline: Res<DefaultTextPipeline>,
-    windows: Res<Windows>,
-    text2d_query: Query<(
-        Entity,
-        &Visibility,
-        &Text,
-        &BidiCorrectedText,
-        &GlobalTransform,
-        &Text2dSize,
-    )>,
+    mut extracted_sprites: ResMut<ExtractedSprites>,
+    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    text_pipeline: Extract<Res<DefaultTextPipeline>>,
+    windows: Extract<Res<Windows>>,
+    text2d_query: Extract<
+        Query<(
+            Entity,
+            &ComputedVisibility,
+            &Text,
+            &BidiCorrectedText,
+            &GlobalTransform,
+            &Text2dSize,
+        )>,
+    >,
 ) {
-    let mut extracted_sprites = render_world.resource_mut::<ExtractedSprites>();
-
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, visibility, text, bidi_corrected, transform, calculated_size) in
+    for (entity, computed_visibility, text, bidi_corrected, text_transform, calculated_size) in
         text2d_query.iter()
     {
-        if !visibility.is_visible {
+        if !computed_visibility.is_visible() {
             continue;
         }
         let (width, height) = (calculated_size.size.x, calculated_size.size.y);
@@ -99,14 +105,16 @@ pub fn extract_text2d_sprite(
                 HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
             };
 
-            let mut text_transform = *transform;
-            text_transform.scale /= scale_factor;
-
+            let mut color = Color::WHITE;
+            let mut current_section = usize::MAX;
             for text_glyph in text_glyphs {
-                let color = bidi_corrected.sections[text_glyph.section_index]
-                    .style
-                    .color
-                    .as_rgba_linear();
+                if text_glyph.section_index != current_section {
+                    color = bidi_corrected.sections[text_glyph.section_index]
+                        .style
+                        .color
+                        .as_rgba_linear();
+                    current_section = text_glyph.section_index;
+                }
                 let atlas = texture_atlases
                     .get(&text_glyph.atlas_info.texture_atlas)
                     .unwrap();
@@ -117,10 +125,13 @@ pub fn extract_text2d_sprite(
                 let glyph_transform = Transform::from_translation(
                     alignment_offset * scale_factor + text_glyph.position.extend(0.),
                 );
-
-                let transform = text_transform.mul_transform(glyph_transform);
+                // NOTE: Should match `bevy_ui::render::extract_text_uinodes`
+                let transform = *text_transform
+                    * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
+                    * glyph_transform;
 
                 extracted_sprites.sprites.push(ExtractedSprite {
+                    entity,
                     transform,
                     color,
                     rect,
@@ -138,7 +149,7 @@ pub fn extract_text2d_sprite(
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn update_text2d_layout(
+pub fn update_text2d_layout(
     mut commands: Commands,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<HashSet<Entity>>,
@@ -163,7 +174,7 @@ pub(crate) fn update_text2d_layout(
     let scale_factor = windows.scale_factor(WindowId::primary());
 
     for (entity, text_changed, text, bidi_corrected, maybe_bounds, mut calculated_size) in
-        text_query.iter_mut()
+        &mut text_query
     {
         if factor_changed || text_changed || queue.remove(&entity) {
             let text_bounds = match maybe_bounds {
