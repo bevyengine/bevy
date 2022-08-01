@@ -603,7 +603,7 @@ impl Entities {
         }
     }
 
-    /// # Safety:
+    /// # Safety
     ///
     /// This function is safe if and only if the world this Entities is on has no entities.
     pub unsafe fn flush_and_reserve_invalid_assuming_no_entities(&mut self, count: usize) {
