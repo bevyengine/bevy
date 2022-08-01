@@ -118,12 +118,18 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 
     /// # Safety
     ///
-    /// This function must:
-    /// - return [`WorldAccessLevel::Exclusive`] if [`get_param`](SystemParamFetch::get_param)
-    /// constructs a [`&mut World`](World).
-    /// - return [`WorldAccessLevel::Shared`] if
-    /// [`get_param`](SystemParamFetch::get_param) constructs a [`&World`](World).
-    /// - **panic** if [`get_param`](SystemParamFetch::get_param) would construct both at the same time.
+    /// This function must return:
+    /// - [`WorldAccessLevel::Exclusive`] if [`get_param`](SystemParamFetch::get_param)
+    /// internally constructs a [`&mut World`](World) (or a type that can make one).
+    /// - [`WorldAccessLevel::Shared`] if [`get_param`](SystemParamFetch::get_param)
+    /// internally constructs a [`&World`](World) (or a type that can make one).
+    /// - [`WorldAccessLevel::None`] otherwise.
+    ///
+    /// # Panics
+    ///
+    /// During system construction, [`SystemParam`] tuples and implementations
+    /// produced by the [`#[derive(SystemParam)`](`derive@super::SystemParam`)
+    /// macro will panic on invalid combinations that would be undefined behavior.
     fn world_access_level() -> WorldAccessLevel;
 }
 
