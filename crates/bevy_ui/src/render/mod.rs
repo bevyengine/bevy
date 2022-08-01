@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::CameraUi, widget::BidiCorrectedText, CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::CameraUi, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -24,7 +24,7 @@ use bevy_render::{
     RenderApp, RenderStage, RenderWorld,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
-use bevy_text::DefaultTextPipeline;
+use bevy_text::{BidiCorrectedText, DefaultTextPipeline};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;

@@ -15,11 +15,10 @@ use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
-use unicode_bidi::BidiInfo;
 
 use crate::{
     BidiCorrectedText, DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError,
-    TextSection, VerticalAlign,
+    VerticalAlign,
 };
 
 /// The calculated size of text drawn in 2D scene.
@@ -62,7 +61,7 @@ pub struct Text2dBundle {
     pub visibility: Visibility,
 }
 
-pub(crate) fn extract_text2d_sprite(
+pub fn extract_text2d_sprite(
     mut render_world: ResMut<RenderWorld>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     text_pipeline: Res<DefaultTextPipeline>,
@@ -175,20 +174,7 @@ pub(crate) fn update_text2d_layout(
                 None => Vec2::new(f32::MAX, f32::MAX),
             };
 
-            let mut bidi_corrected_internal = BidiCorrectedText::default();
-
-            for section in &text.sections {
-                let bidi_info = BidiInfo::new(&section.value, None);
-                for para in &bidi_info.paragraphs {
-                    let line = para.range.clone();
-                    let display = bidi_info.reorder_line(para, line);
-                    let section = TextSection {
-                        value: display.into_owned(),
-                        style: section.style.clone(),
-                    };
-                    bidi_corrected_internal.sections.push(section);
-                }
-            }
+            let bidi_corrected_internal = BidiCorrectedText::new(&text.sections);
 
             match text_pipeline.queue_text(
                 entity,

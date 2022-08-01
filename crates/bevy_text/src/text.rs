@@ -3,6 +3,7 @@ use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::*, FromReflect};
 use bevy_render::color::Color;
 use serde::{Deserialize, Serialize};
+use unicode_bidi::BidiInfo;
 
 use crate::Font;
 
@@ -16,8 +17,27 @@ pub struct Text {
 /// Corrected text data after applying the Unicode Bidirectional Algorithm
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component)]
-pub(crate) struct BidiCorrectedText {
+pub struct BidiCorrectedText {
     pub sections: Vec<TextSection>,
+}
+
+impl BidiCorrectedText {
+    pub fn new(sections: &Vec<TextSection>) -> Self {
+        let mut bidi_corrected = BidiCorrectedText::default();
+        for section in sections {
+            let bidi_info = BidiInfo::new(&section.value, None);
+            for para in &bidi_info.paragraphs {
+                let line = para.range.clone();
+                let display = bidi_info.reorder_line(para, line);
+                let section = TextSection {
+                    value: display.into_owned(),
+                    style: section.style.clone(),
+                };
+                bidi_corrected.sections.push(section);
+            }
+        }
+        bidi_corrected
+    }
 }
 
 impl Text {
