@@ -197,6 +197,10 @@ pub fn extract_uinodes(
         if !images.contains(&image) {
             continue;
         }
+        // Skip completely transparent nodes
+        if color.0.a() == 0.0 {
+            continue;
+        }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
             color: color.0,
