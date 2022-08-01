@@ -1,3 +1,4 @@
+use crate::Val;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
@@ -119,20 +120,20 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
 #[reflect(PartialEq)]
-pub struct UiRect<T: Reflect + PartialEq> {
+pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
-    pub left: T,
+    pub left: Val,
     /// The value corresponding to the right side of the UI rect.
-    pub right: T,
+    pub right: Val,
     /// The value corresponding to the top side of the UI rect.
-    pub top: T,
+    pub top: Val,
     /// The value corresponding to the bottom side of the UI rect.
-    pub bottom: T,
+    pub bottom: Val,
 }
 
-impl<T: Reflect + PartialEq> UiRect<T> {
+impl UiRect {
     /// Creates a new [`UiRect`] from the values specified.
     ///
     /// # Example
@@ -152,7 +153,7 @@ impl<T: Reflect + PartialEq> UiRect<T> {
     /// assert_eq!(ui_rect.top, Val::Px(30.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
-    pub fn new(left: T, right: T, top: T, bottom: T) -> Self {
+    pub fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
         UiRect {
             left,
             right,
@@ -175,26 +176,12 @@ impl<T: Reflect + PartialEq> UiRect<T> {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn all(value: T) -> Self
-    where
-        T: Clone,
-    {
+    pub fn all(value: Val) -> Self {
         UiRect {
-            left: value.clone(),
-            right: value.clone(),
-            top: value.clone(),
+            left: value,
+            right: value,
+            top: value,
             bottom: value,
-        }
-    }
-}
-
-impl<T: Default + Reflect + PartialEq> Default for UiRect<T> {
-    fn default() -> Self {
-        Self {
-            left: Default::default(),
-            right: Default::default(),
-            top: Default::default(),
-            bottom: Default::default(),
         }
     }
 }
@@ -202,16 +189,16 @@ impl<T: Default + Reflect + PartialEq> Default for UiRect<T> {
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
 #[reflect(PartialEq)]
-pub struct Size<T: Reflect + PartialEq = f32> {
+pub struct Size {
     /// The width of the 2-dimensional area.
-    pub width: T,
+    pub width: Val,
     /// The height of the 2-dimensional area.
-    pub height: T,
+    pub height: Val,
 }
 
-impl<T: Reflect + PartialEq> Size<T> {
+impl Size {
     /// Creates a new [`Size`] from a width and a height.
     ///
     /// # Example
@@ -224,25 +211,13 @@ impl<T: Reflect + PartialEq> Size<T> {
     /// assert_eq!(size.width, Val::Px(100.0));
     /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
-    pub fn new(width: T, height: T) -> Self {
+    pub fn new(width: Val, height: Val) -> Self {
         Size { width, height }
     }
 }
 
-impl<T: Default + Reflect + PartialEq> Default for Size<T> {
-    fn default() -> Self {
-        Self {
-            width: Default::default(),
-            height: Default::default(),
-        }
-    }
-}
-
-impl<T: Reflect + PartialEq> Add<Vec2> for Size<T>
-where
-    T: Add<f32, Output = T>,
-{
-    type Output = Size<T>;
+impl Add<Vec2> for Size {
+    type Output = Size;
 
     fn add(self, rhs: Vec2) -> Self::Output {
         Self {
@@ -252,21 +227,15 @@ where
     }
 }
 
-impl<T: Reflect + PartialEq> AddAssign<Vec2> for Size<T>
-where
-    T: AddAssign<f32>,
-{
+impl AddAssign<Vec2> for Size {
     fn add_assign(&mut self, rhs: Vec2) {
         self.width += rhs.x;
         self.height += rhs.y;
     }
 }
 
-impl<T: Reflect + PartialEq> Sub<Vec2> for Size<T>
-where
-    T: Sub<f32, Output = T>,
-{
-    type Output = Size<T>;
+impl Sub<Vec2> for Size {
+    type Output = Size;
 
     fn sub(self, rhs: Vec2) -> Self::Output {
         Self {
@@ -276,21 +245,15 @@ where
     }
 }
 
-impl<T: Reflect + PartialEq> SubAssign<Vec2> for Size<T>
-where
-    T: SubAssign<f32>,
-{
+impl SubAssign<Vec2> for Size {
     fn sub_assign(&mut self, rhs: Vec2) {
         self.width -= rhs.x;
         self.height -= rhs.y;
     }
 }
 
-impl<T: Reflect + PartialEq> Mul<f32> for Size<T>
-where
-    T: Mul<f32, Output = T>,
-{
-    type Output = Size<T>;
+impl Mul<f32> for Size {
+    type Output = Size;
 
     fn mul(self, rhs: f32) -> Self::Output {
         Self::Output {
@@ -300,21 +263,15 @@ where
     }
 }
 
-impl<T: Reflect + PartialEq> MulAssign<f32> for Size<T>
-where
-    T: MulAssign<f32>,
-{
+impl MulAssign<f32> for Size {
     fn mul_assign(&mut self, rhs: f32) {
         self.width *= rhs;
         self.height *= rhs;
     }
 }
 
-impl<T: Reflect + PartialEq> Div<f32> for Size<T>
-where
-    T: Div<f32, Output = T>,
-{
-    type Output = Size<T>;
+impl Div<f32> for Size {
+    type Output = Size;
 
     fn div(self, rhs: f32) -> Self::Output {
         Self::Output {
@@ -324,10 +281,7 @@ where
     }
 }
 
-impl<T: Reflect + PartialEq> DivAssign<f32> for Size<T>
-where
-    T: DivAssign<f32>,
-{
+impl DivAssign<f32> for Size {
     fn div_assign(&mut self, rhs: f32) {
         self.width /= rhs;
         self.height /= rhs;
@@ -339,22 +293,50 @@ mod tests {
     use super::*;
 
     #[test]
-    fn size_ops() {
+    fn test_size_add() {
         assert_eq!(
-            Size::new(10., 10.) + Vec2::new(10., 10.),
-            Size::new(20., 20.)
+            Size::new(Val::Px(10.), Val::Px(10.)) + Vec2::new(10., 10.),
+            Size::new(Val::Px(20.), Val::Px(20.))
         );
-        assert_eq!(
-            Size::new(20., 20.) - Vec2::new(10., 10.),
-            Size::new(10., 10.)
-        );
-        assert_eq!(Size::new(10., 10.) * 2., Size::new(20., 20.));
-        assert_eq!(Size::new(20., 20.) / 2., Size::new(10., 10.));
 
-        let mut size = Size::new(10., 10.);
-
+        let mut size = Size::new(Val::Px(10.), Val::Px(10.));
         size += Vec2::new(10., 10.);
+        assert_eq!(size, Size::new(Val::Px(20.), Val::Px(20.)));
+    }
 
-        assert_eq!(size, Size::new(20., 20.));
+    #[test]
+    fn test_size_sub() {
+        assert_eq!(
+            Size::new(Val::Px(20.), Val::Px(20.)) - Vec2::new(10., 10.),
+            Size::new(Val::Px(10.), Val::Px(10.))
+        );
+
+        let mut size = Size::new(Val::Px(20.), Val::Px(20.));
+        size -= Vec2::new(10., 10.);
+        assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
+    }
+
+    #[test]
+    fn test_size_mul() {
+        assert_eq!(
+            Size::new(Val::Px(10.), Val::Px(10.)) * 2.,
+            Size::new(Val::Px(20.), Val::Px(20.))
+        );
+
+        let mut size = Size::new(Val::Px(10.), Val::Px(10.));
+        size *= 2.;
+        assert_eq!(size, Size::new(Val::Px(20.), Val::Px(20.)));
+    }
+
+    #[test]
+    fn test_size_div() {
+        assert_eq!(
+            Size::new(Val::Px(20.), Val::Px(20.)) / 2.,
+            Size::new(Val::Px(10.), Val::Px(10.))
+        );
+
+        let mut size = Size::new(Val::Px(20.), Val::Px(20.));
+        size /= 2.;
+        assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
     }
 }
