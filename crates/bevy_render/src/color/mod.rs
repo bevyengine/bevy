@@ -294,6 +294,7 @@ impl Color {
     }
 
     /// Get alpha.
+    #[inline(always)]
     pub fn a(&self) -> f32 {
         match self {
             Color::Rgba { alpha, .. }
