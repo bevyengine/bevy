@@ -16,6 +16,9 @@ pub use child_builder::*;
 mod events;
 pub use events::*;
 
+mod mark_descendants;
+pub use mark_descendants::*;
+
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
