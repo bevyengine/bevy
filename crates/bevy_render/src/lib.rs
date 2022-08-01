@@ -225,11 +225,6 @@ impl Plugin for RenderPlugin {
                         "An entity was spawned after the entity list was cleared last frame and before the extract stage began. This is not supported",
                     );
 
-                    render_app
-                        .world
-                        .entities()
-                        .reserve_entities(meta_len as u32);
-
                     // This is safe given the clear_entities call in the past frame and the assert above
                     unsafe {
                         render_app

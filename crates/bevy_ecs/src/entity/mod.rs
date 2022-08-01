@@ -608,14 +608,13 @@ impl Entities {
     /// This function is safe if and only if the world this Entities is on has no entities.
     pub unsafe fn flush_and_reserve_invalid_assuming_no_entities(&mut self, count: usize) {
         let free_cursor = self.free_cursor.get_mut();
-        let alloc_count = -*free_cursor as usize;
         *free_cursor = 0;
         let meta = &mut self.meta;
         meta.reserve(count);
         let ptr = meta.as_mut_ptr();
         // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
         ptr.write_bytes(u8::MAX, count);
-        self.len = alloc_count as u32;
+        self.len = count as u32;
     }
 
     /// Accessor for getting the length of the vec in `self.meta`
