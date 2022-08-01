@@ -14,35 +14,35 @@ use thiserror::Error;
 pub enum Color {
     /// sRGBA color
     Rgba {
-        /// Red component. [0.0, 1.0]
+        /// Red channel. [0.0, 1.0]
         red: f32,
-        /// Green component. [0.0, 1.0]
+        /// Green channel. [0.0, 1.0]
         green: f32,
-        /// Blue component. [0.0, 1.0]
+        /// Blue channel. [0.0, 1.0]
         blue: f32,
-        /// Alpha component. [0.0, 1.0]
+        /// Alpha channel. [0.0, 1.0]
         alpha: f32,
     },
     /// RGBA color in the Linear sRGB colorspace (often colloquially referred to as "linear", "RGB", or "linear RGB").
     RgbaLinear {
-        /// Red component. [0.0, 1.0]
+        /// Red channel. [0.0, 1.0]
         red: f32,
-        /// Green component. [0.0, 1.0]
+        /// Green channel. [0.0, 1.0]
         green: f32,
-        /// Blue component. [0.0, 1.0]
+        /// Blue channel. [0.0, 1.0]
         blue: f32,
-        /// Alpha component. [0.0, 1.0]
+        /// Alpha channel. [0.0, 1.0]
         alpha: f32,
     },
     /// HSL (hue, saturation, lightness) color with an alpha channel
     Hsla {
-        /// Hue component. [0.0, 360.0]
+        /// Hue channel. [0.0, 360.0]
         hue: f32,
-        /// Saturation component. [0.0, 1.0]
+        /// Saturation channel. [0.0, 1.0]
         saturation: f32,
-        /// Lightness component. [0.0, 1.0]
+        /// Lightness channel. [0.0, 1.0]
         lightness: f32,
-        /// Alpha component. [0.0, 1.0]
+        /// Alpha channel. [0.0, 1.0]
         alpha: f32,
     },
 }
@@ -129,9 +129,9 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `r` - Red component. [0.0, 1.0]
-    /// * `g` - Green component. [0.0, 1.0]
-    /// * `b` - Blue component. [0.0, 1.0]
+    /// * `r` - Red channel. [0.0, 1.0]
+    /// * `g` - Green channel. [0.0, 1.0]
+    /// * `b` - Blue channel. [0.0, 1.0]
     ///
     /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`].
     ///
@@ -148,10 +148,10 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `r` - Red component. [0.0, 1.0]
-    /// * `g` - Green component. [0.0, 1.0]
-    /// * `b` - Blue component. [0.0, 1.0]
-    /// * `a` - Alpha component. [0.0, 1.0]
+    /// * `r` - Red channel. [0.0, 1.0]
+    /// * `g` - Green channel. [0.0, 1.0]
+    /// * `b` - Blue channel. [0.0, 1.0]
+    /// * `a` - Alpha channel. [0.0, 1.0]
     ///
     /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`].
     ///
@@ -168,9 +168,9 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `r` - Red component. [0.0, 1.0]
-    /// * `g` - Green component. [0.0, 1.0]
-    /// * `b` - Blue component. [0.0, 1.0]
+    /// * `r` - Red channel. [0.0, 1.0]
+    /// * `g` - Green channel. [0.0, 1.0]
+    /// * `b` - Blue channel. [0.0, 1.0]
     ///
     /// See also [`Color::rgb`], [`Color::rgba_linear`].
     ///
@@ -187,10 +187,10 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `r` - Red component. [0.0, 1.0]
-    /// * `g` - Green component. [0.0, 1.0]
-    /// * `b` - Blue component. [0.0, 1.0]
-    /// * `a` - Alpha component. [0.0, 1.0]
+    /// * `r` - Red channel. [0.0, 1.0]
+    /// * `g` - Green channel. [0.0, 1.0]
+    /// * `b` - Blue channel. [0.0, 1.0]
+    /// * `a` - Alpha channel. [0.0, 1.0]
     ///
     /// See also [`Color::rgba`], [`Color::rgb_linear`].
     ///
@@ -207,9 +207,9 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `hue` - Hue component. [0.0, 360.0]
-    /// * `saturation` - Saturation component. [0.0, 1.0]
-    /// * `lightness` - Lightness component. [0.0, 1.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
     ///
     /// See also [`Color::hsla`].
     ///
@@ -226,10 +226,10 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `hue` - Hue component. [0.0, 360.0]
-    /// * `saturation` - Saturation component. [0.0, 1.0]
-    /// * `lightness` - Lightness component. [0.0, 1.0]
-    /// * `alpha` - Alpha component. [0.0, 1.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     ///
     /// See also [`Color::hsl`].
     ///
@@ -292,9 +292,9 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `r` - Red component. [0, 255]
-    /// * `g` - Green component. [0, 255]
-    /// * `b` - Blue component. [0, 255]
+    /// * `r` - Red channel. [0, 255]
+    /// * `g` - Green channel. [0, 255]
+    /// * `b` - Blue channel. [0, 255]
     ///
     /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`].
     ///
@@ -308,10 +308,10 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `r` - Red component. [0, 255]
-    /// * `g` - Green component. [0, 255]
-    /// * `b` - Blue component. [0, 255]
-    /// * `a` - Alpha component. [0, 255]
+    /// * `r` - Red channel. [0, 255]
+    /// * `g` - Green channel. [0, 255]
+    /// * `b` - Blue channel. [0, 255]
+    /// * `a` - Alpha channel. [0, 255]
     ///
     /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`].
     ///
