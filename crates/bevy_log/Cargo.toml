@@ -12,7 +12,7 @@ keywords = ["bevy"]
 trace = [ "tracing-error" ]
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.8.0" }
+bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
 
 tracing-subscriber = {version = "0.3.1", features = ["registry", "env-filter"]}
