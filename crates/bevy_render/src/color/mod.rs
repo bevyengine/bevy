@@ -207,9 +207,9 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `h` - Hue component. [0.0, 360.0]
-    /// * `s` - Saturation component. [0.0, 1.0]
-    /// * `l` - Lightness component. [0.0, 1.0]
+    /// * `hue` - Hue component. [0.0, 360.0]
+    /// * `saturation` - Saturation component. [0.0, 1.0]
+    /// * `lightness` - Lightness component. [0.0, 1.0]
     ///
     /// See also [`Color::hsla`].
     ///
@@ -226,10 +226,10 @@ impl Color {
     ///
     /// # Arguments
     ///
-    /// * `h` - Hue component. [0.0, 360.0]
-    /// * `s` - Saturation component. [0.0, 1.0]
-    /// * `l` - Lightness component. [0.0, 1.0]
-    /// * `a` - Alpha component. [0.0, 1.0]
+    /// * `hue` - Hue component. [0.0, 360.0]
+    /// * `saturation` - Saturation component. [0.0, 1.0]
+    /// * `lightness` - Lightness component. [0.0, 1.0]
+    /// * `alpha` - Alpha component. [0.0, 1.0]
     ///
     /// See also [`Color::hsl`].
     ///
