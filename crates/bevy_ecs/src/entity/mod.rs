@@ -42,8 +42,7 @@ pub use map_entities::*;
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
 use std::{
     convert::TryFrom,
-    fmt,
-    mem::{self, MaybeUninit},
+    fmt, mem,
     sync::atomic::{AtomicI64, Ordering},
 };
 
@@ -611,23 +610,9 @@ impl Entities {
         let free_cursor = self.free_cursor.get_mut();
         *free_cursor = 0;
         self.meta.reserve(count);
-        const DO_UB: bool = false;
-        if DO_UB {
-            // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
-            self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
-        } else {
-            self.meta.resize(
-                count,
-                EntityMeta {
-                    generation: u32::MAX,
-                    _padding: MaybeUninit::uninit(),
-                    location: EntityLocation {
-                        archetype_id: ArchetypeId::INVALID,
-                        index: usize::MAX, // dummy value, to be filled in
-                    },
-                },
-            );
-        }
+        // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
+        self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
+        self.meta.set_len(count);
 
         self.len = count as u32;
     }
@@ -655,14 +640,12 @@ impl Entities {
 #[repr(C)]
 pub struct EntityMeta {
     pub generation: u32,
-    pub _padding: MaybeUninit<u32>,
     pub location: EntityLocation,
 }
 
 impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
-        _padding: MaybeUninit::uninit(),
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
             index: usize::MAX, // dummy value, to be filled in
