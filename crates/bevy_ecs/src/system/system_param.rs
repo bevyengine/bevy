@@ -1,5 +1,4 @@
 pub use crate::change_detection::{NonSendMut, ResMut};
-use crate::system::MaybeUnsafeCell;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -7,7 +6,7 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery},
-    system::{CommandQueue, Commands, Query, SystemMeta},
+    system::{CommandQueue, Commands, MaybeUnsafeCell, Query, SystemMeta},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::SystemParam;

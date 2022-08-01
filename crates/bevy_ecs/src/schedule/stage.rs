@@ -309,18 +309,18 @@ impl SystemStage {
         let uninitialized_criteria: HashMap<_, _> =
             self.uninitialized_run_criteria.drain(..).collect();
 
-        // remove duplicate run criteria instances and alert systems to their new indices
-        let mut num_duplicates = 0;
+        // remove duplicate run criteria and point systems to the corrected run criteria indices
+        let mut filtered_criteria = 0;
         let mut new_indices = Vec::new();
         self.run_criteria = self.run_criteria
             .drain(..)
             .enumerate()
             .filter_map(|(index, mut container)| {
-                let new_index = index - num_duplicates;
+                let new_index = index - filtered_criteria;
                 let label = container.label;
                 if let Some(strategy) = uninitialized_criteria.get(&index) {
                     if let Some(ref label) = label {
-                        if let Some(&duplicate_index) = criteria_labels.get(label) {
+                        if let Some(duplicate_index) = criteria_labels.get(label) {
                             match strategy {
                                 DuplicateLabelStrategy::Panic => panic!(
                                     "Run criteria {} has label {:?}, which is already in use. \
@@ -329,8 +329,8 @@ impl SystemStage {
                                     container.label
                                 ),
                                 DuplicateLabelStrategy::Discard => {
-                                    new_indices.push(duplicate_index);
-                                    num_duplicates += 1;
+                                    new_indices.push(*duplicate_index);
+                                    filtered_criteria += 1;
                                     return None;
                                 }
                             }
