@@ -120,7 +120,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
@@ -134,6 +134,13 @@ pub struct UiRect {
 }
 
 impl UiRect {
+    pub const DEFAULT: Self = Self {
+        left: Val::DEFAULT,
+        right: Val::DEFAULT,
+        top: Val::DEFAULT,
+        bottom: Val::DEFAULT,
+    };
+
     /// Creates a new [`UiRect`] from the values specified.
     ///
     /// # Example
@@ -153,7 +160,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(30.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
-    pub fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
+    pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
         UiRect {
             left,
             right,
@@ -176,7 +183,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn all(value: Val) -> Self {
+    pub const fn all(value: Val) -> Self {
         UiRect {
             left: value,
             right: value,
@@ -186,10 +193,16 @@ impl UiRect {
     }
 }
 
+impl Default for UiRect {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
-#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(PartialEq)]
 pub struct Size {
     /// The width of the 2-dimensional area.
@@ -199,6 +212,11 @@ pub struct Size {
 }
 
 impl Size {
+    pub const DEFAULT: Self = Self {
+        width: Val::DEFAULT,
+        height: Val::DEFAULT,
+    };
+
     /// Creates a new [`Size`] from a width and a height.
     ///
     /// # Example
@@ -211,8 +229,14 @@ impl Size {
     /// assert_eq!(size.width, Val::Px(100.0));
     /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
-    pub fn new(width: Val, height: Val) -> Self {
+    pub const fn new(width: Val, height: Val) -> Self {
         Size { width, height }
+    }
+}
+
+impl Default for Size {
+    fn default() -> Self {
+        Self::DEFAULT
     }
 }
 
