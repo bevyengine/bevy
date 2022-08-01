@@ -67,7 +67,7 @@ impl NodeBundle {
         self
     }
 
-    /// Returns this [`NodeBundle`] with a new [`Style`].
+    /// Returns this [`NodeBundle`] with a new [`UiColor`].
     pub fn with_color(mut self, color: impl Into<UiColor>) -> Self {
         self.color = color.into();
         self
