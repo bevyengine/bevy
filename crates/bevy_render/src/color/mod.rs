@@ -133,7 +133,7 @@ impl Color {
     /// * `g` - Green component. [0.0, 1.0]
     /// * `b` - Blue component. [0.0, 1.0]
     ///
-    /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`]
+    /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`].
     ///
     pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
         Color::Rgba {
@@ -153,7 +153,7 @@ impl Color {
     /// * `b` - Blue component. [0.0, 1.0]
     /// * `a` - Alpha component. [0.0, 1.0]
     ///
-    /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`]
+    /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`].
     ///
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color::Rgba {
@@ -172,7 +172,7 @@ impl Color {
     /// * `g` - Green component. [0.0, 1.0]
     /// * `b` - Blue component. [0.0, 1.0]
     ///
-    /// See also [`Color::rgb`], [`Color::rgba_linear`]
+    /// See also [`Color::rgb`], [`Color::rgba_linear`].
     ///
     pub const fn rgb_linear(r: f32, g: f32, b: f32) -> Color {
         Color::RgbaLinear {
@@ -192,7 +192,7 @@ impl Color {
     /// * `b` - Blue component. [0.0, 1.0]
     /// * `a` - Alpha component. [0.0, 1.0]
     ///
-    /// See also [`Color::rgba`], [`Color::rgb_linear`]
+    /// See also [`Color::rgba`], [`Color::rgb_linear`].
     ///
     pub const fn rgba_linear(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color::RgbaLinear {
@@ -211,7 +211,7 @@ impl Color {
     /// * `s` - Saturation component. [0.0, 1.0]
     /// * `l` - Lightness component. [0.0, 1.0]
     ///
-    /// See also [`Color::hsla`]
+    /// See also [`Color::hsla`].
     ///
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color {
         Color::Hsla {
@@ -231,7 +231,7 @@ impl Color {
     /// * `l` - Lightness component. [0.0, 1.0]
     /// * `a` - Alpha component. [0.0, 1.0]
     ///
-    /// See also [`Color::hsl`]
+    /// See also [`Color::hsl`].
     ///
     pub const fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Color {
         Color::Hsla {
@@ -296,7 +296,7 @@ impl Color {
     /// * `g` - Green component. [0, 255]
     /// * `b` - Blue component. [0, 255]
     ///
-    /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`]
+    /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`].
     ///
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
         Color::rgba_u8(r, g, b, u8::MAX)
@@ -313,7 +313,7 @@ impl Color {
     /// * `b` - Blue component. [0, 255]
     /// * `a` - Alpha component. [0, 255]
     ///
-    /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`]
+    /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`].
     ///
     pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Color {
         Color::rgba(
