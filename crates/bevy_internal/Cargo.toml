@@ -90,7 +90,7 @@ bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.8.0" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.9.0-dev" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.9.0-dev" }
 bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.9.0-dev" }
-bevy_scene = { path = "../bevy_scene", optional = true, version = "0.8.0" }
+bevy_scene = { path = "../bevy_scene", optional = true, version = "0.9.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.8.0" }
 bevy_text = { path = "../bevy_text", optional = true, version = "0.8.0" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.8.0" }
