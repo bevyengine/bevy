@@ -414,7 +414,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                 .retain(|value| !children.contains(value));
             children_component.0.extend(children.iter().cloned());
         } else {
-            self.insert(Children::with(children));
+            self.insert(Children::from_entities(children));
         }
         self
     }
@@ -435,7 +435,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
                 .retain(|value| !children.contains(value));
             children_component.0.insert_from_slice(index, children);
         } else {
-            self.insert(Children::with(children));
+            self.insert(Children::from_entities(children));
         }
         self
     }
@@ -479,7 +479,7 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
         } else {
             self.world
                 .entity_mut(parent)
-                .insert(Children::with(children));
+                .insert(Children::from_entities(children));
         }
         self
     }
@@ -497,7 +497,7 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
         } else {
             self.world
                 .entity_mut(parent)
-                .insert(Children::with(children));
+                .insert(Children::from_entities(children));
         }
         self
     }
