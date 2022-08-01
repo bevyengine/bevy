@@ -3,7 +3,7 @@ use std::ops::Mul;
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
-use bevy_reflect::{Reflect, FromReflect};
+use bevy_reflect::{FromReflect, Reflect};
 
 /// Describe the position of an entity relative to the reference frame.
 ///
