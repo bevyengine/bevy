@@ -286,7 +286,7 @@ pub enum WindowCommand {
 /// Defines if and how the cursor is grabbed.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CursorGrabMode {
-    /// No grabbing of the cursor is performed
+    /// The cursor can freely leave the window
     None,
     /// The cursor is confined to the window area.
     Confined,
