@@ -93,7 +93,7 @@ impl Default for PointLightShadowMap {
 /// the moon.
 ///
 /// By default, the light shines along the negative-Z axis and the local
-/// transform adjusts its direction.
+/// rotation adjusts its direction.
 ///
 /// Valid values for `illuminance` are:
 ///
