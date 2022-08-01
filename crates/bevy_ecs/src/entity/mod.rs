@@ -634,6 +634,8 @@ impl Entities {
     }
 }
 
+// Safety:
+// This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
 #[derive(Copy, Clone, Debug)]
 pub struct EntityMeta {
     pub generation: u32,
