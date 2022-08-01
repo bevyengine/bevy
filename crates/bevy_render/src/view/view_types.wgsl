@@ -1,5 +1,6 @@
-#define_import_path bevy_sprite::mesh2d_view_types
+#define_import_path bevy_render::view_types
 
+// NOTE: Keep in sync with Rust-side ViewUniform!
 struct View {
     view_proj: mat4x4<f32>,
     inverse_view_proj: mat4x4<f32>,

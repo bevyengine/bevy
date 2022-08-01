@@ -39,10 +39,6 @@ pub struct Mesh2dRenderPlugin;
 
 pub const MESH2D_VERTEX_OUTPUT: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7646632476603252194);
-pub const MESH2D_VIEW_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12677582416765805110);
-pub const MESH2D_VIEW_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6901431444735842434);
 pub const MESH2D_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8994673400261890424);
 pub const MESH2D_BINDINGS_HANDLE: HandleUntyped =
@@ -58,18 +54,6 @@ impl Plugin for Mesh2dRenderPlugin {
             app,
             MESH2D_VERTEX_OUTPUT,
             "mesh2d_vertex_output.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_VIEW_TYPES_HANDLE,
-            "mesh2d_view_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_VIEW_BINDINGS_HANDLE,
-            "mesh2d_view_bindings.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(

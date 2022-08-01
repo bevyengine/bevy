@@ -1,5 +1,4 @@
 #import bevy_sprite::mesh2d_types
-#import bevy_sprite::mesh2d_view_bindings
 
 struct ColorMaterial {
     color: vec4<f32>,
@@ -7,6 +6,8 @@ struct ColorMaterial {
     flags: u32,
 };
 let COLOR_MATERIAL_FLAGS_TEXTURE_BIT: u32 = 1u;
+
+#import bevy_render::view_bindings
 
 @group(1) @binding(0)
 var<uniform> material: ColorMaterial;
