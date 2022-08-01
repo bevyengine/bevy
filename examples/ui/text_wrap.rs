@@ -17,10 +17,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             style: Style {
                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 justify_content: JustifyContent::SpaceBetween,
-                ..Default::default()
+                ..default()
             },
             color: Color::NONE.into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
             spawn_left_panel(parent, &asset_server);
@@ -33,10 +33,10 @@ fn spawn_left_panel(parent: &mut ChildBuilder, asset_server: &Res<AssetServer>) 
             style: Style {
                 flex_direction: FlexDirection::ColumnReverse,
                 size: Size::new(Val::Percent(50.0), Val::Percent(100.0)),
-                ..Default::default()
+                ..default()
             },
             color: Color::rgb(0.10, 0.10, 0.10).into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
             parent
@@ -49,7 +49,7 @@ fn spawn_left_panel(parent: &mut ChildBuilder, asset_server: &Res<AssetServer>) 
                         }
                     ).with_style(Style {
                         max_size: Size::new(Val::Percent(50.0), Val::Undefined),
-                        ..Default::default()
+                        ..default()
                     }));
             parent
                     .spawn_bundle(TextBundle::from_section(
@@ -61,7 +61,7 @@ fn spawn_left_panel(parent: &mut ChildBuilder, asset_server: &Res<AssetServer>) 
                             }
                         ).with_style(Style {
                             max_size: Size::new(Val::Percent(100.0), Val::Undefined),
-                            ..Default::default()
+                            ..default()
                         }));
                 });
 }

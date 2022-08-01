@@ -53,7 +53,7 @@ pub fn text_constraint(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
-    mut last_scale_factor: Local<f64>,
+    mut last_window_details: Local<(f64, f32, f32)>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
@@ -65,9 +65,10 @@ pub fn text_system(
         Query<Entity, (With<Text>, With<Style>)>,
         Query<(&Text, &Style, &mut CalculatedSize, Option<&Parent>)>,
     )>,
-    parent_query: Query<&Style>,
+    style_query: Query<&Style>,
 ) {
-    let (scale_factor, width_constraint, height_constraint) =
+    // FIXME: this will be problematic for multi-window UI's since its only checking the primary display
+    let (scale_factor, window_width_constraint, window_height_constraint) =
         if let Some(window) = windows.get_primary() {
             (window.scale_factor(), window.width(), window.height())
         } else {
@@ -77,7 +78,10 @@ pub fn text_system(
     let inv_scale_factor = 1. / scale_factor;
 
     #[allow(clippy::float_cmp)]
-    if *last_scale_factor == scale_factor {
+    if last_window_details.0 == scale_factor
+        && last_window_details.1 == window_width_constraint
+        && last_window_details.2 == window_height_constraint
+    {
         // Adds all entities where the text or the style has changed to the local queue
         for entity in text_queries.p0().iter() {
             queued_text.entities.push(entity);
@@ -87,7 +91,9 @@ pub fn text_system(
         for entity in text_queries.p1().iter() {
             queued_text.entities.push(entity);
         }
-        *last_scale_factor = scale_factor;
+        last_window_details.0 = scale_factor;
+        last_window_details.1 = window_width_constraint;
+        last_window_details.2 = window_height_constraint;
     }
 
     if queued_text.entities.is_empty() {
@@ -102,7 +108,7 @@ pub fn text_system(
             let mut scale_factor_width = scale_factor;
             let mut scale_factor_height = scale_factor;
             if let Some(parent) = parent {
-                if let Ok(style) = parent_query.get(parent.get()) {
+                if let Ok(style) = style_query.get(parent.get()) {
                     if let Val::Percent(percentage) = style.size.width {
                         scale_factor_width = percentage as f64 / (scale_factor * 100.);
                     }
@@ -118,14 +124,14 @@ pub fn text_system(
                     style.size.width,
                     style.max_size.width,
                     scale_factor_width,
-                    width_constraint,
+                    window_width_constraint,
                 ),
                 text_constraint(
                     style.min_size.height,
                     style.size.height,
                     style.max_size.height,
                     scale_factor_height,
-                    height_constraint,
+                    window_height_constraint,
                 ),
             );
 
