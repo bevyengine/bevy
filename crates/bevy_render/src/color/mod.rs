@@ -126,6 +126,13 @@ impl Color {
     pub const YELLOW_GREEN: Color = Color::rgb(0.6, 0.8, 0.2);
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red component. [0.0, 1.0]
+    /// * `g` - Green component. [0.0, 1.0]
+    /// * `b` - Blue component. [0.0, 1.0]
+    ///
     pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
         Color::Rgba {
             red: r,
@@ -136,6 +143,14 @@ impl Color {
     }
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red component. [0.0, 1.0]
+    /// * `g` - Green component. [0.0, 1.0]
+    /// * `b` - Blue component. [0.0, 1.0]
+    /// * `a` - Alpha component. [0.0, 1.0]
+    ///
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color::Rgba {
             red: r,
@@ -146,6 +161,13 @@ impl Color {
     }
 
     /// New `Color` from linear RGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red component. [0.0, 1.0]
+    /// * `g` - Green component. [0.0, 1.0]
+    /// * `b` - Blue component. [0.0, 1.0]
+    ///
     pub const fn rgb_linear(r: f32, g: f32, b: f32) -> Color {
         Color::RgbaLinear {
             red: r,
@@ -156,6 +178,14 @@ impl Color {
     }
 
     /// New `Color` from linear RGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red component. [0.0, 1.0]
+    /// * `g` - Green component. [0.0, 1.0]
+    /// * `b` - Blue component. [0.0, 1.0]
+    /// * `a` - Alpha component. [0.0, 1.0]
+    ///
     pub const fn rgba_linear(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color::RgbaLinear {
             red: r,
@@ -166,6 +196,13 @@ impl Color {
     }
 
     /// New `Color` with HSL representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `h` - Hue component. [0.0, 360.0]
+    /// * `s` - Saturation component. [0.0, 1.0]
+    /// * `l` - Lightness component. [0.0, 1.0]
+    ///
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color {
         Color::Hsla {
             hue,
@@ -176,6 +213,14 @@ impl Color {
     }
 
     /// New `Color` with HSL representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `h` - Hue component. [0.0, 360.0]
+    /// * `s` - Saturation component. [0.0, 1.0]
+    /// * `l` - Lightness component. [0.0, 1.0]
+    /// * `a` - Alpha component. [0.0, 1.0]
+    ///
     pub const fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Color {
         Color::Hsla {
             hue,
@@ -186,6 +231,14 @@ impl Color {
     }
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_render::color::Color;
+    /// let color = Color::hex("FF00FF").unwrap(); // fuchsia
+    /// ```
+    ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
         let hex = hex.as_ref();
 
@@ -223,6 +276,13 @@ impl Color {
     }
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red component. [0, 255]
+    /// * `g` - Green component. [0, 255]
+    /// * `b` - Blue component. [0, 255]
+    ///
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
         Color::rgba_u8(r, g, b, u8::MAX)
     }
@@ -230,6 +290,14 @@ impl Color {
     // Float operations in const fn are not stable yet
     // see https://github.com/rust-lang/rust/issues/57241
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red component. [0, 255]
+    /// * `g` - Green component. [0, 255]
+    /// * `b` - Blue component. [0, 255]
+    /// * `a` - Alpha component. [0, 255]
+    ///
     pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Color {
         Color::rgba(
             r as f32 / u8::MAX as f32,
