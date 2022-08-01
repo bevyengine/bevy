@@ -1,6 +1,6 @@
 [package]
 name = "bevy_log"
-version = "0.8.0"
+version = "0.9.0-dev"
 edition = "2021"
 description = "Provides logging for Bevy Engine"
 homepage = "https://bevyengine.org"
