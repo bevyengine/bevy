@@ -9,7 +9,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::mesh::Mesh;
 use bevy_scene::Scene;
 
@@ -72,7 +72,7 @@ pub struct GltfPrimitive {
     pub material: Option<Handle<StandardMaterial>>,
 }
 
-#[derive(Clone, Debug, Reflect, Default, Component)]
+#[derive(Clone, Debug, Reflect, FromReflect, Default, Component)]
 #[reflect(Component)]
 pub struct GltfExtras {
     pub value: String,

@@ -1,6 +1,6 @@
 use crate::clear_color::ClearColorConfig;
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
     camera::{Camera, CameraRenderGraph, Projection},
     extract_component::ExtractComponent,
@@ -12,7 +12,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
-#[derive(Component, Reflect, Clone, Default)]
+#[derive(Component, Reflect, FromReflect, Clone, Default)]
 #[reflect(Component)]
 pub struct Camera3d {
     /// The clear color operation to perform for the main 3d pass.
@@ -22,7 +22,7 @@ pub struct Camera3d {
 }
 
 /// The depth clear operation to perform for the main 3d pass.
-#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
+#[derive(Reflect, FromReflect, Serialize, Deserialize, Clone, Debug)]
 #[reflect_value(Serialize, Deserialize)]
 pub enum Camera3dDepthLoadOp {
     /// Clear with a specified value.

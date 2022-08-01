@@ -19,6 +19,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
+use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
@@ -71,7 +72,7 @@ pub struct ComputedCameraValues {
     target_info: Option<RenderTargetInfo>,
 }
 
-#[derive(Component, Debug, Reflect, Clone)]
+#[derive(Component, Debug, Reflect, FromReflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
@@ -230,7 +231,7 @@ impl Camera {
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
-#[derive(Component, Deref, DerefMut, Reflect, Default)]
+#[derive(Component, Deref, DerefMut, Reflect, FromReflect, Default)]
 #[reflect(Component)]
 pub struct CameraRenderGraph(Cow<'static, str>);
 
@@ -309,7 +310,7 @@ impl RenderTarget {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect_value(Serialize, Deserialize)]
 pub enum DepthCalculation {
     /// Pythagorean distance; works everywhere, more expensive to compute.

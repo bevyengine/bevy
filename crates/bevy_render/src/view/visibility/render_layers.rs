@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::{Component, ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 
 type LayerMask = u32;
 
@@ -20,7 +20,7 @@ pub type Layer = u8;
 /// An entity with this component without any layers is invisible.
 ///
 /// Entities without this component belong to layer `0`.
-#[derive(Component, Copy, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, Copy, Clone, Reflect, FromReflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component, Default, PartialEq)]
 pub struct RenderLayers(LayerMask);
 

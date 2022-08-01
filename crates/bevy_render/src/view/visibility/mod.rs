@@ -7,7 +7,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 use std::cell::Cell;
@@ -23,7 +23,7 @@ use crate::{
 
 /// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
 /// This is done by setting the values of their [`ComputedVisibility`] component.
-#[derive(Component, Clone, Reflect, Debug)]
+#[derive(Component, Clone, Reflect, FromReflect, Debug)]
 #[reflect(Component, Default)]
 pub struct Visibility {
     /// Indicates whether this entity is visible. Hidden values will propagate down the entity hierarchy.
@@ -46,7 +46,7 @@ impl Visibility {
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-#[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
+#[derive(Component, Clone, Reflect, FromReflect, Debug, Eq, PartialEq)]
 #[reflect(Component)]
 pub struct ComputedVisibility {
     is_visible_in_hierarchy: bool,
@@ -139,7 +139,7 @@ pub struct NoFrustumCulling;
 ///
 /// Currently this component is ignored by the sprite renderer, so sprite rendering
 /// is not optimized per view.
-#[derive(Clone, Component, Default, Debug, Reflect)]
+#[derive(Clone, Component, Default, Debug, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
