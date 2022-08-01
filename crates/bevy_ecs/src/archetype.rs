@@ -14,6 +14,7 @@ use std::{
 };
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[repr(transparent)]
 pub struct ArchetypeId(usize);
 
 impl ArchetypeId {

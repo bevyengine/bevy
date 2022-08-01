@@ -42,7 +42,8 @@ pub use map_entities::*;
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
 use std::{
     convert::TryFrom,
-    fmt, mem,
+    fmt,
+    mem::{self, MaybeUninit},
     sync::atomic::{AtomicI64, Ordering},
 };
 
@@ -609,11 +610,25 @@ impl Entities {
     pub unsafe fn flush_and_reserve_invalid_assuming_no_entities(&mut self, count: usize) {
         let free_cursor = self.free_cursor.get_mut();
         *free_cursor = 0;
-        let meta = &mut self.meta;
-        meta.reserve(count);
-        let ptr = meta.as_mut_ptr();
-        // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
-        ptr.write_bytes(u8::MAX, count);
+        self.meta.reserve(count);
+        const DO_UB: bool = false;
+        if DO_UB {
+            // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
+            self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
+        } else {
+            self.meta.resize(
+                count,
+                EntityMeta {
+                    generation: u32::MAX,
+                    _padding: MaybeUninit::uninit(),
+                    location: EntityLocation {
+                        archetype_id: ArchetypeId::INVALID,
+                        index: usize::MAX, // dummy value, to be filled in
+                    },
+                },
+            );
+        }
+
         self.len = count as u32;
     }
 
@@ -640,12 +655,14 @@ impl Entities {
 #[repr(C)]
 pub struct EntityMeta {
     pub generation: u32,
+    pub _padding: MaybeUninit<u32>,
     pub location: EntityLocation,
 }
 
 impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: 0,
+        _padding: MaybeUninit::uninit(),
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
             index: usize::MAX, // dummy value, to be filled in
@@ -655,6 +672,7 @@ impl EntityMeta {
 
 /// A location of an entity in an archetype.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct EntityLocation {
     /// The archetype index
     pub archetype_id: ArchetypeId,
