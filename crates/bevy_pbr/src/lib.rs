@@ -32,6 +32,8 @@ pub mod prelude {
 
 pub mod draw_3d_graph {
     pub mod node {
+        /// Label for the depth prepass node.
+        pub const DEPTH_PREPASS: &str = "depth_prepass";
         /// Label for the shadow pass node.
         pub const SHADOW_PASS: &str = "shadow_pass";
     }
@@ -71,6 +73,8 @@ pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
+pub const DEPTH_PREPASS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 18081189618302456913);
 
 /// Sets up the entire PBR infrastructure of bevy.
 #[derive(Default)]
@@ -120,6 +124,12 @@ impl Plugin for PbrPlugin {
             app,
             SHADOW_SHADER_HANDLE,
             "render/depth.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            DEPTH_PREPASS_SHADER_HANDLE,
+            "render/depth_prepass.wgsl",
             Shader::from_wgsl
         );
 

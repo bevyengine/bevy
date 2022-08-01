@@ -1147,6 +1147,16 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "depth_prepass"
+path = "examples/shader/depth_prepass.rs"
+
+[package.metadata.example.depth_prepass]
+name = "Depth Prepass"
+description = "A shader that uses the depth_prepass"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "post_processing"
 path = "examples/shader/post_processing.rs"
 

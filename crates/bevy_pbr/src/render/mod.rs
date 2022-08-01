@@ -1,3 +1,4 @@
+mod depth_prepass;
 mod light;
 mod mesh;
 

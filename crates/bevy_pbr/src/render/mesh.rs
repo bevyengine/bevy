@@ -582,20 +582,18 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        let (label, blend, depth_write_enabled);
+        let (label, blend, depth_compare);
         if key.contains(MeshPipelineKey::TRANSPARENT_MAIN_PASS) {
             label = "transparent_mesh_pipeline".into();
             blend = Some(BlendState::ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha blended
-            // but their depth is not written to the depth buffer
-            depth_write_enabled = false;
+            depth_compare = CompareFunction::Greater;
         } else {
             label = "opaque_mesh_pipeline".into();
             blend = Some(BlendState::REPLACE);
-            // For the opaque and alpha mask passes, fragments that are closer will replace
-            // the current fragment value in the output and the depth is written to the
-            // depth buffer
-            depth_write_enabled = true;
+            // For the opaque and alpha mask passes, only the fragments at
+            // the depth buffer depth will be shaded
+            depth_compare = CompareFunction::Equal
         }
 
         Ok(RenderPipelineDescriptor {
@@ -627,8 +625,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             },
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
-                depth_write_enabled,
-                depth_compare: CompareFunction::Greater,
+                depth_write_enabled: false,
+                depth_compare,
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
