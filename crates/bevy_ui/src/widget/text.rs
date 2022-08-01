@@ -34,12 +34,12 @@ pub fn text_constraint(
     // Needs support for percentages
     match (min_size, size, max_size) {
         (_, _, Val::Px(max)) => scale_value(max, scale_factor),
+        (_, _, Val::Percent(max)) => scale_value((max / 100.) * window_size, scale_factor),
         (Val::Px(min), _, _) => scale_value(min, scale_factor),
+        (Val::Percent(min), _, _) => scale_value((min / 100.) * window_size, scale_factor),
         (Val::Undefined, Val::Px(size), Val::Undefined) | (Val::Auto, Val::Px(size), Val::Auto) => {
             scale_value(size, scale_factor)
         }
-        (Val::Percent(min), _, _) => scale_value((min / 100.) * window_size, scale_factor),
-        (_, _, Val::Percent(max)) => scale_value((max / 100.) * window_size, scale_factor),
         (Val::Undefined, Val::Percent(size), Val::Undefined)
         | (Val::Auto, Val::Percent(size), Val::Auto) => {
             scale_value((size / 100.) * window_size, scale_factor)
@@ -168,4 +168,72 @@ pub fn text_system(
     }
 
     queued_text.entities = new_queue;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::text_constraint;
+    use crate::Val;
+
+    #[test]
+    fn should_constrain_based_on_pixel_values() {
+        assert_eq!(
+            text_constraint(Val::Px(100.), Val::Undefined, Val::Undefined, 1., 1.),
+            100.
+        );
+        assert_eq!(
+            text_constraint(Val::Undefined, Val::Undefined, Val::Px(100.), 1., 1.),
+            100.
+        );
+        assert_eq!(
+            text_constraint(Val::Undefined, Val::Px(100.), Val::Undefined, 1., 1.),
+            100.
+        );
+    }
+
+    #[test]
+    fn should_constrain_based_on_percent_values() {
+        assert_eq!(
+            text_constraint(Val::Percent(33.), Val::Undefined, Val::Undefined, 1., 1000.),
+            330.
+        );
+        assert_eq!(
+            text_constraint(Val::Undefined, Val::Undefined, Val::Percent(33.), 1., 1000.),
+            330.
+        );
+        assert_eq!(
+            text_constraint(Val::Undefined, Val::Percent(33.), Val::Undefined, 1., 1000.),
+            330.
+        );
+    }
+
+    #[test]
+    fn should_ignore_min_if_max_is_given() {
+        assert_eq!(
+            text_constraint(
+                Val::Percent(33.),
+                Val::Undefined,
+                Val::Percent(50.),
+                1.,
+                1000.
+            ),
+            500.,
+            "min in percent and max in percent"
+        );
+        assert_eq!(
+            text_constraint(Val::Px(33.), Val::Undefined, Val::Px(50.), 1., 1000.),
+            50.,
+            "min in px and max in px"
+        );
+        assert_eq!(
+            text_constraint(Val::Px(33.), Val::Undefined, Val::Percent(50.), 1., 1000.),
+            500.,
+            "min in px and max in percent"
+        );
+        assert_eq!(
+            text_constraint(Val::Percent(33.), Val::Undefined, Val::Px(50.), 1., 1000.),
+            50.,
+            "min in percent and max in px"
+        );
+    }
 }
