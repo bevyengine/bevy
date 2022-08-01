@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             // left vertical fill (border)
             parent
-                .spawn_bundle(NodeBundle::new(
+                .spawn_bundle(NodeBundle::styled(
                     Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         border: UiRect::all(Val::Px(2.0)),

@@ -146,7 +146,7 @@ mod game {
 
         commands
             // First create a `NodeBundle` for centering what we want to display
-            .spawn_bundle(NodeBundle::new(
+            .spawn_bundle(NodeBundle::styled(
                 Style {
                     // This will center the current node
                     margin: UiRect::all(Val::Auto),
@@ -412,7 +412,7 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle::new(
+            .spawn_bundle(NodeBundle::styled(
                 Style {
                     margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
@@ -516,7 +516,7 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle::new(
+            .spawn_bundle(NodeBundle::styled(
                 Style {
                     margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
@@ -568,7 +568,7 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle::new(
+            .spawn_bundle(NodeBundle::styled(
                 Style {
                     margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
@@ -582,7 +582,7 @@ mod menu {
                 // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
                 // use the default value, `FlexDirection::Row`, from left to right.
                 parent
-                    .spawn_bundle(NodeBundle::new(
+                    .spawn_bundle(NodeBundle::styled(
                         Style {
                             align_items: AlignItems::Center,
                             ..default()
@@ -653,7 +653,7 @@ mod menu {
         };
 
         commands
-            .spawn_bundle(NodeBundle::new(
+            .spawn_bundle(NodeBundle::styled(
                 Style {
                     margin: UiRect::all(Val::Auto),
                     flex_direction: FlexDirection::ColumnReverse,
@@ -665,7 +665,7 @@ mod menu {
             .insert(OnSoundSettingsMenuScreen)
             .with_children(|parent| {
                 parent
-                    .spawn_bundle(NodeBundle::new(
+                    .spawn_bundle(NodeBundle::styled(
                         Style {
                             align_items: AlignItems::Center,
                             ..default()

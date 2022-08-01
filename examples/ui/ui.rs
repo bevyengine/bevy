@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             // left vertical fill (border)
             parent
-                .spawn_bundle(NodeBundle::new(
+                .spawn_bundle(NodeBundle::styled(
                     Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         border: UiRect::all(Val::Px(2.0)),
@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     // left vertical fill (content)
                     parent
-                        .spawn_bundle(NodeBundle::new(
+                        .spawn_bundle(NodeBundle::styled(
                             Style {
                                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                                 align_items: AlignItems::FlexEnd,
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             // right vertical fill
             parent
-                .spawn_bundle(NodeBundle::new(
+                .spawn_bundle(NodeBundle::styled(
                     Style {
                         flex_direction: FlexDirection::ColumnReverse,
                         justify_content: JustifyContent::Center,
@@ -101,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     );
                     // List with hidden overflow
                     parent
-                        .spawn_bundle(NodeBundle::new(
+                        .spawn_bundle(NodeBundle::styled(
                             Style {
                                 flex_direction: FlexDirection::ColumnReverse,
                                 align_self: AlignSelf::Center,
@@ -151,7 +151,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             // absolute positioning
             parent
-                .spawn_bundle(NodeBundle::new(
+                .spawn_bundle(NodeBundle::styled(
                     Style {
                         size: Size::new(Val::Px(200.0), Val::Px(200.0)),
                         position_type: PositionType::Absolute,
@@ -166,7 +166,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Color::rgb(0.4, 0.4, 1.0),
                 ))
                 .with_children(|parent| {
-                    parent.spawn_bundle(NodeBundle::new(
+                    parent.spawn_bundle(NodeBundle::styled(
                         Style {
                             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                             ..default()
@@ -185,7 +185,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 }))
                 .with_children(|parent| {
                     parent
-                        .spawn_bundle(NodeBundle::new(
+                        .spawn_bundle(NodeBundle::styled(
                             Style {
                                 size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                 ..default()
@@ -193,7 +193,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             Color::rgb(1.0, 0.0, 0.0),
                         ))
                         .with_children(|parent| {
-                            parent.spawn_bundle(NodeBundle::new(
+                            parent.spawn_bundle(NodeBundle::styled(
                                 Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
@@ -206,7 +206,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 },
                                 Color::rgb(1.0, 0.3, 0.3),
                             ));
-                            parent.spawn_bundle(NodeBundle::new(
+                            parent.spawn_bundle(NodeBundle::styled(
                                 Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
@@ -219,7 +219,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 },
                                 Color::rgb(1.0, 0.5, 0.5),
                             ));
-                            parent.spawn_bundle(NodeBundle::new(
+                            parent.spawn_bundle(NodeBundle::styled(
                                 Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
@@ -233,7 +233,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Color::rgb(1.0, 0.7, 0.7),
                             ));
                             // alpha test
-                            parent.spawn_bundle(NodeBundle::new(
+                            parent.spawn_bundle(NodeBundle::styled(
                                 Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,

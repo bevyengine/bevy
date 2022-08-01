@@ -43,7 +43,7 @@ pub struct NodeBundle {
 }
 
 impl NodeBundle {
-    pub fn new(style: Style, color: impl Into<UiColor>) -> Self {
+    pub fn styled(style: Style, color: impl Into<UiColor>) -> Self {
         Self {
             style,
             color: color.into(),
@@ -70,6 +70,12 @@ impl NodeBundle {
     /// Returns this [`NodeBundle`] with a new [`UiColor`].
     pub fn with_color(mut self, color: impl Into<UiColor>) -> Self {
         self.color = color.into();
+        self
+    }
+
+    /// Returns this [`NodeBundle`] with a new [`FocusPolicy`].
+    pub fn with_focus_policy(mut self, focus_policy: FocusPolicy) -> Self {
+        self.focus_policy = focus_policy;
         self
     }
 }
