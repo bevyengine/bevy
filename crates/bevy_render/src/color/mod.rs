@@ -237,6 +237,7 @@ impl Color {
     /// ```
     /// # use bevy_render::color::Color;
     /// let color = Color::hex("FF00FF").unwrap(); // fuchsia
+    /// let color = Color::hex("FF00FF7F").unwrap(); // partially transparent fuchsia
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
