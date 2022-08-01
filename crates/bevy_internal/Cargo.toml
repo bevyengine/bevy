@@ -1,6 +1,6 @@
 [package]
 name = "bevy_internal"
-version = "0.8.0"
+version = "0.9.0-dev"
 edition = "2021"
 description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic' feature"
 homepage = "https://bevyengine.org"
