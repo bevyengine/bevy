@@ -52,7 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 100.0,
                     color: Color::WHITE,
                 },
-                // Note: You can use `Default::default()` in place of the `TextAlignment`
+                // Note: You can use `..default()` in place of the `TextAlignment`
                 TextAlignment {
                     horizontal: HorizontalAlign::Center,
                     ..default()
