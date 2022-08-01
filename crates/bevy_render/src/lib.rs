@@ -218,6 +218,13 @@ impl Plugin for RenderPlugin {
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
                     let meta_len = app_world.entities().meta_len();
+
+                    assert_eq!(
+                        render_app.world.entities().len(),
+                        0,
+                        "An entity was spawned after the entity list was cleared last frame and before the extract stage began. This is not supported",
+                    );
+
                     render_app
                         .world
                         .entities()
