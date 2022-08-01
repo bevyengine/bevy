@@ -9,7 +9,7 @@ use bevy_ui_navigation::prelude::{Focused, NavRequest};
 
 /// Control default ui navigation input buttons
 #[derive(Resource)]
-pub struct InputMapping {
+pub struct NavigationInputMapping {
     /// Whether to use keybaord keys for navigation (instead of just actions).
     pub keyboard_navigation: bool,
     /// The gamepads to use for the UI. If empty, default to gamepad 0
@@ -69,9 +69,9 @@ pub struct InputMapping {
     /// Mouse button for [`NavRequest::Action`]
     pub mouse_action: MouseButton,
 }
-impl Default for InputMapping {
+impl Default for NavigationInputMapping {
     fn default() -> Self {
-        InputMapping {
+        NavigationInputMapping {
             keyboard_navigation: false,
             gamepads: vec![Gamepad { id: 0 }],
             gamepad_ui_deadzone: 0.36,
@@ -122,7 +122,7 @@ macro_rules! mapping {
 pub fn default_gamepad_input(
     mut requests: EventWriter<NavRequest>,
     has_focused: Query<With<Focused>>,
-    input_mapping: Res<InputMapping>,
+    input_mapping: Res<NavigationInputMapping>,
     buttons: Res<Input<GamepadButton>>,
     axis: Res<Axis<GamepadAxis>>,
     mut ui_input_status: Local<bool>,
@@ -193,7 +193,7 @@ pub fn default_gamepad_input(
 pub fn default_keyboard_input(
     has_focused: Query<(), With<Focused>>,
     keyboard: Res<Input<KeyCode>>,
-    input_mapping: Res<InputMapping>,
+    input_mapping: Res<NavigationInputMapping>,
     mut requests: EventWriter<NavRequest>,
 ) {
     use Direction::*;
@@ -238,7 +238,7 @@ pub struct DefaultNavigationSystems;
 impl Plugin for DefaultNavigationSystems {
     fn build(&self, app: &mut App) {
         use bevy_ui_navigation::NavRequestSystem;
-        app.init_resource::<InputMapping>()
+        app.init_resource::<NavigationInputMapping>()
             .add_system(default_gamepad_input.before(NavRequestSystem))
             .add_system(default_keyboard_input.before(NavRequestSystem));
     }

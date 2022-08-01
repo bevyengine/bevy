@@ -5,11 +5,11 @@
 mod flex;
 mod focus;
 mod geometry;
-mod navigation;
 mod render;
 mod ui_node;
 
 pub mod entity;
+pub mod navigation;
 pub mod update;
 pub mod widget;
 
@@ -18,7 +18,7 @@ use bevy_ui_navigation::{NavRequestSystem, NavigationPlugin};
 pub use flex::*;
 pub use focus::{mouse_hover_system, FocusPolicy, Hover};
 pub use geometry::*;
-pub use navigation::InputMapping;
+pub use navigation::NavigationInputMapping;
 pub use render::*;
 pub use ui_node::*;
 
@@ -101,7 +101,7 @@ impl Plugin for UiPlugin {
         // TODO: use feature flags here _in addition_ to config, probably?
         if self.default_navigation {
             app.add_plugin(BevyUiNavigationPlugin::new())
-                .init_resource::<InputMapping>()
+                .init_resource::<NavigationInputMapping>()
                 .add_system(navigation::default_gamepad_input.before(NavRequestSystem))
                 .add_system(navigation::default_keyboard_input.before(NavRequestSystem))
                 .add_system(focus::ui_focus_system.before(NavRequestSystem));
