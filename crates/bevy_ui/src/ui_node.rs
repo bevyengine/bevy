@@ -501,9 +501,19 @@ impl Default for CalculatedSize {
 }
 
 /// The color of the node
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiColor(pub Color);
+
+impl UiColor {
+    pub const DEFAULT: Self = Self(Color::WHITE);
+}
+
+impl Default for UiColor {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
 impl From<Color> for UiColor {
     fn from(color: Color) -> Self {
