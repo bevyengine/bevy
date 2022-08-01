@@ -1,6 +1,7 @@
 //! Types that enable reflection support.
 
 pub use crate::change_detection::ReflectMut;
+use crate::system::EntityCommands;
 use crate::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
@@ -8,8 +9,8 @@ use crate::{
     world::{FromWorld, World},
 };
 use bevy_reflect::{
-    impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
-    ReflectSerialize,
+    impl_from_reflect_value, impl_reflect_value, FromReflect, FromType, Reflect,
+    ReflectDeserialize, ReflectSerialize,
 };
 
 /// A struct used to operate on reflected [`Component`] of a type.
@@ -19,6 +20,7 @@ use bevy_reflect::{
 #[derive(Clone)]
 pub struct ReflectComponent {
     insert: fn(&mut World, Entity, &dyn Reflect),
+    insert_command: fn(&mut EntityCommands, &dyn Reflect),
     apply: fn(&mut World, Entity, &dyn Reflect),
     apply_or_insert: fn(&mut World, Entity, &dyn Reflect),
     remove: fn(&mut World, Entity),
@@ -35,6 +37,11 @@ impl ReflectComponent {
     /// Panics if there is no such entity.
     pub fn insert(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.insert)(world, entity, component);
+    }
+
+    /// Insert a reflected [`Component`] into the entity like [`EntityCommands::insert()`]
+    pub fn insert_command(&self, commands: &mut EntityCommands, component: &dyn Reflect) {
+        (self.insert_command)(commands, component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value.
@@ -110,13 +117,16 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
+impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent {
             insert: |world, entity, reflected_component| {
-                let mut component = C::from_world(world);
-                component.apply(reflected_component);
+                let component = C::from_reflect(reflected_component).unwrap();
                 world.entity_mut(entity).insert(component);
+            },
+            insert_command: |commands, reflected_component| {
+                let component = C::from_reflect(reflected_component).unwrap();
+                commands.insert(component);
             },
             apply: |world, entity, reflected_component| {
                 let mut component = world.get_mut::<C>(entity).unwrap();
@@ -126,8 +136,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 if let Some(mut component) = world.get_mut::<C>(entity) {
                     component.apply(reflected_component);
                 } else {
-                    let mut component = C::from_world(world);
-                    component.apply(reflected_component);
+                    let component = C::from_reflect(reflected_component).unwrap();
                     world.entity_mut(entity).insert(component);
                 }
             },
@@ -136,8 +145,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             },
             copy: |source_world, destination_world, source_entity, destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
-                let mut destination_component = C::from_world(destination_world);
-                destination_component.apply(source_component);
+                let destination_component = C::from_reflect(source_component).unwrap();
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);
