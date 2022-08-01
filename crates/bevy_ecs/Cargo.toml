@@ -27,6 +27,10 @@ fxhash = "0.2"
 downcast-rs = "1.2"
 serde = "1"
 
+petgraph = "0.6"
+bitvec = "1"
+thiserror = "1"
+
 [dev-dependencies]
 rand = "0.8"
 
