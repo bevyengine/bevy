@@ -320,6 +320,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[Infinite upgrades](../examples/ui_navigation/infinite_upgrades.rs) | Shows usage of a custom navigation system in 2D space and procedural menus
+[UI button navigation](../examples/ui_navigation/button_navigation.rs) | Illustrates simple cursor focus movement between buttons
 [UI locking](../examples/ui_navigation/locking.rs) | Illustrates UI locking
 [menu navigation](../examples/ui_navigation/menu_navigation.rs) | Illustrates movement between menus
 
