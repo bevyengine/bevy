@@ -1,6 +1,6 @@
 [package]
 name = "bevy_pbr"
-version = "0.8.0"
+version = "0.9.0-dev"
 edition = "2021"
 description = "Adds PBR rendering to Bevy Engine"
 homepage = "https://bevyengine.org"
