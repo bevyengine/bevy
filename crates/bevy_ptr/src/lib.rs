@@ -306,7 +306,7 @@ impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
 // <https://github.com/rust-lang/unsafe-code-guidelines/issues/303>
 pub union MaybeUnsafeCell<'a, T> {
     as_ref: &'a T,
-    as_mut: &'a UnsafeCell<T>,
+    as_cell_ref: &'a UnsafeCell<T>,
 }
 
 impl<'a, T> MaybeUnsafeCell<'a, T> {
@@ -320,7 +320,7 @@ impl<'a, T> MaybeUnsafeCell<'a, T> {
         // SAFETY: `&mut` ensures unique access.
         unsafe {
             Self {
-                as_mut: &*(value as *mut T as *const UnsafeCell<T>),
+                as_cell_ref: &*(value as *mut T as *const UnsafeCell<T>),
             }
         }
     }
@@ -337,9 +337,9 @@ impl<'a, T> MaybeUnsafeCell<'a, T> {
     /// This function is **incredibly** unsafe. Calling this on a cell that can trace its
     /// origin back to a shared reference is undefined behavior.
     ///
-    /// The caller must ensure the cell was created from a `&mut T` and that no other active references exist.
-    pub unsafe fn into_mut(self) -> &'a mut T {
-        &mut *self.as_mut.get()
+    /// The caller must ensure the cell was created from a `&mut T` and that no active mutable reference exists.
+    pub unsafe fn into_cell_ref(self) -> &'a UnsafeCell<T> {
+        self.as_cell_ref
     }
 }
 

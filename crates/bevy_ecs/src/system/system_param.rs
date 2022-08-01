@@ -698,7 +698,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldMutState {
         world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
-        world.into_mut()
+        &mut *world.into_cell_ref().get()
     }
 }
 

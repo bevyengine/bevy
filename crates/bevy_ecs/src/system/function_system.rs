@@ -398,7 +398,7 @@ where
         if self.is_exclusive() {
             // exclusive systems temporarily swap out the world's previous change tick
             // so that smart pointers directly created from the world work as expected
-            let world_mut = world.into_mut();
+            let world_mut = &mut *world.into_cell_ref().get();
             let original_last_change_tick = world_mut.last_change_tick;
             world_mut.last_change_tick = self.system_meta.last_change_tick;
             let change_tick = *world_mut.change_tick.get_mut();
@@ -411,7 +411,7 @@ where
             );
             let out = self.func.run(input, params);
 
-            let world_mut = world.into_mut();
+            let world_mut = &mut *world.into_cell_ref().get();
             let change_tick = world_mut.change_tick.get_mut();
             self.system_meta.last_change_tick = *change_tick;
             *change_tick += 1;
