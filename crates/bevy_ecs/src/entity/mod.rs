@@ -550,6 +550,9 @@ impl Entities {
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
     /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
     /// has not been assigned to an [`Archetype`][crate::archetype::Archetype].
+    ///
+    /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
+    /// to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
