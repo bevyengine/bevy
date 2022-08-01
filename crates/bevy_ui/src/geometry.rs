@@ -1,3 +1,4 @@
+use crate::Val;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
@@ -119,20 +120,20 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, Default)]
 #[reflect(PartialEq)]
-pub struct UiRect<T: Reflect + PartialEq> {
+pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
-    pub left: T,
+    pub left: Val,
     /// The value corresponding to the right side of the UI rect.
-    pub right: T,
+    pub right: Val,
     /// The value corresponding to the top side of the UI rect.
-    pub top: T,
+    pub top: Val,
     /// The value corresponding to the bottom side of the UI rect.
-    pub bottom: T,
+    pub bottom: Val,
 }
 
-impl<T: Reflect + PartialEq> UiRect<T> {
+impl UiRect {
     /// Creates a new [`UiRect`] from the values specified.
     ///
     /// # Example
@@ -152,7 +153,7 @@ impl<T: Reflect + PartialEq> UiRect<T> {
     /// assert_eq!(ui_rect.top, Val::Px(30.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
-    pub fn new(left: T, right: T, top: T, bottom: T) -> Self {
+    pub fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
         UiRect {
             left,
             right,
@@ -175,26 +176,12 @@ impl<T: Reflect + PartialEq> UiRect<T> {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn all(value: T) -> Self
-    where
-        T: Clone,
-    {
+    pub const fn all(value: Val) -> Self {
         UiRect {
-            left: value.clone(),
-            right: value.clone(),
-            top: value.clone(),
+            left: value,
+            right: value,
+            top: value,
             bottom: value,
-        }
-    }
-}
-
-impl<T: Default + Reflect + PartialEq> Default for UiRect<T> {
-    fn default() -> Self {
-        Self {
-            left: Default::default(),
-            right: Default::default(),
-            top: Default::default(),
-            bottom: Default::default(),
         }
     }
 }

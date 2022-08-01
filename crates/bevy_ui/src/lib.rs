@@ -69,7 +69,7 @@ impl Plugin for UiPlugin {
             .register_type::<PositionType>()
             .register_type::<Size<f32>>()
             .register_type::<Size<Val>>()
-            .register_type::<UiRect<Val>>()
+            .register_type::<UiRect>()
             .register_type::<Style>()
             .register_type::<UiColor>()
             .register_type::<UiImage>()

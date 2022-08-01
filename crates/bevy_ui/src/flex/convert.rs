@@ -5,7 +5,7 @@ use crate::{
 
 pub fn from_rect(
     scale_factor: f64,
-    rect: UiRect<Val>,
+    rect: UiRect,
 ) -> taffy::geometry::Rect<taffy::style::Dimension> {
     taffy::geometry::Rect {
         start: from_val(scale_factor, rect.left),

@@ -87,13 +87,13 @@ pub struct Style {
     /// How items align according to the main axis
     pub justify_content: JustifyContent,
     /// The position of the node as described by its Rect
-    pub position: UiRect<Val>,
+    pub position: UiRect,
     /// The margin of the node
-    pub margin: UiRect<Val>,
+    pub margin: UiRect,
     /// The padding of the node
-    pub padding: UiRect<Val>,
+    pub padding: UiRect,
     /// The border of the node
-    pub border: UiRect<Val>,
+    pub border: UiRect,
     /// Defines how much a flexbox item should grow if there's space available
     pub flex_grow: f32,
     /// How to shrink if there's not enough space available
