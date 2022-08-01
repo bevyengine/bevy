@@ -34,4 +34,3 @@ taffy = "0.1.0"
 serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
 bytemuck = { version = "1.5", features = ["derive"] }
-unicode-bidi = { version = "0.3.7" }
