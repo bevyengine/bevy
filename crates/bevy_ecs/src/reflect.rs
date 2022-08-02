@@ -34,12 +34,16 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if there is no such entity.
+    /// Panics if there is no such entity or if the concrete type's [`FromReflect::from_reflect()`] call fails.
     pub fn insert(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.insert)(world, entity, component);
     }
 
-    /// Insert a reflected [`Component`] into the entity like [`EntityCommands::insert()`]
+    /// Insert a reflected [`Component`] into the entity like [`EntityCommands::insert()`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the concrete type's [`FromReflect::from_reflect()`] call fails.
     pub fn insert_command(&self, commands: &mut EntityCommands, component: &dyn Reflect) {
         (self.insert_command)(commands, component);
     }
@@ -48,7 +52,8 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if there is no [`Component`] of the given type or the `entity` does not exist.
+    /// Panics if there is no [`Component`] of the given type, if the `entity` does not exist, or if
+    /// the concrete type's [`FromReflect::from_reflect()`] call fails.
     pub fn apply(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.apply)(world, entity, component);
     }
@@ -57,7 +62,7 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if the `entity` does not exist.
+    /// Panics if the `entity` does not exist, or if the component does not exist and the type's [`FromReflect::from_reflect()`] fails.
     pub fn apply_or_insert(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
         (self.apply_or_insert)(world, entity, component);
     }
