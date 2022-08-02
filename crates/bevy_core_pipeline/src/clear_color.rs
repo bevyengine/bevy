@@ -5,7 +5,7 @@ use bevy_render::{color::Color, extract_resource::ExtractResource};
 use serde::{Deserialize, Serialize};
 
 #[derive(Reflect, Serialize, Deserialize, Clone, Debug, Default)]
-#[reflect_value(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
 pub enum ClearColorConfig {
     #[default]
     Default,

@@ -31,7 +31,7 @@ use smallvec::SmallVec;
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
     /// The node has been clicked
     Clicked,
@@ -53,7 +53,7 @@ impl Default for Interaction {
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
-#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     /// Blocks interaction
     Block,
