@@ -340,11 +340,14 @@ impl Image {
         });
     }
 
-    /// Convert a texture from a format to another
-    /// Only a few formats are supported as input and output:
+    /// Convert a texture from a format to another. Only a few formats are
+    /// supported as input and output:
     /// - `TextureFormat::R8Unorm`
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
+    ///
+    /// To get [`Image`] as a [`image::DynamicImage`] see:
+    /// [`Image::try_into_dynamic`].
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
         self.clone()
             .try_into_dynamic()

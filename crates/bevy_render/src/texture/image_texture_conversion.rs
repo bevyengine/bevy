@@ -168,10 +168,14 @@ impl Image {
         )
     }
 
-    /// Converts an [`Image`] to a [`DynamicImage`]. Usefull for editing the
-    /// contents of an Image. Not all [`TextureFormat`] are covered, therefore
-    /// it will return `None` if the format is unsupported. The supported
-    /// formats are the same as those listed for `Image::convert`.
+    /// Convert a [`Image`] to a [`DynamicImage`]. Usefull for editing image
+    /// data. Not all [`TextureFormat`] are covered, therefore it will return an
+    /// error if the format is unsupported. Supported formats are:
+    /// - `TextureFormat::R8Unorm`
+    /// - `TextureFormat::Rg8Unorm`
+    /// - `TextureFormat::Rgba8UnormSrgb`
+    ///
+    /// To convert [`Image`] to a different format see: [`Image::convert`].
     pub fn try_into_dynamic(self) -> anyhow::Result<DynamicImage> {
         match self.texture_descriptor.format {
             TextureFormat::R8Unorm => ImageBuffer::from_raw(
