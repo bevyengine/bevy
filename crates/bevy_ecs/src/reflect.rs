@@ -1,7 +1,5 @@
 //! Types that enable reflection support.
 
-use std::any::type_name;
-
 pub use crate::change_detection::ReflectMut;
 use crate::system::EntityCommands;
 use crate::{
