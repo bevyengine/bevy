@@ -120,8 +120,8 @@ pub fn text_system(
                 }
                 Ok(info) => {
                     calculated_size.size = Size {
-                        width: scale_value(info.size.x, inv_scale_factor),
-                        height: scale_value(info.size.y, inv_scale_factor),
+                        width: Val::Px(scale_value(info.size.x, inv_scale_factor)),
+                        height: Val::Px(scale_value(info.size.y, inv_scale_factor)),
                     };
                     match text_layout_info {
                         Some(mut t) => *t = info,

@@ -1,5 +1,4 @@
-use crate::Size;
-use crate::{CalculatedSize, UiImage};
+use crate::{CalculatedSize, Size, UiImage, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     component::Component,
@@ -28,8 +27,8 @@ pub fn image_node_system(
     for (mut calculated_size, image) in &mut query {
         if let Some(texture) = textures.get(image) {
             let size = Size {
-                width: texture.texture_descriptor.size.width as f32,
-                height: texture.texture_descriptor.size.height as f32,
+                width: Val::Px(texture.texture_descriptor.size.width as f32),
+                height: Val::Px(texture.texture_descriptor.size.height as f32),
             };
             // Update only if size has changed to avoid needless layout calculations
             if size != calculated_size.size {
