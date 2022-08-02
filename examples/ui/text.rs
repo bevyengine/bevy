@@ -6,12 +6,17 @@
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::DefaultFont,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .insert_resource(DefaultFont {
+            // Configure a default font that will be applied to all text node without a specified font
+            path: Some("fonts/FiraMono-Medium.ttf".into()),
+        })
         .add_startup_system(setup)
         .add_system(text_update_system)
         .add_system(text_color_system)
@@ -70,7 +75,8 @@ fn setup(mut commands: Commands) {
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: "fonts/FiraMono-Medium.ttf".into(),
+                    // Use the default font instead of manually specifying a font
+                    font: default(),
                     font_size: 60.0,
                     color: Color::GOLD,
                 }),
