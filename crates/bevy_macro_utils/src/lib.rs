@@ -158,7 +158,7 @@ pub fn derive_label(
             }
             // Structs must either be fieldless, or explicitly ignore the fields.
             let ignore_fields = input.attrs.iter().any(|a| is_ignore(a, attr_name));
-            if matches!(d.fields, syn::Fields::Unit) || ignore_fields {
+            if d.fields.is_empty() || ignore_fields {
                 let lit = ident.to_string();
                 let data = quote! { 0 };
                 let as_str = quote! { write!(f, #lit) };
@@ -187,7 +187,7 @@ pub fn derive_label(
             for (i, v) in d.variants.iter().enumerate() {
                 // Variants must either be fieldless, or explicitly ignore the fields.
                 let ignore_fields = v.attrs.iter().any(|a| is_ignore(a, attr_name));
-                if matches!(v.fields, syn::Fields::Unit) | ignore_fields {
+                if v.fields.is_empty() || ignore_fields {
                     let mut path = syn::Path::from(ident.clone());
                     path.segments.push(v.ident.clone().into());
 
