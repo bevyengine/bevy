@@ -1,5 +1,4 @@
 use crate::container_attributes::ReflectTraits;
-use crate::ReflectMeta;
 use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Paren, Where};
@@ -23,16 +22,6 @@ pub(crate) struct ReflectValueDef {
     pub type_name: Ident,
     pub generics: Generics,
     pub traits: Option<ReflectTraits>,
-}
-
-impl ReflectValueDef {
-    pub fn as_meta(&self) -> ReflectMeta {
-        ReflectMeta::new(
-            &self.type_name,
-            &self.generics,
-            self.traits.clone().unwrap_or_default(),
-        )
-    }
 }
 
 impl Parse for ReflectValueDef {

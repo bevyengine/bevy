@@ -94,9 +94,12 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
-    let reflect_value_def = parse_macro_input!(input as ReflectValueDef);
-    let meta = reflect_value_def.as_meta();
-    impls::impl_value(&meta)
+    let def = parse_macro_input!(input as ReflectValueDef);
+    impls::impl_value(&ReflectMeta::new(
+        &def.type_name,
+        &def.generics,
+        def.traits.unwrap_or_default(),
+    ))
 }
 
 /// A replacement for `#[derive(Reflect)]` to be used with foreign types which
@@ -167,7 +170,10 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
-    let reflect_value_def = parse_macro_input!(input as ReflectValueDef);
-    let meta = reflect_value_def.as_meta();
-    from_reflect::impl_value(&meta)
+    let def = parse_macro_input!(input as ReflectValueDef);
+    from_reflect::impl_value(&ReflectMeta::new(
+        &def.type_name,
+        &def.generics,
+        def.traits.unwrap_or_default(),
+    ))
 }
