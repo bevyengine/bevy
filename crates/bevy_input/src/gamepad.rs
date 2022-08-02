@@ -97,7 +97,9 @@ pub enum GamepadEventType {
 /// ## Differences
 ///
 /// The difference between the [`GamepadEventRaw`] and the [`GamepadEvent`] is that the
-/// latter respects user defined [`GamepadSettings`] for the gamepad inputs.
+/// former respects user defined [`GamepadSettings`] for the gamepad inputs when translating it
+/// to the latter. The former also updates the [`Input<GamepadButton>`], [`Axis<GamepadAxis>`],
+/// and [`Axis<GamepadButton>`] resources accordingly.
 ///
 /// ## Gamepad input mocking
 ///
@@ -139,11 +141,11 @@ pub enum GamepadEventType {
 /// let gamepad = Gamepad::new(0);
 /// let button_type = GamepadButtonType::South;
 ///
-/// // Sent the gamepad connected event to mark our gamepad as connected.
+/// // Send the gamepad connected event to mark our gamepad as connected.
 /// // This updates the `Gamepads` resource accordingly.
 /// app.world.send_event(GamepadEventRaw::new(gamepad, GamepadEventType::Connected));
 ///
-/// // Sent the gamepad input event to mark the `South` gamepad button as pressed.
+/// // Send the gamepad input event to mark the `South` gamepad button as pressed.
 /// // This updates the `Input<GamepadButton>` resource accordingly.
 /// app.world.send_event(GamepadEventRaw::new(
 ///     gamepad,
@@ -157,7 +159,7 @@ pub enum GamepadEventType {
 /// // In this example we are checking if the `bool` resource was updated from `false` to `true`.
 /// assert!(app.world.resource::<bool>());
 ///
-/// // Sent the gamepad input event to mark the `South` gamepad button as released.
+/// // Send the gamepad input event to mark the `South` gamepad button as released.
 /// // This updates the `Input<GamepadButton>` resource accordingly.
 /// app.world.send_event(GamepadEventRaw::new(
 ///     gamepad,
