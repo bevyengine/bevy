@@ -28,14 +28,12 @@ impl Text {
     /// # use bevy_render::color::Color;
     /// # use bevy_text::{Font, Text, TextAlignment, TextStyle, HorizontalAlign, VerticalAlign};
     /// #
-    /// # let font_handle: Handle<Font> = Default::default();
-    /// #
     /// // Basic usage.
     /// let hello_world = Text::from_section(
     ///     // Accepts a String or any type that converts into a String, such as &str.
     ///     "hello world!",
     ///     TextStyle {
-    ///         font: font_handle.clone(),
+    ///         font: "path/to/font".into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
@@ -44,7 +42,7 @@ impl Text {
     /// let hello_bevy = Text::from_section(
     ///     "hello bevy!",
     ///     TextStyle {
-    ///         font: font_handle,
+    ///         font: "path/to/font".into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
@@ -65,13 +63,11 @@ impl Text {
     /// # use bevy_render::color::Color;
     /// # use bevy_text::{Font, Text, TextStyle, TextSection};
     /// #
-    /// # let font_handle: Handle<Font> = Default::default();
-    /// #
     /// let hello_world = Text::from_sections([
     ///     TextSection::new(
     ///         "Hello, ",
     ///         TextStyle {
-    ///             font: font_handle.clone(),
+    ///             font: "path/to/font".into(),
     ///             font_size: 60.0,
     ///             color: Color::BLUE,
     ///         },
@@ -79,7 +75,7 @@ impl Text {
     ///     TextSection::new(
     ///         "World!",
     ///         TextStyle {
-    ///             font: font_handle,
+    ///             font: "path/to/font".into(),
     ///             font_size: 60.0,
     ///             color: Color::RED,
     ///         },

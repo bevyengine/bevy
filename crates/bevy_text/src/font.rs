@@ -48,7 +48,7 @@ impl Font {
 /// A reference to a font asset.
 #[derive(Clone, Debug, Reflect, FromReflect, Default)]
 pub enum FontRef {
-    /// Use the default font it can be configured with the [`DefaultFont`] resource
+    /// Use the default font it can be configured with the `DefaultFont` resource
     #[default]
     Default,
     /// A handle to a font stored in the [`Assets<Font>`](bevy_asset::Assets) resource
