@@ -122,6 +122,86 @@ impl DivAssign<f32> for Val {
     }
 }
 
+impl Add<Val> for Val {
+    type Output = Val;
+
+    fn add(self, rhs: Val) -> Self::Output {
+        match (self, rhs) {
+            (Val::Undefined, _) | (_, Val::Undefined) => Val::Undefined,
+            (Val::Auto, _) | (_, Val::Auto) => Val::Auto,
+            (Val::Px(lhs), Val::Px(rhs)) => Val::Px(lhs + rhs),
+            (Val::Percent(lhs), Val::Percent(rhs)) => Val::Percent(lhs + rhs),
+            _ => Val::Undefined,
+        }
+    }
+}
+
+impl AddAssign<Val> for Val {
+    fn add_assign(&mut self, rhs: Val) {
+        *self = *self + rhs;
+    }
+}
+
+impl Sub<Val> for Val {
+    type Output = Val;
+
+    fn sub(self, rhs: Val) -> Self::Output {
+        match (self, rhs) {
+            (Val::Undefined, _) | (_, Val::Undefined) => Val::Undefined,
+            (Val::Auto, _) | (_, Val::Auto) => Val::Auto,
+            (Val::Px(lhs), Val::Px(rhs)) => Val::Px(lhs - rhs),
+            (Val::Percent(lhs), Val::Percent(rhs)) => Val::Percent(lhs - rhs),
+            _ => Val::Undefined,
+        }
+    }
+}
+
+impl SubAssign<Val> for Val {
+    fn sub_assign(&mut self, rhs: Val) {
+        *self = *self - rhs;
+    }
+}
+
+impl Mul<Val> for Val {
+    type Output = Val;
+
+    fn mul(self, rhs: Val) -> Self::Output {
+        match (self, rhs) {
+            (Val::Undefined, _) | (_, Val::Undefined) => Val::Undefined,
+            (Val::Auto, _) | (_, Val::Auto) => Val::Auto,
+            (Val::Px(lhs), Val::Px(rhs)) => Val::Px(lhs * rhs),
+            (Val::Percent(lhs), Val::Percent(rhs)) => Val::Percent(lhs * rhs),
+            _ => Val::Undefined,
+        }
+    }
+}
+
+impl MulAssign<Val> for Val {
+    fn mul_assign(&mut self, rhs: Val) {
+        *self = *self * rhs;
+    }
+}
+
+impl Div<Val> for Val {
+    type Output = Val;
+
+    fn div(self, rhs: Val) -> Self::Output {
+        match (self, rhs) {
+            (Val::Undefined, _) | (_, Val::Undefined) => Val::Undefined,
+            (Val::Auto, _) | (_, Val::Auto) => Val::Auto,
+            (Val::Px(lhs), Val::Px(rhs)) => Val::Px(lhs / rhs),
+            (Val::Percent(lhs), Val::Percent(rhs)) => Val::Percent(lhs / rhs),
+            _ => Val::Undefined,
+        }
+    }
+}
+
+impl DivAssign<Val> for Val {
+    fn div_assign(&mut self, rhs: Val) {
+        *self = *self / rhs;
+    }
+}
+
 /// Describes the style of a UI node
 ///
 /// It uses the [Flexbox](https://cssreference.io/flexbox/) system.
