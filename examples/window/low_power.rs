@@ -142,7 +142,6 @@ pub(crate) mod test_setup {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
         mut event: EventWriter<RequestRedraw>,
-        asset_server: Res<AssetServer>,
     ) {
         commands
             .spawn_bundle(PbrBundle {
@@ -171,26 +170,26 @@ pub(crate) mod test_setup {
                     TextSection::new(
                         "Press spacebar to cycle modes\n",
                         TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font: "fonts/FiraSans-Bold.ttf".into(),
                             font_size: 50.0,
                             color: Color::WHITE,
                         },
                     ),
                     TextSection::from_style(TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: "fonts/FiraSans-Bold.ttf".into(),
                         font_size: 50.0,
                         color: Color::GREEN,
                     }),
                     TextSection::new(
                         "\nFrame: ",
                         TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font: "fonts/FiraSans-Bold.ttf".into(),
                             font_size: 50.0,
                             color: Color::YELLOW,
                         },
                     ),
                     TextSection::from_style(TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: "fonts/FiraSans-Bold.ttf".into(),
                         font_size: 50.0,
                         color: Color::YELLOW,
                     }),

@@ -188,7 +188,7 @@ pub fn update_text2d_layout(
                 &mut *texture_atlases,
                 &mut *textures,
             ) {
-                Err(TextError::NoSuchFont) => {
+                Err(TextError::NoSuchFont | TextError::FontNotLoaded) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
                     queue.insert(entity);

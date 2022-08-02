@@ -11,10 +11,8 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle::default());
-
-    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     commands
         .spawn_bundle(ButtonBundle {
@@ -32,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent.spawn_bundle(TextBundle::from_section(
                 "Button 1",
                 TextStyle {
-                    font: font_handle.clone(),
+                    font: "fonts/FiraSans-Bold.ttf".into(),
                     font_size: 40.0,
                     // Alpha channel of the color controls transparency.
                     color: Color::rgba(1.0, 1.0, 1.0, 0.2),
@@ -58,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent.spawn_bundle(TextBundle::from_section(
                 "Button 2",
                 TextStyle {
-                    font: font_handle.clone(),
+                    font: "fonts/FiraSans-Bold.ttf".into(),
                     font_size: 40.0,
                     // Alpha channel of the color controls transparency.
                     color: Color::rgba(1.0, 1.0, 1.0, 0.2),

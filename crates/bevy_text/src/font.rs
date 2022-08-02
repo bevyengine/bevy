@@ -1,5 +1,6 @@
 use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
-use bevy_reflect::TypeUuid;
+use bevy_asset::{AssetPath, Handle};
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
@@ -41,5 +42,35 @@ impl Font {
                 .collect::<Vec<u8>>(),
             TextureFormat::Rgba8UnormSrgb,
         )
+    }
+}
+
+/// A reference to a font asset.
+#[derive(Clone, Debug, Reflect, FromReflect, Default)]
+pub enum FontRef {
+    /// Use the "default" font for the current context. This default font is configurable with the FontConfig resource.
+    #[default]
+    Default,
+    /// A handle to a shader stored in the [`Assets<Shader>`](bevy_asset::Assets) resource
+    Handle(Handle<Font>),
+    /// An asset path leading to a shader
+    Path(AssetPath<'static>),
+}
+
+impl From<Handle<Font>> for FontRef {
+    fn from(handle: Handle<Font>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl From<AssetPath<'static>> for FontRef {
+    fn from(path: AssetPath<'static>) -> Self {
+        Self::Path(path)
+    }
+}
+
+impl From<&'static str> for FontRef {
+    fn from(path: &'static str) -> Self {
+        Self::Path(AssetPath::from(path))
     }
 }

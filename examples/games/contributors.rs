@@ -133,7 +133,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
     commands.insert_resource(contributor_selection);
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle::default());
 
     commands.spawn().insert(ContributorDisplay).insert_bundle(
@@ -141,13 +141,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection::new(
                 "Contributor showcase",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: "fonts/FiraSans-Bold.ttf".into(),
                     font_size: 60.0,
                     color: Color::WHITE,
                 },
             ),
             TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: "fonts/FiraSans-Bold.ttf".into(),
                 font_size: 60.0,
                 color: Color::WHITE,
             }),

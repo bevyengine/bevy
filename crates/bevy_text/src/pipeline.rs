@@ -67,10 +67,15 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         let sections = sections
             .iter()
             .map(|section| {
-                let font = fonts
-                    .get(&section.style.font)
-                    .ok_or(TextError::NoSuchFont)?;
-                let font_id = self.get_or_insert_font_id(&section.style.font, font);
+                let handle = match section.style.font.clone() {
+                    crate::FontRef::Handle(handle) => handle,
+                    _ => {
+                        return Err(TextError::FontNotLoaded);
+                    }
+                };
+
+                let font = fonts.get(&handle).ok_or(TextError::NoSuchFont)?;
+                let font_id = self.get_or_insert_font_id(&handle, font);
                 let font_size = scale_value(section.style.font_size, scale_factor);
 
                 scaled_fonts.push(ab_glyph::Font::as_scaled(&font.font, font_size));

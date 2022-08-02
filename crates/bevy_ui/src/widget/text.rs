@@ -112,7 +112,7 @@ pub fn text_system(
                 &mut *texture_atlases,
                 &mut *textures,
             ) {
-                Err(TextError::NoSuchFont) => {
+                Err(TextError::NoSuchFont | TextError::FontNotLoaded) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
                     new_queue.push(entity);

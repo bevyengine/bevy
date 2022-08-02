@@ -1,10 +1,17 @@
-use bevy_asset::Handle;
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use core::panic;
+
+use bevy_asset::{AssetPath, AssetServer, Assets};
+use bevy_ecs::{
+    prelude::Component,
+    query::Added,
+    reflect::ReflectComponent,
+    system::{Query, Res},
+};
 use bevy_reflect::{prelude::*, FromReflect};
 use bevy_render::color::Color;
 use serde::{Deserialize, Serialize};
 
-use crate::Font;
+use crate::{Font, FontRef};
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default)]
@@ -235,7 +242,7 @@ impl From<VerticalAlign> for glyph_brush_layout::VerticalAlign {
 
 #[derive(Clone, Debug, Reflect, FromReflect)]
 pub struct TextStyle {
-    pub font: Handle<Font>,
+    pub font: FontRef,
     pub font_size: f32,
     pub color: Color,
 }
@@ -246,6 +253,42 @@ impl Default for TextStyle {
             font: Default::default(),
             font_size: 12.0,
             color: Color::WHITE,
+        }
+    }
+}
+
+/// Used to configure the default font used by TextStyle when the font is set to FontRef::Default
+#[derive(Default)]
+pub struct DefaultFont {
+    pub path: Option<AssetPath<'static>>,
+}
+
+/// Loads fonts defined by a FontRef
+/// If the font has already been loaded then it simply converts the FontRef::Path to a FontRef::Handle
+/// Otherwise it tries to load the font with the asset_server
+pub fn load_font(
+    mut query: Query<&mut Text, Added<Text>>,
+    asset_server: Res<AssetServer>,
+    fonts: Res<Assets<Font>>,
+    default_font: Res<DefaultFont>,
+) {
+    for mut text in &mut query {
+        for mut section in &mut text.sections {
+            let path = match &section.style.font {
+                FontRef::Default => default_font.as_ref().path.as_ref().expect("Default font not set. Make sure you inserted the DefaultFont resource with a valid path."),
+                FontRef::Path(path) => path,
+                FontRef::Handle(_) => continue,
+            };
+            let handle = match asset_server.get_load_state(path.clone()) {
+                bevy_asset::LoadState::NotLoaded | bevy_asset::LoadState::Unloaded => {
+                    asset_server.load(path.clone())
+                }
+                bevy_asset::LoadState::Loading | bevy_asset::LoadState::Loaded => {
+                    fonts.get_handle(path.clone())
+                }
+                bevy_asset::LoadState::Failed => panic!("Failed to load font {:?}", path),
+            };
+            section.style.font = FontRef::Handle(handle);
         }
     }
 }

@@ -101,7 +101,7 @@ fn spawn_button(
             commands.spawn_bundle(TextBundle::from_section(
                 format!("{i}, {j}"),
                 TextStyle {
-                    font,
+                    font: font.into(),
                     font_size: FONT_SIZE,
                     color: Color::rgb(0.2, 0.2, 0.2),
                 },

@@ -24,10 +24,9 @@ struct AnimateRotation;
 #[derive(Component)]
 struct AnimateScale;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+fn setup(mut commands: Commands) {
     let text_style = TextStyle {
-        font,
+        font: "fonts/FiraSans-Bold.ttf".into(),
         font_size: 60.0,
         color: Color::WHITE,
     };

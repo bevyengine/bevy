@@ -43,7 +43,7 @@ fn button_system(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     // ui camera
     commands.spawn_bundle(Camera2dBundle::default());
     commands
@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent.spawn_bundle(TextBundle::from_section(
                 "Button",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: "fonts/FiraSans-Bold.ttf".into(),
                     font_size: 40.0,
                     color: Color::rgb(0.9, 0.9, 0.9),
                 },

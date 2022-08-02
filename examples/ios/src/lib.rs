@@ -48,7 +48,6 @@ fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     // plane
     commands.spawn_bundle(PbrBundle {
@@ -112,7 +111,7 @@ fn setup_scene(
                 TextBundle::from_section(
                     "Test Button",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: "fonts/FiraSans-Bold.ttf".into(),
                         font_size: 30.0,
                         color: Color::BLACK,
                     },

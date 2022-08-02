@@ -26,7 +26,7 @@ struct FpsText;
 #[derive(Component)]
 struct ColorText;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     // UI camera
     commands.spawn_bundle(Camera2dBundle::default());
     // Text with one section
@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // Accepts a `String` or any type that converts into a `String`, such as `&str`
                 "hello\nbevy!",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: "fonts/FiraSans-Bold.ttf".into(),
                     font_size: 100.0,
                     color: Color::WHITE,
                 },
@@ -64,13 +64,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection::new(
                     "FPS: ",
                     TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: "fonts/FiraSans-Bold.ttf".into(),
                         font_size: 60.0,
                         color: Color::WHITE,
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font: "fonts/FiraMono-Medium.ttf".into(),
                     font_size: 60.0,
                     color: Color::GOLD,
                 }),

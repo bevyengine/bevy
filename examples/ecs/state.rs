@@ -39,7 +39,7 @@ fn setup(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle::default());
 }
 
-fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_menu(mut commands: Commands) {
     let button_entity = commands
         .spawn_bundle(ButtonBundle {
             style: Style {
@@ -59,7 +59,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent.spawn_bundle(TextBundle::from_section(
                 "Play",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: "fonts/FiraSans-Bold.ttf".into(),
                     font_size: 40.0,
                     color: Color::rgb(0.9, 0.9, 0.9),
                 },

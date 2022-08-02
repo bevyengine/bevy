@@ -156,7 +156,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextBundle::from_section(
             "Score:",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: "fonts/FiraSans-Bold.ttf".into(),
                 font_size: 40.0,
                 color: Color::rgb(0.5, 0.5, 1.0),
             },
@@ -370,7 +370,7 @@ fn gameover_keyboard(mut state: ResMut<State<GameState>>, keyboard_input: Res<In
 }
 
 // display the number of cake eaten before losing
-fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: Res<Game>) {
+fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
         .spawn_bundle(NodeBundle {
             style: Style {
@@ -386,7 +386,7 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             parent.spawn_bundle(TextBundle::from_section(
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: "fonts/FiraSans-Bold.ttf".into(),
                     font_size: 80.0,
                     color: Color::rgb(0.5, 0.5, 1.0),
                 },

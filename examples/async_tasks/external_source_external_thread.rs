@@ -58,7 +58,7 @@ fn spawn_text(
     loaded_font: Res<LoadedFont>,
 ) {
     let text_style = TextStyle {
-        font: loaded_font.clone(),
+        font: loaded_font.clone().into(),
         font_size: 20.0,
         color: Color::WHITE,
     };

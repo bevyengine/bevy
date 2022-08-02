@@ -108,7 +108,7 @@ Notice how the green cube will translate further in respect to the yellow in con
 This is due to the use of its LocalTransform that is relative to the yellow cubes transform instead of the GlobalTransform as in the case of the red cube.
 The red cube is moved through its GlobalTransform and thus is unaffected by the yellows transform.",
         TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: "fonts/FiraSans-Bold.ttf".into(),
             font_size: 22.0,
             color: Color::WHITE,
         },

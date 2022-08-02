@@ -17,7 +17,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     // camera
     commands.spawn_bundle(Camera2dBundle::default());
     // root node
@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextBundle::from_section(
                             "Example text",
                             TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font: "fonts/FiraSans-Bold.ttf".into(),
                                 font_size: 30.0,
                                 color: Color::WHITE,
                             },
