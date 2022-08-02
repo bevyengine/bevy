@@ -14,10 +14,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         .active_fields()
         .map(|field| Member::Unnamed(Index::from(field.index)))
         .collect::<Vec<_>>();
-    let field_types = reflect_struct
-        .active_fields()
-        .map(|field| field.data.ty.clone())
-        .collect::<Vec<_>>();
+    let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 

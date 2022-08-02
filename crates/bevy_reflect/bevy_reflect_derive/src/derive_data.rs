@@ -5,7 +5,7 @@ use quote::quote;
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Variant};
+use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Type, Variant};
 
 pub(crate) enum ReflectDerive<'a> {
     Struct(ReflectStruct<'a>),
@@ -268,10 +268,8 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Get a collection of all active types.
-    pub fn active_types(&self) -> Vec<syn::Type> {
-        self.active_fields()
-            .map(|field| field.data.ty.clone())
-            .collect::<Vec<_>>()
+    pub fn active_types(&self) -> impl Iterator<Item = &Type> {
+        self.active_fields().map(|field| &field.data.ty)
     }
 
     /// The complete set of fields in this struct.
