@@ -122,12 +122,12 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
         ReflectComponent {
             insert: |world, entity, reflected_component| {
                 let component = C::from_reflect(reflected_component)
-                    .expect("failed to construct component type from dynamic value");
+                    .expect("failed to call `FromReflect::from_reflect` on dynamic component");
                 world.entity_mut(entity).insert(component);
             },
             insert_command: |commands, reflected_component| {
                 let component = C::from_reflect(reflected_component)
-                    .expect("failed to construct component type from dynamic value");
+                    .expect("failed to call `FromReflect::from_reflect` on dynamic component");
                 commands.insert(component);
             },
             apply: |world, entity, reflected_component| {
@@ -141,7 +141,7 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
                     component.apply(reflected_component);
                 } else {
                     let component = C::from_reflect(reflected_component)
-                        .expect("failed to construct component type from dynamic value");
+                        .expect("failed to call `FromReflect::from_reflect` on dynamic component");
                     world.entity_mut(entity).insert(component);
                 }
             },
@@ -153,7 +153,7 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
                     .get::<C>(source_entity)
                     .expect("failed to get component on source entity");
                 let destination_component = C::from_reflect(source_component)
-                    .expect("failed to construct component type from dynamic value");
+                    .expect("failed to call `FromReflect::from_reflect` on dynamic component");
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);
