@@ -1,5 +1,7 @@
 //! Types that enable reflection support.
 
+use std::any::type_name;
+
 pub use crate::change_detection::ReflectMut;
 use crate::system::EntityCommands;
 use crate::{
@@ -121,22 +123,27 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent {
             insert: |world, entity, reflected_component| {
-                let component = C::from_reflect(reflected_component).unwrap();
+                let component = C::from_reflect(reflected_component)
+                    .expect("failed to construct component type from dynamic value");
                 world.entity_mut(entity).insert(component);
             },
             insert_command: |commands, reflected_component| {
-                let component = C::from_reflect(reflected_component).unwrap();
+                let component = C::from_reflect(reflected_component)
+                    .expect("failed to construct component type from dynamic value");
                 commands.insert(component);
             },
             apply: |world, entity, reflected_component| {
-                let mut component = world.get_mut::<C>(entity).unwrap();
+                let mut component = world
+                    .get_mut::<C>(entity)
+                    .expect("failed to get component on entity");
                 component.apply(reflected_component);
             },
             apply_or_insert: |world, entity, reflected_component| {
                 if let Some(mut component) = world.get_mut::<C>(entity) {
                     component.apply(reflected_component);
                 } else {
-                    let component = C::from_reflect(reflected_component).unwrap();
+                    let component = C::from_reflect(reflected_component)
+                        .expect("failed to construct component type from dynamic value");
                     world.entity_mut(entity).insert(component);
                 }
             },
@@ -144,8 +151,11 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
                 world.entity_mut(entity).remove::<C>();
             },
             copy: |source_world, destination_world, source_entity, destination_entity| {
-                let source_component = source_world.get::<C>(source_entity).unwrap();
-                let destination_component = C::from_reflect(source_component).unwrap();
+                let source_component = source_world
+                    .get::<C>(source_entity)
+                    .expect("failed to get component on source entity");
+                let destination_component = C::from_reflect(source_component)
+                    .expect("failed to construct component type from dynamic value");
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);
