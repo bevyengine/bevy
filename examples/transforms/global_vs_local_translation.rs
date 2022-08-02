@@ -40,7 +40,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
     // To show the difference between a local transform (rotation, scale and position in respect to a given entity)
     // and global transform (rotation, scale and position in respect to the base coordinate system of the visible scene)

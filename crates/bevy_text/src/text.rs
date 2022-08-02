@@ -257,15 +257,15 @@ impl Default for TextStyle {
     }
 }
 
-/// Used to configure the default font used by TextStyle when the font is set to FontRef::Default
+/// Used to configure the default font used by [`TextStyle`] when the font is set to [`FontRef::Default`]
 #[derive(Default)]
 pub struct DefaultFont {
     pub path: Option<AssetPath<'static>>,
 }
 
-/// Loads fonts defined by a FontRef
-/// If the font has already been loaded then it simply converts the FontRef::Path to a FontRef::Handle
-/// Otherwise it tries to load the font with the asset_server
+/// Loads fonts defined by a [`FontRef`]
+/// If the font has already been loaded then it simply converts the [`FontRef::Path`] to a [`FontRef::Handle`]
+/// Otherwise it tries to load the font with the [`AssetServer`]
 pub fn load_font(
     mut query: Query<&mut Text, Added<Text>>,
     asset_server: Res<AssetServer>,

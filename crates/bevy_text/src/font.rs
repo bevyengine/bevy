@@ -48,12 +48,12 @@ impl Font {
 /// A reference to a font asset.
 #[derive(Clone, Debug, Reflect, FromReflect, Default)]
 pub enum FontRef {
-    /// Use the "default" font for the current context. This default font is configurable with the FontConfig resource.
+    /// Use the default font it can be configured with the [`DefaultFont`] resource
     #[default]
     Default,
-    /// A handle to a shader stored in the [`Assets<Shader>`](bevy_asset::Assets) resource
+    /// A handle to a font stored in the [`Assets<Font>`](bevy_asset::Assets) resource
     Handle(Handle<Font>),
-    /// An asset path leading to a shader
+    /// An asset path leading to a font
     Path(AssetPath<'static>),
 }
 
