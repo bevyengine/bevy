@@ -154,6 +154,19 @@ pub fn setup_test(
     RenderTarget::Image(render_target_image_handle)
 }
 
+pub fn bgra_to_rgba(data: &mut Vec<u8>) {
+    for src in data.chunks_exact_mut(4) {
+        let r = src[2];
+        let g = src[1];
+        let b = src[0];
+        let a = src[3];
+        src[0] = r;
+        src[1] = g;
+        src[2] = b;
+        src[3] = a;
+    }
+}
+
 fn update(
     images_to_save: Query<&ImageToSave>,
     mut images: ResMut<Assets<Image>>,
@@ -167,19 +180,12 @@ fn update(
             for image in images_to_save.iter() {
                 //convert to rgba
                 let data = &mut images.get_mut(image).unwrap().data;
-                for src in data.chunks_exact_mut(4) {
-                    let r = src[2];
-                    let g = src[1];
-                    let b = src[0];
-                    let a = src[3];
-                    src[0] = r;
-                    src[1] = g;
-                    src[2] = b;
-                    src[3] = a;
-                }
+                bgra_to_rgba(data);
 
                 let images_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_images");
                 let image_path = images_path.join(format!("{}.png", scene_controller.name));
+
+                // Create test image file
                 if scene_controller.create_images {
                     image::save_buffer(
                         image_path,
@@ -190,6 +196,7 @@ fn update(
                     )
                     .unwrap();
                 } else {
+                    // Test against existing image
                     match Reader::open(&image_path) {
                         Ok(file) => {
                             let existing_image = file.decode().unwrap();

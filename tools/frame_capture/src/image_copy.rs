@@ -179,3 +179,16 @@ impl render_graph::Node for ImageCopyDriver {
         Ok(())
     }
 }
+
+pub fn bgra_to_rgba(data: &mut Vec<u8>) {
+    for src in data.chunks_exact_mut(4) {
+        let r = src[2];
+        let g = src[1];
+        let b = src[0];
+        let a = src[3];
+        src[0] = r;
+        src[1] = g;
+        src[2] = b;
+        src[3] = a;
+    }
+}
