@@ -19,6 +19,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
+use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
@@ -309,7 +310,7 @@ impl RenderTarget {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect_value(Serialize, Deserialize)]
 pub enum DepthCalculation {
     /// Pythagorean distance; works everywhere, more expensive to compute.

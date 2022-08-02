@@ -26,6 +26,7 @@ mod impls {
     pub use self::std::*;
 }
 
+mod enums;
 pub mod serde;
 pub mod std_traits;
 pub mod utility;
@@ -40,6 +41,7 @@ pub mod prelude {
 }
 
 pub use array::*;
+pub use enums::*;
 pub use fields::*;
 pub use impls::*;
 pub use list::*;
@@ -675,10 +677,6 @@ mod tests {
             panic!("Expected `TypeInfo::TupleStruct`");
         }
 
-        let value: &dyn Reflect = &MyTupleStruct(123, 321, MyStruct { foo: 123, bar: 321 });
-        let info = value.get_type_info();
-        assert!(info.is::<MyTupleStruct>());
-
         // Tuple
         type MyTuple = (u32, f32, String);
 
@@ -829,8 +827,10 @@ mod tests {
             map: HashMap<i32, f32>,
             a_struct: SomeStruct,
             a_tuple_struct: SomeTupleStruct,
+            enum_unit: SomeEnum,
+            enum_tuple: SomeEnum,
+            enum_struct: SomeEnum,
             custom: CustomDebug,
-            unknown: Option<String>,
             #[reflect(ignore)]
             #[allow(dead_code)]
             ignored: isize,
@@ -839,6 +839,13 @@ mod tests {
         #[derive(Reflect)]
         struct SomeStruct {
             foo: String,
+        }
+
+        #[derive(Reflect)]
+        enum SomeEnum {
+            A,
+            B(usize),
+            C { value: i32 },
         }
 
         #[derive(Reflect)]
@@ -865,8 +872,10 @@ mod tests {
                 foo: String::from("A Struct!"),
             },
             a_tuple_struct: SomeTupleStruct(String::from("A Tuple Struct!")),
+            enum_unit: SomeEnum::A,
+            enum_tuple: SomeEnum::B(123),
+            enum_struct: SomeEnum::C { value: 321 },
             custom: CustomDebug,
-            unknown: Some(String::from("Enums aren't supported yet :(")),
             ignored: 321,
         };
 
@@ -893,8 +902,14 @@ bevy_reflect::tests::should_reflect_debug::Test {
     a_tuple_struct: bevy_reflect::tests::should_reflect_debug::SomeTupleStruct(
         "A Tuple Struct!",
     ),
+    enum_unit: A,
+    enum_tuple: B(
+        123,
+    ),
+    enum_struct: C {
+        value: 321,
+    },
     custom: Cool debug!,
-    unknown: Reflect(core::option::Option<alloc::string::String>),
 }"#;
 
         assert_eq!(expected, format!("\n{:#?}", reflected));

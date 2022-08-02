@@ -1,8 +1,10 @@
 use crate::{self as bevy_reflect, ReflectFromPtr};
 use crate::{
-    map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap, FromReflect, FromType,
-    GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter, Reflect, ReflectDeserialize,
-    ReflectMut, ReflectRef, ReflectSerialize, TypeInfo, TypeRegistration, Typed, ValueInfo,
+    map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
+    EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
+    Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TupleVariantInfo,
+    TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter,
+    VariantInfo, VariantType,
 };
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
@@ -32,7 +34,6 @@ impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(Option<T: Clone + Reflect + 'static>());
 impl_reflect_value!(Result<T: Clone + Reflect + 'static, E: Clone + Reflect + 'static>());
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
 impl_reflect_value!(Range<T: Clone +  Send + Sync + 'static>());
@@ -56,7 +57,6 @@ impl_from_reflect_value!(isize);
 impl_from_reflect_value!(f32);
 impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
-impl_from_reflect_value!(Option<T: Clone + Reflect + 'static>);
 impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Range<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Duration);
@@ -557,6 +557,218 @@ impl Reflect for Cow<'static, str> {
     }
 }
 
+impl<T: Reflect + Clone> GetTypeRegistration for Option<T> {
+    fn get_type_registration() -> TypeRegistration {
+        TypeRegistration::of::<Option<T>>()
+    }
+}
+
+impl<T: Reflect + Clone> Enum for Option<T> {
+    fn field(&self, _name: &str) -> Option<&dyn Reflect> {
+        None
+    }
+
+    fn field_at(&self, index: usize) -> Option<&dyn Reflect> {
+        match self {
+            Some(value) if index == 0 => Some(value),
+            _ => None,
+        }
+    }
+
+    fn field_mut(&mut self, _name: &str) -> Option<&mut dyn Reflect> {
+        None
+    }
+
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        match self {
+            Some(value) if index == 0 => Some(value),
+            _ => None,
+        }
+    }
+
+    fn index_of(&self, _name: &str) -> Option<usize> {
+        None
+    }
+
+    fn name_at(&self, _index: usize) -> Option<&str> {
+        None
+    }
+
+    fn iter_fields(&self) -> VariantFieldIter {
+        VariantFieldIter::new(self)
+    }
+
+    #[inline]
+    fn field_len(&self) -> usize {
+        match self {
+            Some(..) => 1,
+            None => 0,
+        }
+    }
+
+    #[inline]
+    fn variant_name(&self) -> &str {
+        match self {
+            Some(..) => "Some",
+            None => "None",
+        }
+    }
+
+    #[inline]
+    fn variant_type(&self) -> VariantType {
+        match self {
+            Some(..) => VariantType::Tuple,
+            None => VariantType::Unit,
+        }
+    }
+
+    fn clone_dynamic(&self) -> DynamicEnum {
+        DynamicEnum::from_ref::<Self>(self)
+    }
+}
+
+impl<T: Reflect + Clone> Reflect for Option<T> {
+    #[inline]
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    #[inline]
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Reflect) {
+        if let ReflectRef::Enum(value) = value.reflect_ref() {
+            if self.variant_name() == value.variant_name() {
+                // Same variant -> just update fields
+                for (index, field) in value.iter_fields().enumerate() {
+                    let name = value.name_at(index).unwrap();
+                    if let Some(v) = self.field_mut(name) {
+                        v.apply(field.value());
+                    }
+                }
+            } else {
+                // New variant -> perform a switch
+                match value.variant_name() {
+                    "Some" => {
+                        let field = value
+                            .field_at(0)
+                            .expect("Field at index 0 should exist")
+                            .clone_value();
+                        let field = field.take::<T>().unwrap_or_else(|_| {
+                            panic!(
+                                "Field at index 0 should be of type {}",
+                                std::any::type_name::<T>()
+                            )
+                        });
+                        *self = Some(field);
+                    }
+                    "None" => {
+                        *self = None;
+                    }
+                    _ => panic!("Enum is not a {}.", std::any::type_name::<Self>()),
+                }
+            }
+        }
+    }
+
+    #[inline]
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Enum(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Enum(self)
+    }
+
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone())
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        crate::enum_hash(self)
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::enum_partial_eq(self, value)
+    }
+}
+
+impl<T: Reflect + Clone> FromReflect for Option<T> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::Enum(dyn_enum) = reflect.reflect_ref() {
+            match dyn_enum.variant_name() {
+                "Some" => {
+                    let field = dyn_enum
+                        .field_at(0)
+                        .expect("Field at index 0 should exist")
+                        .clone_value();
+                    let field = field.take::<T>().unwrap_or_else(|_| {
+                        panic!(
+                            "Field at index 0 should be of type {}",
+                            std::any::type_name::<T>()
+                        )
+                    });
+                    Some(Some(field))
+                }
+                "None" => Some(None),
+                name => panic!(
+                    "variant with name `{}` does not exist on enum `{}`",
+                    name,
+                    std::any::type_name::<Self>()
+                ),
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl<T: Reflect + Clone> Typed for Option<T> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| {
+            let none_variant = VariantInfo::Unit(UnitVariantInfo::new_static("None"));
+            let some_variant = VariantInfo::Tuple(TupleVariantInfo::new_static(
+                "Some",
+                &[UnnamedField::new::<T>(0)],
+            ));
+            TypeInfo::Enum(EnumInfo::new::<Self>(&[none_variant, some_variant]))
+        })
+    }
+}
+
 impl Typed for Cow<'static, str> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -587,7 +799,9 @@ impl FromReflect for Cow<'static, str> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Reflect, ReflectSerialize, TypeRegistry};
+    use crate::{
+        Enum, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
+    };
     use bevy_utils::HashMap;
     use std::f32::consts::{PI, TAU};
 
@@ -663,10 +877,70 @@ mod tests {
     }
 
     #[test]
-    fn should_not_partial_eq_option() {
-        // Option<T> does not contain a `PartialEq` implementation, so it should return `None`
+    fn should_partial_eq_option() {
         let a: &dyn Reflect = &Some(123);
         let b: &dyn Reflect = &Some(123);
-        assert_eq!(None, a.reflect_partial_eq(b));
+        assert_eq!(Some(true), a.reflect_partial_eq(b));
+    }
+
+    #[test]
+    fn option_should_impl_enum() {
+        let mut value = Some(123usize);
+
+        assert!(value
+            .reflect_partial_eq(&Some(123usize))
+            .unwrap_or_default());
+        assert!(!value
+            .reflect_partial_eq(&Some(321usize))
+            .unwrap_or_default());
+
+        assert_eq!("Some", value.variant_name());
+        assert_eq!("core::option::Option<usize>::Some", value.variant_path());
+
+        if value.is_variant(VariantType::Tuple) {
+            if let Some(field) = value
+                .field_at_mut(0)
+                .and_then(|field| field.downcast_mut::<usize>())
+            {
+                *field = 321;
+            }
+        } else {
+            panic!("expected `VariantType::Tuple`");
+        }
+
+        assert_eq!(Some(321), value);
+    }
+
+    #[test]
+    fn option_should_impl_typed() {
+        type MyOption = Option<i32>;
+        let info = MyOption::type_info();
+        if let TypeInfo::Enum(info) = info {
+            assert_eq!(
+                "None",
+                info.variant_at(0).unwrap().name(),
+                "Expected `None` to be variant at index `0`"
+            );
+            assert_eq!(
+                "Some",
+                info.variant_at(1).unwrap().name(),
+                "Expected `Some` to be variant at index `1`"
+            );
+            assert_eq!("Some", info.variant("Some").unwrap().name());
+            if let VariantInfo::Tuple(variant) = info.variant("Some").unwrap() {
+                assert!(
+                    variant.field_at(0).unwrap().is::<i32>(),
+                    "Expected `Some` variant to contain `i32`"
+                );
+                assert!(
+                    variant.field_at(1).is_none(),
+                    "Expected `Some` variant to only contain 1 field"
+                );
+            } else {
+                panic!("Expected `VariantInfo::Tuple`");
+            }
+        } else {
+            panic!("Expected `TypeInfo::Enum`");
+        }
     }
 }
