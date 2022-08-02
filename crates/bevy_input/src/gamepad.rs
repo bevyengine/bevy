@@ -210,7 +210,8 @@ impl ButtonSettings {
 /// Values that are lower than `negative_high` will be rounded to -1.0.
 /// Values that are higher than `positive_high` will be rounded to 1.0.
 /// Values that are in-between `negative_low` and `positive_low` will be rounded to 0.0.
-/// Otherwise, values will not be rounded.
+/// Otherwise, values will be linearly rescaled to fit into the sensitivity range.
+/// For example, a value that is one fourth of the way from `positive_low` to `positive_high` will be scaled to 0.25.
 ///
 /// The valid range is from -1.0 to 1.0, inclusive.
 #[derive(Debug, Clone)]
@@ -243,17 +244,38 @@ impl AxisSettings {
             1.0
         } else if new_value <= self.negative_high {
             -1.0
+        } else if new_value > self.positive_low {
+            scale(new_value, self.positive_low, self.positive_high)
         } else {
-            new_value
+            -1.0 * scale(new_value, self.negative_low, self.negative_high)
         };
 
         if let Some(old_value) = old_value {
-            if (new_value - old_value).abs() <= self.threshold {
+            if self.delta_bellow_threshold(new_value, old_value) {
                 return None;
             }
         }
 
         Some(new_value)
+    }
+
+    fn delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
+        self.positive_delta_bellow_threshold(new_value, old_value)
+            || self.negative_delta_bellow_threshold(new_value, old_value)
+    }
+
+    fn positive_delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
+        new_value >= 0.0
+            && old_value >= 0.0
+            && delta(new_value, old_value, self.positive_low, self.positive_high).abs()
+                <= self.threshold
+    }
+
+    fn negative_delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
+        new_value < 0.0
+            && old_value < 0.0
+            && delta(new_value, old_value, self.negative_low, self.negative_high).abs()
+                <= self.threshold
     }
 }
 
@@ -281,17 +303,36 @@ impl ButtonAxisSettings {
         } else if new_value >= self.high {
             1.0
         } else {
-            new_value
+            scale(new_value, self.low, self.high)
         };
 
         if let Some(old_value) = old_value {
-            if (new_value - old_value).abs() <= self.threshold {
+            if self.delta_bellow_threshold(new_value, old_value) {
                 return None;
             }
         }
 
         Some(new_value)
     }
+
+    fn delta_bellow_threshold(&self, new_value: f32, old_value: f32) -> bool {
+        delta(new_value, old_value, self.low, self.high).abs() <= self.threshold
+    }
+}
+
+#[inline(always)]
+fn scale(value: f32, low: f32, high: f32) -> f32 {
+    (value - low) / (high - low)
+}
+
+#[inline(always)]
+fn unscale(value: f32, low: f32, high: f32) -> f32 {
+    value * (high - low) + low
+}
+
+#[inline(always)]
+fn delta(new_value: f32, old_value: f32, low: f32, high: f32) -> f32 {
+    unscale(new_value, low, high) - unscale(old_value, low, high)
 }
 
 /// Monitors gamepad connection and disconnection events, updating the [`Gamepads`] resource accordingly
@@ -444,10 +485,10 @@ mod tests {
             (0.99, None, Some(1.0)),
             (0.96, None, Some(1.0)),
             (0.95, None, Some(1.0)),
-            (0.9499, None, Some(0.9499)),
-            (0.84, None, Some(0.84)),
-            (0.43, None, Some(0.43)),
-            (0.05001, None, Some(0.05001)),
+            (0.9499, None, Some(0.9998889)),
+            (0.84, None, Some(0.87777776)),
+            (0.43, None, Some(0.42222223)),
+            (0.05001, None, Some(0.000011109644)),
             (0.05, None, Some(0.0)),
             (0.04, None, Some(0.0)),
             (0.01, None, Some(0.0)),
@@ -463,12 +504,12 @@ mod tests {
     #[test]
     fn test_button_axis_settings_default_filter_with_old_value() {
         let cases = [
-            (0.43, Some(0.44001), Some(0.43)),
-            (0.43, Some(0.44), None),
-            (0.43, Some(0.43), None),
-            (0.43, Some(0.41999), Some(0.43)),
-            (0.43, Some(0.17), Some(0.43)),
-            (0.43, Some(0.84), Some(0.43)),
+            (0.43, Some(0.43334445), Some(0.42222223)),
+            (0.43, Some(0.43333333), None),
+            (0.43, Some(0.42222223), None),
+            (0.43, Some(0.4111), Some(0.42222223)),
+            (0.43, Some(0.17), Some(0.42222223)),
+            (0.43, Some(0.84), Some(0.42222223)),
             (0.05, Some(0.055), Some(0.0)),
             (0.95, Some(0.945), Some(1.0)),
         ];
@@ -500,10 +541,10 @@ mod tests {
             (0.99, Some(1.0)),
             (0.96, Some(1.0)),
             (0.95, Some(1.0)),
-            (0.9499, Some(0.9499)),
-            (0.84, Some(0.84)),
-            (0.43, Some(0.43)),
-            (0.05001, Some(0.05001)),
+            (0.9499, Some(0.9998889)),
+            (0.84, Some(0.87777776)),
+            (0.43, Some(0.42222223)),
+            (0.05001, Some(0.000011109644)),
             (0.05, Some(0.0)),
             (0.04, Some(0.0)),
             (0.01, Some(0.0)),
@@ -512,10 +553,10 @@ mod tests {
             (-0.99, Some(-1.0)),
             (-0.96, Some(-1.0)),
             (-0.95, Some(-1.0)),
-            (-0.9499, Some(-0.9499)),
-            (-0.84, Some(-0.84)),
-            (-0.43, Some(-0.43)),
-            (-0.05001, Some(-0.05001)),
+            (-0.9499, Some(-0.9998889)),
+            (-0.84, Some(-0.87777776)),
+            (-0.43, Some(-0.42222223)),
+            (-0.05001, Some(-0.000011109644)),
             (-0.05, Some(0.0)),
             (-0.04, Some(0.0)),
             (-0.01, Some(0.0)),
@@ -530,20 +571,20 @@ mod tests {
     #[test]
     fn test_axis_settings_default_filter_with_old_values() {
         let cases = [
-            (0.43, Some(0.44001), Some(0.43)),
-            (0.43, Some(0.44), None),
-            (0.43, Some(0.43), None),
-            (0.43, Some(0.41999), Some(0.43)),
-            (0.43, Some(0.17), Some(0.43)),
-            (0.43, Some(0.84), Some(0.43)),
+            (0.43, Some(0.43334445), Some(0.42222223)),
+            (0.43, Some(0.43333333), None),
+            (0.43, Some(0.42222223), None),
+            (0.43, Some(0.4111), Some(0.42222223)),
+            (0.43, Some(0.17), Some(0.42222223)),
+            (0.43, Some(0.84), Some(0.42222223)),
             (0.05, Some(0.055), Some(0.0)),
             (0.95, Some(0.945), Some(1.0)),
-            (-0.43, Some(-0.44001), Some(-0.43)),
-            (-0.43, Some(-0.44), None),
-            (-0.43, Some(-0.43), None),
-            (-0.43, Some(-0.41999), Some(-0.43)),
-            (-0.43, Some(-0.17), Some(-0.43)),
-            (-0.43, Some(-0.84), Some(-0.43)),
+            (-0.43, Some(-0.43334445), Some(-0.42222223)),
+            (-0.43, Some(-0.43333333), None),
+            (-0.43, Some(-0.42222223), None),
+            (-0.43, Some(-0.4111), Some(-0.42222223)),
+            (-0.43, Some(-0.17), Some(-0.42222223)),
+            (-0.43, Some(-0.84), Some(-0.42222223)),
             (-0.05, Some(-0.055), Some(0.0)),
             (-0.95, Some(-0.945), Some(-1.0)),
         ];
