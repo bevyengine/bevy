@@ -971,4 +971,12 @@ mod tests {
             panic!("Expected `TypeInfo::Enum`");
         }
     }
+    #[test]
+    fn nonzero_usize_impl_reflect_from_reflect() {
+        let a: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
+        let b = a.clone();
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        let forty_two: std::num::NonZeroUsize = crate::FromReflect::from_reflect(a).unwrap();
+        assert_eq!(forty_two, std::num::NonZeroUsize::new(42).unwrap());
+    }
 }
