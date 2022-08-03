@@ -7,8 +7,9 @@ use bevy_utils::{tracing::info, HashMap, HashSet};
 ///
 /// ## Usage
 ///
-/// It is used inside of [`GamepadEvent`]s and [`GamepadEventRaw`]s to distinguish which
-/// gamepad the event corresponds to.
+/// The primary way to access the individual connected gamepads is done through the [`Gamepads`]
+/// `bevy` resource. It is also used inside of [`GamepadEvent`]s and [`GamepadEventRaw`]s to distinguish
+/// which gamepad an event corresponds to.
 ///
 /// ## Note
 ///
@@ -22,14 +23,6 @@ pub struct Gamepad {
 
 impl Gamepad {
     /// Creates a new [`Gamepad`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_input::gamepad::Gamepad;
-    /// #
-    /// let gamepad = Gamepad::new(1);
-    /// ```
     pub fn new(id: usize) -> Self {
         Self { id }
     }
@@ -74,7 +67,7 @@ impl Gamepads {
     }
 }
 
-/// A type of a [`GamepadEvent`].
+/// The data contained in a [`GamepadEvent`] or [`GamepadEventRaw`].
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadEventType {
@@ -103,11 +96,47 @@ pub enum GamepadEventType {
 ///
 /// ## Gamepad input mocking
 ///
-/// When mocking gamepad input you have to use [`GamepadEventRaw`]s instead of [`GamepadEvent`]s
-/// because otherwise the [`GamepadSettings`] wouldn't be respected and the [`Input<GamepadButton>`],
-/// [`Axis<GamepadAxis>`], and [`Axis<GamepadButton>`] resources wouldn't be updated correctly.
+/// When mocking gamepad input, use [`GamepadEventRaw`]s instead of [`GamepadEvent`]s.
+/// Otherwise [`GamepadSettings`] won't be respected and the [`Input<GamepadButton>`],
+/// [`Axis<GamepadAxis>`], and [`Axis<GamepadButton>`] resources won't be updated correctly.
 ///
-/// ### Example
+/// An example for gamepad input mocking can be seen in the documentation of the [`GamepadEventRaw`].
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct GamepadEvent {
+    /// The gamepad this event corresponds to.
+    pub gamepad: Gamepad,
+    /// The type of the event.
+    pub event_type: GamepadEventType,
+}
+
+impl GamepadEvent {
+    /// Creates a new [`GamepadEvent`].
+    pub fn new(gamepad: Gamepad, event_type: GamepadEventType) -> Self {
+        Self {
+            gamepad,
+            event_type,
+        }
+    }
+}
+
+/// A raw event of a [`Gamepad`].
+///
+/// This event is the translated version of the `EventType` from the `GilRs` crate.
+/// It is available to the end user and can be used for game logic.
+///
+/// ## Differences
+///
+/// The difference between the `EventType` from the `GilRs` crate and the [`GamepadEventRaw`]
+/// is that the latter has less events, because the button pressing logic is handled through the generic
+/// [`Input<T>`] instead of through events.
+///
+/// The difference between the [`GamepadEventRaw`] and the [`GamepadEvent`] can be seen in the documentation
+/// of the [`GamepadEvent`].
+///
+/// ## Gamepad input mocking
+///
+/// The following example showcases how to mock gamepad input by manually sending [`GamepadEventRaw`]s.
 ///
 /// ```
 /// # use bevy_input::prelude::*;
@@ -176,49 +205,6 @@ pub enum GamepadEventType {
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct GamepadEvent {
-    /// The gamepad this event corresponds to.
-    pub gamepad: Gamepad,
-    /// The type of the event.
-    pub event_type: GamepadEventType,
-}
-
-impl GamepadEvent {
-    /// Creates a new [`GamepadEvent`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_input::gamepad::{GamepadEvent, GamepadEventType, Gamepad};
-    /// #
-    /// let gamepad_event = GamepadEvent::new(
-    ///     Gamepad::new(1),
-    ///     GamepadEventType::Connected,
-    /// );
-    /// ```
-    pub fn new(gamepad: Gamepad, event_type: GamepadEventType) -> Self {
-        Self {
-            gamepad,
-            event_type,
-        }
-    }
-}
-
-/// A raw event of a [`Gamepad`].
-///
-/// This event is the translated version of the `EventType` from the `GilRs` crate.
-/// It is available to the end user and can be used for game logic.
-///
-/// ## Differences
-///
-/// The difference between the `EventType` from the `GilRs` crate and the [`GamepadEventRaw`]
-/// is that the latter has less events, because the button pressing logic is handled through the generic
-/// [`Input<T>`] instead of through events.
-///
-/// The difference between the [`GamepadEventRaw`] and the [`GamepadEvent`] can be seen in the documentation
-/// of the [`GamepadEvent`].
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEventRaw {
     /// The gamepad this event corresponds to.
     pub gamepad: Gamepad,
@@ -228,17 +214,6 @@ pub struct GamepadEventRaw {
 
 impl GamepadEventRaw {
     /// Creates a new [`GamepadEventRaw`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_input::gamepad::{GamepadEventRaw, GamepadEventType, Gamepad};
-    /// #
-    /// let gamepad_event_raw = GamepadEventRaw::new(
-    ///     Gamepad::new(1),
-    ///     GamepadEventType::Connected,
-    /// );
-    /// ```
     pub fn new(gamepad: Gamepad, event_type: GamepadEventType) -> Self {
         Self {
             gamepad,
@@ -252,7 +227,9 @@ impl GamepadEventRaw {
 /// ## Usage
 ///
 /// This is used to determine which button has changed its value when receiving a
-/// [`GamepadEventType::ButtonChanged`].
+/// [`GamepadEventType::ButtonChanged`]. It is also used in the [`GamepadButton`]
+/// which in turn is used to create the [`Input<GamepadButton>`] or
+/// [`Axis<GamepadButton>`] `bevy` resources.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadButtonType {
@@ -340,12 +317,13 @@ impl GamepadButton {
     }
 }
 
-/// An type of a [`GamepadAxis`].
+/// A type of a [`GamepadAxis`].
 ///
 /// ## Usage
 ///
 /// This is used to determine which axis has changed its value when receiving a
-/// [`GamepadEventType::ButtonChanged`].
+/// [`GamepadEventType::AxisChanged`]. It is also used in the [`GamepadAxis`]
+/// which in turn is used to create the [`Axis<GamepadAxis>`] `bevy` resource.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadAxisType {
