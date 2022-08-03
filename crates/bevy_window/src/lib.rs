@@ -22,7 +22,10 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{event::Events, schedule::SystemLabel};
+use bevy_ecs::{
+    event::Events,
+    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
+};
 
 /// The configuration information for the [`WindowPlugin`].
 ///
@@ -106,7 +109,10 @@ impl Plugin for WindowPlugin {
         }
 
         if settings.exit_on_all_closed {
-            app.add_system(exit_on_all_closed);
+            app.add_system_to_stage(
+                CoreStage::PostUpdate,
+                exit_on_all_closed.after(ModifiesWindows),
+            );
         }
         if settings.close_when_requested {
             app.add_system(close_when_requested);
