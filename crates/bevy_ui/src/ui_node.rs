@@ -20,6 +20,16 @@ pub struct Node {
 }
 
 /// An enum that describes possible types of value in flexbox layout options
+///
+/// There are numeric traits implemented for this enum so you can multiply, divide, add, and subtract
+/// with an `f32` value or another `Val`.
+/// If you use any of the math operations with an `f32` it will only be applied for the `Px` and `Percent` variants.
+/// `Undefined` and `Auto` will stay unchanged.
+/// When both operators are `Val`s the result is computed by following these rules:
+/// * If any operator is `Undefined` the result is `Undefined`
+/// * If any operator is `Auto` the result is `Auto`
+/// * If both operators are of the same unit the operation is applied to the value
+/// * If both operators are of different units the result is `Undefined`
 #[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Val {
