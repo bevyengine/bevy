@@ -36,7 +36,7 @@ impl Texture {
         self.id
     }
 
-    /// Creates a [`TextureView`](crate::render_resource::TextureView) of this texture.
+    /// Creates a [`TextureView`] of this texture.
     pub fn create_view(&self, desc: &wgpu::TextureViewDescriptor) -> TextureView {
         TextureView::from(self.value.create_view(desc))
     }
