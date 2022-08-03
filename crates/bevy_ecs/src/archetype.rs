@@ -50,7 +50,7 @@ pub struct AddBundle {
 /// state of the archetype graph.
 ///
 /// Note: This type only contains edges the [`World`] has already traversed.
-/// If any of functions return `None`, it doesn't mean there is guarenteed
+/// If any of functions return `None`, it doesn't mean there is guaranteed
 /// not to be a result of adding or removing that bundle, but rather that
 /// operation that has moved an entity along that edge has not been performed
 /// yet.

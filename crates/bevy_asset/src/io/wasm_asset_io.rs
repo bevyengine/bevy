@@ -25,6 +25,7 @@ pub struct WasmAssetIo {
 }
 
 impl WasmAssetIo {
+    /// Creates a new `WasmAssetIo`. The path provided will be used to build URLs to query for assets.
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         WasmAssetIo {
             root_path: path.as_ref().to_owned(),

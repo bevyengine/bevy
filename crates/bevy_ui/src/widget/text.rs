@@ -118,8 +118,8 @@ pub fn text_system(
                         "Failed to get glyphs from the pipeline that have just been computed",
                     );
                     calculated_size.size = Size {
-                        width: scale_value(text_layout_info.size.x, inv_scale_factor),
-                        height: scale_value(text_layout_info.size.y, inv_scale_factor),
+                        width: Val::Px(scale_value(text_layout_info.size.x, inv_scale_factor)),
+                        height: Val::Px(scale_value(text_layout_info.size.y, inv_scale_factor)),
                     };
                 }
             }

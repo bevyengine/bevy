@@ -640,12 +640,12 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// // .add_system(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
-pub struct Local<'a, T: Resource>(&'a mut T);
+pub struct Local<'a, T: Resource + FromWorld>(&'a mut T);
 
 // SAFETY: Local only accesses internal state
 unsafe impl<T: Resource> ReadOnlySystemParamFetch for LocalState<T> {}
 
-impl<'a, T: Resource> Debug for Local<'a, T>
+impl<'a, T: Resource + FromWorld> Debug for Local<'a, T>
 where
     T: Debug,
 {
@@ -654,7 +654,7 @@ where
     }
 }
 
-impl<'a, T: Resource> Deref for Local<'a, T> {
+impl<'a, T: Resource + FromWorld> Deref for Local<'a, T> {
     type Target = T;
 
     #[inline]
@@ -663,7 +663,7 @@ impl<'a, T: Resource> Deref for Local<'a, T> {
     }
 }
 
-impl<'a, T: Resource> DerefMut for Local<'a, T> {
+impl<'a, T: Resource + FromWorld> DerefMut for Local<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0

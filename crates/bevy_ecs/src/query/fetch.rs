@@ -168,7 +168,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// ```
 ///
 /// **Note:** if you omit the `mutable` attribute for a query that doesn't implement
-/// `ReadOnlyFetch`, compilation will fail. We insert static checks as in the example above for
+/// [`ReadOnlyWorldQuery`], compilation will fail. We insert static checks as in the example above for
 /// every query component and a nested query.
 /// (The checks neither affect the runtime, nor pollute your local namespace.)
 ///
@@ -333,7 +333,7 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w, _State = Self::State> {
 /// # Safety
 ///
 /// This must only be implemented for read-only [`WorldQuery`]'s.
-pub unsafe trait ReadOnlyWorldQuery: WorldQuery {}
+pub unsafe trait ReadOnlyWorldQuery: WorldQuery<ReadOnly = Self> {}
 
 /// The [`Fetch`] of a [`WorldQuery`], which declares which data it needs access to
 pub type QueryFetch<'w, Q> = <Q as WorldQueryGats<'w>>::Fetch;
@@ -387,7 +387,7 @@ pub unsafe trait Fetch<'world>: Sized {
     const IS_DENSE: bool;
 
     /// Returns true if (and only if) this Fetch relies strictly on archetypes to limit which
-    /// components are acessed by the Query.
+    /// components are accessed by the Query.
     ///
     /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
     /// many elements are being iterated (such as `Iterator::collect()`).
