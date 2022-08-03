@@ -46,6 +46,7 @@ pub struct ExtractedWindow {
     pub present_mode: PresentMode,
     pub swap_chain_texture: Option<TextureView>,
     pub size_changed: bool,
+    pub scale_factor: f64,
 }
 
 #[derive(Default)]
@@ -89,6 +90,7 @@ fn extract_windows(
                     present_mode: window.present_mode(),
                     swap_chain_texture: None,
                     size_changed: false,
+                    scale_factor: window.scale_factor(),
                 });
 
         // NOTE: Drop the swap chain frame here
