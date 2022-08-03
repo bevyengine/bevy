@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy::render::render_asset::RenderAssets;
@@ -23,29 +23,27 @@ pub fn receive_images(
         if !image_copier.enabled() {
             continue;
         }
-        if let Ok(cpu_buffer) = image_copier.buffer.lock() {
-            // Derived from: https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window
-            // We need to scope the mapping variables so that we can
-            // unmap the buffer
-            async {
-                let buffer_slice = cpu_buffer.slice(..);
+        // Derived from: https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window
+        // We need to scope the mapping variables so that we can
+        // unmap the buffer
+        async {
+            let buffer_slice = image_copier.buffer.slice(..);
 
-                // NOTE: We have to create the mapping THEN device.poll() before await
-                // the future. Otherwise the application will freeze.
-                let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
-                buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                    tx.send(result).unwrap();
-                });
-                render_device.poll(wgpu::Maintain::Wait);
-                rx.receive().await.unwrap().unwrap();
-                if let Some(mut image) = images.get_mut(&image_copier.dst_image) {
-                    image.data = buffer_slice.get_mapped_range().to_vec();
-                }
-
-                cpu_buffer.unmap();
+            // NOTE: We have to create the mapping THEN device.poll() before await
+            // the future. Otherwise the application will freeze.
+            let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
+            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                tx.send(result).unwrap();
+            });
+            render_device.poll(wgpu::Maintain::Wait);
+            rx.receive().await.unwrap().unwrap();
+            if let Some(mut image) = images.get_mut(&image_copier.dst_image) {
+                image.data = buffer_slice.get_mapped_range().to_vec();
             }
-            .block_on();
+
+            image_copier.buffer.unmap();
         }
+        .block_on();
     }
 }
 
@@ -70,7 +68,7 @@ impl Plugin for ImageCopyPlugin {
 
 #[derive(Clone, Component)]
 pub struct ImageCopier {
-    buffer: Arc<Mutex<Buffer>>,
+    buffer: Buffer,
     enabled: Arc<AtomicBool>,
     src_image: Handle<Image>,
     dst_image: Handle<Image>,
@@ -94,7 +92,7 @@ impl ImageCopier {
         });
 
         ImageCopier {
-            buffer: Arc::new(Mutex::new(cpu_buffer)),
+            buffer: cpu_buffer,
             src_image,
             dst_image,
             enabled: Arc::new(AtomicBool::new(true)),
@@ -155,22 +153,20 @@ impl render_graph::Node for ImageCopyDriver {
                 depth_or_array_layers: 1,
             };
 
-            if let Ok(cpu_buffer) = image_copier.buffer.lock() {
-                encoder.copy_texture_to_buffer(
-                    src_image.texture.as_image_copy(),
-                    ImageCopyBuffer {
-                        buffer: &cpu_buffer,
-                        layout: ImageDataLayout {
-                            offset: 0,
-                            bytes_per_row: Some(
-                                std::num::NonZeroU32::new(padded_bytes_per_row as u32).unwrap(),
-                            ),
-                            rows_per_image: None,
-                        },
+            encoder.copy_texture_to_buffer(
+                src_image.texture.as_image_copy(),
+                ImageCopyBuffer {
+                    buffer: &image_copier.buffer,
+                    layout: ImageDataLayout {
+                        offset: 0,
+                        bytes_per_row: Some(
+                            std::num::NonZeroU32::new(padded_bytes_per_row as u32).unwrap(),
+                        ),
+                        rows_per_image: None,
                     },
-                    texture_extent,
-                );
-            }
+                },
+                texture_extent,
+            );
 
             let render_queue = world.get_resource::<RenderQueue>().unwrap();
             render_queue.submit(std::iter::once(encoder.finish()));
