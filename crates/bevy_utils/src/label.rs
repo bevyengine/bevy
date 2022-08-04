@@ -47,6 +47,18 @@ where
     }
 }
 
+/// Trait for implementors of `*Label` types that support downcasting.
+pub trait LabelDowncast<Id> {
+    /// The type returned from [`downcast_from`](#method.downcast_from).
+    type Output;
+    /// Attempts to downcast a label to type `Self`.
+    ///
+    /// Depending on the type of label, this fn might return different types.
+    /// If `Self` is cheap to clone, this will probably just return `Self`.
+    /// Otherwise, it may return a reference, or a `MutexGuard`, `RwLockGuard`, etc.
+    fn downcast_from(label: Id) -> Option<Self::Output>;
+}
+
 /// Macro to define a new label trait
 ///
 /// # Example
@@ -139,6 +151,20 @@ macro_rules! define_label {
                 // compiler unifying identical functions. We'll likely
                 // have to store some kind of hash of the TypeId.
                 (self.f as usize) == (<L as $label_name>::fmt as usize)
+            }
+            /// Attempts to downcast this label to type `L`.
+            ///
+            /// This may return various kind of references, or owned values depending on the type of `L`.
+            /// This method is not available for all types of labels.
+            pub fn downcast<L>(self) -> Option<L::Output>
+            where
+                L: $label_name + $crate::label::LabelDowncast<$id_name>
+            {
+                if self.is::<L>() {
+                    L::downcast_from(self)
+                } else {
+                    None
+                }
             }
         }
     };
