@@ -1,6 +1,10 @@
-use std::marker::PhantomData;
+use std::{
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+};
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, schedule::SystemLabelId};
+use bevy_utils::StableHashMap;
 
 fn main() {
     // Unit labels are always equal.
@@ -26,6 +30,25 @@ fn main() {
         format!("{:?}", GenericLabel::<f64>::One.as_label()),
         "GenericLabel::One::<f64>"
     );
+
+    // Working with labels that need to be heap allocated.
+    let label = ComplexLabel {
+        people: vec!["John", "William", "Sharon"],
+    };
+    // Convert to to a LabelId. Its type gets erased.
+    let id = label.as_label();
+    assert_eq!(
+        format!("{id:?}"),
+        r#"ComplexLabel { people: ["John", "William", "Sharon"] }"#
+    );
+    // Try to downcast it back to its concrete type.
+    if let Some(complex_label) = id.downcast::<ComplexLabel>() {
+        assert_eq!(complex_label.people, vec!["John", "William", "Sharon"]);
+    } else {
+        // The downcast will never fail in this example, since the label is always
+        // created from a value of type `ComplexLabel`.
+        unreachable!();
+    }
 }
 
 #[derive(SystemLabel)]
@@ -68,3 +91,42 @@ pub struct BadLabel2 {
     #[system_label(ignore_fields)]
     x: (),
 }*/
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ComplexLabel {
+    people: Vec<&'static str>,
+}
+
+use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
+
+static MAP: RwLock<StableHashMap<u64, ComplexLabel>> =
+    RwLock::new(StableHashMap::with_hasher(bevy_utils::FixedState));
+
+fn compute_hash(val: &impl Hash) -> u64 {
+    use siphasher::sip::SipHasher;
+
+    let mut hasher = SipHasher::new();
+    val.hash(&mut hasher);
+    hasher.finish()
+}
+
+impl SystemLabel for ComplexLabel {
+    fn data(&self) -> u64 {
+        let hash = compute_hash(self);
+        MAP.write().entry(hash).or_insert_with(|| self.clone());
+        hash
+    }
+    fn fmt(hash: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let map = MAP.read();
+        let val = map.get(&hash).ok_or_else(Default::default)?;
+        write!(f, "{val:?}")
+    }
+}
+
+impl bevy_utils::label::LabelDowncast<SystemLabelId> for ComplexLabel {
+    type Output = MappedRwLockReadGuard<'static, ComplexLabel>;
+    fn downcast_from(label: SystemLabelId) -> Option<Self::Output> {
+        let hash = label.data();
+        RwLockReadGuard::try_map(MAP.read(), |val| val.get(&hash)).ok()
+    }
+}

@@ -29,6 +29,8 @@ serde = "1"
 
 [dev-dependencies]
 rand = "0.8"
+siphasher = "0.3"
+parking_lot = "0.12"
 
 [[example]]
 name = "events"
