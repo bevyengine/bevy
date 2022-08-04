@@ -1,7 +1,7 @@
 //! In this example we generate a new texture atlas (sprite sheet) from a folder containing
 //! individual sprites.
 
-use bevy::{asset::LoadState, prelude::*, render::texture::ImageSettings};
+use bevy::{asset::LoadState, prelude::*};
 
 fn main() {
     App::new()
