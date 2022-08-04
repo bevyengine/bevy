@@ -23,7 +23,7 @@ pub use extract_param::Extract;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{Camera, OrthographicProjection, PerspectiveProjection},
+        camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
