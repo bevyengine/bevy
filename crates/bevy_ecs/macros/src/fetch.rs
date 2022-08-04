@@ -156,22 +156,26 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let derive_macro_call = quote! { #[derive(#derive_args)] };
 
     let impl_fetch = |is_readonly: bool| {
-        let struct_name = match is_readonly {
-            false => struct_name.clone(),
-            true => read_only_struct_name.clone(),
+        let struct_name = if is_readonly {
+            &read_only_struct_name
+        } else {
+            &struct_name
         };
-        let item_struct_name = match is_readonly {
-            false => item_struct_name.clone(),
-            true => read_only_item_struct_name.clone(),
+        let item_struct_name = if is_readonly {
+            &read_only_item_struct_name
+        } else {
+            &item_struct_name
         };
-        let fetch_struct_name = match is_readonly {
-            false => fetch_struct_name.clone(),
-            true => read_only_fetch_struct_name.clone(),
+        let fetch_struct_name = if is_readonly {
+            &read_only_fetch_struct_name
+        } else {
+            &fetch_struct_name
         };
 
-        let field_types = match is_readonly {
-            false => field_types.clone(),
-            true => read_only_field_types.clone(),
+        let field_types = if is_readonly {
+            &read_only_field_types
+        } else {
+            &field_types
         };
 
         quote! {
@@ -325,20 +329,19 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     };
 
     let mutable_impl = impl_fetch(false);
-    let readonly_impl = match fetch_struct_attributes.is_mutable {
-        true => {
-            let world_query_impl = impl_fetch(true);
-            quote! {
-                #[automatically_derived]
-                #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
-                    #( #field_idents: #read_only_field_types, )*
-                    #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
-                }
-
-                #world_query_impl
+    let readonly_impl = if fetch_struct_attributes.is_mutable {
+        let world_query_impl = impl_fetch(true);
+        quote! {
+            #[automatically_derived]
+            #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
+                #( #field_idents: #read_only_field_types, )*
+                #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
+
+            #world_query_impl
         }
-        false => quote!(),
+    } else {
+        quote! {}
     };
 
     let read_only_asserts = if fetch_struct_attributes.is_mutable {
