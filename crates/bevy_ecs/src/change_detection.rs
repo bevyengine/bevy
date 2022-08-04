@@ -217,7 +217,7 @@ change_detection_impl!(NonSendMut<'a, T>, T,);
 impl_into_inner!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
-impl<'a, T: Resource> From<NonSendMut<'a, T>> for Mut<'a, T> {
+impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
     /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `NonSendMut`.
     fn from(other: NonSendMut<'a, T>) -> Mut<'a, T> {
