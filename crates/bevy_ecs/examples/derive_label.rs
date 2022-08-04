@@ -1,10 +1,12 @@
 use std::{
-    hash::{Hash, Hasher},
+    hash::{BuildHasher, Hash, Hasher},
     marker::PhantomData,
 };
 
-use bevy_ecs::{prelude::*, schedule::SystemLabelId};
-use bevy_utils::StableHashMap;
+use bevy_ecs::{
+    prelude::*,
+    schedule::{LabelGuard, Labels, SystemLabelId},
+};
 
 fn main() {
     // Unit labels are always equal.
@@ -97,15 +99,10 @@ pub struct ComplexLabel {
     people: Vec<&'static str>,
 }
 
-use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard};
-
-static MAP: RwLock<StableHashMap<u64, ComplexLabel>> =
-    RwLock::new(StableHashMap::with_hasher(bevy_utils::FixedState));
+static MAP: Labels<ComplexLabel> = Labels::new();
 
 fn compute_hash(val: &impl Hash) -> u64 {
-    use siphasher::sip::SipHasher;
-
-    let mut hasher = SipHasher::new();
+    let mut hasher = bevy_utils::FixedState.build_hasher();
     val.hash(&mut hasher);
     hasher.finish()
 }
@@ -113,20 +110,19 @@ fn compute_hash(val: &impl Hash) -> u64 {
 impl SystemLabel for ComplexLabel {
     fn data(&self) -> u64 {
         let hash = compute_hash(self);
-        MAP.write().entry(hash).or_insert_with(|| self.clone());
+        MAP.intern(hash, || self.clone());
         hash
     }
     fn fmt(hash: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let map = MAP.read();
-        let val = map.get(&hash).ok_or_else(Default::default)?;
-        write!(f, "{val:?}")
+        MAP.scope(hash, |val| write!(f, "{val:?}"))
+            .ok_or_else(Default::default)?
     }
 }
 
 impl bevy_utils::label::LabelDowncast<SystemLabelId> for ComplexLabel {
-    type Output = MappedRwLockReadGuard<'static, ComplexLabel>;
+    type Output = LabelGuard<'static, ComplexLabel>;
     fn downcast_from(label: SystemLabelId) -> Option<Self::Output> {
         let hash = label.data();
-        RwLockReadGuard::try_map(MAP.read(), |val| val.get(&hash)).ok()
+        MAP.get(hash)
     }
 }
