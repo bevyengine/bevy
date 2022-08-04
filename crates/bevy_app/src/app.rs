@@ -647,7 +647,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -669,6 +671,7 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
     /// struct MyCounter {
     ///     counter: usize,
@@ -694,7 +697,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }

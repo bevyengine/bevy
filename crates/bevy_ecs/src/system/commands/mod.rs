@@ -24,7 +24,7 @@ use super::Resource;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::Command;
 /// // Our world resource
-/// #[derive(Default)]
+/// #[derive(Resource, Default)]
 /// struct Counter(u64);
 ///
 /// // Our custom command
@@ -331,7 +331,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(Default)]
+    /// # #[derive(Resource, Default)]
     /// # struct Scoreboard {
     /// #     current_score: u32,
     /// #     high_score: u32,
@@ -359,6 +359,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct Scoreboard {
     /// #     current_score: u32,
     /// #     high_score: u32,
@@ -385,6 +386,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct Scoreboard {
     /// #     current_score: u32,
     /// #     high_score: u32,
@@ -410,7 +412,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// ```
     /// # use bevy_ecs::{system::Command, prelude::*};
-    /// #[derive(Default)]
+    /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
     /// struct AddToCounter(u64);
@@ -472,6 +474,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
     /// # #[derive(Component)]
     /// # struct Health(u32);
@@ -548,6 +551,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
     /// #
     /// # #[derive(Component)]
@@ -580,6 +584,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct TargetEnemy { entity: Entity }
     /// # #[derive(Component)]
     /// # struct Enemy;
@@ -609,6 +614,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct CharacterToRemove { entity: Entity }
     /// #
     /// fn remove_character_system(

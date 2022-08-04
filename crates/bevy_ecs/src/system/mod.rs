@@ -17,6 +17,7 @@
 //! # struct Player { alive: bool }
 //! # #[derive(Component)]
 //! # struct Score(u32);
+//! # #[derive(Resource)]
 //! # struct Round(u32);
 //! #
 //! fn update_score_system(

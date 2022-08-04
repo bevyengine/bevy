@@ -52,6 +52,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct Cubemap {
     is_loaded: bool,
     index: usize,

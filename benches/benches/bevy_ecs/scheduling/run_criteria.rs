@@ -1,6 +1,6 @@
 use bevy_ecs::{
     component::Component,
-    prelude::{ParallelSystemDescriptorCoercion, Res, RunCriteriaDescriptorCoercion},
+    prelude::{ParallelSystemDescriptorCoercion, Res, Resource, RunCriteriaDescriptorCoercion},
     schedule::{ShouldRun, Stage, SystemStage},
     system::Query,
     world::World,
@@ -136,7 +136,7 @@ pub fn run_criteria_no_with_labels(criterion: &mut Criterion) {
     group.finish();
 }
 
-#[derive(Component)]
+#[derive(Component, Resource)]
 struct TestBool(pub bool);
 
 pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {

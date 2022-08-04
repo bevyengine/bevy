@@ -12,7 +12,7 @@ use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
 
 /// Token to ensure a system runs on the main thread.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
@@ -113,7 +113,7 @@ fn extract_windows(
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct WindowSurfaces {
     surfaces: HashMap<WindowId, wgpu::Surface>,
     /// List of windows that we have already called the initial `configure_surface` for

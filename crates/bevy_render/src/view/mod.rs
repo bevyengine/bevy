@@ -105,7 +105,7 @@ pub struct ViewUniform {
     height: f32,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ViewUniforms {
     pub uniforms: DynamicUniformBuffer<ViewUniform>,
 }

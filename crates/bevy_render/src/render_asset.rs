@@ -1,6 +1,7 @@
 use crate::{Extract, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     system::{StaticSystemParam, SystemParam, SystemParamItem},
@@ -118,7 +119,14 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
 
 /// Stores all GPU representations ([`RenderAsset::PreparedAssets`](RenderAsset::PreparedAsset))
 /// of [`RenderAssets`](RenderAsset) as long as they exist.
-pub type RenderAssets<A> = HashMap<Handle<A>, <A as RenderAsset>::PreparedAsset>;
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderAssets<A: RenderAsset>(pub HashMap<Handle<A>, A::PreparedAsset>);
+
+impl<A: RenderAsset> Default for RenderAssets<A> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 
 /// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".

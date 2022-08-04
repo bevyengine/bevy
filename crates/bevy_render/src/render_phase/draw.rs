@@ -7,7 +7,8 @@ use bevy_ecs::{
     all_tuples,
     entity::Entity,
     system::{
-        lifetimeless::SRes, ReadOnlySystemParamFetch, SystemParam, SystemParamItem, SystemState,
+        lifetimeless::SRes, ReadOnlySystemParamFetch, Resource, SystemParam, SystemParamItem,
+        SystemState,
     },
     world::World,
 };
@@ -100,6 +101,7 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
 
 /// Stores all draw functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
 /// To access them the [`DrawFunctions::read`] and [`DrawFunctions::write`] methods are used.
+#[derive(Resource)]
 pub struct DrawFunctions<P: PhaseItem> {
     internal: RwLock<DrawFunctionsInternal<P>>,
 }

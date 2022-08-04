@@ -31,6 +31,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
+/// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
 /// fn my_system(mut resource: ResMut<MyResource>) {
@@ -306,6 +307,8 @@ impl std::fmt::Debug for MutUntyped<'_> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs_macros::Resource;
+
     use crate::{
         self as bevy_ecs,
         change_detection::{
@@ -320,7 +323,8 @@ mod tests {
     #[derive(Component)]
     struct C;
 
-    struct R; // Resource
+    #[derive(Resource)]
+    struct R;
 
     #[test]
     fn change_expiration() {

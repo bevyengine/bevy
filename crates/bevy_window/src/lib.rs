@@ -25,13 +25,14 @@ use bevy_app::prelude::*;
 use bevy_ecs::{
     event::Events,
     schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
+    system::Resource,
 };
 
 /// The configuration information for the [`WindowPlugin`].
 ///
 /// It can be added as a [`Resource`](bevy_ecs::system::Resource) before the [`WindowPlugin`]
 /// runs, to configure how it behaves.
-#[derive(Clone)]
+#[derive(Resource, Clone)]
 pub struct WindowSettings {
     /// Whether to create a window when added.
     ///

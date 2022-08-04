@@ -324,6 +324,7 @@ mod tests {
 
     #[derive(Resource)]
     struct A(u32);
+
     #[derive(Resource)]
     struct B(u64);
 
@@ -376,13 +377,10 @@ mod tests {
             }
         }
 
-        let u32_component_id = world
-            .components
-            .get_resource_id(TypeId::of::<u32>())
-            .unwrap();
+        let resource_id = world.components.get_resource_id(TypeId::of::<A>()).unwrap();
         let resource_archetype = world.archetypes.get(ArchetypeId::RESOURCE).unwrap();
         let u32_archetype_component_id = resource_archetype
-            .get_archetype_component_id(u32_component_id)
+            .get_archetype_component_id(resource_id)
             .unwrap();
         assert_eq!(world.archetype_component_access.access.len(), 1);
         assert_eq!(
@@ -430,7 +428,7 @@ mod tests {
         let mut world = World::default();
         world.insert_resource(A(1));
         let cell = world.cell();
-        let _value_a = cell.resource_mut::<A>();
+        let _value_a = cell.resource::<A>();
         let _value_b = cell.resource::<A>();
     }
 }

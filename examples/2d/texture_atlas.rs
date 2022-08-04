@@ -21,7 +21,7 @@ enum AppState {
     Finished,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct RpgSpriteHandles {
     handles: Vec<HandleUntyped>,
 }

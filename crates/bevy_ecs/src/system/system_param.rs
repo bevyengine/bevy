@@ -1,5 +1,4 @@
 pub use crate::change_detection::{NonSendMut, ResMut};
-pub use bevy_ecs_macros::Resource;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -12,6 +11,7 @@ use crate::{
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
+pub use bevy_ecs_macros::Resource;
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_param_set};
 use bevy_ptr::UnsafeCellDeref;
@@ -49,14 +49,16 @@ use std::{
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
 /// use std::marker::PhantomData;
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
 /// struct MyParam<'w, 's> {
-///     foo: Res<'w, usize>,
+///     foo: Res<'w, SomeResource>,
 ///     #[system_param(ignore)]
-///     marker: PhantomData<&'s usize>,
+///     marker: PhantomData<&'s ()>,
 /// }
 ///
 /// fn my_system(param: MyParam) {
@@ -640,6 +642,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::assert_is_system;
 /// struct Config(u32);
+/// #[derive(Resource)]
 /// struct Myu32Wrapper(u32);
 /// fn reset_to_system(value: Config) -> impl FnMut(ResMut<Myu32Wrapper>) {
 ///     move |mut val| val.0 = value.0

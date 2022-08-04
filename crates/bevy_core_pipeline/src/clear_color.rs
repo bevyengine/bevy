@@ -17,7 +17,7 @@ pub enum ClearColorConfig {
 ///
 /// This color appears as the "background" color for simple apps, when
 /// there are portions of the screen with nothing rendered.
-#[derive(Component, Clone, Debug, Deref, DerefMut, ExtractResource, Reflect)]
+#[derive(Resource, Component, Clone, Debug, Deref, DerefMut, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct ClearColor(pub Color);
 

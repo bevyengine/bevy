@@ -1,4 +1,5 @@
 use crate::{
+    self as bevy_ecs,
     change_detection::CHECK_TICK_THRESHOLD,
     component::ComponentId,
     prelude::IntoSystem,
@@ -12,6 +13,7 @@ use crate::{
     },
     world::{World, WorldId},
 };
+use bevy_ecs_macros::Resource;
 use bevy_utils::{
     tracing::{info, warn},
     HashMap, HashSet,
@@ -50,7 +52,7 @@ impl_downcast!(Stage);
 ///
 /// The checker may report a system more times than the amount of constraints it would actually need
 /// to have unambiguous order with regards to a group of already-constrained systems.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;

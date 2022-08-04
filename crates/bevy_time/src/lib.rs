@@ -46,8 +46,11 @@ impl Plugin for TimePlugin {
 }
 
 /// Channel resource used to receive time from render world
+#[derive(Resource)]
 pub struct TimeReceiver(pub Receiver<Instant>);
+
 /// Channel resource used to send time from render world
+#[derive(Resource)]
 pub struct TimeSender(pub Sender<Instant>);
 
 /// Creates channels used for sending time between render world and app world

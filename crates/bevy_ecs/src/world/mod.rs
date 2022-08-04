@@ -60,6 +60,7 @@ pub use identifier::WorldId;
 /// # schedule.add_stage("update", SystemStage::parallel());
 /// # use bevy_ecs::prelude::*;
 /// #
+/// #[derive(Resource)]
 /// struct MyResource { value: u32 }
 ///
 /// world.insert_resource(MyResource { value: 42 });
@@ -1089,8 +1090,8 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// use bevy_ecs::{component::Component, world::{World, Mut}};
-    /// #[derive(Component)]
+    /// use bevy_ecs::prelude::*;
+    /// #[derive(Resource)]
     /// struct A(u32);
     /// #[derive(Component)]
     /// struct B(u32);
