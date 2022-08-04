@@ -21,7 +21,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 ///   The type of data contained in the query item.
 ///   Only entities that match the requested data will generate an item.
 /// - **`F` (query filter).**
-///   A set of conditions that determines wheter query items should be kept or discarded.
+///   A set of conditions that determines whether query items should be kept or discarded.
 ///   This type parameter is optional.
 ///
 /// # System parameter declaration
@@ -193,7 +193,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// |[`iter_combinations`]\([`_mut`][`iter_combinations_mut`])|Returns an iterator over all combinations of a specified number of query items.|
 /// |[`get`]\([`_mut`][`get_mut`])|Returns the query item for the specified entity.|
 /// |[`many`]\([`_mut`][`many_mut`]),<br>[`get_many`]\([`_mut`][`get_many_mut`])|Returns the query items for the specified entities.|
-/// |[`single`]\([`_mut`][`single_mut`]),<br>[`get_single`]\([`_mut`][`get_single_mut`])|Returns the query item while veryfing that there aren't others.|
+/// |[`single`]\([`_mut`][`single_mut`]),<br>[`get_single`]\([`_mut`][`get_single_mut`])|Returns the query item while verifying that there aren't others.|
 ///
 /// There are two methods for each type of query operation: immutable and mutable (ending with `_mut`).
 /// When using immutable methods, the query items returned are of type [`ROQueryItem`], a read-only version of the query item.
