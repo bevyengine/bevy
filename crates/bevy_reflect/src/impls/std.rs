@@ -14,6 +14,10 @@ use std::{
     any::Any,
     borrow::Cow,
     hash::{Hash, Hasher},
+    num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
+        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+    },
     ops::Range,
 };
 
@@ -39,6 +43,18 @@ impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
 impl_reflect_value!(Range<T: Clone +  Send + Sync + 'static>());
 impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Instant(Debug, Hash, PartialEq));
+impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroIsize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroUsize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroI64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroI32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -60,6 +76,18 @@ impl_from_reflect_value!(String);
 impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Range<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Duration);
+impl_from_reflect_value!(NonZeroI128);
+impl_from_reflect_value!(NonZeroU128);
+impl_from_reflect_value!(NonZeroIsize);
+impl_from_reflect_value!(NonZeroUsize);
+impl_from_reflect_value!(NonZeroI64);
+impl_from_reflect_value!(NonZeroU64);
+impl_from_reflect_value!(NonZeroU32);
+impl_from_reflect_value!(NonZeroI32);
+impl_from_reflect_value!(NonZeroI16);
+impl_from_reflect_value!(NonZeroU16);
+impl_from_reflect_value!(NonZeroU8);
+impl_from_reflect_value!(NonZeroI8);
 
 impl<T: FromReflect> Array for Vec<T> {
     #[inline]
@@ -942,5 +970,13 @@ mod tests {
         } else {
             panic!("Expected `TypeInfo::Enum`");
         }
+    }
+    #[test]
+    fn nonzero_usize_impl_reflect_from_reflect() {
+        let a: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
+        let b: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
+        assert!(a.reflect_partial_eq(b).unwrap_or_default());
+        let forty_two: std::num::NonZeroUsize = crate::FromReflect::from_reflect(a).unwrap();
+        assert_eq!(forty_two, std::num::NonZeroUsize::new(42).unwrap());
     }
 }
