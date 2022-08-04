@@ -1624,12 +1624,12 @@ mod tests {
                         *systems[index_a]
                             .labels()
                             .iter()
-                            .find(|a| a.type_id() == std::any::TypeId::of::<&str>())
+                            .find(|a| a.is::<&str>())
                             .unwrap(),
                         *systems[index_b]
                             .labels()
                             .iter()
-                            .find(|a| a.type_id() == std::any::TypeId::of::<&str>())
+                            .find(|a| a.is::<&str>())
                             .unwrap(),
                     )
                 })

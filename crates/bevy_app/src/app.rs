@@ -379,9 +379,9 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
-        use std::any::TypeId;
+        let stage_label = stage_label.as_label();
         assert!(
-            stage_label.type_id() != TypeId::of::<StartupStage>(),
+            !stage_label.is::<StartupStage>(),
             "add systems to a startup stage using App::add_startup_system_to_stage"
         );
         self.schedule.add_system_to_stage(stage_label, system);
@@ -414,9 +414,9 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
-        use std::any::TypeId;
+        let stage_label = stage_label.as_label();
         assert!(
-            stage_label.type_id() != TypeId::of::<StartupStage>(),
+            !stage_label.is::<StartupStage>(),
             "add system sets to a startup stage using App::add_startup_system_set_to_stage"
         );
         self.schedule

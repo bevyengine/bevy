@@ -72,7 +72,6 @@ macro_rules! define_label {
         $(#[$id_attr])*
         #[derive(Clone, Copy)]
         pub struct $id_name {
-            ty: ::std::any::TypeId,
             data: u64,
             f: fn(u64, &mut ::std::fmt::Formatter) -> ::std::fmt::Result,
         }
@@ -89,14 +88,8 @@ macro_rules! define_label {
             /// Converts this type into an opaque, strongly-typed label.
             #[inline]
             fn as_label(&self) -> $id_name {
-                let ty = self.type_id();
                 let data = self.data();
-                $id_name { ty, data, f: Self::fmt }
-            }
-            /// Returns the [`TypeId`] used to differentiate labels.
-            #[inline]
-            fn type_id(&self) -> ::std::any::TypeId {
-                ::std::any::TypeId::of::<Self>()
+                $id_name { data, f: Self::fmt }
             }
             /// Returns a number used to distinguish different labels of the same type.
             fn data(&self) -> u64;
@@ -114,10 +107,6 @@ macro_rules! define_label {
                 *self
             }
             #[inline]
-            fn type_id(&self) -> ::std::any::TypeId {
-                self.ty
-            }
-            #[inline]
             fn data(&self) -> u64 {
                 self.data
             }
@@ -130,7 +119,7 @@ macro_rules! define_label {
         impl PartialEq for $id_name {
             #[inline]
             fn eq(&self, rhs: &Self) -> bool {
-                self.type_id() == rhs.type_id() && self.data() == rhs.data()
+                (self.f as usize) == (rhs.f as usize) && self.data() == rhs.data()
             }
         }
         impl Eq for $id_name {}
@@ -138,8 +127,18 @@ macro_rules! define_label {
 
         impl std::hash::Hash for $id_name {
             fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-                self.type_id().hash(state);
+                (self.f as usize).hash(state);
                 self.data().hash(state);
+            }
+        }
+
+        impl $id_name {
+            /// Returns true if this label was constructed from an instance of type `L`.
+            pub fn is<L: $label_name>(self) -> bool {
+                // FIXME: This is potentially incorrect, due to the
+                // compiler unifying identical functions. We'll likely
+                // have to store some kind of hash of the TypeId.
+                (self.f as usize) == (<L as $label_name>::fmt as usize)
             }
         }
     };
