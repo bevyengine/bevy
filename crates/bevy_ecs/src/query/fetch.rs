@@ -326,7 +326,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`WorldQuery::matches_component_set`], [`WorldQuery::archetype_fetch`], and
 /// [`WorldQuery::table_fetch`].
 pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
-    /// The read-only variant of this [`WorldQuery`], which satsifies the [`ReadOnlyWorldQuery`] trait.
+    /// The read-only variant of this [`WorldQuery`], which satisfies the [`ReadOnlyWorldQuery`] trait.
     type ReadOnly: ReadOnlyWorldQuery<State = Self::State>;
 
     /// State used to construct a [`Self::Fetch`](crate::query::WorldQueryGats::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
