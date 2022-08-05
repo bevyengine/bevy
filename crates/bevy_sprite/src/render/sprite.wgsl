@@ -1,9 +1,5 @@
-struct View {
-    view_proj: mat4x4<f32>,
-    world_position: vec3<f32>,
-};
-@group(0) @binding(0)
-var<uniform> view: View;
+#import bevy_render::view_bindings
+
 
 struct VertexOutput {
     @location(0) uv: vec2<f32>,

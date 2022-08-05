@@ -1,17 +1,5 @@
 #define_import_path bevy_pbr::mesh_view_types
 
-struct View {
-    view_proj: mat4x4<f32>,
-    inverse_view_proj: mat4x4<f32>,
-    view: mat4x4<f32>,
-    inverse_view: mat4x4<f32>,
-    projection: mat4x4<f32>,
-    inverse_projection: mat4x4<f32>,
-    world_position: vec3<f32>,
-    width: f32,
-    height: f32,
-};
-
 struct PointLight {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: the direction (x,z), spot_scale and spot_offset

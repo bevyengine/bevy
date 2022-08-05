@@ -1,8 +1,7 @@
 #import bevy_pbr::mesh_view_types
 #import bevy_pbr::mesh_types
 
-@group(0) @binding(0)
-var<uniform> view: View;
+#import bevy_render::view_bindings
 
 @group(1) @binding(0)
 var<uniform> mesh: Mesh;

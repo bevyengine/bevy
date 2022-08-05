@@ -1,6 +1,7 @@
 pub mod visibility;
 pub mod window;
 
+use bevy_asset::{load_internal_asset, HandleUntyped};
 pub use visibility::*;
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
@@ -11,7 +12,7 @@ pub use window::*;
 use crate::{
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    prelude::Image,
+    prelude::{Image, Shader},
     rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -22,14 +23,27 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
+
+pub const VIEW_TYPES_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11632502421781914934);
+pub const VIEW_BINDINGS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10087165491189459859);
 
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
+        load_internal_asset!(app, VIEW_TYPES_HANDLE, "view_types.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            VIEW_BINDINGS_HANDLE,
+            "view_bindings.wgsl",
+            Shader::from_wgsl
+        );
+
         app.register_type::<Msaa>()
             .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized

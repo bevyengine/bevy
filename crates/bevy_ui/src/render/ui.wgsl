@@ -1,9 +1,4 @@
-struct View {
-    view_proj: mat4x4<f32>,
-    world_position: vec3<f32>,
-};
-@group(0) @binding(0)
-var<uniform> view: View;
+#import bevy_render::view_bindings
 
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
@@ -22,7 +17,7 @@ fn vertex(
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     out.color = vertex_color;
     return out;
-} 
+}
 
 @group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
@@ -31,7 +26,7 @@ var sprite_sampler: sampler;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    var color = textureSample(sprite_texture, sprite_sampler, in.uv); 
+    var color = textureSample(sprite_texture, sprite_sampler, in.uv);
     color = in.color * color;
     return color;
 }

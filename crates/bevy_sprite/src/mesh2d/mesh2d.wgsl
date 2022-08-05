@@ -1,4 +1,4 @@
-#import bevy_sprite::mesh2d_view_bindings
+#import bevy_render::view_bindings
 #import bevy_sprite::mesh2d_bindings
 
 // NOTE: Bindings must come before functions that use them!
