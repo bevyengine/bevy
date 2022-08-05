@@ -222,12 +222,35 @@ impl_param_set!();
 
 /// A type that can be inserted into a [`World`] as a singleton.
 ///
-/// Resources are commonly used to store global collections (like assets or events),
-/// or unique global information (such as the current level or state of the app).
-///
 /// You can access resource data in systems using the [`Res`] and [`ResMut`] system parameters
 ///
 /// Only one resource of each type can be stored in a [`World`] at any given time.
+///
+/// # Examples
+///
+/// ```
+/// # let mut world = World::default();
+/// # let mut schedule = Schedule::default();
+/// # schedule.add_stage("update", SystemStage::parallel());
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Resource)]
+/// struct MyResource { value: u32 }
+///
+/// world.insert_resource(MyResource { value: 42 });
+///
+/// fn read_resource_system(resource: Res<MyResource>) {
+///     assert_eq!(resource.value, 42);
+/// }
+///
+/// fn write_resource_system(mut resource: ResMut<MyResource>) {
+///     assert_eq!(resource.value, 42);
+///     resource.value = 0;
+///     assert_eq!(resource.value, 0);
+/// }
+/// # schedule.add_system_to_stage("update", read_resource_system.label("first"));
+/// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
+/// # schedule.run_once(&mut world);
+/// ```
 pub trait Resource: Send + Sync + 'static {}
 
 /// Shared borrow of a [`Resource`].
