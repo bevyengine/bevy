@@ -39,7 +39,7 @@ impl Gamepad {
 /// The [`Gamepad`]s are registered and deregistered in the [`gamepad_connection_system`]
 /// whenever a [`GamepadEventType::Connected`] or [`GamepadEventType::Disconnected`]
 /// event is received.
-#[derive(Resource Default, Debug)]
+#[derive(Resource, Default, Debug)]
 pub struct Gamepads {
     /// The collection of the connected [`Gamepad`]s.
     gamepads: HashSet<Gamepad>,
