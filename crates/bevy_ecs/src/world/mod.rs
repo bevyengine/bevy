@@ -1248,13 +1248,7 @@ impl World {
             // SAFETY: column is of type R and has been allocated above
             column.push(value, ComponentTicks::new(change_tick));
         } else {
-            let ptr = column.get_data_unchecked_mut(0);
-            std::ptr::copy_nonoverlapping::<u8>(
-                value.as_ptr(),
-                ptr.as_ptr(),
-                column.item_layout().size(),
-            );
-            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
+            column.replace(0, value, change_tick);
         }
     }
 
@@ -1782,6 +1776,46 @@ mod tests {
         assert_eq!(*data, [0, 1, 2, 3, 4, 5, 6, 7]);
 
         assert!(world.remove_resource_by_id(component_id).is_some());
+
+        assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn insert_resource_by_id_drop_old() {
+        static DROP_COUNT: AtomicU32 = AtomicU32::new(0);
+
+        let mut world = World::new();
+
+        // SAFETY: the drop function is valid for the layout and the data will be safe to access from any thread
+        let descriptor = unsafe {
+            ComponentDescriptor::new_with_layout(
+                "Custom Test Component".to_string(),
+                StorageType::Table,
+                std::alloc::Layout::new::<[u8; 8]>(),
+                Some(|ptr| {
+                    let data = ptr.read::<[u8; 8]>();
+                    assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
+                    DROP_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                }),
+            )
+        };
+
+        let component_id = world.init_component_with_descriptor(descriptor);
+
+        let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: value is valid for the component layout
+            unsafe {
+                world.insert_resource_by_id(component_id, ptr);
+            }
+        });
+
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: value is valid for the component layout
+            unsafe {
+                world.insert_resource_by_id(component_id, ptr);
+            }
+        });
 
         assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
