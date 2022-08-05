@@ -186,6 +186,11 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn writes(&self) -> impl Iterator<Item = T> + '_ {
         self.writes.ones().map(T::get_sparse_set_index)
     }
+
+    /// Returns `true` if this does not have access to any elements in the collection.
+    pub fn is_empty(&self) -> bool {
+        self.reads_and_writes.count_ones(..) == 0 && !self.reads_all && !self.writes_all
+    }
 }
 
 /// An [`Access`] that has been filtered to include and exclude certain combinations of elements.
@@ -314,6 +319,11 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn write_all(&mut self) {
         self.access.write_all();
     }
+
+    /// Returns `true` if this does not have access to any elements in the collection.
+    pub fn is_empty(&self) -> bool {
+        self.access.is_empty()
+    }
 }
 
 /// A collection of [`FilteredAccess`] instances.
@@ -410,6 +420,11 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     pub fn clear(&mut self) {
         self.combined_access.clear();
         self.filtered_accesses.clear();
+    }
+
+    /// Returns `true` if this does not have access to any elements in the collection.
+    pub fn is_empty(&self) -> bool {
+        self.combined_access.is_empty()
     }
 }
 
