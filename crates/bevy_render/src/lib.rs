@@ -23,12 +23,12 @@ pub use extract_param::Extract;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{Camera, OrthographicProjection, PerspectiveProjection},
+        camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::Image,
+        texture::{Image, ImageSettings},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
@@ -199,8 +199,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
-                .insert_resource(asset_server)
-                .init_resource::<RenderGraph>();
+                .insert_resource(asset_server);
 
             let (sender, receiver) = bevy_time::create_time_channels();
             app.insert_resource(receiver);
