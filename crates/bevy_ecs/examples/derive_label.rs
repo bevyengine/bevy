@@ -1,12 +1,6 @@
-use std::{
-    hash::{BuildHasher, Hash, Hasher},
-    marker::PhantomData,
-};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
-use bevy_ecs::{
-    prelude::*,
-    schedule::{LabelGuard, Labels, SystemLabelId},
-};
+use bevy_ecs::prelude::*;
 
 fn main() {
     // Unit labels are always equal.
@@ -51,6 +45,14 @@ fn main() {
         // created from a value of type `ComplexLabel`.
         unreachable!();
     }
+
+    // Generic heap-allocated labels;
+    let id = ComplexerLabel(1_i128).as_label();
+    assert_eq!(format!("{id:?}"), "ComplexerLabel(1)");
+    assert!(id.downcast::<ComplexerLabel<usize>>().is_none());
+    if let Some(label) = id.downcast::<ComplexerLabel<i128>>() {
+        assert_eq!(label.0, 1);
+    }
 }
 
 #[derive(SystemLabel)]
@@ -94,35 +96,12 @@ pub struct BadLabel2 {
     x: (),
 }*/
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, SystemLabel)]
+#[system_label(intern)]
 pub struct ComplexLabel {
     people: Vec<&'static str>,
 }
 
-static MAP: Labels<ComplexLabel> = Labels::new();
-
-fn compute_hash(val: &impl Hash) -> u64 {
-    let mut hasher = bevy_utils::FixedState.build_hasher();
-    val.hash(&mut hasher);
-    hasher.finish()
-}
-
-impl SystemLabel for ComplexLabel {
-    fn data(&self) -> u64 {
-        let hash = compute_hash(self);
-        MAP.intern(hash, || self.clone());
-        hash
-    }
-    fn fmt(hash: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        MAP.scope(hash, |val| write!(f, "{val:?}"))
-            .ok_or_else(Default::default)?
-    }
-}
-
-impl bevy_utils::label::LabelDowncast<SystemLabelId> for ComplexLabel {
-    type Output = LabelGuard<'static, ComplexLabel>;
-    fn downcast_from(label: SystemLabelId) -> Option<Self::Output> {
-        let hash = label.data();
-        MAP.get(hash)
-    }
-}
+#[derive(Debug, Clone, PartialEq, Eq, Hash, SystemLabel)]
+#[system_label(intern)]
+pub struct ComplexerLabel<T>(T);

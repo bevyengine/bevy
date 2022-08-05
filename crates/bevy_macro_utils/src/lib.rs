@@ -9,7 +9,8 @@ pub use shape::*;
 pub use symbol::*;
 
 use proc_macro::TokenStream;
-use quote::{quote, quote_spanned};
+use proc_macro2::{Span, TokenStream as TokenStream2};
+use quote::{format_ident, quote};
 use std::{env, path::PathBuf};
 use syn::spanned::Spanned;
 use toml::{map::Map, Value};
@@ -105,6 +106,60 @@ impl BevyManifest {
     }
 }
 
+/// A set of attributes defined on an item, variant, or field,
+/// in the form e.g. `#[system_label(..)]`.
+#[derive(Default)]
+struct LabelAttrs {
+    intern: Option<Span>,
+    ignore_fields: Option<Span>,
+}
+
+impl LabelAttrs {
+    /// Parses a list of attributes.
+    ///
+    /// Ignores any that aren't of the form `#[my_label(..)]`.
+    /// Returns `Ok` if the iterator is empty.
+    pub fn new<'a>(
+        iter: impl IntoIterator<Item = &'a syn::Attribute>,
+        attr_name: &str,
+    ) -> syn::Result<Self> {
+        let mut this = Self::default();
+        for attr in iter {
+            // If it's not of the form `#[my_label(..)]`, skip it.
+            if attr.path.get_ident().as_ref().unwrap() != &attr_name {
+                continue;
+            }
+
+            // Parse the argument/s to the attribute.
+            attr.parse_args_with(|input: syn::parse::ParseStream| {
+                loop {
+                    syn::custom_keyword!(intern);
+                    syn::custom_keyword!(ignore_fields);
+
+                    let next = input.lookahead1();
+                    if next.peek(intern) {
+                        let kw: intern = input.parse()?;
+                        this.intern = Some(kw.span);
+                    } else if next.peek(ignore_fields) {
+                        let kw: ignore_fields = input.parse()?;
+                        this.ignore_fields = Some(kw.span);
+                    } else {
+                        return Err(next.error());
+                    }
+
+                    if input.is_empty() {
+                        break;
+                    }
+                    let _comma: syn::Token![,] = input.parse()?;
+                }
+                Ok(())
+            })?;
+        }
+
+        Ok(this)
+    }
+}
+
 /// Derive a label trait
 ///
 /// # Args
@@ -114,25 +169,25 @@ impl BevyManifest {
 pub fn derive_label(
     input: syn::DeriveInput,
     trait_path: &syn::Path,
+    id_path: &syn::Path,
     attr_name: &str,
 ) -> TokenStream {
-    // return true if the variant specified is an `ignore_fields` attribute
-    fn is_ignore(attr: &syn::Attribute, attr_name: &str) -> bool {
-        if attr.path.get_ident().as_ref().unwrap() != &attr_name {
-            return false;
-        }
+    let item_attrs = match LabelAttrs::new(&input.attrs, attr_name) {
+        Ok(a) => a,
+        Err(e) => return e.into_compile_error().into(),
+    };
 
-        syn::custom_keyword!(ignore_fields);
-        attr.parse_args_with(|input: syn::parse::ParseStream| {
-            let ignore = input.parse::<Option<ignore_fields>>()?.is_some();
-            Ok(ignore)
-        })
-        .unwrap()
+    // We use entirely different derives for interned and named labels.
+    if item_attrs.intern.is_some() {
+        derive_interned_label(input, trait_path, id_path, attr_name)
+    } else {
+        derive_named_label(input, &item_attrs, trait_path, attr_name)
     }
+    .unwrap_or_else(syn::Error::into_compile_error)
+    .into()
+}
 
-    let ident = input.ident.clone();
-
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+fn with_static_bound(where_clause: Option<&syn::WhereClause>) -> syn::WhereClause {
     let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
         where_token: Default::default(),
         predicates: Default::default(),
@@ -140,53 +195,73 @@ pub fn derive_label(
     where_clause
         .predicates
         .push(syn::parse2(quote! { Self: 'static }).unwrap());
+    where_clause
+}
+
+fn derive_named_label(
+    input: syn::DeriveInput,
+    item_attrs: &LabelAttrs,
+    trait_path: &syn::Path,
+    attr_name: &str,
+) -> syn::Result<TokenStream2> {
+    let ident = input.ident.clone();
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let where_clause = with_static_bound(where_clause);
 
     let (data, mut fmt) = match input.data {
         syn::Data::Struct(d) => {
+            let all_field_attrs =
+                LabelAttrs::new(d.fields.iter().flat_map(|f| &f.attrs), attr_name)?;
             // see if the user tried to ignore fields incorrectly
-            if let Some(attr) = d
-                .fields
-                .iter()
-                .flat_map(|f| &f.attrs)
-                .find(|a| is_ignore(a, attr_name))
-            {
-                let err_msg = format!("`#[{attr_name}(ignore_fields)]` cannot be applied to fields individually: add it to the struct declaration");
-                return quote_spanned! {
-                    attr.span() => compile_error!(#err_msg);
-                }
-                .into();
+            if let Some(attr) = all_field_attrs.ignore_fields {
+                let err_msg = format!(
+                    r#"`#[{attr_name}(ignore_fields)]` cannot be applied to fields individually:
+                    try adding it to the struct declaration"#
+                );
+                return Err(syn::Error::new(attr, err_msg));
+            }
+            if let Some(attr) = all_field_attrs.intern {
+                let err_msg = format!(
+                    r#"`#[{attr_name}(intern)]` cannot be applied to fields individually:
+                    try adding it to the struct declaration"#
+                );
+                return Err(syn::Error::new(attr, err_msg));
             }
             // Structs must either be fieldless, or explicitly ignore the fields.
-            let ignore_fields = input.attrs.iter().any(|a| is_ignore(a, attr_name));
+            let ignore_fields = item_attrs.ignore_fields.is_some();
             if d.fields.is_empty() || ignore_fields {
                 let lit = ident.to_string();
                 let data = quote! { 0 };
                 let as_str = quote! { write!(f, #lit) };
                 (data, as_str)
             } else {
-                let err_msg = format!("Labels cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
-                return quote_spanned! {
-                    d.fields.span() => compile_error!(#err_msg);
-                }
-                .into();
+                let err_msg = format!(
+                    r#"Simple labels cannot contain data, unless the whole type is boxed
+                    by marking the type with `#[{attr_name}(intern)]`.
+                    Alternatively, you can make this label behave as if it were fieldless with `#[{attr_name}(ignore_fields)]`."#
+                );
+                return Err(syn::Error::new(d.fields.span(), err_msg));
             }
         }
         syn::Data::Enum(d) => {
             // check if the user put #[label(ignore_fields)] in the wrong place
-            if let Some(attr) = input.attrs.iter().find(|a| is_ignore(a, attr_name)) {
+            if let Some(attr) = item_attrs.ignore_fields {
                 let err_msg = format!("`#[{attr_name}(ignore_fields)]` can only be applied to enum variants or struct declarations");
-                return quote_spanned! {
-                    attr.span() => compile_error!(#err_msg);
-                }
-                .into();
+                return Err(syn::Error::new(attr, err_msg));
             }
 
             let mut data_arms = Vec::with_capacity(d.variants.len());
             let mut fmt_arms = Vec::with_capacity(d.variants.len());
 
             for (i, v) in d.variants.iter().enumerate() {
+                let v_attrs = LabelAttrs::new(&v.attrs, attr_name)?;
+                // Check if they used the intern attribute wrong.
+                if let Some(attr) = v_attrs.intern {
+                    let err_msg = format!("`#[{attr_name}(intern)]` cannot be applied to individual variants; try applying it to the whole type");
+                    return Err(syn::Error::new(attr, err_msg));
+                }
                 // Variants must either be fieldless, or explicitly ignore the fields.
-                let ignore_fields = v.attrs.iter().any(|a| is_ignore(a, attr_name));
+                let ignore_fields = v_attrs.ignore_fields.is_some();
                 if v.fields.is_empty() || ignore_fields {
                     let mut path = syn::Path::from(ident.clone());
                     path.segments.push(v.ident.clone().into());
@@ -197,11 +272,12 @@ pub fn derive_label(
                     let lit = format!("{ident}::{}", v.ident.clone());
                     fmt_arms.push(quote! { #i => { write!(f, #lit) } });
                 } else {
-                    let err_msg = format!("Label variants cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
-                    return quote_spanned! {
-                        v.fields.span() => _ => { compile_error!(#err_msg); }
-                    }
-                    .into();
+                    let err_msg = format!(
+                        r#"Simple labels only allow unit variants -- more complex types must be boxed
+                        by marking the whole type with `#[{attr_name}(intern)]`.
+                        Alternatively, you can make the variant act fieldless using `#[{attr_name}(ignore_fields)]`."#
+                    );
+                    return Err(syn::Error::new(v.fields.span(), err_msg));
                 }
             }
 
@@ -219,10 +295,10 @@ pub fn derive_label(
             (data, fmt)
         }
         syn::Data::Union(_) => {
-            return quote_spanned! {
-                input.span() => compile_error!("Unions cannot be used as labels.");
-            }
-            .into();
+            let err_msg = format!(
+                "Unions cannot be used as labels, unless marked with `#[{attr_name}(intern)]`."
+            );
+            return Err(syn::Error::new(input.span(), err_msg));
         }
     };
 
@@ -247,7 +323,7 @@ pub fn derive_label(
         }
     }
 
-    (quote! {
+    Ok(quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
             #[inline]
             fn data(&self) -> u64 {
@@ -258,5 +334,68 @@ pub fn derive_label(
             }
         }
     })
-    .into()
+}
+
+fn derive_interned_label(
+    input: syn::DeriveInput,
+    trait_path: &syn::Path,
+    id_path: &syn::Path,
+    _attr_name: &str,
+) -> syn::Result<TokenStream2> {
+    let manifest = BevyManifest::default();
+
+    let ident = input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let mut where_clause = with_static_bound(where_clause);
+    where_clause.predicates.push(
+        syn::parse2(quote! {
+            Self: ::std::clone::Clone + ::std::cmp::Eq + ::std::hash::Hash + ::std::fmt::Debug
+                + ::std::marker::Send + ::std::marker::Sync + 'static
+        })
+        .unwrap(),
+    );
+
+    let interner_type_path = {
+        let mut path = manifest.get_path("bevy_ecs");
+        path.segments.push(format_ident!("schedule").into());
+        path.segments.push(format_ident!("Labels").into());
+        path
+    };
+    let guard_type_path = {
+        let mut path = manifest.get_path("bevy_ecs");
+        path.segments.push(format_ident!("schedule").into());
+        path.segments.push(format_ident!("LabelGuard").into());
+        path
+    };
+    let interner_ident = format_ident!("{}_INTERN", ident.to_string().to_uppercase());
+    let downcast_trait_path = {
+        let mut path = manifest.get_path("bevy_utils");
+        path.segments.push(format_ident!("label").into());
+        path.segments.push(format_ident!("LabelDowncast").into());
+        path
+    };
+
+    Ok(quote! {
+        static #interner_ident : #interner_type_path = #interner_type_path::new();
+
+        impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
+            #[inline]
+            fn data(&self) -> u64 {
+                #interner_ident .intern(self)
+            }
+            fn fmt(idx: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                #interner_ident
+                    .scope(idx, |val: &Self| ::std::fmt::Debug::fmt(val, f))
+                    .ok_or(::std::fmt::Error)?
+            }
+        }
+
+        impl #impl_generics #downcast_trait_path <#id_path> for #ident #ty_generics #where_clause {
+            type Output = #guard_type_path <'static, Self>;
+            fn downcast_from(label: #id_path) -> Option<Self::Output> {
+                let idx = <#id_path as #trait_path>::data(&label);
+                #interner_ident .get::<Self>(idx)
+            }
+        }
+    })
 }

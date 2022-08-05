@@ -27,6 +27,7 @@ fxhash = "0.2"
 downcast-rs = "1.2"
 serde = "1"
 parking_lot = "0.12"
+indexmap = "1.9.1"
 
 [dev-dependencies]
 rand = "0.8"
