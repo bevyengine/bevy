@@ -53,6 +53,7 @@ pub fn text_constraint(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut queued_text: Local<QueuedText>,
+    mut should_recalculate_container: Local<bool>,
     mut last_window_details: Local<(f64, f32, f32)>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
@@ -81,6 +82,7 @@ pub fn text_system(
     if last_window_details.0 == scale_factor
         && last_window_details.1 == window_width_constraint
         && last_window_details.2 == window_height_constraint
+        && !*should_recalculate_container
     {
         // Adds all entities where the text or the style has changed to the local queue
         for entity in text_queries.p0().iter() {
@@ -109,8 +111,14 @@ pub fn text_system(
             let mut height_contraint = window_height_constraint;
             if let Some(parent) = parent {
                 if let Ok(node) = node_query.get(parent.get()) {
-                    width_contraint = node.size.x;
-                    height_contraint = node.size.y;
+                    if node.size == Vec2::default() {
+                        // Because the nodes size gets calculated after we run this system,
+                        // we need to rerun this system to calculate the correct bounds
+                        *should_recalculate_container = true;
+                    } else {
+                        width_contraint = node.size.x;
+                        height_contraint = node.size.y;
+                    }
                 }
             }
 
