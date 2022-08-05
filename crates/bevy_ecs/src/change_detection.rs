@@ -168,7 +168,7 @@ pub(crate) struct Ticks<'a> {
 
 /// Unique mutable borrow of a [`Resource`].
 ///
-/// See the [`World`](crate::world::World) documentation to see the usage of a resource.
+/// See the [`Resource`] documentation for usage.
 ///
 /// If you need a shared borrow, use [`Res`](crate::system::Res) instead.
 ///

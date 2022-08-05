@@ -4,7 +4,7 @@ use bevy_ecs::system::Resource;
 use parking_lot::RwLock;
 use std::{collections::VecDeque, fmt};
 
-/// Use this resource to play audio
+/// Use this [`Resource`] to play audio.
 ///
 /// ```
 /// # use bevy_ecs::system::Res;

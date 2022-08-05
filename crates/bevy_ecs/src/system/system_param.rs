@@ -255,7 +255,7 @@ pub trait Resource: Send + Sync + 'static {}
 
 /// Shared borrow of a [`Resource`].
 ///
-/// See the [`World`] documentation to see the usage of a resource.
+/// See the [`Resource`] documentation for usage.
 ///
 /// If you need a unique mutable borrow, use [`ResMut`] instead.
 ///
