@@ -1,4 +1,5 @@
 use crate::{DynamicScene, Scene};
+use bevy_app::AppTypeRegistry;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
@@ -8,7 +9,6 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 use bevy_hierarchy::{AddChild, Parent};
-use bevy_reflect::TypeRegistryArc;
 use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
@@ -164,7 +164,7 @@ impl SceneSpawner {
         let mut instance_info = InstanceInfo {
             entity_map: EntityMap::default(),
         };
-        let type_registry = world.resource::<TypeRegistryArc>().clone();
+        let type_registry = world.resource::<AppTypeRegistry>().clone();
         let type_registry = type_registry.read();
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene =

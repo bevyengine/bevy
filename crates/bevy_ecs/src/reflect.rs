@@ -9,7 +9,7 @@ use crate::{
 };
 use bevy_reflect::{
     impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
-    ReflectSerialize, TypeRegistryArc,
+    ReflectSerialize,
 };
 
 /// A struct used to operate on reflected [`Component`] of a type.
@@ -316,6 +316,3 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
         }
     }
 }
-
-// We cannot implement this in bevy_reflect, or we would create a cyclic dependendency
-impl Resource for TypeRegistryArc {}
