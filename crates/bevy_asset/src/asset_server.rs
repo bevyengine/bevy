@@ -558,6 +558,41 @@ impl AssetServer {
             }
         }
     }
+    /// Loads an asset and blocks until it either loads of fails to load. Useful for loading
+    /// default assets and for when startup times are a non issue such as when prototyping.
+    pub fn block_on(
+        &self,
+        handle: impl Into<HandleUntyped>,
+    ) -> Result<HandleUntyped, AssetServerError> {
+        let mut handle = handle.into();
+        let path =
+            self.get_handle_path(handle.clone())
+                .ok_or(AssetServerError::AssetLoaderError(anyhow::anyhow!(
+                    "Handle does not have a corresponding Path"
+                )))?;
+        'block_on: loop {
+            match self.get_load_state(handle.clone()) {
+                LoadState::NotLoaded => {
+                    handle = self.load_untyped(path.clone());
+                    continue 'block_on;
+                }
+                LoadState::Loading => {
+                    continue 'block_on;
+                }
+                LoadState::Loaded => return Ok(handle),
+                LoadState::Failed => {
+                    return Err(AssetServerError::AssetLoaderError(anyhow::anyhow!(
+                        "Asset at {} failed to load",
+                        path.path().display()
+                    )))
+                }
+                LoadState::Unloaded => {
+                    warn!("Asset was unloaded - attempting to reload");
+                    handle = self.load_untyped(path.clone());
+                }
+            }
+        }
+    }
 
     fn create_assets_in_load_context(&self, load_context: &mut LoadContext) {
         let asset_lifecycles = self.server.asset_lifecycles.read();
@@ -946,5 +981,33 @@ mod test {
         // invalid AssetPath
         let invalid_path = AssetPath::new("some/path.ext".into(), None);
         assert!(server.get_handle_path(invalid_path).is_none());
+    }
+    #[test]
+    fn test_block_on_waiting_for_asset_to_load() {
+        let dir = create_dir_and_file("fake.png");
+        let asset_server = setup(dir.path());
+        asset_server.add_loader(FakePngLoader);
+        let assets = asset_server.register_asset_type::<PngAsset>();
+        struct PngHandle {
+            handle: Handle<PngAsset>,
+        }
+        let mut app = App::new();
+        app.insert_resource(assets);
+        app.insert_resource(asset_server);
+        app.add_system(update_asset_storage_system::<PngAsset>);
+        fn block_asset_loading(png_handle: Res<PngHandle>, asset_server: Res<AssetServer>) {
+            let blocked_on_handle = asset_server
+                .block_on(png_handle.handle.clone_untyped())
+                .unwrap();
+            assert_eq!(
+                asset_server.get_load_state(blocked_on_handle),
+                LoadState::Loaded
+            );
+        }
+        app.add_system(block_asset_loading);
+        let path: AssetPath = "fake.png".into();
+        let handle = app.world.resource::<AssetServer>().load(path);
+        app.insert_resource(PngHandle { handle });
+        app.update();
     }
 }
