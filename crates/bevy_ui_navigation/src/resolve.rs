@@ -96,18 +96,12 @@ pub(crate) struct NavQueries<'w, 's> {
     menus: Query<'w, 's, (Entity, &'static TreeMenu, &'static MenuSetting), Without<Focusable>>,
 }
 impl<'w, 's> NavQueries<'w, 's> {
-    fn focused(&self) -> Option<Entity> {
+    fn pick_first_focused(&self) -> Option<Entity> {
         use FocusState::{Focused, Prioritized};
-        let menu_prioritized =
-            |menu: &TreeMenu| menu.focus_parent.is_none().then(|| menu.active_child);
-        let any_prioritized =
-            |(e, focus): (Entity, &Focusable)| (focus.state == Prioritized).then(|| e);
+        let first_menu = |menu: &TreeMenu| menu.focus_parent.is_none().then(|| menu.active_child);
+        let any_prioritized = |(e, focus): (_, &Focusable)| (focus.state == Prioritized).then(|| e);
         let any_prioritized = || self.focusables.iter().find_map(any_prioritized);
-        let root_prioritized = || {
-            self.menus
-                .iter()
-                .find_map(|(_, menu, _)| menu_prioritized(menu))
-        };
+        let root_prioritized = || self.menus.iter().find_map(|(_, menu, _)| first_menu(menu));
         let any_in_root = || {
             let root_menu = self
                 .menus
@@ -351,6 +345,7 @@ impl Focusable {
 /// This means it might lead to a single frame of latency
 /// compared to using [`Focusable::state()`].
 #[derive(Component)]
+#[component(storage = "SparseSet")]
 #[non_exhaustive]
 pub struct Focused;
 
@@ -522,7 +517,7 @@ pub(crate) fn set_first_focused(
 ) {
     use FocusState::Focused;
     if has_focused.is_empty() {
-        if let Some(to_focus) = queries.p0().focused() {
+        if let Some(to_focus) = queries.p0().pick_first_focused() {
             queries.p1().set_entity_focus(&mut cmds, to_focus, Focused);
             events.send(NavEvent::InitiallyFocused(to_focus));
         }
@@ -548,11 +543,11 @@ pub(crate) fn listen_nav_requests<STGY: SystemParam>(
         if lock.is_locked() && *request != NavRequest::Free {
             continue;
         }
-        let focused = if let Some(e) = queries.p0().focused() {
+        let focused = if let Some(e) = queries.p0().pick_first_focused() {
             e
         } else {
             warn!(no_focused);
-            continue;
+            return;
         };
         let from = Vec::new();
         let event = resolve(focused, *request, &queries.p0(), &mut lock, from, &*mquery);
