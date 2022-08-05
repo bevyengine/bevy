@@ -349,3 +349,7 @@ impl<T> Clone for MaybeUnsafeCell<'_, T> {
         *self
     }
 }
+
+// SAFETY: If `T` is `Sync`, `&T` is `Send` and while `&UnsafeCell<T>` is !Sync, users of
+// `MaybeUnsafeCell<T>` are already responsible for ensuring mutable access is unique.
+unsafe impl<T: Sync> Send for MaybeUnsafeCell<'_, T> {}
