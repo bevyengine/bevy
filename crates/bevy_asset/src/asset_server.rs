@@ -565,11 +565,11 @@ impl AssetServer {
         handle: impl Into<HandleUntyped>,
     ) -> Result<HandleUntyped, AssetServerError> {
         let mut handle = handle.into();
-        let path =
-            self.get_handle_path(handle.clone())
-                .ok_or(AssetServerError::AssetLoaderError(anyhow::anyhow!(
-                    "Handle does not have a corresponding Path"
-                )))?;
+        let path = self.get_handle_path(handle.clone()).ok_or_else(|| {
+            AssetServerError::AssetLoaderError(anyhow::anyhow!(
+                "Handle does not have a corresponding Path"
+            ))
+        })?;
         'block_on: loop {
             match self.get_load_state(handle.clone()) {
                 LoadState::NotLoaded => {
@@ -988,26 +988,24 @@ mod test {
         let asset_server = setup(dir.path());
         asset_server.add_loader(FakePngLoader);
         let assets = asset_server.register_asset_type::<PngAsset>();
-        struct PngHandle {
-            handle: Handle<PngAsset>,
+        struct PngPath {
+            path: &'static str,
         }
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
         app.add_system(update_asset_storage_system::<PngAsset>);
-        fn block_asset_loading(png_handle: Res<PngHandle>, asset_server: Res<AssetServer>) {
-            let blocked_on_handle = asset_server
-                .block_on(png_handle.handle.clone_untyped())
-                .unwrap();
+        fn block_on_asset_loading_system(png_path: Res<PngPath>, asset_server: Res<AssetServer>) {
+            let asset_path: AssetPath = png_path.path.into();
+            let png_handle: Handle<PngAsset> = asset_server.load(asset_path);
+            let blocked_on_handle = asset_server.block_on(png_handle.clone_untyped()).unwrap();
             assert_eq!(
                 asset_server.get_load_state(blocked_on_handle),
                 LoadState::Loaded
             );
         }
-        app.add_system(block_asset_loading);
-        let path: AssetPath = "fake.png".into();
-        let handle = app.world.resource::<AssetServer>().load(path);
-        app.insert_resource(PngHandle { handle });
+        app.add_system(block_on_asset_loading_system);
+        app.insert_resource(PngPath { path: "fake.png" });
         app.update();
     }
 }
