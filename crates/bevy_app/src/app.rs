@@ -668,10 +668,10 @@ impl App {
         self
     }
 
-    /// Inserts a non-send [`Resource`] to the app.
+    /// Inserts a non-send resource to the app.
     ///
     /// You usually want to use [`insert_resource`](Self::insert_resource),
-    /// but there are some special cases when a [`Resource`] cannot be sent across threads.
+    /// but there are some special cases when a resource cannot be sent across threads.
     ///
     /// # Examples
     ///

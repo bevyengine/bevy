@@ -146,7 +146,7 @@ impl GamepadEvent {
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Resource)]
 /// struct MyResource(bool);
-/// 
+///
 /// // This system sets the bool inside `MyResource` to `true` if the `South` button of the first gamepad is pressed.
 /// fn change_resource_on_gamepad_button_press(
 ///     mut my_resource: ResMut<MyResource>,
