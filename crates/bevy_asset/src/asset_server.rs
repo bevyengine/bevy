@@ -586,8 +586,7 @@ impl AssetServer {
                     )))
                 }
                 LoadState::Unloaded => {
-                    warn!("Asset was unloaded - attempting to reload");
-                    handle = self.load_untyped(path.clone());
+                    panic!("Asset at {} was unloaded", path.path().display());
                 }
             }
         }
