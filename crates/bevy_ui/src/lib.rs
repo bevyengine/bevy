@@ -82,8 +82,7 @@ impl Plugin for UiPlugin {
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::text_system
-                    .after(UiSystem::Flex),
+                widget::text_system.after(UiSystem::Flex),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

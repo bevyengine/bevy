@@ -56,7 +56,8 @@ fn spawn_left_panel(parent: &mut ChildBuilder, asset_server: &Res<AssetServer>) 
             );
             parent.spawn_bundle(
                 TextBundle::from_section(
-                    "This is another super long text, that I would hope would get wrapped. ".to_owned()
+                    "This is another super long text, that I would hope would get wrapped. "
+                        .to_owned()
                         + "It should fill the whole container",
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),

@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Size, Style, Val, Node};
+use crate::{CalculatedSize, Node, Size, Style, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -110,7 +110,7 @@ pub fn text_system(
             if let Some(parent) = parent {
                 if let Ok(node) = node_query.get(parent.get()) {
                     width_contraint = node.size.x;
-                    height_contraint  = node.size.y;
+                    height_contraint = node.size.y;
                 }
             }
 
