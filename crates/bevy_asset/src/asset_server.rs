@@ -570,14 +570,13 @@ impl AssetServer {
                 "Handle does not have a corresponding Path"
             ))
         })?;
-        'block_on: loop {
+        loop {
             match self.get_load_state(handle.clone()) {
                 LoadState::NotLoaded => {
                     handle = self.load_untyped(path.clone());
-                    continue 'block_on;
                 }
                 LoadState::Loading => {
-                    continue 'block_on;
+                    std::thread::yield_now();
                 }
                 LoadState::Loaded => return Ok(handle),
                 LoadState::Failed => {
