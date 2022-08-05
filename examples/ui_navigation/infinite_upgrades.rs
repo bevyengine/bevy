@@ -487,10 +487,8 @@ fn upgrade_weapon(
     mut commands: Commands,
     mut events: EventReader<NavEvent>,
     mut requests: EventWriter<NavRequest>,
-    mut menus: ResMut<MenuMap>,
+    (mut menus, time, font): (ResMut<MenuMap>, Res<Time>, Res<MenuFont>),
     mut cam: Query<&mut Animate, With<Camera2d>>,
-    time: Res<Time>,
-    font: Res<MenuFont>,
     query: Query<(&ParentMenu, &WeaponUpgrade, &SpawnDirection, Entity)>,
     menu_data: Query<&Menu>,
 ) {
@@ -577,7 +575,6 @@ fn spawn_weapon_upgrade_menu(
         font: font.0.clone_weak(),
         color: Color::WHITE,
         font_size: FONT_SIZE,
-        ..default()
     };
     let item_position = |at: Vec2| Transform::from_translation(at.extend(0.1));
     // Rectangle
