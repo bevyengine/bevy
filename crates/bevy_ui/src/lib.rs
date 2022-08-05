@@ -83,8 +83,7 @@ impl Plugin for UiPlugin {
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 widget::text_system
-                    .before(UiSystem::Flex)
-                    .after(ModifiesWindows),
+                    .after(UiSystem::Flex),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

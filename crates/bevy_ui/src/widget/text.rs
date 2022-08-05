@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Size, Style, Val};
+use crate::{CalculatedSize, Size, Style, Val, Node};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -29,20 +29,20 @@ pub fn text_constraint(
     size: Val,
     max_size: Val,
     scale_factor: f64,
-    window_size: f32,
+    container_size: f32,
 ) -> f32 {
     // Needs support for percentages
     match (min_size, size, max_size) {
         (_, _, Val::Px(max)) => scale_value(max, scale_factor),
-        (_, _, Val::Percent(max)) => scale_value((max / 100.) * window_size, scale_factor),
+        (_, _, Val::Percent(max)) => scale_value((max / 100.) * container_size, scale_factor),
         (Val::Px(min), _, _) => scale_value(min, scale_factor),
-        (Val::Percent(min), _, _) => scale_value((min / 100.) * window_size, scale_factor),
+        (Val::Percent(min), _, _) => scale_value((min / 100.) * container_size, scale_factor),
         (Val::Undefined, Val::Px(size), Val::Undefined) | (Val::Auto, Val::Px(size), Val::Auto) => {
             scale_value(size, scale_factor)
         }
         (Val::Undefined, Val::Percent(size), Val::Undefined)
         | (Val::Auto, Val::Percent(size), Val::Auto) => {
-            scale_value((size / 100.) * window_size, scale_factor)
+            scale_value((size / 100.) * container_size, scale_factor)
         }
         _ => f32::MAX,
     }
@@ -65,7 +65,7 @@ pub fn text_system(
         Query<Entity, (With<Text>, With<Style>)>,
         Query<(&Text, &Style, &mut CalculatedSize, Option<&Parent>)>,
     )>,
-    style_query: Query<&Style>,
+    node_query: Query<&Node>,
 ) {
     // FIXME: this will be problematic for multi-window UI's since its only checking the primary display
     let (scale_factor, window_width_constraint, window_height_constraint) =
@@ -105,16 +105,12 @@ pub fn text_system(
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
         if let Ok((text, style, mut calculated_size, parent)) = query.get_mut(entity) {
-            let mut scale_factor_width = scale_factor;
-            let mut scale_factor_height = scale_factor;
+            let mut width_contraint = window_width_constraint;
+            let mut height_contraint = window_height_constraint;
             if let Some(parent) = parent {
-                if let Ok(style) = style_query.get(parent.get()) {
-                    if let Val::Percent(percentage) = style.size.width {
-                        scale_factor_width = percentage as f64 / (scale_factor * 100.);
-                    }
-                    if let Val::Percent(percentage) = style.size.height {
-                        scale_factor_height = percentage as f64 / (scale_factor * 100.);
-                    }
+                if let Ok(node) = node_query.get(parent.get()) {
+                    width_contraint = node.size.x;
+                    height_contraint  = node.size.y;
                 }
             }
 
@@ -123,15 +119,15 @@ pub fn text_system(
                     style.min_size.width,
                     style.size.width,
                     style.max_size.width,
-                    scale_factor_width,
-                    window_width_constraint,
+                    scale_factor,
+                    width_contraint,
                 ),
                 text_constraint(
                     style.min_size.height,
                     style.size.height,
                     style.max_size.height,
-                    scale_factor_height,
-                    window_height_constraint,
+                    scale_factor,
+                    height_contraint,
                 ),
             );
 
