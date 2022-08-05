@@ -7,6 +7,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
+        // Note that this will not work with gamepad input.
         .insert_resource(WinitSettings::desktop_app())
         .add_startup_system(setup)
         .add_system(button_color.after(NavRequestSystem))
