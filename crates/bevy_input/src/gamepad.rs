@@ -144,18 +144,19 @@ impl GamepadEvent {
 /// # use bevy_input::gamepad::GamepadEventRaw;
 /// # use bevy_app::prelude::*;
 /// # use bevy_ecs::prelude::*;
-/// #
-/// // This system sets the `bool` resource to `true` if the `South` button
-/// // of the first gamepad is pressed.
+/// #[derive(Resource)]
+/// struct MyResource(bool);
+/// 
+/// // This system sets the bool inside `MyResource` to `true` if the `South` button of the first gamepad is pressed.
 /// fn change_resource_on_gamepad_button_press(
-///     mut my_resource: ResMut<bool>,
+///     mut my_resource: ResMut<MyResource>,
 ///     gamepads: Res<Gamepads>,
 ///     button_inputs: ResMut<Input<GamepadButton>>,
 /// ) {
 ///     let gamepad = gamepads.iter().next().unwrap();
 ///     let gamepad_button= GamepadButton::new(*gamepad, GamepadButtonType::South);
 ///
-///     *my_resource = button_inputs.pressed(gamepad_button);
+///     my_resource.0 = button_inputs.pressed(gamepad_button);
 /// }
 ///
 /// // Create our app.
@@ -163,7 +164,7 @@ impl GamepadEvent {
 ///
 /// // Add the input plugin and the system/resource we want to test.
 /// app.add_plugin(InputPlugin)
-///     .insert_resource(false)
+///     .insert_resource(MyResource(false))
 ///     .add_system(change_resource_on_gamepad_button_press);
 ///
 /// // Define our dummy gamepad input data.
@@ -185,8 +186,8 @@ impl GamepadEvent {
 /// app.update();
 ///
 /// // At this point you can check if your game logic corresponded correctly to the gamepad input.
-/// // In this example we are checking if the `bool` resource was updated from `false` to `true`.
-/// assert!(app.world.resource::<bool>());
+/// // In this example we are checking if the bool in `MyResource` was updated from `false` to `true`.
+/// assert!(app.world.resource::<MyResource>().0);
 ///
 /// // Send the gamepad input event to mark the `South` gamepad button as released.
 /// // This updates the `Input<GamepadButton>` resource accordingly.
@@ -198,8 +199,8 @@ impl GamepadEvent {
 /// // Advance the execution of the schedule by another cycle.
 /// app.update();
 ///
-/// // Check if the `bool` resource was updated from `true` to `false`.
-/// assert!(!app.world.resource::<bool>());
+/// // Check if the bool in `MyResource` was updated from `true` to `false`.
+/// assert!(!app.world.resource::<MyResource>().0);
 /// #
 /// # bevy_ecs::system::assert_is_system(change_resource_on_gamepad_button_press);
 /// ```
