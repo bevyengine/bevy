@@ -895,6 +895,7 @@ impl ModuleRequires {
                         let ty = shader.global_variables.try_get(*gv).unwrap().ty;
                         self.types.insert(ty);
                         self.globals.insert(*gv, part.clone());
+                        context.globals.insert(*gv, part.clone()); 
                     },
                 }
             },
