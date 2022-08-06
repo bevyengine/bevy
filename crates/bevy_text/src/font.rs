@@ -46,7 +46,7 @@ impl Font {
 }
 
 /// A reference to a font asset.
-#[derive(Clone, Debug, Reflect, FromReflect, Default)]
+#[derive(Clone, Debug, Default, FromReflect, Reflect)]
 pub enum FontRef {
     /// Use the default font it can be configured with the `DefaultFont` resource
     #[default]
@@ -54,6 +54,7 @@ pub enum FontRef {
     /// A handle to a font stored in the [`Assets<Font>`](bevy_asset::Assets) resource
     Handle(Handle<Font>),
     /// An asset path leading to a font
+    #[reflect(ignore)]
     Path(AssetPath<'static>),
 }
 
