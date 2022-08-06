@@ -3,10 +3,7 @@
 
 use bevy::{
     prelude::*,
-    render::{
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-        texture::ImageSettings,
-    },
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 
 fn main() {
