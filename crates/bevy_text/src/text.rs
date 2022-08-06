@@ -2,13 +2,14 @@ use core::panic;
 
 use bevy_asset::{AssetPath, AssetServer, Assets};
 use bevy_ecs::{
-    prelude::Component,
+    prelude::{Component, EventWriter},
     query::Added,
     reflect::ReflectComponent,
     system::{Query, Res},
 };
 use bevy_reflect::{prelude::*, FromReflect};
 use bevy_render::color::Color;
+use bevy_utils::tracing::warn;
 use serde::{Deserialize, Serialize};
 
 use crate::{Font, FontRef};
@@ -271,7 +272,17 @@ pub fn load_font(
     for mut text in &mut query {
         for mut section in &mut text.sections {
             let path = match &section.style.font {
-                FontRef::Default => default_font.as_ref().path.as_ref().expect("Default font not set. Make sure you inserted the DefaultFont resource with a valid path."),
+                FontRef::Default => {
+                    if let Some(path) = default_font.path.as_ref() {
+                        path
+                    } else if let Some((handle, _)) = fonts.iter().next() {
+                        warn!("Default font not set. Using first available font");
+                        section.style.font = FontRef::Handle(fonts.get_handle(handle));
+                        continue;
+                    } else {
+                        panic!("No default font found");
+                    }
+                }
                 FontRef::Path(path) => path,
                 FontRef::Handle(_) => continue,
             };
