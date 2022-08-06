@@ -1,0 +1,13 @@
+[package]
+name = "naga_oil"
+version = "0.0.1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { git="https://github.com/robtfm/bevy", branch="expose_processed_shaders" }
+naga = { version = "0.9", features=["serialize", "deserialize"] }
+serde = "*"
+serde_json = "*"
+tracing = "*"
