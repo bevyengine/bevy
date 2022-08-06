@@ -10,6 +10,7 @@ use bevy_ecs::{
 use bevy_reflect::{prelude::*, FromReflect};
 use bevy_render::color::Color;
 use bevy_utils::tracing::warn;
+use bevy_window::RequestRedraw;
 use serde::{Deserialize, Serialize};
 
 use crate::{Font, FontRef};
@@ -268,6 +269,7 @@ pub fn load_font(
     asset_server: Res<AssetServer>,
     fonts: Res<Assets<Font>>,
     default_font: Res<DefaultFont>,
+    mut event: EventWriter<RequestRedraw>,
 ) {
     for mut text in &mut query {
         for mut section in &mut text.sections {
@@ -295,6 +297,9 @@ pub fn load_font(
                 }
                 bevy_asset::LoadState::Failed => panic!("Failed to load font {:?}", path),
             };
+            // This is to avoid an issue in low power mode where the fonts were not loaded in time
+            // and there would be no text until the next redraw.
+            event.send(RequestRedraw);
             section.style.font = FontRef::Handle(handle);
         }
     }
