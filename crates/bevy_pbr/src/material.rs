@@ -453,7 +453,7 @@ impl<M: Material> Default for ExtractedMaterials<M> {
 
 /// Stores all prepared representations of [`Material`] assets for as long as they exist.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterials<T: Material>(HashMap<Handle<T>, PreparedMaterial<T>>);
+pub struct RenderMaterials<T: Material>(pub HashMap<Handle<T>, PreparedMaterial<T>>);
 
 impl<T: Material> Default for RenderMaterials<T> {
     fn default() -> Self {
