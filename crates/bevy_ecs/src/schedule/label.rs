@@ -30,6 +30,34 @@ define_label!(
     RunCriteriaLabelId,
 );
 
+//
+// Implement string-labels for now.
+
+#[doc(hidden)]
+pub static STR_INTERN: Labels = Labels::new();
+
+/// Implements a label trait for `&'static str`, the string literal type.
+#[macro_export]
+macro_rules! impl_string_label {
+    ($label:ident) => {
+        impl $label for &'static str {
+            fn data(&self) -> u64 {
+                $crate::schedule::STR_INTERN.intern::<Self>(self)
+            }
+            fn fmt(idx: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                $crate::schedule::STR_INTERN
+                    .scope(idx, |s: &Self| write!(f, "{s}"))
+                    .ok_or(::std::fmt::Error)?
+            }
+        }
+    };
+}
+
+impl_string_label!(SystemLabel);
+impl_string_label!(StageLabel);
+impl_string_label!(AmbiguitySetLabel);
+impl_string_label!(RunCriteriaLabel);
+
 /// Data structure used to intern a set of labels.
 ///
 /// To reduce lock contention, each kind of label should have its own global instance of this type.
