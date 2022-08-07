@@ -39,6 +39,7 @@ git checkout v0.4.0
 - [Cross-Platform Examples](#cross-platform-examples)
   - [2D Rendering](#2d-rendering)
   - [3D Rendering](#3d-rendering)
+  - [Accessibility](#accessibility)
   - [Animation](#animation)
   - [Application](#application)
   - [Assets](#assets)
