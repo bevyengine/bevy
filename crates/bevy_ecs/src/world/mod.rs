@@ -1577,7 +1577,7 @@ mod tests {
     use super::World;
     use crate::{
         change_detection::DetectChanges,
-        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
+        component::{ComponentDescriptor, ComponentInfo, StorageType},
         ptr::OwningPtr,
     };
     use bevy_ecs_macros::Component;
@@ -1793,20 +1793,6 @@ mod tests {
         assert!(world.remove_resource_by_id(component_id).is_some());
 
         assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
-    }
-
-    #[test]
-    #[should_panic = "insert_resource_by_id called with component id which doesn't exist in this world"]
-    fn insert_resource_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
-
-        let mut world = World::new();
-        OwningPtr::make((), |ptr| {
-            // SAFETY: ptr must be valid for the component_id `invalid_component_id` which is invalid, but checked by `insert_resource_by_id`
-            unsafe {
-                world.insert_resource_by_id(invalid_component_id, ptr);
-            }
-        });
     }
 
     #[derive(Component)]
