@@ -1074,7 +1074,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
             .has_write(archetype_component)
         {
             entity_ref
-                .get_unchecked_mut::<T>(self.last_change_tick, self.change_tick)
+                .__get_unchecked_mut::<T>(self.last_change_tick, self.change_tick)
                 .ok_or(QueryComponentError::MissingComponent)
         } else {
             Err(QueryComponentError::MissingWriteAccess)

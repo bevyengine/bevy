@@ -23,7 +23,7 @@ pub struct ReflectComponent {
     apply_or_insert: fn(&mut World, Entity, &dyn Reflect),
     remove: fn(&mut World, Entity),
     reflect: fn(&World, Entity) -> Option<&dyn Reflect>,
-    reflect_mut: unsafe fn(&World, Entity) -> Option<ReflectMut>,
+    reflect_mut: fn(&mut World, Entity) -> Option<ReflectMut>,
     copy: fn(&World, &mut World, Entity, Entity),
 }
 
@@ -71,21 +71,6 @@ impl ReflectComponent {
 
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
     pub fn reflect_mut<'a>(&self, world: &'a mut World, entity: Entity) -> Option<ReflectMut<'a>> {
-        // SAFETY: unique world access
-        unsafe { (self.reflect_mut)(world, entity) }
-    }
-
-    /// # Safety
-    /// This method does not prevent you from having two mutable pointers to the same data,
-    /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method in an exclusive system to avoid sharing across threads (or use a
-    ///   scheduler that enforces safe memory access).
-    /// * Don't call this method more than once in the same scope for a given [`Component`].
-    pub unsafe fn reflect_unchecked_mut<'a>(
-        &self,
-        world: &'a World,
-        entity: Entity,
-    ) -> Option<ReflectMut<'a>> {
         (self.reflect_mut)(world, entity)
     }
 
@@ -149,17 +134,10 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .map(|c| c as &dyn Reflect)
             },
             reflect_mut: |world, entity| {
-                // SAFETY: reflect_mut is an unsafe function pointer used by `reflect_unchecked_mut` which promises to never
-                // produce aliasing mutable references, and reflect_mut, which has mutable world access
-                unsafe {
-                    world
-                        .get_entity(entity)?
-                        .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
-                        .map(|c| ReflectMut {
-                            value: c.value as &mut dyn Reflect,
-                            ticks: c.ticks,
-                        })
-                }
+                world.get_mut::<C>(entity).map(|c| ReflectMut {
+                    value: c.value as &mut dyn Reflect,
+                    ticks: c.ticks,
+                })
             },
         }
     }

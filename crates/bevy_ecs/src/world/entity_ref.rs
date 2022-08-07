@@ -83,6 +83,8 @@ impl<'w> EntityRef<'w> {
         }
     }
 
+    /// Do not use this. It will be removed eventually and only exists for `Query::get_component_unchecked_mut`.
+    ///
     /// Gets a mutable reference to the component of type `T` associated with
     /// this entity without ensuring there are no other borrows active and without
     /// ensuring that the returned reference will stay valid.
@@ -94,7 +96,7 @@ impl<'w> EntityRef<'w> {
     ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
     ///   operation on this world (non-exhaustive list).
     #[inline]
-    pub unsafe fn get_unchecked_mut<T: Component>(
+    pub(crate) unsafe fn __get_unchecked_mut<T: Component>(
         &self,
         last_change_tick: u32,
         change_tick: u32,
