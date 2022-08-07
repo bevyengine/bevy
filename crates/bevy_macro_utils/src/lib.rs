@@ -397,9 +397,8 @@ fn derive_interned_label(
                 #interner_ident .intern(self)
             }
             fn fmt(idx: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-                #interner_ident
-                    .scope(idx, |val: &Self| ::std::fmt::Debug::fmt(val, f))
-                    .ok_or(::std::fmt::Error)?
+                let val: #guard_type_path <Self> = #interner_ident .get(idx).ok_or(::std::fmt::Error)?;
+                ::std::fmt::Debug::fmt(&*val, f)
             }
         }
 

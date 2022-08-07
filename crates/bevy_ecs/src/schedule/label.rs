@@ -45,9 +45,10 @@ macro_rules! impl_string_label {
                 $crate::schedule::STR_INTERN.intern(self)
             }
             fn fmt(idx: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                $crate::schedule::STR_INTERN
-                    .scope(idx, |s: &Self| write!(f, "{s}"))
-                    .ok_or(::std::fmt::Error)?
+                let s = $crate::schedule::STR_INTERN
+                    .get(idx)
+                    .ok_or(std::fmt::Error)?;
+                write!(f, "{s}")
             }
         }
     };
@@ -95,14 +96,6 @@ impl<T: Clone + Hash + Eq> TypedLabels<T> {
         let mut set = Guard::upgrade(set);
         let (idx, _) = set.insert_full(val.clone());
         idx as u64
-    }
-
-    /// Allows one to peek at an interned label and execute code,
-    /// optionally returning a value.
-    ///
-    /// Returns `None` if there is no interned label with that key.
-    pub fn scope<U>(&self, idx: u64, f: impl FnOnce(&T) -> U) -> Option<U> {
-        self.0.read().get_index(idx as usize).map(f)
     }
 
     /// Gets a reference to the label with specified index.
@@ -191,16 +184,6 @@ impl Labels {
             std::mem::forget(old);
             idx as u64
         }
-    }
-
-    /// Allows one to peek at an interned label and execute code,
-    /// optionally returning a value.
-    ///
-    /// Returns `None` if there is no interned label with that key.
-    pub fn scope<L: 'static, U>(&self, key: u64, f: impl FnOnce(&L) -> U) -> Option<U> {
-        let type_map = self.0.read();
-        let set = type_map.get::<IndexSet<L>>()?;
-        set.get_index(key as usize).map(f)
     }
 
     /// Gets a reference to the label with specified index.
