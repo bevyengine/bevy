@@ -52,6 +52,22 @@ fn main() {
     assert!(id.downcast::<ComplexerLabel<usize>>().is_none());
     if let Some(label) = id.downcast::<ComplexerLabel<i128>>() {
         assert_eq!(label.0, 1);
+    } else {
+        unreachable!();
+    }
+
+    // Different types with the same type constructor.
+    let id2 = ComplexerLabel(1_u32).as_label();
+    // The debug representations are the same...
+    assert_eq!(format!("{id:?}"), format!("{id2:?}"));
+    // ...but they do not compare equal...
+    assert_ne!(id, id2);
+    // ...nor can you downcast between monomorphizations.
+    assert!(id2.downcast::<ComplexerLabel<i128>>().is_none());
+    if let Some(label) = id2.downcast::<ComplexerLabel<u32>>() {
+        assert_eq!(label.0, 1);
+    } else {
+        unreachable!();
     }
 }
 
