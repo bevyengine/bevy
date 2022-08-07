@@ -689,7 +689,9 @@ impl World {
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
         let component_id = self.components.init_resource::<R>();
         // SAFETY: component_id just initialized and corresponds to resource of type T
-        unsafe { self.insert_resource_with_id(component_id, value) };
+        OwningPtr::make(value, |ptr| unsafe {
+            self.insert_resource_by_id(component_id, ptr)
+        });
     }
 
     /// Inserts a new non-send resource with standard starting values.
@@ -717,7 +719,9 @@ impl World {
         self.validate_non_send_access::<R>();
         let component_id = self.components.init_non_send::<R>();
         // SAFETY: component_id just initialized and corresponds to resource of type R
-        unsafe { self.insert_resource_with_id(component_id, value) };
+        OwningPtr::make(value, |ptr| unsafe {
+            self.insert_resource_by_id(component_id, ptr)
+        });
     }
 
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
@@ -1233,24 +1237,6 @@ impl World {
         self.get_resource_unchecked_mut_with_id(component_id)
     }
 
-    /// # Safety
-    /// `component_id` must be valid and correspond to a resource component of type `R`
-    #[inline]
-    unsafe fn insert_resource_with_id<R>(&mut self, component_id: ComponentId, value: R) {
-        let change_tick = self.change_tick();
-        let column = self.initialize_resource_internal(component_id);
-        if column.is_empty() {
-            // SAFETY: column is of type R and has been allocated above
-            OwningPtr::make(value, |ptr| {
-                column.push(ptr, ComponentTicks::new(change_tick));
-            });
-        } else {
-            // SAFETY: column is of type R and has already been allocated
-            *column.get_data_unchecked_mut(0).deref_mut::<R>() = value;
-            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
-        }
-    }
-
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
     ///
     /// **You should prefer to use the typed API [`World::insert_resource`] where possible and only
@@ -1258,6 +1244,7 @@ impl World {
     ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
+    /// `component_id` must exist in this [`World`]
     pub unsafe fn insert_resource_by_id(
         &mut self,
         component_id: ComponentId,
@@ -1265,12 +1252,7 @@ impl World {
     ) {
         let change_tick = self.change_tick();
 
-        self.components().get_info(component_id).unwrap_or_else(|| {
-            panic!(
-                "insert_resource_by_id called with component id which doesn't exist in this world"
-            )
-        });
-        // SAFETY: component_id is valid, checked by the lines above
+        // SAFETY: component_id is valid, ensured by caller
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
             // SAFETY: column is of type R and has been allocated above
