@@ -131,10 +131,10 @@ use std::{any::TypeId, collections::HashMap};
 /// [`Query`]: crate::system::Query
 // Some safety points:
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
-// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
+// bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
-pub unsafe trait Bundle: Send + Sync + 'static {
+pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(
@@ -155,7 +155,10 @@ pub unsafe trait Bundle: Send + Sync + 'static {
         // Ensure that the `OwningPtr` is used correctly
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized;
+}
 
+/// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
+pub trait DynamicBundle {
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
@@ -184,7 +187,9 @@ unsafe impl<C: Component> Bundle for C {
         // Safety: The id given in `component_ids` is for `Self`
         func(ctx).read()
     }
+}
 
+impl<C: Component> DynamicBundle for C {
     fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
         OwningPtr::make(self, func);
     }
@@ -194,7 +199,7 @@ macro_rules! tuple_impl {
     ($($name: ident),*) => {
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
-        // bundle, in the exact order that `Bundle::get_components` is called.
+        // bundle, in the exact order that `DynamicBundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
@@ -212,7 +217,9 @@ macro_rules! tuple_impl {
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
                 ($(<$name as Bundle>::from_components(ctx, func),)*)
             }
+        }
 
+        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             #[allow(unused_variables, unused_mut)]
             fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
                 #[allow(non_snake_case)]
@@ -360,7 +367,7 @@ impl BundleInfo {
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
     #[allow(clippy::too_many_arguments)]
-    unsafe fn write_components<T: Bundle>(
+    unsafe fn write_components<T: DynamicBundle>(
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
@@ -511,7 +518,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
     /// `entity` must currently exist in the source archetype for this inserter. `archetype_index`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn insert<T: Bundle>(
+    pub unsafe fn insert<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         archetype_index: usize,
@@ -639,7 +646,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     /// # Safety
     /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn spawn_non_existent<T: Bundle>(
+    pub unsafe fn spawn_non_existent<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         bundle: T,
@@ -675,6 +682,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     bundle_ids: HashMap<TypeId, BundleId>,
+    bundle_ids_dynamic: HashMap<Vec<ComponentId>, BundleId>,
 }
 
 impl Bundles {
@@ -707,6 +715,29 @@ impl Bundles {
         });
         // SAFETY: index either exists, or was initialized
         unsafe { self.bundle_infos.get_unchecked(id.0) }
+    }
+
+    // SAFETY: `ComponentIds` must all be valid in the world of these `Bundles`
+    pub(crate) unsafe fn init_info_dynamic<'a>(
+        &'a mut self,
+        components: &mut Components,
+        component_ids: Vec<ComponentId>,
+    ) -> &'a BundleInfo {
+        let bundle_infos = &mut self.bundle_infos;
+        // PERF: use `raw_entry` to avoid clone when it is stabilized
+        let id = self
+            .bundle_ids_dynamic
+            .entry(component_ids.clone())
+            .or_insert_with(|| {
+                let id = BundleId(bundle_infos.len());
+                // SAFETY: `component_ids` are valid as promised in the functions safety contract
+                let bundle_info =
+                    initialize_bundle("<dynamic bundle>", component_ids, id, components);
+                bundle_infos.push(bundle_info);
+                id
+            });
+        // SAFETY: index either exists, or was initialized
+        self.bundle_infos.get_unchecked(id.0)
     }
 }
 

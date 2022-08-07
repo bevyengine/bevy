@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleInfo},
+    bundle::{Bundle, BundleInfo, DynamicBundle},
     change_detection::{MutUntyped, Ticks},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -267,6 +267,74 @@ impl<'w> EntityMut<'w> {
         unsafe {
             self.location = bundle_inserter.insert(self.entity, self.location.index, bundle);
         }
+
+        self
+    }
+
+    /// Inserts a component with the given `value`. Will replace the value if it already existed.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::insert`] where possible and only
+    /// use this in cases where there isn't a Rust type corresponding to the [`ComponentId`].
+    ///
+    /// # Safety
+    /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
+    pub unsafe fn insert_by_id(
+        &mut self,
+        component_id: ComponentId,
+        value: OwningPtr<'_>,
+    ) -> &mut Self {
+        // SAFETY: the caller promisees that `value` is valid for the `component_id`
+        self.insert_bundle_by_ids(vec![component_id], vec![value])
+    }
+
+    /// Inserts a bundle of components into the entity. Will replace the values if they already existed.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::insert_bundle`] where possible and only
+    /// use this in cases where there are no Rust types corresponding to the [`ComponentId`]s.
+    ///
+    /// # Safety
+    /// - the `component_ids` list must be sorted
+    /// - each value of `components` must be valid for the [`ComponentId`] at the matching position in `component_ids` in this world
+    pub unsafe fn insert_bundle_by_ids(
+        &mut self,
+        component_ids: Vec<ComponentId>,
+        components: Vec<OwningPtr<'_>>,
+    ) -> &mut Self {
+        for &id in &component_ids {
+            self.world.components().get_info(id).unwrap_or_else(|| {
+                panic!(
+                    "insert_bundle_by_ids called with component id {id:?} which doesn't exist in this world"
+                )
+            });
+        }
+
+        struct DynamicInsertBundle<'a> {
+            components: Vec<OwningPtr<'a>>,
+        }
+        impl DynamicBundle for DynamicInsertBundle<'_> {
+            fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
+                self.components.into_iter().for_each(func);
+            }
+        }
+
+        let bundle = DynamicInsertBundle { components };
+
+        let change_tick = self.world.change_tick();
+        // SAFETY: component_ids are all valid, because they are checked in this function
+        let bundle_info = self
+            .world
+            .bundles
+            .init_info_dynamic(&mut self.world.components, component_ids);
+        let mut bundle_inserter = bundle_info.get_bundle_inserter(
+            &mut self.world.entities,
+            &mut self.world.archetypes,
+            &mut self.world.components,
+            &mut self.world.storages,
+            self.location.archetype_id,
+            change_tick,
+        );
+        // SAFETY: location matches current entity. The `bundle` matches `bundle_info` components as promised by the caller.
+        self.location = bundle_inserter.insert(self.entity, self.location.index, bundle);
 
         self
     }
@@ -935,6 +1003,8 @@ pub(crate) unsafe fn get_mut_by_id(
 
 #[cfg(test)]
 mod tests {
+    use bevy_ptr::OwningPtr;
+
     use crate as bevy_ecs;
     use crate::component::ComponentId;
     use crate::prelude::*; // for the `#[derive(Component)]`
@@ -962,6 +1032,9 @@ mod tests {
 
     #[derive(Component)]
     struct TestComponent(u32);
+
+    #[derive(Component)]
+    struct TestComponent2(u32);
 
     #[test]
     fn entity_ref_get_by_id() {
@@ -1025,5 +1098,42 @@ mod tests {
         let mut entity = world.spawn_empty();
         assert!(entity.get_by_id(invalid_component_id).is_none());
         assert!(entity.get_mut_by_id(invalid_component_id).is_none());
+    }
+
+    #[test]
+    fn entity_mut_insert_by_id() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+
+        let mut entity = world.spawn();
+        OwningPtr::make(TestComponent(42), |ptr| {
+            // SAFETY: `ptr` matches the component id
+            unsafe { entity.insert_by_id(test_component_id, ptr) };
+        });
+
+        assert_eq!(entity.get::<TestComponent>().unwrap().0, 42);
+    }
+
+    #[test]
+    fn entity_mut_insert_bundle_by_ids() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+        let test_component_2_id = world.init_component::<TestComponent2>();
+
+        let mut entity = world.spawn();
+
+        let component_ids = vec![test_component_id, test_component_2_id];
+        let test_component_value = TestComponent(42);
+        let test_component_2_value = TestComponent2(84);
+
+        OwningPtr::make(test_component_value, |ptr1| {
+            OwningPtr::make(test_component_2_value, |ptr2| {
+                // SAFETY: `ptr1` and `ptr2` match the component ids
+                unsafe { entity.insert_bundle_by_ids(component_ids, vec![ptr1, ptr2]) };
+            });
+        });
+
+        assert_eq!(entity.get::<TestComponent>().unwrap().0, 42);
+        assert_eq!(entity.get::<TestComponent2>().unwrap().0, 84);
     }
 }

@@ -189,7 +189,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     #(#field_from_components)*
                 }
             }
+        }
 
+        impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             #[allow(unused_variables)]
             fn get_components(self, func: &mut impl FnMut(#ecs_path::ptr::OwningPtr<'_>)) {
                 #(#field_get_components)*
