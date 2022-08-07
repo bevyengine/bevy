@@ -392,8 +392,7 @@ fn derive_interned_label(
 
         impl #impl_generics #downcast_trait_path <#id_path> for #ident #ty_generics #where_clause {
             type Output = #guard_type_path <'static, Self>;
-            fn downcast_from(label: #id_path) -> Option<Self::Output> {
-                let idx = <#id_path as #trait_path>::data(&label);
+            fn downcast_from(idx: u64) -> Option<Self::Output> {
                 #interner_ident .get::<Self>(idx)
             }
         }

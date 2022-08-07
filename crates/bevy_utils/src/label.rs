@@ -3,6 +3,7 @@
 use std::{
     any::Any,
     hash::{Hash, Hasher},
+    ops::Deref,
 };
 
 pub trait DynEq: Any {
@@ -50,13 +51,9 @@ where
 /// Trait for implementors of `*Label` types that support downcasting.
 pub trait LabelDowncast<Id> {
     /// The type returned from [`downcast_from`](#method.downcast_from).
-    type Output;
-    /// Attempts to downcast a label to type `Self`.
-    ///
-    /// Depending on the type of label, this fn might return different types.
-    /// If `Self` is cheap to clone, this will probably just return `Self`.
-    /// Otherwise, it may return a reference, or a `MutexGuard`, `RwLockGuard`, etc.
-    fn downcast_from(label: Id) -> Option<Self::Output>;
+    type Output: Deref<Target = Self>;
+    /// Attempts to downcast a label to type `Self`. Returns a reference-like type.
+    fn downcast_from(data: u64) -> Option<Self::Output>;
 }
 
 /// Macro to define a new label trait
@@ -154,14 +151,13 @@ macro_rules! define_label {
             }
             /// Attempts to downcast this label to type `L`.
             ///
-            /// This may return various kind of references, or owned values depending on the type of `L`.
             /// This method is not available for all types of labels.
-            pub fn downcast<L>(self) -> Option<L::Output>
+            pub fn downcast<L>(self) -> Option<impl ::std::ops::Deref<Target = L>>
             where
                 L: $label_name + $crate::label::LabelDowncast<$id_name>
             {
                 if self.is::<L>() {
-                    L::downcast_from(self)
+                    L::downcast_from(self.data())
                 } else {
                     None
                 }
