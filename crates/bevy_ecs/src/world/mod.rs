@@ -688,9 +688,11 @@ impl World {
     #[inline]
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
         let component_id = self.components.init_resource::<R>();
-        // SAFETY: component_id just initialized and corresponds to resource of type T
-        OwningPtr::make(value, |ptr| unsafe {
-            self.insert_resource_by_id(component_id, ptr)
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: component_id just initialized and corresponds to resource of type T
+            unsafe {
+                self.insert_resource_by_id(component_id, ptr);
+            }
         });
     }
 
@@ -718,9 +720,11 @@ impl World {
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         self.validate_non_send_access::<R>();
         let component_id = self.components.init_non_send::<R>();
-        // SAFETY: component_id just initialized and corresponds to resource of type R
-        OwningPtr::make(value, |ptr| unsafe {
-            self.insert_resource_by_id(component_id, ptr)
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: component_id just initialized and corresponds to resource of type R
+            unsafe {
+                self.insert_resource_by_id(component_id, ptr);
+            }
         });
     }
 
