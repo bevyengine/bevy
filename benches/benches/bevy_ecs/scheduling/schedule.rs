@@ -85,10 +85,6 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
     // Add system to the stage with full constraints. Hopefully this should be maximimally
     // difficult for bevy to figure out.
-    // Also, we are performing the `as_label` operation outside of the loop since that
-    // requires an allocation and a leak. This is not something that would be necessary in a
-    // real scenario, just a contrivance for the benchmark.
-    let labels: Vec<_> = (0..1000).map(|i| NumLabel(i).as_label()).collect();
 
     // Benchmark graphs of different sizes.
     for graph_size in [100, 500, 1000] {
@@ -112,12 +108,12 @@ pub fn build_schedule(criterion: &mut Criterion) {
                 // Build a fully-connected dependency graph describing the One True Ordering.
                 // Not particularly realistic but this can be refined later.
                 for i in 0..graph_size {
-                    let mut sys = empty_system.label(labels[i]).before(DummyLabel);
+                    let mut sys = empty_system.label(NumLabel(i)).before(DummyLabel);
                     for a in 0..i {
-                        sys = sys.after(labels[a]);
+                        sys = sys.after(NumLabel(a));
                     }
                     for b in i + 1..graph_size {
-                        sys = sys.before(labels[b]);
+                        sys = sys.before(NumLabel(b));
                     }
                     app.add_system(sys);
                 }
