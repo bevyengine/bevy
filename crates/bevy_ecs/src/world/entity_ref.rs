@@ -293,13 +293,14 @@ impl<'w> EntityMut<'w> {
     /// use this in cases where there are no Rust types corresponding to the [`ComponentId`]s.
     ///
     /// # Safety
-    /// - the `component_ids` list must be sorted
     /// - each value of `components` must be valid for the [`ComponentId`] at the matching position in `component_ids` in this world
     pub unsafe fn insert_bundle_by_ids(
         &mut self,
-        component_ids: Vec<ComponentId>,
+        mut component_ids: Vec<ComponentId>,
         components: Vec<OwningPtr<'_>>,
     ) -> &mut Self {
+        component_ids.sort();
+
         for &id in &component_ids {
             self.world.components().get_info(id).unwrap_or_else(|| {
                 panic!(
