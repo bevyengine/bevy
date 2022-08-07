@@ -109,6 +109,14 @@ pub mod audio {
     pub use bevy_audio::*;
 }
 
+#[cfg(feature = "bevy_color_blindness")]
+pub mod color_blindness {
+    //! Plugin to simulate and preview different types of
+    //! color blindness.
+
+    pub use bevy_color_blindness::*;
+}
+
 #[cfg(feature = "bevy_core_pipeline")]
 pub mod core_pipeline {
     //! Core render pipeline.
