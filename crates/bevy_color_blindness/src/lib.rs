@@ -5,8 +5,9 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Assets, Handle, HandleUntyped};
 use bevy_core_pipeline::core_2d::Camera2dBundle;
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
-    prelude::{Added, Component},
+    query::Added,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
@@ -46,8 +47,12 @@ use bevy_window::Windows;
 /// You can also skip this, and change the resource at any time in a system.
 ///
 /// ```rust,no_run
-/// use bevy::prelude::*;
-///
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins};
+/// # use bevy_color_blindness::*;
+/// # use bevy_core_pipeline::core_3d::Camera3dBundle;
+/// # use bevy_ecs::system::Commands;
+/// # use bevy_math::prelude::*;
+/// # use bevy_transform::prelude::*;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
@@ -68,7 +73,7 @@ use bevy_window::Windows;
 ///     commands
 ///         .spawn_bundle(Camera3dBundle {
 ///           transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-///           ..default()
+///           ..Default::default()
 ///         })
 ///         // IMPORTANT: add this component to your main camera
 ///         .insert(ColorBlindnessCamera);
@@ -112,7 +117,12 @@ const COLOR_BLINDNESS_SHADER_HANDLE: HandleUntyped =
 /// the different modes when `N` is pressed.
 ///
 /// ```rust
-/// # use bevy::prelude::*;
+/// # use bevy_app::prelude::*;
+/// # use bevy_color_blindness::*;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_input::prelude::*;
+/// # use bevy_math::prelude::*;
+/// # use bevy_transform::prelude::*;
 /// fn cycle_mode(input: Res<Input<KeyCode>>, mut params: ResMut<ColorBlindnessParams>) {
 ///     if input.just_pressed(KeyCode::N) {
 ///         params.mode.cycle();
@@ -204,7 +214,10 @@ impl Mode {
     /// Useful for writing something like the following:
     ///
     /// ```rust
-    /// # use bevy::prelude::*;
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_color_blindness::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_input::prelude::*;
     /// fn cycle_mode(input: Res<Input<KeyCode>>, mut params: ResMut<ColorBlindnessParams>) {
     ///     if input.just_pressed(KeyCode::N) {
     ///         params.mode.cycle();
@@ -310,7 +323,7 @@ struct InternalResource {
 /// creates the image, the material, the final camera, and the whole post-processing pipeline
 ///
 /// based on the post-processing example
-/// https://github.com/bevyengine/bevy/blob/main/examples/shader/post_processing.rs
+/// `https://github.com/bevyengine/bevy/blob/main/examples/shader/post_processing.rs`
 fn setup(
     mut commands: Commands,
     mut windows: ResMut<Windows>,
