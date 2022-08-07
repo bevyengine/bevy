@@ -89,7 +89,7 @@ impl CachedPipelineState {
 }
 
 #[derive(Default)]
-struct ShaderData {
+pub struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
     processed_shaders: HashMap<Vec<String>, Arc<ShaderModule>>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
