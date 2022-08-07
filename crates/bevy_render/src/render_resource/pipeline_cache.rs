@@ -25,7 +25,7 @@ enum PipelineDescriptor {
     ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
 }
 
-/// Union of a render and compute pipeline.
+/// A pipeline used to send data to the GPU.
 ///
 /// Used to store an heterogenous collection of render and compute pipelines together.
 #[derive(Debug)]
