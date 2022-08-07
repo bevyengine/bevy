@@ -17,7 +17,7 @@ use bevy_render::{
     mesh::{shape, Mesh},
     prelude::Image,
     render_resource::{
-        AsBindGroup, Extent3d, Shader, ShaderRef, TextureDescriptor, TextureDimension,
+        AsBindGroup, Extent3d, Shader, ShaderRef, ShaderType, TextureDescriptor, TextureDimension,
         TextureFormat, TextureUsages,
     },
     view::RenderLayers,
@@ -57,7 +57,7 @@ use bevy_window::Windows;
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
 ///         .insert_resource(ColorBlindnessParams {
-///             mode: Mode::Deuteranomaly,
+///             mode: ColorBlindnessMode::Deuteranomaly,
 ///             enable: true,
 ///         })
 ///         // add the plugin
@@ -136,8 +136,8 @@ const COLOR_BLINDNESS_SHADER_HANDLE: HandleUntyped =
 pub struct ColorBlindnessParams {
     /// Selects the color blindness mode to use
     ///
-    /// Defaults to `Mode::Normal`
-    pub mode: Mode,
+    /// Defaults to `ColorBlindnessMode::Normal`
+    pub mode: ColorBlindnessMode,
     /// Controls whether color blindness simulation is enabled
     ///
     /// Defaults to `false`
@@ -146,62 +146,110 @@ pub struct ColorBlindnessParams {
 
 /// The different modes of color blindness simulation supported.
 #[derive(Clone, Default, Debug)]
-pub enum Mode {
+pub enum ColorBlindnessMode {
+    /// Normal full color vision
     #[default]
     Normal,
+    // Descriptions of the different types of color blindness are sourced from:
+    // https://www.nei.nih.gov/learn-about-eye-health/eye-conditions-and-diseases/color-blindness/types-color-blindness
+    /// Inability to differentiate between green and red.
     Protanopia,
+    /// Condition where red looks more green.
     Protanomaly,
+    /// Inability to differentiate between green and red.
     Deuteranopia,
+    /// Condition where green looks more red.
     Deuteranomaly,
+    /// Inability to differentiate between blue and green, purple and red, and yellow and pink.
     Tritanopia,
+    /// Difficulty differentiating between blue and green, and between yellow and red
     Tritanomaly,
+    /// Absence of color discrimination.
     Achromatopsia,
+    /// All color cones have some form of deficiency.
     Achromatomaly,
 }
 
-impl Mode {
-    fn percentages(&self) -> (Vec3, Vec3, Vec3) {
+/// Indicates how to mix the RGB channels to obtain output colors.
+///
+/// Normal vision corresponds to the following:
+/// ```rust
+/// # use bevy_math::prelude::*;
+/// # use bevy_color_blindness::*;
+/// # fn _none() -> ColorBlindnessPercentages {
+/// ColorBlindnessPercentages {
+///     // red channel output is 100% red, 0% green, 0% blue
+///     red: Vec3::X,
+///     // green channel is 0% red, 100% green, 0% blue
+///     green: Vec3::Y,
+///     // blue channel is 0% red, 0% green, 100% blue
+///     blue: Vec3::Z
+/// }
+/// # }
+/// ```
+#[derive(ShaderType, Clone, Debug)]
+pub struct ColorBlindnessPercentages {
+    /// Percentages of red, green, and blue to mix on the red channel.
+    pub red: Vec3,
+    /// Percentages of red, green, and blue to mix on the green channel.
+    pub green: Vec3,
+    /// Percentages of red, green, and blue to mix on the blue channel.
+    pub blue: Vec3,
+}
+
+impl ColorBlindnessPercentages {
+    /// Creates a new `ColorBlindnessPercentages`
+    fn new(red: Vec3, green: Vec3, blue: Vec3) -> Self {
+        Self { red, green, blue }
+    }
+}
+
+impl ColorBlindnessMode {
+    /// Returns the percentages of colors to mix corresponding to each type of color blindness.
+    ///
+    /// [Source](https://web.archive.org/web/20081014161121/http://www.colorjack.com/labs/colormatrix/)
+    pub fn percentages(&self) -> ColorBlindnessPercentages {
         // table from https://www.alanzucconi.com/2015/12/16/color-blindness/
         // https://web.archive.org/web/20081014161121/http://www.colorjack.com/labs/colormatrix/
 
         match self {
-            Mode::Normal => (Vec3::X, Vec3::Y, Vec3::Z),
-            Mode::Protanopia => (
+            ColorBlindnessMode::Normal => ColorBlindnessPercentages::new(Vec3::X, Vec3::Y, Vec3::Z),
+            ColorBlindnessMode::Protanopia => ColorBlindnessPercentages::new(
                 [0.56667, 0.43333, 0.0].into(),
                 [0.55833, 0.44167, 0.0].into(),
                 [0.0, 0.24167, 0.75833].into(),
             ),
-            Mode::Protanomaly => (
+            ColorBlindnessMode::Protanomaly => ColorBlindnessPercentages::new(
                 [0.81667, 0.18333, 0.0].into(),
                 [0.33333, 0.66667, 0.0].into(),
                 [0.0, 0.125, 0.875].into(),
             ),
-            Mode::Deuteranopia => (
+            ColorBlindnessMode::Deuteranopia => ColorBlindnessPercentages::new(
                 [0.625, 0.375, 0.0].into(),
                 [0.70, 0.30, 0.0].into(),
                 [0.0, 0.30, 0.70].into(),
             ),
-            Mode::Deuteranomaly => (
+            ColorBlindnessMode::Deuteranomaly => ColorBlindnessPercentages::new(
                 [0.80, 0.20, 0.0].into(),
                 [0.25833, 0.74167, 0.0].into(),
                 [0.0, 0.14167, 0.85833].into(),
             ),
-            Mode::Tritanopia => (
+            ColorBlindnessMode::Tritanopia => ColorBlindnessPercentages::new(
                 [0.95, 0.5, 0.0].into(),
                 [0.0, 0.43333, 0.56667].into(),
                 [0.0, 0.475, 0.525].into(),
             ),
-            Mode::Tritanomaly => (
+            ColorBlindnessMode::Tritanomaly => ColorBlindnessPercentages::new(
                 [0.96667, 0.3333, 0.0].into(),
                 [0.0, 0.73333, 0.26667].into(),
                 [0.0, 0.18333, 0.81667].into(),
             ),
-            Mode::Achromatopsia => (
+            ColorBlindnessMode::Achromatopsia => ColorBlindnessPercentages::new(
                 [0.299, 0.587, 0.114].into(),
                 [0.299, 0.587, 0.114].into(),
                 [0.299, 0.587, 0.114].into(),
             ),
-            Mode::Achromatomaly => (
+            ColorBlindnessMode::Achromatomaly => ColorBlindnessPercentages::new(
                 [0.618, 0.32, 0.62].into(),
                 [0.163, 0.775, 0.62].into(),
                 [0.163, 0.320, 0.516].into(),
@@ -209,7 +257,7 @@ impl Mode {
         }
     }
 
-    /// Changes `self` to the next Mode.
+    /// Changes `self` to the next `ColorBlindnessMode`.
     ///
     /// Useful for writing something like the following:
     ///
@@ -227,20 +275,20 @@ impl Mode {
     /// ```
     pub fn cycle(&mut self) {
         *self = match self {
-            Mode::Normal => Mode::Protanopia,
-            Mode::Protanopia => Mode::Protanomaly,
-            Mode::Protanomaly => Mode::Deuteranopia,
-            Mode::Deuteranopia => Mode::Deuteranomaly,
-            Mode::Deuteranomaly => Mode::Tritanopia,
-            Mode::Tritanopia => Mode::Tritanomaly,
-            Mode::Tritanomaly => Mode::Achromatopsia,
-            Mode::Achromatopsia => Mode::Achromatomaly,
-            Mode::Achromatomaly => Mode::Normal,
+            ColorBlindnessMode::Normal => ColorBlindnessMode::Protanopia,
+            ColorBlindnessMode::Protanopia => ColorBlindnessMode::Protanomaly,
+            ColorBlindnessMode::Protanomaly => ColorBlindnessMode::Deuteranopia,
+            ColorBlindnessMode::Deuteranopia => ColorBlindnessMode::Deuteranomaly,
+            ColorBlindnessMode::Deuteranomaly => ColorBlindnessMode::Tritanopia,
+            ColorBlindnessMode::Tritanopia => ColorBlindnessMode::Tritanomaly,
+            ColorBlindnessMode::Tritanomaly => ColorBlindnessMode::Achromatopsia,
+            ColorBlindnessMode::Achromatopsia => ColorBlindnessMode::Achromatomaly,
+            ColorBlindnessMode::Achromatomaly => ColorBlindnessMode::Normal,
         };
     }
 }
 
-/// Our custom post processing material
+/// Post processing material that applies color blindness simulation to `image`
 #[derive(AsBindGroup, TypeUuid, Clone)]
 #[uuid = "bc2f08eb-a0fb-43f1-a908-54871ea597d5"]
 struct PostProcessingMaterial {
@@ -250,11 +298,7 @@ struct PostProcessingMaterial {
     source_image: Handle<Image>,
 
     #[uniform(2)]
-    red: Vec3,
-    #[uniform(2)]
-    green: Vec3,
-    #[uniform(2)]
-    blue: Vec3,
+    percentages: ColorBlindnessPercentages,
 }
 
 impl Material2d for PostProcessingMaterial {
@@ -292,7 +336,7 @@ fn set_camera_target(
     }
 }
 
-/// updates the percentages in the post processing material when the Mode changes in Params
+/// updates the percentages in the post processing material when the `ColorBlindnessMode` changes in Params
 fn update_percentages(
     params: Res<ColorBlindnessParams>,
     inner: Res<InternalResource>,
@@ -304,13 +348,10 @@ fn update_percentages(
         let mode = if params.enable {
             &params.mode
         } else {
-            &Mode::Normal
+            &ColorBlindnessMode::Normal
         };
-        let (red, green, blue) = mode.percentages();
 
-        mat.red = red;
-        mat.green = green;
-        mat.blue = blue;
+        mat.percentages = mode.percentages();
     }
 }
 
@@ -372,12 +413,9 @@ fn setup(
     ))));
 
     // This material has the texture that has been rendered.
-    let (red, green, blue) = params.mode.percentages();
     let material_handle = post_processing_materials.add(PostProcessingMaterial {
         source_image: image_handle.clone(),
-        red,
-        green,
-        blue,
+        percentages: params.mode.percentages(),
     });
 
     commands.insert_resource(InternalResource {

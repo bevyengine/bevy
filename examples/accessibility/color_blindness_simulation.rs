@@ -11,7 +11,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // you can select the color blindness simulation mode with the `ColorBlindnessParams` resource
         .insert_resource(ColorBlindnessParams {
-            mode: Mode::Deuteranomaly,
+            mode: ColorBlindnessMode::Deuteranomaly,
             ..default()
         })
         // add the plugin

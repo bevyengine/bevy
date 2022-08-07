@@ -493,7 +493,7 @@ path = "examples/accessibility/color_blindness_simulation.rs"
 
 [package.metadata.example.color_blindness_simulation]
 name = "Color Blindness Simulation"
-description = "Demonstrates color blindness simulation"
+description = "Modify your app's rendering output to simulate color blindness"
 category = "Accessibility"
 wasm = true
 
