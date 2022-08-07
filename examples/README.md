@@ -132,7 +132,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[Color Blindness Simulation](../examples/accessibility/color_blindness_simulation.rs) | Demonstrates color blindness simulation
+[Color Blindness Simulation](../examples/accessibility/color_blindness_simulation.rs) | Modify your app's rendering output to simulate color blindness
 
 ## Animation
 
