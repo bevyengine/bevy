@@ -143,10 +143,6 @@ path = "examples/hello_world.rs"
 [package.metadata.example.hello_world]
 hidden = true
 
-[[example]]
-name = "color_blindness_simulation"
-path = "examples/color_blindness_simulation.rs"
-
 # 2D Rendering
 [[example]]
 name = "move_sprite"
@@ -488,6 +484,17 @@ path = "examples/3d/wireframe.rs"
 name = "Wireframe"
 description = "Showcases wireframe rendering"
 category = "3D Rendering"
+wasm = true
+
+# Accessibility
+[[example]]
+name = "color_blindness_simulation"
+path = "examples/accessibility/color_blindness_simulation.rs"
+
+[package.metadata.example.color_blindness_simulation]
+name = "Color Blindness Simulation"
+description = "Demonstrates color blindness simulation"
+category = "Accessibility"
 wasm = true
 
 # Animation

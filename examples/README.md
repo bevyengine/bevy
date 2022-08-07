@@ -127,6 +127,12 @@ Example | Description
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
 
+## Accessibility
+
+Example | Description
+--- | ---
+[Color Blindness Simulation](../examples/accessibility/color_blindness_simulation.rs) | Demonstrates color blindness simulation
+
 ## Animation
 
 Example | Description
