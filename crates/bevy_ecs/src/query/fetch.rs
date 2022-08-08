@@ -43,11 +43,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behaviour.
 ///
-/// # Safety
-///
-/// component access of `ROQueryFetch<Self>` must be a subset of `QueryFetch<Self>`
-/// and `ROQueryFetch<Self>` must match exactly the same archetypes/tables as `QueryFetch<Self>`
-///
 /// # Trait derivation
 ///
 /// Query design can be easily structured by deriving `WorldQuery` for custom types.
