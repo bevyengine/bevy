@@ -91,16 +91,17 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// ## Macro expansion
 ///
-/// Expanding the macro will declare three or five additional structs, depending on whether or not the struct is marked as mutable.
+/// Expanding the macro will declare three or six additional structs, depending on whether or not the struct is marked as mutable.
 /// For a struct named `X`, the additional structs will be:
 ///
 /// |Struct name|`mutable` only|Description|
 /// |:---:|:---:|---|
-/// |`XItem`|---|The type of the query item|
-/// |`XFetch`|---|Implements [`Fetch`] for `XItem`|
-/// |`XState`|---|Implements [`FetchState`]|
-/// |`XReadOnlyItem`|✓|The type of the read-only query item|
-/// |`XReadOnlyFetch`|✓|Implements [`Fetch`] for `XReadOnlyItem`|
+/// |`XState`|---|Used as the [`State`] type for `X` and `XReadOnly`|
+/// |`XItem`|---|The type of the query item for `X`|
+/// |`XFetch`|---|Used as the [`Fetch`] type for `X`|
+/// |`XReadOnlyItem`|✓|The type of the query item for `XReadOnly`|
+/// |`XReadOnlyFetch`|✓|Used as the [`Fetch`] type for `XReadOnly`|
+/// |`XReadOnly`|✓|ReadOnly variant of `X`|
 ///
 /// ## Adding mutable references
 ///
@@ -120,7 +121,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// ```
 ///
 /// To grant mutable access to components, the struct must be marked with the `#[world_query(mutable)]` attribute.
-/// This will also create two more structs that will be used for accessing the query immutably (see table above).
+/// This will also create three more structs that will be used for accessing the query immutably (see table above).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
