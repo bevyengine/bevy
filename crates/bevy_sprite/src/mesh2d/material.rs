@@ -100,7 +100,7 @@ use crate::{
 ///
 /// ```wgsl
 /// struct CustomMaterial {
-///     color: vec4<f32>;
+///     color: vec4<f32>,
 /// }
 ///
 /// @group(1) @binding(0)
