@@ -495,12 +495,22 @@ impl<'w> EntityMut<'w> {
         self.world
     }
 
+    /// Returns this `EntityMut`'s world.
+    ///
+    /// See [`EntityMut::into_world_mut`] for a safe alternative.
+    ///
     /// # Safety
     /// Caller must not modify the world in a way that changes the current entity's location
     /// If the caller _does_ do something that could change the location, `self.update_location()`
-    /// must be called before using any other methods in [`EntityMut`]
+    /// must be called before using any other methods on this [`EntityMut`].
     #[inline]
     pub unsafe fn world_mut(&mut self) -> &mut World {
+        self.world
+    }
+
+    /// Return this `EntityMut`'s [`World`], consuming itself.
+    #[inline]
+    pub fn into_world_mut(self) -> &'w mut World {
         self.world
     }
 
