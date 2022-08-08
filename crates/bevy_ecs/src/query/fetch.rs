@@ -96,7 +96,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// |`XFetch`|---|Used as the [`Fetch`] type for `X`|
 /// |`XReadOnlyItem`|✓|The type of the query item for `XReadOnly`|
 /// |`XReadOnlyFetch`|✓|Used as the [`Fetch`] type for `XReadOnly`|
-/// |`XReadOnly`|✓|ReadOnly variant of `X`|
+/// |`XReadOnly`|✓|[`ReadOnly`] variant of `X`|
 ///
 /// ## Adding mutable references
 ///
@@ -295,6 +295,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Or`]: crate::query::Or
 /// [`Query`]: crate::system::Query
+/// [`ReadOnly`]: Self::ReadOnly
 /// [`State`]: Self::State
 /// [`table_fetch`]: Self::table_fetch
 /// [`update_archetype_component_access`]: Self::update_archetype_component_access
