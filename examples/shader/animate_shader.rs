@@ -134,7 +134,7 @@ fn queue_custom(
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct ExtractedTime {
     seconds_since_startup: f32,
 }
@@ -149,6 +149,7 @@ impl ExtractResource for ExtractedTime {
     }
 }
 
+#[derive(Resource)]
 struct TimeMeta {
     buffer: Buffer,
     bind_group: Option<BindGroup>,
@@ -184,6 +185,7 @@ fn queue_time_bind_group(
     time_meta.bind_group = Some(bind_group);
 }
 
+#[derive(Resource)]
 pub struct CustomPipeline {
     shader: Handle<Shader>,
     mesh_pipeline: MeshPipeline,

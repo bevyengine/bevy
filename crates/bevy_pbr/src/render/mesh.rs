@@ -165,7 +165,7 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(not_caster_commands);
 }
 
-#[derive(Debug, Default)]
+#[derive(Resource, Debug, Default)]
 pub struct ExtractedJoints {
     pub buffer: Vec<Mat4>,
 }
@@ -247,7 +247,7 @@ pub fn extract_skinned_meshes(
     commands.insert_or_spawn_batch(values);
 }
 
-#[derive(Clone)]
+#[derive(Resource, Clone)]
 pub struct MeshPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -651,6 +651,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
     }
 }
 
+#[derive(Resource)]
 pub struct MeshBindGroup {
     pub normal: BindGroup,
     pub skinned: Option<BindGroup>,
@@ -706,6 +707,7 @@ pub fn queue_mesh_bind_group(
 // ignoring the rest, whether they're valid for other dynamic offsets or not. This trick may
 // be supported later in encase, and then we should make use of it.
 
+#[derive(Resource)]
 pub struct SkinnedMeshUniform {
     pub buffer: BufferVec<Mat4>,
 }

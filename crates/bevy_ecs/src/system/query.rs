@@ -735,6 +735,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct SelectedCharacter { entity: Entity }
     /// # #[derive(Component)]
     /// # struct Character { name: String }
@@ -841,6 +842,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct PoisonedCharacter { character_id: Entity }
     /// # #[derive(Component)]
     /// # struct Health(u32);
@@ -967,6 +969,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct SelectedCharacter { entity: Entity }
     /// # #[derive(Component)]
     /// # struct Character { name: String }
@@ -1022,6 +1025,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct PoisonedCharacter { character_id: Entity }
     /// # #[derive(Component)]
     /// # struct Health(u32);
@@ -1233,7 +1237,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// #
     /// # #[derive(Component)]
     /// # struct Player;
-    /// # #[derive(Component)]
+    /// # #[derive(Resource)]
     /// # struct Score(u32);
     /// fn update_score_system(query: Query<(), With<Player>>, mut score: ResMut<Score>) {
     ///     if !query.is_empty() {
@@ -1258,6 +1262,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # #[derive(Component)]
     /// # struct InRange;
     /// #
+    /// # #[derive(Resource)]
     /// # struct Target {
     /// #     entity: Entity,
     /// # }
@@ -1352,6 +1357,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct SelectedCharacter { entity: Entity }
     /// # #[derive(Component)]
     /// # struct Character { name: String }

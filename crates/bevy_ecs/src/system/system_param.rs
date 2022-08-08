@@ -11,6 +11,7 @@ use crate::{
     system::{CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
+pub use bevy_ecs_macros::Resource;
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_param_set};
 use bevy_ptr::UnsafeCellDeref;
@@ -48,14 +49,16 @@ use std::{
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
 /// use std::marker::PhantomData;
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
 /// struct MyParam<'w, 's> {
-///     foo: Res<'w, usize>,
+///     foo: Res<'w, SomeResource>,
 ///     #[system_param(ignore)]
-///     marker: PhantomData<&'s usize>,
+///     marker: PhantomData<&'s ()>,
 /// }
 ///
 /// fn my_system(param: MyParam) {
@@ -217,13 +220,42 @@ pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
 impl_param_set!();
 
+/// A type that can be inserted into a [`World`] as a singleton.
+///
+/// You can access resource data in systems using the [`Res`] and [`ResMut`] system parameters
+///
+/// Only one resource of each type can be stored in a [`World`] at any given time.
+///
+/// # Examples
+///
+/// ```
+/// # let mut world = World::default();
+/// # let mut schedule = Schedule::default();
+/// # schedule.add_stage("update", SystemStage::parallel());
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Resource)]
+/// struct MyResource { value: u32 }
+///
+/// world.insert_resource(MyResource { value: 42 });
+///
+/// fn read_resource_system(resource: Res<MyResource>) {
+///     assert_eq!(resource.value, 42);
+/// }
+///
+/// fn write_resource_system(mut resource: ResMut<MyResource>) {
+///     assert_eq!(resource.value, 42);
+///     resource.value = 0;
+///     assert_eq!(resource.value, 0);
+/// }
+/// # schedule.add_system_to_stage("update", read_resource_system.label("first"));
+/// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
+/// # schedule.run_once(&mut world);
+/// ```
 pub trait Resource: Send + Sync + 'static {}
 
-impl<T> Resource for T where T: Send + Sync + 'static {}
-
-/// Shared borrow of a resource.
+/// Shared borrow of a [`Resource`].
 ///
-/// See the [`World`] documentation to see the usage of a resource.
+/// See the [`Resource`] documentation for usage.
 ///
 /// If you need a unique mutable borrow, use [`ResMut`] instead.
 ///
@@ -632,6 +664,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::assert_is_system;
 /// struct Config(u32);
+/// #[derive(Resource)]
 /// struct Myu32Wrapper(u32);
 /// fn reset_to_system(value: Config) -> impl FnMut(ResMut<Myu32Wrapper>) {
 ///     move |mut val| val.0 = value.0
@@ -640,12 +673,12 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// // .add_system(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
-pub struct Local<'a, T: Resource + FromWorld>(&'a mut T);
+pub struct Local<'a, T: FromWorld + Send + Sync + 'static>(&'a mut T);
 
-// SAFETY: Local only accesses internal state
-unsafe impl<T: Resource> ReadOnlySystemParamFetch for LocalState<T> {}
+// SAFE: Local only accesses internal state
+unsafe impl<T: Send + Sync + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
 
-impl<'a, T: Resource + FromWorld> Debug for Local<'a, T>
+impl<'a, T: FromWorld + Send + Sync + 'static> Debug for Local<'a, T>
 where
     T: Debug,
 {
@@ -654,7 +687,7 @@ where
     }
 }
 
-impl<'a, T: Resource + FromWorld> Deref for Local<'a, T> {
+impl<'a, T: FromWorld + Send + Sync + 'static> Deref for Local<'a, T> {
     type Target = T;
 
     #[inline]
@@ -663,7 +696,7 @@ impl<'a, T: Resource + FromWorld> Deref for Local<'a, T> {
     }
 }
 
-impl<'a, T: Resource + FromWorld> DerefMut for Local<'a, T> {
+impl<'a, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -672,20 +705,20 @@ impl<'a, T: Resource + FromWorld> DerefMut for Local<'a, T> {
 
 /// The [`SystemParamState`] of [`Local<T>`].
 #[doc(hidden)]
-pub struct LocalState<T: Resource>(T);
+pub struct LocalState<T: Send + Sync + 'static>(T);
 
-impl<'a, T: Resource + FromWorld> SystemParam for Local<'a, T> {
+impl<'a, T: Send + Sync + 'static + FromWorld> SystemParam for Local<'a, T> {
     type Fetch = LocalState<T>;
 }
 
-// SAFETY: only local state is accessed
-unsafe impl<T: Resource + FromWorld> SystemParamState for LocalState<T> {
+// SAFE: only local state is accessed
+unsafe impl<T: FromWorld + Send + Sync + 'static> SystemParamState for LocalState<T> {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self(T::from_world(world))
     }
 }
 
-impl<'w, 's, T: Resource + FromWorld> SystemParamFetch<'w, 's> for LocalState<T> {
+impl<'w, 's, T: Send + Sync + 'static + FromWorld> SystemParamFetch<'w, 's> for LocalState<T> {
     type Item = Local<'s, T>;
 
     #[inline]

@@ -11,7 +11,7 @@ fn main() {
         .run();
 }
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct Message(String);
 
 // this system produces a Result<usize> output by trying to parse the Message resource

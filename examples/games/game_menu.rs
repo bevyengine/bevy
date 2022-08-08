@@ -15,7 +15,7 @@ enum GameState {
 }
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
-#[derive(Debug, Component, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
     Low,
     Medium,
@@ -23,7 +23,7 @@ enum DisplayQuality {
 }
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
-#[derive(Debug, Component, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
 
 fn main() {
@@ -75,7 +75,7 @@ mod splash {
     struct OnSplashScreen;
 
     // Newtype to use a `Timer` for this screen as a resource
-    #[derive(Deref, DerefMut)]
+    #[derive(Resource, Deref, DerefMut)]
     struct SplashTimer(Timer);
 
     fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -133,7 +133,7 @@ mod game {
     #[derive(Component)]
     struct OnGameScreen;
 
-    #[derive(Deref, DerefMut)]
+    #[derive(Resource, Deref, DerefMut)]
     struct GameTimer(Timer);
 
     fn game_setup(
@@ -362,7 +362,7 @@ mod menu {
 
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
-    fn setting_button<T: Component + PartialEq + Copy>(
+    fn setting_button<T: Resource + Component + PartialEq + Copy>(
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
         mut selected_query: Query<(Entity, &mut UiColor), With<SelectedOption>>,
         mut commands: Commands,

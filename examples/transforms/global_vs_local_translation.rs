@@ -16,7 +16,7 @@ struct ChangeLocal;
 struct Move;
 
 // Define a resource for the current movement direction;
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct Direction(Vec3);
 
 // Define component to decide when an entity should be ignored by the movement systems.

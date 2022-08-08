@@ -168,7 +168,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
 }
@@ -341,6 +341,7 @@ struct UiVertex {
     pub color: [f32; 4],
 }
 
+#[derive(Resource)]
 pub struct UiMeta {
     vertices: BufferVec<UiVertex>,
     view_bind_group: Option<BindGroup>,
@@ -504,7 +505,7 @@ pub fn prepare_uinodes(
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct UiImageBindGroups {
     pub values: HashMap<Handle<Image>, BindGroup>,
 }

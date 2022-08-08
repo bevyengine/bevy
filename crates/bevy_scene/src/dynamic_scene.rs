@@ -1,5 +1,6 @@
 use crate::{serde::SceneSerializer, Scene, SceneSpawnError};
 use anyhow::Result;
+use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
     entity::EntityMap,
     reflect::{ReflectComponent, ReflectMapEntities},
@@ -84,7 +85,7 @@ impl DynamicScene {
         world: &mut World,
         entity_map: &mut EntityMap,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.resource::<TypeRegistryArc>().clone();
+        let registry = world.resource::<AppTypeRegistry>().clone();
         let type_registry = registry.read();
 
         for scene_entity in &self.entities {

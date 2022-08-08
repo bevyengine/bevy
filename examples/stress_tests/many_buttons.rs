@@ -39,7 +39,9 @@ fn button_system(
     }
 }
 
+#[derive(Resource)]
 struct UiFont(Handle<Font>);
+
 impl FromWorld for UiFont {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();

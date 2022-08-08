@@ -5,6 +5,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
@@ -12,7 +13,7 @@ use bevy_ecs::{
     schedule::ParallelSystemDescriptorCoercion,
     system::{
         lifetimeless::{Read, SQuery, SRes},
-        Commands, Local, Query, Res, ResMut, SystemParamItem,
+        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::FromWorld,
 };
@@ -224,6 +225,7 @@ where
 }
 
 /// Render pipeline data for a given [`Material`].
+#[derive(Resource)]
 pub struct MaterialPipeline<M: Material> {
     pub mesh_pipeline: MeshPipeline,
     pub material_layout: BindGroupLayout,
@@ -434,6 +436,7 @@ pub struct PreparedMaterial<T: Material> {
     pub properties: MaterialProperties,
 }
 
+#[derive(Resource)]
 struct ExtractedMaterials<M: Material> {
     extracted: Vec<(Handle<M>, M)>,
     removed: Vec<Handle<M>>,
@@ -449,7 +452,14 @@ impl<M: Material> Default for ExtractedMaterials<M> {
 }
 
 /// Stores all prepared representations of [`Material`] assets for as long as they exist.
-pub type RenderMaterials<T> = HashMap<Handle<T>, PreparedMaterial<T>>;
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterials<T: Material>(pub HashMap<Handle<T>, PreparedMaterial<T>>);
+
+impl<T: Material> Default for RenderMaterials<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 
 /// This system extracts all created or modified assets of the corresponding [`Material`] type
 /// into the "render world".
