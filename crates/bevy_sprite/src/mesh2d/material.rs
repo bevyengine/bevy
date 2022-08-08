@@ -100,14 +100,14 @@ use crate::{
 ///
 /// ```wgsl
 /// struct CustomMaterial {
-///     color: vec4<f32>;
-/// };
+///     color: vec4<f32>,
+/// }
 ///
-/// [[group(1), binding(0)]]
+/// @group(1) @binding(0)
 /// var<uniform> material: CustomMaterial;
-/// [[group(1), binding(1)]]
+/// @group(1) @binding(1)
 /// var color_texture: texture_2d<f32>;
-/// [[group(1), binding(2)]]
+/// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
 pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
