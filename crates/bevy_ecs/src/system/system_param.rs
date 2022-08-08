@@ -791,7 +791,7 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T
 
 /// Shared borrow of a non-[`Send`] resource.
 ///
-/// /// Only `Send` resources may be accessed with [`Res<T>`]. If a resource does not implement `Send`,
+/// Only `Send` resources may be accessed with [`Res<T>`]. If a resource does not implement `Send`,
 /// this [`SystemParam`](crate::system::SystemParam) must be used to ensure the accessing system runs on the same thread.
 ///
 /// For a unique, mutable borrow, see [`NonSendMut<T>`](NonSendMut).
