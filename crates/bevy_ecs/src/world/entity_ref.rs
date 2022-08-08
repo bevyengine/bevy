@@ -45,7 +45,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn world(self) -> &'w World {
+    pub fn world(&self) -> &'w World {
         self.world
     }
 
