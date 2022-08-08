@@ -405,6 +405,10 @@ mod tests {
         map_value: HashMap<u8, usize>,
         struct_value: SomeStruct,
         tuple_struct_value: SomeTupleStruct,
+        unit_enum: SomeEnum,
+        newtype_enum: SomeEnum,
+        tuple_enum: SomeEnum,
+        struct_enum: SomeEnum,
         custom_serialize: CustomSerialize,
     }
 
@@ -415,6 +419,14 @@ mod tests {
 
     #[derive(Reflect, Debug, PartialEq)]
     struct SomeTupleStruct(String);
+
+    #[derive(Reflect, Debug, PartialEq)]
+    enum SomeEnum {
+        Unit,
+        NewType(usize),
+        Tuple(f32, f32),
+        Struct { foo: String },
+    }
 
     /// Implements a custom serialize using `#[reflect(Serialize)]`.
     ///
@@ -453,6 +465,12 @@ mod tests {
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_enum: SomeEnum::Unit,
+            newtype_enum: SomeEnum::NewType(123),
+            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
+            struct_enum: SomeEnum::Struct {
+                foo: String::from("Struct variant value"),
+            },
             custom_serialize: CustomSerialize {
                 value: 100,
                 inner_struct: SomeStruct { foo: 101 },
@@ -487,6 +505,20 @@ mod tests {
             "foo": 999999999,
         },
         "tuple_struct_value": ("Tuple Struct"),
+        "unit_enum": {
+            "Unit": (),
+        },
+        "newtype_enum": {
+            "NewType": (123),
+        },
+        "tuple_enum": {
+            "Tuple": (1.23, 3.21),
+        },
+        "struct_enum": {
+            "Struct": {
+                "foo": "Struct variant value",
+            },
+        },
         "custom_serialize": (
             value: 100,
             renamed: (
