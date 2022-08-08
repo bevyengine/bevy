@@ -6,7 +6,7 @@ use bevy_ecs::{
     schedule::{ScheduleLabel, ScheduleLabelId, Stage, StageLabel},
     world::World,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{Duration, HashMap};
 
 use crate::Time;
 
@@ -47,7 +47,7 @@ impl TimestepAppExt for App {
                 self.world.get_resource_or_insert_with(Default::default);
             let state = FixedTimestepState {
                 step,
-                accumulator: 0.0,
+                accumulator: Duration::ZERO,
             };
 
             // Insert the state into the map.
@@ -66,7 +66,7 @@ impl TimestepAppExt for App {
 
                 // Core looping functionality.
                 let time = w.resource::<Time>();
-                state.accumulator += time.delta_seconds_f64();
+                state.accumulator += time.delta();
                 while state.accumulator > state.step {
                     state.accumulator -= state.step;
 
@@ -83,12 +83,12 @@ impl TimestepAppExt for App {
         else {
             let mut state = FixedTimestepState {
                 step,
-                accumulator: 0.0,
+                accumulator: Duration::ZERO,
             };
             let runner = move |sched: &mut dyn Stage, w: &mut World| {
                 // Core looping functionality.
                 let time = w.resource::<Time>();
-                state.accumulator += time.delta_seconds_f64();
+                state.accumulator += time.delta();
                 while state.accumulator > state.step {
                     state.accumulator -= state.step;
 
@@ -105,29 +105,29 @@ impl TimestepAppExt for App {
 /// The internal state of each [`FixedTimestep`].
 #[derive(Debug, Clone, Copy)]
 pub struct FixedTimestepState {
-    step: f64,
-    accumulator: f64,
+    step: Duration,
+    accumulator: Duration,
 }
 
 impl FixedTimestepState {
     /// The amount of time each step takes.
     pub fn step(&self) -> f64 {
-        self.step
+        self.step.as_secs_f64()
     }
 
     /// The number of steps made in a second.
     pub fn steps_per_second(&self) -> f64 {
-        1.0 / self.step
+        self.step.as_secs_f64().recip()
     }
 
     /// The amount of time (in seconds) left over from the last step.
     pub fn accumulator(&self) -> f64 {
-        self.accumulator
+        self.accumulator.as_secs_f64()
     }
 
     /// The percentage of "step" stored inside the accumulator. Calculated as accumulator / step.
     pub fn overstep_percentage(&self) -> f64 {
-        self.accumulator / self.step
+        self.accumulator.as_secs_f64() / self.step.as_secs_f64()
     }
 }
 
@@ -171,7 +171,7 @@ impl FixedTimesteps {
 /// use the [`FixedTimesteps`] resource.
 pub struct FixedTimestep {
     label: Option<ScheduleLabelId>,
-    step: f64,
+    step: Duration,
 }
 
 impl Default for FixedTimestep {
@@ -183,7 +183,10 @@ impl Default for FixedTimestep {
 impl FixedTimestep {
     /// Creates a [`FixedTimestep`] that ticks once every `step` seconds.
     pub fn step(step: f64) -> Self {
-        Self { step, label: None }
+        Self {
+            step: Duration::from_secs_f64(step),
+            label: None,
+        }
     }
 
     /// Creates a [`FixedTimestep`] that ticks once every `rate` times per second.
@@ -269,6 +272,7 @@ mod test {
             .get(FixedUpdate)
             .unwrap()
             .accumulator
+            .as_secs_f64()
             .mul(10.)
             .round()
     }
