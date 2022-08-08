@@ -77,7 +77,7 @@ impl PluginGroupBuilder {
     }
 
     /// Configures the [`Plugin`] to be built before the `Target` plugin.
-    /// If the plugin was already the group, it is removed from its previous place.
+    /// If the plugin was already in the group, it is removed from its previous place.
     ///
     /// # Panics
     /// If there is no plugin of type `Target` in the group.
@@ -89,7 +89,7 @@ impl PluginGroupBuilder {
     }
 
     /// Configures the [`Plugin`] to be built after the `Target` plugin.
-    /// If the plugin was already the group, it is removed from its previous place.
+    /// If the plugin was already in the group, it is removed from its previous place.
     ///
     /// # Panics
     /// If there is no plugin of type `Target` in the group.
