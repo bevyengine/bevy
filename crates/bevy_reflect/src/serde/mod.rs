@@ -6,16 +6,11 @@ pub use de::*;
 pub use ser::*;
 pub use type_data::*;
 
-pub(crate) mod type_fields {
-    pub const TYPE: &str = "type";
-    pub const VALUE: &str = "value";
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{self as bevy_reflect, DynamicTupleStruct};
     use crate::{
-        serde::{ReflectDeserializer, ReflectSerializer},
+        serde::{ReflectSerializer, UntypedReflectDeserializer},
         type_registry::TypeRegistry,
         DynamicStruct, Reflect,
     };
@@ -53,7 +48,7 @@ mod tests {
         expected.insert("d", 6);
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let deserialized = value.take::<DynamicStruct>().unwrap();
 
@@ -88,7 +83,7 @@ mod tests {
         expected.insert(6);
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let deserialized = value.take::<DynamicTupleStruct>().unwrap();
 

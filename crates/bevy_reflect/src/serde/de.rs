@@ -1,9 +1,9 @@
 use crate::serde::SerializationData;
 use crate::{
-    serde::type_fields, ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap,
-    DynamicStruct, DynamicTuple, DynamicTupleStruct, EnumInfo, ListInfo, Map, MapInfo, NamedField,
-    Reflect, ReflectDeserialize, StructInfo, StructVariantInfo, Tuple, TupleInfo, TupleStruct,
-    TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistry, UnnamedField, VariantInfo,
+    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+    DynamicTupleStruct, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect, ReflectDeserialize,
+    StructInfo, StructVariantInfo, Tuple, TupleInfo, TupleStruct, TupleStructInfo,
+    TupleVariantInfo, TypeInfo, TypeRegistry, UnnamedField, VariantInfo,
 };
 use erased_serde::Deserializer;
 use serde::de::{self, DeserializeSeed, Error, MapAccess, SeqAccess, Visitor};
@@ -138,42 +138,19 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
-        let type_name = match map.next_key::<&str>()? {
-            Some(type_fields::TYPE) => map.next_value::<&str>()?,
-            Some(type_fields::VALUE) => {
-                // `type` must come before `value`.
-                return Err(de::Error::missing_field(type_fields::TYPE));
-            }
-            Some(field) => {
-                return Err(de::Error::unknown_field(field, &[type_fields::TYPE]));
-            }
-            None => {
-                return Err(de::Error::invalid_length(
-                    0,
-                    &"two entries: `type` and `value`",
-                ));
-            }
-        };
+        let type_name = map
+            .next_key::<&str>()?
+            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
 
-        match map.next_key::<&str>()? {
-            Some(type_fields::VALUE) => {
-                let registration = self.registry.get_with_name(type_name).ok_or_else(|| {
-                    de::Error::custom(format_args!("No registration found for {}", type_name))
-                })?;
-                let type_info = registration.type_info();
-                let value = map.next_value_seed(TypedReflectDeserializer {
-                    type_info,
-                    registry: self.registry,
-                })?;
-                Ok(value)
-            }
-            Some(type_fields::TYPE) => Err(de::Error::duplicate_field(type_fields::TYPE)),
-            Some(field) => Err(de::Error::unknown_field(field, &[type_fields::VALUE])),
-            None => Err(de::Error::invalid_length(
-                0,
-                &"two entries: `type` and `value`",
-            )),
-        }
+        let registration = self.registry.get_with_name(type_name).ok_or_else(|| {
+            Error::custom(format_args!("No registration found for {}", type_name))
+        })?;
+        let type_info = registration.type_info();
+        let value = map.next_value_seed(TypedReflectDeserializer {
+            type_info,
+            registry: self.registry,
+        })?;
+        Ok(value)
     }
 }
 
@@ -404,8 +381,8 @@ impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
     }
 
     fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
-        where
-            V: SeqAccess<'de>,
+    where
+        V: SeqAccess<'de>,
     {
         visit_tuple(&mut seq, self.tuple_info, self.registry)
     }
@@ -826,8 +803,7 @@ mod tests {
 
         // === Unit Variant === //
         let input = r#"{
-            "type": "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum",
-            "value": {
+            "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum": {
                 "Unit": (),
             },
         }"#;
@@ -840,8 +816,7 @@ mod tests {
 
         // === NewType Variant === //
         let input = r#"{
-            "type": "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum",
-            "value": {
+            "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum": {
                 "NewType": (123),
             },
         }"#;
@@ -854,8 +829,7 @@ mod tests {
 
         // === Tuple Variant === //
         let input = r#"{
-            "type": "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum",
-            "value": {
+            "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum": {
                 "Tuple": (1.23, 3.21),
             },
         }"#;
@@ -868,8 +842,7 @@ mod tests {
 
         // === Struct Variant === //
         let input = r#"{
-            "type": "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum",
-            "value": {
+            "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum": {
                 "Struct": {
                     "value": "I <3 Enums",
                 },
@@ -906,8 +879,7 @@ mod tests {
         };
 
         let input = r#"{
-            "type": "bevy_reflect::serde::de::tests::MyStruct",
-            "value": {
+            "bevy_reflect::serde::de::tests::MyStruct": {
                 "primitive_value": 123,
                 "option_value": Some("Hello world!"),
                 "tuple_value": (
@@ -958,8 +930,7 @@ mod tests {
     #[test]
     fn should_deserialize_value() {
         let input = r#"{
-            "type": "f32",
-            "value": 1.23,
+            "f32": 1.23,
         }"#;
 
         let registry = get_registry();

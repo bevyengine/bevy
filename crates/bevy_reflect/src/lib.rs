@@ -968,8 +968,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
             let output = to_string_pretty(&ser, config).unwrap();
             let expected = r#"
 {
-    "type": "glam::f32::vec3::Vec3",
-    "value": {
+    "glam::f32::vec3::Vec3": {
         "x": 12.0,
         "y": 3.0,
         "z": -6.9,
@@ -983,8 +982,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         fn vec3_deserialization() {
             let data = r#"
 {
-    "type": "glam::f32::vec3::Vec3",
-    "value": {
+    "glam::f32::vec3::Vec3": {
         "x": 12.0,
         "y": 3.0,
         "z": -6.9,
