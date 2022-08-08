@@ -17,7 +17,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 pub enum RunMode {
     /// The schedule should be run repeatedly.
     Loop {
-        /// Minimum duration to wait after an update has completed before running another.
+        /// Minimum [`Duration`] to wait after an update has completed before running another.
         /// has completed before repeating. A value of [`None`] will not wait.
         wait: Option<Duration>,
     },
