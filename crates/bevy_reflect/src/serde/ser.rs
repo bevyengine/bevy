@@ -1,6 +1,6 @@
 use crate::{
-    serde::type_fields, Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct,
-    Tuple, TupleStruct, TypeRegistry, VariantType,
+    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
+    TypeRegistry, VariantType,
 };
 use serde::ser::SerializeTuple;
 use serde::{
@@ -61,10 +61,9 @@ impl<'a> Serialize for ReflectSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(type_fields::TYPE, self.value.type_name())?;
+        let mut state = serializer.serialize_map(Some(1))?;
         state.serialize_entry(
-            type_fields::VALUE,
+            self.value.type_name(),
             &TypedReflectSerializer::new(self.value, self.registry),
         )?;
         state.end()
@@ -442,8 +441,7 @@ mod tests {
 
         let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
         let expected = r#"{
-    "type": "bevy_reflect::serde::ser::tests::MyStruct",
-    "value": {
+    "bevy_reflect::serde::ser::tests::MyStruct": {
         "primitive_value": 123,
         "option_value": Some("Hello world!"),
         "tuple_value": (3.1415927, 1337),
@@ -493,8 +491,7 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
-    "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
-    "value": {
+    "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum": {
         "Unit": (),
     },
 }"#;
@@ -505,8 +502,7 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
-    "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
-    "value": {
+    "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum": {
         "NewType": (123),
     },
 }"#;
@@ -517,8 +513,7 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
-    "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
-    "value": {
+    "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum": {
         "Tuple": (1.23, 3.21),
     },
 }"#;
@@ -531,8 +526,7 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
         let expected = r#"{
-    "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
-    "value": {
+    "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum": {
         "Struct": {
             "value": "I <3 Enums",
         },
