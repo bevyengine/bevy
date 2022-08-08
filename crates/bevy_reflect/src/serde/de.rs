@@ -737,6 +737,10 @@ mod tests {
         map_value: HashMap<u8, usize>,
         struct_value: SomeStruct,
         tuple_struct_value: SomeTupleStruct,
+        unit_enum: SomeEnum,
+        newtype_enum: SomeEnum,
+        tuple_enum: SomeEnum,
+        struct_enum: SomeEnum,
         custom_deserialize: CustomDeserialize,
     }
 
@@ -759,12 +763,21 @@ mod tests {
         inner_struct: SomeStruct,
     }
 
+    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    enum SomeEnum {
+        Unit,
+        NewType(usize),
+        Tuple(f32, f32),
+        Struct { foo: String },
+    }
+
     fn get_registry() -> TypeRegistry {
         let mut registry = TypeRegistry::default();
         registry.register::<MyStruct>();
         registry.register::<SomeStruct>();
         registry.register::<SomeTupleStruct>();
         registry.register::<CustomDeserialize>();
+        registry.register::<SomeEnum>();
         registry.register::<i8>();
         registry.register::<String>();
         registry.register::<i64>();
@@ -779,6 +792,138 @@ mod tests {
         registry.register::<Option<String>>();
         registry.register_type_data::<Option<String>, ReflectDeserialize>();
         registry
+    }
+
+    #[test]
+    fn should_deserialize() {
+        let mut map = HashMap::new();
+        map.insert(64, 32);
+
+        let expected = MyStruct {
+            primitive_value: 123,
+            option_value: Some(String::from("Hello world!")),
+            tuple_value: (PI, 1337),
+            list_value: vec![-2, -1, 0, 1, 2],
+            array_value: [-2, -1, 0, 1, 2],
+            map_value: map,
+            struct_value: SomeStruct { foo: 999999999 },
+            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_enum: SomeEnum::Unit,
+            newtype_enum: SomeEnum::NewType(123),
+            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
+            struct_enum: SomeEnum::Struct {
+                foo: String::from("Struct variant value"),
+            },
+            custom_deserialize: CustomDeserialize {
+                value: 100,
+                inner_struct: SomeStruct { foo: 101 },
+            },
+        };
+
+        let input = r#"{
+            "bevy_reflect::serde::de::tests::MyStruct": {
+                "primitive_value": 123,
+                "option_value": Some("Hello world!"),
+                "tuple_value": (
+                    3.1415927,
+                    1337,
+                ),
+                "list_value": [
+                    -2,
+                    -1,
+                    0,
+                    1,
+                    2,
+                ],
+                "array_value": (
+                    -2,
+                    -1,
+                    0,
+                    1,
+                    2,
+                ),
+                "map_value": {
+                    64: 32,
+                },
+                "struct_value": {
+                    "foo": 999999999,
+                },
+                "tuple_struct_value": ("Tuple Struct"),
+                "unit_enum": {
+                    "Unit": (),
+                },
+                "newtype_enum": {
+                    "NewType": (123),
+                },
+                "tuple_enum": {
+                    "Tuple": (1.23, 3.21),
+                },
+                "struct_enum": {
+                    "Struct": {
+                        "foo": "Struct variant value",
+                    },
+                },
+                "custom_deserialize": (
+                    value: 100,
+                    renamed: (
+                        foo: 101,
+                    ),
+                )
+            },
+        }"#;
+
+        let registry = get_registry();
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_deserialize_value() {
+        let input = r#"{
+            "f32": 1.23,
+        }"#;
+
+        let registry = get_registry();
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+        let output = dynamic_output
+            .take::<f32>()
+            .expect("underlying type should be f32");
+        assert_eq!(1.23, output);
+    }
+
+    #[test]
+    fn should_deserialized_typed() {
+        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+        }
+
+        let expected = Foo { bar: 123 };
+
+        let input = r#"{
+            "bar": 123
+        }"#;
+
+        let mut registry = get_registry();
+        registry.register::<Foo>();
+        let reflect_deserializer = TypedReflectDeserializer::new(Foo::type_info(), &registry);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        let output = <Foo as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        assert_eq!(expected, output);
     }
 
     #[test]
@@ -849,117 +994,5 @@ mod tests {
             value: String::from("I <3 Enums"),
         });
         assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
-    }
-
-    #[test]
-    fn should_deserialize() {
-        let mut map = HashMap::new();
-        map.insert(64, 32);
-
-        let expected = MyStruct {
-            primitive_value: 123,
-            option_value: Some(String::from("Hello world!")),
-            tuple_value: (PI, 1337),
-            list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
-            map_value: map,
-            struct_value: SomeStruct { foo: 999999999 },
-            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
-            custom_deserialize: CustomDeserialize {
-                value: 100,
-                inner_struct: SomeStruct { foo: 101 },
-            },
-        };
-
-        let input = r#"{
-            "bevy_reflect::serde::de::tests::MyStruct": {
-                "primitive_value": 123,
-                "option_value": Some("Hello world!"),
-                "tuple_value": (
-                    3.1415927,
-                    1337,
-                ),
-                "list_value": [
-                    -2,
-                    -1,
-                    0,
-                    1,
-                    2,
-                ],
-                "array_value": (
-                    -2,
-                    -1,
-                    0,
-                    1,
-                    2,
-                ),
-                "map_value": {
-                    64: 32,
-                },
-                "struct_value": {
-                    "foo": 999999999,
-                },
-                "tuple_struct_value": ("Tuple Struct"),
-                "custom_deserialize": (
-                    value: 100,
-                    renamed: (
-                        foo: 101,
-                    ),
-                )
-            },
-        }"#;
-
-        let registry = get_registry();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
-        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
-        let dynamic_output = reflect_deserializer
-            .deserialize(&mut ron_deserializer)
-            .unwrap();
-
-        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
-        assert_eq!(expected, output);
-    }
-
-    #[test]
-    fn should_deserialize_value() {
-        let input = r#"{
-            "f32": 1.23,
-        }"#;
-
-        let registry = get_registry();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
-        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
-        let dynamic_output = reflect_deserializer
-            .deserialize(&mut ron_deserializer)
-            .unwrap();
-        let output = dynamic_output
-            .take::<f32>()
-            .expect("underlying type should be f32");
-        assert_eq!(1.23, output);
-    }
-
-    #[test]
-    fn should_deserialized_typed() {
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
-        struct Foo {
-            bar: i32,
-        }
-
-        let expected = Foo { bar: 123 };
-
-        let input = r#"{
-            "bar": 123
-        }"#;
-
-        let mut registry = get_registry();
-        registry.register::<Foo>();
-        let reflect_deserializer = TypedReflectDeserializer::new(Foo::type_info(), &registry);
-        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
-        let dynamic_output = reflect_deserializer
-            .deserialize(&mut ron_deserializer)
-            .unwrap();
-
-        let output = <Foo as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
-        assert_eq!(expected, output);
     }
 }
