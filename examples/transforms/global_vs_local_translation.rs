@@ -101,25 +101,18 @@ fn setup(
     });
 
     // Add text to explain inputs and what is happening.
-    commands.spawn_bundle(TextBundle {
-        text: Text::with_section(
-            "Press the arrow keys to move the cubes. Toggle movement for yellow (1), red (2) and green (3) cubes via number keys.
+    commands.spawn_bundle(TextBundle::from_section(
+        "Press the arrow keys to move the cubes. Toggle movement for yellow (1), red (2) and green (3) cubes via number keys.
 
 Notice how the green cube will translate further in respect to the yellow in contrast to the red cube.
 This is due to the use of its LocalTransform that is relative to the yellow cubes transform instead of the GlobalTransform as in the case of the red cube.
 The red cube is moved through its GlobalTransform and thus is unaffected by the yellows transform.",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 22.0,
-                color: Color::WHITE,
-            },
-            TextAlignment {
-                horizontal: HorizontalAlign::Left,
-                ..default()
-            },
-        ),
-        ..default()
-    });
+        TextStyle {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 22.0,
+            color: Color::WHITE,
+        },
+    ));
 }
 
 // This system will move all cubes that are marked as ChangeGlobal according to their global transform.

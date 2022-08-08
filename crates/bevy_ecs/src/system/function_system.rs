@@ -277,7 +277,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// [`System`]s may take an optional input which they require to be passed to them when they
 /// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
 /// with this `In` type, but only the first param of a function may be tagged as an input. This also
-/// means a system can only have one or zero input paramaters.
+/// means a system can only have one or zero input parameters.
 ///
 /// # Examples
 ///

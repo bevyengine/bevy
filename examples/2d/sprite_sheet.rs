@@ -1,7 +1,7 @@
 //! Renders an animated sprite by loading all animation frames from a single image (a sprite sheet)
 //! into a texture atlas, and changing the displayed image periodically.
 
-use bevy::{prelude::*, render::texture::ImageSettings};
+use bevy::prelude::*;
 
 fn main() {
     App::new()

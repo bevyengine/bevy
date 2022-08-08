@@ -150,17 +150,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.bonus.handle = asset_server.load("models/AlienCake/cakeBirthday.glb#Scene0");
 
     // scoreboard
-    commands.spawn_bundle(TextBundle {
-        text: Text::with_section(
+    commands.spawn_bundle(
+        TextBundle::from_section(
             "Score:",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color: Color::rgb(0.5, 0.5, 1.0),
             },
-            Default::default(),
-        ),
-        style: Style {
+        )
+        .with_style(Style {
             position_type: PositionType::Absolute,
             position: UiRect {
                 top: Val::Px(5.0),
@@ -168,9 +167,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 ..default()
             },
             ..default()
-        },
-        ..default()
-    });
+        }),
+    );
 }
 
 // remove all entities that are not a camera
@@ -383,17 +381,13 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    format!("Cake eaten: {}", game.cake_eaten),
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 80.0,
-                        color: Color::rgb(0.5, 0.5, 1.0),
-                    },
-                    Default::default(),
-                ),
-                ..default()
-            });
+            parent.spawn_bundle(TextBundle::from_section(
+                format!("Cake eaten: {}", game.cake_eaten),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 80.0,
+                    color: Color::rgb(0.5, 0.5, 1.0),
+                },
+            ));
         });
 }

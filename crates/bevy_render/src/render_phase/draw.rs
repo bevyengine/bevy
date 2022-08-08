@@ -17,7 +17,7 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
 
 /// A draw function which is used to draw a specific [`PhaseItem`].
 ///
-/// They are the the general form of drawing items, whereas [`RenderCommands`](RenderCommand)
+/// They are the general form of drawing items, whereas [`RenderCommands`](RenderCommand)
 /// are more modular.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].

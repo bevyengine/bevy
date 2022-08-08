@@ -45,7 +45,6 @@ use crate::{
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
-/// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
 /// way to render [`Mesh2dHandle`] entities with custom shader logic.
 ///
 /// Material2ds must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.

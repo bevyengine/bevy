@@ -72,7 +72,7 @@ struct EventInstance<E: Event> {
 /// This collection is meant to be paired with a system that calls
 /// [`Events::update`] exactly once per update/frame.
 ///
-/// [`Events::update_system`] is a system that does this, typically intialized automatically using
+/// [`Events::update_system`] is a system that does this, typically initialized automatically using
 /// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 /// [`EventReader`]s are expected to read events from this collection at least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
@@ -267,7 +267,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// # Limitations
 ///
 /// `EventWriter` can only send events of one specific type, which must be known at compile-time.
-/// This is not a problem most of the time, but you may find a situtation where you cannot know
+/// This is not a problem most of the time, but you may find a situation where you cannot know
 /// ahead of time every kind of event you'll need to send. In this case, you can use the "type-erased event" pattern.
 ///
 /// ```

@@ -34,19 +34,40 @@ pub struct Visibility {
 
 impl Default for Visibility {
     fn default() -> Self {
+        Self::visible()
+    }
+}
+
+impl Visibility {
+    /// Creates a new [`Visibility`], set as visible
+    pub const fn visible() -> Self {
         Self { is_visible: true }
     }
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-#[derive(Component, Clone, Reflect, Debug, Eq, PartialEq, Default)]
+#[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
 #[reflect(Component)]
 pub struct ComputedVisibility {
     is_visible_in_hierarchy: bool,
     is_visible_in_view: bool,
 }
 
+impl Default for ComputedVisibility {
+    fn default() -> Self {
+        Self::not_visible()
+    }
+}
+
 impl ComputedVisibility {
+    /// Creates a new [`ComputedVisibility`], set as not visible
+    pub const fn not_visible() -> Self {
+        Self {
+            is_visible_in_hierarchy: false,
+            is_visible_in_view: false,
+        }
+    }
+
     /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
     /// are true. This is the canonical method to call to determine if an entity should be drawn.
     /// This value is updated in [`CoreStage::PostUpdate`] during the [`VisibilitySystems::CheckVisibility`] system label. Reading it from the

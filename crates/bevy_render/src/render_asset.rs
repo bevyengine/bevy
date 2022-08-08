@@ -22,9 +22,9 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 /// After that in the [`RenderStage::Prepare`](crate::RenderStage::Prepare) step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset::PreparedAsset`].
 pub trait RenderAsset: Asset {
-    /// The representation of the the asset in the "render world".
+    /// The representation of the asset in the "render world".
     type ExtractedAsset: Send + Sync + 'static;
-    /// The GPU-representation of the the asset.
+    /// The GPU-representation of the asset.
     type PreparedAsset: Send + Sync + 'static;
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].

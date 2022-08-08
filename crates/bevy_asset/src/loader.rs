@@ -2,6 +2,7 @@ use crate::{
     path::AssetPath, AssetIo, AssetIoError, AssetMeta, AssetServer, Assets, Handle, HandleId,
     RefChangeChannel,
 };
+use anyhow::Error;
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
@@ -20,7 +21,7 @@ pub trait AssetLoader: Send + Sync + 'static {
         &'a self,
         bytes: &'a [u8],
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<(), anyhow::Error>>;
+    ) -> BoxedFuture<'a, Result<(), Error>>;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
     fn extensions(&self) -> &[&str];
