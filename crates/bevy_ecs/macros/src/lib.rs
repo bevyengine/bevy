@@ -443,6 +443,7 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
 ///
 /// Alternatively, you may force a struct or variant to behave as if
 /// it were fieldless with `#[system_label(ignore_fields)]`.
+/// This is especially useful for [`PhantomData`](core::marker::PhantomData) fields.
 #[proc_macro_derive(SystemLabel, attributes(system_label))]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -466,6 +467,7 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
 ///
 /// Alternatively, you may force a struct or variant to behave as if
 /// it were fieldless with `#[stage_label(ignore_fields)]`.
+/// This is especially useful for [`PhantomData`](core::marker::PhantomData) fields.
 #[proc_macro_derive(StageLabel, attributes(stage_label))]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -487,6 +489,7 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
 ///
 /// Alternatively, you may force a struct or variant to behave as if
 /// it were fieldless with `#[ambiguity_set_label(ignore_fields)]`.
+/// This is especially useful for [`PhantomData`](core::marker::PhantomData) fields.
 #[proc_macro_derive(AmbiguitySetLabel, attributes(ambiguity_set_label))]
 pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -512,6 +515,7 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
 ///
 /// Alternatively, you may force a struct or variant to behave as if
 /// it were fieldless with `#[run_criteria_label(ignore_fields)]`.
+/// This is especially useful for [`PhantomData`](core::marker::PhantomData) fields.
 #[proc_macro_derive(RunCriteriaLabel, attributes(run_criteria_label))]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
