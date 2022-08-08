@@ -2,24 +2,23 @@
 //!
 //! # Overview
 //!
-//! This module defines two systems:
-//! 1. [`listen_nav_requests`]: the system gathering [`NavRequest`] and running
-//!    the [`resolve`] algorithm on them, updating the [`Focusable`] states and
-//!    sending [`NavEvent`] as result.
-//! 2. [`insert_tree_menus`]: system responsible to convert [`MenuBuilder`] defined
-//!    in [`crate::menu`] into [`TreeMenu`], which is the component used by
-//!    the resolution algorithm.
+//! This module defines the [`listen_nav_requests`] system.
+//! Gathering [`NavRequest`] and **running** the **[`resolve`]** algorithm on them,
+//! **updating** the [`Focusable`] **states** and **sending** [`NavEvent`] as result.
+//!
+//! [`set_first_focused`] system sets an entity to focus if it finds that
+//! none exist currently.
 //!
 //! The module also defines the [`Focusable`] component (also used in the
 //! resolution algorithm) and its fields.
 //!
 //! The bulk of the resolution algorithm is implemented in [`resolve`],
 //! delegating some abstract tasks to helper functions, of which:
-//! * [`parent_menu`]
+//! * [`NavQueries::parent_menu`]
 //! * [`ChildQueries::focusables_of`]
 //! * [`child_menu`]
 //! * [`focus_deep`]
-//! * [`root_path`]
+//! * [`NavQueries::root_path`]
 //! * [`MenuNavigationStrategy::resolve_2d`]
 //! * [`resolve_scope`]
 //!
@@ -30,7 +29,7 @@
 //! * [`ChildQueries`]: queries used to find the focusable children of a given entity.
 //! * [`NavQueries`]: All **immutable** queries used by the resolution algorithm.
 //! * [`MutQueries`]: Queries with mutable access to [`Focusable`] and [`TreeMenu`]
-//!   for updating them in [`listen_nav_requests`].
+//!   for updating them in [`MutQueries::update_focus`].
 //!
 //! [`listen_nav_requests`] uses a `ParamSet` to access the focusables immutably for
 //! navigation resolution and mutably for updating them with the new navigation state.
@@ -45,14 +44,14 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
 use bevy_reflect::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use non_empty_vec::NonEmpty;
 
 use crate::{
     commands::set_focus_state,
     events::{self, NavEvent, NavRequest},
-    menu::{MenuBuilder, MenuSetting},
+    focusable::{FocusAction, FocusState, Focusable, Focused},
+    menu::MenuSetting,
 };
 
 /// System parameter used to resolve movement and cycling focus updates.
@@ -92,37 +91,106 @@ pub(crate) struct ChildQueries<'w, 's> {
 pub(crate) struct NavQueries<'w, 's> {
     pub(crate) children: ChildQueries<'w, 's>,
     parents: Query<'w, 's, &'static Parent>,
-    focusables: Query<'w, 's, (Entity, &'static Focusable), Without<TreeMenu>>,
+    pub(crate) focusables: Query<'w, 's, (Entity, &'static Focusable), Without<TreeMenu>>,
     menus: Query<'w, 's, (Entity, &'static TreeMenu, &'static MenuSetting), Without<Focusable>>,
 }
 impl<'w, 's> NavQueries<'w, 's> {
+    fn active_menu(
+        &self,
+        mut entity: Entity,
+        mut active_child: Entity,
+    ) -> Option<(Entity, Entity)> {
+        let mut repeated = false;
+        loop {
+            let mut go_down_one_menu = || {
+                let (_, focus) = self.focusables.get(active_child).ok()?;
+                if focus.state() != FocusState::Active {
+                    return None;
+                }
+                let (new_menu_entity, child_menu, _) = child_menu(active_child, self)?;
+                repeated = true;
+                entity = new_menu_entity;
+                active_child = child_menu.active_child;
+                Some(())
+            };
+            match go_down_one_menu() {
+                Some(()) => {}
+                None if !repeated => return None,
+                None => return Some((entity, active_child)),
+            }
+        }
+    }
+
+    /// The [`TreeMenu`] containing `focusable`, if any.
+    pub(crate) fn parent_menu(&self, focusable: Entity) -> Option<(Entity, TreeMenu, MenuSetting)> {
+        let parent = self.parents.get(focusable).ok()?.get();
+        match self.menus.get(parent) {
+            Ok((_, tree, setting)) => Some((parent, tree.clone(), *setting)),
+            Err(_) => self.parent_menu(parent),
+        }
+    }
+
+    // TODO: worst case this iterates 3 times through list of focusables and once menus.
+    // Could be improved to a single pass.
     fn pick_first_focused(&self) -> Option<Entity> {
-        use FocusState::{Focused, Prioritized};
-        let first_menu = |menu: &TreeMenu| menu.focus_parent.is_none().then(|| menu.active_child);
-        let any_prioritized = |(e, focus): (_, &Focusable)| (focus.state == Prioritized).then(|| e);
-        let any_prioritized = || self.focusables.iter().find_map(any_prioritized);
-        let root_prioritized = || self.menus.iter().find_map(|(_, menu, _)| first_menu(menu));
-        let any_in_root = || {
-            let root_menu = self
-                .menus
+        use FocusState::{Focused, Inert};
+        let iter_focused = || self.focusables.iter();
+        let root_menu = || {
+            self.menus
                 .iter()
-                .find_map(|(entity, menu, _)| menu.focus_parent.is_none().then(|| entity))?;
-            Some(*self.children.focusables_of(root_menu).first())
+                .find(|(_, menu, _)| menu.focus_parent.is_none())
         };
-        let fallback = || self.focusables.iter().next().map(|(entity, _)| entity);
-        self.focusables
-            .iter()
-            .find_map(|(e, focus)| (focus.state == Focused).then(|| e))
-            .or_else(root_prioritized)
+        let any_in_menu = |entity, active_child| {
+            match self.focusables.get(active_child) {
+                Ok((entity, _)) => Some(entity),
+                // TODO: non-Inert non-active_child
+                Err(_) => self.children.focusables_of(entity).first().copied(),
+            }
+        };
+        let any_in_active = || {
+            let (root_menu_entity, menu, _) = root_menu()?;
+            let (active_menu_entity, active) =
+                self.active_menu(root_menu_entity, menu.active_child)?;
+            any_in_menu(active_menu_entity, active)
+        };
+        let any_in_root = || {
+            let (root_menu_entity, menu, _) = root_menu()?;
+            any_in_menu(root_menu_entity, menu.active_child)
+        };
+        let any_prioritized =
+            || iter_focused().find_map(|(e, focus)| (focus.state != Inert).then(|| e));
+        let fallback = || iter_focused().next().map(|(fo, _)| fo);
+        let focused = iter_focused().find_map(|(fo, focus)| (focus.state == Focused).then(|| fo));
+
+        focused
+            .or_else(any_in_active)
             .or_else(any_prioritized)
             .or_else(any_in_root)
             .or_else(fallback)
+    }
+
+    fn root_path(&self, mut from: Entity) -> NonEmpty<Entity> {
+        let mut ret = NonEmpty::new(from);
+        loop {
+            from = match self.parent_menu(from) {
+                // purely personal preference over deeply nested pattern match
+                Some((_, menu, _)) if menu.focus_parent.is_some() => menu.focus_parent.unwrap(),
+                _ => return ret,
+            };
+            assert!(
+                !ret.contains(&from),
+                "Navigation graph cycle detected! This panic has prevented a stack \
+                overflow, please check usages of `MenuBuilder::Entity/NamedParent`"
+            );
+            ret.push(from);
+        }
     }
 }
 
 /// Queries [`Focusable`] and [`TreeMenu`] in a mutable way.
 #[derive(SystemParam)]
 pub(crate) struct MutQueries<'w, 's> {
+    commands: Commands<'w, 's>,
     parents: Query<'w, 's, &'static Parent>,
     focusables: Query<'w, 's, &'static mut Focusable, Without<TreeMenu>>,
     menus: Query<'w, 's, &'static mut TreeMenu, Without<Focusable>>,
@@ -130,7 +198,7 @@ pub(crate) struct MutQueries<'w, 's> {
 impl<'w, 's> MutQueries<'w, 's> {
     /// Set the [`active_child`](TreeMenu::active_child) field of the enclosing
     /// [`TreeMenu`] and disables the previous one.
-    fn set_active_child(&mut self, cmds: &mut Commands, child: Entity) {
+    fn set_active_child(&mut self, child: Entity) {
         let mut focusable = child;
         let mut nav_menu = loop {
             // Find the enclosing parent menu.
@@ -146,51 +214,41 @@ impl<'w, 's> MutQueries<'w, 's> {
         };
         let entity = nav_menu.active_child;
         nav_menu.active_child = child;
-        self.set_entity_focus(cmds, entity, FocusState::Inert);
+        self.set_entity_focus(entity, FocusState::Inert);
     }
 
-    fn set_entity_focus(&mut self, cmds: &mut Commands, entity: Entity, state: FocusState) {
+    fn set_entity_focus(&mut self, entity: Entity, state: FocusState) {
         if let Ok(mut focusable) = self.focusables.get_mut(entity) {
             focusable.state = state;
-            cmds.add(set_focus_state(entity, state));
+            self.commands.add(set_focus_state(entity, state));
         }
     }
-}
 
-/// State of a [`Focusable`].
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
-pub enum FocusState {
-    /// An entity that was previously [`FocusState::Active`]
-    /// from a branch of the menu tree that is currently not _focused_.
-    /// When focus comes back to the [`MenuSetting`] containing this [`Focusable`],
-    /// the `Prioritized` element will be the [`FocusState::Focused`] entity.
-    Prioritized,
+    /// Change focus state of relevant entities.
+    fn update_focus(&mut self, from: &[Entity], to: &NonEmpty<Entity>) -> Entity {
+        use FocusState as Fs;
 
-    /// The currently highlighted/used entity,
-    /// there is only a signle _focused_ entity.
-    ///
-    /// All navigation requests start from it.
-    ///
-    /// To set an arbitrary [`Focusable`] to _focused_, you should send a
-    /// [`NavRequest::FocusOn`] request.
-    Focused,
-
-    /// This [`Focusable`] is on the path in the menu tree
-    /// to the current [`FocusState::Focused`] entity.
-    ///
-    /// [`FocusState::Active`] focusables are the [`Focusable`]s
-    /// from previous menus that were activated
-    /// in order to reach the [`MenuSetting`] containing
-    /// the currently _focused_ element.
-    ///
-    /// It's the "breadcrumb" of buttons to activate to reach
-    /// the currently focused element from the root menu.
-    Active,
-
-    /// None of the above:
-    /// This [`Focusable`] is neither `Prioritized`, `Focused` or `Active`.
-    Inert,
+        if to.as_slice() == from {
+            return *to.first();
+        }
+        let (disable, put_to_sleep) = from
+            .split_last()
+            .map_or((None, from), |(tail, heads)| (Some(tail), heads));
+        if let Some(disable) = disable {
+            self.set_entity_focus(*disable, Fs::Inert);
+        }
+        for &entity in put_to_sleep {
+            self.set_entity_focus(entity, Fs::Prioritized);
+        }
+        let (&focus, activate) = to.split_first();
+        self.set_active_child(focus);
+        self.set_entity_focus(focus, Fs::Focused);
+        for &entity in activate {
+            self.set_active_child(entity);
+            self.set_entity_focus(entity, Fs::Active);
+        }
+        focus
+    }
 }
 
 /// The navigation system's lock.
@@ -229,135 +287,20 @@ pub(crate) struct TreeMenu {
     /// when receiving [`NavRequest::Action`].
     pub(crate) focus_parent: Option<Entity>,
     /// The currently prioritized or active focusable in this menu.
+    ///
+    /// May contain stale data if `active_child` was recently despawned.
     pub(crate) active_child: Entity,
 }
-
-/// The actions triggered by a [`Focusable`].
-#[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub enum FocusAction {
-    /// Acts like a standard navigation node.
-    ///
-    /// Goes into relevant menu if any [`MenuSetting`] is
-    /// [_reachable from_](MenuBuilder::from_named) this [`Focusable`].
-    #[default]
-    Normal,
-
-    /// If we receive [`NavRequest::Action`]
-    /// while this [`Focusable`] is focused,
-    /// it will act as a [`NavRequest::Cancel`]
-    /// (leaving submenu to enter the parent one).
-    Cancel,
-
-    /// If we receive [`NavRequest::Action`]
-    /// while this [`Focusable`] is focused,
-    /// the navigation system will freeze
-    /// until [`NavRequest::Free`] is received,
-    /// sending a [`NavEvent::Unlocked`].
-    ///
-    /// This is useful to implement widgets with complex controls
-    /// you don't want to accidentally unfocus,
-    /// or suspending the navigation system while in-game.
-    Lock,
-}
-
-/// An [`Entity`] that can be navigated to, using the cursor navigation system.
-///
-/// It is in one of multiple [`FocusState`],
-/// you can check its state with the [`Focusable::state`] method.
-///
-/// A `Focusable` can execute a variety of [`FocusAction`]
-/// when receiving [`NavRequest::Action`],
-/// the default one is [`FocusAction::Normal`].
-#[derive(Component, Clone, Debug, Reflect)]
-pub struct Focusable {
-    pub(crate) state: FocusState,
-    action: FocusAction,
-}
-impl Default for Focusable {
-    fn default() -> Self {
-        Focusable {
-            state: FocusState::Inert,
-            action: FocusAction::Normal,
-        }
-    }
-}
-impl Focusable {
-    /// Default Focusable.
-    pub fn new() -> Self {
-        Self::default()
-    }
-    /// The [`FocusState`] of this `Focusable`.
-    pub fn state(&self) -> FocusState {
-        self.state
-    }
-    /// The [`FocusAction`] of this `Focusable`.
-    pub fn action(&self) -> FocusAction {
-        self.action
-    }
-    /// Create a "cancel" focusable, see [`FocusAction::Cancel`].
-    pub fn cancel() -> Self {
-        Focusable {
-            state: FocusState::Inert,
-            action: FocusAction::Cancel,
-        }
-    }
-    /// Create a "lock" focusable, see [`FocusAction::Lock`].
-    pub fn lock() -> Self {
-        Focusable {
-            state: FocusState::Inert,
-            action: FocusAction::Lock,
-        }
-    }
-    /// Create a focusable that will get highlighted in priority when none are set yet.
-    ///
-    /// **WARNING**: Only use this when creating the UI.
-    /// Any of the following state is unspecified
-    /// and will likely result in broken behavior:
-    /// * Having multiple prioritized `Focusable`s in the same menu.
-    /// * Updating an already existing `Focusable` with this.
-    pub fn prioritized(self) -> Self {
-        Self {
-            state: FocusState::Prioritized,
-            ..self
-        }
-    }
-}
-
-/// The currently _focused_ [`Focusable`].
-///
-/// You cannot edit it or create new `Focused` component.
-/// To set an arbitrary [`Focusable`] to _focused_,
-/// you should send [`NavRequest::FocusOn`].
-///
-/// This [`Component`] is useful
-/// if you needto query for the _currently focused_ element,
-/// using `Query<Entity, With<Focused>>` for example.
-///
-/// If a [`Focusable`] is focused,
-/// its [`Focusable::state()`] will be [`FocusState::Focused`],
-///
-/// # Notes
-///
-/// The `Focused` marker component is only updated
-/// at the end of the `CoreStage::Update` stage.
-/// This means it might lead to a single frame of latency
-/// compared to using [`Focusable::state()`].
-#[derive(Component)]
-#[component(storage = "SparseSet")]
-#[non_exhaustive]
-pub struct Focused;
 
 /// Returns the next or previous entity based on `direction`.
 fn resolve_scope(
     focused: Entity,
     direction: events::ScopeDirection,
     cycles: bool,
-    siblings: &NonEmpty<Entity>,
+    siblings: &[Entity],
 ) -> Option<&Entity> {
     let focused_index = siblings.iter().position(|e| *e == focused)?;
-    let new_index = resolve_index(focused_index, cycles, direction, siblings.len().get() - 1);
+    let new_index = resolve_index(focused_index, cycles, direction, siblings.len() - 1);
     new_index.and_then(|i| siblings.get(i))
 }
 
@@ -395,51 +338,45 @@ fn resolve<STGY: MenuNavigationStrategy>(
     }
     match request {
         Move(direction) => {
-            let (parent, cycles) = match parent_menu(focused, queries) {
+            let (parent, cycles) = match queries.parent_menu(focused) {
                 Some(val) if !val.2.is_2d() => return NavEvent::NoChanges { from, request },
                 Some(val) => (Some(val.0), !val.2.bound()),
                 None => (None, true),
             };
             let siblings = match parent {
                 Some(parent) => queries.children.focusables_of(parent),
-                None => {
-                    let focusables: Vec<_> = queries.focusables.iter().map(|tpl| tpl.0).collect();
-                    NonEmpty::try_from(focusables).expect(
-                        "There must be at least one `Focusable` when sending a `NavRequest`!",
-                    )
-                }
+                None => queries.focusables.iter().map(|tpl| tpl.0).collect(),
             };
             let to = strategy.resolve_2d(focused, direction, cycles, &siblings);
             NavEvent::focus_changed(*or_none!(to), from)
         }
         Cancel => {
-            let to = or_none!(parent_menu(focused, queries));
+            let to = or_none!(queries.parent_menu(focused));
             let to = or_none!(to.1.focus_parent);
             from.push(to);
             NavEvent::focus_changed(to, from)
         }
         Action => {
-            if let Ok((_, focusable)) = queries.focusables.get(focused) {
-                match focusable.action {
-                    FocusAction::Cancel => {
-                        let mut from = from.to_vec();
-                        from.truncate(from.len() - 1);
-                        return resolve(focused, NavRequest::Cancel, queries, lock, from, strategy);
-                    }
-                    FocusAction::Lock => {
-                        lock.entity = Some(focused);
-                        return NavEvent::Locked(focused);
-                    }
-                    FocusAction::Normal => {}
+            match queries.focusables.get(focused).map(|e| e.1.action) {
+                Ok(FocusAction::Cancel) => {
+                    let mut from = from.to_vec();
+                    from.truncate(from.len() - 1);
+                    return resolve(focused, NavRequest::Cancel, queries, lock, from, strategy);
                 }
+                Ok(FocusAction::Lock) => {
+                    lock.entity = Some(focused);
+                    return NavEvent::Locked(focused);
+                }
+                Err(_) | Ok(FocusAction::Normal) => {}
             }
             let child_menu = child_menu(focused, queries);
             let (_, menu, _) = or_none!(child_menu);
             let to = (menu.active_child, from.clone().into()).into();
             NavEvent::FocusChanged { to, from }
         }
+        // "Tab move" nested movement
         ScopeMove(scope_dir) => {
-            let (parent, menu, setting) = or_none!(parent_menu(focused, queries));
+            let (parent, menu, setting) = or_none!(queries.parent_menu(focused));
             let siblings = queries.children.focusables_of(parent);
             if !setting.is_scope() {
                 let focused = or_none!(menu.focus_parent);
@@ -456,8 +393,10 @@ fn resolve<STGY: MenuNavigationStrategy>(
             }
         }
         FocusOn(new_to_focus) => {
-            let mut from = root_path(focused, queries);
-            let mut to = root_path(new_to_focus, queries);
+            // assumption here is that there is a common ancestor
+            // though nothing really breaks if there isn't
+            let mut from = queries.root_path(focused);
+            let mut to = queries.root_path(new_to_focus);
             trim_common_tail(&mut from, &mut to);
             if from == to {
                 NavEvent::NoChanges { from, request }
@@ -476,49 +415,20 @@ fn resolve<STGY: MenuNavigationStrategy>(
     }
 }
 
-/// Replaces [`MenuBuilder`]s with proper [`TreeMenu`]s.
-pub(crate) fn insert_tree_menus(
-    mut commands: Commands,
-    builders: Query<(Entity, &MenuBuilder), With<MenuSetting>>,
-    queries: NavQueries,
-) {
-    use FocusState::{Active, Focused, Prioritized};
-    let mut inserts = Vec::new();
-    for (entity, builder) in &builders {
-        let children = queries.children.focusables_of(entity);
-        let child = children
-            .iter()
-            .find_map(|e| {
-                let (_, focusable) = queries.focusables.get(*e).ok()?;
-                matches!(focusable.state, Prioritized | Active | Focused).then_some(e)
-            })
-            .unwrap_or_else(|| children.first());
-        if let Ok(focus_parent) = builder.try_into() {
-            let menu = TreeMenu {
-                focus_parent,
-                active_child: *child,
-            };
-            inserts.push((entity, (menu,)));
-        } else {
-            warn!("Encountered a non-translated named menu builder");
-        }
-        commands.entity(entity).remove::<MenuBuilder>();
-    }
-    commands.insert_or_spawn_batch(inserts);
-}
-
 /// System to set the first [`Focusable`] to [`FocusState::Focused`]
 /// when no navigation has been done yet.
+///
+/// This also sets `Active` state and `active_child` of menus leading
+/// to the current focusable.
 pub(crate) fn set_first_focused(
     has_focused: Query<(), With<Focused>>,
     mut queries: ParamSet<(NavQueries, MutQueries)>,
-    mut cmds: Commands,
     mut events: EventWriter<NavEvent>,
 ) {
-    use FocusState::Focused;
     if has_focused.is_empty() {
         if let Some(to_focus) = queries.p0().pick_first_focused() {
-            queries.p1().set_entity_focus(&mut cmds, to_focus, Focused);
+            let breadcrumb = queries.p0().root_path(to_focus);
+            queries.p1().update_focus(&[], &breadcrumb);
             events.send(NavEvent::InitiallyFocused(to_focus));
         }
     }
@@ -527,7 +437,6 @@ pub(crate) fn set_first_focused(
 /// Listen to [`NavRequest`] and update the state of [`Focusable`] entities
 /// when relevant.
 pub(crate) fn listen_nav_requests<STGY: SystemParam>(
-    mut commands: Commands,
     mut queries: ParamSet<(NavQueries, MutQueries)>,
     mquery: StaticSystemParam<STGY>,
     mut lock: ResMut<NavLock>,
@@ -536,39 +445,29 @@ pub(crate) fn listen_nav_requests<STGY: SystemParam>(
 ) where
     for<'w, 's> SystemParamItem<'w, 's, STGY>: MenuNavigationStrategy,
 {
-    use FocusState as Fs;
-
     let no_focused = "Tried to execute a NavRequest when no focusables exist, NavRequest does nothing if there isn't any navigation to do.";
+
+    // Cache focus result from previous iteration to avoid re-running costly `pick_first_focused`
+    let mut computed_focused = None;
     for request in requests.iter() {
         if lock.is_locked() && *request != NavRequest::Free {
             continue;
         }
-        let focused = if let Some(e) = queries.p0().pick_first_focused() {
-            e
-        } else {
-            warn!(no_focused);
-            return;
+        // We use `pick_first_focused` instead of `Focused` component for first
+        // iteration because `set_first_focused` just before `listen_nav_request`
+        // without a command flush in-between.
+        let picked = || queries.p0().pick_first_focused();
+        let focused = match computed_focused.or_else(picked) {
+            Some(focused) => focused,
+            None => {
+                warn!(no_focused);
+                return;
+            }
         };
         let from = Vec::new();
         let event = resolve(focused, *request, &queries.p0(), &mut lock, from, &*mquery);
-        // Change focus state of relevant entities
         if let NavEvent::FocusChanged { to, from } = &event {
-            let mut mut_queries = queries.p1();
-            if to == from {
-                continue;
-            }
-            let (&disable, put_to_sleep) = from.split_last();
-            mut_queries.set_entity_focus(&mut commands, disable, Fs::Inert);
-            for &entity in put_to_sleep {
-                mut_queries.set_entity_focus(&mut commands, entity, Fs::Prioritized);
-            }
-            let (&focus, activate) = to.split_first();
-            mut_queries.set_active_child(&mut commands, focus);
-            mut_queries.set_entity_focus(&mut commands, focus, Fs::Focused);
-            for &entity in activate {
-                mut_queries.set_active_child(&mut commands, entity);
-                mut_queries.set_entity_focus(&mut commands, entity, Fs::Active);
-            }
+            computed_focused = Some(queries.p1().update_focus(from, to));
         };
         events.send(event);
     }
@@ -585,29 +484,11 @@ fn child_menu<'a>(
         .find(|e| e.1.focus_parent == Some(focusable))
 }
 
-/// The [`TreeMenu`] containing `focusable`, if any.
-pub(crate) fn parent_menu(
-    focusable: Entity,
-    queries: &NavQueries,
-) -> Option<(Entity, TreeMenu, MenuSetting)> {
-    let parent = queries.parents.get(focusable).ok()?.get();
-    match queries.menus.get(parent) {
-        Ok((_, tree, setting)) => Some((parent, tree.clone(), *setting)),
-        Err(_) => parent_menu(parent, queries),
-    }
-}
-
 impl<'w, 's> ChildQueries<'w, 's> {
     /// All sibling [`Focusable`]s within a single [`TreeMenu`].
-    pub(crate) fn focusables_of(&self, menu: Entity) -> NonEmpty<Entity> {
-        let ret = self.focusables_of_helper(menu);
-        NonEmpty::try_from(ret)
-            .expect("A MenuSetting MUST AT LEAST HAVE ONE Focusable child, found one without")
-    }
-
-    fn focusables_of_helper(&self, menu: Entity) -> Vec<Entity> {
-        match self.children.get(menu).ok() {
-            Some(direct_children) => {
+    pub(crate) fn focusables_of(&self, menu: Entity) -> Vec<Entity> {
+        match self.children.get(menu) {
+            Ok(direct_children) => {
                 let focusables = direct_children
                     .iter()
                     .filter(|e| self.is_focusable.get(**e).is_ok())
@@ -616,10 +497,10 @@ impl<'w, 's> ChildQueries<'w, 's> {
                     .iter()
                     .filter(|e| self.is_focusable.get(**e).is_err())
                     .filter(|e| self.is_menu.get(**e).is_err())
-                    .flat_map(|e| self.focusables_of_helper(*e));
+                    .flat_map(|e| self.focusables_of(*e));
                 focusables.chain(transitive_focusables).collect()
             }
-            None => Vec::new(),
+            Err(_) => Vec::new(),
         }
     }
 }
@@ -646,26 +527,9 @@ fn trim_common_tail<T: PartialEq>(v1: &mut NonEmpty<T>, v2: &mut NonEmpty<T>) {
     }
 }
 
-fn root_path(mut from: Entity, queries: &NavQueries) -> NonEmpty<Entity> {
-    let mut ret = NonEmpty::new(from);
-    loop {
-        from = match parent_menu(from, queries) {
-            // purely personal preference over deeply nested pattern match
-            Some((_, menu, _)) if menu.focus_parent.is_some() => menu.focus_parent.unwrap(),
-            _ => return ret,
-        };
-        assert!(
-            !ret.contains(&from),
-            "Navigation graph cycle detected! This panic has prevented a stack \
-            overflow, please check usages of `MenuBuilder::Entity/NamedParent`"
-        );
-        ret.push(from);
-    }
-}
-
 /// Navigate downward the menu hierarchy, traversing all prioritized children.
 fn focus_deep<'a>(mut menu: &'a TreeMenu, queries: &'a NavQueries) -> Vec<Entity> {
-    let mut ret = Vec::with_capacity(4);
+    let mut ret = Vec::with_capacity(8);
     loop {
         let last = menu.active_child;
         ret.insert(0, last);

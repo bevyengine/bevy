@@ -23,7 +23,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 
-use crate::{menu::MenuBuilder, resolve::Focusable};
+use crate::{focusable::Focusable, menu::MenuBuilder};
 
 pub(crate) fn resolve_named_menus(
     mut commands: Commands,

@@ -1,6 +1,6 @@
 use bevy_ecs::{entity::Entity, prelude::World, system::Command};
 
-use crate::resolve::{FocusState, Focused};
+use crate::focusable::{FocusState, Focused};
 
 pub(crate) fn set_focus_state(entity: Entity, new_state: FocusState) -> UpdateFocusable {
     UpdateFocusable { entity, new_state }

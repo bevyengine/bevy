@@ -1,5 +1,6 @@
 mod commands;
 pub mod events;
+mod focusable;
 mod menu;
 mod named;
 mod resolve;
@@ -17,10 +18,9 @@ use resolve::TreeMenu;
 
 pub mod prelude {
     pub use crate::events::{NavEvent, NavEventReaderExt, NavRequest};
+    pub use crate::focusable::{FocusAction, FocusState, Focusable, Focused};
     pub use crate::menu::{MenuBuilder, MenuSetting};
-    pub use crate::resolve::{
-        FocusAction, FocusState, Focusable, Focused, MenuNavigationStrategy, NavLock,
-    };
+    pub use crate::resolve::{MenuNavigationStrategy, NavLock};
 }
 
 /// The label of the system in which the [`NavRequest`] events are handled, the
@@ -100,9 +100,9 @@ where
 {
     fn build(&self, app: &mut App) {
         // Reflection
-        app.register_type::<resolve::Focusable>()
-            .register_type::<resolve::FocusState>()
-            .register_type::<resolve::FocusAction>()
+        app.register_type::<focusable::Focusable>()
+            .register_type::<focusable::FocusState>()
+            .register_type::<focusable::FocusAction>()
             .register_type::<menu::MenuSetting>()
             .register_type::<TreeMenu>();
 
@@ -117,10 +117,15 @@ where
             // The user is most likely to spawn his UI in the Update stage, so it makes
             // sense to react to changes in the PostUpdate stage.
             .add_system_to_stage(
-                CoreStage::PostUpdate,
-                named::resolve_named_menus.before(resolve::insert_tree_menus),
+                CoreStage::PreUpdate,
+                named::resolve_named_menus.before(menu::insert_tree_menus),
             )
-            .add_system_to_stage(CoreStage::PostUpdate, resolve::insert_tree_menus);
+            .add_system_to_stage(CoreStage::PreUpdate, menu::insert_tree_menus)
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                named::resolve_named_menus.before(menu::insert_tree_menus),
+            )
+            .add_startup_system_to_stage(StartupStage::PostStartup, menu::insert_tree_menus);
     }
 }
 
@@ -135,7 +140,8 @@ mod test {
     };
     use bevy_hierarchy::BuildWorldChildren;
     use prelude::{
-        Focusable, Focused, MenuBuilder, MenuNavigationStrategy, MenuSetting, NavEvent, NavRequest,
+        FocusState, Focusable, Focused, MenuBuilder, MenuNavigationStrategy, MenuSetting, NavEvent,
+        NavRequest,
     };
 
     use super::*;
@@ -292,6 +298,12 @@ mod test {
 
     /// Assert identity of a list of entities by their `Name` component
     /// (makes understanding test failures easier)
+    ///
+    /// This is a macro, so that when there is an assert failure or panic,
+    /// the line of code it points to is the calling site,
+    /// rather than the function body.
+    ///
+    /// There is nothing beside that that would prevent converting this into a function.
     macro_rules! assert_expected_focus_change {
         ($app:expr, $events:expr, $expected_from:expr, $expected_to:expr $(,)?) => {
             if let [NavEvent::FocusChanged { to, from }] = $events {
@@ -309,6 +321,7 @@ mod test {
         };
     }
 
+    // A navigation strategy that does nothing, useful for testing.
     #[derive(SystemParam)]
     struct MockNavigationStrategy<'w, 's> {
         #[system_param(ignore)]
@@ -331,6 +344,29 @@ mod test {
         app: App,
     }
     impl NavEcsMock {
+        fn currently_focused(&mut self) -> &str {
+            let mut query = self.app.world.query_filtered::<&Name, With<Focused>>();
+            &**query.iter(&self.app.world).next().unwrap()
+        }
+        fn kill_named(&mut self, to_kill: &str) -> Vec<NavEvent> {
+            let mut query = self.app.world.query::<(Entity, &Name)>();
+            let requested = query
+                .iter(&self.app.world)
+                .find_map(|(e, name)| (&**name == to_kill).then(|| e));
+            if let Some(to_kill) = requested {
+                self.app.world.despawn(to_kill);
+            }
+            self.app.update();
+            receive_events(&mut self.app.world)
+        }
+        fn name_list(&mut self, entity_list: &[Entity]) -> Vec<&str> {
+            let mut query = self.app.world.query::<&Name>();
+            entity_list
+                .iter()
+                .filter_map(|e| query.get(&self.app.world, *e).ok())
+                .map(|name| &**name)
+                .collect()
+        }
         fn new(hierarchy: SpawnHierarchy) -> Self {
             let mut app = App::new();
             app.add_plugin(NavigationPlugin::<MockNavigationStrategy>::new());
@@ -339,11 +375,6 @@ mod test {
             app.update();
 
             Self { app }
-        }
-        fn run_request(&mut self, request: NavRequest) -> Vec<NavEvent> {
-            self.app.world.send_event(request);
-            self.app.update();
-            receive_events(&mut self.app.world)
         }
         fn run_focus_on(&mut self, entity_name: &str) -> Vec<NavEvent> {
             let mut query = self.app.world.query::<(Entity, &Name)>();
@@ -355,17 +386,17 @@ mod test {
             self.app.update();
             receive_events(&mut self.app.world)
         }
-        fn currently_focused(&mut self) -> &str {
-            let mut query = self.app.world.query_filtered::<&Name, With<Focused>>();
-            &**query.iter(&self.app.world).next().unwrap()
+        fn run_request(&mut self, request: NavRequest) -> Vec<NavEvent> {
+            self.app.world.send_event(request);
+            self.app.update();
+            receive_events(&mut self.app.world)
         }
-        fn name_list(&mut self, entity_list: &[Entity]) -> Vec<&str> {
-            let mut query = self.app.world.query::<&Name>();
-            entity_list
-                .iter()
-                .filter_map(|e| query.get(&self.app.world, *e).ok())
-                .map(|name| &**name)
-                .collect()
+        fn state_of(&mut self, requested: &str) -> FocusState {
+            let mut query = self.app.world.query::<(&Focusable, &Name)>();
+            let requested = query
+                .iter(&self.app.world)
+                .find_map(|(focus, name)| (&**name == requested).then(|| focus));
+            requested.unwrap().state()
         }
     }
 
@@ -401,7 +432,14 @@ mod test {
             ]),
             focusable("Right"),
         ]);
+        use FocusState::{Active, Inert};
         assert_eq!(app.currently_focused(), "LTopForward");
+        assert_eq!(app.state_of("Left"), Active);
+        assert_eq!(app.state_of("Right"), Inert);
+        assert_eq!(app.state_of("Middle"), Inert);
+        assert_eq!(app.state_of("LTop"), Active);
+        assert_eq!(app.state_of("LCenter1"), Inert);
+        assert_eq!(app.state_of("LTopBackward"), Inert);
     }
 
     #[test]
@@ -464,43 +502,60 @@ mod test {
         );
     }
 
-    /*
     // ====
-    // What happens when Focused or Active element is killed
+    // What happens when Focused element is killed
     // ====
 
     // Select a new focusable in the same menu (or anything if no menus exist)
     #[test]
-    fn focus_kill_robust() {
-        let app = NavEcsMock::new(spawn_hierarchy![
+    fn focus_rootless_kill_robust() {
+        let mut app = NavEcsMock::new(spawn_hierarchy!(@rootless [
             prioritized("Initial"),
-            focusable("Left"),
             focusable("Right"),
-        ]);
-        todo!()
+        ]));
+        assert_eq!(app.currently_focused(), "Initial");
+        app.kill_named("Initial");
+        assert_eq!(app.currently_focused(), "Right");
+
+        app.kill_named("Right");
+        let events = app.run_request(NavRequest::Action);
+        assert_eq!(events.len(), 0, "{:#?}", events);
     }
 
     // Go up the menu tree if it was the last focusable in the menu
+    // And swap to something in the same menu if focusable killed in it.
     #[test]
-    fn last_menu_elem_kill_robust() {
-        // Also consider this in combination with parent kills
-        todo!()
-    }
-
-    // ====
-    // menus without focusables
-    // ====
-
-    // Emit a warning when empty menu detected
-    #[test]
-    fn empty_menu_robust() {
-        todo!()
+    fn menu_elem_kill_robust() {
+        let mut app = NavEcsMock::new(spawn_hierarchy![
+            focusable_to("Left" [
+                focusable("LTop"),
+                focusable("LBottom"),
+            ]),
+            focusable_to("Antony" [
+                prioritized("Caesar"),
+                focusable("Brutus"),
+            ]),
+            focusable_to("Octavian" [
+                focusable("RTop"),
+                focusable("RBottom"),
+            ]),
+        ]);
+        // NOTE: was broken because didn't properly set
+        // active_child and Active when initial focus was given to
+        // a deep element.
+        assert_eq!(app.currently_focused(), "Caesar");
+        assert_eq!(app.state_of("Antony"), FocusState::Active);
+        app.kill_named("Caesar");
+        assert_eq!(app.currently_focused(), "Brutus");
+        app.kill_named("Brutus");
+        assert_eq!(app.currently_focused(), "Antony");
     }
 
     // ====
     // removal of parent menu and focusables
     // ====
 
+    /*
     // Relink the child menu to the removed parent's parents
     #[test]
     fn parent_menu_kill_robust() {
@@ -519,26 +574,13 @@ mod test {
         todo!()
     }
 
+    */
+
     // ====
     // some reparenting potential problems
     // ====
 
     // Focused element is reparented to a new menu
-    #[test]
-    fn focused_reparenting_robust() {
-        todo!()
-    }
-
     // Active element is reparented to a new menu
-    #[test]
-    fn active_reparenting_robust() {
-        todo!()
-    }
-
-    #[test]
-    #[should_panic]
-    fn menu_loops_panic() {
-        todo!()
-    }
-    */
+    // NOTE: those are not expected to work. Currently considered a user error.
 }

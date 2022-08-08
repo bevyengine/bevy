@@ -15,7 +15,7 @@
 //! * Output `EventReader<NavEvent>`,
 //!   contains specific information about what the navigation system is doing.
 //!
-//! [`Focusable`]: crate::resolve::Focusable
+//! [`Focusable`]: crate::focusable::Focusable
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
@@ -50,7 +50,12 @@ pub enum NavRequest {
     Cancel,
     /// Move the focus to any arbitrary [`Focusable`] entity.
     ///
-    /// [`Focusable`]: crate::resolve::Focusable
+    /// Note that resolving a `FocusOn` request is expensive,
+    /// make sure you do not spam `FocusOn` messages in your input systems.
+    /// Avoid sending FocusOn messages when you know the target entity is
+    /// already focused.
+    ///
+    /// [`Focusable`]: crate::focusable::Focusable
     FocusOn(Entity),
     /// Unlocks the navigation system.
     ///
@@ -95,7 +100,7 @@ pub enum NavEvent {
     /// - Any `Focusable` in the root menu
     /// - Any `Focusable`
     ///
-    /// [`Focusable`]: crate::resolve::Focusable
+    /// [`Focusable`]: crate::focusable::Focusable
     InitiallyFocused(Entity),
 
     /// Focus changed.
@@ -129,7 +134,7 @@ pub enum NavEvent {
     /// Once the navigation plugin enters a locked state, the only way to exit
     /// it is to send a [`NavRequest::Free`].
     ///
-    /// [lock focusable]: crate::resolve::Focusable::lock
+    /// [lock focusable]: crate::focusable::Focusable::lock
     Locked(Entity),
 
     /// A [lock focusable] has been released.
@@ -137,7 +142,7 @@ pub enum NavEvent {
     /// The navigation system was in a locked state triggered by `Entity`,
     /// is now unlocked, and receiving events again.
     ///
-    /// [lock focusable]: crate::resolve::Focusable::lock
+    /// [lock focusable]: crate::focusable::Focusable::lock
     Unlocked(Entity),
 }
 impl NavEvent {
@@ -199,7 +204,7 @@ impl<'w, 's, 'a> NavEventReader<'w, 's, 'a> {
     /// A [`Focusable`] is _activated_ when a [`NavRequest::Action`] is sent
     /// while it is focused, and it doesn't lead to a new menu.
     ///
-    /// [`Focusable`]: crate::resolve::Focusable
+    /// [`Focusable`]: crate::focusable::Focusable
     pub fn activated(&mut self) -> impl Iterator<Item = Entity> + '_ {
         self.with_request(NavRequest::Action)
     }

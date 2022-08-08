@@ -3,8 +3,18 @@
 use std::borrow::Cow;
 
 use bevy_core::Name;
-use bevy_ecs::{entity::Entity, prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    entity::Entity,
+    prelude::Component,
+    query::With,
+    reflect::ReflectComponent,
+    system::{Commands, Query},
+};
+use bevy_log::warn;
 use bevy_reflect::Reflect;
+
+use crate::focusable::FocusState;
+use crate::resolve::{NavQueries, TreeMenu};
 
 /// Tell the navigation system to turn this UI node into a menu.
 ///
@@ -173,4 +183,39 @@ impl MenuSetting {
     pub(crate) fn is_scope(&self) -> bool {
         self.scope
     }
+}
+
+/// Replaces [`MenuBuilder`]s with proper [`TreeMenu`]s.
+pub(crate) fn insert_tree_menus(
+    mut commands: Commands,
+    builders: Query<(Entity, &MenuBuilder), With<MenuSetting>>,
+    queries: NavQueries,
+) {
+    use FocusState::{Active, Focused, Prioritized};
+
+    let no_focusables = "When spawning a menu, the menu must at least have \
+        one (transitive) child entity with a Focusable component";
+    let mut inserts = Vec::new();
+    for (entity, builder) in &builders {
+        let children = queries.children.focusables_of(entity);
+        let child = children
+            .iter()
+            .find_map(|e| {
+                let (_, focusable) = queries.focusables.get(*e).ok()?;
+                matches!(focusable.state, Prioritized | Active | Focused).then_some(e)
+            })
+            .or_else(|| children.first())
+            .expect(no_focusables);
+        if let Ok(focus_parent) = builder.try_into() {
+            let menu = TreeMenu {
+                focus_parent,
+                active_child: *child,
+            };
+            inserts.push((entity, (menu,)));
+        } else {
+            warn!("Encountered a non-translated named menu builder");
+        }
+        commands.entity(entity).remove::<MenuBuilder>();
+    }
+    commands.insert_or_spawn_batch(inserts);
 }

@@ -22,4 +22,3 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = [
 
 # other
 non-empty-vec = { version = "0.2.2", default-features = false }
-serde = { version = "1", features = ["derive"] }
