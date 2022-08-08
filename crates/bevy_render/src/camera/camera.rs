@@ -269,7 +269,7 @@ impl RenderTarget {
                 .get(window_id)
                 .and_then(|window| window.swap_chain_texture.as_ref()),
             RenderTarget::Image(image_handle) => {
-                images.0.get(image_handle).map(|image| &image.texture_view)
+                images.get(image_handle).map(|image| &image.texture_view)
             }
         }
     }

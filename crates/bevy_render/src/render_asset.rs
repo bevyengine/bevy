@@ -120,7 +120,7 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
 /// Stores all GPU representations ([`RenderAsset::PreparedAssets`](RenderAsset::PreparedAsset))
 /// of [`RenderAssets`](RenderAsset) as long as they exist.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderAssets<A: RenderAsset>(pub HashMap<Handle<A>, A::PreparedAsset>);
+pub struct RenderAssets<A: RenderAsset>(HashMap<Handle<A>, A::PreparedAsset>);
 
 impl<A: RenderAsset> Default for RenderAssets<A> {
     fn default() -> Self {
