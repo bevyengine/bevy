@@ -1782,38 +1782,35 @@ mod tests {
 
     #[test]
     fn insert_resource_by_id_drop_old() {
-        let mut world = World::new();
-
         let drop_test_helper = DropTestHelper::new();
-        world.insert_resource(drop_test_helper.make_component(false, 0));
-        let component_id = world
-            .components()
-            .get_resource_id(std::any::TypeId::of::<MayPanicInDrop>())
-            .unwrap();
+        let res = std::panic::catch_unwind(|| {
+            let mut world = World::new();
 
-        OwningPtr::make(drop_test_helper.make_component(true, 1), |ptr| {
-            // SAFETY: value is valid for the component layout
-            unsafe {
-                world.insert_resource_by_id(component_id, ptr);
-            }
-        });
+            world.insert_resource(drop_test_helper.make_component(false, 0));
+            let component_id = world
+                .components()
+                .get_resource_id(std::any::TypeId::of::<MayPanicInDrop>())
+                .unwrap();
 
-        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            OwningPtr::make(drop_test_helper.make_component(true, 1), |ptr| {
+                // SAFETY: value is valid for the component layout
+                unsafe {
+                    world.insert_resource_by_id(component_id, ptr);
+                }
+            });
+
             OwningPtr::make(drop_test_helper.make_component(false, 2), |ptr| {
                 // SAFETY: value is valid for the component layout
                 unsafe {
                     world.insert_resource_by_id(component_id, ptr);
                 }
             });
-        }));
-
-        // 2 could not be inserted because dropping 1 panicked
-        assert!(!world.contains_resource::<MayPanicInDrop>());
+        });
 
         let drop_log = drop_test_helper.finish(res);
 
         assert_eq!(
-            &*drop_log,
+            drop_log,
             [
                 DropLogItem::Create(0),
                 DropLogItem::Create(1),
