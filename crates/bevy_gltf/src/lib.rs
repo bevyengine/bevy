@@ -14,6 +14,9 @@ use bevy_render::mesh::Mesh;
 use bevy_scene::Scene;
 
 /// Adds support for loading glTF files.
+///
+/// For more information on use of this plugin and its limitations,
+/// see [this guide](https://bevy-cheatbook.github.io/3d/gltf.html).
 #[derive(Default)]
 pub struct GltfPlugin;
 
