@@ -1782,42 +1782,47 @@ mod tests {
 
     #[test]
     fn insert_resource_by_id_drop_old() {
-        static DROP_COUNT: AtomicU32 = AtomicU32::new(0);
-
         let mut world = World::new();
 
-        // SAFETY: the drop function is valid for the layout and the data will be safe to access from any thread
-        let descriptor = unsafe {
-            ComponentDescriptor::new_with_layout(
-                "Custom Test Component".to_string(),
-                StorageType::Table,
-                std::alloc::Layout::new::<[u8; 8]>(),
-                Some(|ptr| {
-                    let data = ptr.read::<[u8; 8]>();
-                    assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
-                    DROP_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                }),
-            )
-        };
+        let drop_test_helper = DropTestHelper::new();
+        world.insert_resource(drop_test_helper.make_component(false, 0));
+        let component_id = world
+            .components()
+            .get_resource_id(std::any::TypeId::of::<MayPanicInDrop>())
+            .unwrap();
 
-        let component_id = world.init_component_with_descriptor(descriptor);
-
-        let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
-        OwningPtr::make(value, |ptr| {
+        OwningPtr::make(drop_test_helper.make_component(true, 1), |ptr| {
             // SAFETY: value is valid for the component layout
             unsafe {
                 world.insert_resource_by_id(component_id, ptr);
             }
         });
 
-        OwningPtr::make(value, |ptr| {
-            // SAFETY: value is valid for the component layout
-            unsafe {
-                world.insert_resource_by_id(component_id, ptr);
-            }
-        });
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            OwningPtr::make(drop_test_helper.make_component(false, 2), |ptr| {
+                // SAFETY: value is valid for the component layout
+                unsafe {
+                    world.insert_resource_by_id(component_id, ptr);
+                }
+            });
+        }));
 
-        assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
+        // 2 could not be inserted because dropping 1 panicked
+        assert!(!world.contains_resource::<MayPanicInDrop>());
+
+        let drop_log = drop_test_helper.finish(res);
+
+        assert_eq!(
+            &*drop_log,
+            [
+                DropLogItem::Create(0),
+                DropLogItem::Create(1),
+                DropLogItem::Drop(0), // inserting 1 drops 0
+                DropLogItem::Create(2),
+                DropLogItem::Drop(1), // inserting 2 drops 1
+                DropLogItem::Drop(2), // 2 could not be inserted because dropping 1 panicked, so it is dropped as well
+            ]
+        );
     }
 
     #[test]
