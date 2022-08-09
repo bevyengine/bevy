@@ -38,6 +38,12 @@ pub enum FocusState {
     /// [`MenuSetting`]: crate::menu::MenuSetting
     Active,
 
+    /// Prevents all interactions with this [`Focusable`].
+    ///
+    /// This is equivalent to removing the `Focusable` component
+    /// from the entity, but without the latency.
+    Blocked,
+
     /// None of the above:
     /// This [`Focusable`] is neither `Prioritized`, `Focused` or `Active`.
     Inert,
@@ -92,8 +98,13 @@ pub enum FocusAction {
 /// when receiving [`NavRequest::Action`],
 /// the default one is [`FocusAction::Normal`].
 ///
+/// **Note**: If you are using [menu navigation],
+/// you should avoid updating manually the state of [`Focusable`]s.
+/// You should instead use [`NavRequest`] to manipulate and change focus.
+///
 /// [`NavRequest::Action`]: crate::events::NavRequest::Action
 /// [`Entity`]: bevy_ecs::prelude::Entity
+/// [menu navigation]: crate::menu
 #[derive(Component, Clone, Debug, Reflect)]
 pub struct Focusable {
     pub(crate) state: FocusState,
@@ -112,6 +123,7 @@ impl Focusable {
     pub fn new() -> Self {
         Self::default()
     }
+
     /// The [`FocusState`] of this `Focusable`.
     pub fn state(&self) -> FocusState {
         self.state
@@ -141,11 +153,72 @@ impl Focusable {
     /// and will likely result in broken behavior:
     /// * Having multiple prioritized `Focusable`s in the same menu.
     /// * Updating an already existing `Focusable` with this.
+    ///
+    /// # Usage
+    ///
+    /// ```rust
+    /// use bevy_ui_navigation::focusable::Focusable;
+    /// Focusable::new().prioritized();
+    /// ```
     pub fn prioritized(self) -> Self {
         Self {
             state: FocusState::Prioritized,
             ..self
         }
+    }
+
+    /// A [`FocusState::Blocked`] focusable.
+    ///
+    /// This focusable will not be able to take focus until
+    /// [`Focusable::unblock`] is called on it.
+    ///
+    /// # Usage
+    ///
+    /// ```rust
+    /// use bevy_ui_navigation::focusable::Focusable;
+    /// Focusable::new().blocked();
+    /// ```
+    pub fn blocked(self) -> Self {
+        Self {
+            state: FocusState::Blocked,
+            ..self
+        }
+    }
+
+    /// Prevent this [`Focusable`] from gaining focus until it is unblocked.
+    ///
+    /// **Note**: Due to the way focus is handled, this does nothing
+    /// when the [`Focusable::state`] is [`FocusState::Active`]
+    /// or [`FocusState::Focused`].
+    ///
+    /// Returns `true` if `self` has succesfully been blocked
+    /// (its [`Focusable::state`] was either `Inert` or `Prioritized`).
+    ///
+    /// # Limitations
+    ///
+    /// - If all the children of a menu are blocked, when activating the menu's
+    ///   parent, the block state of the last active focusable will be ignored.
+    /// - When `FocusOn` to an focusable in a menu reachable from an blocked
+    ///   focusable, its block state will be ignored.
+    pub fn block(&mut self) -> bool {
+        use FocusState::{Blocked, Inert, Prioritized};
+        let blockable = matches!(self.state(), Inert | Prioritized);
+        if blockable {
+            self.state = Blocked;
+        }
+        blockable
+    }
+
+    /// Allow this [`Focusable`] to gain focus again,
+    /// setting it to [`FocusState::Inert`].
+    ///
+    /// Returns `true` if `self`'s state was [`FocusState::Blocked`].
+    pub fn unblock(&mut self) -> bool {
+        let should_unblock = self.state == FocusState::Blocked;
+        if should_unblock {
+            self.state = FocusState::Inert;
+        }
+        should_unblock
     }
 }
 

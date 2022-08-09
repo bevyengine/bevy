@@ -1,7 +1,7 @@
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
-    prelude::{Component, With},
+    prelude::Component,
     reflect::ReflectComponent,
     system::{Query, Res},
 };
@@ -126,26 +126,23 @@ pub fn ui_focus_system(
     windows: Res<Windows>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
-    node_query: Query<
-        (
-            Entity,
-            Option<&FocusPolicy>,
-            &GlobalTransform,
-            &Node,
-            Option<&CalculatedClip>,
-            Option<&ComputedVisibility>,
-        ),
-        With<Focusable>,
-    >,
+    node_query: Query<(
+        &Focusable,
+        Entity,
+        Option<&FocusPolicy>,
+        &GlobalTransform,
+        &Node,
+        Option<&CalculatedClip>,
+        Option<&ComputedVisibility>,
+    )>,
     focusables_query: Query<&Focusable>,
     mut nav_requests: EventWriter<NavRequest>,
 ) {
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
 
-    let cursor =
-        get_mouse_cursor(&camera, &windows).or_else(|| touches_input.first_pressed_position());
-    let cursor_position = match cursor {
+    let cursor = get_mouse_cursor(&camera, &windows);
+    let cursor_position = match cursor.or_else(|| touches_input.first_pressed_position()) {
         Some(pos) => pos,
         None => return,
     };
@@ -154,6 +151,7 @@ pub fn ui_focus_system(
     // collect all (visible) entities currently under the cursor.
     let mut moused_over_z_sorted_nodes = node_query
         .iter()
+        .filter(|(focus, ..)| focus.state() != FocusState::Blocked)
         .filter(|(.., visibility)| visibility.map_or(true, |v| v.is_visible()))
         .filter(|(.., global_transform, node, clip, _)| {
             let positions = Positions {
@@ -163,7 +161,7 @@ pub fn ui_focus_system(
             };
             is_under_cursor(positions, *clip)
         })
-        .map(|(entity, focus_policy, global_transform, ..)| {
+        .map(|(_, entity, focus_policy, global_transform, ..)| {
             let z_position = global_transform.translation().z;
             (entity, focus_policy, FloatOrd(z_position))
         })

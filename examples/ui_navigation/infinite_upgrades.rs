@@ -412,6 +412,7 @@ fn button_system(
             FocusState::Active => Color::GOLD,
             FocusState::Prioritized => Color::ORANGE_RED,
             FocusState::Inert => base_color.0,
+            FocusState::Blocked => Color::DARK_GRAY,
         };
         sprite.color = color;
     }
@@ -557,6 +558,7 @@ fn spawn_button(
         });
 }
 
+// TODO: block the buttons that go toward unavailable space
 /// Create an upgrade menu with the weapon name and the upgrade buttons.
 fn spawn_weapon_upgrade_menu(
     commands: &mut Commands,

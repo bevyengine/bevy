@@ -1,7 +1,7 @@
 mod commands;
 pub mod events;
-mod focusable;
-mod menu;
+pub mod focusable;
+pub mod menu;
 mod named;
 mod resolve;
 
@@ -110,6 +110,7 @@ where
             .add_event::<events::NavEvent>()
             .insert_resource(resolve::NavLock::new())
             .add_system(resolve::set_first_focused.before(NavRequestSystem))
+            .add_system(menu::consistent_menu.before(NavRequestSystem))
             .add_system(resolve::listen_nav_requests::<STGY>.label(NavRequestSystem))
             // PostUpdate because we want the Menus to be setup correctly before the
             // next call to `set_first_focused`, which depends on the Menu tree layout

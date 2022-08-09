@@ -67,7 +67,7 @@ pub trait MenuNavigationStrategy {
     /// * `focused`: The currently focused entity in the menu
     /// * `direction`: The direction in which the focus should move
     /// * `cycles`: Whether the navigation should loop
-    /// * `sibligns`: All the other focusable entities in this menu
+    /// * `sibligns`: All the unblocked focusable entities in this menu
     ///
     /// Note that `focused` appears once in `siblings`.
     fn resolve_2d<'a>(
@@ -82,7 +82,7 @@ pub trait MenuNavigationStrategy {
 #[derive(SystemParam)]
 pub(crate) struct ChildQueries<'w, 's> {
     children: Query<'w, 's, &'static Children>,
-    is_focusable: Query<'w, 's, With<Focusable>>,
+    is_focusable: Query<'w, 's, &'static Focusable>,
     is_menu: Query<'w, 's, With<MenuSetting>>,
 }
 
@@ -133,8 +133,8 @@ impl<'w, 's> NavQueries<'w, 's> {
     // TODO: worst case this iterates 3 times through list of focusables and once menus.
     // Could be improved to a single pass.
     fn pick_first_focused(&self) -> Option<Entity> {
-        use FocusState::{Focused, Inert};
-        let iter_focused = || self.focusables.iter();
+        use FocusState::{Blocked, Focused, Inert};
+        let iter_focused = || self.focusables.iter().filter(|f| f.1.state() != Blocked);
         let root_menu = || {
             self.menus
                 .iter()
@@ -321,10 +321,12 @@ fn resolve<STGY: MenuNavigationStrategy>(
     focused: Entity,
     request: NavRequest,
     queries: &NavQueries,
-    lock: &mut NavLock,
+    // this is to avoid triggering change detection if not updated.
+    lock: &mut ResMut<NavLock>,
     from: Vec<Entity>,
     strategy: &STGY,
 ) -> NavEvent {
+    use FocusState::Blocked;
     use NavRequest::*;
 
     assert!(
@@ -363,9 +365,10 @@ fn resolve<STGY: MenuNavigationStrategy>(
                 Some(val) => (Some(val.0), !val.2.bound()),
                 None => (None, true),
             };
+            let unblocked = |(e, focus): (_, &Focusable)| (focus.state != Blocked).then(|| e);
             let siblings = match parent {
                 Some(parent) => queries.children.focusables_of(parent),
-                None => queries.focusables.iter().map(|tpl| tpl.0).collect(),
+                None => queries.focusables.iter().filter_map(unblocked).collect(),
             };
             let to = strategy.resolve_2d(focused, direction, cycles, &siblings);
             NavEvent::focus_changed(*or_none!(to), from)
@@ -466,7 +469,10 @@ pub(crate) fn listen_nav_requests<STGY: SystemParam>(
 ) where
     for<'w, 's> SystemParamItem<'w, 's, STGY>: MenuNavigationStrategy,
 {
-    let no_focused = "Tried to execute a NavRequest when no focusables exist, NavRequest does nothing if there isn't any navigation to do.";
+    let no_focused = "Tried to execute a NavRequest \
+            when no focusables exist, \
+            NavRequest does nothing if \
+            there isn't any navigation to do.";
 
     // Cache focus result from previous iteration to avoid re-running costly `pick_first_focused`
     let mut computed_focused = None;
@@ -508,16 +514,19 @@ fn child_menu<'a>(
 impl<'w, 's> ChildQueries<'w, 's> {
     /// All sibling [`Focusable`]s within a single [`TreeMenu`].
     pub(crate) fn focusables_of(&self, menu: Entity) -> Vec<Entity> {
+        use FocusState::Blocked;
+        let is_focusable = |e: &&_| {
+            self.is_focusable
+                .get(**e)
+                .map_or(false, |f| f.state != Blocked)
+        };
         match self.children.get(menu) {
             Ok(direct_children) => {
-                let focusables = direct_children
-                    .iter()
-                    .filter(|e| self.is_focusable.get(**e).is_ok())
-                    .cloned();
+                let focusables = direct_children.iter().filter(is_focusable).cloned();
                 let transitive_focusables = direct_children
                     .iter()
-                    .filter(|e| self.is_focusable.get(**e).is_err())
-                    .filter(|e| self.is_menu.get(**e).is_err())
+                    .filter(|e| !self.is_focusable.contains(**e))
+                    .filter(|e| !self.is_menu.contains(**e))
                     .flat_map(|e| self.focusables_of(*e));
                 focusables.chain(transitive_focusables).collect()
             }

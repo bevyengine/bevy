@@ -6,15 +6,18 @@ use bevy_core::Name;
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
-    query::With,
+    query::{Changed, With},
     reflect::ReflectComponent,
     system::{Commands, Query},
 };
 use bevy_log::warn;
 use bevy_reflect::Reflect;
 
-use crate::focusable::FocusState;
 use crate::resolve::{NavQueries, TreeMenu};
+use crate::{
+    focusable::{FocusState, Focusable},
+    resolve::ChildQueries,
+};
 
 /// Tell the navigation system to turn this UI node into a menu.
 ///
@@ -111,24 +114,32 @@ impl TryFrom<&MenuBuilder> for Option<Entity> {
 /// when entering a menu,
 /// you should mark one of the children of this menu with [`Focusable::prioritized`].
 ///
-/// # Invariants
+/// # Limitations
 ///
-/// **You need to follow those rules (invariants) to avoid panics**:
-/// 1. A `MenuSetting` must have **at least one** [`Focusable`] child in the UI
-///    hierarchy.
-/// 2. There must **not** be a menu loop. i.e.: a way to go from menu A to menu B and
-///    then from menu B to menu A while never going back.
+/// Menu navigation relies heavily on the bevy hierarchy being consistent.
+/// You might get inconsistent state under the folowing conditions:
+///
+/// - You despawned an entity in the [`FocusState::Active`] state
+/// - You changed the parent of a [`Focusable`] member of a menu to a new menu.
+///         
+/// The navigation system might still work as expected,
+/// however, [`Focusable::state`] may be missleading
+/// for the length of one frame.
 ///
 /// # Panics
 ///
-/// Thankfully, programming errors are caught early and you'll probably get a
-/// panic fairly quickly if you don't follow the invariants.
-/// * Invariant (1) panics as soon as you add the menu without focusable
-///   children.
-/// * Invariant (2) panics if the focus goes into a menu loop.
+/// **Menu loops will cause a panic**.
+/// A menu loop is a way to go from menu A to menu B and
+/// then from menu B to menu A while never going back.
+///
+/// Don't worry though, menu loops are really hard to make by accident,
+/// and it will only panic if you use a `NavRequest::FocusOn(entity)`
+/// where `entity` is inside a menu loop.
 ///
 /// [`NavRequest`]: crate::prelude::NavRequest
 /// [`Focusable`]: crate::prelude::Focusable
+/// [`FocusState::Active`]: crate::prelude::FocusState::Active
+/// [`Focusable::state`]: crate::prelude::Focusable::state
 /// [`Focusable::prioritized`]: crate::prelude::Focusable::prioritized
 /// [`NavRequest::ScopeMove`]: crate::prelude::NavRequest::ScopeMove
 /// [`NavRequest`]: crate::prelude::NavRequest
@@ -218,4 +229,28 @@ pub(crate) fn insert_tree_menus(
         commands.entity(entity).remove::<MenuBuilder>();
     }
     commands.insert_or_spawn_batch(inserts);
+}
+
+/// Make sure menus pointing to an active child do not point to a blocked focusable.
+pub(crate) fn consistent_menu(
+    updated_focusables: Query<(Entity, &Focusable), Changed<Focusable>>,
+    children: ChildQueries,
+    mut menus: Query<(Entity, &mut TreeMenu)>,
+) {
+    for (entity, updated) in &updated_focusables {
+        if updated.state() != FocusState::Blocked {
+            continue;
+        }
+        for (menu_entity, mut menu) in &mut menus {
+            if menu.active_child != entity {
+                continue;
+            }
+            if let Some(new_active) = children.focusables_of(menu_entity).first().copied() {
+                menu.active_child = new_active;
+            }
+            // We found the unique menu that leads to the changed entity
+            // continue to check for next changed focusable.
+            break;
+        }
+    }
 }
