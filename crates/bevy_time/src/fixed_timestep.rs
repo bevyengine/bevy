@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{IntoSystem, Res, ResMut, System},
+    system::{IntoSystem, Res, ResMut, Resource, System},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -41,7 +41,7 @@ impl FixedTimestepState {
 
 /// A global resource that tracks the individual [`FixedTimestepState`]s
 /// for every labeled [`FixedTimestep`].
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct FixedTimesteps {
     fixed_timesteps: HashMap<String, FixedTimestepState>,
 }
@@ -234,7 +234,8 @@ mod test {
     use std::ops::{Add, Mul};
     use std::time::Duration;
 
-    type Count = usize;
+    #[derive(Resource)]
+    struct Count(usize);
     const LABEL: &str = "test_step";
 
     #[test]
@@ -245,7 +246,7 @@ mod test {
         time.update_with_instant(instance);
         world.insert_resource(time);
         world.insert_resource(FixedTimesteps::default());
-        world.insert_resource::<Count>(0);
+        world.insert_resource(Count(0));
         let mut schedule = Schedule::default();
 
         schedule.add_stage(
@@ -258,30 +259,30 @@ mod test {
         // if time does not progress, the step does not run
         schedule.run(&mut world);
         schedule.run(&mut world);
-        assert_eq!(0, *world.resource::<Count>());
+        assert_eq!(0, world.resource::<Count>().0);
         assert_eq!(0., get_accumulator_deciseconds(&world));
 
         // let's progress less than one step
         advance_time(&mut world, instance, 0.4);
         schedule.run(&mut world);
-        assert_eq!(0, *world.resource::<Count>());
+        assert_eq!(0, world.resource::<Count>().0);
         assert_eq!(4., get_accumulator_deciseconds(&world));
 
         // finish the first step with 0.1s above the step length
         advance_time(&mut world, instance, 0.6);
         schedule.run(&mut world);
-        assert_eq!(1, *world.resource::<Count>());
+        assert_eq!(1, world.resource::<Count>().0);
         assert_eq!(1., get_accumulator_deciseconds(&world));
 
         // runs multiple times if the delta is multiple step lengths
         advance_time(&mut world, instance, 1.7);
         schedule.run(&mut world);
-        assert_eq!(3, *world.resource::<Count>());
+        assert_eq!(3, world.resource::<Count>().0);
         assert_eq!(2., get_accumulator_deciseconds(&world));
     }
 
     fn fixed_update(mut count: ResMut<Count>) {
-        *count += 1;
+        count.0 += 1;
     }
 
     fn advance_time(world: &mut World, instance: Instant, seconds: f32) {

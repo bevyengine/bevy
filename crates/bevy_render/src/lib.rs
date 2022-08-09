@@ -23,12 +23,12 @@ pub use extract_param::Extract;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{Camera, OrthographicProjection, PerspectiveProjection},
+        camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::Image,
+        texture::{Image, ImageSettings},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
@@ -42,7 +42,7 @@ use crate::{
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::render_system,
+    renderer::{render_system, RenderInstance},
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -91,8 +91,12 @@ pub enum RenderStage {
 /// This resource is only available during [`RenderStage::Extract`] and not
 /// during command application of that stage.
 /// See [`Extract`] for more details.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct MainWorld(World);
+
+/// The Render App World. This is only available as a resource during the Extract step.
+#[derive(Resource, Default)]
+pub struct RenderWorld(World);
 
 impl Deref for MainWorld {
     type Target = World;
@@ -194,13 +198,12 @@ impl Plugin for RenderPlugin {
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .init_resource::<RenderGraph>()
-                .insert_resource(instance)
+                .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
-                .insert_resource(asset_server)
-                .init_resource::<RenderGraph>();
+                .insert_resource(asset_server);
 
             let (sender, receiver) = bevy_time::create_time_channels();
             app.insert_resource(receiver);
@@ -324,7 +327,7 @@ impl Plugin for RenderPlugin {
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
 /// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct ScratchMainWorld(World);
 
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.

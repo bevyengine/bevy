@@ -14,6 +14,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct State {
     atlas_count: u32,
     handle: Handle<Font>,

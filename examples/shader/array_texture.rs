@@ -16,6 +16,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct LoadingTexture {
     is_loaded: bool,
     handle: Handle<Image>,

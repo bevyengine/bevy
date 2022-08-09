@@ -11,6 +11,7 @@ const MIN_WIDTH: u16 = 1;
 const MIN_HEIGHT: u16 = 1;
 const RESIZE_STEP: u16 = 4;
 
+#[derive(Resource)]
 struct Dimensions {
     width: u16,
     height: u16,
@@ -39,6 +40,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 enum Phase {
     ContractingY,
     ContractingX,

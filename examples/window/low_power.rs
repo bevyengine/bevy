@@ -40,7 +40,7 @@ fn main() {
         .run();
 }
 
-#[derive(Debug)]
+#[derive(Resource, Debug)]
 enum ExampleMode {
     Game,
     Application,

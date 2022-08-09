@@ -17,11 +17,11 @@ fn main() {
         .run();
 }
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct StreamReceiver(Receiver<u32>);
 struct StreamEvent(u32);
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct LoadedFont(Handle<Font>);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

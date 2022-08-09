@@ -1,6 +1,6 @@
 //! This example illustrates loading scenes from files.
 
-use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
+use bevy::{prelude::*, utils::Duration};
 
 fn main() {
     App::new()
@@ -92,7 +92,7 @@ fn save_scene_system(world: &mut World) {
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
-    let type_registry = world.resource::<TypeRegistry>();
+    let type_registry = world.resource::<AppTypeRegistry>();
     let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     // Scenes can be serialized like this:

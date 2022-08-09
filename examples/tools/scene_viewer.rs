@@ -69,6 +69,7 @@ Controls:
     app.run();
 }
 
+#[derive(Resource)]
 struct SceneHandle {
     handle: Handle<Gltf>,
     #[cfg(feature = "animation")]
@@ -336,7 +337,7 @@ fn update_lights(
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct CameraTracker {
     active_index: Option<usize>,
     cameras: Vec<Entity>,

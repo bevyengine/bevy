@@ -30,6 +30,7 @@ use std::{
 mod identifier;
 
 pub use identifier::WorldId;
+
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
 ///
@@ -43,41 +44,12 @@ pub use identifier::WorldId;
 /// To mutate different parts of the world simultaneously,
 /// use [`World::resource_scope`] or [`SystemState`](crate::system::SystemState).
 ///
-/// # Resources
+/// ## Resources
 ///
-/// Worlds can also store *resources*, which are unique instances of a given type that don't
-/// belong to a specific Entity. There are also *non send resources*, which can only be
-/// accessed on the main thread.
-///
-/// ## Usage of global resources
-///
-/// 1. Insert the resource into the `World`, using [`World::insert_resource`].
-/// 2. Fetch the resource from a system, using [`Res`](crate::system::Res) or [`ResMut`](crate::system::ResMut).
-///
-/// ```
-/// # let mut world = World::default();
-/// # let mut schedule = Schedule::default();
-/// # schedule.add_stage("update", SystemStage::parallel());
-/// # use bevy_ecs::prelude::*;
-/// #
-/// struct MyResource { value: u32 }
-///
-/// world.insert_resource(MyResource { value: 42 });
-///
-/// fn read_resource_system(resource: Res<MyResource>) {
-///     assert_eq!(resource.value, 42);
-/// }
-///
-/// fn write_resource_system(mut resource: ResMut<MyResource>) {
-///     assert_eq!(resource.value, 42);
-///     resource.value = 0;
-///     assert_eq!(resource.value, 0);
-/// }
-/// #
-/// # schedule.add_system_to_stage("update", read_resource_system.label("first"));
-/// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
-/// # schedule.run_once(&mut world);
-/// ```
+/// Worlds can also store [`Resource`]s,
+/// which are unique instances of a given type that don't belong to a specific Entity.
+/// There are also *non send resources*, which can only be accessed on the main thread.
+/// See [`Resource`] for usage.
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
@@ -1089,8 +1061,8 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// use bevy_ecs::{component::Component, world::{World, Mut}};
-    /// #[derive(Component)]
+    /// use bevy_ecs::prelude::*;
+    /// #[derive(Resource)]
     /// struct A(u32);
     /// #[derive(Component)]
     /// struct B(u32);
@@ -1597,6 +1569,7 @@ mod tests {
         change_detection::DetectChanges,
         component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
         ptr::OwningPtr,
+        system::Resource,
     };
     use bevy_ecs_macros::Component;
     use bevy_utils::HashSet;
@@ -1726,7 +1699,7 @@ mod tests {
         );
     }
 
-    #[derive(Component)]
+    #[derive(Resource)]
     struct TestResource(u32);
 
     #[test]
