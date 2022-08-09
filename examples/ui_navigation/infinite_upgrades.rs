@@ -124,7 +124,7 @@ impl fmt::Display for Upgrade {
 
 /// A sparse grid of menus, used to find whether
 /// it is possible to spawn
-#[derive(Debug, Default)]
+#[derive(Resource, Debug, Default)]
 struct MenuMap {
     grid: HashMap<IVec2, Entity>,
 }
@@ -134,6 +134,7 @@ impl MenuMap {
     }
 }
 
+#[derive(Resource)]
 struct MenuFont(Handle<Font>);
 impl FromWorld for MenuFont {
     fn from_world(world: &mut World) -> Self {

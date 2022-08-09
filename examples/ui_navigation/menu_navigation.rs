@@ -33,6 +33,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct Gameui {
     from: Vec<Entity>,
     to: Entity,
@@ -46,6 +47,7 @@ impl Gameui {
     }
 }
 
+#[derive(Resource)]
 struct Materials {
     background: Color,
     rarrow: UiImage,

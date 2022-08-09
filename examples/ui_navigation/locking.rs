@@ -38,6 +38,7 @@ fn button_system(
     }
 }
 
+#[derive(Resource)]
 struct Images {
     lock: UiImage,
 }
@@ -90,7 +91,7 @@ fn setup(mut commands: Commands, imgs: Res<Images>) {
             }
         });
 }
-fn button_bundle(position: UiRect<Val>) -> ButtonBundle {
+fn button_bundle(position: UiRect) -> ButtonBundle {
     ButtonBundle {
         style: Style {
             size: Size::new(Val::Px(95.0), Val::Px(65.0)),
