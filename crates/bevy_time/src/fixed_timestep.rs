@@ -229,7 +229,7 @@ impl System for FixedTimestep {
 #[cfg(test)]
 mod test {
     use super::*;
-    use bevy_ecs::{prelude::*, stage_label};
+    use bevy_ecs::prelude::*;
     use bevy_utils::Instant;
     use std::ops::{Add, Mul};
     use std::time::Duration;
@@ -249,7 +249,8 @@ mod test {
         world.insert_resource(Count(0));
         let mut schedule = Schedule::default();
 
-        stage_label!(Update);
+        #[derive(StageLabel)]
+        struct Update;
         schedule.add_stage(
             Update,
             SystemStage::parallel()

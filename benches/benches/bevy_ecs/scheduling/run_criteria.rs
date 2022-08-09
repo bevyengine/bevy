@@ -1,8 +1,7 @@
 use bevy_ecs::{
     component::Component,
     prelude::{ParallelSystemDescriptorCoercion, Res, Resource, RunCriteriaDescriptorCoercion},
-    run_criteria_label,
-    schedule::{ShouldRun, Stage, SystemStage},
+    schedule::{RunCriteriaLabel, ShouldRun, Stage, SystemStage},
     system::Query,
     world::World,
 };
@@ -10,6 +9,13 @@ use criterion::Criterion;
 
 fn run_stage(stage: &mut SystemStage, world: &mut World) {
     stage.run(world);
+}
+
+/// Labels for run criteria which either always return yes, or always return no.
+#[derive(RunCriteriaLabel)]
+enum Always {
+    Yes,
+    No,
 }
 
 pub fn run_criteria_yes(criterion: &mut Criterion) {
@@ -87,15 +93,14 @@ pub fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
     for amount in 0..21 {
         let mut stage = SystemStage::parallel();
 
-        run_criteria_label!(always_yes_label);
-        stage.add_system(empty.with_run_criteria(always_yes.label(always_yes_label)));
+        stage.add_system(empty.with_run_criteria(always_yes.label(Always::Yes)));
         for _ in 0..amount {
             stage
-                .add_system(empty.with_run_criteria(always_yes_label))
-                .add_system(empty.with_run_criteria(always_yes_label))
-                .add_system(empty.with_run_criteria(always_yes_label))
-                .add_system(empty.with_run_criteria(always_yes_label))
-                .add_system(empty.with_run_criteria(always_yes_label));
+                .add_system(empty.with_run_criteria(Always::Yes))
+                .add_system(empty.with_run_criteria(Always::Yes))
+                .add_system(empty.with_run_criteria(Always::Yes))
+                .add_system(empty.with_run_criteria(Always::Yes))
+                .add_system(empty.with_run_criteria(Always::Yes));
         }
         // run once to initialize systems
         run_stage(&mut stage, &mut world);
@@ -120,15 +125,14 @@ pub fn run_criteria_no_with_labels(criterion: &mut Criterion) {
     for amount in 0..21 {
         let mut stage = SystemStage::parallel();
 
-        run_criteria_label!(always_no_label);
-        stage.add_system(empty.with_run_criteria(always_no.label(always_no_label)));
+        stage.add_system(empty.with_run_criteria(always_no.label(Always::No)));
         for _ in 0..amount {
             stage
-                .add_system(empty.with_run_criteria(always_no_label))
-                .add_system(empty.with_run_criteria(always_no_label))
-                .add_system(empty.with_run_criteria(always_no_label))
-                .add_system(empty.with_run_criteria(always_no_label))
-                .add_system(empty.with_run_criteria(always_no_label));
+                .add_system(empty.with_run_criteria(Always::No))
+                .add_system(empty.with_run_criteria(Always::No))
+                .add_system(empty.with_run_criteria(Always::No))
+                .add_system(empty.with_run_criteria(Always::No))
+                .add_system(empty.with_run_criteria(Always::No));
         }
         // run once to initialize systems
         run_stage(&mut stage, &mut world);

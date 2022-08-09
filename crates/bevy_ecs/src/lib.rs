@@ -27,26 +27,22 @@ pub mod prelude {
     pub use crate::reflect::{ReflectComponent, ReflectResource};
     #[doc(hidden)]
     pub use crate::{
-        ambiguity_set_label,
         bundle::Bundle,
         change_detection::DetectChanges,
         component::Component,
         entity::Entity,
         event::{EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
-        run_criteria_label,
         schedule::{
             AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
             RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage,
             StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
-        stage_label,
         system::{
             Commands, In, IntoChainSystem, IntoExclusiveSystem, IntoSystem, Local, NonSend,
             NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut,
             Resource, System, SystemParamFunction,
         },
-        system_label,
         world::{FromWorld, Mut, World},
     };
 }

@@ -130,7 +130,7 @@ pub fn assert_is_exclusive_system<Params, SystemType>(
 mod tests {
     use std::any::TypeId;
 
-    use bevy_ecs_macros::StageLabel;
+    use crate::prelude::StageLabel;
 
     use crate::{
         self as bevy_ecs,

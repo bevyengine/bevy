@@ -40,7 +40,8 @@ struct PostPhysics;
 struct Done(bool);
 
 fn main() {
-    bevy::ecs::run_criteria_label!(is_done_label);
+    #[derive(RunCriteriaLabel)]
+    struct IsDone;
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -72,7 +73,7 @@ fn main() {
                 // This shows that we can modify existing run criteria results.
                 // Here we create a _not done_ criteria by piping the output of
                 // the `is_done` system and inverting the output.
-                .with_run_criteria(RunCriteria::pipe(is_done_label, inverse))
+                .with_run_criteria(RunCriteria::pipe(IsDone, inverse))
                 // `collision` and `sfx` are not ordered with respect to
                 // each other, and may run in any order
                 .with_system(collision)
@@ -81,7 +82,7 @@ fn main() {
         .add_system(
             exit.after(PostPhysics)
                 // Label the run criteria such that the `PostPhysics` set can reference it
-                .with_run_criteria(is_done.label(is_done_label)),
+                .with_run_criteria(is_done.label(IsDone)),
         )
         .run();
 }

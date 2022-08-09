@@ -476,7 +476,7 @@ fn state_cleaner<T: StateData>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{prelude::*, system_label};
+    use crate::prelude::*;
 
     #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     enum MyState {
@@ -501,7 +501,11 @@ mod test {
 
         let mut stage = SystemStage::parallel();
 
-        system_label!(inactive_s4, inactive_S4, inactive_s5);
+        #[derive(SystemLabel)]
+        enum Inactive {
+            S4,
+            S5,
+        }
 
         stage.add_system_set(State::<MyState>::get_driver());
         stage
@@ -550,7 +554,7 @@ mod test {
                 },
             ))
             .add_system_set(State::on_inactive_update_set(MyState::S4).with_system(
-                (|mut r: ResMut<NameList>| r.0.push("inactive S4")).label(inactive_s4),
+                (|mut r: ResMut<NameList>| r.0.push("inactive S4")).label(Inactive::S4),
             ))
             .add_system_set(
                 State::on_update_set(MyState::S5).with_system(
@@ -558,14 +562,14 @@ mod test {
                         r.0.push("update S5");
                         s.overwrite_push(MyState::S6).unwrap();
                     })
-                    .after(inactive_s4),
+                    .after(Inactive::S4),
                 ),
             )
             .add_system_set(
                 State::on_inactive_update_set(MyState::S5).with_system(
                     (|mut r: ResMut<NameList>| r.0.push("inactive S5"))
-                        .label(inactive_s5)
-                        .after(inactive_s4),
+                        .label(Inactive::S5)
+                        .after(Inactive::S4),
                 ),
             )
             .add_system_set(
@@ -574,7 +578,7 @@ mod test {
                         r.0.push("update S6");
                         s.overwrite_push(MyState::Final).unwrap();
                     })
-                    .after(inactive_s5),
+                    .after(Inactive::S5),
                 ),
             )
             .add_system_set(

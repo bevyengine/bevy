@@ -106,8 +106,9 @@ impl Schedule {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # let mut schedule = Schedule::default();
-    /// // Define a new, private label for the stage.
-    /// stage_label!(MyStage);
+    /// // Define a new label for the stage.
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
     /// // Add a stage with that label to the schedule.
     /// schedule.add_stage(MyStage, SystemStage::parallel());
     /// ```
@@ -127,12 +128,14 @@ impl Schedule {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # let mut schedule = Schedule::default();
-    /// # stage_label!(TargetStage);
+    /// # #[derive(StageLabel)]
+    /// # struct TargetStage;
     /// # schedule.add_stage(TargetStage, SystemStage::parallel());
-    /// // Define a new, private label for the stage.
-    /// stage_label!(MyStage);
+    /// // Define a new label for the stage.
+    /// #[derive(StageLabel)]
+    /// struct NewStage;
     /// // Add a stage with that label to the schedule.
-    /// schedule.add_stage_after(TargetStage, MyStage, SystemStage::parallel());
+    /// schedule.add_stage_after(TargetStage, NewStage, SystemStage::parallel());
     /// ```
     pub fn add_stage_after<S: Stage>(
         &mut self,
@@ -164,13 +167,15 @@ impl Schedule {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # let mut schedule = Schedule::default();
-    /// # stage_label!(TargetStage);
+    /// # #[derive(StageLabel)]
+    /// # struct TargetStage;
     /// # schedule.add_stage(TargetStage, SystemStage::parallel());
     /// #
     /// // Define a new, private label for the stage.
-    /// stage_label!(MyStage);
+    /// #[derive(StageLabel)]
+    /// struct NewStage;
     /// // Add a stage with that label to the schedule.
-    /// schedule.add_stage_before(TargetStage, MyStage, SystemStage::parallel());
+    /// schedule.add_stage_before(TargetStage, NewStage, SystemStage::parallel());
     /// ```
     pub fn add_stage_before<S: Stage>(
         &mut self,
@@ -203,7 +208,8 @@ impl Schedule {
     /// #
     /// # fn my_system() {}
     /// # let mut schedule = Schedule::default();
-    /// # stage_label!(MyStage);
+    /// # #[derive(StageLabel)]
+    /// # struct MyStage;
     /// # schedule.add_stage(MyStage, SystemStage::parallel());
     /// #
     /// schedule.add_system_to_stage(MyStage, my_system);
@@ -240,7 +246,8 @@ impl Schedule {
     /// #
     /// # fn my_system() {}
     /// # let mut schedule = Schedule::default();
-    /// # stage_label!(MyStage);
+    /// # #[derive(StageLabel)]
+    /// # struct MyStage;
     /// # schedule.add_stage(MyStage, SystemStage::parallel());
     /// #
     /// schedule.add_system_set_to_stage(
@@ -278,7 +285,8 @@ impl Schedule {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// # let mut schedule = Schedule::default();
-    /// # stage_label!(MyStage);
+    /// # #[derive(StageLabel)]
+    /// # struct MyStage;
     /// # schedule.add_stage(MyStage, SystemStage::parallel());
     /// #
     /// schedule.stage(MyStage, |stage: &mut SystemStage| {
@@ -315,7 +323,8 @@ impl Schedule {
     /// #
     /// # fn my_system() {}
     /// # let mut schedule = Schedule::default();
-    /// # stage_label!(MyStage);
+    /// # #[derive(StageLabel)]
+    /// # struct MyStage;
     /// # schedule.add_stage(MyStage, SystemStage::parallel());
     /// #
     /// let stage = schedule.get_stage::<SystemStage>(MyStage).unwrap();
@@ -338,7 +347,8 @@ impl Schedule {
     /// #
     /// # fn my_system() {}
     /// # let mut schedule = Schedule::default();
-    /// # stage_label!(MyStage);
+    /// # #[derive(StageLabel)]
+    /// # struct MyStage;
     /// # schedule.add_stage(MyStage, SystemStage::parallel());
     /// #
     /// let stage = schedule.get_stage_mut::<SystemStage>(MyStage).unwrap();
