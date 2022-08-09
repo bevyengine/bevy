@@ -192,7 +192,7 @@ pub fn extract_uinodes(
         if !visibility.is_visible() {
             continue;
         }
-        let image = image.0.clone_weak();
+        let image = image.handle.clone_weak();
         // Skip loading images
         if !images.contains(&image) {
             continue;

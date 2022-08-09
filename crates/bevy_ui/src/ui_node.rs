@@ -1,6 +1,5 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
@@ -8,6 +7,7 @@ use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
+use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
@@ -387,19 +387,28 @@ impl From<Color> for UiColor {
 }
 
 /// The image of the node
-#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiImage(pub Handle<Image>);
+pub struct UiImage {
+    pub handle: Handle<Image>,
+    pub offset: UiRect,
+}
 
 impl Default for UiImage {
     fn default() -> Self {
-        Self(DEFAULT_IMAGE_HANDLE.typed())
+        Self {
+            handle: DEFAULT_IMAGE_HANDLE.typed(),
+            ..default()
+        }
     }
 }
 
 impl From<Handle<Image>> for UiImage {
     fn from(handle: Handle<Image>) -> Self {
-        Self(handle)
+        Self {
+            handle,
+            ..default()
+        }
     }
 }
 

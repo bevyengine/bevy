@@ -25,7 +25,7 @@ pub fn image_node_system(
     mut query: Query<(&mut CalculatedSize, &UiImage), With<ImageMode>>,
 ) {
     for (mut calculated_size, image) in &mut query {
-        if let Some(texture) = textures.get(image) {
+        if let Some(texture) = textures.get(&image.handle) {
             let size = Size {
                 width: Val::Px(texture.texture_descriptor.size.width as f32),
                 height: Val::Px(texture.texture_descriptor.size.height as f32),
