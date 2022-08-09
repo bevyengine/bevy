@@ -41,7 +41,7 @@ use std::{
 ///
 /// `#[system_param(ignore)]`:
 /// Can be added to any field in the struct. Fields decorated with this attribute
-/// will created with the default value upon realisation.
+/// will be created with the default value upon realisation.
 /// This is most useful for `PhantomData` fields, to ensure that the required lifetimes are
 /// used, as shown in the example.
 ///
