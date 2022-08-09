@@ -19,7 +19,7 @@ use bevy_utils::FloatOrd;
 use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 
-use crate::{entity::UiCameraConfig, CalculatedClip, Node};
+use crate::{entity::UiCameraConfig, CalculatedClip, NavigationInputMapping, Node};
 
 /// Whether the mouse cursor is hovering over this entity.
 ///
@@ -124,8 +124,9 @@ fn is_under_cursor(
 pub fn ui_focus_system(
     camera: Query<(&Camera, Option<&UiCameraConfig>)>,
     windows: Res<Windows>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_buttons: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
+    mapping: Res<NavigationInputMapping>,
     node_query: Query<(
         &Focusable,
         Entity,
@@ -135,23 +136,28 @@ pub fn ui_focus_system(
         Option<&CalculatedClip>,
         Option<&ComputedVisibility>,
     )>,
-    focusables_query: Query<&Focusable>,
     mut nav_requests: EventWriter<NavRequest>,
 ) {
-    let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
+    use FocusState::{Blocked, Focused};
 
+    let follow = mapping.focus_follows_cursor;
+    let action = mapping.mouse_action;
+    let released = mouse_buttons.just_released(action) || touches_input.any_just_released();
+    let pressing = mouse_buttons.pressed(action) || touches_input.iter().next().is_some();
+
+    // Early return if we don't need to manipulate the focus state
+    if !follow && !pressing && !released {
+        return;
+    }
     let cursor = get_mouse_cursor(&camera, &windows);
     let cursor_position = match cursor.or_else(|| touches_input.first_pressed_position()) {
         Some(pos) => pos,
         None => return,
     };
-    // TODO: return early of no mouse release and cursor move
 
     // collect all (visible) entities currently under the cursor.
     let mut moused_over_z_sorted_nodes = node_query
         .iter()
-        .filter(|(focus, ..)| focus.state() != FocusState::Blocked)
         .filter(|(.., visibility)| visibility.map_or(true, |v| v.is_visible()))
         .filter(|(.., global_transform, node, clip, _)| {
             let positions = Positions {
@@ -161,27 +167,27 @@ pub fn ui_focus_system(
             };
             is_under_cursor(positions, *clip)
         })
-        .map(|(_, entity, focus_policy, global_transform, ..)| {
+        .map(|(focus, entity, focus_policy, global_transform, ..)| {
             let z_position = global_transform.translation().z;
-            (entity, focus_policy, FloatOrd(z_position))
+            (focus.state(), entity, focus_policy, FloatOrd(z_position))
         })
         .collect::<Vec<_>>();
 
-    moused_over_z_sorted_nodes.sort_by_key(|(_, _, z)| -*z);
+    moused_over_z_sorted_nodes.sort_by_key(|(.., z)| -*z);
 
-    for (entity, focus_policy, _) in moused_over_z_sorted_nodes.into_iter() {
-        match focus_policy {
-            Some(FocusPolicy::Pass) => {}
-            None | Some(FocusPolicy::Capture) => {
-                // unwrap: entity taked from a query with a `With<Focusable>` filter
-                let focus_state = focusables_query.get(entity).unwrap().state();
-                if focus_state != FocusState::Focused {
-                    nav_requests.send(NavRequest::FocusOn(entity));
-                } else if mouse_released {
-                    nav_requests.send(NavRequest::Action);
-                }
+    for (focus_state, entity, focus_policy, _) in moused_over_z_sorted_nodes.into_iter() {
+        if let None | Some(FocusPolicy::Capture) = focus_policy {
+            if focus_state == Blocked {
                 break;
             }
+            let hovering_focused = focus_state == Focused || follow;
+            if (pressing || released) && !hovering_focused {
+                nav_requests.send(NavRequest::FocusOn(entity));
+            }
+            if released {
+                nav_requests.send(NavRequest::Action);
+            }
+            break;
         }
     }
 }

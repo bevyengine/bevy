@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    CalculatedSize, Node, Style, UiColor, UiImage,
+    CalculatedSize, Hover, Node, Style, UiColor, UiImage,
 };
 use bevy_ecs::{
     bundle::Bundle,
@@ -153,6 +153,8 @@ pub struct ButtonBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// Handle hovering state of the button
+    pub hover: Hover,
 }
 
 /// Configuration for cameras related to UI.

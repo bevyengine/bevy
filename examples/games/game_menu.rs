@@ -244,31 +244,40 @@ mod menu {
 
     impl Plugin for MenuPlugin {
         fn build(&self, app: &mut App) {
-            app.add_system_set(
-                SystemSet::on_enter(GameState::Menu)
-                    .with_system(main_menu_setup)
-                    .with_system(settings_menu_setup)
-                    .with_system(display_settings_menu_setup)
-                    .with_system(sound_settings_menu_setup),
-            )
-            .add_system_set(
-                SystemSet::on_update(GameState::Menu)
-                    .with_system(mark_buttons)
-                    .with_system(update_selected_option::<DisplayQuality>.after(NavRequestSystem))
-                    .with_system(update_selected_option::<Volume>.after(NavRequestSystem))
-                    .with_system(handle_menu_change.after(NavRequestSystem))
-                    .with_system(menu_action.after(NavRequestSystem))
-                    .with_system(update_button_color.after(NavRequestSystem)),
-            )
-            .add_system_set(
-                SystemSet::on_exit(GameState::Menu).with_system(despawn_screen::<MenuSetting>),
-            );
+            app.init_resource::<PreferredInput>()
+                .add_system_set(
+                    SystemSet::on_enter(GameState::Menu)
+                        .with_system(main_menu_setup)
+                        .with_system(settings_menu_setup)
+                        .with_system(display_settings_menu_setup)
+                        .with_system(sound_settings_menu_setup),
+                )
+                .add_system_set(
+                    SystemSet::on_update(GameState::Menu)
+                        .with_system(mark_buttons)
+                        .with_system(
+                            update_selected_option::<DisplayQuality>.after(NavRequestSystem),
+                        )
+                        .with_system(update_selected_option::<Volume>.after(NavRequestSystem))
+                        .with_system(handle_menu_change.after(NavRequestSystem))
+                        .with_system(menu_action.after(NavRequestSystem))
+                        .with_system(hover_update_button_color.after(NavRequestSystem))
+                        .with_system(focus_update_button_color.after(NavRequestSystem))
+                        .with_system(
+                            update_preferred_input
+                                .before(focus_update_button_color)
+                                .before(hover_update_button_color),
+                        ),
+                )
+                .add_system_set(
+                    SystemSet::on_exit(GameState::Menu).with_system(despawn_screen::<MenuSetting>),
+                );
         }
     }
 
     const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-    const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-    const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
+    const FOCUSED_BUTTON: Color = Color::rgb(0.35, 0.35, 0.35);
+    const FOCUSED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
     const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
     // Tag component used to mark wich setting is currently selected
@@ -646,19 +655,66 @@ mod menu {
             });
     }
 
+    #[derive(PartialEq, Eq, Resource, Default)]
+    enum PreferredInput {
+        #[default]
+        Gamepad,
+        Mouse,
+    }
+    fn update_preferred_input(
+        mut preferred_input: ResMut<PreferredInput>,
+        hover_query: Query<(), Changed<Hover>>,
+        gamepad_input: Res<Input<GamepadButton>>,
+    ) {
+        if !hover_query.is_empty() {
+            *preferred_input = PreferredInput::Mouse;
+        }
+        if gamepad_input.get_pressed().len() != 0 {
+            *preferred_input = PreferredInput::Gamepad;
+        }
+    }
+
     // This system handles changing all buttons color based on mouse interaction
-    fn update_button_color(
-        mut interaction_query: Query<
+    fn hover_update_button_color(
+        mut hover_query: Query<
+            (&Hover, Option<&SelectedOption>, &mut UiColor),
+            Or<(Changed<Hover>, Changed<SelectedOption>)>,
+        >,
+        preferred_input: Res<PreferredInput>,
+    ) {
+        use Hover::Hovered;
+        use SelectedOption::*;
+        if *preferred_input != PreferredInput::Mouse {
+            return;
+        }
+        for (hover, selected, mut color) in &mut hover_query {
+            let new_color = match (hover, selected) {
+                (Hovered, Some(Selected)) => FOCUSED_PRESSED_BUTTON,
+                (Hovered, Some(Unselected) | None) => FOCUSED_BUTTON,
+                (_, Some(Selected)) => PRESSED_BUTTON,
+                (_, Some(Unselected) | None) => NORMAL_BUTTON,
+            };
+            *color = new_color.into();
+        }
+    }
+
+    // This system handles changing all buttons color based on gamepad navigation
+    fn focus_update_button_color(
+        mut focus_query: Query<
             (&Focusable, Option<&SelectedOption>, &mut UiColor),
             Or<(Changed<Focusable>, Changed<SelectedOption>)>,
         >,
+        preferred_input: Res<PreferredInput>,
     ) {
         use FocusState::*;
         use SelectedOption::*;
-        for (interaction, selected, mut color) in &mut interaction_query {
-            let new_color = match (interaction.state(), selected) {
-                (Focused, Some(Selected)) => HOVERED_PRESSED_BUTTON,
-                (Focused, Some(Unselected) | None) => HOVERED_BUTTON,
+        if *preferred_input != PreferredInput::Gamepad {
+            return;
+        }
+        for (focus, selected, mut color) in &mut focus_query {
+            let new_color = match (focus.state(), selected) {
+                (Focused, Some(Selected)) => FOCUSED_PRESSED_BUTTON,
+                (Focused, Some(Unselected) | None) => FOCUSED_BUTTON,
                 (_, Some(Selected)) => PRESSED_BUTTON,
                 (_, Some(Unselected) | None) => NORMAL_BUTTON,
             };

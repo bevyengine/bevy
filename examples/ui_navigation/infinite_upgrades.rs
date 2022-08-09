@@ -228,6 +228,7 @@ pub fn mouse_pointer_system(
     let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
     let world_cursor_pos: Vec2 = world_pos.truncate();
     let released = mouse.just_released(MouseButton::Left);
+    let pressing = mouse.pressed(MouseButton::Left);
     let focused = match focused.get_single() {
         Ok(c) => c,
         Err(_) => return,
@@ -241,10 +242,12 @@ pub fn mouse_pointer_system(
         Some(c) => c,
         None => return,
     };
-    if under_mouse == Some(focused) && released {
-        nav_cmds.send(NavRequest::Action);
-    } else if under_mouse != Some(focused) {
+    let hover_focused = under_mouse == Some(focused);
+    if (pressing || released) && !hover_focused {
         nav_cmds.send(NavRequest::FocusOn(to_target));
+    }
+    if released {
+        nav_cmds.send(NavRequest::Action);
     }
 }
 

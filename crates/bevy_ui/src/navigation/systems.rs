@@ -68,6 +68,8 @@ pub struct NavigationInputMapping {
     pub key_unlock: KeyCode,
     /// Mouse button for [`NavRequest::Action`]
     pub mouse_action: MouseButton,
+    /// Whether pointer input hover gives focus to [`Focusable`] elements.
+    pub focus_follows_cursor: bool,
 }
 impl Default for NavigationInputMapping {
     fn default() -> Self {
@@ -101,6 +103,7 @@ impl Default for NavigationInputMapping {
             key_previous: KeyCode::Q,
             key_unlock: KeyCode::Escape,
             mouse_action: MouseButton::Left,
+            focus_follows_cursor: false,
         }
     }
 }
