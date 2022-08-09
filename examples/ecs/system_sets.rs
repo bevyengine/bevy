@@ -72,7 +72,6 @@ fn main() {
                 // This shows that we can modify existing run criteria results.
                 // Here we create a _not done_ criteria by piping the output of
                 // the `is_done` system and inverting the output.
-                // Notice a string literal also works as a label.
                 .with_run_criteria(RunCriteria::pipe(is_done_label, inverse))
                 // `collision` and `sfx` are not ordered with respect to
                 // each other, and may run in any order
