@@ -56,6 +56,13 @@ pub trait LabelDowncast<Id> {
     fn downcast_from(data: u64) -> Option<Self::Output>;
 }
 
+#[doc(hidden)]
+pub struct VTable {
+    // FIXME: When const TypeId stabilizes, inline the type instead of using a fn pointer for indirection.
+    pub ty: fn() -> ::std::any::TypeId,
+    pub fmt: fn(u64, &mut ::std::fmt::Formatter) -> ::std::fmt::Result,
+}
+
 /// Macro to define a new label trait
 ///
 /// # Example
@@ -81,25 +88,30 @@ macro_rules! define_label {
         $(#[$id_attr])*
         #[derive(Clone, Copy)]
         pub struct $id_name {
-            ty: ::std::any::TypeId,
             data: u64,
-            f: fn(u64, &mut ::std::fmt::Formatter) -> ::std::fmt::Result,
+            vtable: &'static $crate::label::VTable,
         }
 
         impl ::std::fmt::Debug for $id_name {
             fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
                 let data = self.data();
-                (self.f)(data, f)
+                (self.vtable.fmt)(data, f)
             }
         }
 
         $(#[$label_attr])*
         pub trait $label_name: 'static {
+            /// Essentially acts like a dynamic dispatch virtual table,
+            /// but specialized for labels.
+            const VTABLE : $crate::label::VTable = $crate::label::VTable {
+                ty: || ::std::any::TypeId::of::<Self>(),
+                fmt: Self::fmt,
+            };
             /// Converts this type into an opaque, strongly-typed label.
             #[inline]
             fn as_label(&self) -> $id_name {
                 let data = self.data();
-                $id_name { data, ty: ::std::any::TypeId::of::<Self>(), f: Self::fmt }
+                $id_name { data, vtable: &Self::VTABLE }
             }
             /// Returns a number used to distinguish different labels of the same type.
             fn data(&self) -> u64;
@@ -129,7 +141,7 @@ macro_rules! define_label {
         impl PartialEq for $id_name {
             #[inline]
             fn eq(&self, rhs: &Self) -> bool {
-                self.ty == rhs.ty && self.data() == rhs.data()
+                self.data() == rhs.data() && self.type_id() == rhs.type_id()
             }
         }
         impl Eq for $id_name {}
@@ -137,15 +149,22 @@ macro_rules! define_label {
 
         impl std::hash::Hash for $id_name {
             fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-                self.ty.hash(state);
+                self.type_id().hash(state);
                 self.data().hash(state);
             }
         }
 
         impl $id_name {
+            /// Returns the [`TypeId`] of the label from which this ID was constructed.
+            ///
+            /// [`TypeId`]: ::std::any::TypeId
+            #[inline]
+            pub fn type_id(self) -> ::std::any::TypeId {
+                (self.vtable.ty)()
+            }
             /// Returns true if this label was constructed from an instance of type `L`.
             pub fn is<L: $label_name>(self) -> bool {
-                self.ty == ::std::any::TypeId::of::<L>()
+                self.type_id() == ::std::any::TypeId::of::<L>()
             }
             /// Attempts to downcast this label to type `L`.
             ///
