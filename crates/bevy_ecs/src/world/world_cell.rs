@@ -32,12 +32,6 @@ pub(crate) struct ArchetypeComponentAccess {
 const UNIQUE_ACCESS: usize = 0;
 const BASE_ACCESS: usize = 1;
 impl ArchetypeComponentAccess {
-    const fn new() -> Self {
-        Self {
-            access: SparseSet::new(),
-        }
-    }
-
     fn read(&mut self, id: ArchetypeComponentId) -> bool {
         let id_access = self.access.get_or_insert_with(id, || BASE_ACCESS);
         if *id_access == UNIQUE_ACCESS {
@@ -108,9 +102,17 @@ impl EntityComponentAccess {
 
 impl<'w> Drop for WorldCell<'w> {
     fn drop(&mut self) {
-        let mut access = self.resource_access.borrow_mut();
-        // give world ArchetypeComponentAccess back to reuse allocations
-        std::mem::swap(&mut self.world.archetype_component_access, &mut *access);
+        // give world {Archetype,Entity}ComponentAccess back to reuse allocations
+        let mut resource_access = self.resource_access.borrow_mut();
+        std::mem::swap(
+            &mut self.world.archetype_component_access,
+            &mut *resource_access,
+        );
+        let mut component_access = self.component_access.borrow_mut();
+        std::mem::swap(
+            &mut self.world.entity_component_access,
+            &mut *component_access,
+        );
     }
 }
 
@@ -253,14 +255,8 @@ impl<'w, T> Drop for WorldBorrowMut<'w, T> {
 impl<'w> WorldCell<'w> {
     pub(crate) fn new(world: &'w mut World) -> Self {
         // this is cheap because ArchetypeComponentAccess::new() is const / allocation free
-        let resource_access = std::mem::replace(
-            &mut world.archetype_component_access,
-            ArchetypeComponentAccess::new(),
-        );
-        let component_access = std::mem::replace(
-            &mut world.entity_component_access,
-            EntityComponentAccess::default(),
-        );
+        let resource_access = std::mem::take(&mut world.archetype_component_access);
+        let component_access = std::mem::take(&mut world.entity_component_access);
         // world's ArchetypeComponentAccess is recycled to cut down on allocations
         Self {
             world,
