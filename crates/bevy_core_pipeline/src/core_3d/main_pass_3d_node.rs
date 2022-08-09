@@ -224,7 +224,7 @@ impl Node for MainPass3dNode {
                 label: Some("reset_viewport_pass_3d"),
                 color_attachments: &match maybe_attachments {
                     Some(attachments) => attachments.load(LoadOp::Load),
-                    None => [Some(target.get_color_attachment(Operations {
+                    None => vec![Some(target.get_color_attachment(Operations {
                         load: LoadOp::Load,
                         store: true,
                     }))],
