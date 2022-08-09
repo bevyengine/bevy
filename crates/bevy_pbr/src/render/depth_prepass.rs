@@ -1,6 +1,6 @@
 use crate::{
     draw_3d_graph, AlphaMode, MeshPipeline, MeshUniform, StandardMaterial, MeshViewBindGroup,
-    DEPTH_PREPASS_SHADER_HANDLE,Material
+    DEPTH_PREPASS_SHADER_HANDLE,Material, RenderMaterials
 };
 
 use bevy_app::Plugin;
@@ -21,12 +21,12 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
         sort_phase_system, AddRenderCommand, DrawFunctionId, DrawFunctions, EntityPhaseItem,
-        PhaseItem, RenderCommand, RenderPhase, TrackedRenderPass,
+        PhaseItem, RenderCommand, RenderPhase, TrackedRenderPass,RenderCommandResult
     },
     render_resource::{
         BindGroup, BindGroupLayout, CachedRenderPipelineId, FragmentState, PipelineCache,
         RenderPipelineDescriptor, Shader, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        VertexBufferLayout, VertexState,
+        VertexBufferLayout, VertexState,  SamplerBindingType,
     },
     renderer::{RenderContext, RenderDevice},
     texture::Image,
@@ -45,6 +45,9 @@ use wgpu::{
     RenderPassDescriptor, ShaderStages, StencilFaceState, StencilState, TextureFormat,
     TextureSampleType, TextureViewDimension, VertexAttribute, VertexFormat, VertexStepMode,
 };
+use std::hash::Hash;
+use std::marker::PhantomData;
+
 
 pub struct DepthPrepassPipeline {
     pub view_layout: BindGroupLayout,
@@ -105,10 +108,7 @@ impl FromWorld for DepthPrepassPipeline {
                 BindGroupLayoutEntry {
                     binding: 2,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler {
-                        comparison: false,
-                        filtering: true,
-                    },
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
             ],
@@ -328,8 +328,11 @@ pub enum Systems {
     QueueDepthPrepassMeshes,
 }
 
-pub struct DepthPrepassPlugin;
-impl Plugin for DepthPrepassPlugin {
+pub struct DepthPrepassPlugin<M: Material>(PhantomData<M>);
+impl<M: Material> Plugin for DepthPrepassPlugin<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
     fn build(&self, app: &mut bevy_app::App) {
         let render_app = app.sub_app(RenderApp);
         render_app
@@ -339,7 +342,7 @@ impl Plugin for DepthPrepassPlugin {
             )
             .add_system_to_stage(
                 RenderStage::Queue,
-                queue_depth_prepass_meshes.label(Systems::QueueDepthPrepassMeshes),
+                queue_depth_prepass_meshes::<M>.label(Systems::QueueDepthPrepassMeshes),
             )
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<OpaqueDepth3d>)
             .add_system_to_stage(
@@ -401,7 +404,7 @@ pub struct DepthPrepassViewBindGroup {
 pub type DepthPrepassMaterialBindGroups = HashMap<Handle<StandardMaterial>, BindGroup>;
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_depth_prepass_meshes(
+pub fn queue_depth_prepass_meshes<M: Material>(
     mut commands: Commands,
     msaa: Res<Msaa>,
     opaque_depth_draw_functions: Res<DrawFunctions<OpaqueDepth3d>>,
@@ -412,7 +415,7 @@ pub fn queue_depth_prepass_meshes(
     mut pipelines: ResMut<SpecializedRenderPipelines<DepthPrepassPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     gpu_images: Res<RenderAssets<Image>>,
-    render_materials: Res<RenderAssets<StandardMaterial>>,
+    render_materials: Res<RenderMaterials<M>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     standard_material_meshes: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &MeshUniform)>,
     depth_prepass_pipeline: Res<DepthPrepassPipeline>,
@@ -674,12 +677,13 @@ impl RenderCommand<OpaqueDepth3d> for SetDepthPrepassPipeline {
         item: &OpaqueDepth3d,
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
+    ) -> RenderCommandResult {
         let pipeline = pipeline_cache
             .into_inner()
             .get_state(item.pipeline)
             .unwrap();
         pass.set_render_pipeline(pipeline);
+        RenderCommandResult::Success
     }
 }
 impl RenderCommand<AlphaMaskDepth3d> for SetDepthPrepassPipeline {
@@ -690,12 +694,14 @@ impl RenderCommand<AlphaMaskDepth3d> for SetDepthPrepassPipeline {
         item: &AlphaMaskDepth3d,
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
+    ) ->         RenderCommandResult    {
         let pipeline = pipeline_cache
             .into_inner()
             .get_state(item.pipeline)
             .unwrap();
         pass.set_render_pipeline(pipeline);
+        RenderCommandResult::Success
+
     }
 }
 
@@ -708,13 +714,14 @@ impl<T: PhaseItem, const I: usize> RenderCommand<T> for SetMeshViewBindGroup<I> 
         _item: &T,
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
+    ) -> RenderCommandResult {
         let (view_uniform, depth_prepass_view_bind_group) = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             &depth_prepass_view_bind_group.value,
             &[view_uniform.offset],
         );
+        RenderCommandResult::Success
     }
 }
 
@@ -771,7 +778,7 @@ impl<T: EntityPhaseItem + PhaseItem> RenderCommand<T> for DrawMesh {
         item: &T,
         (meshes, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
+    ) -> RenderCommandResult {
         let mesh_handle = mesh_query.get(item.entity()).unwrap();
         let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
@@ -781,6 +788,7 @@ impl<T: EntityPhaseItem + PhaseItem> RenderCommand<T> for DrawMesh {
         } else {
             panic!("non-indexed drawing not supported yet")
         }
+        RenderCommandResult::Success
     }
 }
 
