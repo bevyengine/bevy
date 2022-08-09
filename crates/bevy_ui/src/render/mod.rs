@@ -188,28 +188,51 @@ pub fn extract_uinodes(
     >,
 ) {
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
+    for (uinode, transform, color, ui_image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
-        let image = image.handle.clone_weak();
-        // Skip loading images
-        if !images.contains(&image) {
+        let image = ui_image.handle.clone_weak();
+
+        let image_size = if let Some(raw_image) = images.get(&image) {
+            raw_image.size()
+        } else {
+            // Skip loading images
             continue;
-        }
+        };
+
+        let (atlas_size, scale, rect) = if ui_image.offset.size() == Vec2::ZERO {
+            (
+                None,
+                Vec2::ONE,
+                bevy_sprite::Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.size,
+                },
+            )
+        } else {
+            (
+                Some(image_size),
+                // Compute image scale to fill the entire node size
+                (uinode.size / ui_image.offset.size()),
+                // UiImage::offset::max is inclusive
+                bevy_sprite::Rect {
+                    min: ui_image.offset.min,
+                    max: ui_image.offset.max + Vec2::ONE,
+                },
+            )
+        };
+
         // Skip completely transparent nodes
         if color.0.a() == 0.0 {
             continue;
         }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
-            transform: transform.compute_matrix(),
+            transform: transform.compute_matrix() * Mat4::from_scale(scale.extend(1.0)),
             color: color.0,
-            rect: bevy_sprite::Rect {
-                min: Vec2::ZERO,
-                max: uinode.size,
-            },
+            rect,
             image,
-            atlas_size: None,
+            atlas_size,
             clip: clip.map(|clip| clip.clip),
         });
     }

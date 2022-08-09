@@ -1403,6 +1403,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "image_button"
+path = "examples/ui/image_button.rs"
+
+[package.metadata.example.image_button]
+name = "Image Button"
+description = "Illustrates creating and updating a button using images"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 
