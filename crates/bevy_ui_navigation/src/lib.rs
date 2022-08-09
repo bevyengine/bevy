@@ -556,26 +556,10 @@ mod test {
     // removal of parent menu and focusables
     // ====
 
-    /*
     // Relink the child menu to the removed parent's parents
-    #[test]
-    fn parent_menu_kill_robust() {
-        todo!()
-    }
-
     // Make sure this works with root as well
-    #[test]
-    fn root_menu_kill_robust() {
-        todo!()
-    }
-
     // Relink when the focusable parent of a menu is killed
-    #[test]
-    fn parent_focusable_kill_robust() {
-        todo!()
-    }
-
-    */
+    // NOTE: user is warned against engaging in such operations, implementation can wait
 
     // ====
     // some reparenting potential problems
