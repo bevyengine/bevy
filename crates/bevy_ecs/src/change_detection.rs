@@ -43,6 +43,11 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// ```
 ///
 pub trait DetectChanges {
+    /// The type contained within this smart pointer
+    ///
+    /// For example, for `Res<T>` this would be `T`.
+    type Inner;
+
     /// Returns `true` if this value was added after the system last ran.
     fn is_added(&self) -> bool;
 
@@ -73,11 +78,20 @@ pub trait DetectChanges {
     /// If you merely want to flag this data as changed, use [`set_changed`](DetectChanges::set_changed) instead.
     /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChanges::bypass_change_detection) instead.
     fn set_last_changed(&mut self, last_change_tick: u32);
+
+    /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
+    ///
+    /// This is a risky operation, that can have unexpected consequences on any system relying on this code.
+    /// However, it can be an essential escape hatch when, for example,
+    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner;
 }
 
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
         impl<$($generics),* $(: $traits)?> DetectChanges for $name<$($generics),*> {
+            type Inner = $target;
+
             #[inline]
             fn is_added(&self) -> bool {
                 self.ticks
@@ -107,6 +121,11 @@ macro_rules! change_detection_impl {
             #[inline]
             fn set_last_changed(&mut self, last_change_tick: u32) {
                 self.ticks.last_change_tick = last_change_tick
+            }
+
+            #[inline]
+            fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+                self.value
             }
         }
 
@@ -268,12 +287,15 @@ impl<'a> MutUntyped<'a> {
     /// Returns the pointer to the value, without marking it as changed.
     ///
     /// In order to mark the value as changed, you need to call [`set_changed`](DetectChanges::set_changed) manually.
+    #[inline]
     pub fn into_inner(self) -> PtrMut<'a> {
         self.value
     }
 }
 
-impl DetectChanges for MutUntyped<'_> {
+impl<'a> DetectChanges for MutUntyped<'a> {
+    type Inner = PtrMut<'a>;
+
     fn is_added(&self) -> bool {
         self.ticks
             .component_ticks
@@ -299,6 +321,10 @@ impl DetectChanges for MutUntyped<'_> {
     #[inline]
     fn set_last_changed(&mut self, last_change_tick: u32) {
         self.ticks.last_change_tick = last_change_tick
+    }
+
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        &mut self.value
     }
 }
 
