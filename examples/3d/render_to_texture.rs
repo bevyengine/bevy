@@ -100,7 +100,7 @@ fn setup(
             camera: Camera {
                 // render before the "main pass" camera
                 priority: -1,
-                target: RenderTarget::Image(image_handle.clone()),
+                target: RenderTarget::Image(vec![image_handle.clone()]),
                 ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))

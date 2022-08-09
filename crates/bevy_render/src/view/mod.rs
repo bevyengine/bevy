@@ -117,21 +117,23 @@ pub struct ViewUniformOffset {
 
 #[derive(Component)]
 pub struct ViewTarget {
-    pub view: TextureView,
+    pub views: Vec<TextureView>,
     pub sampled_target: Option<TextureView>,
 }
 
 impl ViewTarget {
-    pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
-        RenderPassColorAttachment {
-            view: self.sampled_target.as_ref().unwrap_or(&self.view),
-            resolve_target: if self.sampled_target.is_some() {
-                Some(&self.view)
-            } else {
-                None
-            },
-            ops,
-        }
+    pub fn get_color_attachments(&self, ops: Operations<Color>) -> Vec<Option<RenderPassColorAttachment>> {
+        self.views.iter().map(|view| {
+            Some(RenderPassColorAttachment {
+                view: self.sampled_target.as_ref().unwrap_or(view),
+                resolve_target: if self.sampled_target.is_some() {
+                    Some(&view)
+                } else {
+                    None
+                },
+                ops,
+            })
+        }).collect()
     }
 }
 
@@ -189,37 +191,39 @@ fn prepare_view_targets(
     let mut sampled_textures = HashMap::default();
     for (entity, camera) in &cameras {
         if let Some(target_size) = camera.physical_target_size {
-            if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
-                let sampled_target = if msaa.samples > 1 {
-                    let sampled_texture = sampled_textures
-                        .entry(camera.target.clone())
-                        .or_insert_with(|| {
-                            texture_cache.get(
-                                &render_device,
-                                TextureDescriptor {
-                                    label: Some("sampled_color_attachment_texture"),
-                                    size: Extent3d {
-                                        width: target_size.x,
-                                        height: target_size.y,
-                                        depth_or_array_layers: 1,
-                                    },
-                                    mip_level_count: 1,
-                                    sample_count: msaa.samples,
-                                    dimension: TextureDimension::D2,
-                                    format: TextureFormat::bevy_default(),
-                                    usage: TextureUsages::RENDER_ATTACHMENT,
-                                },
-                            )
-                        });
-                    Some(sampled_texture.default_view.clone())
-                } else {
-                    None
-                };
-                commands.entity(entity).insert(ViewTarget {
-                    view: texture_view.clone(),
-                    sampled_target,
-                });
+            let texture_views = camera.target.get_texture_views(&windows, &images);
+            if texture_views.iter().filter_map(|x| *x).collect::<Vec<_>>().is_empty() {
+                continue;
             }
+            let sampled_target = if msaa.samples > 1 {
+                let sampled_texture = sampled_textures
+                    .entry(camera.target.clone())
+                    .or_insert_with(|| {
+                        texture_cache.get(
+                            &render_device,
+                            TextureDescriptor {
+                                label: Some("sampled_color_attachment_texture"),
+                                size: Extent3d {
+                                    width: target_size.x,
+                                    height: target_size.y,
+                                    depth_or_array_layers: 1,
+                                },
+                                mip_level_count: 1,
+                                sample_count: msaa.samples,
+                                dimension: TextureDimension::D2,
+                                format: TextureFormat::bevy_default(),
+                                usage: TextureUsages::RENDER_ATTACHMENT,
+                            },
+                        )
+                    });
+                Some(sampled_texture.default_view.clone())
+            } else {
+                None
+            };
+            commands.entity(entity).insert(ViewTarget {
+                views: texture_views.iter().filter_map(|view| view.cloned()).collect(),
+                sampled_target,
+            });
         }
     }
 }

@@ -249,7 +249,7 @@ pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowId),
     /// Image to which the camera's view is rendered.
-    Image(Handle<Image>),
+    Image(Vec<Handle<Image>>),
 }
 
 impl Default for RenderTarget {
@@ -259,17 +259,17 @@ impl Default for RenderTarget {
 }
 
 impl RenderTarget {
-    pub fn get_texture_view<'a>(
+    pub fn get_texture_views<'a>(
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<Image>,
-    ) -> Option<&'a TextureView> {
+    ) -> Vec<Option<&'a TextureView>> {
         match self {
-            RenderTarget::Window(window_id) => windows
+            RenderTarget::Window(window_id) => vec![windows
                 .get(window_id)
-                .and_then(|window| window.swap_chain_texture.as_ref()),
-            RenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| &image.texture_view)
+                .and_then(|window| window.swap_chain_texture.as_ref())],
+            RenderTarget::Image(image_handles) => {
+                image_handles.iter().map(|image_handle| images.get(image_handle).map(|image| &image.texture_view)).collect()
             }
         }
     }
@@ -287,9 +287,15 @@ impl RenderTarget {
                     scale_factor: window.scale_factor(),
                 }
             }
-            RenderTarget::Image(image_handle) => {
-                let image = images.get(image_handle)?;
+            RenderTarget::Image(image_handles) => {
+                
+                let image = images.get(image_handles.first()?)?;
                 let Extent3d { width, height, .. } = image.texture_descriptor.size;
+                // Make sure all images are the same width/height.
+                assert!(image_handles.iter().all(|image_handle| {
+                    let image = images.get(image_handle).unwrap();
+                    image.texture_descriptor.size.width == width && image.texture_descriptor.size.height == height
+                }));
                 RenderTargetInfo {
                     physical_size: UVec2::new(width, height),
                     scale_factor: 1.0,
@@ -305,7 +311,10 @@ impl RenderTarget {
     ) -> bool {
         match self {
             RenderTarget::Window(window_id) => changed_window_ids.contains(window_id),
-            RenderTarget::Image(image_handle) => changed_image_handles.contains(&image_handle),
+            RenderTarget::Image(image_handles) =>
+                image_handles.iter().all(|image_handle| {
+                    changed_image_handles.contains(&image_handle)
+                }),
         }
     }
 }
