@@ -8,12 +8,17 @@ use bevy::ui_navigation::NavRequestSystem;
 ///
 /// To leave lock mode, press 'escape' on keyboard or 'start' on controller.
 /// This will emit a `NavRequest::Free` in the default input systems. Allowing
+/// This will emit a `NavRequest::Unlock` in the default input systems. Allowing
 /// the focus to change again.
+///
+/// It is also possible to lock focus using the `NavRequest::Lock` request.
+/// Here, we emit one when the "l" key is pressed.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Images>()
         .add_startup_system(setup)
+        .add_system(extra_lock_key.before(NavRequestSystem))
         .add_system(button_system.after(NavRequestSystem))
         .add_system(print_nav_events.after(NavRequestSystem))
         .run();
@@ -25,7 +30,12 @@ fn print_nav_events(mut events: EventReader<NavEvent>) {
     }
 }
 
-#[allow(clippy::type_complexity)]
+fn extra_lock_key(mut requests: EventWriter<NavRequest>, input: Res<Input<KeyCode>>) {
+    if input.just_pressed(KeyCode::L) {
+        requests.send(NavRequest::Lock);
+    }
+}
+
 fn button_system(
     mut interaction_query: Query<(&Focusable, &mut UiColor), (Changed<Focusable>, With<Button>)>,
 ) {

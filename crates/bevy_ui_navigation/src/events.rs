@@ -7,7 +7,7 @@
 //!   based on inputs or internal game state.
 //!   Bevy provides default systems in `bevy_ui`.
 //!   But you can add your own requests on top of the ones the default systems send.
-//!   For example to unlock the UI with [`NavRequest::Free`].
+//!   For example to unlock the UI with [`NavRequest::Unlock`].
 //! * Output [`Focusable`] components.
 //!   The navigation system updates the focusables component
 //!   according to the focus state of the navigation system.
@@ -23,6 +23,8 @@ use bevy_ecs::{
     system::Query,
 };
 use non_empty_vec::NonEmpty;
+
+use crate::resolve::LockReason;
 
 /// Requests to send to the navigation system to update focus.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -57,11 +59,18 @@ pub enum NavRequest {
     ///
     /// [`Focusable`]: crate::focusable::Focusable
     FocusOn(Entity),
+
+    /// Locks the navigation system.
+    ///
+    /// A [`NavEvent::Locked`] will be emitted as a response if the
+    /// navigation system was not already locked.
+    Lock,
+
     /// Unlocks the navigation system.
     ///
     /// A [`NavEvent::Unlocked`] will be emitted as a response if the
     /// navigation system was indeed locked.
-    Free,
+    Unlock,
 }
 
 /// Direction for movement in [`MenuSetting::scope`] menus.
@@ -129,21 +138,24 @@ pub enum NavEvent {
         /// The [`NavRequest`] that didn't do anything.
         request: NavRequest,
     },
-    /// A [lock focusable] has been triggered.
+
+    /// The navigation [lock] has been enabled.
+    /// Either by a [lock focusable] or [`NavRequest::Lock`].
     ///
     /// Once the navigation plugin enters a locked state, the only way to exit
-    /// it is to send a [`NavRequest::Free`].
+    /// it is to send a [`NavRequest::Unlock`].
     ///
-    /// [lock focusable]: crate::focusable::Focusable::lock
-    Locked(Entity),
+    /// [lock]: crate::resolve::NavLock
+    /// [lock focusable]: crate::resolve::Focusable::lock
+    Locked(LockReason),
 
-    /// A [lock focusable] has been released.
+    /// The navigation [lock] has been released.
     ///
-    /// The navigation system was in a locked state triggered by `Entity`,
+    /// The navigation system was in a locked state triggered [`Entity`],
     /// is now unlocked, and receiving events again.
     ///
-    /// [lock focusable]: crate::focusable::Focusable::lock
-    Unlocked(Entity),
+    /// [lock]: crate::resolve::NavLock
+    Unlocked(LockReason),
 }
 impl NavEvent {
     /// Create a `FocusChanged` with a single `to`

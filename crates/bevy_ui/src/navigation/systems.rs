@@ -36,8 +36,8 @@ pub struct NavigationInputMapping {
     pub previous_button: GamepadButtonType,
     /// Gamepad button for [`ScopeDirection::Next`] [`NavRequest::ScopeMove`]
     pub next_button: GamepadButtonType,
-    /// Gamepad button for [`NavRequest::Free`]
-    pub free_button: GamepadButtonType,
+    /// Gamepad button for [`NavRequest::Unlock`]
+    pub unlock_button: GamepadButtonType,
     /// Keyboard key for [`Direction::West`] [`NavRequest::Move`]
     pub key_left: KeyCode,
     /// Keyboard key for [`Direction::East`] [`NavRequest::Move`]
@@ -64,8 +64,8 @@ pub struct NavigationInputMapping {
     pub key_next_alt: KeyCode,
     /// Keyboard key for [`ScopeDirection::Previous`] [`NavRequest::ScopeMove`]
     pub key_previous: KeyCode,
-    /// Keyboard key for [`NavRequest::Free`]
-    pub key_free: KeyCode,
+    /// Keyboard key for [`NavRequest::Unlock`]
+    pub key_unlock: KeyCode,
     /// Mouse button for [`NavRequest::Action`]
     pub mouse_action: MouseButton,
 }
@@ -85,7 +85,7 @@ impl Default for NavigationInputMapping {
             cancel_button: GamepadButtonType::East,
             previous_button: GamepadButtonType::LeftTrigger,
             next_button: GamepadButtonType::RightTrigger,
-            free_button: GamepadButtonType::Start,
+            unlock_button: GamepadButtonType::Start,
             key_left: KeyCode::A,
             key_right: KeyCode::D,
             key_up: KeyCode::W,
@@ -99,7 +99,7 @@ impl Default for NavigationInputMapping {
             key_next: KeyCode::E,
             key_next_alt: KeyCode::Tab,
             key_previous: KeyCode::Q,
-            key_free: KeyCode::Escape,
+            key_unlock: KeyCode::Escape,
             mouse_action: MouseButton::Left,
         }
     }
@@ -128,7 +128,7 @@ pub fn default_gamepad_input(
     mut ui_input_status: Local<bool>,
 ) {
     use Direction::*;
-    use NavRequest::{Action, Cancel, Free, Move, ScopeMove};
+    use NavRequest::{Action, Cancel, Move, ScopeMove, Unlock};
 
     if has_focused.is_empty() {
         // Do not compute navigation if there is no focus to change
@@ -166,7 +166,7 @@ pub fn default_gamepad_input(
             input_mapping.up_button => Move(Direction::North),
             input_mapping.down_button => Move(Direction::South),
             input_mapping.next_button => ScopeMove(ScopeDirection::Next),
-            input_mapping.free_button => Free,
+            input_mapping.unlock_button => Unlock,
             input_mapping.previous_button => ScopeMove(ScopeDirection::Previous)
         };
         for (button_type, request) in command_mapping {
@@ -219,7 +219,7 @@ pub fn default_keyboard_input(
         input_mapping.key_cancel => Cancel,
         input_mapping.key_next => ScopeMove(ScopeDirection::Next),
         input_mapping.key_next_alt => ScopeMove(ScopeDirection::Next),
-        input_mapping.key_free => Free,
+        input_mapping.key_unlock => Unlock,
         input_mapping.key_previous => ScopeMove(ScopeDirection::Previous)
     };
     let mut send_command = |&(key, request)| {

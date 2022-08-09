@@ -70,7 +70,7 @@ pub enum FocusAction {
     /// If we receive [`NavRequest::Action`]
     /// while this [`Focusable`] is focused,
     /// the navigation system will freeze
-    /// until [`NavRequest::Free`] is received,
+    /// until [`NavRequest::Unlock`] is received,
     /// sending a [`NavEvent::Unlocked`].
     ///
     /// This is useful to implement widgets with complex controls
@@ -78,7 +78,7 @@ pub enum FocusAction {
     /// or suspending the navigation system while in-game.
     ///
     /// [`NavRequest::Action`]: crate::events::NavRequest::Action
-    /// [`NavRequest::Free`]: crate::events::NavRequest::Free
+    /// [`NavRequest::Unlock`]: crate::events::NavRequest::Unlock
     /// [`NavEvent::Unlocked`]: crate::events::NavEvent::Unlocked
     Lock,
 }
