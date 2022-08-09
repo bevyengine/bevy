@@ -57,7 +57,7 @@ pub trait DetectChanges {
     /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
 
-    /// Returns the change tick recording the previous time this component (or resource) was changed.
+    /// Returns the change tick recording the previous time this data was changed.
     ///
     /// Note that components and resources are also marked as changed upon insertion.
     ///
@@ -65,6 +65,14 @@ pub trait DetectChanges {
     /// [`SystemChangeTick`](crate::system::SystemChangeTick)
     /// [`SystemParam`](crate::system::SystemParam).
     fn last_changed(&self) -> u32;
+
+    /// Manually sets the change tick recording the previous time this data was mutated.
+    ///
+    /// # Warning
+    /// This is a complex and error-prone operation, primarily intended for use with rollback networking strategies.
+    /// If you merely want to flag this data as changed, use [`set_changed`](DetectChanges::set_changed) instead.
+    /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChanges::bypass_change_detection) instead.
+    fn set_last_changed(&mut self, last_change_tick: u32);
 }
 
 macro_rules! change_detection_impl {
@@ -94,6 +102,11 @@ macro_rules! change_detection_impl {
             #[inline]
             fn last_changed(&self) -> u32 {
                 self.ticks.last_change_tick
+            }
+
+            #[inline]
+            fn set_last_changed(&mut self, last_change_tick: u32) {
+                self.ticks.last_change_tick = last_change_tick
             }
         }
 
@@ -281,6 +294,11 @@ impl DetectChanges for MutUntyped<'_> {
 
     fn last_changed(&self) -> u32 {
         self.ticks.last_change_tick
+    }
+
+    #[inline]
+    fn set_last_changed(&mut self, last_change_tick: u32) {
+        self.ticks.last_change_tick = last_change_tick
     }
 }
 
