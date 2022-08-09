@@ -392,7 +392,7 @@ impl From<Color> for UiColor {
 pub struct UiImage {
     /// The asset handle used to display image.
     pub handle: Handle<Image>,
-    /// Defines a portion of the image to be rendered where [`Rect::min`] is the begining and [`Rect::max`] is the inclusive end.
+    /// Defines a portion of the image to be rendered where [`bevy_sprite::Rect::min`] is the begining and [`bevy_sprite::Rect::max`] is the inclusive end.
     /// Defaults to zero sized rect, which loads the full imagem.
     pub offset: bevy_sprite::Rect,
 }

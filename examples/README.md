@@ -56,6 +56,23 @@ git checkout v0.4.0
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
+- [Tests](#tests)
+- [Platform-Specific Examples](#platform-specific-examples)
+  - [Android](#android)
+    - [Setup](#setup)
+    - [Build & Run](#build--run)
+    - [Debugging](#debugging)
+    - [Old phones](#old-phones)
+  - [iOS](#ios)
+    - [Setup](#setup-1)
+    - [Build & Run](#build--run-1)
+  - [WASM](#wasm)
+    - [Setup](#setup-2)
+    - [Build & Run](#build--run-2)
+    - [Optimizing](#optimizing)
+      - [1. Tweak your `Cargo.toml`](#1-tweak-your-cargotoml)
+      - [2. Use `wasm-opt` from the binaryen package](#2-use-wasm-opt-from-the-binaryen-package)
+    - [Loading Assets](#loading-assets)
 
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
@@ -308,6 +325,7 @@ Example | Description
 Example | Description
 --- | ---
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
+[Imagem Button](../examples/ui/image_button.rs) | Illustrates creating and updating a button using images
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
