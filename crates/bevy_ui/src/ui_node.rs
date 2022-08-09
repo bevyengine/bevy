@@ -390,15 +390,18 @@ impl From<Color> for UiColor {
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiImage {
+    /// The asset handle used to display image.
     pub handle: Handle<Image>,
-    pub offset: UiRect,
+    /// Defines a portion of the image to be rendered where [`Rect::min`] is the begining and [`Rect::max`] is the inclusive end.
+    /// Defaults to zero sized rect, which loads the full imagem.
+    pub offset: bevy_sprite::Rect,
 }
 
 impl Default for UiImage {
     fn default() -> Self {
         Self {
             handle: DEFAULT_IMAGE_HANDLE.typed(),
-            ..default()
+            offset: default(),
         }
     }
 }
@@ -407,7 +410,7 @@ impl From<Handle<Image>> for UiImage {
     fn from(handle: Handle<Image>) -> Self {
         Self {
             handle,
-            ..default()
+            offset: default(),
         }
     }
 }
