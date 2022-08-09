@@ -1,9 +1,11 @@
+use crate::color_attachments::ColorAttachments;
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    color::Color,
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
@@ -24,6 +26,7 @@ pub struct MainPass3dNode {
             &'static Camera3d,
             &'static ViewTarget,
             &'static ViewDepthTexture,
+            Option<&'static ColorAttachments>
         ),
         With<ExtractedView>,
     >,
@@ -55,7 +58,7 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth) =
+        let (camera, opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth, maybe_attachments) =
             match self.query.get_manual(world, view_entity) {
                 Ok(query) => query,
                 Err(_) => {
@@ -65,6 +68,14 @@ impl Node for MainPass3dNode {
 
         // Always run opaque pass to ensure screen is cleared
         {
+            let load_op = match camera_3d.clear_color {
+                ClearColorConfig::Default => {
+                    LoadOp::Clear(world.resource::<ClearColor>().0)
+                }
+                ClearColorConfig::Custom(color) => LoadOp::Clear(color),
+                ClearColorConfig::None => LoadOp::Load,
+            };
+
             // Run the opaque pass, sorted front-to-back
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
@@ -73,16 +84,13 @@ impl Node for MainPass3dNode {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: match camera_3d.clear_color {
-                        ClearColorConfig::Default => {
-                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                        }
-                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                        ClearColorConfig::None => LoadOp::Load,
-                    },
-                    store: true,
-                }))],
+                color_attachments: &match maybe_attachments {
+                    Some(attachments) => attachments.load(load_op),
+                    None => vec![Some(target.get_color_attachment(Operations::<Color> {
+                        load: load_op,
+                        store: true,
+                    }))]
+                },
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
@@ -119,10 +127,13 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
+                color_attachments: &match maybe_attachments {
+                    Some(attachments) => attachments.load(LoadOp::Load),
+                    None => vec![Some(target.get_color_attachment(Operations {
+                        load: LoadOp::Load,
+                        store: true,
+                    }))],
+                },
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The alpha mask pass loads the depth buffer and possibly overwrites it
@@ -158,10 +169,13 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
+                color_attachments: &match maybe_attachments {
+                    Some(attachments) => attachments.load(LoadOp::Load),
+                    None => vec![Some(target.get_color_attachment(Operations {
+                        load: LoadOp::Load,
+                        store: true,
+                    }))],
+                },
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: For the transparent pass we load the depth buffer. There should be no
@@ -202,10 +216,13 @@ impl Node for MainPass3dNode {
             let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_3d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
+                color_attachments: &match maybe_attachments {
+                    Some(attachments) => target.load(LoadOp::Load),
+                    None => [Some(target.get_color_attachment(Operations {
+                        load: LoadOp::Load,
+                        store: true,
+                    }))],
+                },
                 depth_stencil_attachment: None,
             };
 

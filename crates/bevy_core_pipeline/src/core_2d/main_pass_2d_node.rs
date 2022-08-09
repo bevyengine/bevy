@@ -1,9 +1,11 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
+    color_attachments::ColorAttachments,
     core_2d::{camera_2d::Camera2d, Transparent2d},
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    color::Color,
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
@@ -21,6 +23,7 @@ pub struct MainPass2dNode {
             &'static RenderPhase<Transparent2d>,
             &'static ViewTarget,
             &'static Camera2d,
+            Option<&'static ColorAttachments>
         ),
         With<ExtractedView>,
     >,
@@ -52,7 +55,7 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, transparent_phase, target, camera_2d) =
+        let (camera, transparent_phase, target, camera_2d, maybe_attachments) =
             if let Ok(result) = self.query.get_manual(world, view_entity) {
                 result
             } else {
@@ -60,20 +63,24 @@ impl Node for MainPass2dNode {
                 return Ok(());
             };
         {
+            let load_op = match camera_2d.clear_color {
+                ClearColorConfig::Default => {
+                    LoadOp::Clear(world.resource::<ClearColor>().0)
+                }
+                ClearColorConfig::Custom(color) => LoadOp::Clear(color),
+                ClearColorConfig::None => LoadOp::Load,
+            };
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_pass_2d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_pass_2d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: match camera_2d.clear_color {
-                        ClearColorConfig::Default => {
-                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                        }
-                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                        ClearColorConfig::None => LoadOp::Load,
-                    },
-                    store: true,
-                }))],
+                color_attachments: &match maybe_attachments {
+                    Some(attachments) => attachments.load(load_op),
+                    None => vec![Some(target.get_color_attachment(Operations::<Color> {
+                        load: load_op,
+                        store: true,
+                    }))]
+                },
                 depth_stencil_attachment: None,
             };
 
@@ -102,10 +109,13 @@ impl Node for MainPass2dNode {
             let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_2d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
+                color_attachments: &match maybe_attachments {
+                    Some(attachments) => attachments.load(LoadOp::Load),
+                    None => vec![Some(target.get_color_attachment(Operations::<Color> {
+                        load: LoadOp::Load,
+                        store: true,
+                    }))]
+                },
                 depth_stencil_attachment: None,
             };
 

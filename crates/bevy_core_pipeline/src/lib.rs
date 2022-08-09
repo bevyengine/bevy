@@ -1,4 +1,5 @@
 pub mod clear_color;
+pub mod color_attachments;
 pub mod core_2d;
 pub mod core_3d;
 

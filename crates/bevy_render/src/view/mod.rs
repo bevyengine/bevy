@@ -3,12 +3,13 @@ pub mod window;
 
 pub use visibility::*;
 use wgpu::{
-    Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
+    Extent3d, Operations, LoadOp, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
     TextureFormat, TextureUsages,
 };
 pub use window::*;
 
 use crate::{
+    Color,
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
@@ -130,7 +131,10 @@ impl ViewTarget {
             } else {
                 None
             },
-            ops,
+            ops: Operations {store: ops.store, load: match ops.load {
+                LoadOp::Clear(c) => LoadOp::Clear(c.into()),
+                LoadOp::Load => LoadOp::Load,
+            }},
         }
     }
 }
