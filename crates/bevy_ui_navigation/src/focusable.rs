@@ -102,6 +102,7 @@ pub enum FocusAction {
 /// you should avoid updating manually the state of [`Focusable`]s.
 /// You should instead use [`NavRequest`] to manipulate and change focus.
 ///
+/// [`NavRequest`]: crate::events::NavRequest
 /// [`NavRequest::Action`]: crate::events::NavRequest::Action
 /// [`Entity`]: bevy_ecs::prelude::Entity
 /// [menu navigation]: crate::menu

@@ -146,7 +146,7 @@ pub enum NavEvent {
     /// it is to send a [`NavRequest::Unlock`].
     ///
     /// [lock]: crate::resolve::NavLock
-    /// [lock focusable]: crate::resolve::Focusable::lock
+    /// [lock focusable]: crate::focusable::Focusable::lock
     Locked(LockReason),
 
     /// The navigation [lock] has been released.
