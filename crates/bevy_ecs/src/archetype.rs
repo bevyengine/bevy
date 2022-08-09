@@ -20,6 +20,9 @@ pub struct ArchetypeId(usize);
 impl ArchetypeId {
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
     pub const RESOURCE: ArchetypeId = ArchetypeId(1);
+    /// # Safety:
+    /// 
+    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
     pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
 
     #[inline]
