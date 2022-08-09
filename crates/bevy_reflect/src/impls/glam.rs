@@ -2,6 +2,7 @@ use crate as bevy_reflect;
 use crate::prelude::ReflectDefault;
 use crate::reflect::Reflect;
 use crate::{ReflectDeserialize, ReflectSerialize};
+use bevy_math::Rect;
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_struct, impl_reflect_value};
 use glam::*;
 
@@ -223,6 +224,15 @@ impl_reflect_struct!(
     struct DAffine3 {
         matrix3: DMat3,
         translation: DVec3,
+    }
+);
+
+// Rect is technically not glam, but is the only math type not glam so we handle it together
+impl_reflect_struct!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    struct Rect {
+        min: Vec2,
+        max: Vec2,
     }
 );
 

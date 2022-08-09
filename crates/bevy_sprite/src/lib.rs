@@ -1,7 +1,6 @@
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
-mod rect;
 mod render;
 mod sprite;
 mod texture_atlas;
@@ -22,7 +21,6 @@ pub mod prelude {
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
-pub use rect::*;
 pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;

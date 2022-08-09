@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Rect, Sprite, SPRITE_SHADER_HANDLE,
+    Sprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
 use bevy_core_pipeline::core_2d::Transparent2d;
@@ -10,7 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
