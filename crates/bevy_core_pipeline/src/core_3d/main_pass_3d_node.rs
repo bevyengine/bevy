@@ -223,7 +223,7 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_3d"),
                 color_attachments: &match maybe_attachments {
-                    Some(attachments) => target.load(LoadOp::Load),
+                    Some(attachments) => attachments.load(LoadOp::Load),
                     None => [Some(target.get_color_attachment(Operations {
                         load: LoadOp::Load,
                         store: true,
