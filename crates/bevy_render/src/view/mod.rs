@@ -3,13 +3,12 @@ pub mod window;
 
 pub use visibility::*;
 use wgpu::{
-    Extent3d, Operations, LoadOp, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
+    Extent3d, LoadOp, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
     TextureFormat, TextureUsages,
 };
 pub use window::*;
 
 use crate::{
-    Color,
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
@@ -18,7 +17,7 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
-    RenderApp, RenderStage,
+    Color, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -131,10 +130,13 @@ impl ViewTarget {
             } else {
                 None
             },
-            ops: Operations {store: ops.store, load: match ops.load {
-                LoadOp::Clear(c) => LoadOp::Clear(c.into()),
-                LoadOp::Load => LoadOp::Load,
-            }},
+            ops: Operations {
+                store: ops.store,
+                load: match ops.load {
+                    LoadOp::Clear(c) => LoadOp::Clear(c.into()),
+                    LoadOp::Load => LoadOp::Load,
+                },
+            },
         }
     }
 }

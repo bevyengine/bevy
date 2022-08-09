@@ -5,8 +5,8 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    color::Color,
     camera::ExtractedCamera,
+    color::Color,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
@@ -26,7 +26,7 @@ pub struct MainPass3dNode {
             &'static Camera3d,
             &'static ViewTarget,
             &'static ViewDepthTexture,
-            Option<&'static ColorAttachments>
+            Option<&'static ColorAttachments>,
         ),
         With<ExtractedView>,
     >,
@@ -58,20 +58,26 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth, maybe_attachments) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(query) => query,
-                Err(_) => {
-                    return Ok(());
-                } // No window
-            };
+        let (
+            camera,
+            opaque_phase,
+            alpha_mask_phase,
+            transparent_phase,
+            camera_3d,
+            target,
+            depth,
+            maybe_attachments,
+        ) = match self.query.get_manual(world, view_entity) {
+            Ok(query) => query,
+            Err(_) => {
+                return Ok(());
+            } // No window
+        };
 
         // Always run opaque pass to ensure screen is cleared
         {
             let load_op = match camera_3d.clear_color {
-                ClearColorConfig::Default => {
-                    LoadOp::Clear(world.resource::<ClearColor>().0)
-                }
+                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0),
                 ClearColorConfig::Custom(color) => LoadOp::Clear(color),
                 ClearColorConfig::None => LoadOp::Load,
             };
@@ -89,7 +95,7 @@ impl Node for MainPass3dNode {
                     None => vec![Some(target.get_color_attachment(Operations::<Color> {
                         load: load_op,
                         store: true,
-                    }))]
+                    }))],
                 },
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,

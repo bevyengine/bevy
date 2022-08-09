@@ -5,8 +5,8 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    color::Color,
     camera::ExtractedCamera,
+    color::Color,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     render_resource::{LoadOp, Operations, RenderPassDescriptor},
@@ -23,7 +23,7 @@ pub struct MainPass2dNode {
             &'static RenderPhase<Transparent2d>,
             &'static ViewTarget,
             &'static Camera2d,
-            Option<&'static ColorAttachments>
+            Option<&'static ColorAttachments>,
         ),
         With<ExtractedView>,
     >,
@@ -64,9 +64,7 @@ impl Node for MainPass2dNode {
             };
         {
             let load_op = match camera_2d.clear_color {
-                ClearColorConfig::Default => {
-                    LoadOp::Clear(world.resource::<ClearColor>().0)
-                }
+                ClearColorConfig::Default => LoadOp::Clear(world.resource::<ClearColor>().0),
                 ClearColorConfig::Custom(color) => LoadOp::Clear(color),
                 ClearColorConfig::None => LoadOp::Load,
             };
@@ -79,7 +77,7 @@ impl Node for MainPass2dNode {
                     None => vec![Some(target.get_color_attachment(Operations::<Color> {
                         load: load_op,
                         store: true,
-                    }))]
+                    }))],
                 },
                 depth_stencil_attachment: None,
             };
@@ -114,7 +112,7 @@ impl Node for MainPass2dNode {
                     None => vec![Some(target.get_color_attachment(Operations::<Color> {
                         load: LoadOp::Load,
                         store: true,
-                    }))]
+                    }))],
                 },
                 depth_stencil_attachment: None,
             };
