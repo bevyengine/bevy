@@ -296,24 +296,28 @@ impl<'a> MutUntyped<'a> {
 impl<'a> DetectChanges for MutUntyped<'a> {
     type Inner = PtrMut<'a>;
 
+    #[inline]
     fn is_added(&self) -> bool {
         self.ticks
             .component_ticks
             .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
+    #[inline]
     fn is_changed(&self) -> bool {
         self.ticks
             .component_ticks
             .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
+    #[inline]
     fn set_changed(&mut self) {
         self.ticks
             .component_ticks
             .set_changed(self.ticks.change_tick);
     }
 
+    #[inline]
     fn last_changed(&self) -> u32 {
         self.ticks.last_change_tick
     }
@@ -323,6 +327,7 @@ impl<'a> DetectChanges for MutUntyped<'a> {
         self.ticks.last_change_tick = last_change_tick
     }
 
+    #[inline]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         &mut self.value
     }
