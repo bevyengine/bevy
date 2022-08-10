@@ -1,6 +1,6 @@
 #import bevy_pbr::mesh_vertex_output as OutputTypes
 #import bevy_pbr::pbr_functions as PbrCore
-#import bevy_pbr::pbr_bindings as PbrBindings
+#import bevy_pbr::pbr_bindings as MaterialBindings
 #import bevy_pbr::pbr_types as PbrTypes
 #import bevy_pbr::mesh_view_bindings as ViewBindings
 
@@ -10,40 +10,42 @@ fn fragment(
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
 ) -> @location(0) vec4<f32> {
-    var output_color: vec4<f32> = PbrBindings::material.base_color;
+    var output_color: vec4<f32> = MaterialBindings::material.base_color;
+
+
 #ifdef VERTEX_COLORS
     output_color = output_color * mesh.color;
 #endif
 #ifdef VERTEX_UVS
-    if ((PbrBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+    if ((MaterialBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, mesh.uv);
     }
 #endif
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if ((PbrBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+    if ((MaterialBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
         // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
         // the material members
         var pbr_input: PbrCore::PbrInput;
 
         pbr_input.material.base_color = output_color;
-        pbr_input.material.reflectance = PbrBindings::material.reflectance;
-        pbr_input.material.flags = PbrBindings::material.flags;
-        pbr_input.material.alpha_cutoff = PbrBindings::material.alpha_cutoff;
+        pbr_input.material.reflectance = MaterialBindings::material.reflectance;
+        pbr_input.material.flags = MaterialBindings::material.flags;
+        pbr_input.material.alpha_cutoff = MaterialBindings::material.alpha_cutoff;
 
         // TODO use .a for exposure compensation in HDR
-        var emissive: vec4<f32> = PbrBindings::material.emissive;
+        var emissive: vec4<f32> = MaterialBindings::material.emissive;
 #ifdef VERTEX_UVS
-        if ((PbrBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
+        if ((MaterialBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
             emissive = vec4<f32>(emissive.rgb * textureSample(emissive_texture, emissive_sampler, mesh.uv).rgb, 1.0);
         }
 #endif
         pbr_input.material.emissive = emissive;
 
-        var metallic: f32 = PbrBindings::material.metallic;
-        var perceptual_roughness: f32 = PbrBindings::material.perceptual_roughness;
+        var metallic: f32 = MaterialBindings::material.metallic;
+        var perceptual_roughness: f32 = MaterialBindings::material.perceptual_roughness;
 #ifdef VERTEX_UVS
-        if ((PbrBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
+        if ((MaterialBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
             let metallic_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, mesh.uv);
             // Sampling from GLTF standard channels for now
             metallic = metallic * metallic_roughness.b;
@@ -55,7 +57,7 @@ fn fragment(
 
         var occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
-        if ((PbrBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
+        if ((MaterialBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
             occlusion = textureSample(occlusion_texture, occlusion_sampler, mesh.uv).r;
         }
 #endif
@@ -68,7 +70,7 @@ fn fragment(
         pbr_input.is_orthographic = ViewBindings::view.projection[3].w == 1.0;
 
         pbr_input.N = PbrCore::prepare_normal(
-            PbrBindings::material.flags,
+            MaterialBindings::material.flags,
             mesh.world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
