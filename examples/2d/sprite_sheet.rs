@@ -2,6 +2,7 @@
 //! into a texture atlas, and changing the displayed image periodically.
 
 use bevy::prelude::*;
+use bevy::render::texture::ImageSettings;
 
 fn main() {
     App::new()
