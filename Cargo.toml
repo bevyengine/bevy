@@ -6,8 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { git="https://github.com/robtfm/bevy", branch="expose_processed_shaders" }
-naga = { version = "0.9", features=["serialize", "deserialize"] }
-serde = "*"
-serde_json = "*"
+# serialize/deserialize required for prune only, todo feature
+naga = { version = "0.9", features=["serialize", "deserialize", "wgsl-in", "wgsl-out"] }
 tracing = "*"
+regex = "1.5"
+
+# required for prune only, todo feature
+serde = "*"      
+serde_json = "*"
+
+[dev-dependencies]
+bevy = "0.8"
