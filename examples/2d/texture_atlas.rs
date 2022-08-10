@@ -2,6 +2,7 @@
 //! individual sprites.
 
 use bevy::{asset::LoadState, prelude::*};
+use bevy::render::texture::ImageSettings;
 
 fn main() {
     App::new()
@@ -21,7 +22,7 @@ enum AppState {
     Finished,
 }
 
-#[derive(Resource, Default)]
+#[derive(Component, Default)]
 struct RpgSpriteHandles {
     handles: Vec<HandleUntyped>,
 }
