@@ -1,0 +1,36 @@
+name: Pull Request Labeler
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  add_label:
+    runs-on: ubuntu-latest
+    # Check if the PR meets the criteria specified in [#5620](https://github.com/bevyengine/bevy/issues/5620)
+    if: |
+        github.event.pull_request.draft == false &&
+        !contains(github.event.pull_request.labels.*.name, 'S-Ready-For-Final-Review') &&
+        !contains(github.event.pull_request.labels.*.name, 'S-Needs-RFC') &&
+        !contains(github.event.pull_request.labels.*.name, 'S-Blocked') &&
+        !contains(github.event.pull_request.labels.*.name, 'S-Adopt-Me')
+    steps:
+      - run: |
+          if [$ACTION == "submitted"]; then
+            # A new review was submitted. Check if there are three approvals yet.
+            if [ $(gh api \
+            -H "Accept: application/vnd.github+json" \
+            /repos/$REPO/pulls/$NUMBER/reviews | jq 'map(select(.state == "APPROVED")) | length') == 3 ]
+            then
+              gh issue edit $NUMBER --remove-label 'S-Needs-Review'
+            fi
+          else
+            # A new PR was submitted (or a draft was marked as ready)
+            gh issue edit $NUMBER --add-label 'S-Needs-Review'
+          fi
+        env:
+          NUMBER: ${{ github.event.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTION: ${{ github.event.action }}
+          REPO: ${{ github.event.repository.full_name }}
