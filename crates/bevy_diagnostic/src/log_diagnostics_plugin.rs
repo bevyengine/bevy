@@ -69,6 +69,36 @@ impl LogDiagnosticsPlugin {
                     );
                     return;
                 }
+
+                if let Some(min) = diagnostic.min() {
+                    info!(
+                        target: "bevy diagnostic",
+                        // Suffix is only used for 's' as in seconds currently,
+                        // so we reserve one column for it; however,
+                        // Do not reserve one column for the suffix in the average
+                        // The ) hugging the value is more aesthetically pleasing
+                        "{name:<name_width$}: {value:>11.6}{suffix:1} (min {min:>.6}{suffix:})",
+                        name = diagnostic.name,
+                        suffix = diagnostic.suffix,
+                        name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+                    );
+                    return;
+                }
+
+                if let Some(max) = diagnostic.max() {
+                    info!(
+                        target: "bevy diagnostic",
+                        // Suffix is only used for 's' as in seconds currently,
+                        // so we reserve one column for it; however,
+                        // Do not reserve one column for the suffix in the average
+                        // The ) hugging the value is more aesthetically pleasing
+                        "{name:<name_width$}: {value:>11.6}{suffix:1} (max {max:>.6}{suffix:})",
+                        name = diagnostic.name,
+                        suffix = diagnostic.suffix,
+                        name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+                    );
+                    return;
+                }
             }
             info!(
                 target: "bevy diagnostic",

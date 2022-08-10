@@ -1,6 +1,6 @@
 use bevy_ecs::system::Resource;
 use bevy_log::warn;
-use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
+use bevy_utils::{Duration, FloatOrd, Instant, StableHashMap, Uuid};
 use std::{borrow::Cow, collections::VecDeque};
 
 use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
@@ -113,6 +113,22 @@ impl Diagnostic {
         } else {
             None
         }
+    }
+
+    /// Return the minimum of this diagnostic's values.
+    pub fn min(&self) -> Option<f64> {
+        self.history
+            .iter()
+            .map(|measurement| measurement.value)
+            .min_by(|a, b| FloatOrd(*a as f32).cmp(&FloatOrd(*b as f32)))
+    }
+
+    /// Return the maximum of this diagnostic's values.
+    pub fn max(&self) -> Option<f64> {
+        self.history
+            .iter()
+            .map(|measurement| measurement.value)
+            .max_by(|a, b| FloatOrd(*a as f32).cmp(&FloatOrd(*b as f32)))
     }
 
     /// Return the number of elements for this diagnostic.
