@@ -6,7 +6,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::{
     event::Events,
     schedule::SystemLabel,
-    system::{NonSendMut, Res, ResMut, SystemState},
+    system::{NonSendMut, Res, ResMut, Resource, SystemState},
 };
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;
@@ -52,6 +52,7 @@ pub struct DebugAssetServerPlugin;
 
 /// A collection that maps internal assets in a [`DebugAssetApp`]'s asset server to their mirrors in
 /// the main [`App`].
+#[derive(Resource)]
 pub struct HandleMap<T: Asset> {
     /// The collection of asset handles.
     pub handles: HashMap<Handle<T>, Handle<T>>,
@@ -116,7 +117,7 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
 /// Uses the return type of the given loader to register the given handle with the appropriate type
 /// and load the asset with the given `path` and parent `file_path`.
 ///
-/// If this feels a bit odd ... thats because it is. This was built to improve the UX of the
+/// If this feels a bit odd ... that's because it is. This was built to improve the UX of the
 /// `load_internal_asset` macro.
 pub fn register_handle_with_loader<A: Asset>(
     _loader: fn(&'static str) -> A,

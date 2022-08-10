@@ -214,6 +214,7 @@ pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
+#[derive(Resource)]
 pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -662,6 +663,7 @@ pub struct ViewLightsUniformOffset {
 // at least that many are supported using this constant and SupportedBindingType::from_device()
 pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 
+#[derive(Resource)]
 pub struct GlobalLightMeta {
     pub gpu_point_lights: GpuPointLights,
     pub entity_to_index: HashMap<Entity, usize>,
@@ -686,7 +688,7 @@ impl GlobalLightMeta {
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct LightMeta {
     pub view_gpu_lights: DynamicUniformBuffer<GpuLights>,
     pub shadow_view_bind_group: Option<BindGroup>,
@@ -797,10 +799,14 @@ pub fn prepare_lights(
 
     let point_light_count = point_lights
         .iter()
-        .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
+        .filter(|light| light.1.spot_light_angles.is_none())
         .count();
 
-    let point_light_shadow_maps_count = point_light_count.min(max_texture_cubes);
+    let point_light_shadow_maps_count = point_lights
+        .iter()
+        .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
+        .count()
+        .min(max_texture_cubes);
 
     let directional_shadow_maps_count = directional_lights
         .iter()
@@ -970,7 +976,7 @@ pub fn prepare_lights(
             n_directional_lights: directional_lights.iter().len() as u32,
             // spotlight shadow maps are stored in the directional light array, starting at directional_shadow_maps_count.
             // the spot lights themselves start in the light array at point_light_count. so to go from light
-            // index to shadow map index, we need to subtract point light shadowmap count and add directional shadowmap count.
+            // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: directional_shadow_maps_count as i32
                 - point_light_count as i32,
         };
@@ -1045,7 +1051,7 @@ pub fn prepare_lights(
             let spot_view_transform = spot_view_matrix.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_light_shadow_maps_count] are spot lights").1;
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
             let spot_projection = spot_light_projection_matrix(angle);
 
             let depth_texture_view =

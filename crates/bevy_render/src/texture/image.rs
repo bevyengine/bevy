@@ -14,7 +14,7 @@ use crate::{
 };
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use std::hash::Hash;
@@ -110,6 +110,7 @@ pub struct Image {
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler_descriptor: ImageSampler,
+    pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -125,7 +126,20 @@ pub enum ImageSampler {
 }
 
 impl ImageSampler {
+    /// Returns an image sampler with `Linear` min and mag filters
+    #[inline]
+    pub fn linear() -> ImageSampler {
+        ImageSampler::Descriptor(Self::linear_descriptor())
+    }
+
+    /// Returns an image sampler with `nearest` min and mag filters
+    #[inline]
+    pub fn nearest() -> ImageSampler {
+        ImageSampler::Descriptor(Self::nearest_descriptor())
+    }
+
     /// Returns a sampler descriptor with `Linear` min and mag filters
+    #[inline]
     pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Linear,
@@ -135,6 +149,7 @@ impl ImageSampler {
     }
 
     /// Returns a sampler descriptor with `Nearest` min and mag filters
+    #[inline]
     pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Nearest,
@@ -147,6 +162,7 @@ impl ImageSampler {
 /// Global resource for [`Image`] settings.
 ///
 /// Can be set via `insert_resource` during app initialization to change the default settings.
+#[derive(Resource)]
 pub struct ImageSettings {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
     pub default_sampler: wgpu::SamplerDescriptor<'static>,
@@ -175,11 +191,11 @@ impl ImageSettings {
 }
 
 /// A rendering resource for the default image sampler which is set during renderer
-/// intialization.
+/// initialization.
 ///
 /// The [`ImageSettings`] resource can be set during app initialization to change the default
 /// image sampler.
-#[derive(Debug, Clone, Deref, DerefMut)]
+#[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
@@ -202,6 +218,7 @@ impl Default for Image {
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
             sampler_descriptor: ImageSampler::Default,
+            texture_view_descriptor: None,
         }
     }
 }
@@ -670,7 +687,13 @@ impl RenderAsset for Image {
             texture
         };
 
-        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        let texture_view = texture.create_view(
+            image
+                .texture_view_descriptor
+                .or_else(|| Some(TextureViewDescriptor::default()))
+                .as_ref()
+                .unwrap(),
+        );
         let size = Vec2::new(
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,

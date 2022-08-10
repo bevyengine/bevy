@@ -34,6 +34,7 @@ use std::borrow::Cow;
 ///     assert_eq!(chained_system.run((), &mut world), Some(42));
 /// }
 ///
+/// #[derive(Resource)]
 /// struct Message(String);
 ///
 /// fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {

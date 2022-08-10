@@ -5,7 +5,7 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::prelude::World;
+use bevy_ecs::{prelude::World, system::Resource};
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
@@ -48,7 +48,7 @@ use super::EdgeExistence;
 /// graph.add_node("output_node", MyNode);
 /// graph.add_node_edge("output_node", "input_node").unwrap();
 /// ```
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct RenderGraph {
     nodes: HashMap<NodeId, NodeState>,
     node_names: HashMap<Cow<'static, str>, NodeId>,

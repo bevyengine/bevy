@@ -11,6 +11,7 @@ use bevy_ecs::{
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
+    prelude::Color,
     texture::Image,
     view::{ComputedVisibility, Visibility},
     Extract,
@@ -101,11 +102,16 @@ pub fn extract_text2d_sprite(
                 HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
             };
 
+            let mut color = Color::WHITE;
+            let mut current_section = usize::MAX;
             for text_glyph in text_glyphs {
-                let color = text.sections[text_glyph.section_index]
-                    .style
-                    .color
-                    .as_rgba_linear();
+                if text_glyph.section_index != current_section {
+                    color = text.sections[text_glyph.section_index]
+                        .style
+                        .color
+                        .as_rgba_linear();
+                    current_section = text_glyph.section_index;
+                }
                 let atlas = texture_atlases
                     .get(&text_glyph.atlas_info.texture_atlas)
                     .unwrap();

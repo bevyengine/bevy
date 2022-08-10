@@ -174,7 +174,7 @@ fn print_visible_light_count(
     }
 }
 
-#[derive(Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct ExtractedTime(Time);
 
 fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {

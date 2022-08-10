@@ -52,7 +52,7 @@ struct Score {
 //
 
 // This resource holds information about the game:
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct GameState {
     current_round: usize,
     total_players: usize,
@@ -60,6 +60,7 @@ struct GameState {
 }
 
 // This resource provides rules for our "game".
+#[derive(Resource)]
 struct GameRules {
     winning_score: usize,
     max_rounds: usize,

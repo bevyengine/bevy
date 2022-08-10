@@ -5,7 +5,7 @@ use crate::{
     RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
@@ -81,7 +81,7 @@ pub struct AssetServerInternal {
 /// of the assets it manages and can even reload them from the filesystem with
 /// [`AssetServer::watch_for_changes`]!
 ///
-/// The asset server is a _resource_, so in order to accesss it in a system you need a `Res`
+/// The asset server is a _resource_, so in order to access it in a system you need a `Res`
 /// accessor, like this:
 ///
 /// ```rust,no_run
@@ -102,7 +102,7 @@ pub struct AssetServerInternal {
 /// See the [`asset_loading`] example for more information.
 ///
 /// [`asset_loading`]: https://github.com/bevyengine/bevy/tree/latest/examples/asset/asset_loading.rs
-#[derive(Clone)]
+#[derive(Clone, Resource)]
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
 }
@@ -256,7 +256,7 @@ impl AssetServer {
     /// Gets the overall load state of a group of assets from the provided handles.
     ///
     /// This method will only return [`LoadState::Loaded`] if all assets in the
-    /// group were loaded succesfully.
+    /// group were loaded successfully.
     pub fn get_group_load_state(&self, handles: impl IntoIterator<Item = HandleId>) -> LoadState {
         let mut load_state = LoadState::Loaded;
         for handle_id in handles {

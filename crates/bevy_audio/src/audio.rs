@@ -1,9 +1,10 @@
 use crate::{AudioSink, AudioSource, Decodable};
 use bevy_asset::{Asset, Handle, HandleId};
+use bevy_ecs::system::Resource;
 use parking_lot::RwLock;
 use std::{collections::VecDeque, fmt};
 
-/// Use this resource to play audio
+/// Use this [`Resource`] to play audio.
 ///
 /// ```
 /// # use bevy_ecs::system::Res;
@@ -13,6 +14,7 @@ use std::{collections::VecDeque, fmt};
 ///     audio.play(asset_server.load("my_sound.ogg"));
 /// }
 /// ```
+#[derive(Resource)]
 pub struct Audio<Source = AudioSource>
 where
     Source: Asset + Decodable,

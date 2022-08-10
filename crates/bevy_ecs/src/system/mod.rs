@@ -17,6 +17,7 @@
 //! # struct Player { alive: bool }
 //! # #[derive(Component)]
 //! # struct Score(u32);
+//! # #[derive(Resource)]
 //! # struct Round(u32);
 //! #
 //! fn update_score_system(
@@ -139,22 +140,28 @@ mod tests {
         schedule::{Schedule, Stage, SystemStage},
         system::{
             Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            RemovedComponents, Res, ResMut, System, SystemState,
+            RemovedComponents, Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
 
-    #[derive(Component, Debug, Eq, PartialEq, Default)]
+    #[derive(Resource, PartialEq, Debug)]
+    enum SystemRan {
+        Yes,
+        No,
+    }
+
+    #[derive(Component, Resource, Debug, Eq, PartialEq, Default)]
     struct A;
-    #[derive(Component)]
+    #[derive(Component, Resource)]
     struct B;
-    #[derive(Component)]
+    #[derive(Component, Resource)]
     struct C;
-    #[derive(Component)]
+    #[derive(Component, Resource)]
     struct D;
-    #[derive(Component)]
+    #[derive(Component, Resource)]
     struct E;
-    #[derive(Component)]
+    #[derive(Component, Resource)]
     struct F;
 
     #[derive(Component)]
@@ -187,7 +194,7 @@ mod tests {
     #[test]
     fn query_system_gets() {
         fn query_system(
-            mut ran: ResMut<bool>,
+            mut ran: ResMut<SystemRan>,
             entity_query: Query<Entity, With<A>>,
             b_query: Query<&B>,
             a_c_query: Query<(&A, &C)>,
@@ -227,11 +234,11 @@ mod tests {
                 "entity 3 should have D"
             );
 
-            *ran = true;
+            *ran = SystemRan::Yes;
         }
 
         let mut world = World::default();
-        world.insert_resource(false);
+        world.insert_resource(SystemRan::No);
         world.spawn().insert_bundle((A,));
         world.spawn().insert_bundle((A, B));
         world.spawn().insert_bundle((A, C));
@@ -239,14 +246,14 @@ mod tests {
 
         run_system(&mut world, query_system);
 
-        assert!(*world.resource::<bool>(), "system ran");
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 
     #[test]
     fn or_param_set_system() {
         // Regression test for issue #762
         fn query_system(
-            mut ran: ResMut<bool>,
+            mut ran: ResMut<SystemRan>,
             mut set: ParamSet<(
                 Query<(), Or<(Changed<A>, Changed<B>)>>,
                 Query<(), Or<(Added<A>, Added<B>)>>,
@@ -258,24 +265,33 @@ mod tests {
             assert_eq!(changed, 1);
             assert_eq!(added, 1);
 
-            *ran = true;
+            *ran = SystemRan::Yes;
         }
 
         let mut world = World::default();
-        world.insert_resource(false);
+        world.insert_resource(SystemRan::No);
         world.spawn().insert_bundle((A, B));
 
         run_system(&mut world, query_system);
 
-        assert!(*world.resource::<bool>(), "system ran");
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 
     #[test]
     fn changed_resource_system() {
+        use crate::system::Resource;
+
+        #[derive(Resource)]
+        struct Flipper(bool);
+
+        #[derive(Resource)]
         struct Added(usize);
+
+        #[derive(Resource)]
         struct Changed(usize);
+
         fn incr_e_on_flip(
-            value: Res<bool>,
+            value: Res<Flipper>,
             mut changed: ResMut<Changed>,
             mut added: ResMut<Added>,
         ) {
@@ -289,7 +305,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        world.insert_resource(false);
+        world.insert_resource(Flipper(false));
         world.insert_resource(Added(0));
         world.insert_resource(Changed(0));
 
@@ -310,7 +326,7 @@ mod tests {
         assert_eq!(world.resource::<Added>().0, 1);
         assert_eq!(world.resource::<Changed>().0, 1);
 
-        *world.resource_mut::<bool>() = true;
+        world.resource_mut::<Flipper>().0 = true;
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
         assert_eq!(world.resource::<Changed>().0, 2);
@@ -434,7 +450,7 @@ mod tests {
         run_system(&mut world, sys);
     }
 
-    #[derive(Default)]
+    #[derive(Default, Resource)]
     struct BufferRes {
         _buffer: Vec<u8>,
     }
@@ -477,36 +493,42 @@ mod tests {
     #[test]
     fn local_system() {
         let mut world = World::default();
-        world.insert_resource(1u32);
-        world.insert_resource(false);
+        world.insert_resource(ProtoFoo { value: 1 });
+        world.insert_resource(SystemRan::No);
+
         struct Foo {
+            value: u32,
+        }
+
+        #[derive(Resource)]
+        struct ProtoFoo {
             value: u32,
         }
 
         impl FromWorld for Foo {
             fn from_world(world: &mut World) -> Self {
                 Foo {
-                    value: *world.resource::<u32>() + 1,
+                    value: world.resource::<ProtoFoo>().value + 1,
                 }
             }
         }
 
-        fn sys(local: Local<Foo>, mut modified: ResMut<bool>) {
+        fn sys(local: Local<Foo>, mut system_ran: ResMut<SystemRan>) {
             assert_eq!(local.value, 2);
-            *modified = true;
+            *system_ran = SystemRan::Yes;
         }
 
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert!(*world.resource::<bool>());
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 
     #[test]
     fn non_send_option_system() {
         let mut world = World::default();
 
-        world.insert_resource(false);
+        world.insert_resource(SystemRan::No);
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
         world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
@@ -514,34 +536,38 @@ mod tests {
         fn sys(
             op: Option<NonSend<NotSend1>>,
             mut _op2: Option<NonSendMut<NotSend2>>,
-            mut run: ResMut<bool>,
+            mut system_ran: ResMut<SystemRan>,
         ) {
             op.expect("NonSend should exist");
-            *run = true;
+            *system_ran = SystemRan::Yes;
         }
 
         run_system(&mut world, sys);
         // ensure the system actually ran
-        assert!(*world.resource::<bool>());
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 
     #[test]
     fn non_send_system() {
         let mut world = World::default();
 
-        world.insert_resource(false);
+        world.insert_resource(SystemRan::No);
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
 
         world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
         world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
 
-        fn sys(_op: NonSend<NotSend1>, mut _op2: NonSendMut<NotSend2>, mut run: ResMut<bool>) {
-            *run = true;
+        fn sys(
+            _op: NonSend<NotSend1>,
+            mut _op2: NonSendMut<NotSend2>,
+            mut system_ran: ResMut<SystemRan>,
+        ) {
+            *system_ran = SystemRan::Yes;
         }
 
         run_system(&mut world, sys);
-        assert!(*world.resource::<bool>());
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 
     #[test]
@@ -553,13 +579,16 @@ mod tests {
         let spurious_entity = world.spawn().id();
 
         // Track which entities we want to operate on
+        #[derive(Resource)]
         struct Despawned(Entity);
         world.insert_resource(Despawned(entity_to_despawn));
+
+        #[derive(Resource)]
         struct Removed(Entity);
         world.insert_resource(Removed(entity_to_remove_w_from));
 
         // Verify that all the systems actually ran
-        #[derive(Default)]
+        #[derive(Default, Resource)]
         struct NSystems(usize);
         world.insert_resource(NSystems::default());
 
@@ -615,7 +644,7 @@ mod tests {
     #[test]
     fn world_collections_system() {
         let mut world = World::default();
-        world.insert_resource(false);
+        world.insert_resource(SystemRan::No);
         world.spawn().insert_bundle((W(42), W(true)));
         fn sys(
             archetypes: &Archetypes,
@@ -623,7 +652,7 @@ mod tests {
             entities: &Entities,
             bundles: &Bundles,
             query: Query<Entity, With<W<i32>>>,
-            mut modified: ResMut<bool>,
+            mut system_ran: ResMut<SystemRan>,
         ) {
             assert_eq!(query.iter().count(), 1, "entity exists");
             for entity in &query {
@@ -647,13 +676,13 @@ mod tests {
                     "entity's bundle components exactly match entity's archetype components"
                 );
             }
-            *modified = true;
+            *system_ran = SystemRan::Yes;
         }
 
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert!(*world.resource::<bool>());
+        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 
     #[test]
@@ -751,7 +780,7 @@ mod tests {
 
     #[test]
     fn read_system_state() {
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Eq, PartialEq, Debug, Resource)]
         struct A(usize);
 
         #[derive(Component, Eq, PartialEq, Debug)]
@@ -774,7 +803,7 @@ mod tests {
 
     #[test]
     fn write_system_state() {
-        #[derive(Eq, PartialEq, Debug)]
+        #[derive(Resource, Eq, PartialEq, Debug)]
         struct A(usize);
 
         #[derive(Component, Eq, PartialEq, Debug)]
