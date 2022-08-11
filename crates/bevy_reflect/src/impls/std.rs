@@ -76,6 +76,7 @@ impl_from_reflect_value!(String);
 impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Range<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Duration);
+impl_from_reflect_value!(Instant);
 impl_from_reflect_value!(NonZeroI128);
 impl_from_reflect_value!(NonZeroU128);
 impl_from_reflect_value!(NonZeroIsize);
@@ -832,7 +833,7 @@ mod tests {
         Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
         VariantType,
     };
-    use bevy_utils::HashMap;
+    use bevy_utils::{HashMap, Instant};
     use std::f32::consts::{PI, TAU};
 
     #[test]
@@ -991,5 +992,12 @@ mod tests {
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         let forty_two: std::num::NonZeroUsize = crate::FromReflect::from_reflect(a).unwrap();
         assert_eq!(forty_two, std::num::NonZeroUsize::new(42).unwrap());
+    }
+
+    #[test]
+    fn instant_should_from_reflect() {
+        let expected = Instant::now();
+        let output = <Instant as FromReflect>::from_reflect(&expected).unwrap();
+        assert_eq!(expected, output);
     }
 }
