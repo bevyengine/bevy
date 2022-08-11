@@ -212,8 +212,7 @@ fn setup(
         .insert_bundle(MaterialMesh2dBundle {
             mesh: meshes.add(shape::Circle::default().into()).into(),
             material: materials.add(ColorMaterial::from(BALL_COLOR)),
-            transform: Transform::from_translation(BALL_STARTING_POSITION)
-                .with_scale(BALL_SIZE),
+            transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
             ..default()
         })
         .insert(Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED));
