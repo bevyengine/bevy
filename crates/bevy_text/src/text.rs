@@ -5,7 +5,7 @@ use bevy_ecs::{
     prelude::{Component, EventWriter},
     query::Added,
     reflect::ReflectComponent,
-    system::{Query, Res},
+    system::{Query, Res, Resource},
 };
 use bevy_reflect::{prelude::*, FromReflect};
 use bevy_render::color::Color;
@@ -256,7 +256,7 @@ impl Default for TextStyle {
 }
 
 /// Used to configure the default font used by [`TextStyle`] when the font is set to [`FontRef::Default`]
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct DefaultFont {
     pub path: Option<AssetPath<'static>>,
 }
