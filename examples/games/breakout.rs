@@ -210,7 +210,7 @@ fn setup(
         .spawn()
         .insert(Ball)
         .insert_bundle(MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::new(0.5).into()).into(),
+            mesh: meshes.add(shape::Circle::default().into()).into(),
             material: materials.add(ColorMaterial::from(BALL_COLOR)),
             transform: Transform::from_translation(BALL_STARTING_POSITION)
                 .with_scale(BALL_SIZE),
