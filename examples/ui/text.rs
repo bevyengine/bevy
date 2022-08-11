@@ -6,7 +6,6 @@
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    text::DefaultFont,
 };
 
 fn main() {

@@ -21,8 +21,8 @@ pub use text2d::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, HorizontalAlign, Text, Text2dBundle, TextAlignment, TextError, TextSection,
-        TextStyle, VerticalAlign,
+        DefaultFont, Font, HorizontalAlign, Text, Text2dBundle, TextAlignment, TextError,
+        TextSection, TextStyle, VerticalAlign,
     };
 }
 
