@@ -585,13 +585,13 @@ impl Reflect for Cow<'static, str> {
     }
 }
 
-impl<T: Reflect + Clone> GetTypeRegistration for Option<T> {
+impl<T: FromReflect> GetTypeRegistration for Option<T> {
     fn get_type_registration() -> TypeRegistration {
         TypeRegistration::of::<Option<T>>()
     }
 }
 
-impl<T: Reflect + Clone> Enum for Option<T> {
+impl<T: FromReflect> Enum for Option<T> {
     fn field(&self, _name: &str) -> Option<&dyn Reflect> {
         None
     }
@@ -655,7 +655,7 @@ impl<T: Reflect + Clone> Enum for Option<T> {
     }
 }
 
-impl<T: Reflect + Clone> Reflect for Option<T> {
+impl<T: FromReflect> Reflect for Option<T> {
     #[inline]
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
@@ -741,7 +741,7 @@ impl<T: Reflect + Clone> Reflect for Option<T> {
 
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone())
+        Box::new(Enum::clone_dynamic(self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -753,7 +753,7 @@ impl<T: Reflect + Clone> Reflect for Option<T> {
     }
 }
 
-impl<T: Reflect + Clone> FromReflect for Option<T> {
+impl<T: FromReflect> FromReflect for Option<T> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         if let ReflectRef::Enum(dyn_enum) = reflect.reflect_ref() {
             match dyn_enum.variant_name() {
@@ -762,7 +762,7 @@ impl<T: Reflect + Clone> FromReflect for Option<T> {
                         .field_at(0)
                         .expect("Field at index 0 should exist")
                         .clone_value();
-                    let field = field.take::<T>().unwrap_or_else(|_| {
+                    let field = T::from_reflect(field.as_ref()).unwrap_or_else(|| {
                         panic!(
                             "Field at index 0 should be of type {}",
                             std::any::type_name::<T>()
@@ -783,7 +783,7 @@ impl<T: Reflect + Clone> FromReflect for Option<T> {
     }
 }
 
-impl<T: Reflect + Clone> Typed for Option<T> {
+impl<T: FromReflect> Typed for Option<T> {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| {
@@ -827,8 +827,10 @@ impl FromReflect for Cow<'static, str> {
 
 #[cfg(test)]
 mod tests {
+    use crate as bevy_reflect;
     use crate::{
-        Enum, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
+        Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
+        VariantType,
     };
     use bevy_utils::HashMap;
     use std::f32::consts::{PI, TAU};
@@ -937,6 +939,17 @@ mod tests {
         }
 
         assert_eq!(Some(321), value);
+    }
+
+    #[test]
+    fn option_should_from_reflect() {
+        #[derive(Reflect, FromReflect, PartialEq, Debug)]
+        struct Foo(usize);
+
+        let expected = Some(Foo(123));
+        let output = <Option<Foo> as FromReflect>::from_reflect(&expected).unwrap();
+
+        assert_eq!(expected, output);
     }
 
     #[test]
