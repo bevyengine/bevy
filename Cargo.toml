@@ -17,3 +17,5 @@ serde_json = "*"
 
 [dev-dependencies]
 bevy = "0.8"
+wgpu = "*"
+futures-lite = "*"

@@ -12,13 +12,12 @@ fn fragment(
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = MaterialBindings::material.base_color;
 
-
 #ifdef VERTEX_COLORS
     output_color = output_color * mesh.color;
 #endif
 #ifdef VERTEX_UVS
     if ((MaterialBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, mesh.uv);
+        output_color = output_color * textureSample(MaterialBindings::base_color_texture, MaterialBindings::base_color_sampler, mesh.uv);
     }
 #endif
 
@@ -37,7 +36,7 @@ fn fragment(
         var emissive: vec4<f32> = MaterialBindings::material.emissive;
 #ifdef VERTEX_UVS
         if ((MaterialBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
-            emissive = vec4<f32>(emissive.rgb * textureSample(emissive_texture, emissive_sampler, mesh.uv).rgb, 1.0);
+            emissive = vec4<f32>(emissive.rgb * textureSample(MaterialBindings::emissive_texture, MaterialBindings::emissive_sampler, mesh.uv).rgb, 1.0);
         }
 #endif
         pbr_input.material.emissive = emissive;
@@ -46,7 +45,7 @@ fn fragment(
         var perceptual_roughness: f32 = MaterialBindings::material.perceptual_roughness;
 #ifdef VERTEX_UVS
         if ((MaterialBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
-            let metallic_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, mesh.uv);
+            let metallic_roughness = textureSample(MaterialBindings::metallic_roughness_texture, MaterialBindings::metallic_roughness_sampler, mesh.uv);
             // Sampling from GLTF standard channels for now
             metallic = metallic * metallic_roughness.b;
             perceptual_roughness = perceptual_roughness * metallic_roughness.g;
@@ -58,7 +57,7 @@ fn fragment(
         var occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
         if ((MaterialBindings::material.flags & PbrTypes::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = textureSample(occlusion_texture, occlusion_sampler, mesh.uv).r;
+            occlusion = textureSample(MaterialBindings::occlusion_texture, MaterialBindings::occlusion_sampler, mesh.uv).r;
         }
 #endif
         pbr_input.occlusion = occlusion;
@@ -73,9 +72,9 @@ fn fragment(
             MaterialBindings::material.flags,
             mesh.world_normal,
 #ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
+    #ifdef STANDARDMATERIAL_NORMAL_MAP
             mesh.world_tangent,
-#endif
+    #endif
 #endif
 #ifdef VERTEX_UVS
             mesh.uv,

@@ -3,7 +3,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use naga::{valid::ValidationError, EntryPoint, WithSpan};
 use regex::Regex;
 
-use crate::derive::DerivedModule;
+use crate::{derive::DerivedModule, util::clone_module};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum ShaderLanguage {
@@ -26,8 +26,8 @@ pub struct ComposableModule {
     // naga module, built against headers for any imports
     module_ir: naga::Module,
     // headers in different shader languages, used for building modules/shaders that import this module
-    // headers contain types, constants and empty function definitions - just enough to convert source
-    // strings that want to import this module into naga IR
+    // headers contain types, constants, global vars and empty function definitions - 
+    // just enough to convert source strings that want to import this module into naga IR
     headers: HashMap<ShaderLanguage, String>,
 }
 
@@ -113,8 +113,8 @@ impl Default for Composer {
         Self {
             validate: true,
             module_sets: Default::default(),
-            ifdef_regex: Regex::new(r"^\s*#\s*ifdef\s*([\w|\d|_]+)").unwrap(),
-            ifndef_regex: Regex::new(r"^\s*#\s*ifndef\s*([\w|\d|_]+)").unwrap(),
+            ifdef_regex: Regex::new(r"^\s*#\s*ifdef\s+([\w|\d|_]+)").unwrap(),
+            ifndef_regex: Regex::new(r"^\s*#\s*ifndef\s+([\w|\d|_]+)").unwrap(),
             else_regex: Regex::new(r"^\s*#\s*else").unwrap(),
             endif_regex: Regex::new(r"^\s*#\s*endif").unwrap(),
             import_custom_path_as_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)\s+as\s+([^\s]+)")
@@ -129,7 +129,8 @@ const DECORATION_PRE: &str = "_naga_oil_mod__";
 const DECORATION_POST: &str = "__";
 
 fn decorate(as_name: &str) -> String {
-    let as_name = as_name.replace(':', "_");
+    // todo check for collisions ("a/b" == "a\b" etc)
+    let as_name = as_name.replace(|c: char| !c.is_alphanumeric(), "_");
     format!("{}{}{}", DECORATION_PRE, as_name, DECORATION_POST)
 }
 
@@ -312,10 +313,11 @@ impl Composer {
     ) -> Result<ComposableModule, ComposerError> {
         let (source, imports) =
             self.preprocess_defs(module_decoration, unprocessed_source, shader_defs)?;
-        let mut module_ir = self.create_module_ir(source, language, &imports, shader_defs)?;
+        let mut source_ir = self.create_module_ir(source, language, &imports, shader_defs)?;
 
+        // rename and record owned items (except types which can't be mutably accessed)
         let mut owned_constants = HashMap::new();
-        for (h, c) in module_ir.constants.iter_mut() {
+        for (h, c) in source_ir.constants.iter_mut() {
             if let Some(name) = c.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
                     *name = format!("{}{}", module_decoration, name);
@@ -325,7 +327,7 @@ impl Composer {
         }
 
         let mut owned_vars = HashMap::new();
-        for (h, gv) in module_ir.global_variables.iter_mut() {
+        for (h, gv) in source_ir.global_variables.iter_mut() {
             if let Some(name) = gv.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
                     *name = format!("{}{}", module_decoration, name);
@@ -336,7 +338,7 @@ impl Composer {
         }
 
         let mut owned_functions = HashMap::new();
-        for (_, f) in module_ir.functions.iter_mut() {
+        for (_, f) in source_ir.functions.iter_mut() {
             if let Some(name) = f.name.as_mut() {
                 if !name.contains(DECORATION_PRE) {
                     *name = format!("{}{}", module_decoration, name);
@@ -355,36 +357,51 @@ impl Composer {
             }
         }
 
-        let mut header_ir = DerivedModule::default();
-        header_ir.set_shader_source(&module_ir);
+        let mut module_builder = DerivedModule::default();
+        let mut header_builder = DerivedModule::default();
+        module_builder.set_shader_source(&source_ir);
+        header_builder.set_shader_source(&source_ir);
 
         let mut owned_types = HashSet::new();
-        for (h, ty) in module_ir.types.iter() {
+        for (h, ty) in source_ir.types.iter() {
             if let Some(name) = &ty.name {
                 if !name.contains(DECORATION_PRE) {
                     let name = format!("{}{}", module_decoration, name);
                     owned_types.insert(name.clone());
-                    header_ir.rename_type(&h, Some(name));
+                    // copy and rename types
+                    module_builder.rename_type(&h, Some(name.clone()));
+                    header_builder.rename_type(&h, Some(name));
+                    continue;
                 }
             }
+
+            // copy all required types
+            module_builder.import_type(&h);
         }
 
+        // copy owned types into header and module
         for (_, h) in owned_constants.iter() {
-            header_ir.import_const(h);
+            header_builder.import_const(h);
+            module_builder.import_const(h);
         }
 
         for (_, h) in owned_vars.iter() {
-            header_ir.import_global(h);
+            header_builder.import_global(h);
+            module_builder.import_global(h);
         }
 
+        // only stubs of owned functions into the header
         for (_, f) in owned_functions.iter() {
-            header_ir.import_function(f);
+            header_builder.import_function(f); // header stub function
+        }
+        // all functions into the module (note source_ir only contains stubs for imported functions)
+        for (_, f) in source_ir.functions.iter() {
+            module_builder.import_function(f);
         }
 
-        let header_ir = header_ir.into();
-
-        // println!("header ir: \n{:#?}", header_ir);
-        // todo remove validation
+        let header_ir = header_builder.into();
+        // println!("[{}] header ir: \n{:#?}", module_decoration, header_ir);
+        // println!("[{}] owned : \n{:#?}", module_decoration, (&owned_types, &owned_constants, &owned_vars, &owned_functions));
         let info = naga::valid::Validator::new(
             naga::valid::ValidationFlags::all(),
             naga::valid::Capabilities::default(),
@@ -393,7 +410,7 @@ impl Composer {
 
         let info = match info {
             Ok(info) => info,
-            Err(e) => return Err(ComposerError::HeaderValidationError(e, header_ir)),
+            Err(e) => return Err(ComposerError::HeaderValidationError(e, clone_module(&header_ir))),
         };
         let headers = [(
             ShaderLanguage::Wgsl,
@@ -402,9 +419,24 @@ impl Composer {
                 &info,
                 naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
             )
-            .map_err(|e| ComposerError::WgslBackError(e, header_ir))?,
+            .map_err(|e| ComposerError::WgslBackError(e, clone_module(&header_ir)))?,
         )]
         .into();
+
+        let entry_points = source_ir.entry_points.iter().map(|ep| {
+            EntryPoint {
+                name: ep.name.clone(),
+                stage: ep.stage,
+                early_depth_test: ep.early_depth_test,
+                workgroup_size: ep.workgroup_size,
+                function: module_builder.localize_function(&ep.function),
+            }
+        }).collect();
+
+        let module_ir = naga::Module {
+            entry_points,
+            ..module_builder.into()
+        };        
 
         // println!("created header for {}: {:?}", module_decoration, headers);
 
@@ -428,6 +460,8 @@ impl Composer {
         source: String,
         language: ShaderLanguage,
     ) -> Result<&ComposableModuleDefinition, ComposerError> {
+        // todo reject a module containing the DECORATION_PRE string
+
         // use btreeset so the result is sorted
         let mut effective_defs = BTreeSet::new();
 
@@ -469,6 +503,8 @@ impl Composer {
             modules: Default::default(),
         };
 
+        // todo invalidate dependent modules if this module already exists
+
         self.module_sets.insert(module_name.clone(), module_set);
         Ok(self.module_sets.get(&module_name).unwrap())
     }
@@ -480,7 +516,10 @@ impl Composer {
         for (h, ty) in composable.module_ir.types.iter() {
             if let Some(name) = &ty.name {
                 if composable.owned_types.contains(name) {
+                    // println!("import type {}", name);
                     derived.import_type(&h);
+                } else {
+                    // println!("skip {}", name);
                 }
             }
         }
@@ -617,11 +656,14 @@ impl Composer {
         for import in composable.imports.iter() {
             // println!("adding {}", import);
             self.add_import(&mut derived, import, &shader_defs, &mut already_added);
+            // println!("after {}:\n{:#?}", import, derived);
         }
 
         // println!("before adding main module: {:#?}", derived);
 
         Self::add_composable_data(&mut derived, &composable);
+
+        // println!("after adding main module: {:#?}", derived);
 
         let mut entry_points = Vec::default();
         derived.set_shader_source(&composable.module_ir);
@@ -635,6 +677,8 @@ impl Composer {
                 workgroup_size: ep.workgroup_size,
             });
         }
+
+        // println!("entry points: {:#?}", entry_points);
 
         let naga_module = naga::Module {
             entry_points,

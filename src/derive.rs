@@ -344,6 +344,15 @@ impl<'a> DerivedModule<'a> {
         new_h
     }
 
+    // import a function defined in the source shader context
+    pub fn import_function_handle(&mut self, h_func: &Handle<Function>) -> Handle<Function> {
+        let func = self.shader.unwrap().functions.try_get(*h_func).unwrap();
+        let mapped_func = self.localize_function(func);
+        let new_h = self.functions.append(mapped_func, Span::UNDEFINED);
+        self.function_map.insert(func.name.as_ref().unwrap().clone(), new_h);
+        new_h
+    }
+
     // get the derived handle corresponding to the given source function handle
     // requires func to be named
     pub fn map_function_handle(&self, h_func: &Handle<Function>) -> Handle<Function> {
