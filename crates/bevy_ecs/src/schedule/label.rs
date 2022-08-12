@@ -62,7 +62,7 @@ impl_string_label!(RunCriteriaLabel);
 /// A data structure used to intern a set of labels of a single concrete type.
 /// To store multiple distinct types, or generic types, try [`Labels`].
 pub struct TypedLabels<T: Clone + Hash + Eq>(
-    // The `IndexSet` is a hash set that preservers ordering as long as
+    // The `IndexSet` is a hash set that preserves ordering as long as
     // you don't remove items (which we don't).
     // This allows us to have O(~1) hashing and map each entry to a stable index.
     RwLock<IndexSet<T>>,
