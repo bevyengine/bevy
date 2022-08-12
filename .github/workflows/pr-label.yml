@@ -1,27 +1,20 @@
 name: Pull Request Labeler
 on:
   pull_request:
-    types: [opened, ready_for_review]
-  pull_request_review:
-    types: [submitted]
-
+    types: [opened, ready_for_review, labeled]
 jobs:
   add_label:
     runs-on: ubuntu-latest
-    # Check if the PR meets the criteria specified in [#5620](https://github.com/bevyengine/bevy/issues/5620)
-    if: |
-        github.event.pull_request.draft == false &&
-        !contains(github.event.pull_request.labels.*.name, 'S-Ready-For-Final-Review') &&
-        !contains(github.event.pull_request.labels.*.name, 'S-Needs-RFC') &&
-        !contains(github.event.pull_request.labels.*.name, 'S-Blocked') &&
-        !contains(github.event.pull_request.labels.*.name, 'S-Adopt-Me')
+    if: github.event.pull_request.draft == false
     steps:
       - run: |
-          if [$ACTION == "submitted"]; then
-            # A new review was submitted. Check if there are three approvals yet.
+          if [$ACTION == "labeled"]; then
+            # A new label was added
             if [ $(gh api \
             -H "Accept: application/vnd.github+json" \
-            /repos/$REPO/pulls/$NUMBER/reviews | jq 'map(select(.state == "APPROVED")) | length') == 3 ]
+            /repos/$REPO/pulls/$NUMBER/ | \
+            jq 'def find(s): . as $x | s | map(. as $l | $x | bsearch($l) >= 0) | any; .labels| map(.name) | sort | \
+            find(["S-Ready-For-Final-Review", "S-Needs-RFC", "S-Blocked", "S-Adopt-Me"])' ) == 'true' ]
             then
               gh issue edit $NUMBER --remove-label 'S-Needs-Review'
             fi
