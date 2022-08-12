@@ -299,15 +299,13 @@ impl Schedule {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(StageLabel)]
-    /// # struct MyStage;
     /// # fn my_system() {}
     /// # let mut schedule = Schedule::default();
-    /// # schedule.add_stage(MyStage, SystemStage::parallel());
+    /// # schedule.add_stage("my_stage", SystemStage::parallel());
     /// #
-    /// let stage = schedule.get_stage::<SystemStage>(MyStage.as_label()).unwrap();
+    /// let stage = schedule.get_stage::<SystemStage>("my_stage").unwrap();
     /// ```
-    pub fn get_stage<T: Stage>(&self, label: StageLabelId) -> Option<&T> {
+    pub fn get_stage<T: Stage>(&self, label: impl StageLabel) -> Option<&T> {
         self.stages
             .get(&label.as_label())
             .and_then(|stage| stage.downcast_ref::<T>())
@@ -322,15 +320,13 @@ impl Schedule {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(StageLabel)]
-    /// # struct MyStage;
     /// # fn my_system() {}
     /// # let mut schedule = Schedule::default();
-    /// # schedule.add_stage(MyStage, SystemStage::parallel());
+    /// # schedule.add_stage("my_stage", SystemStage::parallel());
     /// #
-    /// let stage = schedule.get_stage_mut::<SystemStage>(MyStage.as_label()).unwrap();
+    /// let stage = schedule.get_stage_mut::<SystemStage>("my_stage").unwrap();
     /// ```
-    pub fn get_stage_mut<T: Stage>(&mut self, label: StageLabelId) -> Option<&mut T> {
+    pub fn get_stage_mut<T: Stage>(&mut self, label: impl StageLabel) -> Option<&mut T> {
         self.stages
             .get_mut(&label.as_label())
             .and_then(|stage| stage.downcast_mut::<T>())
