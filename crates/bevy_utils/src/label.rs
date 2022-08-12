@@ -101,17 +101,20 @@ macro_rules! define_label {
 
         $(#[$label_attr])*
         pub trait $label_name: 'static {
-            /// Essentially acts like a dynamic dispatch virtual table,
-            /// but specialized for labels.
-            const VTABLE : $crate::label::VTable = $crate::label::VTable {
-                ty: || ::std::any::TypeId::of::<Self>(),
-                fmt: Self::fmt,
-            };
             /// Converts this type into an opaque, strongly-typed label.
             #[inline]
             fn as_label(&self) -> $id_name {
+                // This is just machinery that lets us store the TypeId and formatter fn in the same static reference.
+                struct VTables<L: ?::std::marker::Sized>(::std::marker::PhantomData<L>);
+                impl<L: $label_name + ?::std::marker::Sized> VTables<L> {
+                    const VTABLE: $crate::label::VTable = $crate::label::VTable {
+                        ty: || ::std::any::TypeId::of::<L>(),
+                        fmt: <L as $label_name>::fmt,
+                    };
+                }
+
                 let data = self.data();
-                $id_name { data, vtable: &Self::VTABLE }
+                $id_name { data, vtable: &VTables::<Self>::VTABLE }
             }
             /// Returns a number used to distinguish different labels of the same type.
             fn data(&self) -> u64;
