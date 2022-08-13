@@ -9,7 +9,8 @@ pub use shape::*;
 pub use symbol::*;
 
 use proc_macro::TokenStream;
-use quote::{quote, quote_spanned};
+use proc_macro2::{Span, TokenStream as TokenStream2};
+use quote::quote;
 use std::{env, path::PathBuf};
 use syn::spanned::Spanned;
 use toml::{map::Map, Value};
@@ -105,6 +106,55 @@ impl BevyManifest {
     }
 }
 
+/// A set of attributes defined on an item, variant, or field,
+/// in the form e.g. `#[system_label(..)]`.
+#[derive(Default)]
+struct LabelAttrs {
+    ignore_fields: Option<Span>,
+}
+
+impl LabelAttrs {
+    /// Parses a list of attributes.
+    ///
+    /// Ignores any that aren't of the form `#[my_label(..)]`.
+    /// Returns `Ok` if the iterator is empty.
+    pub fn new<'a>(
+        iter: impl IntoIterator<Item = &'a syn::Attribute>,
+        attr_name: &str,
+    ) -> syn::Result<Self> {
+        let mut this = Self::default();
+        for attr in iter {
+            // If it's not of the form `#[my_label(..)]`, skip it.
+            if attr.path.get_ident().as_ref().unwrap() != &attr_name {
+                continue;
+            }
+
+            // Parse the argument/s to the attribute.
+            attr.parse_args_with(|input: syn::parse::ParseStream| {
+                loop {
+                    syn::custom_keyword!(ignore_fields);
+
+                    let next = input.lookahead1();
+                    if next.peek(ignore_fields) {
+                        let kw: ignore_fields = input.parse()?;
+                        this.ignore_fields = Some(kw.span);
+                    } else {
+                        return Err(next.error());
+                    }
+
+                    if input.is_empty() {
+                        break;
+                    }
+                    let _comma: syn::Token![,] = input.parse()?;
+                }
+                Ok(())
+            })?;
+        }
+
+        Ok(this)
+    }
+}
+
 /// Derive a label trait
 ///
 /// # Args
@@ -116,23 +166,17 @@ pub fn derive_label(
     trait_path: &syn::Path,
     attr_name: &str,
 ) -> TokenStream {
-    // return true if the variant specified is an `ignore_fields` attribute
-    fn is_ignore(attr: &syn::Attribute, attr_name: &str) -> bool {
-        if attr.path.get_ident().as_ref().unwrap() != &attr_name {
-            return false;
-        }
+    let item_attrs = match LabelAttrs::new(&input.attrs, attr_name) {
+        Ok(a) => a,
+        Err(e) => return e.into_compile_error().into(),
+    };
 
-        syn::custom_keyword!(ignore_fields);
-        attr.parse_args_with(|input: syn::parse::ParseStream| {
-            let ignore = input.parse::<Option<ignore_fields>>()?.is_some();
-            Ok(ignore)
-        })
-        .unwrap()
-    }
+    derive_named_label(input, &item_attrs, trait_path, attr_name)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
 
-    let ident = input.ident.clone();
-
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+fn with_static_bound(where_clause: Option<&syn::WhereClause>) -> syn::WhereClause {
     let mut where_clause = where_clause.cloned().unwrap_or_else(|| syn::WhereClause {
         where_token: Default::default(),
         predicates: Default::default(),
@@ -140,79 +184,102 @@ pub fn derive_label(
     where_clause
         .predicates
         .push(syn::parse2(quote! { Self: 'static }).unwrap());
+    where_clause
+}
 
-    let as_str = match input.data {
+fn derive_named_label(
+    input: syn::DeriveInput,
+    item_attrs: &LabelAttrs,
+    trait_path: &syn::Path,
+    attr_name: &str,
+) -> syn::Result<TokenStream2> {
+    let ident = input.ident.clone();
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let where_clause = with_static_bound(where_clause);
+
+    let (data, fmt) = match input.data {
         syn::Data::Struct(d) => {
+            let all_field_attrs =
+                LabelAttrs::new(d.fields.iter().flat_map(|f| &f.attrs), attr_name)?;
             // see if the user tried to ignore fields incorrectly
-            if let Some(attr) = d
-                .fields
-                .iter()
-                .flat_map(|f| &f.attrs)
-                .find(|a| is_ignore(a, attr_name))
-            {
-                let err_msg = format!("`#[{attr_name}(ignore_fields)]` cannot be applied to fields individually: add it to the struct declaration");
-                return quote_spanned! {
-                    attr.span() => compile_error!(#err_msg);
-                }
-                .into();
+            if let Some(attr) = all_field_attrs.ignore_fields {
+                let err_msg = format!(
+                    r#"`#[{attr_name}(ignore_fields)]` cannot be applied to fields individually:
+                    try adding it to the struct declaration"#
+                );
+                return Err(syn::Error::new(attr, err_msg));
             }
             // Structs must either be fieldless, or explicitly ignore the fields.
-            let ignore_fields = input.attrs.iter().any(|a| is_ignore(a, attr_name));
-            if matches!(d.fields, syn::Fields::Unit) || ignore_fields {
+            let ignore_fields = item_attrs.ignore_fields.is_some();
+            if d.fields.is_empty() || ignore_fields {
                 let lit = ident.to_string();
-                quote! { #lit }
+                let data = quote! { 0 };
+                let as_str = quote! { write!(f, #lit) };
+                (data, as_str)
             } else {
                 let err_msg = format!("Labels cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
-                return quote_spanned! {
-                    d.fields.span() => compile_error!(#err_msg);
-                }
-                .into();
+                return Err(syn::Error::new(d.fields.span(), err_msg));
             }
         }
         syn::Data::Enum(d) => {
             // check if the user put #[label(ignore_fields)] in the wrong place
-            if let Some(attr) = input.attrs.iter().find(|a| is_ignore(a, attr_name)) {
+            if let Some(attr) = item_attrs.ignore_fields {
                 let err_msg = format!("`#[{attr_name}(ignore_fields)]` can only be applied to enum variants or struct declarations");
-                return quote_spanned! {
-                    attr.span() => compile_error!(#err_msg);
-                }
-                .into();
+                return Err(syn::Error::new(attr, err_msg));
             }
-            let arms = d.variants.iter().map(|v| {
+
+            let mut data_arms = Vec::with_capacity(d.variants.len());
+            let mut fmt_arms = Vec::with_capacity(d.variants.len());
+
+            for (i, v) in d.variants.iter().enumerate() {
+                let v_attrs = LabelAttrs::new(&v.attrs, attr_name)?;
                 // Variants must either be fieldless, or explicitly ignore the fields.
-                let ignore_fields = v.attrs.iter().any(|a| is_ignore(a, attr_name));
-                if matches!(v.fields, syn::Fields::Unit) | ignore_fields {
+                let ignore_fields = v_attrs.ignore_fields.is_some();
+                if v.fields.is_empty() || ignore_fields {
                     let mut path = syn::Path::from(ident.clone());
                     path.segments.push(v.ident.clone().into());
+
+                    let i = i as u64;
+                    data_arms.push(quote! { #path { .. } => #i });
+
                     let lit = format!("{ident}::{}", v.ident.clone());
-                    quote! { #path { .. } => #lit }
+                    fmt_arms.push(quote! { #i => { write!(f, #lit) } });
                 } else {
                     let err_msg = format!("Label variants cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
-                    quote_spanned! {
-                        v.fields.span() => _ => { compile_error!(#err_msg); }
-                    }
-                }
-            });
-            quote! {
-                match self {
-                    #(#arms),*
+                    return Err(syn::Error::new(v.fields.span(), err_msg));
                 }
             }
+
+            let data = quote! {
+                match self {
+                    #(#data_arms),*
+                }
+            };
+            let fmt = quote! {
+                match data {
+                    #(#fmt_arms),*
+                    _ => Err(::std::fmt::Error),
+                }
+            };
+            (data, fmt)
         }
         syn::Data::Union(_) => {
-            return quote_spanned! {
-                input.span() => compile_error!("Unions cannot be used as labels.");
-            }
-            .into();
+            let err_msg = format!(
+                "Unions cannot be used as labels, unless marked with `#[{attr_name}(intern)]`."
+            );
+            return Err(syn::Error::new(input.span(), err_msg));
         }
     };
 
-    (quote! {
+    Ok(quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
-            fn as_str(&self) -> &'static str {
-                #as_str
+            #[inline]
+            fn data(&self) -> u64 {
+                #data
+            }
+            fn fmt(data: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                #fmt
             }
         }
     })
-    .into()
 }
