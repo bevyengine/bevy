@@ -21,13 +21,13 @@ use crate::{
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 
-/// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
+/// If an entity is hidden in this way,  all [`Children`](bevy_hierarchy::Children) (and all of their children and so on) will also be hidden.
 /// This is done by setting the values of their [`ComputedVisibility`] component.
 #[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Component, Default)]
 pub struct Visibility {
     /// Indicates whether this entity is visible. Hidden values will propagate down the entity hierarchy.
-    /// If this entity is hidden, all of its descendants will be hidden as well. See [`Children`] and [`Parent`] for
+    /// If this entity is hidden, all of its descendants will be hidden as well. See [`Children`](bevy_hierarchy::Children) and [`Parent`](bevy_hierarchy::Parent) for
     /// hierarchy info.
     pub is_visible: bool,
 }
@@ -78,7 +78,7 @@ impl ComputedVisibility {
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
-    /// This takes into account "visibility inheritance". If any of this entity's ancestors (see [`Parent`]) are hidden, this entity
+    /// This takes into account "visibility inheritance". If any of this entity's ancestors (see [`Parent`](bevy_hierarchy::Parent)) are hidden, this entity
     /// will be hidden as well. This value is updated in the [`CoreStage::PostUpdate`] stage in the
     /// [`VisibilitySystems::VisibilityPropagate`] system label.
     #[inline]
