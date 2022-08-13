@@ -436,8 +436,14 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
 
 /// Generates an impl of the `SystemLabel` trait.
 ///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[system_label(ignore_fields)]`.
+/// For unit structs and enums with only unit variants, a cheap implementation can easily be created.
+///
+/// More complex types must be boxed and interned
+/// - opt in to this by annotating the entire item with `#[system_label(intern)]`.
+///
+/// Alternatively, you may force a struct or variant to behave as if
+/// it were fieldless with `#[system_label(ignore_fields)]`.
+/// This is especially useful for [`PhantomData`](core::marker::PhantomData) fields.
 #[proc_macro_derive(SystemLabel, attributes(system_label))]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -451,8 +457,14 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
 
 /// Generates an impl of the `StageLabel` trait.
 ///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[stage_label(ignore_fields)]`.
+/// For unit structs and enums with only unit variants, a cheap implementation can easily be created.
+///
+/// More complex types must be boxed and interned
+/// - opt in to this by annotating the entire item with `#[stage_label(intern)]`.
+///
+/// Alternatively, you may force a struct or variant to behave as if
+/// it were fieldless with `#[stage_label(ignore_fields)]`.
+/// This is especially useful for [`PhantomData`](core::marker::PhantomData) fields.
 #[proc_macro_derive(StageLabel, attributes(stage_label))]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -464,8 +476,14 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
 
 /// Generates an impl of the `AmbiguitySetLabel` trait.
 ///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[ambiguity_set_label(ignore_fields)]`.
+/// For unit structs and enums with only unit variants, a cheap implementation can easily be created.
+///
+/// More complex types must be boxed and interned
+/// - opt in to this by annotating the entire item with `#[ambiguity_set_label(intern)]`.
+///
+/// Alternatively, you may force a struct or variant to behave as if
+/// it were fieldless with `#[ambiguity_set_label(ignore_fields)]`.
+/// This is especially useful for [`PhantomData`](core::marker::PhantomData) fields.
 #[proc_macro_derive(AmbiguitySetLabel, attributes(ambiguity_set_label))]
 pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -479,8 +497,14 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
 
 /// Generates an impl of the `RunCriteriaLabel` trait.
 ///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[run_criteria_label(ignore_fields)]`.
+/// For unit structs and enums with only unit variants, a cheap implementation can easily be created.
+///
+/// More complex types must be boxed and interned
+/// - opt in to this by annotating the entire item with `#[run_criteria_label(intern)]`.
+///
+/// Alternatively, you may force a struct or variant to behave as if
+/// it were fieldless with `#[run_criteria_label(ignore_fields)]`.
+/// This is especially useful for [`PhantomData`](core::marker::PhantomData) fields.
 #[proc_macro_derive(RunCriteriaLabel, attributes(run_criteria_label))]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

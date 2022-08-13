@@ -10,7 +10,7 @@ pub use symbol::*;
 
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::quote;
+use quote::{format_ident, quote};
 use std::{env, path::PathBuf};
 use syn::spanned::Spanned;
 use toml::{map::Map, Value};
@@ -110,6 +110,7 @@ impl BevyManifest {
 /// in the form e.g. `#[system_label(..)]`.
 #[derive(Default)]
 struct LabelAttrs {
+    intern: Option<Span>,
     ignore_fields: Option<Span>,
 }
 
@@ -132,10 +133,14 @@ impl LabelAttrs {
             // Parse the argument/s to the attribute.
             attr.parse_args_with(|input: syn::parse::ParseStream| {
                 loop {
+                    syn::custom_keyword!(intern);
                     syn::custom_keyword!(ignore_fields);
 
                     let next = input.lookahead1();
-                    if next.peek(ignore_fields) {
+                    if next.peek(intern) {
+                        let kw: intern = input.parse()?;
+                        this.intern = Some(kw.span);
+                    } else if next.peek(ignore_fields) {
                         let kw: ignore_fields = input.parse()?;
                         this.ignore_fields = Some(kw.span);
                     } else {
@@ -171,9 +176,14 @@ pub fn derive_label(
         Err(e) => return e.into_compile_error().into(),
     };
 
-    derive_named_label(input, &item_attrs, trait_path, attr_name)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
+    // We use entirely different derives for interned and named labels.
+    if item_attrs.intern.is_some() {
+        derive_interned_label(input, trait_path, attr_name)
+    } else {
+        derive_named_label(input, &item_attrs, trait_path, attr_name)
+    }
+    .unwrap_or_else(syn::Error::into_compile_error)
+    .into()
 }
 
 fn with_static_bound(where_clause: Option<&syn::WhereClause>) -> syn::WhereClause {
@@ -209,6 +219,13 @@ fn derive_named_label(
                 );
                 return Err(syn::Error::new(attr, err_msg));
             }
+            if let Some(attr) = all_field_attrs.intern {
+                let err_msg = format!(
+                    r#"`#[{attr_name}(intern)]` cannot be applied to fields individually:
+                    try adding it to the struct declaration"#
+                );
+                return Err(syn::Error::new(attr, err_msg));
+            }
             // Structs must either be fieldless, or explicitly ignore the fields.
             let ignore_fields = item_attrs.ignore_fields.is_some();
             if d.fields.is_empty() || ignore_fields {
@@ -217,7 +234,11 @@ fn derive_named_label(
                 let as_str = quote! { write!(f, #lit) };
                 (data, as_str)
             } else {
-                let err_msg = format!("Labels cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
+                let err_msg = format!(
+                    r#"Simple labels cannot contain data, unless the whole type is boxed
+                    by marking the type with `#[{attr_name}(intern)]`.
+                    Alternatively, you can make this label behave as if it were fieldless with `#[{attr_name}(ignore_fields)]`."#
+                );
                 return Err(syn::Error::new(d.fields.span(), err_msg));
             }
         }
@@ -245,7 +266,11 @@ fn derive_named_label(
                     let lit = format!("{ident}::{}", v.ident.clone());
                     fmt_arms.push(quote! { #i => { write!(f, #lit) } });
                 } else {
-                    let err_msg = format!("Label variants cannot contain data, unless explicitly ignored with `#[{attr_name}(ignore_fields)]`");
+                    let err_msg = format!(
+                        r#"Simple labels only allow unit variants -- more complex types must be boxed
+                        by marking the whole type with `#[{attr_name}(intern)]`.
+                        Alternatively, you can make the variant act fieldless using `#[{attr_name}(ignore_fields)]`."#
+                    );
                     return Err(syn::Error::new(v.fields.span(), err_msg));
                 }
             }
@@ -298,6 +323,65 @@ fn derive_named_label(
                 #fmt?;
                 #fmt_generics
                 Ok(())
+            }
+        }
+    })
+}
+
+fn derive_interned_label(
+    input: syn::DeriveInput,
+    trait_path: &syn::Path,
+    _attr_name: &str,
+) -> syn::Result<TokenStream2> {
+    let manifest = BevyManifest::default();
+
+    let ident = input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let mut where_clause = with_static_bound(where_clause);
+    where_clause.predicates.push(
+        syn::parse2(quote! {
+            Self: ::std::clone::Clone + ::std::cmp::Eq + ::std::hash::Hash + ::std::fmt::Debug
+                + ::std::marker::Send + ::std::marker::Sync
+        })
+        .unwrap(),
+    );
+
+    let is_generic = !input.generics.params.is_empty();
+
+    let interner_type_path = {
+        let mut path = manifest.get_path("bevy_utils");
+        // If the type is generic, we have to store all monomorphizations
+        // in the same global due to Rust restrictions.
+        if is_generic {
+            path.segments.push(format_ident!("AnyInterner").into());
+        } else {
+            path.segments.push(format_ident!("Interner").into());
+        }
+        path
+    };
+    let interner_type_expr = if is_generic {
+        quote! { #interner_type_path }
+    } else {
+        quote! { #interner_type_path <#ident> }
+    };
+    let guard_type_path = {
+        let mut path = manifest.get_path("bevy_utils");
+        path.segments.push(format_ident!("InternGuard").into());
+        path
+    };
+    let interner_ident = format_ident!("{}_INTERN", ident.to_string().to_uppercase());
+
+    Ok(quote! {
+        static #interner_ident : #interner_type_expr = #interner_type_path::new();
+
+        impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
+            #[inline]
+            fn data(&self) -> u64 {
+                #interner_ident .intern(self) as u64
+            }
+            fn fmt(idx: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                let val: #guard_type_path <Self> = #interner_ident .get(idx as usize).ok_or(::std::fmt::Error)?;
+                ::std::fmt::Debug::fmt(&*val, f)
             }
         }
     })
