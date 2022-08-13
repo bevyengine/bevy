@@ -19,6 +19,7 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
+#[doc(hidden)]
 /// Payload used in [`Visibility`] propagation.
 pub struct VisibilityPayload {
     visible_in_hierachy: bool,
