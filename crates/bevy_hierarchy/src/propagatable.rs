@@ -148,9 +148,7 @@ mod test {
 
         fn compute(_computed: &mut Self::Computed, _payload: &Self::Payload, _local: &Self) {}
 
-        fn payload(_computed: &Self::Computed) -> Self::Payload {
-            ()
-        }
+        fn payload(_computed: &Self::Computed) -> Self::Payload {}
     }
 
     #[test]
