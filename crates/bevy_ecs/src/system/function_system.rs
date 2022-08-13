@@ -455,8 +455,11 @@ pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
 
 impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
     #[inline]
-    fn as_str(&self) -> &'static str {
-        std::any::type_name::<T>()
+    fn data(&self) -> u64 {
+        0
+    }
+    fn fmt(_: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<T>())
     }
 }
 

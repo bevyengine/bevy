@@ -379,9 +379,9 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
-        use std::any::TypeId;
+        let stage_label = stage_label.as_label();
         assert!(
-            stage_label.type_id() != TypeId::of::<StartupStage>(),
+            !stage_label.is::<StartupStage>(),
             "add systems to a startup stage using App::add_startup_system_to_stage"
         );
         self.schedule.add_system_to_stage(stage_label, system);
@@ -414,9 +414,9 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
-        use std::any::TypeId;
+        let stage_label = stage_label.as_label();
         assert!(
-            stage_label.type_id() != TypeId::of::<StartupStage>(),
+            !stage_label.is::<StartupStage>(),
             "add system sets to a startup stage using App::add_startup_system_set_to_stage"
         );
         self.schedule
@@ -952,7 +952,7 @@ impl App {
     pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_label()),
         }
     }
 
@@ -974,13 +974,13 @@ impl App {
     pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_label()),
         }
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
-    pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
+    pub fn get_sub_app<L: AppLabel>(&self, label: L) -> Result<&App, L> {
         self.sub_apps
             .get(&label.as_label())
             .map(|sub_app| &sub_app.app)

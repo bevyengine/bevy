@@ -6,7 +6,6 @@ use crate::{
     system::{In, IntoChainSystem, Local, Res, ResMut, Resource},
 };
 use std::{
-    any::TypeId,
     fmt::{self, Debug},
     hash::Hash,
 };
@@ -54,20 +53,16 @@ enum ScheduledOperation<T: StateData> {
     Push(T),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-struct DriverLabel(TypeId, &'static str);
-impl RunCriteriaLabel for DriverLabel {
-    fn type_id(&self) -> core::any::TypeId {
-        self.0
-    }
-    fn as_str(&self) -> &'static str {
-        self.1
-    }
-}
-
+struct DriverLabel;
 impl DriverLabel {
-    fn of<T: 'static>() -> Self {
-        Self(TypeId::of::<T>(), std::any::type_name::<T>())
+    fn of<T: 'static>() -> impl RunCriteriaLabel {
+        use std::marker::PhantomData;
+
+        #[derive(RunCriteriaLabel)]
+        #[run_criteria_label(ignore_fields)]
+        struct DriverLabel<T>(PhantomData<fn() -> T>);
+
+        DriverLabel::<T>(PhantomData)
     }
 }
 
