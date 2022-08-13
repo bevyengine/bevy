@@ -133,11 +133,21 @@ mod test {
         propagate_system, BuildChildren, BuildWorldChildren, Children, Parent, Propagatable,
     };
 
-    #[derive(Default, Component)]
+    #[derive(Component)]
     struct MyComponent(i32);
 
     #[derive(Default, Component, Clone, Copy)]
     struct MyComputedComponent(i32);
+
+    impl MyComponent {
+        const IDENTITY: Self = Self(1);
+    }
+
+    impl Default for MyComponent {
+        fn default() -> Self {
+            Self::IDENTITY
+        }
+    }
 
     impl Propagatable for MyComponent {
         type Computed = MyComputedComponent;
@@ -334,6 +344,48 @@ mod test {
                 .collect::<Vec<_>>(),
             vec![children[1]]
         );
+    }
+
+    #[test]
+    fn correct_when_no_children() {
+        let mut app = App::new();
+
+        app.add_system(propagate_system::<MyComponent>);
+
+        const ROOT_VALUE: i32 = 5;
+
+        // These will be overwritten.
+        let mut child = Entity::from_raw(0);
+        let mut grandchild = Entity::from_raw(1);
+        let parent = app
+            .world
+            .spawn()
+            .insert(MyComponent(ROOT_VALUE))
+            .insert(MyComputedComponent::default())
+            .with_children(|builder| {
+                child = builder
+                    .spawn_bundle((MyComponent::IDENTITY, MyComputedComponent::default()))
+                    .with_children(|builder| {
+                        grandchild = builder
+                            .spawn_bundle((MyComponent::IDENTITY, MyComputedComponent::default()))
+                            .id();
+                    })
+                    .id();
+            })
+            .id();
+
+        app.update();
+
+        // check the `Children` structure is spawned
+        assert_eq!(&**app.world.get::<Children>(parent).unwrap(), &[child]);
+        assert_eq!(&**app.world.get::<Children>(child).unwrap(), &[grandchild]);
+        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
+        app.update();
+
+        let mut state = app.world.query::<&MyComputedComponent>();
+        for global in state.iter(&app.world) {
+            assert_eq!(global.0, ROOT_VALUE);
+        }
     }
 
     #[test]
