@@ -41,17 +41,38 @@ fn main() {
         format!("{id:?}"),
         r#"ComplexLabel { people: ["John", "William", "Sharon"] }"#
     );
+    // Try to downcast it back to its concrete type.
+    if let Some(complex_label) = id.downcast::<ComplexLabel>() {
+        assert_eq!(complex_label.people, vec!["John", "William", "Sharon"]);
+    } else {
+        // The downcast will never fail in this example, since the label is always
+        // created from a value of type `ComplexLabel`.
+        unreachable!();
+    }
 
     // Generic heap-allocated labels.
     let id = WrapLabel(1_i128).as_label();
     assert_eq!(format!("{id:?}"), "WrapLabel(1)");
+    assert!(id.downcast::<WrapLabel<usize>>().is_none());
+    if let Some(label) = id.downcast::<WrapLabel<i128>>() {
+        assert_eq!(label.0, 1);
+    } else {
+        unreachable!();
+    }
 
     // Different types with the same type constructor.
     let id2 = WrapLabel(1_u32).as_label();
     // The debug representations are the same...
     assert_eq!(format!("{id:?}"), format!("{id2:?}"));
-    // ...but they do not compare equal.
+    // ...but they do not compare equal...
     assert_ne!(id, id2);
+    // ...nor can you downcast between monomorphizations.
+    assert!(id2.downcast::<WrapLabel<i128>>().is_none());
+    if let Some(label) = id2.downcast::<WrapLabel<u32>>() {
+        assert_eq!(label.0, 1);
+    } else {
+        unreachable!();
+    }
 }
 
 #[derive(SystemLabel)]
