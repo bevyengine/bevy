@@ -4,7 +4,6 @@
 /// The basic components of the transform crate
 pub mod components;
 mod systems;
-pub use crate::systems::transform_propagate_system;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -94,11 +93,13 @@ impl Plugin for TransformPlugin {
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::transform_propagate_system.label(TransformSystem::TransformPropagate),
+                bevy_hierarchy::propagate_system::<Transform>
+                    .label(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::transform_propagate_system.label(TransformSystem::TransformPropagate),
+                bevy_hierarchy::propagate_system::<Transform>
+                    .label(TransformSystem::TransformPropagate),
             );
     }
 }

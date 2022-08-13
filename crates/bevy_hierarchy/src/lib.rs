@@ -16,10 +16,15 @@ pub use child_builder::*;
 mod events;
 pub use events::*;
 
+mod propagatable;
+pub use propagatable::*;
+
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{child_builder::*, components::*, hierarchy::*, HierarchyPlugin};
+    pub use crate::{
+        child_builder::*, components::*, hierarchy::*, propagatable::*, HierarchyPlugin,
+    };
 }
 
 use bevy_app::prelude::*;

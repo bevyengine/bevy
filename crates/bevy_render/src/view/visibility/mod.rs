@@ -5,7 +5,7 @@ pub use render_layers::*;
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::{Children, Parent};
+use bevy_hierarchy::Propagatable;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
@@ -202,7 +202,7 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
-            visibility_propagate_system.label(VisibilityPropagate),
+            bevy_hierarchy::propagate_system::<Visibility>.label(VisibilityPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
@@ -247,63 +247,37 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     }
 }
 
-fn visibility_propagate_system(
-    mut root_query: Query<
-        (
-            Option<&Children>,
-            &Visibility,
-            &mut ComputedVisibility,
-            Entity,
-        ),
-        Without<Parent>,
-    >,
-    mut visibility_query: Query<(&Visibility, &mut ComputedVisibility, &Parent)>,
-    children_query: Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
-) {
-    for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible;
-        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.is_visible_in_view = false;
-        if let Some(children) = children {
-            for child in children.iter() {
-                let _ = propagate_recursive(
-                    computed_visibility.is_visible_in_hierarchy,
-                    &mut visibility_query,
-                    &children_query,
-                    *child,
-                    entity,
-                );
-            }
-        }
-    }
+/// Payload used in [`Visibility`] propagation.
+pub struct VisibilityPayload {
+    visible_in_hierachy: bool,
 }
 
-fn propagate_recursive(
-    parent_visible: bool,
-    visibility_query: &mut Query<(&Visibility, &mut ComputedVisibility, &Parent)>,
-    children_query: &Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
-    entity: Entity,
-    expected_parent: Entity,
-    // BLOCKED: https://github.com/rust-lang/rust/issues/31436
-    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
-) -> Result<(), ()> {
-    let is_visible = {
-        let (visibility, mut computed_visibility, child_parent) =
-            visibility_query.get_mut(entity).map_err(drop)?;
-        assert_eq!(
-            child_parent.get(), expected_parent,
-            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-        );
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible && parent_visible;
-        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.is_visible_in_view = false;
-        computed_visibility.is_visible_in_hierarchy
-    };
+impl Propagatable for Visibility {
+    type Computed = ComputedVisibility;
+    type Payload = VisibilityPayload;
 
-    for child in children_query.get(entity).map_err(drop)?.iter() {
-        let _ = propagate_recursive(is_visible, visibility_query, children_query, *child, entity);
+    const ALWAYS_PROPAGATE: bool = true;
+
+    #[inline]
+    fn compute_root(computed: &mut Self::Computed, local: &Self) {
+        computed.is_visible_in_hierarchy = local.is_visible;
+        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
+        computed.is_visible_in_view = false;
     }
-    Ok(())
+
+    #[inline]
+    fn compute(computed: &mut Self::Computed, payload: &Self::Payload, local: &Self) {
+        computed.is_visible_in_hierarchy = local.is_visible && payload.visible_in_hierachy;
+        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
+        computed.is_visible_in_view = false;
+    }
+
+    #[inline]
+    fn payload(computed: &Self::Computed) -> Self::Payload {
+        VisibilityPayload {
+            visible_in_hierachy: computed.is_visible_in_hierarchy,
+        }
+    }
 }
 
 // the batch size used for check_visibility, chosen because this number tends to perform well
@@ -419,7 +393,7 @@ mod test {
     #[test]
     fn visibility_propagation() {
         let mut app = App::new();
-        app.add_system(visibility_propagate_system);
+        app.add_system(bevy_hierarchy::propagate_system::<Visibility>);
 
         let root1 = app
             .world

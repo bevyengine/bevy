@@ -1,98 +1,3 @@
-use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::prelude::{Changed, Entity, Query, With, Without};
-use bevy_hierarchy::{Children, Parent};
-
-/// Update [`GlobalTransform`] component of entities based on entity hierarchy and
-/// [`Transform`] component.
-pub fn transform_propagate_system(
-    mut root_query: Query<
-        (
-            Option<(&Children, Changed<Children>)>,
-            &Transform,
-            Changed<Transform>,
-            &mut GlobalTransform,
-            Entity,
-        ),
-        Without<Parent>,
-    >,
-    mut transform_query: Query<(
-        &Transform,
-        Changed<Transform>,
-        &mut GlobalTransform,
-        &Parent,
-    )>,
-    children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
-) {
-    for (children, transform, transform_changed, mut global_transform, entity) in
-        root_query.iter_mut()
-    {
-        let mut changed = transform_changed;
-        if transform_changed {
-            *global_transform = GlobalTransform::from(*transform);
-        }
-
-        if let Some((children, changed_children)) = children {
-            // If our `Children` has changed, we need to recalculate everything below us
-            changed |= changed_children;
-            for child in children {
-                let _ = propagate_recursive(
-                    &global_transform,
-                    &mut transform_query,
-                    &children_query,
-                    *child,
-                    entity,
-                    changed,
-                );
-            }
-        }
-    }
-}
-
-fn propagate_recursive(
-    parent: &GlobalTransform,
-    transform_query: &mut Query<(
-        &Transform,
-        Changed<Transform>,
-        &mut GlobalTransform,
-        &Parent,
-    )>,
-    children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
-    entity: Entity,
-    expected_parent: Entity,
-    mut changed: bool,
-    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
-) -> Result<(), ()> {
-    let global_matrix = {
-        let (transform, transform_changed, mut global_transform, child_parent) =
-            transform_query.get_mut(entity).map_err(drop)?;
-        // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
-        assert_eq!(
-            child_parent.get(), expected_parent,
-            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-        );
-        changed |= transform_changed;
-        if changed {
-            *global_transform = parent.mul_transform(*transform);
-        }
-        *global_transform
-    };
-
-    let (children, changed_children) = children_query.get(entity).map_err(drop)?;
-    // If our `Children` has changed, we need to recalculate everything below us
-    changed |= changed_children;
-    for child in children {
-        let _ = propagate_recursive(
-            &global_matrix,
-            transform_query,
-            children_query,
-            *child,
-            entity,
-            changed,
-        );
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod test {
     use bevy_app::prelude::*;
@@ -101,7 +6,6 @@ mod test {
     use bevy_math::vec3;
 
     use crate::components::{GlobalTransform, Transform};
-    use crate::systems::transform_propagate_system;
     use crate::TransformBundle;
     use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
 
@@ -110,7 +14,7 @@ mod test {
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(bevy_hierarchy::propagate_system::<Transform>);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
@@ -153,7 +57,7 @@ mod test {
     fn did_propagate_command_buffer() {
         let mut world = World::default();
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(bevy_hierarchy::propagate_system::<Transform>);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
@@ -195,7 +99,7 @@ mod test {
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(bevy_hierarchy::propagate_system::<Transform>);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
@@ -286,7 +190,7 @@ mod test {
     fn correct_transforms_when_no_children() {
         let mut app = App::new();
 
-        app.add_system(transform_propagate_system);
+        app.add_system(bevy_hierarchy::propagate_system::<Transform>);
 
         let translation = vec3(1.0, 0.0, 0.0);
 
@@ -332,7 +236,7 @@ mod test {
         let mut temp = World::new();
         let mut app = App::new();
 
-        app.add_system(transform_propagate_system);
+        app.add_system(bevy_hierarchy::propagate_system::<Transform>);
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);
