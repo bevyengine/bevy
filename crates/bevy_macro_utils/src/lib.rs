@@ -271,6 +271,23 @@ fn derive_named_label(
         }
     };
 
+    // Formatting for generics
+    let generics = input.generics.params.iter();
+    let fmt_generics = generics
+        .filter_map(|p| match p {
+            syn::GenericParam::Type(ty) => Some({
+                let ident = &ty.ident;
+                quote! { write!(f, "{}", ::std::any::type_name::<#ident>()) }
+            }),
+            syn::GenericParam::Const(c) => Some({
+                let ident = &c.ident;
+                quote! { write!(f, "{:?}", { #ident }) }
+            }),
+            _ => None,
+        })
+        .reduce(|a, b| quote! { #a?; write!(f, ", ")?; #b })
+        .map(|x| quote! { write!(f, "::<")?; #x?; write!(f, ">")?; });
+
     Ok(quote! {
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
             #[inline]
@@ -278,7 +295,9 @@ fn derive_named_label(
                 #data
             }
             fn fmt(data: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-                #fmt
+                #fmt?;
+                #fmt_generics
+                Ok(())
             }
         }
     })

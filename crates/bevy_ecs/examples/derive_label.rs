@@ -18,6 +18,18 @@ fn main() {
         GenericLabel::<f64>::One.as_label(),
         GenericLabel::<char>::One.as_label(),
     );
+
+    assert_eq!(format!("{:?}", UnitLabel.as_label()), "UnitLabel");
+    assert_eq!(format!("{:?}", WeirdLabel(1).as_label()), "WeirdLabel");
+    assert_eq!(format!("{:?}", WeirdLabel(2).as_label()), "WeirdLabel");
+    assert_eq!(
+        format!("{:?}", GenericLabel::<f64>::One.as_label()),
+        "GenericLabel::One::<f64>"
+    );
+    assert_eq!(
+        format!("{:?}", ConstGenericLabel::<21>.as_label()),
+        "ConstGenericLabel::<21>"
+    );
 }
 
 #[derive(SystemLabel)]
@@ -39,6 +51,9 @@ pub enum GenericLabel<T> {
     #[system_label(ignore_fields)]
     Two(PhantomData<T>),
 }
+
+#[derive(SystemLabel)]
+pub struct ConstGenericLabel<const N: usize>;
 
 // FIXME: this should be a compile_fail test
 /*#[derive(SystemLabel)]
