@@ -122,3 +122,156 @@ fn propagate_recursive<T: Propagatable>(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod test {
+    use bevy_app::App;
+    use bevy_ecs::prelude::*;
+    use bevy_ecs::system::CommandQueue;
+
+    use crate::{
+        propagate_system, BuildChildren, BuildWorldChildren, Children, Parent, Propagatable,
+    };
+
+    #[derive(Component)]
+    struct MyComponent;
+
+    #[derive(Component)]
+    struct MyComputedComponent;
+
+    impl Propagatable for MyComponent {
+        type Computed = MyComputedComponent;
+        type Payload = ();
+        const ALWAYS_PROPAGATE: bool = false;
+
+        fn compute_root(_computed: &mut Self::Computed, _local: &Self) {}
+
+        fn compute(_computed: &mut Self::Computed, _payload: &Self::Payload, _local: &Self) {}
+
+        fn payload(_computed: &Self::Computed) -> Self::Payload {
+            ()
+        }
+    }
+
+    #[test]
+    fn correct_children() {
+        let mut world = World::default();
+
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(propagate_system::<MyComponent>);
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        // Add parent entities
+        let mut children = Vec::new();
+        let parent = {
+            let mut command_queue = CommandQueue::default();
+            let mut commands = Commands::new(&mut command_queue, &world);
+            let parent = commands.spawn().insert(MyComponent).id();
+            commands.entity(parent).with_children(|parent| {
+                children.push(parent.spawn().insert(MyComponent).id());
+                children.push(parent.spawn().insert(MyComponent).id());
+            });
+            command_queue.apply(&mut world);
+            schedule.run(&mut world);
+            parent
+        };
+
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            children,
+        );
+
+        // Parent `e1` to `e2`.
+        {
+            let mut command_queue = CommandQueue::default();
+            let mut commands = Commands::new(&mut command_queue, &world);
+            commands.entity(children[1]).add_child(children[0]);
+            command_queue.apply(&mut world);
+            schedule.run(&mut world);
+        }
+
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![children[1]]
+        );
+
+        assert_eq!(
+            world
+                .get::<Children>(children[1])
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![children[0]]
+        );
+
+        assert!(world.despawn(children[0]));
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![children[1]]
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn panic_when_hierarchy_cycle() {
+        // We cannot directly edit Parent and Children, so we use a temp world to break
+        // the hierarchy's invariants.
+        let mut temp = World::new();
+        let mut app = App::new();
+
+        app.add_system(propagate_system::<MyComponent>);
+
+        fn setup_world(world: &mut World) -> (Entity, Entity) {
+            let mut grandchild = Entity::from_raw(0);
+            let child = world
+                .spawn()
+                .insert_bundle((MyComponent, MyComputedComponent))
+                .with_children(|builder| {
+                    grandchild = builder
+                        .spawn()
+                        .insert_bundle((MyComponent, MyComputedComponent))
+                        .id();
+                })
+                .id();
+            (child, grandchild)
+        }
+
+        let (temp_child, temp_grandchild) = setup_world(&mut temp);
+        let (child, grandchild) = setup_world(&mut app.world);
+
+        assert_eq!(temp_child, child);
+        assert_eq!(temp_grandchild, grandchild);
+
+        app.world
+            .spawn()
+            .insert_bundle((MyComponent, MyComputedComponent))
+            .push_children(&[child]);
+        std::mem::swap(
+            &mut *app.world.get_mut::<Parent>(child).unwrap(),
+            &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
+        );
+
+        app.update();
+    }
+}
