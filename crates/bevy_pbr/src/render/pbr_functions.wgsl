@@ -15,6 +15,12 @@ fn prepare_normal(
 #endif
     is_front: bool,
 ) -> vec3<f32> {
+    // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
+    // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
+    // bakes vertex tangents and normal maps so that this is the exact inverse. Blender, Unity,
+    // Unreal Engine, Godot, and more all use the mikktspace method. Do not change this code
+    // unless you really know what you are doing.
+    // http://www.mikktspace.com/
     var N: vec3<f32> = world_normal;
 
 #ifdef VERTEX_TANGENTS

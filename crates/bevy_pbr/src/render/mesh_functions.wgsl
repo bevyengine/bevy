@@ -17,6 +17,12 @@ fn mesh_position_local_to_clip(model: mat4x4<f32>, vertex_position: vec4<f32>) -
 }
 
 fn mesh_normal_local_to_world(vertex_normal: vec3<f32>) -> vec3<f32> {
+    // NOTE: The mikktspace method of normal mapping requires that the world normal is
+    // re-normalized in the vertex shader to match the way mikktspace bakes vertex tangents
+    // and normal maps so that the exact inverse process is applied when shading. Blender, Unity,
+    // Unreal Engine, Godot, and more all use the mikktspace method. Do not change this code
+    // unless you really know what you are doing.
+    // http://www.mikktspace.com/
     return normalize(
         mat3x3<f32>(
             mesh.inverse_transpose_model[0].xyz,
@@ -27,6 +33,12 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>) -> vec3<f32> {
 }
 
 fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>) -> vec4<f32> {
+    // NOTE: The mikktspace method of normal mapping requires that the world tangent is
+    // re-normalized in the vertex shader to match the way mikktspace bakes vertex tangents
+    // and normal maps so that the exact inverse process is applied when shading. Blender, Unity,
+    // Unreal Engine, Godot, and more all use the mikktspace method. Do not change this code
+    // unless you really know what you are doing.
+    // http://www.mikktspace.com/
     return vec4<f32>(
         normalize(
             mat3x3<f32>(
