@@ -22,7 +22,6 @@ bevy_utils::define_label!(
     /// A strongly-typed identifier for an [`AppLabel`].
     AppLabelId,
 );
-bevy_ecs::impl_string_label!(AppLabel);
 
 /// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
 #[cfg(feature = "bevy_reflect")]

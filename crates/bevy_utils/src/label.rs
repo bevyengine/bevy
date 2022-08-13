@@ -6,6 +6,8 @@ use std::{
     ops::Deref,
 };
 
+use crate::Interner;
+
 pub trait DynEq: Any {
     fn as_any(&self) -> &dyn Any;
 
@@ -62,6 +64,9 @@ pub struct VTable {
     pub ty: fn() -> ::std::any::TypeId,
     pub fmt: fn(u64, &mut ::std::fmt::Formatter) -> ::std::fmt::Result,
 }
+
+#[doc(hidden)]
+pub static STR_INTERN: Interner<&str> = Interner::new();
 
 /// Macro to define a new label trait
 ///
@@ -181,6 +186,18 @@ macro_rules! define_label {
                 } else {
                     None
                 }
+            }
+        }
+
+        impl $label_name for &'static str {
+            fn data(&self) -> u64 {
+                $crate::label::STR_INTERN.intern(self) as u64
+            }
+            fn fmt(idx: u64, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                let s = $crate::label::STR_INTERN
+                    .get(idx as usize)
+                    .ok_or(::std::fmt::Error)?;
+                write!(f, "{s}")
             }
         }
     };

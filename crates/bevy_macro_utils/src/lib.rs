@@ -358,14 +358,13 @@ fn derive_interned_label(
     let is_generic = !input.generics.params.is_empty();
 
     let interner_type_path = {
-        let mut path = manifest.get_path("bevy_ecs");
-        path.segments.push(format_ident!("schedule").into());
+        let mut path = manifest.get_path("bevy_utils");
         // If the type is generic, we have to store all monomorphizations
         // in the same global due to Rust restrictions.
         if is_generic {
-            path.segments.push(format_ident!("Labels").into());
+            path.segments.push(format_ident!("AnyInterner").into());
         } else {
-            path.segments.push(format_ident!("TypedLabels").into());
+            path.segments.push(format_ident!("Interner").into());
         }
         path
     };
@@ -375,9 +374,8 @@ fn derive_interned_label(
         quote! { #interner_type_path <#ident> }
     };
     let guard_type_path = {
-        let mut path = manifest.get_path("bevy_ecs");
-        path.segments.push(format_ident!("schedule").into());
-        path.segments.push(format_ident!("LabelGuard").into());
+        let mut path = manifest.get_path("bevy_utils");
+        path.segments.push(format_ident!("InternGuard").into());
         path
     };
     let interner_ident = format_ident!("{}_INTERN", ident.to_string().to_uppercase());
@@ -394,10 +392,10 @@ fn derive_interned_label(
         impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
             #[inline]
             fn data(&self) -> u64 {
-                #interner_ident .intern(self)
+                #interner_ident .intern(self) as u64
             }
             fn fmt(idx: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-                let val: #guard_type_path <Self> = #interner_ident .get(idx).ok_or(::std::fmt::Error)?;
+                let val: #guard_type_path <Self> = #interner_ident .get(idx as usize).ok_or(::std::fmt::Error)?;
                 ::std::fmt::Debug::fmt(&*val, f)
             }
         }
@@ -405,7 +403,7 @@ fn derive_interned_label(
         impl #impl_generics #downcast_trait_path <#id_path> for #ident #ty_generics #where_clause {
             type Output = #guard_type_path <'static, Self>;
             fn downcast_from(idx: u64) -> Option<Self::Output> {
-                #interner_ident .get(idx)
+                #interner_ident .get(idx as usize)
             }
         }
     })

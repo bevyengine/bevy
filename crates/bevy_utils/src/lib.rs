@@ -9,12 +9,14 @@ pub use short_names::get_short_name;
 
 mod default;
 mod float_ord;
+mod intern;
 
 pub use ahash::AHasher;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant};
+pub use intern::*;
 pub use tracing;
 pub use uuid::Uuid;
 
