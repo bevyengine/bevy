@@ -133,22 +133,77 @@ mod test {
         propagate_system, BuildChildren, BuildWorldChildren, Children, Parent, Propagatable,
     };
 
-    #[derive(Component)]
-    struct MyComponent;
+    #[derive(Default, Component)]
+    struct MyComponent(i32);
 
-    #[derive(Component)]
-    struct MyComputedComponent;
+    #[derive(Default, Component, Clone, Copy)]
+    struct MyComputedComponent(i32);
 
     impl Propagatable for MyComponent {
         type Computed = MyComputedComponent;
-        type Payload = ();
+        type Payload = MyComputedComponent;
         const ALWAYS_PROPAGATE: bool = false;
 
-        fn compute_root(_computed: &mut Self::Computed, _local: &Self) {}
+        fn compute_root(computed: &mut Self::Computed, local: &Self) {
+            computed.0 = local.0;
+        }
 
-        fn compute(_computed: &mut Self::Computed, _payload: &Self::Payload, _local: &Self) {}
+        fn compute(computed: &mut Self::Computed, payload: &Self::Payload, local: &Self) {
+            computed.0 = payload.0 * local.0;
+        }
 
-        fn payload(_computed: &Self::Computed) -> Self::Payload {}
+        fn payload(computed: &Self::Computed) -> Self::Payload {
+            *computed
+        }
+    }
+
+    #[test]
+    fn did_propagate() {
+        let mut world = World::default();
+
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(propagate_system::<MyComponent>);
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        const ROOT_VALUE: i32 = 5;
+        const CHILDREN_0_VALUE: i32 = 3;
+        const CHILDREN_1_VALUE: i32 = -2;
+
+        let mut children = Vec::new();
+        world
+            .spawn()
+            .insert_bundle((MyComponent(ROOT_VALUE), MyComputedComponent::default()))
+            .with_children(|parent| {
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            MyComponent(CHILDREN_0_VALUE),
+                            MyComputedComponent::default(),
+                        ))
+                        .id(),
+                );
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            MyComponent(CHILDREN_1_VALUE),
+                            MyComputedComponent::default(),
+                        ))
+                        .id(),
+                );
+            });
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<MyComputedComponent>(children[0]).unwrap().0,
+            ROOT_VALUE * CHILDREN_0_VALUE
+        );
+
+        assert_eq!(
+            world.get::<MyComputedComponent>(children[1]).unwrap().0,
+            ROOT_VALUE * CHILDREN_1_VALUE
+        );
     }
 
     #[test]
@@ -166,10 +221,10 @@ mod test {
         let parent = {
             let mut command_queue = CommandQueue::default();
             let mut commands = Commands::new(&mut command_queue, &world);
-            let parent = commands.spawn().insert(MyComponent).id();
+            let parent = commands.spawn().insert(MyComponent::default()).id();
             commands.entity(parent).with_children(|parent| {
-                children.push(parent.spawn().insert(MyComponent).id());
-                children.push(parent.spawn().insert(MyComponent).id());
+                children.push(parent.spawn().insert(MyComponent::default()).id());
+                children.push(parent.spawn().insert(MyComponent::default()).id());
             });
             command_queue.apply(&mut world);
             schedule.run(&mut world);
@@ -244,11 +299,11 @@ mod test {
             let mut grandchild = Entity::from_raw(0);
             let child = world
                 .spawn()
-                .insert_bundle((MyComponent, MyComputedComponent))
+                .insert_bundle((MyComponent::default(), MyComputedComponent::default()))
                 .with_children(|builder| {
                     grandchild = builder
                         .spawn()
-                        .insert_bundle((MyComponent, MyComputedComponent))
+                        .insert_bundle((MyComponent::default(), MyComputedComponent::default()))
                         .id();
                 })
                 .id();
@@ -263,7 +318,7 @@ mod test {
 
         app.world
             .spawn()
-            .insert_bundle((MyComponent, MyComputedComponent))
+            .insert_bundle((MyComponent::default(), MyComputedComponent::default()))
             .push_children(&[child]);
         std::mem::swap(
             &mut *app.world.get_mut::<Parent>(child).unwrap(),
