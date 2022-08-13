@@ -207,6 +207,57 @@ mod test {
     }
 
     #[test]
+    fn did_propagate_command_buffer() {
+        let mut world = World::default();
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(propagate_system::<MyComponent>);
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update", update_stage);
+
+        const ROOT_VALUE: i32 = 5;
+        const CHILDREN_0_VALUE: i32 = 3;
+        const CHILDREN_1_VALUE: i32 = -2;
+
+        // Root entity
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        let mut children = Vec::new();
+        commands
+            .spawn_bundle((MyComponent(ROOT_VALUE), MyComputedComponent::default()))
+            .with_children(|parent| {
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            MyComponent(CHILDREN_0_VALUE),
+                            MyComputedComponent::default(),
+                        ))
+                        .id(),
+                );
+                children.push(
+                    parent
+                        .spawn_bundle((
+                            MyComponent(CHILDREN_1_VALUE),
+                            MyComputedComponent::default(),
+                        ))
+                        .id(),
+                );
+            });
+        queue.apply(&mut world);
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<MyComputedComponent>(children[0]).unwrap().0,
+            ROOT_VALUE * CHILDREN_0_VALUE
+        );
+
+        assert_eq!(
+            world.get::<MyComputedComponent>(children[1]).unwrap().0,
+            ROOT_VALUE * CHILDREN_1_VALUE
+        );
+    }
+
+    #[test]
     fn correct_children() {
         let mut world = World::default();
 
