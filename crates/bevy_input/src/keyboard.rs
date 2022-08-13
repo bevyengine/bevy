@@ -1,5 +1,6 @@
 use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
+use bevy_reflect::Reflect;
 
 /// A keyboard input event.
 ///
@@ -60,7 +61,7 @@ pub fn keyboard_input_system(
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
+#[derive(Reflect, Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u32)]
 pub enum KeyCode {
