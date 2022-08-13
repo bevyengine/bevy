@@ -675,7 +675,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// ```
 pub struct Local<'a, T: FromWorld + Send + Sync + 'static>(&'a mut T);
 
-// SAFE: Local only accesses internal state
+// SAFETY: Local only accesses internal state
 unsafe impl<T: Send + Sync + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
 
 impl<'a, T: FromWorld + Send + Sync + 'static> Debug for Local<'a, T>
@@ -711,7 +711,7 @@ impl<'a, T: Send + Sync + 'static + FromWorld> SystemParam for Local<'a, T> {
     type Fetch = LocalState<T>;
 }
 
-// SAFE: only local state is accessed
+// SAFETY: only local state is accessed
 unsafe impl<T: FromWorld + Send + Sync + 'static> SystemParamState for LocalState<T> {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self(T::from_world(world))
