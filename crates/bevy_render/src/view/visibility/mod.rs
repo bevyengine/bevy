@@ -19,6 +19,11 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
+/// Payload used in [`Visibility`] propagation.
+pub struct VisibilityPayload {
+    visible_in_hierachy: bool,
+}
+
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 
 /// If an entity is hidden in this way,  all [`Children`](bevy_hierarchy::Children) (and all of their children and so on) will also be hidden.
@@ -42,6 +47,34 @@ impl Visibility {
     /// Creates a new [`Visibility`], set as visible
     pub const fn visible() -> Self {
         Self { is_visible: true }
+    }
+}
+
+impl Propagatable for Visibility {
+    type Computed = ComputedVisibility;
+    type Payload = VisibilityPayload;
+
+    const ALWAYS_PROPAGATE: bool = true;
+
+    #[inline]
+    fn compute_root(computed: &mut Self::Computed, local: &Self) {
+        computed.is_visible_in_hierarchy = local.is_visible;
+        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
+        computed.is_visible_in_view = false;
+    }
+
+    #[inline]
+    fn compute(computed: &mut Self::Computed, payload: &Self::Payload, local: &Self) {
+        computed.is_visible_in_hierarchy = local.is_visible && payload.visible_in_hierachy;
+        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
+        computed.is_visible_in_view = false;
+    }
+
+    #[inline]
+    fn payload(computed: &Self::Computed) -> Self::Payload {
+        VisibilityPayload {
+            visible_in_hierachy: computed.is_visible_in_hierarchy,
+        }
     }
 }
 
@@ -244,39 +277,6 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
             &transform.back(),
             projection.far(),
         );
-    }
-}
-
-/// Payload used in [`Visibility`] propagation.
-pub struct VisibilityPayload {
-    visible_in_hierachy: bool,
-}
-
-impl Propagatable for Visibility {
-    type Computed = ComputedVisibility;
-    type Payload = VisibilityPayload;
-
-    const ALWAYS_PROPAGATE: bool = true;
-
-    #[inline]
-    fn compute_root(computed: &mut Self::Computed, local: &Self) {
-        computed.is_visible_in_hierarchy = local.is_visible;
-        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed.is_visible_in_view = false;
-    }
-
-    #[inline]
-    fn compute(computed: &mut Self::Computed, payload: &Self::Payload, local: &Self) {
-        computed.is_visible_in_hierarchy = local.is_visible && payload.visible_in_hierachy;
-        // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed.is_visible_in_view = false;
-    }
-
-    #[inline]
-    fn payload(computed: &Self::Computed) -> Self::Payload {
-        VisibilityPayload {
-            visible_in_hierachy: computed.is_visible_in_hierarchy,
-        }
     }
 }
 
