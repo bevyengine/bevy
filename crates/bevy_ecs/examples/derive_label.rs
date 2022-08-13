@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use bevy_ecs::prelude::*;
 
@@ -30,6 +30,28 @@ fn main() {
         format!("{:?}", ConstGenericLabel::<21>.as_label()),
         "ConstGenericLabel::<21>"
     );
+
+    // Working with labels that need to be heap allocated.
+    let label = ComplexLabel {
+        people: vec!["John", "William", "Sharon"],
+    };
+    // Convert it to a LabelId. Its type gets erased.
+    let id = label.as_label();
+    assert_eq!(
+        format!("{id:?}"),
+        r#"ComplexLabel { people: ["John", "William", "Sharon"] }"#
+    );
+
+    // Generic heap-allocated labels.
+    let id = WrapLabel(1_i128).as_label();
+    assert_eq!(format!("{id:?}"), "WrapLabel(1)");
+
+    // Different types with the same type constructor.
+    let id2 = WrapLabel(1_u32).as_label();
+    // The debug representations are the same...
+    assert_eq!(format!("{id:?}"), format!("{id2:?}"));
+    // ...but they do not compare equal.
+    assert_ne!(id, id2);
 }
 
 #[derive(SystemLabel)]
@@ -75,3 +97,13 @@ pub struct BadLabel2 {
     #[system_label(ignore_fields)]
     x: (),
 }*/
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, SystemLabel)]
+#[system_label(intern)]
+pub struct ComplexLabel {
+    people: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, SystemLabel)]
+#[system_label(intern)]
+pub struct WrapLabel<T>(T);
