@@ -1,7 +1,10 @@
 //! Shows how to render a polygonal [`Mesh`], generated from a [`Quad`] primitive, in a 2D scene.
 //! Adds a texture and colored vertices, giving per-vertex tinting.
 
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+use bevy::{
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+};
 
 fn main() {
     App::new()
@@ -30,12 +33,14 @@ fn setup(
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
 
-    // Spawn
+    let mesh_handle: Mesh2dHandle = meshes.add(mesh).into();
+
+    // Spawn camera
     commands.spawn_bundle(Camera2dBundle::default());
 
-    // Just vertex colors
+    // Spawn the quad with vertex colors
     commands.spawn_bundle(MaterialMesh2dBundle {
-        mesh: meshes.add(mesh.clone()).into(),
+        mesh: mesh_handle.clone(),
         transform: Transform::default()
             .with_translation(Vec3::new(-96., 0., 0.))
             .with_scale(Vec3::splat(128.)),
@@ -43,9 +48,9 @@ fn setup(
         ..default()
     });
 
-    // Combining vertex colors and a texture results in tinting
+    // Spawning the quad with vertex colors and a texture results in tinting
     commands.spawn_bundle(MaterialMesh2dBundle {
-        mesh: meshes.add(mesh).into(),
+        mesh: mesh_handle,
         transform: Transform::default()
             .with_translation(Vec3::new(96., 0., 0.))
             .with_scale(Vec3::splat(128.)),
