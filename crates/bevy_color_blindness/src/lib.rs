@@ -324,6 +324,8 @@ fn setup_new_color_blindness_cameras(
     mut cameras: Query<(Entity, &mut Camera, &ColorBlindnessCamera), Added<ColorBlindnessCamera>>,
 ) {
     for (entity, mut camera, color_blindness_camera) in &mut cameras {
+        let original_target = camera.target.clone();
+
         // Get the size the camera is rendering to
         let size = match &camera.target {
             RenderTarget::Window(window_id) => {
@@ -406,6 +408,8 @@ fn setup_new_color_blindness_cameras(
                 camera: Camera {
                     // renders after the first main camera which has default value: 0.
                     priority: 1,
+                    // set this new camera to render to where the other camera was rendering
+                    target: original_target,
                     ..Default::default()
                 },
                 ..Camera2dBundle::default()
