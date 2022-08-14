@@ -19,7 +19,6 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
-use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
@@ -82,8 +81,6 @@ pub struct Camera {
     /// If this is set to true, this camera will be rendered to its specified [`RenderTarget`]. If false, this
     /// camera will not be rendered.
     pub is_active: bool,
-    /// The method used to calculate this camera's depth. This will be used for projections and visibility.
-    pub depth_calculation: DepthCalculation,
     /// Computed values for this camera, such as the projection matrix and the render target size.
     #[reflect(ignore)]
     pub computed: ComputedCameraValues,
@@ -100,7 +97,6 @@ impl Default for Camera {
             viewport: None,
             computed: Default::default(),
             target: Default::default(),
-            depth_calculation: Default::default(),
         }
     }
 }
@@ -310,16 +306,6 @@ impl RenderTarget {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Reflect, FromReflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
-pub enum DepthCalculation {
-    /// Pythagorean distance; works everywhere, more expensive to compute.
-    #[default]
-    Distance,
-    /// Optimization for 2D; assuming the camera points towards `-Z`.
-    ZDifference,
-}
-
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -378,7 +364,6 @@ pub fn camera_system<T: CameraProjection + Component>(
             if let Some(size) = camera.logical_viewport_size() {
                 camera_projection.update(size.x, size.y);
                 camera.computed.projection_matrix = camera_projection.get_projection_matrix();
-                camera.depth_calculation = camera_projection.depth_calculation();
             }
         }
     }

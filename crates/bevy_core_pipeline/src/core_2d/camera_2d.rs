@@ -2,9 +2,7 @@ use crate::clear_color::ClearColorConfig;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::{
-        Camera, CameraProjection, CameraRenderGraph, DepthCalculation, OrthographicProjection,
-    },
+    camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
     extract_component::ExtractComponent,
     primitives::Frustum,
     view::VisibleEntities,
@@ -56,7 +54,6 @@ impl Camera2dBundle {
         // the camera's translation by far and use a right handed coordinate system
         let projection = OrthographicProjection {
             far,
-            depth_calculation: DepthCalculation::ZDifference,
             ..Default::default()
         };
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);

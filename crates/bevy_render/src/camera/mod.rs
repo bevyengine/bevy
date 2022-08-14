@@ -26,7 +26,6 @@ impl Plugin for CameraPlugin {
             .register_type::<VisibleEntities>()
             .register_type::<WindowOrigin>()
             .register_type::<ScalingMode>()
-            .register_type::<DepthCalculation>()
             .register_type::<Aabb>()
             .register_type::<CameraRenderGraph>()
             .add_plugin(CameraProjectionPlugin::<Projection>::default())
