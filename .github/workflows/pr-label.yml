@@ -8,7 +8,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - run: |
-          if [$ACTION == "labeled"]; then
+          if [ $ACTION == "labeled" ]; then
             # A new label was added
             if [ $(gh api \
             -H "Accept: application/vnd.github+json" \
