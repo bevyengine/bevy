@@ -12,7 +12,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
+    camera::{Camera, CameraProjection, OrthographicProjection, WindowOrigin},
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -245,7 +245,6 @@ pub fn extract_default_ui_camera_view<T: Component>(
             let mut projection = OrthographicProjection {
                 far: UI_CAMERA_FAR,
                 window_origin: WindowOrigin::BottomLeft,
-                depth_calculation: DepthCalculation::ZDifference,
                 ..Default::default()
             };
             projection.update(logical_size.x, logical_size.y);
