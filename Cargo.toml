@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 # serialize/deserialize required for prune only, todo feature
-naga = { version = "0.9", features=["serialize", "deserialize", "wgsl-in", "wgsl-out"] }
+naga = { version = "0.9", features=["serialize", "deserialize", "wgsl-in", "wgsl-out", "glsl-in", "glsl-out"] }
 tracing = "*"
 regex = "1.5"
 thiserror = "1.0"

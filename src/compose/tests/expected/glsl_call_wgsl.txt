@@ -1,0 +1,22 @@
+struct VertexOutput {
+    @location(0) o_Target: vec4<f32>,
+}
+
+var<private> o_Target: vec4<f32>;
+
+fn _naga_oil_mod__wgsl_module__wgsl_func() -> f32 {
+    return 53.0;
+}
+
+fn main_1() {
+    let _e1: f32 = _naga_oil_mod__wgsl_module__wgsl_func();
+    o_Target = vec4<f32>(_e1);
+    return;
+}
+
+@vertex 
+fn main() -> VertexOutput {
+    main_1();
+    let _e3: vec4<f32> = o_Target;
+    return VertexOutput(_e3);
+}

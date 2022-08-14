@@ -1,4 +1,4 @@
-use naga_oil::compose::{Composer, ComposerError, ShaderLanguage};
+use naga_oil::compose::{Composer, ComposerError, ShaderLanguage, ShaderType};
 #[allow(unused_variables, dead_code)]
 
 fn init_composer() -> Composer {
@@ -83,7 +83,7 @@ fn test_compose_full() -> Result<naga::Module, ComposerError> {
     match composer.make_naga_module(
         include_str!("bevy_pbr_wgsl/pbr.wgsl"),
         "examples/bevy_pbr_wgsl/pbr.wgsl",
-        ShaderLanguage::Wgsl,
+        ShaderType::Wgsl,
         &["VERTEX_UVS".to_owned()],
     ) {
         Ok(module) => {
@@ -107,7 +107,7 @@ fn test_compose_final_module(n: usize, composer: &mut Composer) {
         shader = match composer.make_naga_module(
             include_str!("bevy_pbr_wgsl/pbr.wgsl"),
             "examples/bevy_pbr_wgsl/pbr.wgsl",
-            ShaderLanguage::Wgsl,
+            ShaderType::Wgsl,
             &["VERTEX_UVS".to_owned()],
         ) {
             Ok(module) => {
@@ -170,7 +170,7 @@ fn test_composer_compile(n: usize, composer: &mut Composer) {
             .make_naga_module(
                 include_str!("bevy_pbr_wgsl/pbr.wgsl"),
                 "examples/bevy_pbr_wgsl/pbr.wgsl",
-                ShaderLanguage::Wgsl,
+                ShaderType::Wgsl,
                 &["VERTEX_UVS".to_owned()],
             )
             .unwrap();

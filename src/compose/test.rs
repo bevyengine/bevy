@@ -3,7 +3,7 @@ mod test {
     #[allow(unused_imports)]
     use std::io::Write;
 
-    use crate::compose::{Composer, ShaderLanguage};
+    use crate::compose::{Composer, ShaderLanguage, ShaderType};
 
     #[test]
     fn simple_compose() {
@@ -20,7 +20,7 @@ mod test {
             .make_naga_module(
                 include_str!("tests/simple/top.wgsl"),
                 "tests/simple/top.wgsl",
-                ShaderLanguage::Wgsl,
+                ShaderType::Wgsl,
                 &[],
             )
             .unwrap();
@@ -60,7 +60,7 @@ mod test {
             .make_naga_module(
                 include_str!("tests/dup_import/top.wgsl"),
                 "tests/dup_import/top.wgsl",
-                ShaderLanguage::Wgsl,
+                ShaderType::Wgsl,
                 &[],
             )
             .unwrap();
@@ -90,7 +90,7 @@ mod test {
                 .make_naga_module(
                     include_str!("tests/error_test/wgsl_valid_err.wgsl"),
                     "tests/error_test/wgsl_valid_err.wgsl",
-                    ShaderLanguage::Wgsl,
+                    ShaderType::Wgsl,
                     &[],
                 )
                 .err()
@@ -117,7 +117,7 @@ mod test {
                 .make_naga_module(
                     include_str!("tests/error_test/wgsl_valid_wrap.wgsl"),
                     "tests/error_test/wgsl_valid_wrap.wgsl",
-                    ShaderLanguage::Wgsl,
+                    ShaderType::Wgsl,
                     &[],
                 )
                 .err()
@@ -142,7 +142,7 @@ mod test {
                 .make_naga_module(
                     include_str!("tests/error_test/wgsl_parse_err.wgsl"),
                     "tests/error_test/wgsl_parse_err.wgsl",
-                    ShaderLanguage::Wgsl,
+                    ShaderType::Wgsl,
                     &[],
                 )
                 .err()
@@ -168,7 +168,7 @@ mod test {
                 .make_naga_module(
                     include_str!("tests/error_test/wgsl_parse_wrap.wgsl"),
                     "tests/error_test/wgsl_parse_wrap.wgsl",
-                    ShaderLanguage::Wgsl,
+                    ShaderType::Wgsl,
                     &[],
                 )
                 .err()
@@ -195,5 +195,76 @@ mod test {
         // f.write_all(text.as_bytes()).unwrap();
         // drop(f);
         assert_eq!(text, include_str!("tests/expected/missing_import.txt"));
+    }
+
+    #[test]
+    fn wgsl_call_glsl() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(
+                include_str!("tests/glsl/module.glsl"),
+                "tests/glsl/module.glsl",
+                ShaderLanguage::Glsl,
+            ).unwrap();
+
+        let module = composer.make_naga_module(
+            include_str!("tests/glsl/top.wgsl"),
+            "tests/glsl/top.wgsl",
+            ShaderType::Wgsl,
+            &[]
+        ).unwrap();
+        
+        let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::default()).validate(&module).unwrap();
+        let wgsl = naga::back::wgsl::write_string(&module, &info, naga::back::wgsl::WriterFlags::EXPLICIT_TYPES).unwrap();
+
+        // unforuntaly glsl variables are emitted in random order...
+        // so this is better than nothing
+        let mut wgsl: Vec<_> = wgsl.lines().collect();
+        wgsl.sort();
+        let wgsl = wgsl.join("\n");
+
+        // let mut f = std::fs::File::create("wgsl_call_glsl.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+        assert_eq!(wgsl, include_str!("tests/expected/wgsl_call_glsl.txt"));
+    }
+
+    #[test]
+    fn glsl_call_wgsl() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(
+                include_str!("tests/glsl/module.wgsl"),
+                "tests/glsl/module.wgsl",
+                ShaderLanguage::Wgsl,
+            ).unwrap();
+
+        let module = composer.make_naga_module(
+            include_str!("tests/glsl/top.glsl"),
+            "tests/glsl/top.glsl",
+            ShaderType::GlslVertex,
+            &[]
+        ).unwrap();
+        
+        let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::default()).validate(&module).unwrap();
+        let wgsl = naga::back::wgsl::write_string(&module, &info, naga::back::wgsl::WriterFlags::EXPLICIT_TYPES).unwrap();
+        // let mut f = std::fs::File::create("glsl_call_wgsl.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+        assert_eq!(wgsl, include_str!("tests/expected/glsl_call_wgsl.txt"));
+    }
+
+    #[test]
+    fn basic_glsl() {
+        let mut composer = Composer::default();
+
+        composer.make_naga_module(
+            include_str!("tests/glsl/basic.glsl"),
+            "tests/glsl/basic.glsl",
+            ShaderType::GlslFragment,
+            &[]
+        ).unwrap();
     }
 }
