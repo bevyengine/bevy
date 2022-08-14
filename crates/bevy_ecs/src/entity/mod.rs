@@ -157,7 +157,7 @@ impl Entity {
     ///     }
     /// }
     /// ```
-    pub fn from_raw(id: u32) -> Entity {
+    pub const fn from_raw(id: u32) -> Entity {
         Entity { id, generation: 0 }
     }
 
@@ -174,7 +174,7 @@ impl Entity {
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
-    pub fn from_bits(bits: u64) -> Self {
+    pub const fn from_bits(bits: u64) -> Self {
         Self {
             generation: (bits >> 32) as u32,
             id: bits as u32,
@@ -187,7 +187,7 @@ impl Entity {
     /// with both live and dead entities. Useful for compactly representing entities within a
     /// specific snapshot of the world, such as when serializing.
     #[inline]
-    pub fn id(self) -> u32 {
+    pub const fn id(self) -> u32 {
         self.id
     }
 
@@ -195,7 +195,7 @@ impl Entity {
     /// entity with a given id is despawned. This serves as a "count" of the number of times a
     /// given id has been reused (id, generation) pairs uniquely identify a given Entity.
     #[inline]
-    pub fn generation(self) -> u32 {
+    pub const fn generation(self) -> u32 {
         self.generation
     }
 }
@@ -681,5 +681,22 @@ mod tests {
 
         assert!(entities.contains(e));
         assert!(entities.get(e).is_none());
+    }
+
+    #[test]
+    fn entity_const() {
+        const C1: Entity = Entity::from_raw(42);
+        assert_eq!(42, C1.id);
+        assert_eq!(0, C1.generation);
+
+        const C2: Entity = Entity::from_bits(0x000000ff_000000cc);
+        assert_eq!(0x000000cc, C2.id);
+        assert_eq!(0x000000ff, C2.generation);
+
+        const C3: u32 = Entity::from_raw(33).id();
+        assert_eq!(33, C3);
+
+        const C4: u32 = Entity::from_bits(0x00dd00ff_00000000).generation();
+        assert_eq!(0x00dd00ff, C4);
     }
 }
