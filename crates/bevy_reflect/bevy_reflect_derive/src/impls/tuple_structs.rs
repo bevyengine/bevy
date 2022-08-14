@@ -35,6 +35,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
         });
 
+    let string_name = struct_name.to_string();
     let typed_impl = impl_typed(
         struct_name,
         reflect_struct.meta().generics(),
@@ -42,7 +43,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             let fields = [
                 #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents),)*
             ];
-            let info = #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields);
+            let info = #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields);
             #bevy_reflect_path::TypeInfo::TupleStruct(info)
         },
         bevy_reflect_path,

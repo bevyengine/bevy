@@ -40,7 +40,7 @@ use std::any::{Any, TypeId};
 ///         NamedField::new::<usize, _>("foo"),
 ///         NamedField::new::<(f32, f32), _>("bar"),
 ///       ];
-///       let info = StructInfo::new::<Self>(&fields);
+///       let info = StructInfo::new::<Self>("MyStruct", &fields);
 ///       TypeInfo::Struct(info)
 ///     })
 ///   }

@@ -69,10 +69,12 @@ pub trait Struct: Reflect {
 /// A container for compile-time struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
+    name: &'static str,
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[NamedField]>,
-    field_indices: HashMap<Cow<'static, str>, usize>,
+    field_names: Box<[&'static str]>,
+    field_indices: HashMap<&'static str, usize>,
 }
 
 impl StructInfo {
@@ -80,9 +82,10 @@ impl StructInfo {
     ///
     /// # Arguments
     ///
+    /// * `name`: The name of this struct (_without_ generics or lifetimes)
     /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<T: Reflect>(fields: &[NamedField]) -> Self {
+    pub fn new<T: Reflect>(name: &'static str, fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
@@ -91,10 +94,16 @@ impl StructInfo {
                 (name, index)
             })
             .collect::<HashMap<_, _>>();
+        let field_names = fields
+            .iter()
+            .map(|field| field.name())
+            .collect::<Vec<_>>();
 
         Self {
+            name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            field_names: field_names.into_boxed_slice(),
             fields: fields.to_vec().into_boxed_slice(),
             field_indices,
         }
@@ -105,6 +114,11 @@ impl StructInfo {
         self.field_indices
             .get(name)
             .map(|index| &self.fields[*index])
+    }
+
+    /// A slice containing the names of all fields in order.
+    pub fn field_names(&self) -> &[&'static str] {
+        &self.field_names
     }
 
     /// Get the field at the given index.
@@ -125,6 +139,15 @@ impl StructInfo {
     /// The total number of fields in this struct.
     pub fn field_len(&self) -> usize {
         self.fields.len()
+    }
+
+    /// The name of the struct.
+    ///
+    /// This does _not_ include any generics or lifetimes.
+    ///
+    /// For example, `foo::bar::Baz<'a, T>` would simply be `Baz`.
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     /// The [type name] of the struct.

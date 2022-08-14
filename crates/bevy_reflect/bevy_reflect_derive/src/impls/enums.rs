@@ -53,12 +53,13 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
         });
 
+    let string_name = enum_name.to_string();
     let typed_impl = impl_typed(
         enum_name,
         reflect_enum.meta().generics(),
         quote! {
             let variants = [#(#variant_info),*];
-            let info = #bevy_reflect_path::EnumInfo::new::<Self>(&variants);
+            let info = #bevy_reflect_path::EnumInfo::new::<Self>(#string_name, &variants);
             #bevy_reflect_path::TypeInfo::Enum(info)
         },
         bevy_reflect_path,

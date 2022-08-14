@@ -1,7 +1,6 @@
 use crate::{DynamicEnum, Reflect, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
-use std::borrow::Cow;
 use std::slice::Iter;
 
 /// A trait representing a [reflected] enum.
@@ -131,10 +130,12 @@ pub trait Enum: Reflect {
 /// A container for compile-time enum info, used by [`TypeInfo`](crate::TypeInfo).
 #[derive(Clone, Debug)]
 pub struct EnumInfo {
+    name: &'static str,
     type_name: &'static str,
     type_id: TypeId,
     variants: Box<[VariantInfo]>,
-    variant_indices: HashMap<Cow<'static, str>, usize>,
+    variant_names: Box<[&'static str]>,
+    variant_indices: HashMap<&'static str, usize>,
 }
 
 impl EnumInfo {
@@ -142,9 +143,10 @@ impl EnumInfo {
     ///
     /// # Arguments
     ///
+    /// * `name`: The name of this enum (_without_ generics or lifetimes)
     /// * `variants`: The variants of this enum in the order they are defined
     ///
-    pub fn new<TEnum: Enum>(variants: &[VariantInfo]) -> Self {
+    pub fn new<TEnum: Enum>(name: &'static str, variants: &[VariantInfo]) -> Self {
         let variant_indices = variants
             .iter()
             .enumerate()
@@ -154,10 +156,17 @@ impl EnumInfo {
             })
             .collect::<HashMap<_, _>>();
 
+        let variant_names = variants
+            .iter()
+            .map(|variant| variant.name())
+            .collect::<Vec<_>>();
+
         Self {
+            name,
             type_name: std::any::type_name::<TEnum>(),
             type_id: TypeId::of::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
+            variant_names: variant_names.into_boxed_slice(),
             variant_indices,
         }
     }
@@ -167,6 +176,11 @@ impl EnumInfo {
         self.variant_indices
             .get(name)
             .map(|index| &self.variants[*index])
+    }
+
+    /// A slice containing the names of all variants in order.
+    pub fn variant_names(&self) -> &[&'static str] {
+        &self.variant_names
     }
 
     /// Get a variant at the given index.
@@ -199,6 +213,15 @@ impl EnumInfo {
     /// The number of variants in this enum.
     pub fn variant_len(&self) -> usize {
         self.variants.len()
+    }
+
+    /// The name of the enum.
+    ///
+    /// This does _not_ include any generics or lifetimes.
+    ///
+    /// For example, `foo::bar::Baz<'a, T>` would simply be `Baz`.
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     /// The [type name] of the enum.

@@ -51,6 +51,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
         });
 
+    let string_name = struct_name.to_string();
     let typed_impl = impl_typed(
         struct_name,
         reflect_struct.meta().generics(),
@@ -58,7 +59,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
            let fields = [
                 #(#bevy_reflect_path::NamedField::new::<#field_types, _>(#field_names),)*
             ];
-            let info = #bevy_reflect_path::StructInfo::new::<Self>(&fields);
+            let info = #bevy_reflect_path::StructInfo::new::<Self>(#string_name, &fields);
             #bevy_reflect_path::TypeInfo::Struct(info)
         },
         bevy_reflect_path,

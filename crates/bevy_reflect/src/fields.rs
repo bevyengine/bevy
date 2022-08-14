@@ -1,18 +1,17 @@
 use crate::Reflect;
 use std::any::{Any, TypeId};
-use std::borrow::Cow;
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
 pub struct NamedField {
-    name: Cow<'static, str>,
+    name: &'static str,
     type_name: &'static str,
     type_id: TypeId,
 }
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect, TName: Into<Cow<'static, str>>>(name: TName) -> Self {
+    pub fn new<T: Reflect, TName: Into<&'static str>>(name: TName) -> Self {
         Self {
             name: name.into(),
             type_name: std::any::type_name::<T>(),
@@ -21,7 +20,7 @@ impl NamedField {
     }
 
     /// The name of the field.
-    pub fn name(&self) -> &Cow<'static, str> {
+    pub fn name(&self) -> &'static str {
         &self.name
     }
 
