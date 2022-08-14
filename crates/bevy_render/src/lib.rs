@@ -129,7 +129,46 @@ pub struct RenderApp;
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let options = app
+        let settings = app
+            .world
+            .get_resource::<settings::WgpuSettings>()
+            .cloned()
+            .unwrap_or_default();
+
+        app.add_plugin(RenderGraphPlugin);
+
+        if settings.backends.is_some() {
+            let (sender, receiver) = bevy_time::create_time_channels();
+            app.insert_resource(receiver)
+                .register_type::<Frustum>()
+                .register_type::<CubemapFrusta>();
+
+            // The render app is added in the render graph plugin (if a backend was specified)
+            let render_app = app.get_sub_app_mut(RenderApp).unwrap();
+            render_app.insert_resource(sender);
+            render_app.add_system_to_stage(
+                RenderStage::Render,
+                render_system.at_end(),
+            );
+        }
+
+        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
+            .add_plugin(WindowRenderPlugin)
+            .add_plugin(CameraPlugin)
+            .add_plugin(ViewPlugin)
+            .add_plugin(MeshPlugin)
+            .add_plugin(GlobalsPlugin)
+            .add_plugin(FrameCountPlugin);
+    }
+}
+
+/// The render graph abstraction including the [`RenderStages`](RenderStage).
+pub struct RenderGraphPlugin;
+
+impl Plugin for RenderGraphPlugin {
+    /// Initializes the render graph, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
+    fn build(&self, app: &mut App) {
+        let settings = app
             .world
             .get_resource::<settings::WgpuSettings>()
             .cloned()
@@ -141,7 +180,7 @@ impl Plugin for RenderPlugin {
             .init_debug_asset_loader::<ShaderLoader>()
             .register_type::<Color>();
 
-        if let Some(backends) = options.backends {
+        if let Some(backends) = settings.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
 
@@ -154,12 +193,12 @@ impl Plugin for RenderPlugin {
                 });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: options.power_preference,
+                power_preference: settings.power_preference,
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
             let (device, queue, adapter_info, render_adapter) = futures_lite::future::block_on(
-                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
+                renderer::initialize_renderer(&instance, &settings, &request_adapter_options),
             );
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
@@ -167,9 +206,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone())
-                .init_resource::<ScratchMainWorld>()
-                .register_type::<Frustum>()
-                .register_type::<CubemapFrusta>();
+                .init_resource::<ScratchMainWorld>();
 
             let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
@@ -200,8 +237,7 @@ impl Plugin for RenderPlugin {
                 .add_stage(
                     RenderStage::Render,
                     SystemStage::parallel()
-                        .with_system(PipelineCache::process_pipeline_queue_system)
-                        .with_system(render_system.at_end()),
+                        .with_system(PipelineCache::process_pipeline_queue_system),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .init_resource::<RenderGraph>()
@@ -212,10 +248,6 @@ impl Plugin for RenderPlugin {
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server);
-
-            let (sender, receiver) = bevy_time::create_time_channels();
-            app.insert_resource(receiver);
-            render_app.insert_resource(sender);
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
@@ -327,14 +359,6 @@ impl Plugin for RenderPlugin {
                 }
             });
         }
-
-        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
-            .add_plugin(WindowRenderPlugin)
-            .add_plugin(CameraPlugin)
-            .add_plugin(ViewPlugin)
-            .add_plugin(MeshPlugin)
-            .add_plugin(GlobalsPlugin)
-            .add_plugin(FrameCountPlugin);
     }
 }
 

@@ -16,7 +16,7 @@ use crate::{
     renderer::{RenderContext, RenderDevice},
 };
 
-pub(crate) struct RenderGraphRunner;
+pub struct RenderGraphRunner;
 
 #[derive(Error, Debug)]
 pub enum RenderGraphRunnerError {
