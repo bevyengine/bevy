@@ -38,8 +38,6 @@ skip = [
     { name = "core-foundation", version = "0.7" },      # from winit v0.26.0
     { name = "core-foundation-sys", version = "0.7" },  # from winit v0.26.0
     { name = "core-graphics", version = "0.19" },       # from winit v0.26.0
-    { name = "hashbrown", version = "0.11" },           # from wgpu v0.12 - https://github.com/zakarumych/gpu-descriptor/pull/21
-    { name = "mio", version = "0.7" },                  # from notify v5.0.0-pre.11
     { name = "ndk", version = "0.5" },                  # from winit v0.26.1
     { name = "ndk-glue", version = "0.5" },             # from winit v0.26.1
     { name = "ndk-sys", version = "0.2" },              # from winit v0.26.1
