@@ -29,11 +29,26 @@ fn setup(
     ];
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
+
     // Spawn
     commands.spawn_bundle(Camera2dBundle::default());
+
+    // Just vertex colors
+    commands.spawn_bundle(MaterialMesh2dBundle {
+        mesh: meshes.add(mesh.clone()).into(),
+        transform: Transform::default()
+            .with_translation(Vec3::new(-96., 0., 0.))
+            .with_scale(Vec3::splat(128.)),
+        material: materials.add(ColorMaterial::default()),
+        ..default()
+    });
+
+    // Combining vertex colors and a texture results in tinting
     commands.spawn_bundle(MaterialMesh2dBundle {
         mesh: meshes.add(mesh).into(),
-        transform: Transform::default().with_scale(Vec3::splat(128.)),
+        transform: Transform::default()
+            .with_translation(Vec3::new(96., 0., 0.))
+            .with_scale(Vec3::splat(128.)),
         material: materials.add(ColorMaterial::from(texture_handle)),
         ..default()
     });
