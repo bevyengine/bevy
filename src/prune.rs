@@ -6,7 +6,7 @@ use naga::{
 use std::collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque};
 use tracing::{debug, info};
 
-use crate::{util::serde_range, derive::DerivedModule};
+use crate::{derive::DerivedModule, util::serde_range};
 
 #[cfg(test)]
 mod tests {
@@ -536,7 +536,11 @@ impl FunctionReq {
                     function: *function,
                     arguments: arguments
                         .iter()
-                        .map(|e| *expr_map.get(e).unwrap_or_else(|| panic!("missing expr {:?}", e)))
+                        .map(|e| {
+                            *expr_map
+                                .get(e)
+                                .unwrap_or_else(|| panic!("missing expr {:?}", e))
+                        })
                         .collect(),
                     result,
                 })
@@ -680,6 +684,7 @@ enum StatementReq {
     Barrier(),
     Store(bool),
     ImageStore(bool),
+    #[allow(dead_code)] // todo remove me when atomics are managed
     Atomic(bool),
     Call {
         call_required: bool,
@@ -1199,16 +1204,9 @@ impl Pruner {
             }
             Expression::ImageQuery { image, query } => {
                 self.add_expression(shader, function, func_req, context, image, &PartReq::All);
-                if let ImageQuery::Size{ level: Some(level) } = query {
-                    self.add_expression(
-                        shader,
-                        function,
-                        func_req,
-                        context,
-                        level,
-                        &PartReq::All,
-                    );
-                } 
+                if let ImageQuery::Size { level: Some(level) } = query {
+                    self.add_expression(shader, function, func_req, context, level, &PartReq::All);
+                }
             }
             Expression::Unary { op: _op, expr } => {
                 self.add_expression(shader, function, func_req, context, expr, part);
@@ -1255,14 +1253,7 @@ impl Pruner {
             } => {
                 self.add_expression(shader, function, func_req, context, arg, &PartReq::All);
                 for arg in [arg1, arg2, arg3].into_iter().flatten() {
-                    self.add_expression(
-                        shader,
-                        function,
-                        func_req,
-                        context,
-                        arg,
-                        &PartReq::All,
-                    );
+                    self.add_expression(shader, function, func_req, context, arg, &PartReq::All);
                 }
             }
             Expression::As {
@@ -1502,12 +1493,7 @@ impl Pruner {
                     _ => Store(false),
                 }
             }
-            Statement::Atomic {
-                pointer,
-                fun,
-                value,
-                result,
-            } => todo!(),
+            Statement::Atomic { .. } => unimplemented!(),
             Statement::Call {
                 function: call_func,
                 arguments,
@@ -1742,7 +1728,7 @@ impl Pruner {
 
     pub fn rewrite(&self, source: &Module) -> Module {
         let mut derived = DerivedModule::default();
-        derived.set_shader_source(source);
+        derived.set_shader_source(source, 0);
 
         for (h_f, f) in source.functions.iter() {
             if let Some(req) = self.functions.get(&h_f) {
@@ -1750,12 +1736,8 @@ impl Pruner {
                     info!("rewrite {:?}", f.name);
                     debug!("func req: {:#?}", req);
                     let new_f = req.prune(f);
-                    derived.import_function(&new_f);
-                    info!(
-                        "map {:?} -> {:?}",
-                        h_f,
-                        derived.map_function_handle(&h_f)
-                    );
+                    derived.import_function(&new_f, Span::UNDEFINED);
+                    info!("map {:?} -> {:?}", h_f, derived.map_function_handle(&h_f));
                 }
             }
         }

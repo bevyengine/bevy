@@ -10,12 +10,17 @@ edition = "2021"
 naga = { version = "0.9", features=["serialize", "deserialize", "wgsl-in", "wgsl-out"] }
 tracing = "*"
 regex = "1.5"
+thiserror = "1.0"
+codemap = "0.1.3"
+codemap-diagnostic = "0.1.1"
+codespan-reporting = "0.11.1"
 
 # required for prune only, todo feature
 serde = "*"      
 serde_json = "*"
 
 [dev-dependencies]
-bevy = "0.8"
-wgpu = "*"
+# uncomment for pbr_prune_test example
+# bevy = { git = "https://github.com/robtfm/expose_processed_shaders"}
+wgpu = { version = "0.13", features=["naga"] }
 futures-lite = "*"

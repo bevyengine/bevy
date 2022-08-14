@@ -4,6 +4,6 @@
 // atomics
 
 pub mod compose;
+pub mod derive;
 pub mod prune;
 pub mod util;
-pub mod derive;

@@ -1,3 +1,6 @@
+fn main() {}
+
+/*
 use bevy::{
     core_pipeline::core_3d::{AlphaMask3d, Opaque3d},
     pbr::queue_material_meshes,
@@ -13,7 +16,6 @@ use naga::{
     valid::{Capabilities, ValidationFlags},
 };
 use naga_oil::prune::Pruner;
-
 
 fn main() {
     let mut app = App::new();
@@ -120,3 +122,4 @@ fn get_shader<T: CachedRenderPipelinePhaseItem>(
         }
     }
 }
+*/

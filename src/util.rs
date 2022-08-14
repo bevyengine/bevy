@@ -1,6 +1,6 @@
 // polyfill clones
 
-use naga::{UniqueArena, Span, Module, Arena, EntryPoint, Constant, Function};
+use naga::{Arena, Constant, EntryPoint, Function, Module, Span, UniqueArena};
 
 // these do not remap handles, only use if the arenas are not modified
 pub fn copy_type(t: &naga::Type) -> naga::Type {
@@ -101,7 +101,7 @@ pub fn clone_arena<T, F: Fn(&T) -> T>(arena: &Arena<T>, f: F) -> Arena<T> {
     let mut into = Arena::new();
     for (_, t) in arena.iter() {
         into.append(f(t), Span::UNDEFINED);
-    } 
+    }
 
     into
 }
@@ -120,7 +120,7 @@ pub fn clone_module(module: &Module) -> Module {
             early_depth_test: ep.early_depth_test,
             workgroup_size: ep.workgroup_size,
             function: copy_func(&ep.function),
-        })        
+        })
     }
 
     Module {

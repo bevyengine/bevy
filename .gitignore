@@ -1,5 +1,4 @@
 /target
 /Cargo.lock
-*.txt
 bevy_target.jpg
 import_example.png

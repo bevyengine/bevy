@@ -1,14 +1,15 @@
+use crate::util::copy_type;
 use naga::{
     Arena, ArraySize, Block, Constant, ConstantInner, Expression, Function, FunctionArgument,
     FunctionResult, GlobalVariable, Handle, LocalVariable, Module, Span, Statement, StructMember,
     SwitchCase, Type, TypeInner, UniqueArena,
 };
 use std::collections::HashMap;
-use crate::util::copy_type;
 
 #[derive(Debug, Default)]
 pub struct DerivedModule<'a> {
     shader: Option<&'a Module>,
+    span_offset: usize,
 
     type_map: HashMap<Handle<Type>, Handle<Type>>,
     const_map: HashMap<Handle<Constant>, Handle<Constant>>,
@@ -18,14 +19,15 @@ pub struct DerivedModule<'a> {
     types: UniqueArena<Type>,
     constants: Arena<Constant>,
     globals: Arena<GlobalVariable>,
-    functions: Arena<Function>,
+    pub functions: Arena<Function>,
 }
 
 impl<'a> DerivedModule<'a> {
     // set source context for import operations
-    pub fn set_shader_source(&mut self, shader: &'a Module) {
+    pub fn set_shader_source(&mut self, shader: &'a Module, span_offset: usize) {
         self.clear_shader_source();
         self.shader = Some(shader);
+        self.span_offset = span_offset;
     }
 
     // detach source context
@@ -34,6 +36,17 @@ impl<'a> DerivedModule<'a> {
         self.type_map.clear();
         self.const_map.clear();
         self.global_map.clear();
+    }
+
+    fn map_span(&self, span: Span) -> Span {
+        let span = span.to_range();
+        match span {
+            Some(rng) => Span::new(
+                (rng.start + self.span_offset) as u32,
+                (rng.end + self.span_offset) as u32,
+            ),
+            None => Span::UNDEFINED,
+        }
     }
 
     // remap a type from source context into our derived context
@@ -110,8 +123,8 @@ impl<'a> DerivedModule<'a> {
                     }
                 },
             };
-
-            let new_h = self.types.insert(new_type, Span::UNDEFINED);
+            let span = self.shader.as_ref().unwrap().types.get_span(*h_type);
+            let new_h = self.types.insert(new_type, self.map_span(span));
             self.type_map.insert(*h_type, new_h);
             new_h
         })
@@ -143,7 +156,10 @@ impl<'a> DerivedModule<'a> {
                 },
             };
 
-            let new_h = self.constants.fetch_or_append(new_const, Span::UNDEFINED);
+            let span = self.shader.as_ref().unwrap().constants.get_span(*h_const);
+            let new_h = self
+                .constants
+                .fetch_or_append(new_const, self.map_span(span));
             self.const_map.insert(*h_const, new_h);
             new_h
         })
@@ -168,7 +184,15 @@ impl<'a> DerivedModule<'a> {
                 init: gv.init.map(|c| self.import_const(&c)),
             };
 
-            let new_h = self.globals.fetch_or_append(new_global, Span::UNDEFINED);
+            let span = self
+                .shader
+                .as_ref()
+                .unwrap()
+                .global_variables
+                .get_span(*h_global);
+            let new_h = self
+                .globals
+                .fetch_or_append(new_global, self.map_span(span));
             self.global_map.insert(*h_global, new_h);
             new_h
         })
@@ -237,7 +261,13 @@ impl<'a> DerivedModule<'a> {
             })
             .collect();
 
-        Block::from_vec(statements)
+        let mut new_block = Block::from_vec(statements);
+
+        for ((_, new_span), (_, old_span)) in new_block.span_iter_mut().zip(block.span_iter()) {
+            *new_span.unwrap() = self.map_span(*old_span);
+        }
+
+        new_block
     }
 
     // remap function global references (global vars, consts, types) into our derived context
@@ -264,12 +294,13 @@ impl<'a> DerivedModule<'a> {
                 ty: self.import_type(&l.ty),
                 init: l.init.map(|c| self.import_const(&c)),
             };
-            let new_h = local_variables.append(new_local, Span::UNDEFINED);
+            let span = func.local_variables.get_span(h_l);
+            let new_h = local_variables.append(new_local, self.map_span(span));
             assert_eq!(h_l, new_h);
         }
 
         let mut expressions = Arena::new();
-        for (_, expr) in func.expressions.iter() {
+        for (h_expr, expr) in func.expressions.iter() {
             let expr = match expr {
                 Expression::CallResult(f) => Expression::CallResult(self.map_function_handle(f)),
                 Expression::Constant(c) => Expression::Constant(self.import_const(c)),
@@ -319,7 +350,8 @@ impl<'a> DerivedModule<'a> {
                 | Expression::AtomicResult { .. }
                 | Expression::ArrayLength(_) => expr.clone(),
             };
-            expressions.append(expr, Span::UNDEFINED);
+            let span = func.expressions.get_span(h_expr);
+            expressions.append(expr, self.map_span(span));
         }
 
         let body = self.import_block(&func.body);
@@ -336,10 +368,11 @@ impl<'a> DerivedModule<'a> {
     }
 
     // import a function defined in the source shader context
-    pub fn import_function(&mut self, func: &Function) -> Handle<Function> {
+    pub fn import_function(&mut self, func: &Function, span: Span) -> Handle<Function> {
         let name = func.name.as_ref().unwrap().clone();
         let mapped_func = self.localize_function(func);
-        let new_h = self.functions.append(mapped_func, Span::UNDEFINED);
+        let new_span = self.map_span(span);
+        let new_h = self.functions.append(mapped_func, new_span);
         self.function_map.insert(name, new_h);
         new_h
     }
@@ -348,8 +381,10 @@ impl<'a> DerivedModule<'a> {
     pub fn import_function_handle(&mut self, h_func: &Handle<Function>) -> Handle<Function> {
         let func = self.shader.unwrap().functions.try_get(*h_func).unwrap();
         let mapped_func = self.localize_function(func);
-        let new_h = self.functions.append(mapped_func, Span::UNDEFINED);
-        self.function_map.insert(func.name.as_ref().unwrap().clone(), new_h);
+        let new_span = self.map_span(self.shader.unwrap().functions.get_span(*h_func));
+        let new_h = self.functions.append(mapped_func, new_span);
+        self.function_map
+            .insert(func.name.as_ref().unwrap().clone(), new_h);
         new_h
     }
 
