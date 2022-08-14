@@ -27,6 +27,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::Rect;
     /// let r = Rect::new(0., 4., 10., 6.); // w=10 h=2
     /// let r = Rect::new(2., 3., 5., -1.); // w=3 h=4
     /// ```
@@ -43,6 +44,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// // Unit rect from [0,0] to [1,1]
     /// let r = Rect::from_corners(Vec2::ZERO, Vec2::ONE); // w=1 h=1
     /// // Same; the points do not need to be ordered
@@ -65,6 +67,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::from_center_size(Vec2::ZERO, Vec2::ONE); // w=1 h=1
     /// assert!(r.min.abs_diff_eq(Vec2::splat(-0.5), 1e-5));
     /// assert!(r.max.abs_diff_eq(Vec2::splat(0.5), 1e-5));
@@ -85,6 +88,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::from_center_half_size(Vec2::ZERO, Vec2::ONE); // w=2 h=2
     /// assert!(r.min.abs_diff_eq(Vec2::splat(-1.), 1e-5));
     /// assert!(r.max.abs_diff_eq(Vec2::splat(1.), 1e-5));
@@ -103,6 +107,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::from_corners(Vec2::ZERO, Vec2::new(0., 1.)); // w=0 h=1
     /// assert!(r.is_empty());
     /// ```
@@ -116,6 +121,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::Rect;
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!((r.width() - 5.).abs() <= 1e-5);
     /// ```
@@ -129,6 +135,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::Rect;
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!((r.height() - 1.).abs() <= 1e-5);
     /// ```
@@ -142,6 +149,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!(r.size().abs_diff_eq(Vec2::new(5., 1.), 1e-5));
     /// ```
@@ -155,6 +163,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!(r.half_size().abs_diff_eq(Vec2::new(2.5, 0.5), 1e-5));
     /// ```
@@ -168,6 +177,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!(r.center().abs_diff_eq(Vec2::new(2.5, 0.5), 1e-5));
     /// ```
@@ -181,6 +191,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::Rect;
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// assert!(r.contains(r.center()));
     /// assert!(r.contains(r.min));
@@ -198,10 +209,11 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r1 = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// let r2 = Rect::new(1., -1., 3., 3.); // w=2 h=4
     /// let r = r1.union(r2);
-    /// assert!(r.min.abs_diff_eq(Vec2::new(0., -1), 1e-5));
+    /// assert!(r.min.abs_diff_eq(Vec2::new(0., -1.), 1e-5));
     /// assert!(r.max.abs_diff_eq(Vec2::new(5., 3.), 1e-5));
     /// ```
     #[inline]
@@ -220,8 +232,9 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
-    /// let u = r.union(Vec2::new(3., 6.));
+    /// let u = r.union_point(Vec2::new(3., 6.));
     /// assert!(u.min.abs_diff_eq(Vec2::ZERO, 1e-5));
     /// assert!(u.max.abs_diff_eq(Vec2::new(5., 6.), 1e-5));
     /// ```
@@ -242,10 +255,11 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r1 = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// let r2 = Rect::new(1., -1., 3., 3.); // w=2 h=4
     /// let r = r1.intersect(r2);
-    /// assert!(r.min.abs_diff_eq(Vec2::new(1., 0), 1e-5));
+    /// assert!(r.min.abs_diff_eq(Vec2::new(1., 0.), 1e-5));
     /// assert!(r.max.abs_diff_eq(Vec2::new(3., 1.), 1e-5));
     /// ```
     #[inline]
@@ -269,6 +283,7 @@ impl Rect {
     /// # Examples
     ///
     /// ```rust
+    /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
     /// let r2 = r.inset(3.); // w=11 h=7
     /// assert!(r2.min.abs_diff_eq(Vec2::splat(-3.), 1e-5));

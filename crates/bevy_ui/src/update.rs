@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::{Rect, Vec2};
+use bevy_math::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// The resolution of `Z` values for UI
