@@ -26,9 +26,9 @@ struct FragmentInput {
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.color;
-    #ifdef VERTEX_COLORS
+#ifdef VERTEX_COLORS
     output_color = output_color * in.color;
-    #endif
+#endif
     if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(texture, texture_sampler, in.uv);
     }
