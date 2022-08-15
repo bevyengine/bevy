@@ -689,14 +689,14 @@ mod tests {
         assert_eq!(42, C1.id);
         assert_eq!(0, C1.generation);
 
-        const C2: Entity = Entity::from_bits(0x000000ff_000000cc);
-        assert_eq!(0x000000cc, C2.id);
-        assert_eq!(0x000000ff, C2.generation);
+        const C2: Entity = Entity::from_bits(0x0000_00ff_0000_00cc);
+        assert_eq!(0x0000_00cc, C2.id);
+        assert_eq!(0x0000_00ff, C2.generation);
 
         const C3: u32 = Entity::from_raw(33).id();
         assert_eq!(33, C3);
 
-        const C4: u32 = Entity::from_bits(0x00dd00ff_00000000).generation();
-        assert_eq!(0x00dd00ff, C4);
+        const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
+        assert_eq!(0x00dd_00ff, C4);
     }
 }
