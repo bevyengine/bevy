@@ -135,6 +135,10 @@ futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
 
 [[example]]
+name = "render_graph"
+path = "examples/experimental/render_graph.rs"
+
+[[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
 
