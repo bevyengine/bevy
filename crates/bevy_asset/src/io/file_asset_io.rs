@@ -64,7 +64,14 @@ impl FileAssetIo {
     /// instead. It's set by cargo when running with `cargo run`.
     pub fn get_base_path() -> PathBuf {
         if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-            PathBuf::from(manifest_dir)
+            // Some Windows software don't support canonicalized path names, so let's avoid them
+            // unless the path is relative, in which case we currently need to make it absolute
+            // (See more: https://github.com/rust-lang/rust/issues/59117 )
+            if Path::new(&manifest_dir).is_relative() {
+                fs::canonicalize(&manifest_dir).unwrap_or_else(|_| PathBuf::from(manifest_dir))
+            } else {
+                PathBuf::from(manifest_dir)
+            }
         } else {
             env::current_exe()
                 .map(|path| {
