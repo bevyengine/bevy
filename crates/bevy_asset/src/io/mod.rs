@@ -32,6 +32,10 @@ pub enum AssetIoError {
     #[error("path not found: {0}")]
     NotFound(PathBuf),
 
+    /// Path is outside of an intended scope, e.g. assets directory.
+    #[error("path out of scope: {0}")]
+    PathOutOfScope(PathBuf),
+
     /// Encountered an I/O error while loading an asset.
     #[error("encountered an io error while loading asset: {0}")]
     Io(#[from] io::Error),
@@ -72,19 +76,15 @@ pub trait AssetIo: Downcast + Send + Sync + 'static {
     fn watch_for_changes(&self) -> Result<(), AssetIoError>;
 
     /// Returns `true` if the path is a directory.
-    fn is_dir(&self, path: &Path) -> bool {
-        self.get_metadata(path)
-            .as_ref()
-            .map(Metadata::is_dir)
-            .unwrap_or(false)
+    fn is_dir(&self, path: &Path) -> Result<bool, AssetIoError> {
+        let metadata = self.get_metadata(path)?;
+        Ok(metadata.is_dir())
     }
 
     /// Returns `true` if the path is a file.
-    fn is_file(&self, path: &Path) -> bool {
-        self.get_metadata(path)
-            .as_ref()
-            .map(Metadata::is_file)
-            .unwrap_or(false)
+    fn is_file(&self, path: &Path) -> Result<bool, AssetIoError> {
+        let metadata = self.get_metadata(path)?;
+        Ok(metadata.is_file())
     }
 }
 

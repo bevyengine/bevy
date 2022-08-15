@@ -82,13 +82,27 @@ impl FileAssetIo {
     pub fn root_path(&self) -> &PathBuf {
         &self.root_path
     }
+
+    #[cfg(not(windows))]
+    fn ensure_scope(&self, target: &Path) -> Result<PathBuf, AssetIoError> {
+        let canon = fs::canonicalize(&target).map_err(|err| AssetIoError::Io(err))?;
+        if !canon.starts_with(&self.root_path) {
+            return Err(AssetIoError::PathOutOfScope(canon));
+        }
+        Ok(canon)
+    }
+
+    #[cfg(windows)] // TODO: wait for std::path::absolute stabilization for Windows
+    fn ensure_scope(&self, target: &Path) -> Result<PathBuf, AssetIoError> {
+        Ok(PathBuf::from(target))
+    }
 }
 
 impl AssetIo for FileAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
-            let full_path = self.root_path.join(path);
+            let full_path = self.ensure_scope(&self.root_path.join(path))?;
             match File::open(&full_path) {
                 Ok(mut file) => {
                     file.read_to_end(&mut bytes)?;
@@ -109,11 +123,19 @@ impl AssetIo for FileAssetIo {
         &self,
         path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
+        let full_path = self.ensure_scope(path)?;
         let root_path = self.root_path.to_owned();
-        Ok(Box::new(fs::read_dir(root_path.join(path))?.map(
+        Ok(Box::new(fs::read_dir(full_path)?.filter_map(
             move |entry| {
-                let path = entry.unwrap().path();
-                path.strip_prefix(&root_path).unwrap().to_owned()
+                if let Ok(entry) = entry {
+                    if let Ok(true) = entry.metadata().map(|meta| meta.is_symlink()) {
+                        return None;
+                    }
+                    if let Ok(path) = entry.path().strip_prefix(&root_path).map(ToOwned::to_owned) {
+                        return Some(path);
+                    }
+                }
+                None
             },
         )))
     }
@@ -121,7 +143,7 @@ impl AssetIo for FileAssetIo {
     fn watch_path_for_changes(&self, _path: &Path) -> Result<(), AssetIoError> {
         #[cfg(feature = "filesystem_watcher")]
         {
-            let path = self.root_path.join(_path);
+            let path = self.ensure_scope(&self.root_path.join(_path))?;
             let mut watcher = self.filesystem_watcher.write();
             if let Some(ref mut watcher) = *watcher {
                 watcher
@@ -145,7 +167,7 @@ impl AssetIo for FileAssetIo {
     }
 
     fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
-        let full_path = self.root_path.join(path);
+        let full_path = self.ensure_scope(&self.root_path.join(path))?;
         full_path
             .metadata()
             .and_then(Metadata::try_from)

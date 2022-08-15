@@ -481,7 +481,11 @@ impl AssetServer {
         path: P,
     ) -> Result<Vec<HandleUntyped>, AssetServerError> {
         let path = path.as_ref();
-        if !self.asset_io().is_dir(path) {
+        if !self
+            .asset_io()
+            .is_dir(path)
+            .map_err(|e| AssetServerError::AssetIoError(e))?
+        {
             return Err(AssetServerError::AssetFolderNotADirectory(
                 path.to_str().unwrap().to_string(),
             ));
@@ -489,7 +493,11 @@ impl AssetServer {
 
         let mut handles = Vec::new();
         for child_path in self.asset_io().read_directory(path.as_ref())? {
-            if self.asset_io().is_dir(&child_path) {
+            if self
+                .asset_io()
+                .is_dir(&child_path)
+                .map_err(|e| AssetServerError::AssetIoError(e))?
+            {
                 handles.extend(self.load_folder(&child_path)?);
             } else {
                 if self.get_path_asset_loader(&child_path).is_err() {
