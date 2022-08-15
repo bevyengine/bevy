@@ -38,7 +38,7 @@ pub mod draw_3d_graph {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset_with_path, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -78,49 +78,59 @@ pub struct PbrPlugin;
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
+        load_internal_asset_with_path!(
             app,
             PBR_TYPES_SHADER_HANDLE,
             "render/pbr_types.wgsl",
-            Shader::from_wgsl
+            Shader::from_wgsl_with_path
         );
-        load_internal_asset!(
+        load_internal_asset_with_path!(
             app,
             PBR_BINDINGS_SHADER_HANDLE,
             "render/pbr_bindings.wgsl",
-            Shader::from_wgsl
+            Shader::from_wgsl_with_path
         );
-        load_internal_asset!(app, UTILS_HANDLE, "render/utils.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
+        load_internal_asset_with_path!(
+            app,
+            UTILS_HANDLE,
+            "render/utils.wgsl",
+            Shader::from_wgsl_with_path
+        );
+        load_internal_asset_with_path!(
             app,
             CLUSTERED_FORWARD_HANDLE,
             "render/clustered_forward.wgsl",
-            Shader::from_wgsl
+            Shader::from_wgsl_with_path
         );
-        load_internal_asset!(
+        load_internal_asset_with_path!(
             app,
             PBR_LIGHTING_HANDLE,
             "render/pbr_lighting.wgsl",
-            Shader::from_wgsl
+            Shader::from_wgsl_with_path
         );
-        load_internal_asset!(
+        load_internal_asset_with_path!(
             app,
             SHADOWS_HANDLE,
             "render/shadows.wgsl",
-            Shader::from_wgsl
+            Shader::from_wgsl_with_path
         );
-        load_internal_asset!(
+        load_internal_asset_with_path!(
             app,
             PBR_FUNCTIONS_HANDLE,
             "render/pbr_functions.wgsl",
-            Shader::from_wgsl
+            Shader::from_wgsl_with_path
         );
-        load_internal_asset!(app, PBR_SHADER_HANDLE, "render/pbr.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
+        load_internal_asset_with_path!(
+            app,
+            PBR_SHADER_HANDLE,
+            "render/pbr.wgsl",
+            Shader::from_wgsl_with_path
+        );
+        load_internal_asset_with_path!(
             app,
             SHADOW_SHADER_HANDLE,
             "render/depth.wgsl",
-            Shader::from_wgsl
+            Shader::from_wgsl_with_path
         );
 
         app.register_type::<CubemapVisibleEntities>()

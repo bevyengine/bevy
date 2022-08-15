@@ -319,7 +319,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
         let mut vertex_attributes = vec![Mesh::ATTRIBUTE_POSITION.at_shader_location(0)];
 
         let mut bind_group_layout = vec![self.view_layout.clone()];
-        let mut shader_defs = Vec::new();
+        let mut shader_defs = vec!["MESH_BINDGROUP_1".to_owned()];
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)

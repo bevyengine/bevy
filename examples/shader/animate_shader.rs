@@ -234,8 +234,8 @@ impl SpecializedMeshPipeline for CustomPipeline {
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone();
         descriptor.layout = Some(vec![
             self.mesh_pipeline.view_layout.clone(),
-            self.mesh_pipeline.mesh_layout.clone(),
             self.time_bind_group_layout.clone(),
+            self.mesh_pipeline.mesh_layout.clone(),
         ]);
         Ok(descriptor)
     }
@@ -244,8 +244,8 @@ impl SpecializedMeshPipeline for CustomPipeline {
 type DrawCustom = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
-    SetTimeBindGroup<2>,
+    SetTimeBindGroup<1>,
+    SetMeshBindGroup<2>,
     DrawMesh,
 );
 

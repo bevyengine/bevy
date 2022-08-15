@@ -1,11 +1,6 @@
-#import bevy_pbr::mesh_types
-#import bevy_pbr::mesh_view_bindings
-
-@group(1) @binding(0)
-var<uniform> mesh: Mesh;
-
-// NOTE: Bindings must come before functions that use them!
-#import bevy_pbr::mesh_functions
+#import bevy_pbr::mesh_types as MeshTypes
+#import bevy_pbr::mesh_functions as MeshFunctions
+#import bevy_pbr::mesh_bindings as MeshBindings
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -25,7 +20,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
     var out: VertexOutput;
-    out.clip_position = mesh_position_local_to_clip(mesh.model, vec4<f32>(position, 1.0));
+    out.clip_position = MeshFunctions::mesh_position_local_to_clip(MeshBindings::mesh.model, vec4<f32>(position, 1.0));
     out.color = vertex.i_color;
     return out;
 }

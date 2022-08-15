@@ -1,5 +1,5 @@
-#import bevy_sprite::mesh2d_types
-#import bevy_sprite::mesh2d_view_bindings
+#import bevy_sprite::mesh2d_types as MeshTypes
+#import bevy_sprite::mesh2d_vertex_output as OutputTypes
 
 struct ColorMaterial {
     color: vec4<f32>,
@@ -16,21 +16,19 @@ var texture: texture_2d<f32>;
 var texture_sampler: sampler;
 
 @group(2) @binding(0)
-var<uniform> mesh: Mesh2d;
-
-struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    #import bevy_sprite::mesh2d_vertex_output
-};
+var<uniform> mesh: MeshTypes::Mesh2d;
 
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+fn fragment(
+    @builtin(front_facing) is_front: bool,
+    mesh: OutputTypes::MeshVertexOutput,
+) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.color;
     if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
 #ifdef VERTEX_COLORS
-        output_color = output_color * textureSample(texture, texture_sampler, in.uv) * in.color;
+        output_color = output_color * textureSample(texture, texture_sampler, mesh.uv) * mesh.color;
 #else
-        output_color = output_color * textureSample(texture, texture_sampler, in.uv);
+        output_color = output_color * textureSample(texture, texture_sampler, mesh.uv);
 #endif
     }
     return output_color;

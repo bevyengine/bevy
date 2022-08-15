@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset_with_path, Assets, Handle, HandleUntyped};
 use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -16,11 +16,11 @@ pub struct ColorMaterialPlugin;
 
 impl Plugin for ColorMaterialPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
+        load_internal_asset_with_path!(
             app,
             COLOR_MATERIAL_SHADER_HANDLE,
             "color_material.wgsl",
-            Shader::from_wgsl
+            Shader::from_wgsl_with_path
         );
 
         app.add_plugin(Material2dPlugin::<ColorMaterial>::default());
