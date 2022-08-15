@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let shader_src = include_str!("test.wgsl");
+        let shader_src = include_str!("tests/test.wgsl");
         let shader = naga::front::wgsl::parse_str(shader_src).unwrap();
         println!("{:#?}", shader);
 
@@ -59,7 +59,7 @@ mod tests {
 
     #[test]
     fn imports() {
-        let shader_src = include_str!("import.wgsl");
+        let shader_src = include_str!("tests/import.wgsl");
         let shader = naga::front::wgsl::parse_str(shader_src).unwrap();
         println!("{:#?}", shader);
 

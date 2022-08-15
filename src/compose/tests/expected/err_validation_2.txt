@@ -1,4 +1,4 @@
-[0m[1m[38;5;9merror[0m[1m: failed to build a valid final module: Function [2] '_naga_oil_mod__valid_inc__func' is invalid[0m
+[0m[1m[38;5;9merror[0m[1m: failed to build a valid final module: Function [2] 'valid_inc::func' is invalid[0m
   [0m[36m┌─[0m tests/error_test/wgsl_valid_err.wgsl:5:2
   [0m[36m│[0m  
 [0m[36m5[0m [0m[36m│[0m   }

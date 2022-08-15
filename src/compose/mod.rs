@@ -34,8 +34,7 @@ impl From<ShaderType> for ShaderLanguage {
     fn from(ty: ShaderType) -> Self {
         match ty {
             ShaderType::Wgsl => ShaderLanguage::Wgsl,
-            ShaderType::GlslVertex |
-            ShaderType::GlslFragment => ShaderLanguage::Glsl,
+            ShaderType::GlslVertex | ShaderType::GlslFragment => ShaderLanguage::Glsl,
         }
     }
 }
@@ -74,6 +73,8 @@ pub struct ComposableModuleDefinition {
     pub path: String,
     // list of shader_defs that can affect this module
     effective_defs: Vec<String>,
+    // full list of possible imports (regardless of shader_def configuration)
+    all_imports: HashSet<String>,
     // built composable modules for a given set of shader defs
     modules: HashMap<Vec<String>, ComposableModule>,
     // used in spans when this module is included
@@ -173,11 +174,11 @@ pub enum ComposerErrorInner {
     WgslParseError(naga::front::wgsl::ParseError),
     #[error("{0:?}")]
     GlslParseError(Vec<naga::front::glsl::Error>),
-    #[error("naga_oil/naga bug: failed to convert imported module IR back into WGSL for use with WGSL shaders: {0}")]
+    #[error("naga_oil bug, please file a report: failed to convert imported module IR back into WGSL for use with WGSL shaders: {0}")]
     WgslBackError(naga::back::wgsl::Error),
-    #[error("naga_oil/naga bug: failed to convert imported module IR back into GLSL for use with GLSL shaders: {0}")]
+    #[error("naga_oil bug, please file a report: failed to convert imported module IR back into GLSL for use with GLSL shaders: {0}")]
     GlslBackError(naga::back::glsl::Error),
-    #[error("naga_oil bug: composer failed to build a valid header: {0}")]
+    #[error("naga_oil bug, please file a report: composer failed to build a valid header: {0}")]
     HeaderValidationError(naga::WithSpan<naga::valid::ValidationError>),
     #[error("failed to build a valid final module: {0}")]
     ShaderValidationError(naga::WithSpan<naga::valid::ValidationError>),
@@ -189,6 +190,10 @@ pub enum ComposerErrorInner {
     TooManyEndIfs(usize),
     #[error("Attempted to add a module with no #define_import_path")]
     NoModuleName,
+    #[error("source contains internal decoration string, results probably won't be what you expect. if you have a legitimate reason to do this please file a report")]
+    DecorationInSource(Range<usize>),
+    #[error("naga oil only supports glsl 440 and 450")]
+    GlslInvalidVersion(usize),
 }
 
 struct ErrorSources<'a> {
@@ -216,7 +221,12 @@ impl<'a> Iterator for ErrorSources<'a> {
 impl<'a> FusedIterator for ErrorSources<'a> {}
 
 impl ComposerError {
+    /// format a Composer error
     pub fn emit_to_string(&self, composer: &Composer) -> String {
+        composer.undecorate(&self.emit_to_string_internal(composer))
+    }
+
+    fn emit_to_string_internal(&self, composer: &Composer) -> String {
         let path = self.source.path(composer);
         let source = self.source.source(composer);
         let source_offset = self.source.offset(composer);
@@ -236,6 +246,9 @@ impl ComposerError {
         let mut writer = term::termcolor::Ansi::new(Vec::new());
 
         let (labels, notes) = match &self.inner {
+            ComposerErrorInner::DecorationInSource(range) => {
+                (vec![Label::primary((), range.clone())], vec![])
+            }
             ComposerErrorInner::HeaderValidationError(v)
             | ComposerErrorInner::ShaderValidationError(v) => (
                 v.spans()
@@ -265,11 +278,16 @@ impl ComposerError {
             ),
             ComposerErrorInner::GlslParseError(e) => (
                 e.iter()
-                    .map(|naga::front::glsl::Error{ kind, meta }| Label::primary((), map_span(meta.to_range().unwrap_or(0..0))).with_message(kind.to_string()))
+                    .map(|naga::front::glsl::Error { kind, meta }| {
+                        Label::primary((), map_span(meta.to_range().unwrap_or(0..0)))
+                            .with_message(kind.to_string())
+                    })
                     .collect(),
                 vec![],
             ),
-            ComposerErrorInner::NotEnoughEndIfs(pos) | ComposerErrorInner::TooManyEndIfs(pos) => {
+            ComposerErrorInner::NotEnoughEndIfs(pos)
+            | ComposerErrorInner::TooManyEndIfs(pos)
+            | ComposerErrorInner::GlslInvalidVersion(pos) => {
                 (vec![Label::primary((), *pos..*pos)], vec![])
             }
             ComposerErrorInner::WgslBackError(e) => {
@@ -300,15 +318,18 @@ impl ComposerError {
     }
 }
 
-// module composer
-// stores any modules that can be imported into a shader
-// and builds the final shader
+/// module composer
+/// stores any modules that can be imported into a shader
+/// and builds the final shader
 #[derive(Debug)]
 pub struct Composer {
     pub validate: bool,
     pub module_sets: HashMap<String, ComposableModuleDefinition>,
     pub module_index: HashMap<usize, String>,
     pub capabilities: naga::valid::Capabilities,
+    decoration_regex: Regex,
+    undecorate_regex: Regex,
+    version_regex: Regex,
     ifdef_regex: Regex,
     ifndef_regex: Regex,
     else_regex: Regex,
@@ -331,6 +352,17 @@ impl Default for Composer {
             capabilities: Default::default(),
             module_sets: Default::default(),
             module_index: Default::default(),
+            decoration_regex: Regex::new(regex_syntax::escape(DECORATION_PRE).as_str()).unwrap(),
+            undecorate_regex: Regex::new(
+                format!(
+                    "{}([A-Z0-9]*){}",
+                    regex_syntax::escape(DECORATION_PRE),
+                    regex_syntax::escape(DECORATION_POST)
+                )
+                .as_str(),
+            )
+            .unwrap(),
+            version_regex: Regex::new(r"^\s*#version\s+([0-9]+)").unwrap(),
             ifdef_regex: Regex::new(r"^\s*#\s*ifdef\s+([\w|\d|_]+)").unwrap(),
             ifndef_regex: Regex::new(r"^\s*#\s*ifndef\s+([\w|\d|_]+)").unwrap(),
             else_regex: Regex::new(r"^\s*#\s*else").unwrap(),
@@ -338,21 +370,41 @@ impl Default for Composer {
             import_custom_path_as_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)\s+as\s+([^\s]+)")
                 .unwrap(),
             import_custom_path_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)").unwrap(),
-            define_import_path_regex: Regex::new(r"^\s*#\s*define_import_path\s+(.+)").unwrap(),
+            define_import_path_regex: Regex::new(r"^\s*#\s*define_import_path\s+([^\s]+)").unwrap(),
         }
     }
 }
 
-const DECORATION_PRE: &str = "_naga_oil_mod__";
-const DECORATION_POST: &str = "__";
-
-fn decorate(as_name: &str) -> String {
-    // todo check for collisions ("a/b" == "a\b" etc)
-    let as_name = as_name.replace(|c: char| !c.is_alphanumeric(), "_");
-    format!("{}{}{}", DECORATION_PRE, as_name, DECORATION_POST)
-}
+const DECORATION_PRE: &str = "_naga_oil__mod__";
+const DECORATION_POST: &str = "__member__";
 
 impl Composer {
+    fn decorate(as_name: &str) -> String {
+        let as_name = data_encoding::BASE32_NOPAD.encode(as_name.as_bytes());
+        format!("{}{}{}", DECORATION_PRE, as_name, DECORATION_POST)
+    }
+
+    fn undecorate(&self, string: &str) -> String {
+        self.undecorate_regex
+            .replace_all(string, |caps: &regex::Captures| {
+                format!(
+                    "{}::",
+                    String::from_utf8(
+                        data_encoding::BASE32_NOPAD
+                            .decode(caps.get(1).unwrap().as_str().as_bytes())
+                            .unwrap()
+                    )
+                    .unwrap()
+                )
+            })
+            .to_string()
+    }
+
+    /// create a non-validating composer.
+    /// validation errors in the final shader will not be caught, and errors resulting from their
+    /// use will have bad span data, so codespan reporting will fail.
+    /// use default() to create a validating composer.
+
     pub fn non_validating() -> Self {
         Self {
             validate: false,
@@ -360,13 +412,18 @@ impl Composer {
         }
     }
 
+    /// specify capabilities to be used for naga module generation.
+    /// purges any existing modules
+
     pub fn with_capabilities(self, capabilities: naga::valid::Capabilities) -> Self {
         Self {
             capabilities,
-            ..self
+            validate: self.validate,
+            ..Default::default()
         }
     }
 
+    /// check if a module with the given name has been added
     pub fn contains_module(&self, module_name: &str) -> bool {
         self.module_sets.contains_key(module_name)
     }
@@ -380,8 +437,8 @@ impl Composer {
             import, as_name, ..
         } in imports.iter()
         {
-            substituted_source =
-                substituted_source.replace(format!("{}::", as_name).as_str(), &decorate(import));
+            substituted_source = substituted_source
+                .replace(format!("{}::", as_name).as_str(), &Self::decorate(import));
         }
         substituted_source
     }
@@ -452,34 +509,36 @@ impl Composer {
             module_string.len()
         );
         let module = match language {
-            ShaderLanguage::Wgsl => {
-                naga::front::wgsl::parse_str(&module_string)
-                    .map_err(|e| {
-                        debug!("full err'd source file: \n---\n{}\n---", module_string);
-                        ComposerError {
-                            inner: ComposerErrorInner::WgslParseError(e),
-                            source: ErrSource::Constructing {
-                                path: path.to_owned(),
-                                source,
-                                offset: start_offset,
-                            },
-                        }
-                })?
-            }
-            ShaderLanguage::Glsl => {
-                naga::front::glsl::Parser::default().parse(&naga::front::glsl::Options{ stage: naga::ShaderStage::Vertex, defines: Default::default() }, &module_string)
-                    .map_err(|e| {
-                        debug!("full err'd source file: \n---\n{}\n---", module_string);
-                        ComposerError {
-                            inner: ComposerErrorInner::GlslParseError(e),
-                            source: ErrSource::Constructing {
-                                path: path.to_owned(),
-                                source,
-                                offset: start_offset,
-                            },
-                        }
-                    })?
-            }
+            ShaderLanguage::Wgsl => naga::front::wgsl::parse_str(&module_string).map_err(|e| {
+                debug!("full err'd source file: \n---\n{}\n---", module_string);
+                ComposerError {
+                    inner: ComposerErrorInner::WgslParseError(e),
+                    source: ErrSource::Constructing {
+                        path: path.to_owned(),
+                        source,
+                        offset: start_offset,
+                    },
+                }
+            })?,
+            ShaderLanguage::Glsl => naga::front::glsl::Parser::default()
+                .parse(
+                    &naga::front::glsl::Options {
+                        stage: naga::ShaderStage::Vertex,
+                        defines: Default::default(),
+                    },
+                    &module_string,
+                )
+                .map_err(|e| {
+                    debug!("full err'd source file: \n---\n{}\n---", module_string);
+                    ComposerError {
+                        inner: ComposerErrorInner::GlslParseError(e),
+                        source: ErrSource::Constructing {
+                            path: path.to_owned(),
+                            source,
+                            offset: start_offset,
+                        },
+                    }
+                })?,
         };
 
         Ok((module, start_offset, module_string))
@@ -487,7 +546,7 @@ impl Composer {
 
     // process #if(n)def / #else / #endif preprocessor directives,
     // strip module name and imports
-    // also strip "#version 450"
+    // also strip "#version xxx"
     fn preprocess_defs(
         &self,
         _mod_name: &str,
@@ -507,8 +566,18 @@ impl Composer {
         // this code broadly stolen from bevy_render::ShaderProcessor
         for line in shader_str.lines() {
             let mut output = false;
-            if line.trim().chars().count() >= "#version 450".len() && &line.trim().chars().take(12).collect::<String>() == "#version 450" {
-                // skip
+            if let Some(cap) = self.version_regex.captures(line) {
+                let v = cap.get(1).unwrap().as_str();
+                if v != "440" && v != "450" {
+                    return Err(ComposerError {
+                        inner: ComposerErrorInner::GlslInvalidVersion(offset),
+                        source: ErrSource::Constructing {
+                            path: path.to_owned(),
+                            source: shader_str.to_owned(),
+                            offset: 0,
+                        },
+                    });
+                }
             } else if let Some(cap) = self.ifdef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
                 scopes.push(*scopes.last().unwrap() && shader_defs.contains(def.as_str()));
@@ -756,69 +825,88 @@ impl Composer {
         };
 
         let headers = if create_headers {
-            [(
-                ShaderLanguage::Wgsl,
-                naga::back::wgsl::write_string(
-                    &header_ir,
-                    &info,
-                    naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
-                )
-                .map_err(|e| ComposerError {
-                    inner: ComposerErrorInner::WgslBackError(e),
-                    source: ErrSource::Constructing {
-                        path: path.to_owned(),
-                        source: unprocessed_source.to_owned(),
-                        offset: start_offset,
-                    },
-                })?,
-            ),
-            (
-                // note this must come last as we add a dummy entry point
-                ShaderLanguage::Glsl,
-                {
-                    // add a dummy entry point for glsl headers
-                    let dummy_entry_point = format!("{}dummy_module_entry_point", module_decoration);
-                    let func = naga::Function {
-                        name: Some(dummy_entry_point.clone()),
-                        arguments: Default::default(),
-                        result: None,
-                        local_variables: Default::default(),
-                        expressions: Default::default(),
-                        named_expressions: Default::default(),
-                        body: Default::default(),
-                    };
-                    let ep = EntryPoint {
-                        name: dummy_entry_point.clone(),
-                        stage: naga::ShaderStage::Vertex,
-                        function: func,
-                        early_depth_test: None,
-                        workgroup_size: [0,0,0],
-                    };
+            [
+                (
+                    ShaderLanguage::Wgsl,
+                    naga::back::wgsl::write_string(
+                        &header_ir,
+                        &info,
+                        naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+                    )
+                    .map_err(|e| ComposerError {
+                        inner: ComposerErrorInner::WgslBackError(e),
+                        source: ErrSource::Constructing {
+                            path: path.to_owned(),
+                            source: unprocessed_source.to_owned(),
+                            offset: start_offset,
+                        },
+                    })?,
+                ),
+                (
+                    // note this must come last as we add a dummy entry point
+                    ShaderLanguage::Glsl,
+                    {
+                        // add a dummy entry point for glsl headers
+                        let dummy_entry_point =
+                            format!("{}dummy_module_entry_point", module_decoration);
+                        let func = naga::Function {
+                            name: Some(dummy_entry_point.clone()),
+                            arguments: Default::default(),
+                            result: None,
+                            local_variables: Default::default(),
+                            expressions: Default::default(),
+                            named_expressions: Default::default(),
+                            body: Default::default(),
+                        };
+                        let ep = EntryPoint {
+                            name: dummy_entry_point.clone(),
+                            stage: naga::ShaderStage::Vertex,
+                            function: func,
+                            early_depth_test: None,
+                            workgroup_size: [0, 0, 0],
+                        };
 
-                    header_ir.entry_points.push(ep);
+                        header_ir.entry_points.push(ep);
 
-                    let info =
-                    naga::valid::Validator::new(naga::valid::ValidationFlags::all(), self.capabilities)
+                        let info = naga::valid::Validator::new(
+                            naga::valid::ValidationFlags::all(),
+                            self.capabilities,
+                        )
                         .validate(&header_ir);
-            
-                    let info = match info {
-                        Ok(info) => info,
-                        Err(e) => {
-                            return Err(ComposerError {
-                                inner: ComposerErrorInner::HeaderValidationError(e),
-                                source: ErrSource::Constructing {
-                                    path: path.to_owned(),
-                                    source: unprocessed_source.to_owned(),
-                                    offset: start_offset,
-                                },
-                            });
-                        }
-                    };
-                    
-                    let mut string = String::new();
-                    let options = naga::back::glsl::Options{ version: naga::back::glsl::Version::Desktop(450), writer_flags: naga::back::glsl::WriterFlags::empty(), binding_map: Default::default() };
-                    let pipeline_options = naga::back::glsl::PipelineOptions{ shader_stage: naga::ShaderStage::Vertex, entry_point: dummy_entry_point, multiview: None };
-                    let mut writer = naga::back::glsl::Writer::new(&mut string, &header_ir, &info, &options, &pipeline_options, naga::proc::BoundsCheckPolicies::default())
+
+                        let info = match info {
+                            Ok(info) => info,
+                            Err(e) => {
+                                return Err(ComposerError {
+                                    inner: ComposerErrorInner::HeaderValidationError(e),
+                                    source: ErrSource::Constructing {
+                                        path: path.to_owned(),
+                                        source: unprocessed_source.to_owned(),
+                                        offset: start_offset,
+                                    },
+                                });
+                            }
+                        };
+
+                        let mut string = String::new();
+                        let options = naga::back::glsl::Options {
+                            version: naga::back::glsl::Version::Desktop(450),
+                            writer_flags: naga::back::glsl::WriterFlags::empty(),
+                            binding_map: Default::default(),
+                        };
+                        let pipeline_options = naga::back::glsl::PipelineOptions {
+                            shader_stage: naga::ShaderStage::Vertex,
+                            entry_point: dummy_entry_point,
+                            multiview: None,
+                        };
+                        let mut writer = naga::back::glsl::Writer::new(
+                            &mut string,
+                            &header_ir,
+                            &info,
+                            &options,
+                            &pipeline_options,
+                            naga::proc::BoundsCheckPolicies::default(),
+                        )
                         .map_err(|e| ComposerError {
                             inner: ComposerErrorInner::GlslBackError(e),
                             source: ErrSource::Constructing {
@@ -827,8 +915,7 @@ impl Composer {
                                 offset: start_offset,
                             },
                         })?;
-                    writer.write()
-                        .map_err(|e| ComposerError {
+                        writer.write().map_err(|e| ComposerError {
                             inner: ComposerErrorInner::GlslBackError(e),
                             source: ErrSource::Constructing {
                                 path: path.to_owned(),
@@ -836,13 +923,14 @@ impl Composer {
                                 offset: start_offset,
                             },
                         })?;
-                    // strip version decl and main() impl
-                    let lines: Vec<_> = string.lines().collect();
-                    let string = lines[1..lines.len()-3].join("\n");
-                    debug!("glsl header for {}:\n\"\n{:?}\n\"", module_name, string);
-                    string
-                }
-            )]
+                        // strip version decl and main() impl
+                        let lines: Vec<_> = string.lines().collect();
+                        let string = lines[1..lines.len() - 3].join("\n");
+                        debug!("glsl header for {}:\n\"\n{:?}\n\"", module_name, string);
+                        string
+                    },
+                ),
+            ]
             .into()
         } else {
             Default::default()
@@ -879,15 +967,25 @@ impl Composer {
         Ok(composable_module)
     }
 
-    // add a composable module to the composer
-    // all imported modules must already have been added
+    /// add a composable module to the composer
+    /// all modules imported by this module must already have been added
     pub fn add_composable_module(
         &mut self,
         source: &str,
         path: &str,
         language: ShaderLanguage,
     ) -> Result<&ComposableModuleDefinition, ComposerError> {
-        // todo reject a module containing the DECORATION_PRE string
+        // reject a module containing the DECORATION_PRE string
+        if let Some(decor) = self.decoration_regex.find(source) {
+            return Err(ComposerError {
+                inner: ComposerErrorInner::DecorationInSource(decor.range()),
+                source: ErrSource::Constructing {
+                    path: path.to_owned(),
+                    source: source.to_owned(),
+                    offset: 0,
+                },
+            });
+        }
 
         // use btreeset so the result is sorted
         let mut effective_defs = BTreeSet::new();
@@ -947,6 +1045,7 @@ impl Composer {
             path: path.to_owned(),
             language,
             effective_defs,
+            all_imports: imports.into_iter().map(|id| id.import).collect(),
             module_index,
             modules: Default::default(),
         };
@@ -956,6 +1055,27 @@ impl Composer {
         self.module_sets.insert(module_name.clone(), module_set);
         self.module_index.insert(module_index, module_name.clone());
         Ok(self.module_sets.get(&module_name).unwrap())
+    }
+
+    /// remove a composable module. also removes modules that depend on this module, as we cannot be sure about
+    /// the completeness of their effective shader defs any more...
+    pub fn remove_composable_module(&mut self, module_name: &str) {
+        // todo this could be improved by making effective defs an Option<HashSet> and populating on demand?
+        let mut dependent_sets = Vec::new();
+
+        if self.module_sets.remove(module_name).is_some() {
+            dependent_sets.extend(self.module_sets.iter().filter_map(|(dependent_name, set)| {
+                if set.all_imports.contains(module_name) {
+                    Some(dependent_name.clone())
+                } else {
+                    None
+                }
+            }));
+        }
+
+        for dependent_set in dependent_sets {
+            self.remove_composable_module(&dependent_set);
+        }
     }
 
     // shunt all data owned by a composable into a derived module
@@ -1089,7 +1209,7 @@ impl Composer {
             let module = self.create_composable_module(
                 &name,
                 &path,
-                &decorate(&name),
+                &Self::decorate(&name),
                 &source,
                 language,
                 shader_defs,
@@ -1104,7 +1224,7 @@ impl Composer {
         Ok(())
     }
 
-    // build a naga shader module
+    /// build a naga shader module
     pub fn make_naga_module(
         &mut self,
         source: &str,
@@ -1136,7 +1256,7 @@ impl Composer {
             &substituted_source,
             shader_type.into(),
             &shader_defs,
-            false
+            false,
         )?;
 
         let mut derived = DerivedModule::default();
