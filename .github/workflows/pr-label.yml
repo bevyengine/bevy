@@ -13,8 +13,7 @@ jobs:
             if [ $(gh api \
             -H "Accept: application/vnd.github+json" \
             /repos/$REPO/pulls/$NUMBER/ | \
-            jq 'def find(s): . as $x | s | map(. as $l | $x | bsearch($l) >= 0) | any; .labels| map(.name) | sort | \
-            find(["S-Ready-For-Final-Review", "S-Needs-RFC", "S-Blocked", "S-Adopt-Me"])' ) == 'true' ]
+            jq 'def find(s): . as $x | s | map(. as $l | $x | bsearch($l) >= 0) | any; .labels| map(.name) | sort | find(["S-Ready-For-Final-Review", "S-Needs-RFC", "S-Blocked", "S-Adopt-Me"])' ) == 'true' ]
             then
               gh issue edit $NUMBER --remove-label 'S-Needs-Review'
             fi
