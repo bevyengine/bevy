@@ -211,9 +211,10 @@ impl Schedule {
             )
         }
 
+        let label = stage_label.as_label();
         let stage = self
-            .get_stage_mut::<SystemStage>(&stage_label)
-            .unwrap_or_else(move || stage_not_found(&stage_label.as_label()));
+            .get_stage_mut::<SystemStage>(label)
+            .unwrap_or_else(move || stage_not_found(&label));
         stage.add_system(system);
         self
     }
@@ -278,14 +279,12 @@ impl Schedule {
     /// Panics if `label` refers to a non-existing stage, or if it's not of type `T`.
     pub fn stage<T: Stage, F: FnOnce(&mut T) -> &mut T>(
         &mut self,
-        label: impl StageLabel,
+        stage_label: impl StageLabel,
         func: F,
     ) -> &mut Self {
-        let stage = self.get_stage_mut::<T>(&label).unwrap_or_else(move || {
-            panic!(
-                "stage '{:?}' does not exist or is the wrong type",
-                label.as_label()
-            )
+        let label = stage_label.as_label();
+        let stage = self.get_stage_mut::<T>(label).unwrap_or_else(move || {
+            panic!("stage '{label:?}' does not exist or is the wrong type",)
         });
         func(stage);
         self
@@ -304,11 +303,12 @@ impl Schedule {
     /// # let mut schedule = Schedule::default();
     /// # schedule.add_stage("my_stage", SystemStage::parallel());
     /// #
-    /// let stage = schedule.get_stage::<SystemStage>(&"my_stage").unwrap();
+    /// let stage = schedule.get_stage::<SystemStage>("my_stage").unwrap();
     /// ```
-    pub fn get_stage<T: Stage>(&self, label: &dyn StageLabel) -> Option<&T> {
+    pub fn get_stage<T: Stage>(&self, stage_label: impl StageLabel) -> Option<&T> {
+        let label = stage_label.as_label();
         self.stages
-            .get(&label.as_label())
+            .get(&label)
             .and_then(|stage| stage.downcast_ref::<T>())
     }
 
@@ -325,11 +325,12 @@ impl Schedule {
     /// # let mut schedule = Schedule::default();
     /// # schedule.add_stage("my_stage", SystemStage::parallel());
     /// #
-    /// let stage = schedule.get_stage_mut::<SystemStage>(&"my_stage").unwrap();
+    /// let stage = schedule.get_stage_mut::<SystemStage>("my_stage").unwrap();
     /// ```
-    pub fn get_stage_mut<T: Stage>(&mut self, label: &dyn StageLabel) -> Option<&mut T> {
+    pub fn get_stage_mut<T: Stage>(&mut self, stage_label: impl StageLabel) -> Option<&mut T> {
+        let label = stage_label.as_label();
         self.stages
-            .get_mut(&label.as_label())
+            .get_mut(&label)
             .and_then(|stage| stage.downcast_mut::<T>())
     }
 
