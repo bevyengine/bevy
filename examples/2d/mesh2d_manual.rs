@@ -210,7 +210,6 @@ type DrawColoredMesh2d = (
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
 #import bevy_sprite::mesh2d_types as MeshTypes
-#import bevy_sprite::mesh2d_view_bindings 
 #import bevy_sprite::mesh2d_functions as MeshFunctions
 
 @group(1) @binding(0)

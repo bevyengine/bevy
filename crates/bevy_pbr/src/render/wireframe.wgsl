@@ -2,9 +2,7 @@
 #import bevy_pbr::mesh_functions as MeshFunctions
 
 #ifdef SKINNED
-@group(2) @binding(1)
-var<uniform> joint_matrices: SkinnedMesh;
-#import bevy_pbr::skinning
+    #import bevy_pbr::skinning as Skinning
 #endif
 
 struct Vertex {
@@ -22,7 +20,7 @@ struct VertexOutput {
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef SKINNED
-    let model = MeshFunctions::skin_model(vertex.joint_indexes, vertex.joint_weights);
+    let model = Skinning::skin_model(vertex.joint_indexes, vertex.joint_weights);
 #else
     let model = MeshBindings::mesh.model;
 #endif

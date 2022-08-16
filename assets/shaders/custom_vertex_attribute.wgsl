@@ -7,9 +7,6 @@ struct CustomMaterial {
 @group(1) @binding(0)
 var<uniform> material: CustomMaterial;
 
-// NOTE: Bindings must come before functions that use them!
-#import bevy_pbr::mesh_functions
-
 struct Vertex {
     @location(0) position: vec3<f32>,
     @location(1) blend_color: vec4<f32>,

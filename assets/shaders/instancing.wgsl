@@ -1,4 +1,3 @@
-#import bevy_pbr::mesh_types as MeshTypes
 #import bevy_pbr::mesh_functions as MeshFunctions
 #import bevy_pbr::mesh_bindings as MeshBindings
 

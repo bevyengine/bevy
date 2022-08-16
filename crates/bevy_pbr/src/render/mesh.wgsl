@@ -1,4 +1,3 @@
-#import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_bindings as MeshBindings
 #import bevy_pbr::mesh_functions as MeshFunctions
 #import bevy_pbr::skinning as Skinning

@@ -1,7 +1,6 @@
 #define_import_path depth
 
 #import bevy_pbr::mesh_view_types as ViewTypes
-#import bevy_pbr::mesh_types as MeshTypes
 #import bevy_pbr::mesh_bindings as MeshBindings
 #import bevy_pbr::mesh_functions as MeshFunctions
 
