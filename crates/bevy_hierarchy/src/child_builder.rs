@@ -599,8 +599,6 @@ mod tests {
         );
         assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
-        assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
-        assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
 
         let remove_children = [child1, child4];
         {
@@ -641,17 +639,12 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
 
-        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
-        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
-
         world.entity_mut(parent).insert_children(1, &entities[3..]);
         let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child3, child4, child2];
         assert_eq!(
             world.get::<Children>(parent).unwrap().0.clone(),
             expected_children
         );
-        assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
-        assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
 

@@ -25,7 +25,7 @@ use super::EdgeExistence;
 /// Slots describe the render resources created or used by the nodes.
 ///
 /// Additionally a render graph can contain multiple sub graphs, which are run by the
-/// corresponding nodes. Every render graph can have it’s own optional input node.
+/// corresponding nodes. Every render graph can have its own optional input node.
 ///
 /// ## Example
 /// Here is a simple render graph example with two nodes connected by a node edge.

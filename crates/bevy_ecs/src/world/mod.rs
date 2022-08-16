@@ -1248,13 +1248,7 @@ impl World {
             // SAFETY: column is of type R and has been allocated above
             column.push(value, ComponentTicks::new(change_tick));
         } else {
-            let ptr = column.get_data_unchecked_mut(0);
-            std::ptr::copy_nonoverlapping::<u8>(
-                value.as_ptr(),
-                ptr.as_ptr(),
-                column.item_layout().size(),
-            );
-            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
+            column.replace(0, value, change_tick);
         }
     }
 
@@ -1593,7 +1587,7 @@ mod tests {
         Drop(ID),
     }
 
-    #[derive(Component)]
+    #[derive(Resource, Component)]
     struct MayPanicInDrop {
         drop_log: Arc<Mutex<Vec<DropLogItem>>>,
         expected_panic_flag: Arc<AtomicBool>,
@@ -1784,6 +1778,48 @@ mod tests {
         assert!(world.remove_resource_by_id(component_id).is_some());
 
         assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn insert_resource_by_id_drop_old() {
+        let drop_test_helper = DropTestHelper::new();
+        let res = std::panic::catch_unwind(|| {
+            let mut world = World::new();
+
+            world.insert_resource(drop_test_helper.make_component(false, 0));
+            let component_id = world
+                .components()
+                .get_resource_id(std::any::TypeId::of::<MayPanicInDrop>())
+                .unwrap();
+
+            OwningPtr::make(drop_test_helper.make_component(true, 1), |ptr| {
+                // SAFETY: value is valid for the component layout
+                unsafe {
+                    world.insert_resource_by_id(component_id, ptr);
+                }
+            });
+
+            OwningPtr::make(drop_test_helper.make_component(false, 2), |ptr| {
+                // SAFETY: value is valid for the component layout
+                unsafe {
+                    world.insert_resource_by_id(component_id, ptr);
+                }
+            });
+        });
+
+        let drop_log = drop_test_helper.finish(res);
+
+        assert_eq!(
+            drop_log,
+            [
+                DropLogItem::Create(0),
+                DropLogItem::Create(1),
+                DropLogItem::Drop(0), // inserting 1 drops 0
+                DropLogItem::Create(2),
+                DropLogItem::Drop(1), // inserting 2 drops 1
+                DropLogItem::Drop(2), // 2 could not be inserted because dropping 1 panicked, so it is dropped as well
+            ]
+        );
     }
 
     #[test]
