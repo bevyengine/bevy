@@ -66,7 +66,7 @@ pub struct AssetPlugin;
 
 /// Settings for the [`AssetServer`].
 ///
-/// This resource must be added before the [`AssetPlugin`] to take effect.
+/// This resource must be added before the [`AssetPlugin`] or [`DefaultPlugins`] to take effect.
 #[derive(Resource)]
 pub struct AssetServerSettings {
     /// The base folder where assets are loaded from, relative to the executable.
