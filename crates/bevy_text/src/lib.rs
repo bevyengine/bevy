@@ -39,7 +39,7 @@ pub type DefaultTextPipeline = TextPipeline<Entity>;
 pub struct TextPlugin;
 
 /// `TextPlugin` settings
-#[derive(Resource, Clone)]
+#[derive(Resource)]
 pub struct TextSettings {
     /// Number of font atlases supported in a FontAtlasSet
     pub max_font_atlases: usize,

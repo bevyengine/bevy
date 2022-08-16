@@ -43,6 +43,7 @@ impl GlyphBrush {
         Ok(section_glyphs)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn process_glyphs(
         &self,
         glyphs: Vec<SectionGlyph>,
