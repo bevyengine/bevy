@@ -22,9 +22,10 @@ fn main() {
 // Number of cubes to spawn across the x, y, and z axis
 const NUM_CUBES: u32 = 6;
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct BoxMeshHandle(Handle<Mesh>);
-#[derive(Deref)]
+
+#[derive(Resource, Deref)]
 struct BoxMaterialHandle(Handle<StandardMaterial>);
 
 /// Startup system which runs only once and generates our Box Mesh

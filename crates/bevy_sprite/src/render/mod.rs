@@ -34,6 +34,7 @@ use bytemuck::{Pod, Zeroable};
 use copyless::VecHelper;
 use fixedbitset::FixedBitSet;
 
+#[derive(Resource)]
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
@@ -190,12 +191,12 @@ pub struct ExtractedSprite {
     pub anchor: Vec2,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ExtractedSprites {
     pub sprites: Vec<ExtractedSprite>,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct SpriteAssetEvents {
     pub images: Vec<AssetEvent<Image>>,
 }
@@ -303,6 +304,7 @@ struct ColoredSpriteVertex {
     pub color: [f32; 4],
 }
 
+#[derive(Resource)]
 pub struct SpriteMeta {
     vertices: BufferVec<SpriteVertex>,
     colored_vertices: BufferVec<ColoredSpriteVertex>,
@@ -341,7 +343,7 @@ pub struct SpriteBatch {
     colored: bool,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ImageBindGroups {
     values: HashMap<Handle<Image>, BindGroup>,
 }

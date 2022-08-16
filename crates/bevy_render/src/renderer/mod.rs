@@ -1,6 +1,7 @@
 mod graph_runner;
 mod render_device;
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
@@ -28,7 +29,7 @@ pub fn render_system(world: &mut World) {
     if let Err(e) = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
-        render_queue,
+        &render_queue.0,
         world,
     ) {
         error!("Error running render graph:");
@@ -84,11 +85,17 @@ pub fn render_system(world: &mut World) {
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
-pub type RenderQueue = Arc<Queue>;
+#[derive(Resource, Clone, Deref, DerefMut)]
+pub struct RenderQueue(pub Arc<Queue>);
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
-pub type RenderInstance = Instance;
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderInstance(pub Instance);
+
+/// The `AdapterInfo` of the adapter in use by the renderer.
+#[derive(Resource, Clone, Deref, DerefMut)]
+pub struct RenderAdapterInfo(pub AdapterInfo);
 
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
@@ -96,7 +103,7 @@ pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue, AdapterInfo) {
+) -> (RenderDevice, RenderQueue, RenderAdapterInfo) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -245,7 +252,11 @@ pub async fn initialize_renderer(
         .unwrap();
     let device = Arc::new(device);
     let queue = Arc::new(queue);
-    (RenderDevice::from(device), queue, adapter_info)
+    (
+        RenderDevice::from(device),
+        RenderQueue(queue),
+        RenderAdapterInfo(adapter_info),
+    )
 }
 
 /// The context with all information required to interact with the GPU.

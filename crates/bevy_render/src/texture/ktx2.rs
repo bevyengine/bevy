@@ -5,13 +5,17 @@ use std::io::Read;
 use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
 };
+use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use ktx2::SupercompressionScheme;
 use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
     Header, SampleInformation,
 };
-use wgpu::{AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat};
+use wgpu::{
+    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
+    TextureViewDimension,
+};
 
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 
@@ -28,10 +32,14 @@ pub fn ktx2_buffer_to_image(
         pixel_height: height,
         pixel_depth: depth,
         layer_count,
+        face_count,
         level_count,
         supercompression_scheme,
         ..
     } = ktx2.header();
+    let layer_count = layer_count.max(1);
+    let face_count = face_count.max(1);
+    let depth = depth.max(1);
 
     // Handle supercompression
     let mut levels = Vec::new();
@@ -80,25 +88,25 @@ pub fn ktx2_buffer_to_image(
     let texture_format = ktx2_get_texture_format(&ktx2, is_srgb).or_else(|error| match error {
         // Transcode if needed and supported
         TextureError::FormatRequiresTranscodingError(transcode_format) => {
-            let mut transcoded = Vec::new();
+            let mut transcoded = vec![Vec::default(); levels.len()];
             let texture_format = match transcode_format {
                 TranscodeFormat::Rgb8 => {
-                    let (mut original_width, mut original_height) = (width, height);
+                    let mut rgba = vec![255u8; width as usize * height as usize * 4];
+                    for (level, level_data) in levels.iter().enumerate() {
+                        let n_pixels = (width as usize >> level).max(1) * (height as usize >> level).max(1);
 
-                    for level_data in &levels {
-                        let n_pixels = (original_width * original_height) as usize;
-
-                        let mut rgba = vec![255u8; n_pixels * 4];
-                        for i in 0..n_pixels {
-                            rgba[i * 4] = level_data[i * 3];
-                            rgba[i * 4 + 1] = level_data[i * 3 + 1];
-                            rgba[i * 4 + 2] = level_data[i * 3 + 2];
+                        let mut offset = 0;
+                        for _layer in 0..layer_count {
+                            for _face in 0..face_count {
+                                for i in 0..n_pixels {
+                                    rgba[i * 4] = level_data[offset];
+                                    rgba[i * 4 + 1] = level_data[offset + 1];
+                                    rgba[i * 4 + 2] = level_data[offset + 2];
+                                    offset += 3;
+                                }
+                                transcoded[level].extend_from_slice(&rgba[0..n_pixels]);
+                            }
                         }
-                        transcoded.push(rgba);
-
-                        // Next mip dimensions are half the current, minimum 1x1
-                        original_width = (original_width / 2).max(1);
-                        original_height = (original_height / 2).max(1);
                     }
 
                     if is_srgb {
@@ -111,41 +119,54 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Uastc(data_format) => {
                     let (transcode_block_format, texture_format) =
                         get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
-                    let (mut original_width, mut original_height) = (width, height);
-                    let (block_width_pixels, block_height_pixels) = (4, 4);
+                    let texture_format_info = texture_format.describe();
+                    let (block_width_pixels, block_height_pixels) = (
+                        texture_format_info.block_dimensions.0 as u32,
+                        texture_format_info.block_dimensions.1 as u32,
+                    );
+                    let block_bytes = texture_format_info.block_size as u32;
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
-                        let slice_parameters = SliceParametersUastc {
-                            num_blocks_x: ((original_width + block_width_pixels - 1)
-                                / block_width_pixels)
-                                .max(1),
-                            num_blocks_y: ((original_height + block_height_pixels - 1)
-                                / block_height_pixels)
-                                .max(1),
-                            has_alpha: false,
-                            original_width,
-                            original_height,
-                        };
+                        let (level_width, level_height) = (
+                            (width >> level as u32).max(1),
+                            (height >> level as u32).max(1),
+                        );
+                        let (num_blocks_x, num_blocks_y) = (
+                            ((level_width + block_width_pixels - 1) / block_width_pixels) .max(1),
+                            ((level_height + block_height_pixels - 1) / block_height_pixels) .max(1),
+                        );
+                        let level_bytes = (num_blocks_x * num_blocks_y * block_bytes) as usize;
 
-                        transcoder
-                            .transcode_slice(
-                                level_data,
-                                slice_parameters,
-                                DecodeFlags::HIGH_QUALITY,
-                                transcode_block_format,
-                            )
-                            .map(|transcoded_level| transcoded.push(transcoded_level))
-                            .map_err(|error| {
-                                TextureError::SuperDecompressionError(format!(
-                                    "Failed to transcode mip level {} from UASTC to {:?}: {:?}",
-                                    level, transcode_block_format, error
-                                ))
-                            })?;
-
-                        // Next mip dimensions are half the current, minimum 1x1
-                        original_width = (original_width / 2).max(1);
-                        original_height = (original_height / 2).max(1);
+                        let mut offset = 0;
+                        for _layer in 0..layer_count {
+                            for _face in 0..face_count {
+                                // NOTE: SliceParametersUastc does not implement Clone nor Copy so
+                                // it has to be created per use
+                                let slice_parameters = SliceParametersUastc {
+                                    num_blocks_x,
+                                    num_blocks_y,
+                                    has_alpha: false,
+                                    original_width: level_width,
+                                    original_height: level_height,
+                                };
+                                transcoder
+                                    .transcode_slice(
+                                        &level_data[offset..(offset + level_bytes)],
+                                        slice_parameters,
+                                        DecodeFlags::HIGH_QUALITY,
+                                        transcode_block_format,
+                                    )
+                                    .map(|mut transcoded_level| transcoded[level].append(&mut transcoded_level))
+                                    .map_err(|error| {
+                                        TextureError::SuperDecompressionError(format!(
+                                            "Failed to transcode mip level {} from UASTC to {:?}: {:?}",
+                                            level, transcode_block_format, error
+                                        ))
+                                    })?;
+                                offset += level_bytes;
+                            }
+                        }
                     }
                     texture_format
                 }
@@ -178,16 +199,52 @@ pub fn ktx2_buffer_to_image(
         )));
     }
 
+    // Reorder data from KTX2 MipXLayerYFaceZ to wgpu LayerYFaceZMipX
+    let texture_format_info = texture_format.describe();
+    let (block_width_pixels, block_height_pixels) = (
+        texture_format_info.block_dimensions.0 as usize,
+        texture_format_info.block_dimensions.1 as usize,
+    );
+    let block_bytes = texture_format_info.block_size as usize;
+
+    let mut wgpu_data = vec![Vec::default(); (layer_count * face_count) as usize];
+    for (level, level_data) in levels.iter().enumerate() {
+        let (level_width, level_height) = (
+            (width as usize >> level).max(1),
+            (height as usize >> level).max(1),
+        );
+        let (num_blocks_x, num_blocks_y) = (
+            ((level_width + block_width_pixels - 1) / block_width_pixels).max(1),
+            ((level_height + block_height_pixels - 1) / block_height_pixels).max(1),
+        );
+        let level_bytes = num_blocks_x * num_blocks_y * block_bytes;
+
+        let mut index = 0;
+        for _layer in 0..layer_count {
+            for _face in 0..face_count {
+                let offset = index * level_bytes;
+                wgpu_data[index].extend_from_slice(&level_data[offset..(offset + level_bytes)]);
+                index += 1;
+            }
+        }
+    }
+
     // Assign the data and fill in the rest of the metadata now the possible
     // error cases have been handled
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
-    image.data = levels.into_iter().flatten().collect::<Vec<_>>();
+    image.data = wgpu_data.into_iter().flatten().collect::<Vec<_>>();
     image.texture_descriptor.size = Extent3d {
         width,
         height,
-        depth_or_array_layers: if layer_count > 1 { layer_count } else { depth }.max(1),
-    };
+        depth_or_array_layers: if layer_count > 1 || face_count > 1 {
+            layer_count * face_count
+        } else {
+            depth
+        }
+        .max(1),
+    }
+    .physical_size(texture_format);
     image.texture_descriptor.mip_level_count = level_count;
     image.texture_descriptor.dimension = if depth > 1 {
         TextureDimension::D3
@@ -196,6 +253,24 @@ pub fn ktx2_buffer_to_image(
     } else {
         TextureDimension::D1
     };
+    let mut dimension = None;
+    if face_count == 6 {
+        dimension = Some(if layer_count > 1 {
+            TextureViewDimension::CubeArray
+        } else {
+            TextureViewDimension::Cube
+        });
+    } else if layer_count > 1 {
+        dimension = Some(TextureViewDimension::D2Array);
+    } else if depth > 1 {
+        dimension = Some(TextureViewDimension::D3);
+    }
+    if dimension.is_some() {
+        image.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension,
+            ..default()
+        });
+    }
     Ok(image)
 }
 

@@ -424,7 +424,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
     ///
     /// This can only return immutable data (mutable data will be cast to an immutable form).
-    /// See [`Self::many_for_each_mut`] for queries that contain at least one mutable component.
+    /// See [`Self::iter_many_mut`] for queries that contain at least one mutable component.
     ///
     /// # Examples
     /// ```
@@ -471,6 +471,55 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
+    /// Calls a closure on each result of [`Query`] where the entities match.
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct Counter {
+    ///     value: i32
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     list: Vec<Entity>,
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     mut counter_query: Query<&mut Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         let mut iter = counter_query.iter_many_mut(&friends.list);
+    ///         while let Some(mut counter) = iter.fetch_next() {
+    ///             println!("Friend's counter: {:?}", counter.value);
+    ///             counter.value += 1;
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn iter_many_mut<EntityList: IntoIterator>(
+        &mut self,
+        entities: EntityList,
+    ) -> QueryManyIter<'_, '_, Q, F, EntityList::IntoIter>
+    where
+        EntityList::Item: Borrow<Entity>,
+    {
+        // SAFETY: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+            )
+        }
+    }
+
     /// Returns an [`Iterator`] over the query results.
     ///
     /// # Safety
@@ -506,7 +555,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
     ///
-    /// If you want safe mutable access to query results of a list of [`Entity`]'s. See [`Self::many_for_each_mut`].
+    /// If you want safe mutable access to query results of a list of [`Entity`]'s. See [`Self::iter_many_mut`].
     ///
     /// # Safety
     /// This allows aliased mutability and does not check for entity uniqueness.
@@ -670,55 +719,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Calls a closure on each result of [`Query`] where the entities match.
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #[derive(Component)]
-    /// struct Counter {
-    ///     value: i32
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Friends {
-    ///     list: Vec<Entity>,
-    /// }
-    ///
-    /// fn system(
-    ///     friends_query: Query<&Friends>,
-    ///     mut counter_query: Query<&mut Counter>,
-    /// ) {
-    ///     for friends in &friends_query {
-    ///         counter_query.many_for_each_mut(&friends.list, |mut counter| {
-    ///             println!("Friend's counter: {:?}", counter.value);
-    ///             counter.value += 1;
-    ///         });
-    ///     }
-    /// }
-    /// # bevy_ecs::system::assert_is_system(system);
-    /// ```
-    #[inline]
-    pub fn many_for_each_mut<EntityList: IntoIterator>(
-        &mut self,
-        entities: EntityList,
-        f: impl FnMut(QueryItem<'_, Q>),
-    ) where
-        EntityList::Item: Borrow<Entity>,
-    {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
-        unsafe {
-            self.state.many_for_each_unchecked_manual(
-                self.world,
-                entities,
-                f,
-                self.last_change_tick,
-                self.change_tick,
-            );
-        };
-    }
-
     /// Returns the query result for the given [`Entity`].
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
@@ -735,6 +735,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct SelectedCharacter { entity: Entity }
     /// # #[derive(Component)]
     /// # struct Character { name: String }
@@ -841,6 +842,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct PoisonedCharacter { character_id: Entity }
     /// # #[derive(Component)]
     /// # struct Health(u32);
@@ -967,6 +969,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct SelectedCharacter { entity: Entity }
     /// # #[derive(Component)]
     /// # struct Character { name: String }
@@ -1022,6 +1025,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct PoisonedCharacter { character_id: Entity }
     /// # #[derive(Component)]
     /// # struct Health(u32);
@@ -1233,7 +1237,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// #
     /// # #[derive(Component)]
     /// # struct Player;
-    /// # #[derive(Component)]
+    /// # #[derive(Resource)]
     /// # struct Score(u32);
     /// fn update_score_system(query: Query<(), With<Player>>, mut score: ResMut<Score>) {
     ///     if !query.is_empty() {
@@ -1258,6 +1262,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # #[derive(Component)]
     /// # struct InRange;
     /// #
+    /// # #[derive(Resource)]
     /// # struct Target {
     /// #     entity: Entity,
     /// # }
@@ -1352,6 +1357,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Resource)]
     /// # struct SelectedCharacter { entity: Entity }
     /// # #[derive(Component)]
     /// # struct Character { name: String }

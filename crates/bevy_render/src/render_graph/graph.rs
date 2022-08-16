@@ -5,14 +5,14 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::prelude::World;
+use bevy_ecs::{prelude::World, system::Resource};
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
 use super::EdgeExistence;
 
 /// The render graph configures the modular, parallel and re-usable render logic.
-/// It is a retained and stateless (nodes itself my have their internal state) structure,
+/// It is a retained and stateless (nodes themselves may have internal state) structure,
 /// which can not be modified while it is executed by the graph runner.
 ///
 /// The `RenderGraphRunner` is responsible for executing the entire graph each frame.
@@ -25,7 +25,7 @@ use super::EdgeExistence;
 /// Slots describe the render resources created or used by the nodes.
 ///
 /// Additionally a render graph can contain multiple sub graphs, which are run by the
-/// corresponding nodes. Every render graph can have it’s own optional input node.
+/// corresponding nodes. Every render graph can have its own optional input node.
 ///
 /// ## Example
 /// Here is a simple render graph example with two nodes connected by a node edge.
@@ -48,7 +48,7 @@ use super::EdgeExistence;
 /// graph.add_node("output_node", MyNode);
 /// graph.add_node_edge("output_node", "input_node").unwrap();
 /// ```
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct RenderGraph {
     nodes: HashMap<NodeId, NodeState>,
     node_names: HashMap<Cow<'static, str>, NodeId>,

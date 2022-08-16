@@ -73,7 +73,7 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct PointLightShadowMap {
     pub size: usize,
@@ -144,6 +144,9 @@ impl Default for SpotLight {
 /// approximation for light sources VERY far away, like the sun or
 /// the moon.
 ///
+/// The light shines along the forward direction of the entity's transform. With a default transform
+/// this would be along the negative-Z axis.
+///
 /// Valid values for `illuminance` are:
 ///
 /// | Illuminance (lux) | Surfaces illuminated by                        |
@@ -205,7 +208,7 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
@@ -221,7 +224,7 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Clone, Debug, ExtractResource, Reflect)]
+#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct AmbientLight {
     pub color: Color,
@@ -770,7 +773,7 @@ impl PointLightAssignmentData {
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct GlobalVisiblePointLights {
     entities: HashSet<Entity>,
 }
