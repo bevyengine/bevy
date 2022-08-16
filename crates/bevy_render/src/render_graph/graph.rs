@@ -12,7 +12,7 @@ use std::{borrow::Cow, fmt::Debug};
 use super::EdgeExistence;
 
 /// The render graph configures the modular, parallel and re-usable render logic.
-/// It is a retained and stateless (nodes themselves may have internal state) structure,
+/// It is a retained and stateless (nodes themselves may have their own internal state) structure,
 /// which can not be modified while it is executed by the graph runner.
 ///
 /// The `RenderGraphRunner` is responsible for executing the entire graph each frame.
