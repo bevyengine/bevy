@@ -1033,7 +1033,8 @@ impl Composer {
             modules: Default::default(),
         };
 
-        // todo invalidate dependent modules if this module already exists
+        // invalidate dependent modules if this module already exists
+        self.remove_composable_module(&module_name);
 
         self.module_sets.insert(module_name.clone(), module_set);
         self.module_index.insert(module_index, module_name.clone());
