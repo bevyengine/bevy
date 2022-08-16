@@ -28,7 +28,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{entity::Entity, prelude::Resource, schedule::ParallelSystemDescriptorCoercion};
+use bevy_ecs::{entity::Entity, schedule::ParallelSystemDescriptorCoercion, system::Resource};
 use bevy_render::{RenderApp, RenderStage};
 use bevy_sprite::SpriteSystem;
 use bevy_window::ModifiesWindows;
