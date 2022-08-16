@@ -22,7 +22,8 @@ use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
-    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, TextSettings, VerticalAlign,
+    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, TextSettings,
+    VerticalAlign,
 };
 
 /// The calculated size of text drawn in 2D scene.

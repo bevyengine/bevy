@@ -105,7 +105,12 @@ impl GlyphBrush {
                     .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
                     .map(Ok)
                     .unwrap_or_else(|| {
-                        font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph, text_settings)
+                        font_atlas_set.add_glyph_to_atlas(
+                            texture_atlases,
+                            textures,
+                            outlined_glyph,
+                            text_settings,
+                        )
                     })?;
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();

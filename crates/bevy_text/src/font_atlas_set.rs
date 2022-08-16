@@ -53,7 +53,9 @@ impl FontAtlasSet {
         text_settings: &TextSettings,
     ) -> Result<GlyphAtlasInfo, TextError> {
         if self.font_atlases.len() >= text_settings.max_font_atlases {
-            return Err(TextError::ExceedMaxTextAtlases(text_settings.max_font_atlases));
+            return Err(TextError::ExceedMaxTextAtlases(
+                text_settings.max_font_atlases,
+            ));
         }
         let glyph = outlined_glyph.glyph();
         let glyph_id = glyph.id;
