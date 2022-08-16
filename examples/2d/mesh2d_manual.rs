@@ -59,7 +59,7 @@ fn star(
     //        6
     //   7        5
     //
-    // These vertices are specificed in 3D space.
+    // These vertices are specified in 3D space.
     let mut v_pos = vec![[0.0, 0.0, 0.0]];
     for i in 0..10 {
         // Angle of each vertex is 1/10 of TAU, plus PI/2 for positioning vertex 0
