@@ -33,4 +33,7 @@ impl<T: ?Sized> SyncCell<T> {
     }
 }
 
+// SAFETY: `Sync` only allows multithreaded access via immutable reference.
+// As `SyncCell` requires an exclusive reference to access the wrapped value,
+// marking this type as `Sync` does not actually allow threaded access to the inner value.
 unsafe impl<T: ?Sized> Sync for SyncCell<T> {}
