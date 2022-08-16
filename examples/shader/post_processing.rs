@@ -17,6 +17,7 @@ use bevy::{
         view::RenderLayers,
     },
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
+    window::{PrimaryWindow, Window},
 };
 
 fn main() {
@@ -34,16 +35,18 @@ struct MainCube;
 
 fn setup(
     mut commands: Commands,
-    mut windows: ResMut<Windows>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let window = windows.primary_mut();
+    // This assumes we only have a single window
+    let window = primary_window.single();
+
     let size = Extent3d {
-        width: window.physical_width(),
-        height: window.physical_height(),
+        width: window.resolution.physical_width(),
+        height: window.resolution.physical_height(),
         ..default()
     };
 

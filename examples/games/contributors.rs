@@ -1,6 +1,10 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{prelude::*, utils::HashSet};
+use bevy::{
+    prelude::*,
+    utils::HashSet,
+    window::{PrimaryWindow, Window},
+};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
@@ -245,21 +249,19 @@ fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collision_system(
-    windows: Res<Windows>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let Some(window) = windows.get_primary() else {
-        return;
-    };
+    let window = windows.single();
 
-    let ceiling = window.height() / 2.;
-    let ground = -(window.height() / 2.);
+    let ceiling = window.resolution.height() / 2.;
+    let ground = -window.resolution.height() / 2.;
 
-    let wall_left = -(window.width() / 2.);
-    let wall_right = window.width() / 2.;
+    let wall_left = -window.resolution.width() / 2.;
+    let wall_right = window.resolution.width() / 2.;
 
     // The maximum height the birbs should try to reach is one birb below the top of the window.
-    let max_bounce_height = (window.height() - SPRITE_SIZE * 2.0).max(0.0);
+    let max_bounce_height = (window.resolution.height() - SPRITE_SIZE * 2.0).max(0.0);
 
     let mut rng = rand::thread_rng();
 

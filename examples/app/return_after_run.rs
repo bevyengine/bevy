@@ -1,6 +1,6 @@
 //! Shows how to return to the calling function after a windowed Bevy app has exited.
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{prelude::*, window::WindowPlugin, winit::WinitSettings};
 
 fn main() {
     println!("Running Bevy App");
@@ -10,10 +10,10 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "Close the window to return to the main function".to_owned(),
+            primary_window: Some(Window {
+                title: "Close the window to return to the main function".into(),
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_system(system)

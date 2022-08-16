@@ -1,7 +1,9 @@
 //! Demonstrates how to grab and hide the mouse cursor.
 
-use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
+use bevy::{
+    prelude::*,
+    window::{CursorGrabMode, PrimaryWindow, Window},
+};
 
 fn main() {
     App::new()
@@ -13,17 +15,19 @@ fn main() {
 // This system grabs the mouse when the left mouse button is pressed
 // and releases it when the escape key is pressed
 fn grab_mouse(
-    mut windows: ResMut<Windows>,
+    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
     mouse: Res<Input<MouseButton>>,
     key: Res<Input<KeyCode>>,
 ) {
-    let window = windows.primary_mut();
+    let mut window = primary_window.single_mut();
+
     if mouse.just_pressed(MouseButton::Left) {
-        window.set_cursor_visibility(false);
-        window.set_cursor_grab_mode(CursorGrabMode::Locked);
+        window.cursor.visible = false;
+        window.cursor.grab_mode = CursorGrabMode::Locked;
     }
+
     if key.just_pressed(KeyCode::Escape) {
-        window.set_cursor_visibility(true);
-        window.set_cursor_grab_mode(CursorGrabMode::None);
+        window.cursor.visible = true;
+        window.cursor.grab_mode = CursorGrabMode::None;
     }
 }

@@ -1,16 +1,20 @@
 //! A test to confirm that `bevy` allows minimising the window
 //! This is run in CI to ensure that this doesn't regress again.
-use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
+use bevy::{
+    core_pipeline::clear_color::ClearColorConfig,
+    prelude::*,
+    window::{PrimaryWindow, WindowPlugin},
+};
 
 fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
     // it is currently.
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 title: "Minimising".into(),
-                ..Default::default()
-            },
+                ..default()
+            }),
             ..default()
         }))
         .add_system(minimise_automatically)
@@ -19,9 +23,13 @@ fn main() {
         .run();
 }
 
-fn minimise_automatically(mut windows: ResMut<Windows>, mut frames: Local<u32>) {
+fn minimise_automatically(
+    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut frames: Local<u32>,
+) {
     if *frames == 60 {
-        windows.primary_mut().set_minimized(true);
+        let mut window = primary_window.single_mut();
+        window.state.minimize();
     } else {
         *frames += 1;
     }

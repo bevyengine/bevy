@@ -1,15 +1,19 @@
-use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
+use bevy::{
+    input::touch::TouchPhase,
+    prelude::*,
+    window::{PrimaryWindow, WindowMode, WindowPlugin},
+};
 
 // the `bevy_main` proc_macro generates the required ios boilerplate
 #[bevy_main]
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 resizable: false,
                 mode: WindowMode::BorderlessFullscreen,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_startup_system(setup_scene)
@@ -20,24 +24,25 @@ fn main() {
 }
 
 fn touch_camera(
-    windows: ResMut<Windows>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
     mut touches: EventReader<TouchInput>,
     mut camera: Query<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
 ) {
+    let window = primary_window.single();
+
     for touch in touches.iter() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;
         }
         if let Some(last_position) = *last_position {
-            let window = windows.primary();
             let mut transform = camera.single_mut();
             *transform = Transform::from_xyz(
                 transform.translation.x
-                    + (touch.position.x - last_position.x) / window.width() * 5.0,
+                    + (touch.position.x - last_position.x) / window.resolution.width() * 5.0,
                 transform.translation.y,
                 transform.translation.z
-                    + (touch.position.y - last_position.y) / window.height() * 5.0,
+                    + (touch.position.y - last_position.y) / window.resolution.height() * 5.0,
             )
             .looking_at(Vec3::ZERO, Vec3::Y);
         }
