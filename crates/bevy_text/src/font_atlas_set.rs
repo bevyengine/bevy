@@ -1,4 +1,4 @@
-use crate::{error::TextError, Font, FontAtlas};
+use crate::{error::TextError, Font, FontAtlas, TextSettings};
 use ab_glyph::{GlyphId, OutlinedGlyph, Point};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
@@ -50,7 +50,11 @@ impl FontAtlasSet {
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
         outlined_glyph: OutlinedGlyph,
+        text_settings: &TextSettings,
     ) -> Result<GlyphAtlasInfo, TextError> {
+        if self.font_atlases.len() >= text_settings.max_font_atlases {
+            return Err(TextError::ExceedMaxTextAtlases(text_settings.max_font_atlases));
+        }
         let glyph = outlined_glyph.glyph();
         let glyph_id = glyph.id;
         let glyph_position = glyph.position;

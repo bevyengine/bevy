@@ -8,7 +8,7 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
+use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError, TextSettings};
 use bevy_window::{WindowId, Windows};
 
 #[derive(Debug, Default)]
@@ -43,6 +43,7 @@ pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
+    text_settings: Res<TextSettings>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
@@ -104,6 +105,7 @@ pub fn text_system(
                 &mut *font_atlas_set_storage,
                 &mut *texture_atlases,
                 &mut *textures,
+                text_settings.as_ref(),
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
@@ -111,6 +113,9 @@ pub fn text_system(
                     new_queue.push(entity);
                 }
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
+                    panic!("Fatal error when processing text: {}.", e);
+                }
+                Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
                     panic!("Fatal error when processing text: {}.", e);
                 }
                 Ok(()) => {

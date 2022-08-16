@@ -28,7 +28,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{entity::Entity, schedule::ParallelSystemDescriptorCoercion};
+use bevy_ecs::{entity::Entity, prelude::Resource, schedule::ParallelSystemDescriptorCoercion};
 use bevy_render::{RenderApp, RenderStage};
 use bevy_sprite::SpriteSystem;
 use bevy_window::ModifiesWindows;
@@ -37,6 +37,21 @@ pub type DefaultTextPipeline = TextPipeline<Entity>;
 
 #[derive(Default)]
 pub struct TextPlugin;
+
+/// `TextPlugin` settings
+#[derive(Resource, Clone)]
+pub struct TextSettings {
+    /// Number of font atlases supported in a FontAtlasSet
+    pub max_font_atlases: usize,
+}
+
+impl Default for TextSettings {
+    fn default() -> Self {
+        Self {
+            max_font_atlases: 100,
+        }
+    }
+}
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
@@ -51,6 +66,8 @@ impl Plugin for TextPlugin {
                 CoreStage::PostUpdate,
                 update_text2d_layout.after(ModifiesWindows),
             );
+
+        let _ = app.world.get_resource_or_insert_with(TextSettings::default);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(
