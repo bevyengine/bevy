@@ -13,8 +13,8 @@ fn _naga_oil__mod__MI__member__g() -> f32 {
 }
 
 fn main() -> f32 {
-    let _e1: f32 = _naga_oil__mod__ME__member__f();
-    let _e2: f32 = _naga_oil__mod__MI__member__f();
-    return (_e1 * _e2);
+    let _e0: f32 = _naga_oil__mod__ME__member__f();
+    let _e1: f32 = _naga_oil__mod__MI__member__f();
+    return (_e0 * _e1);
 }
 

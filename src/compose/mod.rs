@@ -318,7 +318,7 @@ impl ComposerError {
     }
 }
 
-/// module composer
+/// module composer.
 /// stores any modules that can be imported into a shader
 /// and builds the final shader
 #[derive(Debug)]
@@ -404,7 +404,6 @@ impl Composer {
     /// validation errors in the final shader will not be caught, and errors resulting from their
     /// use will have bad span data, so codespan reporting will fail.
     /// use default() to create a validating composer.
-
     pub fn non_validating() -> Self {
         Self {
             validate: false,
@@ -414,7 +413,6 @@ impl Composer {
 
     /// specify capabilities to be used for naga module generation.
     /// purges any existing modules
-
     pub fn with_capabilities(self, capabilities: naga::valid::Capabilities) -> Self {
         Self {
             capabilities,
@@ -450,26 +448,12 @@ impl Composer {
         lang: ShaderLanguage,
         module_string: &mut String,
         imports: &'a Vec<String>,
-        already_added: &mut HashSet<&'a String>,
         shader_defs: &HashSet<String>,
     ) {
         for import in imports {
-            if already_added.contains(import) {
-                continue;
-            }
-            already_added.insert(import);
-
-            // we must have ensured these exist with Composer::ensure_imports()
+            // // we must have ensured these exist with Composer::ensure_imports()
             let import_module_set = self.module_sets.get(import).unwrap();
             let module = import_module_set.get(shader_defs).unwrap();
-
-            self.add_header_strings(
-                lang,
-                module_string,
-                &module.imports,
-                already_added,
-                shader_defs,
-            );
             module_string.push_str(module.headers.get(&lang).unwrap().as_str());
         }
     }
@@ -493,7 +477,6 @@ impl Composer {
             language,
             &mut module_string,
             &imports.iter().map(|def| &def.import).cloned().collect(),
-            &mut Default::default(),
             shader_defs,
         );
 
@@ -967,7 +950,7 @@ impl Composer {
         Ok(composable_module)
     }
 
-    /// add a composable module to the composer
+    /// add a composable module to the composer.
     /// all modules imported by this module must already have been added
     pub fn add_composable_module(
         &mut self,

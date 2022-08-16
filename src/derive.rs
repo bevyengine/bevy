@@ -19,7 +19,7 @@ pub struct DerivedModule<'a> {
     types: UniqueArena<Type>,
     constants: Arena<Constant>,
     globals: Arena<GlobalVariable>,
-    pub functions: Arena<Function>,
+    functions: Arena<Function>,
 }
 
 impl<'a> DerivedModule<'a> {
