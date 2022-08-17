@@ -370,7 +370,7 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
 }
 
 struct TupleStructVisitor<'a> {
-    tuple_struct_info: &'a TupleStructInfo,
+    tuple_struct_info: &'static TupleStructInfo,
     registry: &'a TypeRegistry,
 }
 
@@ -428,7 +428,7 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
 }
 
 struct TupleVisitor<'a> {
-    tuple_info: &'a TupleInfo,
+    tuple_info: &'static TupleInfo,
     registry: &'a TypeRegistry,
 }
 
@@ -448,7 +448,7 @@ impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
 }
 
 struct ArrayVisitor<'a> {
-    array_info: &'a ArrayInfo,
+    array_info: &'static ArrayInfo,
     registry: &'a TypeRegistry,
 }
 
@@ -488,7 +488,7 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
 }
 
 struct ListVisitor<'a> {
-    list_info: &'a ListInfo,
+    list_info: &'static ListInfo,
     registry: &'a TypeRegistry,
 }
 
@@ -520,7 +520,7 @@ impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
 }
 
 struct MapVisitor<'a> {
-    map_info: &'a MapInfo,
+    map_info: &'static MapInfo,
     registry: &'a TypeRegistry,
 }
 
@@ -653,7 +653,7 @@ impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
 }
 
 struct TupleVariantVisitor<'a> {
-    tuple_info: &'a TupleVariantInfo,
+    tuple_info: &'static TupleVariantInfo,
     registry: &'a TypeRegistry,
 }
 
