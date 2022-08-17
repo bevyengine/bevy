@@ -3,7 +3,6 @@
 
 /// The basic components of the transform crate
 pub mod components;
-mod propagate;
 
 #[doc(hidden)]
 pub mod prelude {
