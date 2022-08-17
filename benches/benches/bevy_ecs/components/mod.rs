@@ -1,14 +1,15 @@
 use criterion::*;
 
-mod add_remove_big_sparse_set;
-mod add_remove_big_table;
+mod add_remove_big;
 mod add_remove_sparse_set;
 mod add_remove_table;
 mod archetype_updates;
+mod change_detection;
 mod insert_simple;
 mod insert_simple_unbatched;
 
 use archetype_updates::*;
+use change_detection::*;
 
 criterion_group!(
     components_benches,
@@ -17,6 +18,10 @@ criterion_group!(
     insert_simple,
     no_archetypes,
     added_archetypes,
+    all_added_detection,
+    all_changed_detection,
+    few_changed_detection,
+    none_changed_detection,
 );
 
 fn add_remove(c: &mut Criterion) {
@@ -39,11 +44,11 @@ fn add_remove_big(c: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
     group.bench_function("table", |b| {
-        let mut bench = add_remove_big_table::Benchmark::new();
+        let mut bench = add_remove_big::BenchmarkTable::new();
         b.iter(move || bench.run());
     });
     group.bench_function("sparse_set", |b| {
-        let mut bench = add_remove_big_sparse_set::Benchmark::new();
+        let mut bench = add_remove_big::BenchmarkSparse::new();
         b.iter(move || bench.run());
     });
     group.finish();
