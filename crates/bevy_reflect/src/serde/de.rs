@@ -731,6 +731,7 @@ mod tests {
     struct MyStruct {
         primitive_value: i8,
         option_value: Option<String>,
+        option_value_complex: Option<SomeStruct>,
         tuple_value: (f32, usize),
         list_value: Vec<i32>,
         array_value: [i32; 5],
@@ -744,13 +745,18 @@ mod tests {
         custom_deserialize: CustomDeserialize,
     }
 
-    #[derive(Reflect, FromReflect, Debug, PartialEq, Deserialize)]
+    #[derive(Reflect, FromReflect, Debug, PartialEq)]
     struct SomeStruct {
         foo: i64,
     }
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
     struct SomeTupleStruct(String);
+
+    #[derive(Reflect, FromReflect, Debug, PartialEq, Deserialize)]
+    struct SomeDeserializableStruct {
+        foo: i64,
+    }
 
     /// Implements a custom deserialize using #[reflect(Deserialize)].
     ///
@@ -760,7 +766,7 @@ mod tests {
     struct CustomDeserialize {
         value: usize,
         #[serde(rename = "renamed")]
-        inner_struct: SomeStruct,
+        inner_struct: SomeDeserializableStruct,
     }
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
@@ -777,6 +783,7 @@ mod tests {
         registry.register::<SomeStruct>();
         registry.register::<SomeTupleStruct>();
         registry.register::<CustomDeserialize>();
+        registry.register::<SomeDeserializableStruct>();
         registry.register::<SomeEnum>();
         registry.register::<i8>();
         registry.register::<String>();
@@ -789,6 +796,7 @@ mod tests {
         registry.register::<[i32; 5]>();
         registry.register::<Vec<i32>>();
         registry.register::<HashMap<u8, usize>>();
+        registry.register::<Option<SomeStruct>>();
         registry.register::<Option<String>>();
         registry.register_type_data::<Option<String>, ReflectDeserialize>();
         registry
@@ -802,6 +810,7 @@ mod tests {
         let expected = MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
+            option_value_complex: Some(SomeStruct { foo: 123 }),
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
@@ -816,7 +825,7 @@ mod tests {
             },
             custom_deserialize: CustomDeserialize {
                 value: 100,
-                inner_struct: SomeStruct { foo: 101 },
+                inner_struct: SomeDeserializableStruct { foo: 101 },
             },
         };
 
@@ -824,6 +833,11 @@ mod tests {
             "bevy_reflect::serde::de::tests::MyStruct": {
                 "primitive_value": 123,
                 "option_value": Some("Hello world!"),
+                "option_value_complex": {
+                    "Some": ({
+                        "foo": 123,
+                    }),
+                },
                 "tuple_value": (
                     3.1415927,
                     1337,

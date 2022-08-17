@@ -361,7 +361,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
 mod tests {
     use crate as bevy_reflect;
     use crate::serde::ReflectSerializer;
-    use crate::{Reflect, ReflectSerialize, TypeRegistry};
+    use crate::{FromReflect, Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
     use ron::ser::PrettyConfig;
     use serde::Serialize;
@@ -371,6 +371,7 @@ mod tests {
     struct MyStruct {
         primitive_value: i8,
         option_value: Option<String>,
+        option_value_complex: Option<SomeStruct>,
         tuple_value: (f32, usize),
         list_value: Vec<i32>,
         array_value: [i32; 5],
@@ -384,7 +385,7 @@ mod tests {
         custom_serialize: CustomSerialize,
     }
 
-    #[derive(Reflect, Debug, PartialEq, Serialize)]
+    #[derive(Reflect, FromReflect, Debug, PartialEq)]
     struct SomeStruct {
         foo: i64,
     }
@@ -400,6 +401,11 @@ mod tests {
         Struct { foo: String },
     }
 
+    #[derive(Reflect, Debug, PartialEq, Serialize)]
+    struct SomeSerializableStruct {
+        foo: i64,
+    }
+
     /// Implements a custom serialize using `#[reflect(Serialize)]`.
     ///
     /// For testing purposes, this just uses the generated one from deriving Serialize.
@@ -408,7 +414,7 @@ mod tests {
     struct CustomSerialize {
         value: usize,
         #[serde(rename = "renamed")]
-        inner_struct: SomeStruct,
+        inner_struct: SomeSerializableStruct,
     }
 
     fn get_registry() -> TypeRegistry {
@@ -417,6 +423,8 @@ mod tests {
         registry.register::<SomeStruct>();
         registry.register::<SomeTupleStruct>();
         registry.register::<CustomSerialize>();
+        registry.register::<SomeSerializableStruct>();
+        registry.register_type_data::<SomeSerializableStruct, ReflectSerialize>();
         registry.register::<String>();
         registry.register::<Option<String>>();
         registry.register_type_data::<Option<String>, ReflectSerialize>();
@@ -431,6 +439,7 @@ mod tests {
         let input = MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
+            option_value_complex: Some(SomeStruct { foo: 123 }),
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
@@ -445,7 +454,7 @@ mod tests {
             },
             custom_serialize: CustomSerialize {
                 value: 100,
-                inner_struct: SomeStruct { foo: 101 },
+                inner_struct: SomeSerializableStruct { foo: 101 },
             },
         };
 
@@ -462,6 +471,11 @@ mod tests {
     "bevy_reflect::serde::ser::tests::MyStruct": {
         "primitive_value": 123,
         "option_value": Some("Hello world!"),
+        "option_value_complex": {
+            "Some": ({
+                "foo": 123,
+            }),
+        },
         "tuple_value": (3.1415927, 1337),
         "list_value": [
             -2,
