@@ -32,6 +32,15 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>) -> vec3<f32> {
     );
 }
 
+// Calculates the sign of the determinant of the 3x3 model matrix based on a
+// mesh flag
+fn sign_determinant_model_3x3() -> f32 {
+    // bool(u32) is false if 0u else true
+    // f32(bool) is 1.0 if true else 0.0
+    // * 2.0 - 1.0 remaps 0.0 or 1.0 to -1.0 or 1.0 respectively
+    return f32(bool(mesh.flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0;
+}
+
 fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>) -> vec4<f32> {
     // NOTE: The mikktspace method of normal mapping requires that the world tangent is
     // re-normalized in the vertex shader to match the way mikktspace bakes vertex tangents
@@ -47,6 +56,8 @@ fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>) ->
                 model[2].xyz
             ) * vertex_tangent.xyz
         ),
-        vertex_tangent.w
+        // NOTE: Multiplying by the sign of the determinant of the 3x3 model matrix accounts for
+        // situations such as negative scaling.
+        vertex_tangent.w * sign_determinant_model_3x3()
     );
 }
