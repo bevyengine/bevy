@@ -1,10 +1,11 @@
 use crate::{
-    draw_3d_graph, AlphaMode, MeshPipeline, MeshUniform, StandardMaterial, MeshViewBindGroup,
-    DEPTH_PREPASS_SHADER_HANDLE,Material, RenderMaterials
+    draw_3d_graph, AlphaMode, Material, MeshPipeline, MeshUniform, MeshViewBindGroup,
+    RenderMaterials, StandardMaterial, DEPTH_PREPASS_SHADER_HANDLE,
 };
 
 use bevy_app::Plugin;
 use bevy_asset::Handle;
+use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -12,21 +13,20 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_core_pipeline::prelude::Camera3d;
 use bevy_render::{
-    camera::{ CameraPlugin},
-    mesh::Mesh,
-    render_asset::RenderAssets,
+    camera::CameraPlugin,
     extract_component::DynamicUniformIndex,
+    mesh::{GpuBufferInfo, Mesh},
+    render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
         sort_phase_system, AddRenderCommand, DrawFunctionId, DrawFunctions, EntityPhaseItem,
-        PhaseItem, RenderCommand, RenderPhase, TrackedRenderPass,RenderCommandResult
+        PhaseItem, RenderCommand, RenderCommandResult, RenderPhase, TrackedRenderPass,
     },
     render_resource::{
         BindGroup, BindGroupLayout, CachedRenderPipelineId, FragmentState, PipelineCache,
-        RenderPipelineDescriptor, Shader, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        VertexBufferLayout, VertexState,  SamplerBindingType,
+        RenderPipelineDescriptor, SamplerBindingType, Shader, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, VertexBufferLayout, VertexState,
     },
     renderer::{RenderContext, RenderDevice},
     texture::Image,
@@ -37,6 +37,8 @@ use bevy_render::{
 };
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
+use std::hash::Hash;
+use std::marker::PhantomData;
 use wgpu::{
     BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
     BindingResource, BindingType, BufferBindingType, BufferSize, CompareFunction, DepthBiasState,
@@ -45,9 +47,6 @@ use wgpu::{
     RenderPassDescriptor, ShaderStages, StencilFaceState, StencilState, TextureFormat,
     TextureSampleType, TextureViewDimension, VertexAttribute, VertexFormat, VertexStepMode,
 };
-use std::hash::Hash;
-use std::marker::PhantomData;
-
 
 pub struct DepthPrepassPipeline {
     pub view_layout: BindGroupLayout,
@@ -236,7 +235,7 @@ impl SpecializedRenderPipeline for DepthPrepassPipeline {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
-                clamp_depth: false,
+                unclipped_depth: false,
                 conservative: false,
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
@@ -382,11 +381,10 @@ where
     }
 }
 
-
 // TODO: ActiveCameras
 // pub fn extract_depth_phases(mut commands: Commands, active_cameras: Res<ActiveCameras>) {
 pub fn extract_depth_phases(mut commands: Commands, active_cameras: Res<Camera3d>) {
-        if let Some(camera_3d) = active_cameras.get(CameraPlugin::CAMERA_3D) {
+    if let Some(camera_3d) = active_cameras.get(CameraPlugin::CAMERA_3D) {
         if let Some(entity) = camera_3d.entity {
             commands.get_or_spawn(entity).insert_bundle((
                 RenderPhase::<OpaqueDepth3d>::default(),
@@ -459,18 +457,16 @@ pub fn queue_depth_prepass_meshes<M: Material>(
 
             for visible_entity in &visible_entities.entities {
                 if let Ok((material_handle, mesh_handle, mesh_uniform)) =
-                    standard_material_meshes.get(visible_entity.entity)
+                    standard_material_meshes.get(*visible_entity)
                 {
                     if let Some(material) = render_materials.get(material_handle) {
-                        if material.alpha_mode == AlphaMode::Blend {
+                        if material.properties.alpha_mode == AlphaMode::Blend {
                             continue;
                         }
                         if !depth_prepass_material_bind_groups.contains_key(material_handle) {
                             if let Some((base_color_texture_view, base_color_sampler)) =
-                                mesh_pipeline.image_handle_to_texture(
-                                    &*gpu_images,
-                                    &material.base_color_texture,
-                                )
+                                mesh_pipeline
+                                    .get_image_texture(&*gpu_images, &material.base_color_texture)
                             {
                                 let bind_group =
                                     render_device.create_bind_group(&BindGroupDescriptor {
@@ -506,7 +502,7 @@ pub fn queue_depth_prepass_meshes<M: Material>(
                                 key |= DepthPrepassPipelineKey::VERTEX_TANGENTS;
                             }
                         }
-                        key |= match material.alpha_mode {
+                        key |= match material.properties.alpha_mode {
                             AlphaMode::Opaque => DepthPrepassPipelineKey::OPAQUE_DEPTH_PREPASS,
                             AlphaMode::Mask(_) => DepthPrepassPipelineKey::ALPHA_MASK_DEPTH_PREPASS,
                             _ => panic!("No depth prepass for alpha blend mode"),
@@ -523,10 +519,10 @@ pub fn queue_depth_prepass_meshes<M: Material>(
                         //       -z in front fo the camera, values in view space decrease away from the
                         //       camera. Flipping the sign of mesh_z results in the correct front-to-back ordering
                         let distance = -mesh_z;
-                        match material.alpha_mode {
+                        match material.properties.alpha_mode {
                             AlphaMode::Opaque => {
                                 opaque_depth_phase.add(OpaqueDepth3d {
-                                    entity: visible_entity.entity,
+                                    entity: *visible_entity,
                                     draw_function: draw_opaque_depth,
                                     pipeline: pipeline_id,
                                     distance,
@@ -534,7 +530,7 @@ pub fn queue_depth_prepass_meshes<M: Material>(
                             }
                             AlphaMode::Mask(_) => {
                                 alpha_mask_depth_phase.add(AlphaMaskDepth3d {
-                                    entity: visible_entity.entity,
+                                    entity: *visible_entity,
                                     draw_function: draw_alpha_mask_depth,
                                     pipeline: pipeline_id,
                                     distance,
@@ -680,7 +676,7 @@ impl RenderCommand<OpaqueDepth3d> for SetDepthPrepassPipeline {
     ) -> RenderCommandResult {
         let pipeline = pipeline_cache
             .into_inner()
-            .get_state(item.pipeline)
+            .get_render_pipeline(item.pipeline)
             .unwrap();
         pass.set_render_pipeline(pipeline);
         RenderCommandResult::Success
@@ -694,14 +690,13 @@ impl RenderCommand<AlphaMaskDepth3d> for SetDepthPrepassPipeline {
         item: &AlphaMaskDepth3d,
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) ->         RenderCommandResult    {
+    ) -> RenderCommandResult {
         let pipeline = pipeline_cache
             .into_inner()
-            .get_state(item.pipeline)
+            .get_render_pipeline(item.pipeline)
             .unwrap();
         pass.set_render_pipeline(pipeline);
         RenderCommandResult::Success
-
     }
 }
 
@@ -737,13 +732,14 @@ impl<T: EntityPhaseItem + PhaseItem, const I: usize> RenderCommand<T> for SetTra
         item: &T,
         (transform_bind_group, mesh_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
+    ) -> RenderCommandResult {
         let transform_index = mesh_query.get(item.entity()).unwrap();
         pass.set_bind_group(
             I,
             &transform_bind_group.into_inner().value,
             &[transform_index.index()],
         );
+        RenderCommandResult::Success
     }
 }
 
@@ -761,11 +757,12 @@ impl<T: EntityPhaseItem + PhaseItem, const I: usize> RenderCommand<T>
         item: &T,
         (material_bind_groups, handle_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
-    ) {
+    ) -> RenderCommandResult {
         let handle = handle_query.get(item.entity()).unwrap();
         let material_bind_groups = material_bind_groups.into_inner();
         let material_bind_group = material_bind_groups.get(handle).unwrap();
         pass.set_bind_group(I, material_bind_group, &[]);
+        RenderCommandResult::Success
     }
 }
 
@@ -782,13 +779,19 @@ impl<T: EntityPhaseItem + PhaseItem> RenderCommand<T> for DrawMesh {
         let mesh_handle = mesh_query.get(item.entity()).unwrap();
         let gpu_mesh = meshes.into_inner().get(mesh_handle).unwrap();
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-        if let Some(index_info) = &gpu_mesh.index_info {
-            pass.set_index_buffer(index_info.buffer.slice(..), 0, IndexFormat::Uint32);
-            pass.draw_indexed(0..index_info.count, 0, 0..1);
-        } else {
-            panic!("non-indexed drawing not supported yet")
+        match &gpu_mesh.buffer_info {
+            GpuBufferInfo::Indexed {
+                buffer,
+                index_format,
+                count,
+            } => {
+                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                pass.draw_indexed(0..*count, 0, 0..1);
+            }
+            GpuBufferInfo::NonIndexed { vertex_count } => {
+                pass.draw(0..*vertex_count, 0..1);
+            }
         }
         RenderCommandResult::Success
     }
 }
-
