@@ -1,9 +1,9 @@
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
-#[derive(Resource, Reflect, Debug, Clone)]
+#[derive(Resource, Reflect, FromReflect, Debug, Clone)]
 #[reflect(Resource)]
 pub struct Time {
     delta: Duration,

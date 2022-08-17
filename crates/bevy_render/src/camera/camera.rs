@@ -19,6 +19,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
+use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
@@ -32,7 +33,7 @@ use wgpu::Extent3d;
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
 // TODO: remove reflect_value when possible
-#[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
+#[derive(Reflect, FromReflect, Debug, Clone, Serialize, Deserialize)]
 #[reflect_value(Default, Serialize, Deserialize)]
 pub struct Viewport {
     /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
@@ -71,7 +72,7 @@ pub struct ComputedCameraValues {
     target_info: Option<RenderTargetInfo>,
 }
 
-#[derive(Component, Debug, Reflect, Clone)]
+#[derive(Component, Debug, Reflect, FromReflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].

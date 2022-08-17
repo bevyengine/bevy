@@ -17,6 +17,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
 use bevy_utils::HashSet;
+use std::borrow::Cow;
 use std::ops::Range;
 
 /// Adds core functionality to Apps.
@@ -43,7 +44,8 @@ fn register_rust_types(app: &mut App) {
     app.register_type::<Range<f32>>()
         .register_type::<String>()
         .register_type::<HashSet<String>>()
-        .register_type::<Option<String>>();
+        .register_type::<Option<String>>()
+        .register_type::<Cow<'static, str>>();
 }
 
 fn register_math_types(app: &mut App) {
