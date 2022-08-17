@@ -758,7 +758,7 @@ mod tests {
         foo: i64,
     }
 
-    /// Implements a custom deserialize using #[reflect(Deserialize)].
+    /// Implements a custom deserialize using `#[reflect(Deserialize)]`.
     ///
     /// For testing purposes, this is just the auto-generated one from deriving.
     #[derive(Reflect, FromReflect, Debug, PartialEq, Deserialize)]
