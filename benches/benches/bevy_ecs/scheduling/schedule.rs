@@ -1,5 +1,5 @@
 use bevy_app::App;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, schedule::IntoSystemLabel};
 use criterion::Criterion;
 
 pub fn schedule(c: &mut Criterion) {
@@ -68,7 +68,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     #[derive(Debug, Clone, Copy, SystemLabel)]
     struct DummyLabel;
 
-    impl SystemLabel for NumLabel {
+    impl IntoSystemLabel for NumLabel {
         #[inline]
         fn data(&self) -> u64 {
             self.0

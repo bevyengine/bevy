@@ -92,6 +92,10 @@ pub static STR_INTERN: Interner<&str> = Interner::new();
 /// define_label!(
 ///     /// A class of labels.
 ///     MyNewLabelTrait,
+///     /// Types that can be converted to [`MyNewLabelId`], except for `MyNewLabelId` itself.
+///     ///
+///     /// Implementing this trait automatically implements [`MyNewLabelTrait`] for you.
+///     IntoMyNewLabel,
 ///     /// Identifies a value that implements `MyNewLabelTrait`.
 ///     MyNewLabelId,
 /// );
@@ -101,6 +105,9 @@ macro_rules! define_label {
     (
         $(#[$label_attr:meta])*
         $label_name:ident,
+
+        $(#[$into_attr:meta])*
+        $into_label:ident,
 
         $(#[$id_attr:meta])*
         $id_name:ident $(,)?
@@ -121,43 +128,39 @@ macro_rules! define_label {
         $(#[$label_attr])*
         pub trait $label_name: 'static {
             /// Converts this type into an opaque, strongly-typed label.
+            fn as_label(&self) -> $id_name;
+        }
+
+        $(#[$into_attr])*
+        pub trait $into_label: 'static {
+            /// Returns a number used to distinguish different labels of the same type.
+            fn data(&self) -> u64;
+            /// Writes debug info for a label of the current type.
+            /// * `data`: the result of calling [`data()`](#method.data) on an instance of this type.
+            fn fmt(data: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result;
+        }
+
+        impl<T: $into_label> $label_name for T {
             #[inline]
             fn as_label(&self) -> $id_name {
                 // This is just machinery that lets us store the TypeId and formatter fn in the same static reference.
                 struct VTables<L: ?::std::marker::Sized>(L);
-                impl<L: $label_name + ?::std::marker::Sized> VTables<L> {
+                impl<L: $into_label + ?::std::marker::Sized> VTables<L> {
                     const VTABLE: $crate::label::VTable = $crate::label::VTable {
                         ty: || ::std::any::TypeId::of::<L>(),
-                        fmt: <L as $label_name>::fmt,
+                        fmt: <L as $into_label>::fmt,
                     };
                 }
 
                 let data = self.data();
                 $id_name { data, vtable: &VTables::<Self>::VTABLE }
             }
-            /// Returns a number used to distinguish different labels of the same type.
-            fn data(&self) -> u64;
-            /// Writes debug info for a label of the current type.
-            /// * `data`: the result of calling [`data()`](#method.data) on an instance of this type.
-            ///
-            /// You should not call this method directly, as it may panic for some types;
-            /// use [`as_label`](#method.as_label) instead.
-            fn fmt(data: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result;
         }
 
         impl $label_name for $id_name {
             #[inline]
             fn as_label(&self) -> Self {
                 *self
-            }
-            #[inline]
-            fn data(&self) -> u64 {
-                self.data
-            }
-            #[track_caller]
-            fn fmt(data: u64, f: &mut ::std::fmt::Formatter) -> std::fmt::Result {
-                let label = stringify!($label_name);
-                ::std::unimplemented!("do not call `{label}::fmt` directly -- use the result of `as_label()` for formatting instead")
             }
         }
 
@@ -194,7 +197,7 @@ macro_rules! define_label {
                 }
 
                 if self.is::<L>() {
-                    let val = L::downcast_from(self.data())?;
+                    let val = L::downcast_from(self.data)?;
                     Some(NonSendSyncDeref(val, ::std::marker::PhantomData))
                 } else {
                     None
@@ -202,7 +205,7 @@ macro_rules! define_label {
             }
         }
 
-        impl $label_name for &'static str {
+        impl $into_label for &'static str {
             fn data(&self) -> u64 {
                 $crate::label::STR_INTERN.intern(self) as u64
             }

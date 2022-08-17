@@ -451,7 +451,7 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
-        .push(format_ident!("SystemLabel").into());
+        .push(format_ident!("IntoSystemLabel").into());
     derive_label(input, &trait_path, "system_label")
 }
 
@@ -470,7 +470,9 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
-    trait_path.segments.push(format_ident!("StageLabel").into());
+    trait_path
+        .segments
+        .push(format_ident!("IntoStageLabel").into());
     derive_label(input, &trait_path, "stage_label")
 }
 
@@ -491,7 +493,7 @@ pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
-        .push(format_ident!("AmbiguitySetLabel").into());
+        .push(format_ident!("IntoAmbiguitySetLabel").into());
     derive_label(input, &trait_path, "ambiguity_set_label")
 }
 
@@ -512,7 +514,7 @@ pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path
         .segments
-        .push(format_ident!("RunCriteriaLabel").into());
+        .push(format_ident!("IntoRunCriteriaLabel").into());
     derive_label(input, &trait_path, "run_criteria_label")
 }
 

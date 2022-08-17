@@ -4,7 +4,7 @@ use crate::{
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
-    schedule::{SystemLabel, SystemLabelId},
+    schedule::{IntoSystemLabel, SystemLabel, SystemLabelId},
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
         SystemParamItem, SystemParamState,
@@ -453,7 +453,7 @@ where
 /// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
 pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
 
-impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
+impl<T: 'static> IntoSystemLabel for SystemTypeIdLabel<T> {
     #[inline]
     fn data(&self) -> u64 {
         0

@@ -19,6 +19,10 @@ use bevy_utils::tracing::info_span;
 bevy_utils::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     AppLabel,
+    /// Types that can be converted into [`AppLabelId`], except for `AppLabelId` itself.
+    ///
+    /// Implementing this trait automatically implements [`AppLabel`] for you.
+    IntoAppLabel,
     /// A strongly-typed identifier for an [`AppLabel`].
     AppLabelId,
 );
