@@ -711,11 +711,7 @@ where
 
     let get_field_info = |index: usize| -> Result<&TypeInfo, V::Error> {
         let field = info.get_field(index).ok_or_else(|| {
-            Error::custom(format_args!(
-                "no field at index {} on tuple {}",
-                index,
-                info.get_name(),
-            ))
+            Error::invalid_length(index, &info.get_field_len().to_string().as_str())
         })?;
         get_type_info(field.type_id(), field.type_name(), registry)
     };
