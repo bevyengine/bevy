@@ -24,6 +24,7 @@ pub trait DeserializeValue {
 trait StructLikeInfo {
     fn get_name(&self) -> &str;
     fn get_field(&self, name: &str) -> Option<&NamedField>;
+    fn get_field_names(&self) -> &[&'static str];
 }
 
 trait TupleLikeInfo {
@@ -40,6 +41,10 @@ impl StructLikeInfo for StructInfo {
     fn get_field(&self, name: &str) -> Option<&NamedField> {
         self.field(name)
     }
+
+    fn get_field_names(&self) -> &[&'static str] {
+        self.field_names()
+    }
 }
 
 impl StructLikeInfo for StructVariantInfo {
@@ -49,6 +54,10 @@ impl StructLikeInfo for StructVariantInfo {
 
     fn get_field(&self, name: &str) -> Option<&NamedField> {
         self.field(name)
+    }
+
+    fn get_field_names(&self) -> &[&'static str] {
+        self.field_names()
     }
 }
 
@@ -341,7 +350,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
 }
 
 struct StructVisitor<'a> {
-    struct_info: &'a StructInfo,
+    struct_info: &'static StructInfo,
     registry: &'a TypeRegistry,
 }
 
@@ -624,7 +633,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
 }
 
 struct StructVariantVisitor<'a> {
-    struct_info: &'a StructVariantInfo,
+    struct_info: &'static StructVariantInfo,
     registry: &'a TypeRegistry,
 }
 
@@ -665,7 +674,7 @@ impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
 
 fn visit_struct<'de, T, V>(
     map: &mut V,
-    info: &T,
+    info: &'static T,
     registry: &TypeRegistry,
 ) -> Result<DynamicStruct, V::Error>
 where
@@ -674,13 +683,9 @@ where
 {
     let mut dynamic_struct = DynamicStruct::default();
     while let Some(Ident(key)) = map.next_key::<Ident>()? {
-        let field = info.get_field(&key).ok_or_else(|| {
-            Error::custom(format_args!(
-                "no field named {} on struct {}",
-                key,
-                info.get_name(),
-            ))
-        })?;
+        let field = info
+            .get_field(&key)
+            .ok_or_else(|| Error::unknown_field(&key, info.get_field_names()))?;
         let type_info = get_type_info(field.type_id(), field.type_name(), registry)?;
         let value = map.next_value_seed(TypedReflectDeserializer {
             type_info,
