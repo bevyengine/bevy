@@ -94,10 +94,7 @@ impl StructInfo {
                 (name, index)
             })
             .collect::<HashMap<_, _>>();
-        let field_names = fields
-            .iter()
-            .map(|field| field.name())
-            .collect::<Vec<_>>();
+        let field_names = fields.iter().map(|field| field.name()).collect::<Vec<_>>();
 
         Self {
             name,
