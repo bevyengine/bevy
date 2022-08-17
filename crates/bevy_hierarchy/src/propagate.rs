@@ -4,7 +4,7 @@ use crate::{Children, Parent};
 
 /// Marks a component as propagatable thrown hierachy alike `Transform`/`GlobalTransorm`
 /// or `Visibility`/`ComputedVisibility`.
-pub trait Propagatable: Component {
+pub trait Propagate: Component {
     /// The computed version of this component.
     type Computed: Component;
     /// The payload passed to children for computation.
@@ -31,7 +31,7 @@ type LocalQuery<'w, 's, 'a, T> = Query<
     (
         &'a T,
         Changed<T>,
-        &'a mut <T as Propagatable>::Computed,
+        &'a mut <T as Propagate>::Computed,
         &'a Parent,
     ),
 >;
@@ -39,12 +39,12 @@ type ChildrenQuery<'w, 's, 'a, T> = Query<
     'w,
     's,
     (&'a Children, Changed<Children>),
-    (With<Parent>, With<<T as Propagatable>::Computed>),
+    (With<Parent>, With<<T as Propagate>::Computed>),
 >;
 
 /// Update `T::Computed` component of entities based on entity hierarchy and
 /// `T` component.
-pub fn propagate_system<T: Propagatable>(
+pub fn propagate_system<T: Propagate>(
     mut root_query: Query<
         (
             Option<(&Children, Changed<Children>)>,
@@ -82,7 +82,7 @@ pub fn propagate_system<T: Propagatable>(
     }
 }
 
-fn propagate_recursive<T: Propagatable>(
+fn propagate_recursive<T: Propagate>(
     payload: &T::Payload,
     local_query: &mut LocalQuery<T>,
     children_query: &ChildrenQuery<T>,
@@ -129,9 +129,7 @@ mod test {
     use bevy_ecs::prelude::*;
     use bevy_ecs::system::CommandQueue;
 
-    use crate::{
-        propagate_system, BuildChildren, BuildWorldChildren, Children, Parent, Propagatable,
-    };
+    use crate::{propagate_system, BuildChildren, BuildWorldChildren, Children, Parent, Propagate};
 
     #[derive(Component)]
     struct MyComponent(i32);
@@ -149,7 +147,7 @@ mod test {
         }
     }
 
-    impl Propagatable for MyComponent {
+    impl Propagate for MyComponent {
         type Computed = MyComputedComponent;
         type Payload = MyComputedComponent;
         const ALWAYS_PROPAGATE: bool = false;

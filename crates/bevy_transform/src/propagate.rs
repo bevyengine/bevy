@@ -1,8 +1,8 @@
-use bevy_hierarchy::Propagatable;
+use bevy_hierarchy::Propagate;
 
 use crate::{GlobalTransform, Transform};
 
-impl Propagatable for Transform {
+impl Propagate for Transform {
     type Computed = GlobalTransform;
     type Payload = GlobalTransform;
 
