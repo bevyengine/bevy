@@ -397,7 +397,9 @@ impl<E: Event> ManualEventReader<E> {
 
     /// Amount of events we missed.
     pub fn missed_events(&self, events: &Events<E>) -> usize {
-        events.oldest_event_count() - self.last_event_count
+        events
+            .oldest_event_count()
+            .saturating_sub(self.last_event_count)
     }
 
     /// See [`EventReader::is_empty`]
