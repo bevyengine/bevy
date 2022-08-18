@@ -16,6 +16,7 @@ pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_param_set};
 use bevy_ptr::UnsafeCellDeref;
 use std::{
+    borrow::Cow,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -1300,6 +1301,51 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
         SystemChangeTick {
             last_change_tick: system_meta.last_change_tick,
             change_tick,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SystemName {
+    name: Cow<'static, str>,
+}
+
+impl SystemName {
+    pub fn name(&self) -> &Cow<'static, str> {
+        &self.name
+    }
+}
+
+impl<'a> SystemParam for SystemName {
+    type Fetch = SystemNameState;
+}
+
+// SAFETY: Only reads World entities
+unsafe impl ReadOnlySystemParamFetch for SystemNameState {}
+
+/// The [`SystemParamState`] of [`Entities`].
+#[doc(hidden)]
+pub struct SystemNameState;
+
+// SAFETY: no component value access
+unsafe impl SystemParamState for SystemNameState {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
+        Self
+    }
+}
+
+impl<'w, 's> SystemParamFetch<'w, 's> for SystemNameState {
+    type Item = SystemName;
+
+    #[inline]
+    unsafe fn get_param(
+        _state: &'s mut Self,
+        system_meta: &SystemMeta,
+        _world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        SystemName {
+            name: system_meta.name.clone(),
         }
     }
 }
