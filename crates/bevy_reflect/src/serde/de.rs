@@ -319,15 +319,23 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 Ok(Box::new(dynamic_tuple))
             }
             TypeInfo::Enum(enum_info) => {
-                let mut dynamic_enum = deserializer.deserialize_enum(
-                    enum_info.name(),
-                    enum_info.variant_names(),
-                    EnumVisitor {
+                let type_name = enum_info.type_name();
+                let mut dynamic_enum = if type_name.starts_with("core::option::Option") {
+                    deserializer.deserialize_option(OptionVisitor {
                         enum_info,
                         registry: self.registry,
-                    },
-                )?;
-                dynamic_enum.set_name(enum_info.type_name().to_string());
+                    })?
+                } else {
+                    deserializer.deserialize_enum(
+                        enum_info.name(),
+                        enum_info.variant_names(),
+                        EnumVisitor {
+                            enum_info,
+                            registry: self.registry,
+                        },
+                    )?
+                };
+                dynamic_enum.set_name(type_name.to_string());
                 Ok(Box::new(dynamic_enum))
             }
             TypeInfo::Value(_) => {
@@ -595,16 +603,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                         )?
                         .into(),
                     VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
-                        let field = tuple_info.field_at(0).unwrap();
-                        let type_info =
-                            self.registry
-                                .get_type_info(field.type_id())
-                                .ok_or_else(|| {
-                                    Error::custom(format_args!(
-                                        "no registration found for type {}",
-                                        field.type_name()
-                                    ))
-                                })?;
+                        let type_info = get_newtype_info(tuple_info, self.registry)?;
                         let value = variant.newtype_variant_seed(TypedReflectDeserializer {
                             type_info,
                             registry: self.registry,
@@ -669,6 +668,54 @@ impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
         V: SeqAccess<'de>,
     {
         visit_tuple(&mut seq, self.tuple_info, self.registry)
+    }
+}
+
+struct OptionVisitor<'a> {
+    enum_info: &'static EnumInfo,
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
+    type Value = DynamicEnum;
+
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+        formatter.write_str("reflected option value of type ")?;
+        formatter.write_str(self.enum_info.type_name())
+    }
+
+    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let variant_info = self.enum_info.variant("Some").unwrap();
+        match variant_info {
+            VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
+                let type_info = get_newtype_info(tuple_info, self.registry)?;
+                let de = TypedReflectDeserializer {
+                    type_info,
+                    registry: self.registry,
+                };
+                let mut value = DynamicTuple::default();
+                value.insert_boxed(de.deserialize(deserializer)?);
+                let mut option = DynamicEnum::default();
+                option.set_variant("Some", value);
+                Ok(option)
+            }
+            info => Err(Error::custom(format_args!(
+                "invalid variant, expected `Some` but got `{}`",
+                info.name()
+            ))),
+        }
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        let mut option = DynamicEnum::default();
+        option.set_variant("None", ());
+        Ok(option)
     }
 }
 
@@ -737,6 +784,19 @@ where
     }
 
     Ok(tuple)
+}
+
+fn get_newtype_info<E: Error>(
+    tuple_info: &'static TupleVariantInfo,
+    registry: &TypeRegistry,
+) -> Result<&'static TypeInfo, E> {
+    let field = tuple_info.field_at(0).unwrap();
+    registry.get_type_info(field.type_id()).ok_or_else(|| {
+        Error::custom(format_args!(
+            "no registration found for type {}",
+            field.type_name()
+        ))
+    })
 }
 
 fn get_type_info<E: de::Error>(
@@ -955,6 +1015,71 @@ mod tests {
 
         let output = <Foo as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_deserialize_option() {
+        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        struct OptionTest {
+            none: Option<()>,
+            simple: Option<String>,
+            complex: Option<SomeStruct>,
+        }
+
+        let expected = OptionTest {
+            none: None,
+            simple: Some(String::from("Hello world!")),
+            complex: Some(SomeStruct { foo: 123 }),
+        };
+
+        let mut registry = get_registry();
+        registry.register::<OptionTest>();
+        registry.register::<Option<()>>();
+
+        // === Normal === //
+        let input = r#"{
+            "bevy_reflect::serde::de::tests::should_deserialize_option::OptionTest": (
+                none: None,
+                simple: Some("Hello world!"),
+                complex: Some((
+                    foo: 123,
+                )),
+            ),
+        }"#;
+
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        let output = <OptionTest as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        assert_eq!(expected, output, "failed to deserialize Options");
+
+        // === Implicit Some === //
+        let input = r#"
+        #![enable(implicit_some)]
+        {
+            "bevy_reflect::serde::de::tests::should_deserialize_option::OptionTest": (
+                none: None,
+                simple: "Hello world!",
+                complex: (
+                    foo: 123,
+                ),
+            ),
+        }"#;
+
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        let output = <OptionTest as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        assert_eq!(
+            expected, output,
+            "failed to deserialize Options with implicit Some"
+        );
     }
 
     #[test]

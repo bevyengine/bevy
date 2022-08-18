@@ -327,7 +327,15 @@ impl<'a> Serialize for EnumSerializer<'a> {
 
         match variant_type {
             VariantType::Unit => {
-                serializer.serialize_unit_variant(enum_name, variant_index, variant_name)
+                if self
+                    .enum_value
+                    .type_name()
+                    .starts_with("core::option::Option")
+                {
+                    serializer.serialize_none()
+                } else {
+                    serializer.serialize_unit_variant(enum_name, variant_index, variant_name)
+                }
             }
             VariantType::Struct => {
                 let struct_info = match variant_info {
@@ -357,12 +365,20 @@ impl<'a> Serialize for EnumSerializer<'a> {
             }
             VariantType::Tuple if field_len == 1 => {
                 let field = self.enum_value.field_at(0).unwrap();
-                serializer.serialize_newtype_variant(
-                    enum_name,
-                    variant_index,
-                    variant_name,
-                    &TypedReflectSerializer::new(field, self.registry),
-                )
+                if self
+                    .enum_value
+                    .type_name()
+                    .starts_with("core::option::Option")
+                {
+                    serializer.serialize_some(&TypedReflectSerializer::new(field, self.registry))
+                } else {
+                    serializer.serialize_newtype_variant(
+                        enum_name,
+                        variant_index,
+                        variant_name,
+                        &TypedReflectSerializer::new(field, self.registry),
+                    )
+                }
             }
             VariantType::Tuple => {
                 let mut state = serializer.serialize_tuple_variant(
@@ -465,6 +481,7 @@ mod tests {
     use crate::serde::ReflectSerializer;
     use crate::{FromReflect, Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
+    use ron::extensions::Extensions;
     use ron::ser::PrettyConfig;
     use serde::Serialize;
     use std::f32::consts::PI;
@@ -605,6 +622,63 @@ mod tests {
         ),
     ),
 }"#;
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_serialize_option() {
+        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        struct OptionTest {
+            none: Option<()>,
+            simple: Option<String>,
+            complex: Option<SomeStruct>,
+        }
+
+        let value = OptionTest {
+            none: None,
+            simple: Some(String::from("Hello world!")),
+            complex: Some(SomeStruct { foo: 123 }),
+        };
+
+        let registry = get_registry();
+        let serializer = ReflectSerializer::new(&value, &registry);
+
+        // === Normal === //
+        let config = PrettyConfig::default()
+            .new_line(String::from("\n"))
+            .indentor(String::from("    "));
+
+        let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
+        let expected = r#"{
+    "bevy_reflect::serde::ser::tests::should_serialize_option::OptionTest": (
+        none: None,
+        simple: Some("Hello world!"),
+        complex: Some((
+            foo: 123,
+        )),
+    ),
+}"#;
+
+        assert_eq!(expected, output);
+
+        // === Implicit Some === //
+        let config = PrettyConfig::default()
+            .new_line(String::from("\n"))
+            .extensions(Extensions::IMPLICIT_SOME)
+            .indentor(String::from("    "));
+
+        let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
+        let expected = r#"#![enable(implicit_some)]
+{
+    "bevy_reflect::serde::ser::tests::should_serialize_option::OptionTest": (
+        none: None,
+        simple: "Hello world!",
+        complex: (
+            foo: 123,
+        ),
+    ),
+}"#;
+
         assert_eq!(expected, output);
     }
 
