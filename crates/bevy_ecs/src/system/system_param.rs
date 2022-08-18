@@ -1332,9 +1332,9 @@ impl<'s> AsRef<str> for SystemName<'s> {
     }
 }
 
-impl<'s> Into<&'s str> for SystemName<'s> {
-    fn into(self) -> &'s str {
-        self.name
+impl<'s> From<SystemName<'s>> for &'s str {
+    fn from(name: SystemName<'s>) -> &'s str {
+        name.name
     }
 }
 
@@ -1357,7 +1357,7 @@ impl<'s> SystemParam for SystemName<'s> {
 }
 
 // SAFETY: Only reads internal system state
-unsafe impl<'a> ReadOnlySystemParamFetch for SystemNameState {}
+unsafe impl ReadOnlySystemParamFetch for SystemNameState {}
 
 /// The [`SystemParamState`] of [`SystemName`].
 #[doc(hidden)]
