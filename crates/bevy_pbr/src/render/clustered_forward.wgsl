@@ -82,9 +82,14 @@ fn cluster_debug_visualization(
     // the fragment. It shows a sort of lighting complexity measure.
     let cluster_overlay_alpha = 0.1;
     let max_light_complexity_per_cluster = 64.0;
+    let smoothed_complexity = smoothstep(
+        0.0,
+        max_light_complexity_per_cluster,
+        f32(offset_and_counts[1] + offset_and_counts[2])
+    );
     return vec4<f32>(
         (1.0 - cluster_overlay_alpha) * shaded_color.rg
-            + cluster_overlay_alpha * smoothstep(0.0, max_light_complexity_per_cluster, f32(offset_and_counts[1] + offset_and_counts[2])),
+            + cluster_overlay_alpha * vec2<f32>(smoothed_complexity, 1.0 - smoothed_complexity),
         shaded_color.ba
     );
 #else
