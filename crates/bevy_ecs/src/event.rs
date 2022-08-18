@@ -3,9 +3,8 @@
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 use bevy_utils::tracing::trace;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut, Range, RangeInclusive};
 use std::{fmt, hash::Hash, marker::PhantomData};
-
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
@@ -194,18 +193,13 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
-    pub fn iter(&mut self) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
-        self.iter_with_id().map(|(event, _id)| event)
+    pub fn iter(&mut self) -> ManualEventIterator<'_, E> {
+        self.reader.iter(&self.events)
     }
 
     /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    pub fn iter_with_id(
-        &mut self,
-    ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
-    {
-        self.reader.iter_with_id(&self.events).inspect(|(_, id)| {
-            trace!("EventReader::iter() -> {}", id);
-        })
+    pub fn iter_with_id(&mut self) -> ManualEventIteratorWithId<'_, E> {
+        self.reader.iter_with_id(&self.events)
     }
 
     /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
@@ -337,34 +331,16 @@ impl<E: Event> Default for ManualEventReader<E> {
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> ManualEventReader<E> {
     /// See [`EventReader::iter`]
-    pub fn iter<'a>(
-        &'a mut self,
-        events: &'a Events<E>,
-    ) -> impl DoubleEndedIterator<Item = &'a E> + ExactSizeIterator<Item = &'a E> {
-        self.iter_with_id(events).map(|(e, _)| e)
+    pub fn iter<'a>(&'a mut self, events: &'a Events<E>) -> ManualEventIterator<'a, E> {
+        self.iter_with_id(events).without_id()
     }
 
     /// See [`EventReader::iter_with_id`]
     pub fn iter_with_id<'a>(
         &'a mut self,
         events: &'a Events<E>,
-    ) -> impl DoubleEndedIterator<Item = (&'a E, EventId<E>)>
-           + ExactSizeIterator<Item = (&'a E, EventId<E>)> {
-        let a_index = (self.last_event_count).saturating_sub(events.events_a.start_event_count);
-        let b_index = (self.last_event_count).saturating_sub(events.events_b.start_event_count);
-        let a = events.events_a.get(a_index..).unwrap_or_default();
-        let b = events.events_b.get(b_index..).unwrap_or_default();
-
-        let unread_count = a.len() + b.len();
-        // Ensure `len` is implemented correctly
-        debug_assert_eq!(unread_count, self.len(events));
-        self.last_event_count = events.event_count - unread_count;
-        // Iterate the oldest first, then the newer events
-        let iterator = a.iter().chain(b.iter());
-        iterator
-            .map(|e| (&e.event, e.event_id))
-            .with_exact_size(unread_count)
-            .inspect(move |(_, id)| self.last_event_count = (id.id + 1).max(self.last_event_count))
+    ) -> ManualEventIteratorWithId<'a, E> {
+        ManualEventIteratorWithId::new(self, events)
     }
 
     /// See [`EventReader::len`]
@@ -392,57 +368,112 @@ impl<E: Event> ManualEventReader<E> {
     }
 }
 
-trait IteratorExt {
-    fn with_exact_size(self, len: usize) -> ExactSize<Self>
-    where
-        Self: Sized,
-    {
-        ExactSize::new(self, len)
-    }
+pub struct ManualEventIterator<'a, E: Event> {
+    iter: ManualEventIteratorWithId<'a, E>,
 }
-impl<I> IteratorExt for I where I: Iterator {}
 
-#[must_use = "iterators are lazy and do nothing unless consumed"]
-#[derive(Clone)]
-struct ExactSize<I> {
-    iter: I,
-    len: usize,
-}
-impl<I> ExactSize<I> {
-    fn new(iter: I, len: usize) -> Self {
-        ExactSize { iter, len }
+impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
+    type Item = &'a E;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(event, _)| event)
     }
 }
 
-impl<I: Iterator> Iterator for ExactSize<I> {
-    type Item = I::Item;
-
-    #[inline]
-    fn next(&mut self) -> Option<I::Item> {
-        self.iter.next().map(|e| {
-            self.len -= 1;
-            e
-        })
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len, Some(self.len))
-    }
-}
-
-impl<I: DoubleEndedIterator> DoubleEndedIterator for ExactSize<I> {
-    #[inline]
-    fn next_back(&mut self) -> Option<I::Item> {
-        self.iter.next_back().map(|e| {
-            self.len -= 1;
-            e
-        })
-    }
-}
-impl<I: Iterator> ExactSizeIterator for ExactSize<I> {
+impl<'a, E: Event> ExactSizeIterator for ManualEventIterator<'a, E> {
     fn len(&self) -> usize {
-        self.len
+        self.iter.len()
+    }
+}
+
+impl<'a, E: Event> DoubleEndedIterator for ManualEventIterator<'a, E> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().map(|(event, _)| event)
+    }
+}
+
+#[derive(Debug)]
+pub struct ManualEventIteratorWithId<'a, E: Event> {
+    reader: &'a mut ManualEventReader<E>,
+    events: &'a Events<E>,
+    range: RangeInclusive<usize>,
+    marker: PhantomData<E>,
+}
+
+impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
+    pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
+        // Check if we are behind the oldest event.
+        //
+        // This means we missed events.
+        if reader.last_event_count < events.events_a.start_event_count {
+            println!(
+                "we missed {} events",
+                events
+                    .events_a
+                    .start_event_count
+                    .saturating_sub(reader.last_event_count),
+            );
+            reader.last_event_count = events.events_a.start_event_count;
+        }
+
+        let range = reader.last_event_count..=events.event_count;
+
+        Self {
+            reader,
+            events,
+            range,
+            marker: PhantomData,
+        }
+    }
+
+    pub fn get_event(&mut self, id: usize) -> Option<(&'a E, EventId<E>)> {
+        // Figure out which sequence we are currently on.
+        let sequence = if id < self.events.events_b.start_event_count {
+            &self.events.events_a
+        } else {
+            &self.events.events_b
+        };
+
+        let index = self
+            .reader
+            .last_event_count
+            .saturating_sub(sequence.start_event_count);
+
+        match sequence.get(index) {
+            Some(instance) => Some((&instance.event, instance.event_id)),
+            None => None,
+        }
+    }
+
+    pub fn without_id(self) -> ManualEventIterator<'a, E> {
+        ManualEventIterator { iter: self }
+    }
+}
+
+impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
+    type Item = (&'a E, EventId<E>);
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.range.next().map(|id| self.get_event(id)) {
+            Some(item) => {
+                self.reader.last_event_count += 1;
+                item
+            }
+            None => None,
+        }
+    }
+}
+
+impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.range.next_back() {
+            Some(id) => self.get_event(id),
+            None => None,
+        }
+    }
+}
+
+impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorWithId<'a, E> {
+    fn len(&self) -> usize {
+        self.reader.len(self.events)
     }
 }
 
