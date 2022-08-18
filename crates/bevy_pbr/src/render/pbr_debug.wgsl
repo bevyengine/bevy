@@ -236,4 +236,4 @@ fn pbr_debug(in: FragmentInput) -> vec4<f32> {
 #endif // PBR_DEBUG_UVS
 }
 
-#endif PBR_DEBUG
+#endif // PBR_DEBUG
