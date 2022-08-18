@@ -1309,7 +1309,6 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
 ///
 /// This is not a reliable identifier, it is more so useful for debugging
 /// purposes of finding where a system parameter is being used incorrectly.
-#[derive(Debug)]
 pub struct SystemName<'s> {
     name: &'s str,
 }
@@ -1336,6 +1335,20 @@ impl<'s> AsRef<str> for SystemName<'s> {
 impl<'s> Into<&'s str> for SystemName<'s> {
     fn into(self) -> &'s str {
         self.name
+    }
+}
+
+impl<'s> std::fmt::Debug for SystemName<'s> {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_tuple("SystemName").field(&self.name()).finish()
+    }
+}
+
+impl<'s> std::fmt::Display for SystemName<'s> {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.name(), f)
     }
 }
 
