@@ -1305,7 +1305,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
     }
 }
 
-/// Name of the system that corresponds to this [`SystemState`].
+/// Name of the system that corresponds to this [`crate::system::SystemState`].
 ///
 /// This is not a reliable identifier, it is more so useful for debugging
 /// purposes of finding where a system parameter is being used incorrectly.
