@@ -1305,47 +1305,74 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
     }
 }
 
+/// Name of the system that corresponds to this [`SystemState`].
+///
+/// This is not a reliable identifier, it is more so useful for debugging
+/// purposes of finding where a system parameter is being used incorrectly.
 #[derive(Debug)]
-pub struct SystemName {
-    name: Cow<'static, str>,
+pub struct SystemName<'s> {
+    name: &'s str,
 }
 
-impl SystemName {
-    pub fn name(&self) -> &Cow<'static, str> {
-        &self.name
+impl<'s> SystemName<'s> {
+    pub fn name(&self) -> &str {
+        self.name
     }
 }
 
-impl<'a> SystemParam for SystemName {
+impl<'s> Deref for SystemName<'s> {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        self.name()
+    }
+}
+
+impl<'s> AsRef<str> for SystemName<'s> {
+    fn as_ref(&self) -> &str {
+        self.name()
+    }
+}
+
+impl<'s> Into<&'s str> for SystemName<'s> {
+    fn into(self) -> &'s str {
+        self.name
+    }
+}
+
+impl<'s> SystemParam for SystemName<'s> {
     type Fetch = SystemNameState;
 }
 
-// SAFETY: Only reads World entities
-unsafe impl ReadOnlySystemParamFetch for SystemNameState {}
+// SAFETY: Only reads internal system state
+unsafe impl<'a> ReadOnlySystemParamFetch for SystemNameState {}
 
-/// The [`SystemParamState`] of [`Entities`].
+/// The [`SystemParamState`] of [`SystemName`].
 #[doc(hidden)]
-pub struct SystemNameState;
+pub struct SystemNameState {
+    name: Cow<'static, str>,
+}
 
 // SAFETY: no component value access
 unsafe impl SystemParamState for SystemNameState {
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
-        Self
+    fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        Self {
+            name: system_meta.name.clone(),
+        }
     }
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for SystemNameState {
-    type Item = SystemName;
+    type Item = SystemName<'s>;
 
     #[inline]
     unsafe fn get_param(
-        _state: &'s mut Self,
-        system_meta: &SystemMeta,
+        state: &'s mut Self,
+        _system_meta: &SystemMeta,
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
         SystemName {
-            name: system_meta.name.clone(),
+            name: state.name.as_ref(),
         }
     }
 }
