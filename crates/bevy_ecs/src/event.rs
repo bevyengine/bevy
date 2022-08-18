@@ -572,10 +572,9 @@ impl<E: Event> Events<E> {
         let sequence = self.sequence(id);
         let index = id.saturating_sub(sequence.start_event_count);
 
-        match sequence.get(index) {
-            Some(instance) => Some((&instance.event, instance.event_id)),
-            None => None,
-        }
+        sequence
+            .get(index)
+            .map(|instance| (&instance.event, instance.event_id))
     }
 
     /// Oldest id still in the events buffer.
