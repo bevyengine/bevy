@@ -395,7 +395,7 @@ impl<'a, E: Event> DoubleEndedIterator for ManualEventIterator<'a, E> {
 pub struct ManualEventIteratorWithId<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     events: &'a Events<E>,
-    range: RangeInclusive<usize>,
+    range: Range<usize>,
     marker: PhantomData<E>,
 }
 
@@ -404,18 +404,11 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
         // Check if we are behind the oldest event.
         //
         // This means we missed events.
-        if reader.last_event_count < events.events_a.start_event_count {
-            println!(
-                "we missed {} events",
-                events
-                    .events_a
-                    .start_event_count
-                    .saturating_sub(reader.last_event_count),
-            );
-            reader.last_event_count = events.events_a.start_event_count;
+        if reader.last_event_count < events.oldest_id() {
+            reader.last_event_count = events.oldest_id();
         }
 
-        let range = reader.last_event_count..=events.event_count;
+        let range = reader.last_event_count..events.event_count;
 
         Self {
             reader,
@@ -425,25 +418,7 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
         }
     }
 
-    pub fn get_event(&mut self, id: usize) -> Option<(&'a E, EventId<E>)> {
-        // Figure out which sequence we are currently on.
-        let sequence = if id < self.events.events_b.start_event_count {
-            &self.events.events_a
-        } else {
-            &self.events.events_b
-        };
-
-        let index = self
-            .reader
-            .last_event_count
-            .saturating_sub(sequence.start_event_count);
-
-        match sequence.get(index) {
-            Some(instance) => Some((&instance.event, instance.event_id)),
-            None => None,
-        }
-    }
-
+    /// Iterate over only the events.
     pub fn without_id(self) -> ManualEventIterator<'a, E> {
         ManualEventIterator { iter: self }
     }
@@ -452,10 +427,10 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
 impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
     type Item = (&'a E, EventId<E>);
     fn next(&mut self) -> Option<Self::Item> {
-        match self.range.next().map(|id| self.get_event(id)) {
+        match self.range.next().and_then(|id| self.events.get_event(id)) {
             Some(item) => {
                 self.reader.last_event_count += 1;
-                item
+                Some(item)
             }
             None => None,
         }
@@ -465,7 +440,7 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
 impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
     fn next_back(&mut self) -> Option<Self::Item> {
         match self.range.next_back() {
-            Some(id) => self.get_event(id),
+            Some(id) => self.events.get_event(id),
             None => None,
         }
     }
@@ -473,7 +448,7 @@ impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
 
 impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorWithId<'a, E> {
     fn len(&self) -> usize {
-        self.reader.len(self.events)
+        self.range.len()
     }
 }
 
@@ -578,6 +553,35 @@ impl<E: Event> Events<E> {
         &self,
     ) -> impl DoubleEndedIterator<Item = &E> + ExactSizeIterator<Item = &E> {
         self.events_b.iter().map(|i| &i.event)
+    }
+
+    /// Get a specific event by id if it still exists in the events buffer.
+    pub fn get_event(&self, id: usize) -> Option<(&E, EventId<E>)> {
+        if id < self.oldest_id() {
+            return None;
+        }
+
+        let sequence = self.sequence(id);
+        let index = id.saturating_sub(sequence.start_event_count);
+
+        match sequence.get(index) {
+            Some(instance) => Some((&instance.event, instance.event_id)),
+            None => None,
+        }
+    }
+
+    /// Oldest id still in the events buffer.
+    pub fn oldest_id(&self) -> usize {
+        self.events_a.start_event_count
+    }
+
+    /// Which event buffer is this event id a part of.
+    fn sequence(&self, id: usize) -> &EventSequence<E> {
+        if id < self.events_b.start_event_count {
+            &self.events_a
+        } else {
+            &self.events_b
+        }
     }
 }
 
