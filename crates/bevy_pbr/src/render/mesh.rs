@@ -219,7 +219,7 @@ impl SkinnedMeshJoints {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub enum PbrDebug {
     None,
     Uvs,
