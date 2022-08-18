@@ -377,6 +377,10 @@ impl<'a, E: Event> Iterator for ManualEventIterator<'a, E> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(event, _)| event)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
 
 impl<'a, E: Event> ExactSizeIterator for ManualEventIterator<'a, E> {
@@ -434,6 +438,10 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
             }
             None => None,
         }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.range.size_hint()
     }
 }
 
