@@ -150,10 +150,7 @@ impl EnumInfo {
         let variant_indices = variants
             .iter()
             .enumerate()
-            .map(|(index, variant)| {
-                let name = variant.name().clone();
-                (name, index)
-            })
+            .map(|(index, variant)| (variant.name(), index))
             .collect::<HashMap<_, _>>();
 
         let variant_names = variants

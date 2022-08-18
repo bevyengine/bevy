@@ -55,12 +55,10 @@ fn get_type_info<E: Error>(
     match type_info {
         TypeInfo::Dynamic(..) => match registry.get_with_name(type_name) {
             Some(registration) => Ok(registration.type_info()),
-            None => {
-                return Err(Error::custom(format_args!(
-                    "no registration found for dynamic type with name {}",
-                    type_name
-                )))
-            }
+            None => Err(Error::custom(format_args!(
+                "no registration found for dynamic type with name {}",
+                type_name
+            ))),
         },
         info => Ok(info),
     }
@@ -223,7 +221,7 @@ impl<'a> Serialize for StructSerializer<'a> {
                 continue;
             }
             let key = struct_info.field_at(index).unwrap().name();
-            state.serialize_field(&key, &TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_field(key, &TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
     }

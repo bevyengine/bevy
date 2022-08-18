@@ -586,47 +586,44 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
         A: EnumAccess<'de>,
     {
         let mut dynamic_enum = DynamicEnum::default();
-        match data.variant().unwrap() {
-            (Ident(variant_name), variant) => {
-                let variant_info = self.enum_info.variant(&variant_name).ok_or_else(|| {
-                    Error::unknown_variant(&variant_name, self.enum_info.variant_names())
+        let (Ident(variant_name), variant) = data.variant().unwrap();
+        let variant_info = self
+            .enum_info
+            .variant(&variant_name)
+            .ok_or_else(|| Error::unknown_variant(&variant_name, self.enum_info.variant_names()))?;
+        let value: DynamicVariant = match variant_info {
+            VariantInfo::Unit(..) => variant.unit_variant()?.into(),
+            VariantInfo::Struct(struct_info) => variant
+                .struct_variant(
+                    struct_info.field_names(),
+                    StructVariantVisitor {
+                        struct_info,
+                        registry: self.registry,
+                    },
+                )?
+                .into(),
+            VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
+                let type_info = get_newtype_info(tuple_info, self.registry)?;
+                let value = variant.newtype_variant_seed(TypedReflectDeserializer {
+                    type_info,
+                    registry: self.registry,
                 })?;
-                let value: DynamicVariant = match variant_info {
-                    VariantInfo::Unit(..) => variant.unit_variant()?.into(),
-                    VariantInfo::Struct(struct_info) => variant
-                        .struct_variant(
-                            struct_info.field_names(),
-                            StructVariantVisitor {
-                                struct_info,
-                                registry: self.registry,
-                            },
-                        )?
-                        .into(),
-                    VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
-                        let type_info = get_newtype_info(tuple_info, self.registry)?;
-                        let value = variant.newtype_variant_seed(TypedReflectDeserializer {
-                            type_info,
-                            registry: self.registry,
-                        })?;
-                        let mut dynamic_tuple = DynamicTuple::default();
-                        dynamic_tuple.insert_boxed(value);
-                        dynamic_tuple.into()
-                    }
-                    VariantInfo::Tuple(tuple_info) => variant
-                        .tuple_variant(
-                            tuple_info.field_len(),
-                            TupleVariantVisitor {
-                                tuple_info,
-                                registry: self.registry,
-                            },
-                        )?
-                        .into(),
-                };
-
-                dynamic_enum.set_variant(variant_name, value);
+                let mut dynamic_tuple = DynamicTuple::default();
+                dynamic_tuple.insert_boxed(value);
+                dynamic_tuple.into()
             }
-        }
+            VariantInfo::Tuple(tuple_info) => variant
+                .tuple_variant(
+                    tuple_info.field_len(),
+                    TupleVariantVisitor {
+                        tuple_info,
+                        registry: self.registry,
+                    },
+                )?
+                .into(),
+        };
 
+        dynamic_enum.set_variant(variant_name, value);
         Ok(dynamic_enum)
     }
 }

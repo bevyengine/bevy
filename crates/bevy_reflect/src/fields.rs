@@ -21,7 +21,7 @@ impl NamedField {
 
     /// The name of the field.
     pub fn name(&self) -> &'static str {
-        &self.name
+        self.name
     }
 
     /// The [type name] of the field.

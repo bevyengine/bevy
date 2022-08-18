@@ -89,10 +89,7 @@ impl StructInfo {
         let field_indices = fields
             .iter()
             .enumerate()
-            .map(|(index, field)| {
-                let name = field.name().clone();
-                (name, index)
-            })
+            .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
         let field_names = fields.iter().map(|field| field.name()).collect::<Vec<_>>();
 
