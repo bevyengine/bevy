@@ -1111,7 +1111,10 @@ impl World {
             },
         };
         let result = f(self, value_mut);
-        assert!(!self.contains_resource::<R>());
+        assert!(!self.contains_resource::<R>(),
+            "Resource `{}` was inserted during a call to World::resource_scope.\n\
+            This is not allowed as the original resource is reinserted to the world after the FnOnce param is invoked.",
+            std::any::type_name::<R>());
 
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
