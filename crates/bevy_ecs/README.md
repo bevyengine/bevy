@@ -91,7 +91,7 @@ Apps often require unique resources, such as asset collections, renderers, audio
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct Time {
     seconds: f32,
 }
@@ -213,6 +213,7 @@ Resources also expose change state:
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Resource)]
 struct Time(f32);
 
 // Prints "time changed!" if the Time resource has changed since the last run of the System

@@ -36,7 +36,7 @@ struct Physics;
 struct PostPhysics;
 
 /// Resource used to stop our example.
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct Done(bool);
 
 fn main() {

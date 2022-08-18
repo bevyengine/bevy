@@ -1,11 +1,11 @@
 use std::marker::PhantomData;
 
-use super::DepthCalculation;
 use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
 use bevy_reflect::{
-    std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
+    std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
+    ReflectSerialize,
 };
 use bevy_window::ModifiesWindows;
 use serde::{Deserialize, Serialize};
@@ -41,7 +41,6 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
-    fn depth_calculation(&self) -> DepthCalculation;
     fn far(&self) -> f32;
 }
 
@@ -80,13 +79,6 @@ impl CameraProjection for Projection {
         }
     }
 
-    fn depth_calculation(&self) -> DepthCalculation {
-        match self {
-            Projection::Perspective(projection) => projection.depth_calculation(),
-            Projection::Orthographic(projection) => projection.depth_calculation(),
-        }
-    }
-
     fn far(&self) -> f32 {
         match self {
             Projection::Perspective(projection) => projection.far(),
@@ -101,7 +93,7 @@ impl Default for Projection {
     }
 }
 
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct PerspectiveProjection {
     pub fov: f32,
@@ -117,10 +109,6 @@ impl CameraProjection for PerspectiveProjection {
 
     fn update(&mut self, width: f32, height: f32) {
         self.aspect_ratio = width / height;
-    }
-
-    fn depth_calculation(&self) -> DepthCalculation {
-        DepthCalculation::Distance
     }
 
     fn far(&self) -> f32 {
@@ -140,15 +128,15 @@ impl Default for PerspectiveProjection {
 }
 
 // TODO: make this a component instead of a property
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
-#[reflect_value(Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
 pub enum WindowOrigin {
     Center,
     BottomLeft,
 }
 
-#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
-#[reflect_value(Serialize, Deserialize)]
+#[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
     /// Manually specify left/right/top/bottom values.
     /// Ignore window resizing; the image will stretch.
@@ -166,7 +154,7 @@ pub enum ScalingMode {
     FixedHorizontal(f32),
 }
 
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
     pub left: f32,
@@ -178,7 +166,6 @@ pub struct OrthographicProjection {
     pub window_origin: WindowOrigin,
     pub scaling_mode: ScalingMode,
     pub scale: f32,
-    pub depth_calculation: DepthCalculation,
 }
 
 impl CameraProjection for OrthographicProjection {
@@ -244,10 +231,6 @@ impl CameraProjection for OrthographicProjection {
         }
     }
 
-    fn depth_calculation(&self) -> DepthCalculation {
-        self.depth_calculation
-    }
-
     fn far(&self) -> f32 {
         self.far
     }
@@ -265,7 +248,6 @@ impl Default for OrthographicProjection {
             window_origin: WindowOrigin::Center,
             scaling_mode: ScalingMode::WindowSize,
             scale: 1.0,
-            depth_calculation: DepthCalculation::Distance,
         }
     }
 }

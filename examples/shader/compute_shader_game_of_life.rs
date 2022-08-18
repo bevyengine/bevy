@@ -85,9 +85,10 @@ impl Plugin for GameOfLifeComputePlugin {
     }
 }
 
-#[derive(Clone, Deref, ExtractResource)]
+#[derive(Resource, Clone, Deref, ExtractResource)]
 struct GameOfLifeImage(Handle<Image>);
 
+#[derive(Resource)]
 struct GameOfLifeImageBindGroup(BindGroup);
 
 fn queue_bind_group(
@@ -109,6 +110,7 @@ fn queue_bind_group(
     commands.insert_resource(GameOfLifeImageBindGroup(bind_group));
 }
 
+#[derive(Resource)]
 pub struct GameOfLifePipeline {
     texture_bind_group_layout: BindGroupLayout,
     init_pipeline: CachedComputePipelineId,

@@ -276,6 +276,11 @@ impl DynamicStruct {
             self.insert_boxed(name, Box::new(value));
         }
     }
+
+    /// Gets the index of the field with the given name.
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.field_indices.get(name).copied()
+    }
 }
 
 impl Struct for DynamicStruct {
