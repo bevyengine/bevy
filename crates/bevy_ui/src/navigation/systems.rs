@@ -69,6 +69,8 @@ pub struct NavigationInputMapping {
     /// Mouse button for [`NavRequest::Action`]
     pub mouse_action: MouseButton,
     /// Whether pointer input hover gives focus to [`Focusable`] elements.
+    ///
+    /// [`Focusable`]: bevy_ui_navigation::prelude::Focusable
     pub focus_follows_cursor: bool,
 }
 impl Default for NavigationInputMapping {
@@ -118,10 +120,10 @@ macro_rules! mapping {
 /// Dpad and left stick for movement, `LT` and `RT` for scopped menus, `A` `B`
 /// for selection and cancel.
 ///
-/// The button mapping may be controlled through the [`InputMapping`] resource.
+/// The button mapping may be controlled through the [`NavigationInputMapping`] resource.
 /// You may however need to customize the behavior of this system (typically
 /// when integrating in the game) in this case, you should write your own
-/// system that sends [`NavRequest`](crate::NavRequest) events
+/// system that sends [`NavRequest`] events.
 pub fn default_gamepad_input(
     mut requests: EventWriter<NavRequest>,
     has_focused: Query<With<Focused>>,
@@ -189,10 +191,10 @@ pub fn default_gamepad_input(
 /// supports `WASD` and arrow keys for the directions, `E`, `Q` and `Tab` for
 /// scopped menus, `Backspace` and `Enter` for cancel and selection.
 ///
-/// The button mapping may be controlled through the [`InputMapping`] resource.
+/// The button mapping may be controlled through the [`NavigationInputMapping`] resource.
 /// You may however need to customize the behavior of this system (typically
 /// when integrating in the game) in this case, you should write your own
-/// system that sends [`NavRequest`](crate::NavRequest) events.
+/// system that sends [`NavRequest`] events.
 pub fn default_keyboard_input(
     has_focused: Query<(), With<Focused>>,
     keyboard: Res<Input<KeyCode>>,
