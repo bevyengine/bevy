@@ -9,7 +9,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Mat4, Vec2};
+use bevy_math::{Mat3A, Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -117,6 +117,9 @@ bitflags::bitflags! {
     #[repr(transparent)]
     struct MeshFlags: u32 {
         const SHADOW_RECEIVER            = (1 << 0);
+        // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
+        // then the flag should be set, else it should not be set.
+        const SIGN_DETERMINANT_MODEL_3X3 = (1 << 31);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -143,13 +146,16 @@ pub fn extract_meshes(
 
     for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
         let transform = transform.compute_matrix();
-        let shadow_receiver_flags = if not_receiver.is_some() {
-            MeshFlags::empty().bits
+        let mut flags = if not_receiver.is_some() {
+            MeshFlags::empty()
         } else {
-            MeshFlags::SHADOW_RECEIVER.bits
+            MeshFlags::SHADOW_RECEIVER
         };
+        if Mat3A::from_mat4(transform).determinant().is_sign_positive() {
+            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+        }
         let uniform = MeshUniform {
-            flags: shadow_receiver_flags,
+            flags: flags.bits,
             transform,
             inverse_transpose_model: transform.inverse().transpose(),
         };
