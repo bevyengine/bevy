@@ -113,6 +113,13 @@ impl<T: FromReflect> Array for Vec<T> {
             index: 0,
         }
     }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
+    }
 }
 
 impl<T: FromReflect> List for Vec<T> {
@@ -245,6 +252,17 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
             map: self,
             index: 0,
         }
+    }
+
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+        self.into_iter()
+            .map(|(key, value)| {
+                (
+                    Box::new(key) as Box<dyn Reflect>,
+                    Box::new(value) as Box<dyn Reflect>,
+                )
+            })
+            .collect()
     }
 
     fn clone_dynamic(&self) -> DynamicMap {
@@ -394,6 +412,13 @@ impl<T: Reflect, const N: usize> Array for [T; N] {
             array: self,
             index: 0,
         }
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
     }
 }
 
@@ -625,6 +650,13 @@ impl<T: FromReflect> Enum for Option<T> {
 
     fn iter_fields(&self) -> VariantFieldIter {
         VariantFieldIter::new(self)
+    }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        match *self {
+            Some(value) => vec![Box::new(value) as Box<dyn Reflect>],
+            None => Vec::new(),
+        }
     }
 
     #[inline]

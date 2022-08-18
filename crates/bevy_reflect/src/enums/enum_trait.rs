@@ -110,6 +110,8 @@ pub trait Enum: Reflect {
     fn name_at(&self, index: usize) -> Option<&str>;
     /// Returns an iterator over the values of the current variant's fields.
     fn iter_fields(&self) -> VariantFieldIter;
+    /// Drain the fields of this enum to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
     /// Returns the number of fields in the current variant.
     fn field_len(&self) -> usize;
     /// The name of the current variant.

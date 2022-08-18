@@ -42,6 +42,9 @@ pub trait TupleStruct: Reflect {
     /// Returns an iterator over the values of the tuple struct's fields.
     fn iter_fields(&self) -> TupleStructFieldIter;
 
+    /// Drain the fields of this tuple struct to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
+
     /// Clones the struct into a [`DynamicTupleStruct`].
     fn clone_dynamic(&self) -> DynamicTupleStruct;
 }
@@ -237,6 +240,11 @@ impl TupleStruct for DynamicTupleStruct {
             tuple_struct: self,
             index: 0,
         }
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.fields
     }
 
     fn clone_dynamic(&self) -> DynamicTupleStruct {

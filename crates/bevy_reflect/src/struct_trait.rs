@@ -62,6 +62,9 @@ pub trait Struct: Reflect {
     /// Returns an iterator over the values of the struct's fields.
     fn iter_fields(&self) -> FieldIter;
 
+    /// Drain the fields of this struct to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
+
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
 }
@@ -326,6 +329,11 @@ impl Struct for DynamicStruct {
             struct_val: self,
             index: 0,
         }
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.fields
     }
 
     fn clone_dynamic(&self) -> DynamicStruct {

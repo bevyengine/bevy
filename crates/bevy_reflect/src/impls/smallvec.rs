@@ -37,6 +37,12 @@ where
             index: 0,
         }
     }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
+    }
 }
 
 impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>

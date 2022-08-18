@@ -3,7 +3,7 @@ use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::impls::impl_typed;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::quote;
+use quote::{format_ident, quote};
 
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
@@ -22,6 +22,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         enum_field_len,
         enum_variant_name,
         enum_variant_type,
+        enum_variant_drain,
     } = generate_impls(reflect_enum, &ref_index, &ref_name);
 
     let EnumVariantConstructors {
@@ -118,6 +119,13 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
             fn iter_fields(&self) -> #bevy_reflect_path::VariantFieldIter {
                 #bevy_reflect_path::VariantFieldIter::new(self)
+            }
+
+            fn drain(self: Box<Self>) -> Vec<Box<dyn #bevy_reflect_path::Reflect>> {
+                match *self {
+                    #(#enum_variant_drain,)*
+                    _ => Vec::new()
+                }
             }
 
             #[inline]
@@ -255,6 +263,7 @@ struct EnumImpls {
     enum_field_len: Vec<proc_macro2::TokenStream>,
     enum_variant_name: Vec<proc_macro2::TokenStream>,
     enum_variant_type: Vec<proc_macro2::TokenStream>,
+    enum_variant_drain: Vec<proc_macro2::TokenStream>,
 }
 
 fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Ident) -> EnumImpls {
@@ -268,6 +277,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
     let mut enum_field_len = Vec::new();
     let mut enum_variant_name = Vec::new();
     let mut enum_variant_type = Vec::new();
+    let mut enum_variant_drain = Vec::new();
 
     for variant in reflect_enum.active_variants() {
         let ident = &variant.data.ident;
@@ -323,6 +333,19 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                 });
                 let arguments = quote!(#name, &[ #(#argument),* ]);
                 add_fields_branch("Tuple", "TupleVariantInfo", arguments, field_len);
+
+                let field_idents = fields
+                    .iter()
+                    .filter(|field| !field.attrs.ignore)
+                    .map(|field| syn::Index::from(field.index));
+                let field_names = fields
+                    .iter()
+                    .filter(|field| !field.attrs.ignore)
+                    .map(|field| format_ident!("_{}", field.index))
+                    .collect::<Vec<_>>();
+                enum_variant_drain.push(quote! {
+                   #unit{ #(#field_idents : #field_names,)* .. } => vec![#(Box::new(#field_names) as Box<dyn #bevy_reflect_path::Reflect>),*]
+                });
             }
             EnumVariantFields::Named(fields) => {
                 let (field_len, argument) = for_fields(fields, |reflect_idx, _, field| {
@@ -346,6 +369,15 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                 });
                 let arguments = quote!(#name, &[ #(#argument),* ]);
                 add_fields_branch("Struct", "StructVariantInfo", arguments, field_len);
+
+                let field_idents = fields
+                    .iter()
+                    .filter(|field| !field.attrs.ignore)
+                    .map(|field| field.data.ident.as_ref().unwrap())
+                    .collect::<Vec<_>>();
+                enum_variant_drain.push(quote! {
+                   #unit{ #(#field_idents,)* .. } => vec![#(Box::new(#field_idents) as Box<dyn #bevy_reflect_path::Reflect>),*]
+                });
             }
         };
     }
@@ -359,5 +391,6 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
         enum_field_len,
         enum_variant_name,
         enum_variant_type,
+        enum_variant_drain,
     }
 }
