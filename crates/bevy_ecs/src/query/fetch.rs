@@ -33,7 +33,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - **[`Entity`].**
 ///   Gets the identifier of the queried entity.
 /// - **[`Option`].**
-///   By default, a world query only tests entities that are compatible with its type.
+///   By default, a world query only tests entities that have the matching component types.
 ///   Wrapping it into an `Option` will increase the query search space, and it will return `None` if an entity doesn't satisfy the `WorldQuery`.
 /// - **[`AnyOf`].**
 ///   Equivalent to wrapping each world query inside it into an `Option`.
@@ -77,7 +77,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 ///
 /// fn my_system(query: Query<MyQuery>) {
-///     for q in query.iter() {
+///     for q in &query {
 ///         q.component_a;
 ///     }
 /// }
@@ -179,7 +179,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///         println!("Total: {}", health.total());
 ///     }
 ///     // The item returned by the iterator is of type `HealthQueryItem`.
-///     for mut health in health_query.iter_mut() {
+///     for mut health in &mut health_query {
 ///         health.damage(1.0);
 ///         println!("Total (mut): {}", health.total());
 ///     }
