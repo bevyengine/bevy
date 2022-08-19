@@ -5,7 +5,7 @@ fn init_composer() -> Composer {
     let mut composer = Composer::default();
 
     let mut load_composable = |source: &str, path: &str| -> () {
-        match composer.add_composable_module(source, path, ShaderLanguage::Wgsl) {
+        match composer.add_composable_module(source, path, ShaderLanguage::Wgsl, None) {
             Ok(_module) => {
                 // println!("{} -> {:#?}", module.name, module)
             }

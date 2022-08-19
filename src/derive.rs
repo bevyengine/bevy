@@ -1,8 +1,8 @@
 use crate::util::copy_type;
 use naga::{
-    Arena, ArraySize, Block, Constant, ConstantInner, Expression, Function, FunctionArgument,
-    FunctionResult, GlobalVariable, Handle, LocalVariable, Module, Span, Statement, StructMember,
-    SwitchCase, Type, TypeInner, UniqueArena,
+    Arena, ArraySize, Block, Constant, ConstantInner, EntryPoint, Expression, Function,
+    FunctionArgument, FunctionResult, GlobalVariable, Handle, LocalVariable, Module, Span,
+    Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
 };
 use std::collections::HashMap;
 
@@ -38,7 +38,7 @@ impl<'a> DerivedModule<'a> {
         self.global_map.clear();
     }
 
-    fn map_span(&self, span: Span) -> Span {
+    pub fn map_span(&self, span: Span) -> Span {
         let span = span.to_range();
         match span {
             Some(rng) => Span::new(
@@ -377,17 +377,6 @@ impl<'a> DerivedModule<'a> {
         new_h
     }
 
-    // import a function defined in the source shader context
-    pub fn import_function_handle(&mut self, h_func: &Handle<Function>) -> Handle<Function> {
-        let func = self.shader.unwrap().functions.try_get(*h_func).unwrap();
-        let mapped_func = self.localize_function(func);
-        let new_span = self.map_span(self.shader.unwrap().functions.get_span(*h_func));
-        let new_h = self.functions.append(mapped_func, new_span);
-        self.function_map
-            .insert(func.name.as_ref().unwrap().clone(), new_h);
-        new_h
-    }
-
     // get the derived handle corresponding to the given source function handle
     // requires func to be named
     pub fn map_function_handle(&self, h_func: &Handle<Function>) -> Handle<Function> {
@@ -403,6 +392,39 @@ impl<'a> DerivedModule<'a> {
             .unwrap();
         *self.function_map.get(name).unwrap()
     }
+
+    /// swap an already imported function for a new one.
+    /// note span cannot be updated
+    pub fn replace_function(&mut self, replace: &str, func: &Function) -> Handle<Function> {
+        let name = func.name.as_ref().unwrap().clone();
+        let mapped_func = self.localize_function(func);
+        let old_h = self.function_map.remove(replace).unwrap();
+        let old_func = self.functions.get_mut(old_h);
+        *old_func = mapped_func;
+        self.function_map.insert(name, old_h);
+        old_h
+    }
+
+    pub fn into_module_with_entrypoints(mut self) -> naga::Module {
+        let entry_points = self
+            .shader
+            .unwrap()
+            .entry_points
+            .iter()
+            .map(|ep| EntryPoint {
+                name: ep.name.clone(),
+                stage: ep.stage,
+                early_depth_test: ep.early_depth_test,
+                workgroup_size: ep.workgroup_size,
+                function: self.localize_function(&ep.function),
+            })
+            .collect();
+
+        naga::Module {
+            entry_points,
+            ..self.into()
+        }
+    }
 }
 
 impl<'a> From<DerivedModule<'a>> for naga::Module {
@@ -412,7 +434,7 @@ impl<'a> From<DerivedModule<'a>> for naga::Module {
             constants: derived.constants,
             global_variables: derived.globals,
             functions: derived.functions,
-            entry_points: Default::default(), //todo api for entry points
+            entry_points: Default::default(),
         }
     }
 }

@@ -2,3 +2,5 @@
 /Cargo.lock
 bevy_target.jpg
 import_example.png
+override.png
+out.txt

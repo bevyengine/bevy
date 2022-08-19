@@ -10,6 +10,7 @@
 // generate headers on demand
 // check mobile - does everybody use wgsl?
 // support glsl compute
+// move tests to executed compute test
 // *    purge/replace modules should invalidate dependents
 // *    search/replace decorated strings in error reports
 // *    use better encoding for decorate
@@ -18,7 +19,12 @@
 // derive
 // better api for entry points
 
+// redirect
+// stable output order where possible?
+// translate access uniform / storage / etc
+
 pub mod compose;
 pub mod derive;
 pub mod prune;
+pub mod redirect;
 pub mod util;
