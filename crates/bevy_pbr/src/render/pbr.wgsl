@@ -1,3 +1,5 @@
+#define_import_path bevy_pbr::fragment
+
 #import bevy_pbr::mesh_vertex_output as OutputTypes
 #import bevy_pbr::pbr_functions as PbrCore
 #import bevy_pbr::pbr_bindings as MaterialBindings

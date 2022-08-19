@@ -112,9 +112,9 @@ impl ShaderCache {
                     }
                 }
 
-                #[cfg(debug)]
+                #[cfg(debug_assertions)]
                 let composer = naga_oil::compose::Composer::default();
-                #[cfg(not(debug))]
+                #[cfg(not(debug_assertions))]
                 let composer = naga_oil::compose::Composer::non_validating();
 
                 e.insert(composer.with_capabilities(capabilities))
@@ -203,6 +203,7 @@ impl ShaderCache {
                                     shader.source.as_str(),
                                     shader.path.as_deref().unwrap_or(""),
                                     (&shader.source).into(),
+                                    None,
                                 )?;
                             }
                         }

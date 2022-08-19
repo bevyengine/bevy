@@ -1197,6 +1197,16 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "shader_material_override"
+path = "examples/shader/shader_material_override.rs"
+
+[package.metadata.example.shader_material_override]
+name = "Material with fore function override"
+description = "A shader that uses the default pipeline with a function override"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_instancing"
 path = "examples/shader/shader_instancing.rs"
 
