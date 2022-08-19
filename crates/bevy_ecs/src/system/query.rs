@@ -207,7 +207,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// [`Table`] component storage type is much more optimized for query iteration than [`SparseSet`].
 ///
 /// Two systems cannot be executed in parallel if both access the same component type where at least one of the accesses is mutable.
-/// This happens unless the schedule can verify that no entity could be found in both queries.
+/// This happens unless the executor can verify that no entity could be found in both queries.
 ///
 /// Optional components increase the number of entities a query has to match against.
 /// This can hurt iteration performance, especially if the query solely consists of only optional components, since the query would iterate over each entity in the world.
