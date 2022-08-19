@@ -421,12 +421,10 @@ fn extract_materials_2d<M: Material2d>(
         }
     }
 
-    let mut extracted_assets = Vec::new();
-    for handle in changed_assets.drain() {
-        if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, asset.clone()));
-        }
-    }
+    let extracted_assets = changed_assets
+        .drain()
+        .filter_map(|handle| assets.get(&handle).map(|asset| (handle, asset.clone())))
+        .collect();
 
     commands.insert_resource(ExtractedMaterials2d {
         extracted: extracted_assets,

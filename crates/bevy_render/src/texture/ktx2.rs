@@ -42,8 +42,9 @@ pub fn ktx2_buffer_to_image(
     let depth = depth.max(1);
 
     // Handle supercompression
-    let mut levels = Vec::new();
+    let mut levels;
     if let Some(supercompression_scheme) = supercompression_scheme {
+        levels = Vec::with_capacity(ktx2.levels().count());
         for (_level, _level_data) in ktx2.levels().enumerate() {
             match supercompression_scheme {
                 #[cfg(feature = "flate2")]

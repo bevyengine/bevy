@@ -113,15 +113,15 @@ async fn load_gltf<'a, 'b>(
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
 
-    let mut materials = vec![];
     let mut named_materials = HashMap::default();
     let mut linear_textures = HashSet::default();
-    for material in gltf.materials() {
+    let materials = gltf
+        .materials()
+        .map(|material| {
         let handle = load_material(&material, load_context);
         if let Some(name) = material.name() {
             named_materials.insert(name.to_string(), handle.clone());
         }
-        materials.push(handle);
         if let Some(texture) = material.normal_texture() {
             linear_textures.insert(texture.texture().index());
         }
@@ -134,7 +134,9 @@ async fn load_gltf<'a, 'b>(
         {
             linear_textures.insert(texture.texture().index());
         }
-    }
+            handle
+        })
+        .collect::<Vec<_>>();
 
     #[cfg(feature = "bevy_animation")]
     let paths = {
@@ -342,12 +344,16 @@ async fn load_gltf<'a, 'b>(
         meshes.push(handle);
     }
 
-    let mut nodes_intermediate = vec![];
     let mut named_nodes_intermediate = HashMap::default();
-    for node in gltf.nodes() {
-        let node_label = node_label(&node);
-        nodes_intermediate.push((
-            node_label,
+    let nodes_intermediate = gltf
+        .nodes()
+        .map(|node| {
+            if let Some(name) = node.name() {
+                named_nodes_intermediate.insert(name, node.index());
+            }
+
+            (
+                node_label(&node),
             GltfNode {
                 children: vec![],
                 mesh: node
@@ -372,11 +378,10 @@ async fn load_gltf<'a, 'b>(
             node.children()
                 .map(|child| child.index())
                 .collect::<Vec<_>>(),
-        ));
-        if let Some(name) = node.name() {
-            named_nodes_intermediate.insert(name, node.index());
-        }
-    }
+            )
+        })
+        .collect();
+
     let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
         .map(|(label, node)| load_context.set_labeled_asset(&label, LoadedAsset::new(node)))
@@ -1031,7 +1036,7 @@ async fn load_buffers(
 ) -> Result<Vec<Vec<u8>>, GltfError> {
     const VALID_MIME_TYPES: &[&str] = &["application/octet-stream", "application/gltf-buffer"];
 
-    let mut buffer_data = Vec::new();
+    let mut buffer_data = Vec::with_capacity(gltf.buffers().len());
     for buffer in gltf.buffers() {
         match buffer.source() {
             gltf::buffer::Source::Uri(uri) => {

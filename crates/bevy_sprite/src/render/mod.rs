@@ -207,21 +207,17 @@ pub fn extract_sprite_events(
 ) {
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
-
-    for image in image_events.iter() {
-        // AssetEvent: !Clone
-        images.push(match image {
-            AssetEvent::Created { handle } => AssetEvent::Created {
-                handle: handle.clone_weak(),
-            },
-            AssetEvent::Modified { handle } => AssetEvent::Modified {
-                handle: handle.clone_weak(),
-            },
-            AssetEvent::Removed { handle } => AssetEvent::Removed {
-                handle: handle.clone_weak(),
-            },
-        });
-    }
+    images.extend(image_events.iter().map(|image| match image {
+        AssetEvent::Created { handle } => AssetEvent::Created {
+            handle: handle.clone_weak(),
+        },
+        AssetEvent::Modified { handle } => AssetEvent::Modified {
+            handle: handle.clone_weak(),
+        },
+        AssetEvent::Removed { handle } => AssetEvent::Removed {
+            handle: handle.clone_weak(),
+        },
+    }));
 }
 
 pub fn extract_sprites(

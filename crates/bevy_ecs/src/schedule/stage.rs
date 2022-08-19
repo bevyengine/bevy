@@ -669,9 +669,9 @@ impl SystemStage {
         update_run_criteria_indices(&mut self.parallel, &order_inverted);
 
         let mut temp = self.run_criteria.drain(..).map(Some).collect::<Vec<_>>();
-        for index in order {
-            self.run_criteria.push(temp[index].take().unwrap());
-        }
+        self.run_criteria
+            .extend(order.iter().map(|&index| temp[index].take().unwrap()));
+
         Ok(labels)
     }
 }
@@ -703,9 +703,7 @@ fn process_systems(
         );
     }
     let mut temp = systems.drain(..).map(Some).collect::<Vec<_>>();
-    for index in order {
-        systems.push(temp[index].take().unwrap());
-    }
+    systems.extend(order.iter().map(|&index| temp[index].take().unwrap()));
     Ok(())
 }
 

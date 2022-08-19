@@ -47,12 +47,12 @@ impl DynamicScene {
 
             // Create a new dynamic entity for each entity of the given archetype
             // and insert it into the dynamic scene.
-            for entity in archetype.entities() {
-                scene.entities.push(DynamicEntity {
+            scene
+                .entities
+                .extend(archetype.entities().iter().map(|entity| DynamicEntity {
                     entity: entity.id(),
                     components: Vec::new(),
-                });
-            }
+                }));
 
             // Add each reflection-powered component to the entity it belongs to.
             for component_id in archetype.components() {

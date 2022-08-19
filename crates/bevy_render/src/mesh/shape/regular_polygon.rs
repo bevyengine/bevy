@@ -1,4 +1,5 @@
 use crate::mesh::{Indices, Mesh};
+use itertools::Itertools;
 use wgpu::PrimitiveTopology;
 
 /// A regular polygon in the `XY` plane
@@ -32,24 +33,23 @@ impl From<RegularPolygon> for Mesh {
 
         debug_assert!(sides > 2, "RegularPolygon requires at least 3 sides.");
 
-        let mut positions = Vec::with_capacity(sides);
-        let mut normals = Vec::with_capacity(sides);
-        let mut uvs = Vec::with_capacity(sides);
-
         let step = std::f32::consts::TAU / sides as f32;
-        for i in 0..sides {
-            let theta = std::f32::consts::FRAC_PI_2 - i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+        let (positions, normals, uvs): (Vec<_>, Vec<_>, Vec<_>) = (0..sides)
+            .map(|i| {
+                let theta = std::f32::consts::FRAC_PI_2 - i as f32 * step;
+                let (sin, cos) = theta.sin_cos();
 
-            positions.push([cos * radius, sin * radius, 0.0]);
-            normals.push([0.0, 0.0, 1.0]);
-            uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-        }
+                let position = [cos * radius, sin * radius, 0.0];
+                let normal = [0.0, 0.0, 1.0];
+                let uv = [0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)];
 
-        let mut indices = Vec::with_capacity((sides - 2) * 3);
-        for i in 1..(sides as u32 - 1) {
-            indices.extend_from_slice(&[0, i + 1, i]);
-        }
+                (position, normal, uv)
+            })
+            .multiunzip();
+
+        let indices = (1..(sides as u32 - 1))
+            .flat_map(|i| [0, i + 1, i])
+            .collect();
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);

@@ -1,5 +1,6 @@
 use bevy_utils::{tracing::warn, HashMap, HashSet};
 use fixedbitset::FixedBitSet;
+use itertools::Itertools;
 use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
 pub enum DependencyGraphError<Labels> {
@@ -111,14 +112,11 @@ pub fn topological_order<Labels: Clone>(
     unvisited.extend(graph.keys().cloned());
     while let Some(node) = unvisited.iter().next().cloned() {
         if check_if_cycles_and_visit(&node, graph, &mut sorted, &mut unvisited, &mut current) {
-            let mut cycle = Vec::new();
-            let last_window = [*current.last().unwrap(), current[0]];
-            let mut windows = current
-                .windows(2)
-                .chain(std::iter::once(&last_window as &[usize]));
-            while let Some(&[dependant, dependency]) = windows.next() {
-                cycle.push((dependant, graph[&dependant][&dependency].clone()));
-            }
+            let windows = current.iter().copied().circular_tuple_windows::<(_, _)>();
+            let cycle = windows
+                .map(|(dependant, dependency)| (dependant, graph[&dependant][&dependency].clone()))
+                .collect();
+
             return Err(DependencyGraphError::GraphCycles(cycle));
         }
     }

@@ -149,12 +149,14 @@ fn extract_render_asset<A: RenderAsset>(
         }
     }
 
-    let mut extracted_assets = Vec::new();
-    for handle in changed_assets.drain() {
-        if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, asset.extract_asset()));
-        }
-    }
+    let extracted_assets = changed_assets
+        .drain()
+        .filter_map(|handle| {
+            assets
+                .get(&handle)
+                .map(|asset| (handle, asset.extract_asset()))
+        })
+        .collect();
 
     commands.insert_resource(ExtractedAssets {
         extracted: extracted_assets,

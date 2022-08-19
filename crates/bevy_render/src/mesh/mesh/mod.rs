@@ -207,18 +207,22 @@ impl Mesh {
     /// mesh is not compatible with the given `descriptor` (ex: it is missing vertex attributes), [`None`] will
     /// be returned.
     pub fn get_mesh_vertex_buffer_layout(&self) -> MeshVertexBufferLayout {
-        let mut attributes = Vec::with_capacity(self.attributes.len());
-        let mut attribute_ids = Vec::with_capacity(self.attributes.len());
         let mut accumulated_offset = 0;
-        for (index, data) in self.attributes.values().enumerate() {
-            attribute_ids.push(data.attribute.id);
-            attributes.push(VertexAttribute {
-                offset: accumulated_offset,
-                format: data.attribute.format,
-                shader_location: index as u32,
-            });
-            accumulated_offset += data.attribute.format.get_size();
-        }
+        let (attribute_ids, attributes) = self
+            .attributes
+            .values()
+            .enumerate()
+            .map(|(index, data)| {
+                accumulated_offset += data.attribute.format.get_size();
+                let id = data.attribute.id;
+                let attribute = VertexAttribute {
+                    offset: accumulated_offset,
+                    format: data.attribute.format,
+                    shader_location: index as u32,
+                };
+                (id, attribute)
+            })
+            .unzip();
 
         MeshVertexBufferLayout::new(InnerMeshVertexBufferLayout {
             layout: VertexBufferLayout {

@@ -350,10 +350,7 @@ pub fn camera_system<T: CameraProjection + Component>(
         })
         .collect();
 
-    let mut added_cameras = vec![];
-    for entity in &queries.p1() {
-        added_cameras.push(entity);
-    }
+    let added_cameras = queries.p1().iter().collect::<Vec<_>>();
     for (entity, mut camera, mut camera_projection) in &mut queries.p0() {
         if camera
             .target

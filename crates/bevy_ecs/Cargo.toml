@@ -26,6 +26,7 @@ fixedbitset = "0.4"
 fxhash = "0.2"
 downcast-rs = "1.2"
 serde = "1"
+itertools = "0.10"
 
 [dev-dependencies]
 rand = "0.8"

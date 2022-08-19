@@ -7,6 +7,7 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
+use itertools::process_results;
 
 use glyph_brush_layout::{FontId, SectionText};
 
@@ -63,27 +64,26 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
     ) -> Result<(), TextError> {
-        let mut scaled_fonts = Vec::new();
-        let sections = sections
-            .iter()
-            .map(|section| {
-                let font = fonts
-                    .get(&section.style.font)
-                    .ok_or(TextError::NoSuchFont)?;
-                let font_id = self.get_or_insert_font_id(&section.style.font, font);
-                let font_size = scale_value(section.style.font_size, scale_factor);
+        let iter = sections.iter().map(|section| {
+            let font = fonts
+                .get(&section.style.font)
+                .ok_or(TextError::NoSuchFont)?;
+            let font_id = self.get_or_insert_font_id(&section.style.font, font);
+            let font_size = scale_value(section.style.font_size, scale_factor);
 
-                scaled_fonts.push(ab_glyph::Font::as_scaled(&font.font, font_size));
+            let section = SectionText {
+                font_id,
+                scale: PxScale::from(font_size),
+                text: &section.value,
+            };
 
-                let section = SectionText {
-                    font_id,
-                    scale: PxScale::from(font_size),
-                    text: &section.value,
-                };
+            let scaled_font = ab_glyph::Font::as_scaled(&font.font, font_size);
 
-                Ok(section)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+            Ok((section, scaled_font))
+        });
+
+        let (sections, scaled_fonts): (Vec<_>, Vec<_>) =
+            process_results(iter, |iter| iter.unzip())?;
 
         let section_glyphs = self
             .brush

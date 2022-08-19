@@ -1,6 +1,7 @@
 use wgpu::PrimitiveTopology;
 
 use crate::mesh::{Indices, Mesh};
+use itertools::Itertools;
 use std::f32::consts::PI;
 
 /// A sphere made of sectors and stacks.
@@ -35,26 +36,30 @@ impl From<UVSphere> for Mesh {
         let sector_step = 2. * PI / sectors;
         let stack_step = PI / stacks;
 
-        let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(sphere.stacks * sphere.sectors);
-        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(sphere.stacks * sphere.sectors);
-        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(sphere.stacks * sphere.sectors);
+        let vertices: Vec<[f32; 3]>;
+        let normals: Vec<[f32; 3]>;
+        let uvs: Vec<[f32; 2]>;
         let mut indices: Vec<u32> = Vec::with_capacity(sphere.stacks * sphere.sectors * 2 * 3);
 
-        for i in 0..sphere.stacks + 1 {
-            let stack_angle = PI / 2. - (i as f32) * stack_step;
-            let xy = sphere.radius * stack_angle.cos();
-            let z = sphere.radius * stack_angle.sin();
+        (vertices, normals, uvs) = (0..=sphere.stacks)
+            .flat_map(|i| {
+                let stack_angle = PI / 2. - (i as f32) * stack_step;
+                let xy = sphere.radius * stack_angle.cos();
+                let z = sphere.radius * stack_angle.sin();
 
-            for j in 0..sphere.sectors + 1 {
-                let sector_angle = (j as f32) * sector_step;
-                let x = xy * sector_angle.cos();
-                let y = xy * sector_angle.sin();
+                (0..=sphere.sectors).map(move |j| {
+                    let sector_angle = (j as f32) * sector_step;
+                    let x = xy * sector_angle.cos();
+                    let y = xy * sector_angle.sin();
 
-                vertices.push([x, y, z]);
-                normals.push([x * length_inv, y * length_inv, z * length_inv]);
-                uvs.push([(j as f32) / sectors, (i as f32) / stacks]);
-            }
-        }
+                    let vertex = [x, y, z];
+                    let normal = [x * length_inv, y * length_inv, z * length_inv];
+                    let uv = [(j as f32) / sectors, (i as f32) / stacks];
+
+                    (vertex, normal, uv)
+                })
+            })
+            .multiunzip();
 
         // indices
         //  k1--k1+1
@@ -62,18 +67,14 @@ impl From<UVSphere> for Mesh {
         //  | /  |
         //  k2--k2+1
         for i in 0..sphere.stacks {
-            let mut k1 = i * (sphere.sectors + 1);
-            let mut k2 = k1 + sphere.sectors + 1;
+            let mut k1 = (i * (sphere.sectors + 1)) as u32;
+            let mut k2 = k1 + (sphere.sectors + 1) as u32;
             for _j in 0..sphere.sectors {
                 if i != 0 {
-                    indices.push(k1 as u32);
-                    indices.push(k2 as u32);
-                    indices.push((k1 + 1) as u32);
+                    indices.extend([k1, k2, k1 + 1]);
                 }
                 if i != sphere.stacks - 1 {
-                    indices.push((k1 + 1) as u32);
-                    indices.push(k2 as u32);
-                    indices.push((k2 + 1) as u32);
+                    indices.extend([k1 + 1, k2, k2 + 1]);
                 }
                 k1 += 1;
                 k2 += 1;

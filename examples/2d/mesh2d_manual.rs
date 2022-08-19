@@ -59,16 +59,18 @@ fn star(
     //        6
     //   7        5
     //
-    // These vertices are specified in 3D space.
-    let mut v_pos = vec![[0.0, 0.0, 0.0]];
-    for i in 0..10 {
-        // Angle of each vertex is 1/10 of TAU, plus PI/2 for positioning vertex 0
-        let a = std::f32::consts::FRAC_PI_2 - i as f32 * std::f32::consts::TAU / 10.0;
-        // Radius of internal vertices (2, 4, 6, 8, 10) is 100, it's 200 for external
-        let r = (1 - i % 2) as f32 * 100.0 + 100.0;
-        // Add the vertex coordinates
-        v_pos.push([r * a.cos(), r * a.sin(), 0.0]);
-    }
+    // These vertices are specificed in 3D space.
+    let v_pos = std::iter::once([0.0, 0.0, 0.0])
+        .chain((0..10).map(|i| {
+            // Angle of each vertex is 1/10 of TAU, plus PI/2 for positioning vertex 0
+            let a = std::f32::consts::FRAC_PI_2 - i as f32 * std::f32::consts::TAU / 10.0;
+            // Radius of internal vertices (2, 4, 6, 8, 10) is 100, it's 200 for external
+            let r = (1 - i % 2) as f32 * 100.0 + 100.0;
+            // Add the vertex coordinates
+            [r * a.cos(), r * a.sin(), 0.0]
+        }))
+        .collect::<Vec<_>>();
+
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
@@ -88,10 +90,10 @@ fn star(
     //   Third triangle: 0, 4, 3
     //   etc
     //   Last triangle: 0, 1, 10
-    let mut indices = vec![0, 1, 10];
-    for i in 2..=10 {
-        indices.extend_from_slice(&[0, i, i - 1]);
-    }
+    let indices = [0, 1, 10]
+        .into_iter()
+        .chain((2..=10).flat_map(|i| [0, i, i - 1]))
+        .collect();
     star.set_indices(Some(Indices::U32(indices)));
 
     // We can now spawn the entities for the star and the camera
