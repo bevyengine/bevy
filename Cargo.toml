@@ -1201,7 +1201,7 @@ name = "shader_material_override"
 path = "examples/shader/shader_material_override.rs"
 
 [package.metadata.example.shader_material_override]
-name = "Material with fore function override"
+name = "Material with core function override"
 description = "A shader that uses the default pipeline with a function override"
 category = "Shaders"
 wasm = true

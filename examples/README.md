@@ -263,6 +263,7 @@ Example | Description
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
+[Material with core function override](../examples/shader/shader_material_override.rs) | A shader that uses the default pipeline with a function override
 [Post Processing](../examples/shader/post_processing.rs) | A custom post processing effect, using two cameras, with one reusing the render texture of the first one
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 
