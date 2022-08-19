@@ -9,50 +9,95 @@ use crate::{
 };
 use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 
-/// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
+/// Provides scoped access to components in a [`World`].
 ///
-/// Enables access to [entity identifiers] and [components] from a system, without the need to directly access the world.
-/// Its iterators and getter methods return *query items*.
-/// Each query item is a type containing data relative to an entity.
+/// Queries enable iteration over entities and their components as well as filtering them
+/// on certain conditions. A query matches its parameters against the world to produce a series
+/// of results. Each *query result* is a tuple of components (the same components defined
+/// in the query) that belong to the same entity.
 ///
-/// `Query` is a generic data structure that accepts two type parameters, both of which must implement the [`WorldQuery`] trait:
+/// Computational cost of queries is reduced by the fact that they have an internal archetype
+/// cache to avoid re-computing archetype matches on each query access.
 ///
-/// - **`Q` (query fetch).**
-///   The type of data contained in the query item.
-///   Only entities that match the requested data will generate an item.
-/// - **`F` (query filter).**
-///   A set of conditions that determines whether query items should be kept or discarded.
-///   This type parameter is optional.
+/// Query functionality is based on the [`WorldQuery`] trait. Both tuples of components
+/// (up to 16 elements) and query filters implement this trait.
 ///
-/// # System parameter declaration
+/// `Query` accepts two type parameters:
 ///
-/// A query should always be declared as a system parameter.
-/// This section shows the most common idioms involving the declaration of `Query`, emerging by combining [`WorldQuery`] implementors.
+/// 1. **Component access:** the components that an entity must have at the same time to yield
+///    a query result.
+/// 2. **Query filters (optional):** a predicate that ignores query results that don't match
+///    its conditions.
 ///
-/// ## Component access
+/// # Usage as system parameter
 ///
-/// A query defined with a reference to a component as the query fetch type parameter can be used to generate items that refer to the data of said component.
+/// A query is defined by declaring it as a system parameter. This section shows the various
+/// use cases of `Query` as a system parameter.
+///
+/// ## Immutable component access
+///
+/// The following example defines a query that gives an iterator over `(&ComponentA, &ComponentB)`
+/// tuples, where `ComponentA` and `ComponentB` belong to the same entity. Accessing components
+/// immutably helps system parallelization.
 ///
 /// ```
-/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
 /// # #[derive(Component)]
 /// # struct ComponentA;
-/// # fn immutable_ref(
-/// // A component can be accessed by shared reference...
-/// query: Query<&ComponentA>
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # fn system(
+/// query: Query<(&ComponentA, &ComponentB)>
 /// # ) {}
-/// # bevy_ecs::system::assert_is_system(immutable_ref);
-///
-/// # fn mutable_ref(
-/// // ... or by mutable reference.
-/// query: Query<&mut ComponentA>
-/// # ) {}
-/// # bevy_ecs::system::assert_is_system(mutable_ref);
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
-/// ## Query filtering
+/// You can use the [`ReadOnlyWorldQuery`] trait to abstract over read only query generics:
+/// ```
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::query::{QueryItem, ReadOnlyWorldQuery};
+/// fn system<Q: ReadOnlyWorldQuery>(
+///     query: Query<Q>,
+/// ) {
+///     let _: Option<QueryItem<Q>> = query.iter().next();
+/// }
+/// ```
 ///
-/// Setting the query filter type parameter will ensure that each query item satisfies the given condition.
+/// ## Mutable component access
+///
+/// The following example is similar to the previous one, with the exception of `ComponentA`
+/// being accessed mutably here. Note that both mutable and immutable accesses are allowed
+/// in the same query.
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # fn system(
+/// // `ComponentA` is accessed mutably, while `ComponentB` is accessed immutably.
+/// mut query: Query<(&mut ComponentA, &ComponentB)>
+/// # ) {}
+/// # bevy_ecs::system::assert_is_system(system);
+/// ```
+///
+/// Two systems cannot be executed in parallel if both access a certain component and
+/// at least one of the accesses is mutable, unless the schedule can verify that no entity
+/// could be found in both queries, as otherwise Rusts mutability Rules would be broken.
+///
+/// Similarly, a system cannot contain two queries that would break Rust's mutability Rules.
+/// If you need such Queries, you can use Filters to make the Queries disjoint or use a
+/// [`ParamSet`](super::ParamSet).
+///
+/// ## Entity ID access
+///
+/// Inserting [`Entity`](crate::entity::Entity) at any position in the type parameter tuple
+/// will give access to the entity ID.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -61,18 +106,15 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// # #[derive(Component)]
 /// # struct ComponentB;
 /// # fn system(
-/// // Just `ComponentA` data will be accessed, but only for entities that also contain
-/// // `ComponentB`.
-/// query: Query<&ComponentA, With<ComponentB>>
+/// query: Query<(Entity, &ComponentA, &ComponentB)>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
-/// ## `WorldQuery` tuples
+/// ## Query filtering
 ///
-/// Using tuples, each `Query` type parameter can contain multiple elements.
-///
-/// In the following example, two components are accessed simultaneously, and the query items are filtered on two conditions.
+/// The second, optional type parameter of query, is used for filters can be added to filter
+/// out the query results that don't satisfy the given condition.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -82,33 +124,43 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// # struct ComponentB;
 /// # #[derive(Component)]
 /// # struct ComponentC;
-/// # #[derive(Component)]
-/// # struct ComponentD;
-/// # fn immutable_ref(
-/// query: Query<(&ComponentA, &ComponentB), (With<ComponentC>, Without<ComponentD>)>
+/// # fn system(
+/// // `ComponentC` data won't be accessed, but only entities that contain it will be queried.
+/// query: Query<(&ComponentA, &ComponentB), With<ComponentC>>
 /// # ) {}
-/// # bevy_ecs::system::assert_is_system(immutable_ref);
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
-/// ## Entity identifier access
-///
-/// The identifier of an entity can be made available inside the query item by including [`Entity`] in the query fetch type parameter.
+/// If you need to apply more filters in a single query, group them into a tuple:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)]
 /// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # #[derive(Component)]
+/// # struct ComponentC;
 /// # fn system(
-/// query: Query<(Entity, &ComponentA)>
+/// // Similar to the previous query, but with the addition of a `Changed` filter.
+/// query: Query<(&ComponentA, &ComponentB), (With<ComponentC>, Changed<ComponentA>)>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
+/// The following list contains all the available query filters:
+///
+/// - [`Added`](crate::query::Added)
+/// - [`Changed`](crate::query::Changed)
+/// - [`With`](crate::query::With)
+/// - [`Without`](crate::query::Without)
+/// - [`Or`](crate::query::Or)
+///
 /// ## Optional component access
 ///
-/// A component can be made optional in a query by wrapping it into an [`Option`].
-/// In this way, a query item can still be generated even if the queried entity does not contain the wrapped component.
-/// In this case, its corresponding value will be `None`.
+/// A component can be made optional in a query by wrapping it into an [`Option`]. In the
+/// following example, the query will iterate over components of both entities that contain
+/// `ComponentA` and `ComponentB`, and entities that contain `ComponentA` but not `ComponentB`.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -117,162 +169,86 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// # #[derive(Component)]
 /// # struct ComponentB;
 /// # fn system(
-/// // Generates items for entities that contain `ComponentA`, and optionally `ComponentB`.
 /// query: Query<(&ComponentA, Option<&ComponentB>)>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
-/// See the documentation for [`AnyOf`] to idiomatically declare many optional components.
+/// If an entity does not contain a component, its corresponding query result value will be
+/// `None`. Optional components increase the number of entities a query has to match against,
+/// therefore they can hurt iteration performance, especially in the worst case scenario where
+/// the query solely consists of only optional components, since all entities will be iterated
+/// over.
 ///
-/// See the [performance] section to learn more about the impact of optional components.
+/// ## Single component access
 ///
-/// ## Disjoint queries
-///
-/// A system cannot contain two queries that break Rust's mutability rules.
-/// In this case, the [`Without`] filter can be used to disjoint them.
-///
-/// In the following example, two queries mutably access the same component.
-/// Executing this system will panic, since an entity could potentially match the two queries at the same time by having both `Player` and `Enemy` components.
-/// This would violate mutability rules.
-///
-/// ```should_panic
-/// # use bevy_ecs::prelude::*;
-/// # #[derive(Component)]
-/// # struct Health;
-/// # #[derive(Component)]
-/// # struct Player;
-/// # #[derive(Component)]
-/// # struct Enemy;
-/// #
-/// fn randomize_health(
-///     player_query: Query<&mut Health, With<Player>>,
-///     enemy_query: Query<&mut Health, With<Enemy>>,
-/// )
-/// # {}
-/// # let mut randomize_health_system = bevy_ecs::system::IntoSystem::into_system(randomize_health);
-/// # let mut world = World::new();
-/// # randomize_health_system.initialize(&mut world);
-/// # randomize_health_system.run((), &mut world);
-/// ```
-///
-/// Adding a `Without` filter will disjoint the queries.
-/// In this way, any entity that has both `Player` and `Enemy` components is excluded from both queries.
+/// If just a single component needs to be accessed, using a tuple as the first type parameter
+/// of `Query` can be omitted.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)]
-/// # struct Health;
-/// # #[derive(Component)]
-/// # struct Player;
-/// # #[derive(Component)]
-/// # struct Enemy;
-/// #
-/// fn randomize_health(
-///     player_query: Query<&mut Health, (With<Player>, Without<Enemy>)>,
-///     enemy_query: Query<&mut Health, (With<Enemy>, Without<Player>)>,
-/// )
-/// # {}
-/// # let mut randomize_health_system = bevy_ecs::system::IntoSystem::into_system(randomize_health);
-/// # let mut world = World::new();
-/// # randomize_health_system.initialize(&mut world);
-/// # randomize_health_system.run((), &mut world);
+/// # struct MyComponent;
+/// # fn tuple_system(
+/// // This is correct, but can be avoided.
+/// query: Query<(&MyComponent,)>
+/// # ) {}
+/// # bevy_ecs::system::assert_is_system(tuple_system);
+///
+/// # fn non_tuple_system(
+/// // This is the preferred method.
+/// query: Query<&MyComponent>
+/// # ) {}
+/// # bevy_ecs::system::assert_is_system(non_tuple_system);
 /// ```
 ///
-/// An alternative to this idiom is to wrap the conflicting queries into a [`ParamSet`](super::ParamSet).
+/// # Usage of query results
 ///
-/// # Accessing query items
+/// Inside the body of the system function, the `Query` is available as a function parameter.
+/// This section shows various methods to access query results.
 ///
-/// The following table summarizes the behavior of the safe methods that can be used to get query items.
+/// ## Iteration over every query result
 ///
-/// |Query methods|Effect|
-/// |:---:|---|
-/// |[`iter`]\([`_mut`][`iter_mut`])|Returns an iterator over all query items.|
-/// |[`for_each`]\([`_mut`][`for_each_mut`]),<br>[`par_for_each`]\([`_mut`][`par_for_each_mut`])|Runs a specified function for each query item.|
-/// |[`iter_many`]\([`_mut`][`iter_many_mut`])|Iterates or runs a specified function over query items generated by a list of entities.|
-/// |[`iter_combinations`]\([`_mut`][`iter_combinations_mut`])|Returns an iterator over all combinations of a specified number of query items.|
-/// |[`get`]\([`_mut`][`get_mut`])|Returns the query item for the specified entity.|
-/// |[`many`]\([`_mut`][`many_mut`]),<br>[`get_many`]\([`_mut`][`get_many_mut`])|Returns the query items for the specified entities.|
-/// |[`single`]\([`_mut`][`single_mut`]),<br>[`get_single`]\([`_mut`][`get_single_mut`])|Returns the query item while verifying that there aren't others.|
+/// The [`iter`](Self::iter) and [`iter_mut`](Self::iter_mut) methods are used to iterate
+/// over every query result. Refer to the
+/// [`Iterator` API docs](https://doc.rust-lang.org/stable/std/iter/trait.Iterator.html)
+/// for advanced iterator usage.
 ///
-/// There are two methods for each type of query operation: immutable and mutable (ending with `_mut`).
-/// When using immutable methods, the query items returned are of type [`ROQueryItem`], a read-only version of the query item.
-/// In this circumstance, every mutable reference in the query fetch type parameter is substituted by a shared reference.
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// fn immutable_query_system(query: Query<(&ComponentA, &ComponentB)>) {
+///     for (a, b) in &query {
+///         // Here, `a` and `b` are normal references to components, relatively of
+///         // `&ComponentA` and `&ComponentB` types.
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(immutable_query_system);
 ///
-/// # Performance
+/// fn mutable_query_system(mut query: Query<(&mut ComponentA, &ComponentB)>) {
+///     for (mut a, b) in &mut query {
+///         // Similar to the above system, but this time `ComponentA` can be accessed mutably.
+///         // Note the usage of `mut` in the tuple and the call to `iter_mut` instead of `iter`.
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(mutable_query_system);
+/// ```
 ///
-/// Creating a `Query` is a low-cost constant operation.
-/// Iterating it, on the other hand, fetches data from the world and generates items, which can have a significant computational cost.
+/// ## Getting the query result for a particular entity
 ///
-/// [`Table`] component storage type is much more optimized for query iteration than [`SparseSet`].
+/// If you have an [`Entity`] ID, you can use the [`get`](Self::get) or
+/// [`get_mut`](Self::get_mut) methods to access the query result for that particular entity.
 ///
-/// Two systems cannot be executed in parallel if both access the same component type where at least one of the accesses is mutable.
-/// This happens unless the schedule can verify that no entity could be found in both queries.
+/// ## Getting a single query result
 ///
-/// Optional components increase the number of entities a query has to match against.
-/// This can hurt iteration performance, especially if the query solely consists of only optional components, since the query would iterate over each entity in the world.
-///
-/// The following table compares the computational complexity of the various methods and operations, where:
-///
-/// - **n** is the number of entities that match the query,
-/// - **r** is the number of elements in a combination,
-/// - **k** is the number of involved entities in the operation,
-/// - **a** is the number of archetypes in the world,
-/// - **C** is the [binomial coefficient], used to count combinations.
-///   <sub>n</sub>C<sub>r</sub> is read as "*n* choose *r*" and is equivalent to the number of distinct unordered subsets of *r* elements that can be taken from a set of *n* elements.
-///
-/// |Query operation|Computational complexity|
-/// |:---:|:---:|
-/// |[`iter`]\([`_mut`][`iter_mut`])|O(n)|
-/// |[`for_each`]\([`_mut`][`for_each_mut`]),<br>[`par_for_each`]\([`_mut`][`par_for_each_mut`])|O(n)|
-/// |[`iter_many`]\([`_mut`][`iter_many_mut`])|O(k)|
-/// |[`iter_combinations`]\([`_mut`][`iter_combinations_mut`])|O(<sub>n</sub>C<sub>r</sub>)|
-/// |[`get`]\([`_mut`][`get_mut`])|O(1)|
-/// |([`get_`][`get_many`])[`many`]|O(k)|
-/// |([`get_`][`get_many_mut`])[`many_mut`]|O(k<sup>2</sup>)|
-/// |[`single`]\([`_mut`][`single_mut`]),<br>[`get_single`]\([`_mut`][`get_single_mut`])|O(a)|
-/// |Archetype based filtering ([`With`], [`Without`], [`Or`])|O(a)|
-/// |Change detection filtering ([`Added`], [`Changed`])|O(a + n)|
-///
-/// `for_each` methods are seen to be generally faster than their `iter` version on worlds with high archetype fragmentation.
-/// As iterators are in general more flexible and better integrated with the rest of the Rust ecosystem,
-/// it is advised to use `iter` methods over `for_each`.
-/// It is strongly advised to only use `for_each` if it tangibly improves performance:
-/// be sure profile or benchmark both before and after the change.
-///
-/// [`Added`]: crate::query::Added
-/// [`AnyOf`]: crate::query::AnyOf
-/// [binomial coefficient]: https://en.wikipedia.org/wiki/Binomial_coefficient
-/// [`Changed`]: crate::query::Changed
-/// [components]: crate::component::Component
-/// [entity identifiers]: crate::entity::Entity
-/// [`for_each`]: Self::for_each
-/// [`for_each_mut`]: Self::for_each_mut
-/// [`get`]: Self::get
-/// [`get_many`]: Self::get_many
-/// [`get_many_mut`]: Self::get_many_mut
-/// [`get_mut`]: Self::get_mut
-/// [`get_single`]: Self::get_single
-/// [`get_single_mut`]: Self::get_single_mut
-/// [`iter`]: Self::iter
-/// [`iter_combinations`]: Self::iter_combinations
-/// [`iter_combinations_mut`]: Self::iter_combinations_mut
-/// [`iter_many`]: Self::iter_many
-/// [`iter_many_mut`]: Self::iter_many_mut
-/// [`iter_mut`]: Self::iter_mut
-/// [`many`]: Self::many
-/// [`many_mut`]: Self::many_mut
-/// [`Or`]: crate::query::Or
-/// [`par_for_each`]: Self::par_for_each
-/// [`par_for_each_mut`]: Self::par_for_each_mut
-/// [performance]: #performance
-/// [`single`]: Self::single
-/// [`single_mut`]: Self::single_mut
-/// [`SparseSet`]: crate::storage::SparseSet
-/// [System parameter]: crate::system::SystemParam
-/// [`Table`]: crate::storage::Table
-/// [`With`]: crate::query::With
-/// [`Without`]: crate::query::Without
+/// While it's possible to get a single result from a query by using `iter.next()`, a more
+/// idiomatic approach would use the [`single`](Self::single) or [`single_mut`](Self::single_mut)
+/// methods instead. Keep in mind though that they will return a [`QuerySingleError`] if the
+/// number of query results differ from being exactly one. If that's the case, use `iter.next()`
+/// (or `iter_mut.next()`) to only get the first query result.
 pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()> {
     pub(crate) world: &'world World,
     pub(crate) state: &'state QueryState<Q, F>,
@@ -302,7 +278,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns another `Query` from this that fetches the read-only version of the query items.
+    /// Downgrades all data accessed in this query to a read-only form.
     ///
     /// For example, `Query<(&mut A, &B, &mut C), With<D>>` will become `Query<(&A, &B, &C), With<D>>`.
     /// This can be useful when working around the borrow checker,
@@ -320,11 +296,15 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns an [`Iterator`] over the read-only query items.
+    /// Returns an [`Iterator`] over the query results.
+    ///
+    /// This can only return immutable data (mutable data will be cast to an immutable form).
+    /// See [`Self::iter_mut`] for queries that contain at least one mutable component.
     ///
     /// # Example
     ///
-    /// Here, the `report_names_system` iterates over the `Player` component of every entity that contains it:
+    /// Here, the `report_names_system` iterates over the `Player` component of every entity
+    /// that contains it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -339,11 +319,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`iter_mut`](Self::iter_mut) for mutable query items.
-    /// - [`for_each`](Self::for_each) for the closure based alternative.
     #[inline]
     pub fn iter(&self) -> QueryIter<'_, 's, Q::ReadOnly, F::ReadOnly> {
         // SAFETY: system runs without conflicts with other systems.
@@ -357,11 +332,12 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns an [`Iterator`] over the query items.
+    /// Returns an [`Iterator`] over the query results.
     ///
     /// # Example
     ///
-    /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
+    /// Here, the `gravity_system` iterates over the `Velocity` component of every entity in
+    /// the world that contains it in order to update it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -376,11 +352,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(gravity_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`iter`](Self::iter) for read-only query items.
-    /// - [`for_each_mut`](Self::for_each_mut) for the closure based alternative.
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, 's, Q, F> {
         // SAFETY: system runs without conflicts with other systems.
@@ -391,25 +362,13 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns a [`QueryCombinationIter`] over all combinations of `K` read-only query items without repetition.
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
+    /// This can only return immutable data
     ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Component)]
-    /// # struct ComponentA;
-    /// #
-    /// fn some_system(query: Query<&ComponentA>) {
-    ///     for [a1, a2] in query.iter_combinations() {
-    ///         // ...
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`iter_combinations_mut`](Self::iter_combinations_mut) for mutable query item combinations.
+    ///  For permutations of size `K` of query returning `N` results, you will get:
+    /// - if `K == N`: one permutation of all query results
+    /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
+    /// - if `K > N`: empty set (no `K`-sized combinations exist)
     #[inline]
     pub fn iter_combinations<const K: usize>(
         &self,
@@ -425,25 +384,28 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns a [`QueryCombinationIter`] over all combinations of `K` query items without repetition.
+    /// Iterates over all possible combinations of `K` query results without repetition.
     ///
-    /// # Example
+    /// The returned value is not an `Iterator`, because that would lead to aliasing of mutable references.
+    /// In order to iterate it, use `fetch_next` method with `while let Some(..)` loop pattern.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Component)]
-    /// # struct ComponentA;
-    /// fn some_system(mut query: Query<&mut ComponentA>) {
-    ///     let mut combinations = query.iter_combinations_mut();
-    ///     while let Some([mut a1, mut a2]) = combinations.fetch_next() {
-    ///         // mutably access components data
-    ///     }
+    /// #[derive(Component)]
+    /// # struct A;
+    /// # fn some_system(mut query: Query<&mut A>) {
+    /// // iterate using `fetch_next` in while loop
+    /// let mut combinations = query.iter_combinations_mut();
+    /// while let Some([mut a, mut b]) = combinations.fetch_next() {
+    ///    // mutably access components data
     /// }
+    /// # }
     /// ```
     ///
-    /// # See also
+    /// There is no `for_each` method, because it cannot be safely implemented
+    /// due to a [compiler bug](https://github.com/rust-lang/rust/issues/62529).
     ///
-    /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
+    /// For immutable access see [`Query::iter_combinations`].
     #[inline]
     pub fn iter_combinations_mut<const K: usize>(
         &mut self,
@@ -459,18 +421,19 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
+    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
     ///
-    /// # Example
+    /// This can only return immutable data (mutable data will be cast to an immutable form).
+    /// See [`Self::iter_many_mut`] for queries that contain at least one mutable component.
     ///
+    /// # Examples
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Component)]
-    /// # struct Counter {
-    /// #     value: i32
-    /// # }
-    /// #
-    /// // A component containing an entity list.
+    /// #[derive(Component)]
+    /// struct Counter {
+    ///     value: i32
+    /// }
+    ///
     /// #[derive(Component)]
     /// struct Friends {
     ///     list: Vec<Entity>,
@@ -488,10 +451,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
     pub fn iter_many<EntityList: IntoIterator>(
         &self,
@@ -512,8 +471,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
-    ///
+    /// Calls a closure on each result of [`Query`] where the entities match.
     /// # Examples
     ///
     /// ```
@@ -562,16 +520,12 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns an [`Iterator`] over the query items.
+    /// Returns an [`Iterator`] over the query results.
     ///
     /// # Safety
     ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in multiple mutable references to the same component.
-    ///
-    /// # See also
-    ///
-    /// - [`iter`](Self::iter) and [`iter_mut`](Self::iter_mut) for the safe versions.
+    /// This function makes it possible to violate Rust's aliasing guarantees. You must make sure
+    /// this call does not result in multiple mutable references to the same component
     #[inline]
     pub unsafe fn iter_unsafe(&'s self) -> QueryIter<'w, 's, Q, F> {
         // SEMI-SAFETY: system runs without conflicts with other systems.
@@ -580,16 +534,12 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
             .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
     }
 
-    /// Iterates over all possible combinations of `K` query items without repetition.
+    /// Iterates over all possible combinations of `K` query results without repetition.
+    /// See [`Query::iter_combinations`].
     ///
     /// # Safety
-    ///
-    /// This allows aliased mutability.
-    /// You must make sure this call does not result in multiple mutable references to the same component.
-    ///
-    /// # See also
-    ///
-    /// - [`iter_combinations`](Self::iter_combinations) and [`iter_combinations_mut`](Self::iter_combinations_mut) for the safe versions.
+    /// This allows aliased mutability. You must make sure this call does not result in multiple
+    /// mutable references to the same component
     #[inline]
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
@@ -603,17 +553,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         )
     }
 
-    /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
+    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
+    ///
+    /// If you want safe mutable access to query results of a list of [`Entity`]'s. See [`Self::iter_many_mut`].
     ///
     /// # Safety
-    ///
     /// This allows aliased mutability and does not check for entity uniqueness.
     /// You must make sure this call does not result in multiple mutable references to the same component.
-    /// Particular care must be taken when collecting the data (rather than iterating over it one item at a time) such as via [`Iterator::collect`].
-    ///
-    /// # See also
-    ///
-    /// - [`iter_many_mut`](Self::iter_many_mut) to safely access the query items.
+    /// Particular care must be taken when collecting the data (rather than iterating over it one item at a time) such as via `[Iterator::collect()]`.
     pub unsafe fn iter_many_unsafe<EntityList: IntoIterator>(
         &self,
         entities: EntityList,
@@ -629,11 +576,15 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         )
     }
 
-    /// Runs `f` on each read-only query item.
+    /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
+    /// be chained like a normal [`Iterator`].
+    ///
+    /// This can only pass in immutable data, see [`Self::for_each_mut`] for mutable access.
     ///
     /// # Example
     ///
-    /// Here, the `report_names_system` iterates over the `Player` component of every entity that contains it:
+    /// Here, the `report_names_system` iterates over the `Player` component of every entity
+    /// that contains it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -648,11 +599,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`for_each_mut`](Self::for_each_mut) to operate on mutable query items.
-    /// - [`iter`](Self::iter) for the iterator based alternative.
     #[inline]
     pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
         // SAFETY: system runs without conflicts with other systems.
@@ -667,11 +613,13 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each query item.
+    /// Runs `f` on each query result. This is faster than the equivalent iter() method, but cannot
+    /// be chained like a normal [`Iterator`].
     ///
     /// # Example
     ///
-    /// Here, the `gravity_system` updates the `Velocity` component of every entity that contains it:
+    /// Here, the `gravity_system` iterates over the `Velocity` component of every entity in
+    /// the world that contains it in order to update it:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -686,11 +634,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(gravity_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`for_each`](Self::for_each) to operate on read-only query items.
-    /// - [`iter_mut`](Self::iter_mut) for the iterator based alternative.
     #[inline]
     pub fn for_each_mut<'a, FN: FnMut(QueryItem<'a, Q>)>(&'a mut self, f: FN) {
         // SAFETY: system runs without conflicts with other systems. same-system queries have runtime
@@ -705,9 +648,10 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each read-only query item in parallel.
+    /// Runs `f` on each query result in parallel using the [`World`]'s [`ComputeTaskPool`].
     ///
-    /// Parallelization is achieved by using the [`World`]'s [`ComputeTaskPool`].
+    /// This can only be called for immutable data, see [`Self::par_for_each_mut`] for
+    /// mutable access.
     ///
     /// # Tasks and batch size
     ///
@@ -719,16 +663,16 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// Rule of thumb: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
     /// If the body is computationally cheap and you have many items, a large batch size (=fewer batches) avoids spawning additional futures that don't help to even out the load.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
+    /// # Arguments
+    ///
+    ///* `batch_size` - The number of batches to spawn
+    ///* `f` - The function to run on each item in the query
     ///
     /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// This method panics if the [`ComputeTaskPool`] resource is added to the `World` before using this method.
-    /// If using this from a query that is being initialized and run from the [`Schedule`](crate::schedule::Schedule), this should never panic.
-    ///
-    /// # See also
-    ///
-    /// - [`par_for_each_mut`](Self::par_for_each_mut) for operating on mutable query items.
+    /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     #[inline]
     pub fn par_for_each<'this>(
         &'this self,
@@ -748,20 +692,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Runs `f` on each read-only query item in parallel.
-    ///
-    /// Parallelization is achieved by using the [`World`]'s [`ComputeTaskPool`].
+    /// Runs `f` on each query result in parallel using the [`World`]'s [`ComputeTaskPool`].
+    /// See [`Self::par_for_each`] for more details.
     ///
     /// # Panics
-    ///
-    /// This method panics if the [`ComputeTaskPool`] resource is added to the `World` before using this method.
-    /// If using this from a query that is being initialized and run from the [`Schedule`](crate::schedule::Schedule), this should never panic.
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
-    ///
-    /// # See also
-    ///
-    /// - [`par_for_each`](Self::par_for_each) for more usage details.
     #[inline]
     pub fn par_for_each_mut<'a, FN: Fn(QueryItem<'a, Q>) + Send + Sync + Clone>(
         &'a mut self,
@@ -781,13 +719,18 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
-    /// Returns the read-only query item for the given [`Entity`].
+    /// Returns the query result for the given [`Entity`].
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
+    ///
+    /// This can only return immutable data (mutable data will be cast to an immutable form).
+    /// See [`get_mut`](Self::get_mut) for queries that contain at least one mutable component.
     ///
     /// # Example
     ///
-    /// Here, `get` is used to retrieve the exact query item of the entity specified by the `SelectedCharacter` resource.
+    /// Here, `get` is used to retrieve the exact query result of the entity specified by the
+    /// `SelectedCharacter` resource.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -808,10 +751,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_mut`](Self::get_mut) to get a mutable query item.
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, Q>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
@@ -826,15 +765,14 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns the read-only query items for the given array of [`Entity`].
+    /// Returns the read-only query results for the given array of [`Entity`].
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
-    /// The elements of the array do not need to be unique, unlike `get_many_mut`.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
-    /// # See also
+    /// Note that the unlike [`Query::get_many_mut`], the entities passed in do not need to be unique.
     ///
-    /// - [`get_many_mut`](Self::get_many_mut) to get mutable query items.
-    /// - [`many`](Self::many) for the panicking version.
+    /// See [`Query::many`] for the infallible equivalent.
     #[inline]
     pub fn get_many<const N: usize>(
         &self,
@@ -851,11 +789,9 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns the read-only query items for the given array of [`Entity`].
+    /// Returns the read-only query items for the provided array of [`Entity`]
     ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch or a non-existing entity.
+    /// See [`Query::get_many`] for the [`Result`]-returning equivalent.
     ///
     /// # Examples
     /// ```rust, no_run
@@ -888,22 +824,20 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///     }
     /// }
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
     pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, Q>; N] {
         self.get_many(entities).unwrap()
     }
 
-    /// Returns the query item for the given [`Entity`].
+    /// Returns the query result for the given [`Entity`].
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
     /// # Example
     ///
-    /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
+    /// Here, `get_mut` is used to retrieve the exact query result of the entity specified by the
+    /// `PoisonedCharacter` resource.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -920,10 +854,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(poison_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get`](Self::get) to get a read-only query item.
     #[inline]
     pub fn get_mut(&mut self, entity: Entity) -> Result<QueryItem<'_, Q>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
@@ -938,14 +868,12 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns the query items for the given array of [`Entity`].
+    /// Returns the query results for the given array of [`Entity`].
     ///
-    /// In case of a nonexisting entity, duplicate entities or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity, duplicate entities or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
-    /// # See also
-    ///
-    /// - [`get_many`](Self::get_many) to get read-only query items.
-    /// - [`many_mut`](Self::many_mut) for the panicking version.
+    /// See [`Query::many_mut`] for the infallible equivalent.
     #[inline]
     pub fn get_many_mut<const N: usize>(
         &mut self,
@@ -962,11 +890,9 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns the query items for the given array of [`Entity`].
+    /// Returns the query items for the provided array of [`Entity`]
     ///
-    /// # Panics
-    ///
-    /// This method panics if there is a query mismatch, a non-existing entity, or the same `Entity` is included more than once in the array.
+    /// See [`Query::get_many_mut`] for the [`Result`]-returning equivalent.
     ///
     /// # Examples
     ///
@@ -1005,28 +931,20 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///     }
     /// }
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_many_mut`](Self::get_many_mut) for the non panicking version.
-    /// - [`many`](Self::many) to get read-only query items.
     #[inline]
     pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [QueryItem<'_, Q>; N] {
         self.get_many_mut(entities).unwrap()
     }
 
-    /// Returns the query item for the given [`Entity`].
+    /// Returns the query result for the given [`Entity`].
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
     /// # Safety
     ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in multiple mutable references to the same component.
-    ///
-    /// # See also
-    ///
-    /// - [`get_mut`](Self::get_mut) for the safe version.
+    /// This function makes it possible to violate Rust's aliasing guarantees. You must make sure
+    /// this call does not result in multiple mutable references to the same component
     #[inline]
     pub unsafe fn get_unchecked(
         &'s self,
@@ -1038,13 +956,15 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
             .get_unchecked_manual(self.world, entity, self.last_change_tick, self.change_tick)
     }
 
-    /// Returns a shared reference to the component `T` of the given [`Entity`].
+    /// Returns a reference to the [`Entity`]'s [`Component`] of the given type.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
     /// # Example
     ///
-    /// Here, `get_component` is used to retrieve the `Character` component of the entity specified by the `SelectedCharacter` resource.
+    /// Here, `get_component` is used to retrieve the `Character` component of the entity
+    /// specified by the `SelectedCharacter` resource.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -1065,10 +985,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
     #[inline]
     pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
         let world = self.world;
@@ -1096,13 +1012,15 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns a mutable reference to the component `T` of the given entity.
+    /// Returns a mutable reference to the [`Entity`]'s [`Component`] of the given type.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
     /// # Example
     ///
-    /// Here, `get_component_mut` is used to retrieve the `Health` component of the entity specified by the `PoisonedCharacter` resource.
+    /// Here, `get_component_mut` is used to retrieve the `Health` component of the entity
+    /// specified by the `PoisonedCharacter` resource.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -1119,10 +1037,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(poison_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_component`](Self::get_component) to get a shared reference of a component.
     #[inline]
     pub fn get_component_mut<T: Component>(
         &mut self,
@@ -1132,18 +1046,15 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         unsafe { self.get_component_unchecked_mut(entity) }
     }
 
-    /// Returns a mutable reference to the component `T` of the given entity.
+    /// Returns a mutable reference to the [`Entity`]'s [`Component`] of the given type.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
+    /// returned instead.
     ///
     /// # Safety
     ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in multiple mutable references to the same component.
-    ///
-    /// # See also
-    ///
-    /// - [`get_component_mut`](Self::get_component_mut) for the safe version.
+    /// This function makes it possible to violate Rust's aliasing guarantees. You must make sure
+    /// this call does not result in multiple mutable references to the same component
     #[inline]
     pub unsafe fn get_component_unchecked_mut<T: Component>(
         &self,
@@ -1174,11 +1085,11 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns a single read-only query item when there is exactly one entity matching the query.
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
     ///
-    /// # Panics
-    ///
-    /// This method panics if the number of query items is not exactly one.
+    /// This can only return immutable data. Use [`single_mut`](Self::single_mut) for
+    /// queries that contain at least one mutable component.
     ///
     /// # Example
     ///
@@ -1195,18 +1106,23 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # bevy_ecs::system::assert_is_system(player_system);
     /// ```
     ///
-    /// # See also
+    /// # Panics
     ///
-    /// - [`get_single`](Self::get_single) for the non-panicking version.
-    /// - [`single_mut`](Self::single_mut) to get the mutable query item.
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
     pub fn single(&self) -> ROQueryItem<'_, Q> {
         self.get_single().unwrap()
     }
 
-    /// Returns a single read-only query item when there is exactly one entity matching the query.
+    /// Returns a single immutable query result when there is exactly one entity matching
+    /// the query.
     ///
-    /// If the number of query items is not exactly one, a [`QuerySingleError`] is returned instead.
+    /// This can only return immutable data. Use [`get_single_mut`](Self::get_single_mut)
+    /// for queries that contain at least one mutable component.
+    ///
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
     ///
     /// # Example
     ///
@@ -1230,11 +1146,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(player_scoring_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_single_mut`](Self::get_single_mut) to get the mutable query item.
-    /// - [`single`](Self::single) for the panicking version.
     #[inline]
     pub fn get_single(&self) -> Result<ROQueryItem<'_, Q>, QuerySingleError> {
         // SAFETY:
@@ -1249,11 +1160,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns a single query item when there is exactly one entity matching the query.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the number of query item is not exactly one.
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
     ///
     /// # Example
     ///
@@ -1272,18 +1180,20 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
     /// ```
     ///
-    /// # See also
+    /// # Panics
     ///
-    /// - [`get_single_mut`](Self::get_single_mut) for the non-panicking version.
-    /// - [`single`](Self::single) to get the read-only query item.
+    /// Panics if the number of query results is not exactly one. Use
+    /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
     #[track_caller]
     pub fn single_mut(&mut self) -> QueryItem<'_, Q> {
         self.get_single_mut().unwrap()
     }
 
-    /// Returns a single query item when there is exactly one entity matching the query.
+    /// Returns a single mutable query result when there is exactly one entity matching
+    /// the query.
     ///
-    /// If the number of query items is not exactly one, a [`QuerySingleError`] is returned instead.
+    /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
+    /// instead.
     ///
     /// # Example
     ///
@@ -1301,11 +1211,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// }
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_single`](Self::get_single) to get the read-only query item.
-    /// - [`single_mut`](Self::single_mut) for the panicking version.
     #[inline]
     pub fn get_single_mut(&mut self) -> Result<QueryItem<'_, Q>, QuerySingleError> {
         // SAFETY:
@@ -1320,11 +1225,12 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns `true` if there are no query items.
+    /// Returns `true` if there are no query results.
     ///
     /// # Example
     ///
-    /// Here, the score is increased only if an entity with a `Player` component is present in the world:
+    /// Here, the score is increased only if an entity with a `Player` component is present
+    /// in the world:
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -1435,7 +1341,7 @@ impl std::fmt::Display for QueryComponentError {
 }
 
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
-    /// Returns the query item for the given [`Entity`], with the actual "inner" world lifetime.
+    /// Returns the query result for the given [`Entity`], with the actual "inner" world lifetime.
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is
     /// returned instead.
@@ -1445,7 +1351,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # Example
     ///
-    /// Here, `get` is used to retrieve the exact query item of the entity specified by the
+    /// Here, `get` is used to retrieve the exact query result of the entity specified by the
     /// `SelectedCharacter` resource.
     ///
     /// ```
@@ -1481,7 +1387,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns an [`Iterator`] over the query items, with the actual "inner" world lifetime.
+    /// Returns an [`Iterator`] over the query results, with the actual "inner" world lifetime.
     ///
     /// This can only return immutable data (mutable data will be cast to an immutable form).
     /// See [`Self::iter_mut`] for queries that contain at least one mutable component.
