@@ -1202,7 +1202,17 @@ path = "examples/shader/shader_material_override.rs"
 
 [package.metadata.example.shader_material_override]
 name = "Material with core function override"
-description = "A shader that uses the default pipeline with a function override"
+description = "A shader that overrides a core pbr function for a material"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "pbr_global_override"
+path = "examples/shader/pbr_global_override.rs"
+
+[package.metadata.example.pbr_global_override]
+name = "core function default override"
+description = "a global override for pbr functions for all materials"
 category = "Shaders"
 wasm = true
 

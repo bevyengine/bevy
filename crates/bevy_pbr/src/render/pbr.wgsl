@@ -5,6 +5,8 @@
 #import bevy_pbr::pbr_bindings as MaterialBindings
 #import bevy_pbr::pbr_types as PbrTypes
 #import bevy_pbr::mesh_view_bindings as ViewBindings
+// load user-defined function overrides
+#import bevy_pbr::user_overrides
 
 @fragment
 fn fragment(
