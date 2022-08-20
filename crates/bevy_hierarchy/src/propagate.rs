@@ -95,7 +95,6 @@ fn propagate_recursive<T: Propagate>(
     let payload = {
         let (local, local_changed, mut computed, child_parent) =
             local_query.get_mut(entity).map_err(drop)?;
-        // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
         assert_eq!(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
