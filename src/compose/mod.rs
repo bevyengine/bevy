@@ -303,6 +303,8 @@ pub enum ComposerErrorInner {
     GlslInvalidVersion(usize),
     #[error("invalid override :{0}")]
     RedirectError(#[from] RedirectError),
+    #[error("module contains multiple imports with the same name")]
+    DuplicateImportName,
 }
 
 struct ErrorSources<'a> {
@@ -412,6 +414,12 @@ impl ComposerError {
             ComposerErrorInner::NoModuleName => {
                 return format!(
                     "{}: no #define_import_path declaration found in composable module",
+                    path
+                );
+            }
+            ComposerErrorInner::DuplicateImportName => {
+                return format!(
+                    "{}: duplicate import name",
                     path
                 );
             }
@@ -1194,22 +1202,31 @@ impl Composer {
         }
 
         let (module_name, imports) = self.get_preprocessor_data(&source);
-        let substituted_source = Self::sanitize_and_substitute_shader_string(source, &imports);
-
         let module_name = as_name.or(module_name);
-
         if module_name.is_none() {
             return Err(ComposerError {
                 inner: ComposerErrorInner::NoModuleName,
                 source: ErrSource::Constructing {
                     path: file_path.to_owned(),
-                    source: substituted_source.clone(),
+                    source: source.to_owned(),
+                    offset: 0,
+                },
+            });
+        }
+        let module_name = module_name.unwrap();
+
+        if imports.iter().map(|i| &i.as_name).collect::<HashSet<_>>().len() < imports.len() {
+            return Err(ComposerError {
+                inner: ComposerErrorInner::DuplicateImportName,
+                source: ErrSource::Constructing {
+                    path: file_path.to_owned(),
+                    source: source.to_owned(),
                     offset: 0,
                 },
             });
         }
 
-        let module_name = module_name.unwrap();
+        let substituted_source = Self::sanitize_and_substitute_shader_string(source, &imports);
 
         let mut effective_defs = HashSet::new();
         for import in imports.iter() {
