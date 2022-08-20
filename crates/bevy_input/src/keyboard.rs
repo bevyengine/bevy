@@ -1,6 +1,6 @@
 use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
-use bevy_reflect::{Reflect, FromReflect};
+use bevy_reflect::{FromReflect, Reflect};
 
 /// A keyboard input event.
 ///
