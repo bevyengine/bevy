@@ -14,6 +14,7 @@ pub mod prelude {
 use crate::{clear_color::ClearColor, core_2d::Core2dPlugin, core_3d::Core3dPlugin};
 use bevy_app::{App, Plugin};
 use bevy_render::extract_resource::ExtractResourcePlugin;
+use clear_color::ClearColorConfig;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
@@ -21,6 +22,7 @@ pub struct CorePipelinePlugin;
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<ClearColor>()
+            .register_type::<ClearColorConfig>()
             .init_resource::<ClearColor>()
             .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
             .add_plugin(Core2dPlugin)
