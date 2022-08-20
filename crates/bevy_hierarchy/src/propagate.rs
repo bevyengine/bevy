@@ -39,7 +39,7 @@ type ChildrenQuery<'w, 's, 'a, T> = Query<
     'w,
     's,
     (&'a Children, Changed<Children>),
-    (With<Parent>, With<<T as Propagate>::Computed>),
+    (With<Parent>, With<T>, With<<T as Propagate>::Computed>),
 >;
 
 /// Update `T::Computed` component of entities based on entity hierarchy and
