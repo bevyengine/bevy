@@ -76,9 +76,9 @@ multiple overrides can be applied to the same function. for example, given :
 
 then `b` and `c` both specify an override for `a::f`. 
 
-the `virtual fn a::f` declared in module `b` may call to `a::f` within its body.
+the `override fn a::f` declared in module `b` may call to `a::f` within its body.
 
-the `virtual fn a::f` declared in module `c` may call to `a::f` within its body, but the call will be redirected to `b::f`.
+the `override fn a::f` declared in module `c` may call to `a::f` within its body, but the call will be redirected to `b::f`.
 
 any other calls to `a::f` (within modules `a` or `b`, or anywhere else) will end up redirected to `c::f`.
 
@@ -108,6 +108,10 @@ fn get_number() -> f32 {
     #endif
 }
 ```
+
+## error reporting
+
+codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
 
 # purge
 

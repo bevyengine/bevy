@@ -91,6 +91,11 @@
 /// #endif
 /// }
 /// ```
+/// 
+/// ## error reporting
+/// 
+/// codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
+/// 
 use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
     files::SimpleFile,
