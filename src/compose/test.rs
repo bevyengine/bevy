@@ -447,55 +447,6 @@ mod test {
             )
             .unwrap();
 
-        let module = composer
-            .make_naga_module(
-                include_str!("tests/overrides/top_with_middle.wgsl"),
-                "tests/overrides/top_with_middle.wgsl",
-                ShaderType::Wgsl,
-                &[],
-            )
-            .unwrap();
-
-        // println!("failed: {}", module.emit_to_string(&composer));
-
-        let info = naga::valid::Validator::new(
-            naga::valid::ValidationFlags::all(),
-            naga::valid::Capabilities::default(),
-        )
-        .validate(&module)
-        .unwrap();
-        let wgsl = naga::back::wgsl::write_string(
-            &module,
-            &info,
-            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
-        )
-        .unwrap();
-
-        println!("{}", wgsl);
-    }
-
-    #[test]
-    fn apply_mod_override2() {
-        let mut composer = Composer::default();
-
-        composer
-            .add_composable_module(
-                include_str!("tests/overrides/mod.wgsl"),
-                "tests/overrides/mod.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-            )
-            .unwrap();
-
-        composer
-            .add_composable_module(
-                include_str!("tests/overrides/middle.wgsl"),
-                "tests/overrides/middle.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-            )
-            .unwrap();
-
         composer
             .add_composable_module(
                 include_str!("tests/overrides/top_with_middle.wgsl"),
@@ -505,12 +456,12 @@ mod test {
             )
             .unwrap();
 
-        test_shader(&mut composer, 3.0).unwrap();
+        assert_eq!(test_shader(&mut composer), 3.0);
     }
 
     // actually run a shader and extract the result
     // needs the composer to contain a module called "test_module", with a function called "entry_point" returning an f32.
-    fn test_shader(composer: &mut Composer, expected: f32) -> Result<(), f32> {
+    fn test_shader(composer: &mut Composer) -> f32 {
         let module = composer
             .make_naga_module(
                 include_str!("tests/compute_test.wgsl"),
@@ -601,10 +552,6 @@ mod test {
         let view: &[u8] = &output_buffer.slice(..).get_mapped_range();
         let res = f32::from_le_bytes(view.try_into().unwrap());
 
-        if (res - expected).abs() < res.max(expected) / 10000.0 {
-            Ok(())
-        } else {
-            Err(res)
-        }
+        res
     }
 }

@@ -104,7 +104,7 @@ use codespan_reporting::{
 use naga::EntryPoint;
 use regex::Regex;
 use std::{
-    collections::{hash_map::Entry, BTreeSet, HashMap, HashSet},
+    collections::{hash_map::Entry, HashMap, HashSet},
     iter::FusedIterator,
     ops::Range,
 };
@@ -137,6 +137,21 @@ impl From<ShaderType> for ShaderLanguage {
             ShaderType::Wgsl => ShaderLanguage::Wgsl,
             ShaderType::GlslVertex | ShaderType::GlslFragment => ShaderLanguage::Glsl,
         }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+struct ModuleKey(usize);
+
+impl ModuleKey {
+    fn from_members(key: &HashSet<String>, universe: &[String]) -> Self {
+        ModuleKey(universe.iter().enumerate().fold(0, |acc, (index, item)| {
+            if key.contains(item) {
+                acc + 1 << index
+            } else {
+                acc
+            }
+        }))
     }
 }
 
@@ -174,27 +189,20 @@ pub struct ComposableModuleDefinition {
     // language
     pub language: ShaderLanguage,
     // source path for error display
-    pub path: String,
+    pub file_path: String,
     // list of shader_defs that can affect this module
     effective_defs: Vec<String>,
     // full list of possible imports (regardless of shader_def configuration)
     all_imports: HashSet<String>,
     // built composable modules for a given set of shader defs
-    modules: HashMap<Vec<String>, ComposableModule>,
+    modules: HashMap<ModuleKey, ComposableModule>,
     // used in spans when this module is included
     module_index: usize,
 }
 
 impl ComposableModuleDefinition {
     fn get(&self, shader_defs: &HashSet<String>) -> Option<&ComposableModule> {
-        let mut effective_defs: Vec<_> = self
-            .effective_defs
-            .iter()
-            .filter(|&def| shader_defs.contains(def))
-            .cloned()
-            .collect();
-        effective_defs.sort();
-        self.modules.get(&effective_defs)
+        self.modules.get(&ModuleKey::from_members(shader_defs, &self.effective_defs))
     }
 
     fn insert(
@@ -202,15 +210,10 @@ impl ComposableModuleDefinition {
         shader_defs: &HashSet<String>,
         module: ComposableModule,
     ) -> &ComposableModule {
-        let mut effective_defs: Vec<_> = self
-            .effective_defs
-            .iter()
-            .filter(|&def| shader_defs.contains(def))
-            .cloned()
-            .collect();
-        effective_defs.sort();
-        self.modules.insert(effective_defs.clone(), module);
-        self.modules.get(&effective_defs).unwrap()
+        match self.modules.entry(ModuleKey::from_members(shader_defs, &self.effective_defs)) {
+            Entry::Occupied(_) => panic!("entry already populated"),
+            Entry::Vacant(v) => v.insert(module)
+        }
     }
 }
 
@@ -234,7 +237,7 @@ enum ErrSource {
 impl ErrSource {
     fn path<'a>(&'a self, composer: &'a Composer) -> &'a String {
         match self {
-            ErrSource::Composed(c, _) => &composer.module_sets.get(c).unwrap().path,
+            ErrSource::Composed(c, _) => &composer.module_sets.get(c).unwrap().file_path,
             ErrSource::Constructing { path, .. } => path,
         }
     }
@@ -1174,24 +1177,21 @@ impl Composer {
     pub fn add_composable_module(
         &mut self,
         source: &str,
-        path: &str,
+        file_path: &str,
         language: ShaderLanguage,
         as_name: Option<String>,
     ) -> Result<&ComposableModuleDefinition, ComposerError> {
-        // reject a module containing the DECORATION_PRE string
+        // reject a module containing the DECORATION strings
         if let Some(decor) = self.check_decoration_regex.find(source) {
             return Err(ComposerError {
                 inner: ComposerErrorInner::DecorationInSource(decor.range()),
                 source: ErrSource::Constructing {
-                    path: path.to_owned(),
+                    path: file_path.to_owned(),
                     source: source.to_owned(),
                     offset: 0,
                 },
             });
         }
-
-        // use btreeset so the result is sorted
-        let mut effective_defs = BTreeSet::new();
 
         let (module_name, imports) = self.get_preprocessor_data(&source);
         let substituted_source = Self::sanitize_and_substitute_shader_string(source, &imports);
@@ -1202,7 +1202,7 @@ impl Composer {
             return Err(ComposerError {
                 inner: ComposerErrorInner::NoModuleName,
                 source: ErrSource::Constructing {
-                    path: path.to_owned(),
+                    path: file_path.to_owned(),
                     source: substituted_source.clone(),
                     offset: 0,
                 },
@@ -1211,6 +1211,7 @@ impl Composer {
 
         let module_name = module_name.unwrap();
 
+        let mut effective_defs = HashSet::new();
         for import in imports.iter() {
             // we require modules already added so that we can capture the shader_defs that may impact us by impacting our dependencies
             let module_set = self
@@ -1219,37 +1220,36 @@ impl Composer {
                 .ok_or_else(|| ComposerError {
                     inner: ComposerErrorInner::ImportNotFound(import.import.clone(), import.offset),
                     source: ErrSource::Constructing {
-                        path: path.to_owned(),
+                        path: file_path.to_owned(),
                         source: substituted_source.clone(),
                         offset: 0,
                     },
                 })?;
-            effective_defs.extend(module_set.effective_defs.iter().map(String::as_str));
+            effective_defs.extend(module_set.effective_defs.iter().cloned());
         }
 
         // record our explicit effective shader_defs
         for line in source.lines() {
             if let Some(cap) = self.ifdef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                effective_defs.insert(def.as_str());
+                effective_defs.insert(def.as_str().to_owned());
             }
             if let Some(cap) = self.ifndef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                effective_defs.insert(def.as_str());
+                effective_defs.insert(def.as_str().to_owned());
             }
         }
 
-        let effective_defs = effective_defs.iter().map(ToString::to_string).collect();
-
+        // can't gracefully report errors for more modules. perhaps this should be a warning
         assert!((self.module_sets.len() as u32) < u32::MAX >> SPAN_SHIFT);
-
         let module_index = self.module_sets.len() + 1;
+
         let module_set = ComposableModuleDefinition {
             name: module_name.clone(),
             substituted_source,
-            path: path.to_owned(),
+            file_path: file_path.to_owned(),
             language,
-            effective_defs,
+            effective_defs: effective_defs.into_iter().collect(),
             all_imports: imports.into_iter().map(|id| id.import).collect(),
             module_index,
             modules: Default::default(),
@@ -1378,13 +1378,13 @@ impl Composer {
                         let (_, _, imports) = self.preprocess_defs(
                             &import,
                             &module_set.substituted_source,
-                            &module_set.path,
+                            &module_set.file_path,
                             shader_defs,
                             true,
                         )?;
                         to_build.push((
                             import.clone(),
-                            module_set.path.clone(),
+                            module_set.file_path.clone(),
                             module_set.substituted_source.clone(),
                             module_set.language,
                             imports,
