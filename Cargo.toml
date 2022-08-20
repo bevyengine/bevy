@@ -2,25 +2,26 @@
 name = "naga_oil"
 version = "0.0.1"
 edition = "2021"
+license = "MIT OR Apache-2.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+prune = ["dep:serde", "dep:serde_json", "naga/deserialize", "naga/serialize"]
 
 [dependencies]
-# serialize/deserialize required for prune only, todo feature
-naga = { version = "0.9", features=["serialize", "deserialize", "wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "spv-in"] }
-tracing = "*"
+naga = { version = "0.9", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out"] }
+tracing = "0.1"
 regex = "1.5"
 regex-syntax = "0.6"
 thiserror = "1.0"
-codespan-reporting = "0.11.1"
+codespan-reporting = "0.11"
 data-encoding = "2.3.2"
 
-# required for prune only, todo feature
-serde = "*"      
-serde_json = "*"
+# required for prune only
+serde = { version = "1", optional = true }
+serde_json = { version = "1", optional = true }
 
 [dev-dependencies]
 # uncomment for pbr_prune_test example. commented out due to RA hating recursive dependencies
-# bevy = { git = "https://github.com/robtfm/expose_processed_shaders"}
+# bevy = { git = "https://github.com/robtfm/bevy", branch="expose_processed_shaders"}
 wgpu = { version = "0.13", features=["naga"] }
-futures-lite = "*"
+futures-lite = "1"

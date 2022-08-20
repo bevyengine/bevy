@@ -93,6 +93,7 @@ pub fn copy_func(f: &Function) -> Function {
     }
 }
 
+#[cfg(feature = "prune")]
 pub fn serde_range<T>(range: &std::ops::Range<u32>) -> naga::Range<T> {
     serde_json::from_str(serde_json::to_string(range).unwrap().as_str()).unwrap()
 }
