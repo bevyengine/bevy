@@ -55,7 +55,7 @@ impl Propagate for Visibility {
     type Computed = ComputedVisibility;
     type Payload = VisibilityPayload;
 
-    const ALWAYS_PROPAGATE: bool = true;
+    const PROPAGATE_IF_CHANGED: bool = false;
 
     #[inline]
     fn compute_root(computed: &mut Self::Computed, local: &Self) {

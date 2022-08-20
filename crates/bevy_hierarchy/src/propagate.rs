@@ -10,10 +10,10 @@ pub trait Propagate: Component {
     /// The payload passed to children for computation.
     type Payload;
 
-    /// If set to `false`, children are computed only if the hierarchy is changed
+    /// If set to `true`, children are computed only if the hierarchy is changed
     /// or their local component changed.
     /// Otherwise, always compute all components.
-    const ALWAYS_PROPAGATE: bool;
+    const PROPAGATE_IF_CHANGED: bool;
 
     /// Update computed component for root entity from it's local component.
     fn compute_root(computed: &mut Self::Computed, local: &Self);
@@ -60,7 +60,7 @@ pub fn propagate_system<T: Propagate>(
 ) {
     for (children, local, local_changed, mut computed, entity) in root_query.iter_mut() {
         let mut changed = local_changed;
-        if T::ALWAYS_PROPAGATE | changed {
+        if !T::PROPAGATE_IF_CHANGED | changed {
             T::compute_root(computed.as_mut(), local);
         }
 
@@ -100,7 +100,7 @@ fn propagate_recursive<T: Propagate>(
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
         changed |= local_changed;
-        if T::ALWAYS_PROPAGATE | changed {
+        if !T::PROPAGATE_IF_CHANGED | changed {
             T::compute(computed.as_mut(), payload, local);
         }
         T::payload(computed.as_ref())
@@ -149,7 +149,7 @@ mod test {
     impl Propagate for MyComponent {
         type Computed = MyComputedComponent;
         type Payload = MyComputedComponent;
-        const ALWAYS_PROPAGATE: bool = false;
+        const PROPAGATE_IF_CHANGED: bool = true;
 
         fn compute_root(computed: &mut Self::Computed, local: &Self) {
             computed.0 = local.0;

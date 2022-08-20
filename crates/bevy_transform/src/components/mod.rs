@@ -10,7 +10,7 @@ impl Propagate for Transform {
     type Computed = GlobalTransform;
     type Payload = GlobalTransform;
 
-    const ALWAYS_PROPAGATE: bool = false;
+    const PROPAGATE_IF_CHANGED: bool = true;
 
     #[inline]
     fn compute_root(computed: &mut Self::Computed, local: &Self) {
