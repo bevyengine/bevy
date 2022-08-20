@@ -6,15 +6,15 @@
         "type": "bevy_transform::components::transform::Transform",
         "struct": {
           "translation": {
-            "type": "glam::vec3::Vec3",
+            "type": "glam::f32::vec3::Vec3",
             "value": (0.0, 0.0, 0.0),
           },
           "rotation": {
-            "type": "glam::quat::Quat",
+            "type": "glam::f32::scalar::quat::Quat",
             "value": (0.0, 0.0, 0.0, 1.0),
           },
           "scale": {
-            "type": "glam::vec3::Vec3",
+            "type": "glam::f32::vec3::Vec3",
             "value": (1.0, 1.0, 1.0),
           },
         },
