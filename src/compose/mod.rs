@@ -63,8 +63,8 @@
 /// - a module `b` that imports `a`, and containing an `override a::f` function,
 /// - a module `c` that imports `a` and `b`, and containing an `override a::f` function,
 /// then b and c both specify an override for a::f.
-/// the `virtual fn a::f` declared in module `b` may call to `a::f` within its body.
-/// the `virtual fn a::f` declared in module 'c' may call to `a::f` within its body, but the call will be redirected to `b::f`.
+/// the `override fn a::f` declared in module `b` may call to `a::f` within its body.
+/// the `override fn a::f` declared in module 'c' may call to `a::f` within its body, but the call will be redirected to `b::f`.
 /// any other calls to `a::f` (within modules 'a' or `b`, or anywhere else) will end up redirected to `c::f`
 /// in this way a chain or stack of overrides can be applied.
 ///
