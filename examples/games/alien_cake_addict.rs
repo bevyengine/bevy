@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{ecs::schedule::SystemSet, prelude::*, time::FixedTimestep};
+use bevy::{ecs::schedule::{ShouldRun, SystemSet}, prelude::*, time::FixedTimestep};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -11,9 +11,23 @@ enum GameState {
     GameOver,
 }
 
+#[derive(Resource)]
+struct SpawnTimer(Timer);
+
+fn timer_expired(time: Res<Time>, mut timer: ResMut<SpawnTimer>) -> ShouldRun {
+    timer.0.tick(time.delta());
+    if timer.0.finished() {
+        timer.0.reset();
+        ShouldRun::Yes
+    } else {
+        ShouldRun::No
+    }
+}
+
 fn main() {
     App::new()
         .init_resource::<Game>()
+        .insert_resource(SpawnTimer(Timer::from_seconds(5.0, false)))
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
         .add_startup_system(setup_cameras)
@@ -31,7 +45,7 @@ fn main() {
         .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
         .add_system_set(
             SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(5.0))
+                .with_run_criteria(timer_expired)
                 .with_system(spawn_bonus),
         )
         .add_system(bevy::window::close_on_esc)
