@@ -14,7 +14,6 @@ var my_array_texture: texture_2d_array<f32>;
 var my_array_texture_sampler: sampler;
 
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
     #import bevy_pbr::mesh_vertex_output
 };
@@ -47,7 +46,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #endif
 #endif
         in.uv,
-        in.is_front,
     );
     pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
 

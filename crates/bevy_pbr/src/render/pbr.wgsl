@@ -9,7 +9,6 @@
 #import bevy_pbr::pbr_functions
 
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
     #import bevy_pbr::mesh_vertex_output
 };
@@ -84,7 +83,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef VERTEX_UVS
             in.uv,
 #endif
-            in.is_front,
         );
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
 

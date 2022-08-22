@@ -13,7 +13,6 @@ fn prepare_normal(
 #ifdef VERTEX_UVS
     uv: vec2<f32>,
 #endif
-    is_front: bool,
 ) -> vec3<f32> {
     // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
     // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
@@ -33,18 +32,6 @@ fn prepare_normal(
     var B: vec3<f32> = world_tangent.w * cross(N, T);
 #endif
 #endif
-
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
-        if (!is_front) {
-            N = -N;
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-            T = -T;
-            B = -B;
-#endif
-#endif
-        }
-    }
 
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_UVS
