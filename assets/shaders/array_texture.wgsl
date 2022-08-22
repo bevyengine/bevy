@@ -14,6 +14,7 @@ var my_array_texture: texture_2d_array<f32>;
 var my_array_texture_sampler: sampler;
 
 struct FragmentInput {
+    @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
     #import bevy_pbr::mesh_vertex_output
 };
@@ -33,13 +34,17 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
     pbr_input.frag_coord = in.frag_coord;
     pbr_input.world_position = in.world_position;
-    pbr_input.world_normal = in.world_normal;
+    pbr_input.world_normal = prepare_world_normal(
+        in.world_normal,
+        (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+        in.is_front,
+    );
 
     pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
-    pbr_input.N = prepare_normal(
-        pbr_input.material.flags,
-        in.world_normal,
+    pbr_input.N = apply_normal_mapping(
+        material.flags,
+        pbr_input.world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
         in.world_tangent,

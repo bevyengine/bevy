@@ -1,8 +1,22 @@
 #define_import_path bevy_pbr::pbr_functions
 
-// NOTE: This ensures that the world_normal is normalized and if
-// vertex tangents and normal maps then normal mapping may be applied.
-fn prepare_normal(
+fn prepare_world_normal(
+    world_normal: vec3<f32>,
+    double_sided: bool,
+    is_front: bool,
+) -> vec3<f32> {
+    var output: vec3<f32> = world_normal;
+#ifndef VERTEX_TANGENTS
+#ifndef STANDARDMATERIAL_NORMAL_MAP
+    // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
+    // material, the normal needs to be inverted. This is a branchless version of that.
+    output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
+#endif
+#endif
+    return output;
+}
+
+fn apply_normal_mapping(
     standard_material_flags: u32,
     world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
