@@ -40,7 +40,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
-        ReflectSerialize, Struct, TupleStruct,
+        ReflectSerialize, Reflectable, Struct, TupleStruct,
     };
 }
 
@@ -58,6 +58,34 @@ pub use tuple_struct::*;
 pub use type_info::*;
 pub use type_registry::*;
 pub use type_uuid::*;
+
+/// A catch-all trait bound by the core reflection traits for easy reflection-based trait bounds.
+///
+/// > __Note:__ You do _not_ need to implement this trait manually.
+/// > It is automatically implemented for all types that implement its supertraits.
+/// > And these supertraits are all automatically derived with the [`Reflect`](bevy_reflect_derive::Reflect) derive.
+///
+/// This should namely be used to bound generic arguments to the necessary traits for reflection.
+/// Doing this has the added benefit of reducing migration costs, as a change to the required traits
+/// is automatically handled by this trait.
+///
+/// For now, the supertraits of this trait includes:
+/// * [`Reflect`]
+/// * [`GetTypeRegistration`]
+/// * [`Typed`]
+///
+/// ## Example
+///
+/// ```
+/// # use bevy_reflect::{Reflect, Reflectable};
+/// #[derive(Reflect)]
+/// struct MyStruct<T: Reflectable> {
+///   value: T
+/// }
+/// ```
+///
+pub trait Reflectable: Reflect + GetTypeRegistration + Typed {}
+impl<T: Reflect + GetTypeRegistration + Typed> Reflectable for T {}
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
@@ -661,7 +689,7 @@ mod tests {
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T: Reflect> {
+        struct MyGenericStruct<T: Reflectable> {
             foo: T,
             bar: usize,
         }
