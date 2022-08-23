@@ -143,6 +143,7 @@ where
     }
 }
 
+/// A collection of common adapters for [chaining](super::ChainSystem) the result of a system.
 pub mod adapter {
     use crate::system::In;
     use std::fmt::Debug;
