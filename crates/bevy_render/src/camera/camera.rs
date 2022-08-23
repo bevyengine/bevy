@@ -23,7 +23,6 @@ use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
-use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, ops::Range};
 use wgpu::Extent3d;
 
@@ -32,9 +31,8 @@ use wgpu::Extent3d;
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
-// TODO: remove reflect_value when possible
-#[derive(Reflect, FromReflect, Debug, Clone, Serialize, Deserialize)]
-#[reflect_value(Default, Serialize, Deserialize)]
+#[derive(Reflect, FromReflect, Debug, Clone)]
+#[reflect(Default)]
 pub struct Viewport {
     /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
     /// (0,0) corresponds to the top-left corner
