@@ -252,7 +252,7 @@ pub mod adapter {
     ///     q: Query<Entity, With<Monster>>
     /// ) -> Option<()> {
     ///     let monster_id = q.iter().next()?;
-    ///     eprintln!("Monster entity is {monster_id:?}");
+    ///     println!("Monster entity is {monster_id:?}");
     ///     Some(())
     /// }
     /// ```
