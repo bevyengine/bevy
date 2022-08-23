@@ -251,7 +251,6 @@ pub mod adapter {
     /// fn fallible_system(
     ///     q: Query<Entity, With<Monster>>
     /// ) -> Option<()> {
-    ///     # // Note: This *will* fail, since we never create a monster entity.
     ///     let monster_id = q.iter().next()?;
     ///     eprintln!("Monster entity is {monster_id:?}");
     ///     Some(())
