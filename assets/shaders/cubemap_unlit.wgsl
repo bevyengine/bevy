@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_vertex_output as OutputTypes
+#import bevy_pbr::mesh_vertex_output
 
 #ifdef CUBEMAP_ARRAY
 @group(1) @binding(0)
@@ -13,7 +13,7 @@ var base_color_sampler: sampler;
 
 @fragment
 fn fragment(
-    mesh: OutputTypes::MeshVertexOutput,
+    mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
     let fragment_position_view_lh = mesh.world_position.xyz * vec3<f32>(1.0, 1.0, -1.0);
     return textureSample(

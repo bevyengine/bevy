@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::lighting
 
-#import bevy_pbr::utils as Utils
-#import bevy_pbr::mesh_view_types as ViewTypes
+#import bevy_pbr::utils as utils
+#import bevy_pbr::mesh_view_types as view_types
 
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
@@ -44,7 +44,7 @@
 // because otherwise every light affects every fragment in the scene
 fn getDistanceAttenuation(distanceSquare: f32, inverseRangeSquared: f32) -> f32 {
     let factor = distanceSquare * inverseRangeSquared;
-    let smoothFactor = Utils::saturate(1.0 - factor * factor);
+    let smoothFactor = utils::saturate(1.0 - factor * factor);
     let attenuation = smoothFactor * smoothFactor;
     return attenuation * 1.0 / max(distanceSquare, 0.0001);
 }
@@ -60,7 +60,7 @@ fn D_GGX(roughness: f32, NoH: f32, h: vec3<f32>) -> f32 {
     let oneMinusNoHSquared = 1.0 - NoH * NoH;
     let a = NoH * roughness;
     let k = roughness / (oneMinusNoHSquared + a * a);
-    let d = k * k * (1.0 / Utils::PI);
+    let d = k * k * (1.0 / utils::PI);
     return d;
 }
 
@@ -95,7 +95,7 @@ fn F_Schlick(f0: f32, f90: f32, VoH: f32) -> f32 {
 fn fresnel(f0: vec3<f32>, LoH: f32) -> vec3<f32> {
     // f_90 suitable for ambient occlusion
     // see https://google.github.io/filament/Filament.html#lighting/occlusion
-    let f90 = Utils::saturate(dot(f0, vec3<f32>(50.0 * 0.33)));
+    let f90 = utils::saturate(dot(f0, vec3<f32>(50.0 * 0.33)));
     return F_Schlick_vec(f0, f90, LoH);
 }
 
@@ -131,7 +131,7 @@ fn Fd_Burley(roughness: f32, NoV: f32, NoL: f32, LoH: f32) -> f32 {
     let f90 = 0.5 + 2.0 * roughness * LoH * LoH;
     let lightScatter = F_Schlick(1.0, f90, NoL);
     let viewScatter = F_Schlick(1.0, f90, NoV);
-    return lightScatter * viewScatter * (1.0 / Utils::PI);
+    return lightScatter * viewScatter * (1.0 / utils::PI);
 }
 
 // From https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
@@ -188,7 +188,7 @@ fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> 
 }
 
 fn point_light(
-    world_position: vec3<f32>, light: ViewTypes::PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
+    world_position: vec3<f32>, light: view_types::PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
     R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
 ) -> vec3<f32> {
     let light_to_frag = light.position_radius.xyz - world_position.xyz;
@@ -201,16 +201,16 @@ fn point_light(
     // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
     let a = roughness;
     let centerToRay = dot(light_to_frag, R) * R - light_to_frag;
-    let closestPoint = light_to_frag + centerToRay * Utils::saturate(light.position_radius.w * inverseSqrt(dot(centerToRay, centerToRay)));
+    let closestPoint = light_to_frag + centerToRay * utils::saturate(light.position_radius.w * inverseSqrt(dot(centerToRay, centerToRay)));
     let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
-    let normalizationFactor = a / Utils::saturate(a + (light.position_radius.w * 0.5 * LspecLengthInverse));
+    let normalizationFactor = a / utils::saturate(a + (light.position_radius.w * 0.5 * LspecLengthInverse));
     let specularIntensity = normalizationFactor * normalizationFactor;
 
     var L: vec3<f32> = closestPoint * LspecLengthInverse; // normalize() equivalent?
     var H: vec3<f32> = normalize(L + V);
-    var NoL: f32 = Utils::saturate(dot(N, L));
-    var NoH: f32 = Utils::saturate(dot(N, H));
-    var LoH: f32 = Utils::saturate(dot(L, H));
+    var NoL: f32 = utils::saturate(dot(N, L));
+    var NoH: f32 = utils::saturate(dot(N, H));
+    var LoH: f32 = utils::saturate(dot(L, H));
 
     let specular_light = specular(F0, roughness, H, NdotV, NoL, NoH, LoH, specularIntensity);
 
@@ -218,9 +218,9 @@ fn point_light(
     // Comes after specular since its NoL is used in the lighting equation.
     L = normalize(light_to_frag);
     H = normalize(L + V);
-    NoL = Utils::saturate(dot(N, L));
-    NoH = Utils::saturate(dot(N, H));
-    LoH = Utils::saturate(dot(L, H));
+    NoL = utils::saturate(dot(N, L));
+    NoH = utils::saturate(dot(N, H));
+    LoH = utils::saturate(dot(L, H));
 
     let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
 
@@ -243,7 +243,7 @@ fn point_light(
 }
 
 fn spot_light(
-    world_position: vec3<f32>, light: ViewTypes::PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
+    world_position: vec3<f32>, light: view_types::PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
     R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
 ) -> vec3<f32> {
     // reuse the point light calculations
@@ -252,7 +252,7 @@ fn spot_light(
     // reconstruct spot dir from x/z and y-direction flag
     var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
     spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
-    if ((light.flags & ViewTypes::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
+    if ((light.flags & view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
         spot_dir.y = -spot_dir.y;
     }
     let light_to_frag = light.position_radius.xyz - world_position.xyz;
@@ -261,19 +261,19 @@ fn spot_light(
     // spot_scale and spot_offset have been precomputed
     // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
     let cd = dot(-spot_dir, normalize(light_to_frag));
-    let attenuation = Utils::saturate(cd * light.light_custom_data.z + light.light_custom_data.w);
+    let attenuation = utils::saturate(cd * light.light_custom_data.z + light.light_custom_data.w);
     let spot_attenuation = attenuation * attenuation;
 
     return point_light * spot_attenuation;
 }
 
-fn directional_light(light: ViewTypes::DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
+fn directional_light(light: view_types::DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
     let incident_light = light.direction_to_light.xyz;
 
     let half_vector = normalize(incident_light + view);
-    let NoL = Utils::saturate(dot(normal, incident_light));
-    let NoH = Utils::saturate(dot(normal, half_vector));
-    let LoH = Utils::saturate(dot(incident_light, half_vector));
+    let NoL = utils::saturate(dot(normal, incident_light));
+    let NoH = utils::saturate(dot(normal, half_vector));
+    let LoH = utils::saturate(dot(incident_light, half_vector));
 
     let diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
     let specularIntensity = 1.0;

@@ -1,18 +1,18 @@
 #define_import_path bevy_pbr::skinning
 
-#import bevy_pbr::mesh_types as MeshTypes
+#import bevy_pbr::mesh_types
 
 #ifdef SKINNED
 
 #ifdef MESH_BINDGROUP_1
 
     @group(1) @binding(1)
-    var<uniform> joint_matrices: MeshTypes::SkinnedMesh;
+    var<uniform> joint_matrices: bevy_pbr::mesh_types::SkinnedMesh;
 
 #else 
 
     @group(2) @binding(1)
-    var<uniform> joint_matrices: MeshTypes::SkinnedMesh;
+    var<uniform> joint_matrices: bevy_pbr::mesh_types::SkinnedMesh;
 
 #endif
 

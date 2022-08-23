@@ -1,15 +1,15 @@
-#import bevy_pbr::lighting as Lighting
-#import bevy_pbr::mesh_view_types as ViewTypes
-#import bevy_pbr::mesh_vertex_output as OutputTypes
-#import bevy_pbr::fragment as Pbr
+#import bevy_pbr::lighting
+#import bevy_pbr::mesh_view_types
+#import bevy_pbr::mesh_vertex_output
+#import bevy_pbr::fragment
 
 fn quantize_steps() -> f32 {
      return 2.0;
 }
 
-override fn Lighting::point_light (
+override fn bevy_pbr::lighting::point_light (
     world_position: vec3<f32>, 
-    light: ViewTypes::PointLight, 
+    light: bevy_pbr::mesh_view_types::PointLight, 
     roughness: f32, 
     NdotV: f32, 
     N: vec3<f32>, 
@@ -20,7 +20,7 @@ override fn Lighting::point_light (
 ) -> vec3<f32> {
     // call original function
     let original = 
-        Lighting::point_light(world_position, light, roughness, NdotV, N, V, R, F0, diffuseColor);
+        bevy_pbr::lighting::point_light(world_position, light, roughness, NdotV, N, V, R, F0, diffuseColor);
     // quantize
     let quantized = vec3<u32>(original * quantize_steps() + 0.5);
     return clamp(vec3<f32>(quantized) / quantize_steps(), vec3<f32>(0.0), vec3<f32>(1.0));
@@ -28,9 +28,9 @@ override fn Lighting::point_light (
 
 @fragment
 fn fragment(
-    mesh: OutputTypes::MeshVertexOutput,
+    mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
 ) -> @location(0) vec4<f32> {
-    return Pbr::fragment(mesh, is_front, frag_coord);
+    return bevy_pbr::fragment::fragment(mesh, is_front, frag_coord);
 }

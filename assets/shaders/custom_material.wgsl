@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_vertex_output as OutputTypes
+#import bevy_pbr::mesh_vertex_output
 
 struct CustomMaterial {
     color: vec4<f32>,
@@ -13,7 +13,7 @@ var base_color_sampler: sampler;
 
 @fragment
 fn fragment(
-    mesh: OutputTypes::MeshVertexOutput,
+    mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
     return material.color * textureSample(base_color_texture, base_color_sampler, mesh.uv);
 }
