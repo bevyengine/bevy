@@ -40,7 +40,7 @@ impl From<Torus> for Mesh {
                 let theta = segment_stride * segment as f32;
                 (segment, theta)
             })
-            .cartesian_product(0..torus.subdivisions_sides)
+            .cartesian_product(0..=torus.subdivisions_sides)
             .map(|((segment, theta), side)| {
                 let phi = side_stride * side as f32;
 

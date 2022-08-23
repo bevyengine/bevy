@@ -142,13 +142,13 @@ impl VertexBufferLayout {
             .into_iter()
             .enumerate()
             .map(|(shader_location, format)| {
-                let new_offset = offset + 1;
-                let offset = std::mem::replace(&mut offset, new_offset);
-                VertexAttribute {
+                let attribute = VertexAttribute {
                     format,
                     offset,
                     shader_location: shader_location as u32,
-                }
+                };
+                offset += format.size();
+                attribute
             })
             .collect();
 
