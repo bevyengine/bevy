@@ -69,7 +69,6 @@ fn star(
         // Add the vertex coordinates
         v_pos.push([r * a.cos(), r * a.sin(), 0.0]);
     }
-
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
