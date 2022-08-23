@@ -118,22 +118,22 @@ async fn load_gltf<'a, 'b>(
     let materials = gltf
         .materials()
         .map(|material| {
-        let handle = load_material(&material, load_context);
-        if let Some(name) = material.name() {
-            named_materials.insert(name.to_string(), handle.clone());
-        }
-        if let Some(texture) = material.normal_texture() {
-            linear_textures.insert(texture.texture().index());
-        }
-        if let Some(texture) = material.occlusion_texture() {
-            linear_textures.insert(texture.texture().index());
-        }
-        if let Some(texture) = material
-            .pbr_metallic_roughness()
-            .metallic_roughness_texture()
-        {
-            linear_textures.insert(texture.texture().index());
-        }
+            let handle = load_material(&material, load_context);
+            if let Some(name) = material.name() {
+                named_materials.insert(name.to_string(), handle.clone());
+            }
+            if let Some(texture) = material.normal_texture() {
+                linear_textures.insert(texture.texture().index());
+            }
+            if let Some(texture) = material.occlusion_texture() {
+                linear_textures.insert(texture.texture().index());
+            }
+            if let Some(texture) = material
+                .pbr_metallic_roughness()
+                .metallic_roughness_texture()
+            {
+                linear_textures.insert(texture.texture().index());
+            }
             handle
         })
         .collect::<Vec<_>>();
@@ -354,30 +354,30 @@ async fn load_gltf<'a, 'b>(
 
             (
                 node_label(&node),
-            GltfNode {
-                children: vec![],
-                mesh: node
-                    .mesh()
-                    .map(|mesh| mesh.index())
-                    .and_then(|i| meshes.get(i).cloned()),
-                transform: match node.transform() {
-                    gltf::scene::Transform::Matrix { matrix } => {
-                        Transform::from_matrix(bevy_math::Mat4::from_cols_array_2d(&matrix))
-                    }
-                    gltf::scene::Transform::Decomposed {
-                        translation,
-                        rotation,
-                        scale,
-                    } => Transform {
-                        translation: bevy_math::Vec3::from(translation),
-                        rotation: bevy_math::Quat::from_array(rotation),
-                        scale: bevy_math::Vec3::from(scale),
+                GltfNode {
+                    children: vec![],
+                    mesh: node
+                        .mesh()
+                        .map(|mesh| mesh.index())
+                        .and_then(|i| meshes.get(i).cloned()),
+                    transform: match node.transform() {
+                        gltf::scene::Transform::Matrix { matrix } => {
+                            Transform::from_matrix(bevy_math::Mat4::from_cols_array_2d(&matrix))
+                        }
+                        gltf::scene::Transform::Decomposed {
+                            translation,
+                            rotation,
+                            scale,
+                        } => Transform {
+                            translation: bevy_math::Vec3::from(translation),
+                            rotation: bevy_math::Quat::from_array(rotation),
+                            scale: bevy_math::Vec3::from(scale),
+                        },
                     },
                 },
-            },
-            node.children()
-                .map(|child| child.index())
-                .collect::<Vec<_>>(),
+                node.children()
+                    .map(|child| child.index())
+                    .collect::<Vec<_>>(),
             )
         })
         .collect();
