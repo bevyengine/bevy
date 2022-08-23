@@ -273,4 +273,26 @@ pub mod adapter {
     pub fn parse<T: FromStr>(In(str): In<impl AsRef<str>>) -> Result<T, T::Err> {
         str.as_ref().parse::<T>()
     }
+
+    #[cfg(test)]
+    #[test]
+    fn assert_systems() {
+        use crate::{prelude::*, system::assert_is_system};
+
+        /// Mocks a system that returns a value of type `T`.
+        fn returning<T>() -> T {
+            unimplemented!()
+        }
+
+        assert_is_system(returning::<Result<String, std::io::Error>>.chain(ok));
+        assert_is_system(returning::<Option<usize>>.chain(ok_or("Oops")));
+        assert_is_system(returning::<Option<usize>>.chain(ok_or_else(|| "Sorry".to_owned())));
+
+        assert_is_system(returning::<Result<u32, std::io::Error>>.chain(unwrap));
+        assert_is_system(returning::<Option<()>>.chain(ignore));
+
+        assert_is_system(returning::<u32>.chain(into::<u64>));
+        assert_is_system(returning::<u64>.chain(try_into::<u32, _>));
+        assert_is_system(returning::<&str>.chain(parse::<u64>).chain(unwrap));
+    }
 }
