@@ -258,4 +258,14 @@ pub mod adapter {
     /// }
     /// ```
     pub fn ignore<T>(In(_): In<T>) {}
+
+    /// System adapter that converts the output of a system to type `T`, via the [`Into`] trait.
+    pub fn into<T>(In(val): In<impl Into<T>>) -> T {
+        val.into()
+    }
+
+    /// System adapter that attempts to convert the output of a system to type `T`, via the [`TryInto`] trait.
+    pub fn try_into<T, U: TryInto<T>>(In(val): In<U>) -> Result<T, U::Error> {
+        val.try_into()
+    }
 }
