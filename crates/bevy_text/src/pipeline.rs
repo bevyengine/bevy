@@ -7,7 +7,6 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
-use itertools::process_results;
 
 use glyph_brush_layout::{FontId, SectionText};
 
