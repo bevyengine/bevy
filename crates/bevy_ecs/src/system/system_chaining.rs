@@ -146,7 +146,7 @@ where
 /// A collection of common adapters for [chaining](super::ChainSystem) the result of a system.
 pub mod adapter {
     use crate::system::In;
-    use std::fmt::Debug;
+    use std::{fmt::Debug, str::FromStr};
 
     /// System adapter that converts [`Result<T, _>`] into [`Option<T>`].
     pub fn ok<T, E>(In(res): In<Result<T, E>>) -> Option<T> {
@@ -267,5 +267,10 @@ pub mod adapter {
     /// System adapter that attempts to convert the output of a system to type `T`, via the [`TryInto`] trait.
     pub fn try_into<T, U: TryInto<T>>(In(val): In<U>) -> Result<T, U::Error> {
         val.try_into()
+    }
+
+    /// System adapter that attempts to convert a string-like value to type `T`, via the [`FromStr`] trait.
+    pub fn parse<T: FromStr>(In(str): In<impl AsRef<str>>) -> Result<T, T::Err> {
+        str.as_ref().parse::<T>()
     }
 }
