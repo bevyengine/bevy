@@ -142,3 +142,94 @@ where
         }
     }
 }
+
+pub mod adapter {
+    use crate::system::In;
+    use std::fmt::Debug;
+
+    /// System adapter that unwraps the `Ok` variant of a [`Result`].
+    /// This is useful for fallible systems that should panic in the case of an error.
+    ///
+    /// There is no equivalent adapter for [`Option`]. Instead, it's best to provide
+    /// an error message and convert to a `Result` using `ok_or{_else}`.
+    ///
+    /// # Examples
+    ///
+    /// Panicking on error
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(StageLabel)]
+    /// # enum CoreStage { Update };
+    ///
+    /// // Building a new schedule/app...
+    /// # use bevy_ecs::schedule::SystemStage;
+    /// # let mut sched = Schedule::default(); sched
+    /// #     .add_stage(CoreStage::Update, SystemStage::single_threaded())
+    ///     .add_system_to_stage(
+    ///         CoreStage::Update,
+    ///         // Panic if the load system returns an error.
+    ///         load_save_system.chain(system_adapter::unwrap)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system which may fail irreparably.
+    /// fn load_save_system() -> Result<(), std::io::Error> {
+    ///     let save_file = open_file("my_save.json")?;
+    ///     dbg!(save_file);
+    ///     Ok(())
+    /// }
+    /// # fn open_file(name: &str) -> Result<&'static str, std::io::Error>
+    /// # { Ok("hello world") }
+    /// ```
+    pub fn unwrap<T, E: Debug>(In(res): In<Result<T, E>>) -> T {
+        res.unwrap()
+    }
+
+    /// System adapter that ignores the output of the previous system in a chain.
+    /// This is useful for fallible systems that should simply return early in case of an `Err`/`None`.
+    ///
+    /// # Examples
+    ///
+    /// Returning early
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// // Marker component for an enemy entity.
+    /// #[derive(Component)]
+    /// struct Monster;
+    /// #
+    /// # #[derive(StageLabel)]
+    /// # enum CoreStage { Update };
+    ///
+    /// // Building a new schedule/app...
+    /// # use bevy_ecs::schedule::SystemStage;
+    /// # let mut sched = Schedule::default(); sched
+    /// #     .add_stage(CoreStage::Update, SystemStage::single_threaded())
+    ///     .add_system_to_stage(
+    ///         CoreStage::Update,
+    ///         // If the system fails, just move on and try again next frame.
+    ///         fallible_system.chain(system_adapter::ignore)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// // A system which may return early. It's more convenient to use the `?` operator for this.
+    /// fn fallible_system(
+    ///     q: Query<Entity, With<Monster>>
+    /// ) -> Option<()> {
+    ///     # // Note: This *will* fail, since we never create a monster entity.
+    ///     let monster_id = q.iter().next()?;
+    ///     eprintln!("Monster entity is {monster_id:?}");
+    ///     Some(())
+    /// }
+    /// ```
+    pub fn ignore<T>(In(_): In<T>) {}
+}
