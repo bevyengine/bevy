@@ -78,48 +78,73 @@ pub struct ShaderData {
     dependents: HashSet<Handle<Shader>>,
 }
 
-#[derive(Default)]
 struct ShaderCache {
     data: HashMap<Handle<Shader>, ShaderData>,
     shaders: HashMap<Handle<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, Handle<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<Handle<Shader>>>,
-    composers: HashMap<wgpu::Features, naga_oil::compose::Composer>,
+    composer: naga_oil::compose::Composer,
 }
 
 impl ShaderCache {
-    fn get_or_init_composer<'a>(
-        render_device: &RenderDevice,
-        composers: &'a mut HashMap<wgpu::Features, naga_oil::compose::Composer>,
-    ) -> &'a mut naga_oil::compose::Composer {
+    fn new(render_device: &RenderDevice) -> Self {
+        const CAPABILITIES: &[(Features, Capabilities)] = &[
+            (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
+            (Features::SHADER_FLOAT64, Capabilities::FLOAT64),
+            (
+                Features::SHADER_PRIMITIVE_INDEX,
+                Capabilities::PRIMITIVE_INDEX,
+            ),
+        ];
         let features = render_device.features();
-
-        match composers.entry(features) {
-            Entry::Occupied(e) => e.into_mut(),
-            Entry::Vacant(e) => {
-                const CAPABILITIES: &[(Features, Capabilities)] = &[
-                    (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
-                    (Features::SHADER_FLOAT64, Capabilities::FLOAT64),
-                    (
-                        Features::SHADER_PRIMITIVE_INDEX,
-                        Capabilities::PRIMITIVE_INDEX,
-                    ),
-                ];
-                let mut capabilities = Capabilities::empty();
-                for (feature, capability) in CAPABILITIES {
-                    if features.contains(*feature) {
-                        capabilities |= *capability;
-                    }
-                }
-
-                #[cfg(debug_assertions)]
-                let composer = naga_oil::compose::Composer::default();
-                #[cfg(not(debug_assertions))]
-                let composer = naga_oil::compose::Composer::non_validating();
-
-                e.insert(composer.with_capabilities(capabilities))
+        let mut capabilities = Capabilities::empty();
+        for (feature, capability) in CAPABILITIES {
+            if features.contains(*feature) {
+                capabilities |= *capability;
             }
         }
+
+        #[cfg(debug_assertions)]
+        let composer = naga_oil::compose::Composer::default();
+        #[cfg(not(debug_assertions))]
+        let composer = naga_oil::compose::Composer::non_validating();
+
+        let composer = composer.with_capabilities(capabilities);
+
+        Self { 
+            composer,
+            data: Default::default(), 
+            shaders: Default::default(), 
+            import_path_shaders: Default::default(), 
+            waiting_on_import: Default::default(), 
+        }
+    }
+
+    fn add_import_to_composer(
+        composer: &mut naga_oil::compose::Composer, 
+        import_path_shaders: &HashMap<ShaderImport, Handle<Shader>>, 
+        shaders: &HashMap<Handle<Shader>, Shader>, 
+        import: &ShaderImport
+    ) -> Result<(), PipelineCacheError> {
+        if !composer.contains_module(import.as_str()) {
+            if let Some(shader_handle) = import_path_shaders.get(import) {
+                if let Some(shader) = shaders.get(shader_handle) {
+                    for import in shader.imports.iter() {
+                        Self::add_import_to_composer(composer, import_path_shaders, shaders, import)?;
+                    }
+
+                    composer.add_composable_module(
+                        shader.source.as_str(),
+                        shader.path.as_deref().unwrap_or(""),
+                        (&shader.source).into(),
+                        None,
+                    )?;
+                }
+            }
+            // if we fail to add a module the composer will tell us what is missing
+        }
+
+        Ok(())
     }
 
     fn get(
@@ -173,42 +198,11 @@ impl ShaderCache {
                 let shader_source = match &shader.source {
                     Source::SpirV(data) => make_spirv(data),
                     _ => {
-                        let composer =
-                            Self::get_or_init_composer(render_device, &mut self.composers);
-
-                        // todo clean this up
-                        let mut to_check: Vec<_> = shader.imports().collect();
-                        let mut to_add: Vec<_> = Default::default();
-                        while let Some(import) = to_check.pop() {
-                            if !composer.contains_module(import.as_str()) {
-                                to_add.push(import);
-                                let shader = self
-                                    .shaders
-                                    .get(self.import_path_shaders.get(import).unwrap_or_else(
-                                        || panic!("{:?} not found in imports", import),
-                                    ))
-                                    .unwrap_or_else(|| panic!("{:?} not found in shaders", import));
-                                to_check.extend(shader.imports.iter());
-                            }
-                        }
-                        for import in to_add.iter().rev() {
-                            if !composer.contains_module(import.as_str()) {
-                                let shader = self
-                                    .shaders
-                                    .get(self.import_path_shaders.get(import).unwrap_or_else(
-                                        || panic!("{:?} not found in imports", import),
-                                    ))
-                                    .unwrap_or_else(|| panic!("{:?} not found in shaders", import));
-                                composer.add_composable_module(
-                                    shader.source.as_str(),
-                                    shader.path.as_deref().unwrap_or(""),
-                                    (&shader.source).into(),
-                                    None,
-                                )?;
-                            }
+                        for import in shader.imports() {
+                            Self::add_import_to_composer(&mut self.composer, &self.import_path_shaders, &self.shaders, import)?;
                         }
 
-                        let naga = composer.make_naga_module(
+                        let naga = self.composer.make_naga_module(
                             shader.source.as_str(),
                             shader.path.as_deref().unwrap_or(""),
                             (&shader.source).into(),
@@ -261,9 +255,7 @@ impl ShaderCache {
                     ..
                 }) = self.shaders.get(&handle)
                 {
-                    for composer in self.composers.values_mut() {
-                        composer.remove_composable_module(import_path.as_str());
-                    }
+                    self.composer.remove_composable_module(import_path.as_str());
                 }
             }
         }
@@ -356,9 +348,9 @@ pub struct PipelineCache {
 impl PipelineCache {
     pub fn new(device: RenderDevice) -> Self {
         Self {
+            shader_cache: ShaderCache::new(&device),
             device,
             layout_cache: default(),
-            shader_cache: default(),
             waiting_pipelines: default(),
             pipelines: default(),
         }
@@ -592,10 +584,7 @@ impl PipelineCache {
                         // shader could not be processed ... retrying won't help
                         PipelineCacheError::ProcessShaderError(err) => {
                             let error_detail =
-                                err.emit_to_string(ShaderCache::get_or_init_composer(
-                                    &self.device,
-                                    &mut self.shader_cache.composers,
-                                ));
+                                err.emit_to_string(&self.shader_cache.composer);
                             error!("failed to process shader:\n{}", error_detail);
                             continue;
                         }
