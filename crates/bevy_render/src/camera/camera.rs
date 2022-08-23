@@ -350,7 +350,9 @@ pub fn camera_system<T: CameraProjection + Component>(
         })
         .collect();
 
+    #[allow(clippy::needless_collect)]
     let added_cameras = queries.p1().iter().collect::<Vec<_>>();
+
     for (entity, mut camera, mut camera_projection) in &mut queries.p0() {
         if camera
             .target
