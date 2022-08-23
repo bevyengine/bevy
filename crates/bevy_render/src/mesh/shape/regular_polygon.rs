@@ -1,5 +1,4 @@
 use crate::mesh::{Indices, Mesh};
-use itertools::Itertools;
 use wgpu::PrimitiveTopology;
 
 /// A regular polygon in the `XY` plane
@@ -34,7 +33,7 @@ impl From<RegularPolygon> for Mesh {
         debug_assert!(sides > 2, "RegularPolygon requires at least 3 sides.");
 
         let step = std::f32::consts::TAU / sides as f32;
-        let (positions, normals, uvs): (Vec<_>, Vec<_>, Vec<_>) = (0..sides)
+        let (positions, (normals, uvs)): (Vec<_>, (Vec<_>, Vec<_>)) = (0..sides)
             .map(|i| {
                 let theta = std::f32::consts::FRAC_PI_2 - i as f32 * step;
                 let (sin, cos) = theta.sin_cos();
@@ -43,9 +42,9 @@ impl From<RegularPolygon> for Mesh {
                 let normal = [0.0, 0.0, 1.0];
                 let uv = [0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)];
 
-                (position, normal, uv)
+                (position, (normal, uv))
             })
-            .multiunzip();
+            .unzip();
 
         let indices = (1..(sides as u32 - 1))
             .flat_map(|i| [0, i + 1, i])

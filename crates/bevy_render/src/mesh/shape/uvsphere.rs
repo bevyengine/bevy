@@ -1,7 +1,6 @@
 use wgpu::PrimitiveTopology;
 
 use crate::mesh::{Indices, Mesh};
-use itertools::Itertools;
 use std::f32::consts::PI;
 
 /// A sphere made of sectors and stacks.
@@ -41,7 +40,7 @@ impl From<UVSphere> for Mesh {
         let uvs: Vec<[f32; 2]>;
         let mut indices: Vec<u32> = Vec::with_capacity(sphere.stacks * sphere.sectors * 2 * 3);
 
-        (vertices, normals, uvs) = (0..=sphere.stacks)
+        (vertices, (normals, uvs)) = (0..=sphere.stacks)
             .flat_map(|i| {
                 let stack_angle = PI / 2. - (i as f32) * stack_step;
                 let xy = sphere.radius * stack_angle.cos();
@@ -56,10 +55,10 @@ impl From<UVSphere> for Mesh {
                     let normal = [x * length_inv, y * length_inv, z * length_inv];
                     let uv = [(j as f32) / sectors, (i as f32) / stacks];
 
-                    (vertex, normal, uv)
+                    (vertex, (normal, uv))
                 })
             })
-            .multiunzip();
+            .unzip();
 
         // indices
         //  k1--k1+1

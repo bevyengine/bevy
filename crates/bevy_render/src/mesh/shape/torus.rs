@@ -35,7 +35,7 @@ impl From<Torus> for Mesh {
         let normals: Vec<[f32; 3]>;
         let uvs: Vec<[f32; 2]>;
 
-        (positions, normals, uvs) = (0..=torus.subdivisions_segments)
+        (positions, (normals, uvs)) = (0..=torus.subdivisions_segments)
             .map(|segment| {
                 let theta = segment_stride * segment as f32;
                 (segment, theta)
@@ -58,9 +58,9 @@ impl From<Torus> for Mesh {
                     side as f32 / torus.subdivisions_sides as f32,
                 ];
 
-                (position.to_array(), normal.to_array(), uv)
+                (position.to_array(), (normal.to_array(), uv))
             })
-            .multiunzip();
+            .unzip();
 
         let n_vertices_per_row = torus.subdivisions_sides + 1;
         let indices = (0..torus.subdivisions_segments)

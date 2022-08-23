@@ -13,7 +13,7 @@ use smallvec::SmallVec;
 
 fn push_events(world: &mut World, events: SmallVec<[HierarchyEvent; 8]>) {
     if let Some(mut moved) = world.get_resource_mut::<Events<HierarchyEvent>>() {
-        moved.extend(events.iter().cloned());
+        moved.extend(events);
     }
 }
 
