@@ -43,6 +43,8 @@ pub struct TextPlugin;
 pub struct TextSettings {
     /// Number of font atlases supported in a FontAtlasSet
     pub max_font_atlases: usize,
+    /// Allows font size to be set dynamically exceeding the amount set in max_font_atlases.
+    /// Note each font size has to be generated which can have a strong performance impact.
     pub allow_dynamic_font_size: bool,
 }
 
