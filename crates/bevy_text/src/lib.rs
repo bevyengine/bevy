@@ -43,12 +43,14 @@ pub struct TextPlugin;
 pub struct TextSettings {
     /// Number of font atlases supported in a FontAtlasSet
     pub max_font_atlases: usize,
+    pub allow_dynamic_font_size: bool,
 }
 
 impl Default for TextSettings {
     fn default() -> Self {
         Self {
-            max_font_atlases: 100,
+            max_font_atlases: 16,
+            allow_dynamic_font_size: false,
         }
     }
 }
