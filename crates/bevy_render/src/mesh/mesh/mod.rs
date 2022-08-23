@@ -213,13 +213,13 @@ impl Mesh {
             .values()
             .enumerate()
             .map(|(index, data)| {
-                accumulated_offset += data.attribute.format.get_size();
                 let id = data.attribute.id;
                 let attribute = VertexAttribute {
                     offset: accumulated_offset,
                     format: data.attribute.format,
                     shader_location: index as u32,
                 };
+                accumulated_offset += data.attribute.format.get_size();
                 (id, attribute)
             })
             .unzip();
