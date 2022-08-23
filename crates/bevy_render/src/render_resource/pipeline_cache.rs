@@ -111,26 +111,31 @@ impl ShaderCache {
 
         let composer = composer.with_capabilities(capabilities);
 
-        Self { 
+        Self {
             composer,
-            data: Default::default(), 
-            shaders: Default::default(), 
-            import_path_shaders: Default::default(), 
-            waiting_on_import: Default::default(), 
+            data: Default::default(),
+            shaders: Default::default(),
+            import_path_shaders: Default::default(),
+            waiting_on_import: Default::default(),
         }
     }
 
     fn add_import_to_composer(
-        composer: &mut naga_oil::compose::Composer, 
-        import_path_shaders: &HashMap<ShaderImport, Handle<Shader>>, 
-        shaders: &HashMap<Handle<Shader>, Shader>, 
-        import: &ShaderImport
+        composer: &mut naga_oil::compose::Composer,
+        import_path_shaders: &HashMap<ShaderImport, Handle<Shader>>,
+        shaders: &HashMap<Handle<Shader>, Shader>,
+        import: &ShaderImport,
     ) -> Result<(), PipelineCacheError> {
         if !composer.contains_module(import.as_str()) {
             if let Some(shader_handle) = import_path_shaders.get(import) {
                 if let Some(shader) = shaders.get(shader_handle) {
-                    for import in shader.imports.iter() {
-                        Self::add_import_to_composer(composer, import_path_shaders, shaders, import)?;
+                    for import in &shader.imports {
+                        Self::add_import_to_composer(
+                            composer,
+                            import_path_shaders,
+                            shaders,
+                            import,
+                        )?;
                     }
 
                     composer.add_composable_module(
@@ -199,7 +204,12 @@ impl ShaderCache {
                     Source::SpirV(data) => make_spirv(data),
                     _ => {
                         for import in shader.imports() {
-                            Self::add_import_to_composer(&mut self.composer, &self.import_path_shaders, &self.shaders, import)?;
+                            Self::add_import_to_composer(
+                                &mut self.composer,
+                                &self.import_path_shaders,
+                                &self.shaders,
+                                import,
+                            )?;
                         }
 
                         let naga = self.composer.make_naga_module(
@@ -583,8 +593,7 @@ impl PipelineCache {
                         | PipelineCacheError::ShaderImportNotYetAvailable => { /* retry */ }
                         // shader could not be processed ... retrying won't help
                         PipelineCacheError::ProcessShaderError(err) => {
-                            let error_detail =
-                                err.emit_to_string(&self.shader_cache.composer);
+                            let error_detail = err.emit_to_string(&self.shader_cache.composer);
                             error!("failed to process shader:\n{}", error_detail);
                             continue;
                         }
