@@ -346,8 +346,8 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Typed for HashMap<K, V> {
 
 impl<K, V> GetTypeRegistration for HashMap<K, V>
 where
-    K: FromReflect + Clone + Eq + Hash,
-    V: FromReflect + Clone,
+    K: FromReflect + Eq + Hash,
+    V: FromReflect,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<HashMap<K, V>>();
