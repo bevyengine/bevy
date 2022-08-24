@@ -252,6 +252,10 @@ impl_param_set!();
 /// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
 /// # schedule.run_once(&mut world);
 /// ```
+#[cfg_attr(
+    feature = "nightly-error-messages",
+    rustc_on_unimplemented(note = "consider adding `#[derive(bevy::Resource)]` to `{Self}`")
+)]
 pub trait Resource: Send + Sync + 'static {}
 
 /// Shared borrow of a [`Resource`].

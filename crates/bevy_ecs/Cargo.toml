@@ -12,6 +12,7 @@ categories = ["game-engines", "data-structures"]
 [features]
 trace = []
 default = ["bevy_reflect"]
+nightly-error-messages = []
 
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.9.0-dev" }

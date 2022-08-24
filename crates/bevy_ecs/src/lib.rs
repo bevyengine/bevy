@@ -1,5 +1,6 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
+#![cfg_attr(feature = "nightly-error-messages", feature(rustc_attrs))]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");

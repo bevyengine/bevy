@@ -325,6 +325,14 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`WorldQuery::update_archetype_component_access`] exactly reflects the results of
 /// [`WorldQuery::matches_component_set`], [`WorldQuery::archetype_fetch`], and
 /// [`WorldQuery::table_fetch`].
+#[cfg_attr(
+    feature = "nightly-error-messages",
+    rustc_on_unimplemented(on(
+        not(any(_Self = "& _", _Self = "&mut _", _Self = "()", _Self = "(_, _)")),
+        message = "Using a `WorldQuery` object as parameter to `Query` requires the usage of a reference",
+        label = "consider using `& {Self}` here"
+    ),)
+)]
 pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     /// The read-only variant of this [`WorldQuery`], which satisfies the [`ReadOnlyWorldQuery`] trait.
     type ReadOnly: ReadOnlyWorldQuery<State = Self::State>;
