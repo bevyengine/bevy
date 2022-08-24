@@ -3,7 +3,8 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, FromReflect, List, ListInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
+    Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
+    ReflectFromPtr, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed,
 };
 
 impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
@@ -137,5 +138,16 @@ where
         } else {
             None
         }
+    }
+}
+
+impl<T: smallvec::Array + Send + Sync + 'static> GetTypeRegistration for SmallVec<T>
+where
+    T::Item: FromReflect + Clone,
+{
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<SmallVec<T>>();
+        registration.insert::<ReflectFromPtr>(FromType::<SmallVec<T>>::from_type());
+        registration
     }
 }
