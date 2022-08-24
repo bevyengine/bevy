@@ -1,7 +1,9 @@
+use std::str::FromStr;
+
 use bevy_macro_utils::{get_lit_str, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, Path, Result};
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
@@ -41,17 +43,22 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let marker = attrs.marker.unwrap_or_else(|| quote! { () });
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             type Storage = #storage;
         }
+        impl #impl_generics #bevy_ecs_path::component::WriteAccess::<#marker> for #struct_name #type_generics #where_clause {}
     })
 }
 
 pub const COMPONENT: Symbol = Symbol("component");
 pub const STORAGE: Symbol = Symbol("storage");
+pub const VISIBILITY: Symbol = Symbol("vis");
 
 struct Attrs {
+    marker: Option<TokenStream2>,
     storage: StorageTy,
 }
 
@@ -69,6 +76,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let meta_items = bevy_macro_utils::parse_attrs(ast, COMPONENT)?;
 
     let mut attrs = Attrs {
+        marker: None,
         storage: StorageTy::Table,
     };
 
@@ -92,6 +100,11 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         ))
                     }
                 };
+            }
+            Meta(NameValue(m)) if m.path == VISIBILITY => {
+                let lit = get_lit_str(STORAGE, &m.lit)?.value();
+                let marker_expr = TokenStream2::from_str(&lit)?;
+                attrs.marker = Some(quote_spanned! { m.lit.span() => #marker_expr });
             }
             Meta(meta_item) => {
                 return Err(Error::new_spanned(

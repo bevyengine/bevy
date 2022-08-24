@@ -113,6 +113,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
+    let mut field_assert = Vec::new();
     for ((field_type, is_bundle), field) in
         field_type.iter().zip(is_bundle.iter()).zip(field.iter())
     {
@@ -135,6 +136,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             });
             field_from_components.push(quote! {
                 #field: func(ctx).read::<#field_type>(),
+            });
+            field_assert.push(quote! {
+                #ecs_path::component::assert_has_write_access::<#field_type>();
             });
         }
     }
@@ -160,6 +164,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             where
                 __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
             {
+                // Make sure each component has unrestricted write access.
+                #(#field_assert)*
                 Self {
                     #(#field_from_components)*
                 }

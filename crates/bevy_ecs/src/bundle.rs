@@ -6,13 +6,17 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::{AddBundle, Archetype, ArchetypeId, Archetypes, ComponentStatus},
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
 use std::{any::TypeId, collections::HashMap};
+
+// We don't use this in code, but we need it for docs.
+#[allow(unused_imports)]
+use crate::component::Component;
 
 /// An ordered collection of [`Component`]s.
 ///
@@ -103,7 +107,7 @@ macro_rules! tuple_impl {
         // - `Bundle::component_ids` returns the `ComponentId`s for each component type in the
         // bundle, in the exact order that `Bundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
-        unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
+        unsafe impl<$($name: $crate::component::WriteComponent),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
                 vec![$(components.init_component::<$name>(storages)),*]

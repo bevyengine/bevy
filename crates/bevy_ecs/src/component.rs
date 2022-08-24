@@ -113,6 +113,20 @@ pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
 }
 
+/// Marker trait that allows a [`Component`] to be mutated.
+///
+/// The type parameter `Marker` is used to control the privacy of the access.
+/// You can only mutate a component if you can name the marker type.
+/// By default the marker is the unit type, so anyone can mutate most components.
+pub trait WriteAccess<Marker = ()> {}
+
+/// Asserts at compile time that the specified component has public write access.
+pub fn assert_has_write_access<T: Component + WriteAccess>() {}
+
+/// [`Component`]s that have [write access](WriteAccess) - shorthand for `Component + WriteAccess`.
+pub trait WriteComponent<Marker = ()>: Component + WriteAccess<Marker> {}
+impl<T: ?Sized, Marker> WriteComponent<Marker> for T where T: Component + WriteAccess<Marker> {}
+
 pub struct TableStorage;
 pub struct SparseStorage;
 
