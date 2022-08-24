@@ -707,7 +707,12 @@ impl<T: FromReflect> Reflect for Option<T> {
                     "Some" => {
                         let field = value
                             .field_at(0)
-                            .expect("Field at index 0 should exist")
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "Field in `Some` variant of {} should exist",
+                                    std::any::type_name::<Option<T>>()
+                                )
+                            })
                             .clone_value()
                             .take::<T>()
                             .unwrap_or_else(|value| {
@@ -765,7 +770,12 @@ impl<T: FromReflect> FromReflect for Option<T> {
                 "Some" => {
                     let field = dyn_enum
                         .field_at(0)
-                        .expect("Field at index 0 should exist")
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Field in `Some` variant of {} should exist",
+                                std::any::type_name::<Option<T>>()
+                            )
+                        })
                         .clone_value()
                         .take::<T>()
                         .unwrap_or_else(|value| {
