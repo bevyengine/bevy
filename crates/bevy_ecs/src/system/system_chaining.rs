@@ -148,6 +148,26 @@ pub mod adapter {
     use crate::system::In;
     use std::fmt::Debug;
 
+    /// Converts a regular function into a system adapter.
+    ///
+    /// # Examples
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// return1
+    ///     .chain(system_adapter::new(u32::try_from))
+    ///     .chain(system_adapter::unwrap)
+    ///     .chain(print);
+    ///
+    /// fn return1() -> u64 { 1 }
+    /// fn print(In(x): In<impl std::fmt::Debug>) {
+    ///     println!("{x:?}");
+    /// }
+    /// ```
+    pub fn new<T, U>(mut f: impl FnMut(T) -> U) -> impl FnMut(In<T>) -> U {
+        move |In(x)| f(x)
+    }
+
     /// System adapter that converts [`Result<T, _>`] into [`Option<T>`].
     pub fn ok<T, E>(In(res): In<Result<T, E>>) -> Option<T> {
         res.ok()
@@ -261,6 +281,8 @@ pub mod adapter {
     #[cfg(test)]
     #[test]
     fn assert_systems() {
+        use std::str::FromStr;
+
         use crate::{prelude::*, system::assert_is_system};
 
         /// Mocks a system that returns a value of type `T`.
@@ -274,5 +296,6 @@ pub mod adapter {
 
         assert_is_system(returning::<Result<u32, std::io::Error>>.chain(unwrap));
         assert_is_system(returning::<Option<()>>.chain(ignore));
+        assert_is_system(returning::<&str>.chain(new(u64::from_str)).chain(unwrap));
     }
 }
