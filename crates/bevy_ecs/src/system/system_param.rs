@@ -22,6 +22,8 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use super::RunMeta;
+
 /// A parameter that can be used in a [`System`](super::System).
 ///
 /// # Derive
@@ -129,6 +131,7 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     unsafe fn get_param(
         state: &'state mut Self,
         system_meta: &SystemMeta,
+        run_meta: &RunMeta,
         world: &'world World,
         change_tick: u32,
     ) -> Self::Item;
@@ -182,6 +185,7 @@ impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -214,6 +218,7 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::Fetch,
     world: &'w World,
     system_meta: SystemMeta,
+    run_meta: RunMeta,
     change_tick: u32,
 }
 /// The [`SystemParamState`] of [`ParamSet<T::Item>`].
@@ -373,6 +378,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -421,6 +427,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -484,6 +491,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -531,6 +539,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -572,6 +581,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -624,6 +634,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -726,6 +737,7 @@ impl<'w, 's, T: Send + Sync + 'static + FromWorld> SystemParamFetch<'w, 's> for 
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -812,6 +824,7 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -933,6 +946,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -983,6 +997,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -1049,6 +1064,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -1097,6 +1113,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -1139,6 +1156,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ArchetypesState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -1171,6 +1189,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ComponentsState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -1203,6 +1222,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for EntitiesState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -1235,6 +1255,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
     unsafe fn get_param(
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
@@ -1295,6 +1316,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
     unsafe fn get_param(
         _state: &'s mut Self,
         system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         _world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
@@ -1381,11 +1403,126 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemNameState {
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
+        _run_meta: &RunMeta,
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
         SystemName {
             name: state.name.as_ref(),
+        }
+    }
+}
+
+/// Name of the previous system chain if any.
+///
+/// This is not a reliable identifier, it is more so useful for debugging
+/// purposes of finding where a system parameter is being used incorrectly.
+pub struct PreviousSystemName {
+    name: Option<Cow<'static, str>>,
+}
+
+impl PreviousSystemName {
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
+        self.name.as_ref()
+    }
+}
+
+impl<'s> std::fmt::Debug for PreviousSystemName {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_tuple("PreviousSystemName")
+            .field(&self.name())
+            .finish()
+    }
+}
+
+impl SystemParam for PreviousSystemName {
+    type Fetch = PreviousSystemNameState;
+}
+
+// SAFETY: Only reads internal system state
+unsafe impl ReadOnlySystemParamFetch for PreviousSystemNameState {}
+
+/// The [`SystemParamState`] of [`PreviousSystemName`].
+#[doc(hidden)]
+pub struct PreviousSystemNameState;
+
+// SAFETY: no component value access
+unsafe impl SystemParamState for PreviousSystemNameState {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
+        Self
+    }
+}
+
+impl<'w, 's> SystemParamFetch<'w, 's> for PreviousSystemNameState {
+    type Item = PreviousSystemName;
+
+    #[inline]
+    unsafe fn get_param(
+        _state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        run_meta: &RunMeta,
+        _world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        PreviousSystemName {
+            name: run_meta.previous_system_name.clone(),
+        }
+    }
+}
+
+/// Name of the next system chain if any.
+///
+/// This is not a reliable identifier, it is more so useful for debugging
+/// purposes of finding where a system parameter is being used incorrectly.
+pub struct NextSystemName {
+    name: Option<Cow<'static, str>>,
+}
+
+impl NextSystemName {
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
+        self.name.as_ref()
+    }
+}
+
+impl<'s> std::fmt::Debug for NextSystemName {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_tuple("NextSystemName").field(&self.name()).finish()
+    }
+}
+
+impl SystemParam for NextSystemName {
+    type Fetch = NextSystemNameState;
+}
+
+// SAFETY: Only reads internal system state
+unsafe impl ReadOnlySystemParamFetch for NextSystemNameState {}
+
+/// The [`SystemParamState`] of [`NextSystemName`].
+#[doc(hidden)]
+pub struct NextSystemNameState;
+
+// SAFETY: no component value access
+unsafe impl SystemParamState for NextSystemNameState {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
+        Self
+    }
+}
+
+impl<'w, 's> SystemParamFetch<'w, 's> for NextSystemNameState {
+    type Item = NextSystemName;
+
+    #[inline]
+    unsafe fn get_param(
+        _state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        run_meta: &RunMeta,
+        _world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        NextSystemName {
+            name: run_meta.next_system_name.clone(),
         }
     }
 }
@@ -1409,12 +1546,13 @@ macro_rules! impl_system_param_tuple {
             unsafe fn get_param(
                 state: &'s mut Self,
                 system_meta: &SystemMeta,
+                run_meta: &RunMeta,
                 world: &'w World,
                 change_tick: u32,
             ) -> Self::Item {
 
                 let ($($param,)*) = state;
-                ($($param::get_param($param, system_meta, world, change_tick),)*)
+                ($($param::get_param($param, system_meta, run_meta, world, change_tick),)*)
             }
         }
 
@@ -1555,11 +1693,18 @@ where
     unsafe fn get_param(
         state: &'state mut Self,
         system_meta: &SystemMeta,
+        run_meta: &RunMeta,
         world: &'world World,
         change_tick: u32,
     ) -> Self::Item {
         // SAFETY: We properly delegate SystemParamState
-        StaticSystemParam(S::get_param(&mut state.0, system_meta, world, change_tick))
+        StaticSystemParam(S::get_param(
+            &mut state.0,
+            system_meta,
+            run_meta,
+            world,
+            change_tick,
+        ))
     }
 }
 

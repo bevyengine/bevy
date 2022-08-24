@@ -571,7 +571,10 @@ impl<E: Event> std::iter::Extend<E> for Events<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::World, system::SystemState};
+    use crate::{
+        prelude::World,
+        system::{RunMeta, SystemState},
+    };
 
     use super::*;
 
@@ -820,9 +823,9 @@ mod tests {
         });
         reader.initialize(&mut world);
 
-        let is_empty = reader.run((), &mut world);
+        let is_empty = reader.run((), &mut world, RunMeta::new());
         assert!(!is_empty, "EventReader should not be empty");
-        let is_empty = reader.run((), &mut world);
+        let is_empty = reader.run((), &mut world, RunMeta::new());
         assert!(is_empty, "EventReader should be empty");
     }
 

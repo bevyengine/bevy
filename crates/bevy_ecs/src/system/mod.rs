@@ -141,7 +141,7 @@ mod tests {
         schedule::{Schedule, Stage, SystemStage},
         system::{
             Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            RemovedComponents, Res, ResMut, Resource, System, SystemState,
+            RemovedComponents, Res, ResMut, Resource, RunMeta, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -181,7 +181,7 @@ mod tests {
         world.spawn().insert(A);
 
         system.initialize(&mut world);
-        system.run((), &mut world);
+        system.run((), &mut world, RunMeta::new());
     }
 
     fn run_system<Param, S: IntoSystem<(), (), Param>>(world: &mut World, system: S) {
@@ -724,11 +724,11 @@ mod tests {
 
         let mut without_filter = IntoSystem::into_system(without_filter);
         without_filter.initialize(&mut world);
-        without_filter.run((), &mut world);
+        without_filter.run((), &mut world, RunMeta::new());
 
         let mut with_filter = IntoSystem::into_system(with_filter);
         with_filter.initialize(&mut world);
-        with_filter.run((), &mut world);
+        with_filter.run((), &mut world, RunMeta::new());
     }
 
     #[test]

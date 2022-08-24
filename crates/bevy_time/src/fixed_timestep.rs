@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{IntoSystem, Res, ResMut, Resource, System},
+    system::{IntoSystem, Res, ResMut, Resource, RunMeta, System},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -189,10 +189,10 @@ impl System for FixedTimestep {
         self.internal_system.is_send()
     }
 
-    unsafe fn run_unsafe(&mut self, _input: (), world: &World) -> ShouldRun {
+    unsafe fn run_unsafe(&mut self, _input: (), world: &World, run_meta: RunMeta) -> ShouldRun {
         // SAFETY: this system inherits the internal system's component access and archetype component
         // access, which means the caller has ensured running the internal system is safe
-        self.internal_system.run_unsafe((), world)
+        self.internal_system.run_unsafe((), world, run_meta)
     }
 
     fn apply_buffers(&mut self, world: &mut World) {

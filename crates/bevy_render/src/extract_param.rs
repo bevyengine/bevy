@@ -2,7 +2,7 @@ use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
     system::{
-        ReadOnlySystemParamFetch, ResState, SystemMeta, SystemParam, SystemParamFetch,
+        ReadOnlySystemParamFetch, ResState, RunMeta, SystemMeta, SystemParam, SystemParamFetch,
         SystemParamState, SystemState,
     },
 };
@@ -83,12 +83,14 @@ where
     unsafe fn get_param(
         state: &'s mut Self,
         system_meta: &SystemMeta,
+        run_meta: &RunMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
         let main_world = ResState::<MainWorld>::get_param(
             &mut state.main_world_state,
             system_meta,
+            run_meta,
             world,
             change_tick,
         );

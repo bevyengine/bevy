@@ -1,6 +1,6 @@
 use crate::{
     schedule::{GraphNode, RunCriteriaLabel, RunCriteriaLabelId},
-    system::{BoxedSystem, IntoSystem, Local},
+    system::{BoxedSystem, IntoSystem, Local, RunMeta},
     world::World,
 };
 use std::borrow::Cow;
@@ -84,7 +84,7 @@ impl BoxedRunCriteria {
                 run_criteria.initialize(world);
                 self.initialized = true;
             }
-            let should_run = run_criteria.run((), world);
+            let should_run = run_criteria.run((), world, RunMeta::new());
             run_criteria.apply_buffers(world);
             should_run
         } else {

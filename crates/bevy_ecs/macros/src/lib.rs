@@ -196,7 +196,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
+                    <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, &self.run_meta, self.world, self.change_tick)
                 }
             }
         });
@@ -266,12 +266,14 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 unsafe fn get_param(
                     state: &'s mut Self,
                     system_meta: &SystemMeta,
+                    run_meta: &RunMeta,
                     world: &'w World,
                     change_tick: u32,
                 ) -> Self::Item {
                     ParamSet {
                         param_states: &mut state.0,
                         system_meta: system_meta.clone(),
+                        run_meta: run_meta.clone(),
                         world,
                         change_tick,
                     }
@@ -411,11 +413,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 unsafe fn get_param(
                     state: &'s mut Self,
                     system_meta: &#path::system::SystemMeta,
+                    run_meta: &#path::system::RunMeta,
                     world: &'w #path::world::World,
                     change_tick: u32,
                 ) -> Self::Item {
                     #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, run_meta, world, change_tick),)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }

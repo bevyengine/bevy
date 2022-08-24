@@ -14,6 +14,8 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
 
+use super::RunMeta;
+
 /// The metadata of a [`System`].
 #[derive(Clone)]
 pub struct SystemMeta {
@@ -226,6 +228,8 @@ impl<Param: SystemParam> SystemState<Param> {
         let param = <Param::Fetch as SystemParamFetch>::get_param(
             &mut self.param_state,
             &self.meta,
+            // FIXME: What value to pass here ?
+            &RunMeta::new(),
             world,
             change_tick,
         );
@@ -388,7 +392,12 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
+    unsafe fn run_unsafe(
+        &mut self,
+        input: Self::In,
+        world: &World,
+        run_meta: RunMeta,
+    ) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
         // Safety:
@@ -398,6 +407,7 @@ where
         let params = <Param as SystemParam>::Fetch::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
+            &run_meta,
             world,
             change_tick,
         );

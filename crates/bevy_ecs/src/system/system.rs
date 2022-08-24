@@ -25,6 +25,16 @@ pub trait System: Send + Sync + 'static {
     type Out;
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
+    /// If this system is a [`ChainSystem`], returns the name of the first executed system.
+    /// Returns the name of this system otherwise.
+    fn in_system_name(&self) -> Cow<'static, str> {
+        self.name()
+    }
+    /// If this system is a [`ChainSystem`], returns the name of the last executed system.
+    /// Returns the name of this system otherwise.
+    fn out_system_name(&self) -> Cow<'static, str> {
+        self.name()
+    }
     /// Returns the system's component [`Access`].
     fn component_access(&self) -> &Access<ComponentId>;
     /// Returns the system's archetype component [`Access`].
@@ -42,12 +52,13 @@ pub trait System: Send + Sync + 'static {
     ///     1. This system is the only system running on the given world across all threads.
     ///     2. This system only runs in parallel with other systems that do not conflict with the
     ///        [`System::archetype_component_access()`].
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out;
+    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World, run_meta: RunMeta)
+        -> Self::Out;
     /// Runs the system with the given input in the world.
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: Self::In, world: &mut World, run_meta: RunMeta) -> Self::Out {
         self.update_archetype_component_access(world);
         // SAFETY: world and resources are exclusively borrowed
-        unsafe { self.run_unsafe(input, world) }
+        unsafe { self.run_unsafe(input, world, run_meta) }
     }
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.
@@ -81,5 +92,32 @@ pub(crate) fn check_system_change_tick(
             MAX_CHANGE_AGE - 1,
         );
         *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RunMeta {
+    pub previous_system_name: Option<Cow<'static, str>>,
+    pub next_system_name: Option<Cow<'static, str>>,
+}
+
+impl RunMeta {
+    pub fn new() -> Self {
+        Self {
+            previous_system_name: None,
+            next_system_name: None,
+        }
+    }
+    pub fn with_previous_system(&self, previous_system_name: Cow<'static, str>) -> Self {
+        Self {
+            previous_system_name: Some(previous_system_name),
+            next_system_name: self.next_system_name.clone(),
+        }
+    }
+    pub fn with_next_system(&self, next_system_name: Cow<'static, str>) -> Self {
+        Self {
+            previous_system_name: self.previous_system_name.clone(),
+            next_system_name: Some(next_system_name),
+        }
     }
 }

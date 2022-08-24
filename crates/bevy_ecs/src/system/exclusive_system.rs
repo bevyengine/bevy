@@ -5,6 +5,8 @@ use crate::{
 };
 use std::borrow::Cow;
 
+use super::RunMeta;
+
 pub trait ExclusiveSystem: Send + Sync + 'static {
     fn name(&self) -> Cow<'static, str>;
 
@@ -80,7 +82,7 @@ impl ExclusiveSystem for ExclusiveSystemCoerced {
     }
 
     fn run(&mut self, world: &mut World) {
-        self.system.run((), world);
+        self.system.run((), world, RunMeta::new());
         self.system.apply_buffers(world);
     }
 

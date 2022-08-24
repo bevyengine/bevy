@@ -7,6 +7,8 @@ use crate::{
 };
 use std::borrow::Cow;
 
+use super::RunMeta;
+
 /// A [`System`] that chains two systems together, creating a new system that routes the output of
 /// the first system into the input of the second system, yielding the output of the second system.
 ///
@@ -61,6 +63,14 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.name.clone()
     }
 
+    fn in_system_name(&self) -> Cow<'static, str> {
+        self.system_a.in_system_name()
+    }
+
+    fn out_system_name(&self) -> Cow<'static, str> {
+        self.system_b.in_system_name()
+    }
+
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.archetype_component_access
     }
@@ -73,9 +83,22 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
         self.system_a.is_send() && self.system_b.is_send()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
-        let out = self.system_a.run_unsafe(input, world);
-        self.system_b.run_unsafe(out, world)
+    unsafe fn run_unsafe(
+        &mut self,
+        input: Self::In,
+        world: &World,
+        run_meta: RunMeta,
+    ) -> Self::Out {
+        let out = self.system_a.run_unsafe(
+            input,
+            world,
+            run_meta.with_next_system(self.system_b.in_system_name()),
+        );
+        self.system_b.run_unsafe(
+            out,
+            world,
+            run_meta.with_previous_system(self.system_a.out_system_name()),
+        )
     }
 
     fn apply_buffers(&mut self, world: &mut World) {

@@ -22,7 +22,7 @@ mod tests {
     use super::WorldQuery;
     use crate::prelude::{AnyOf, Entity, Or, QueryState, With, Without};
     use crate::query::{ArchetypeFilter, QueryCombinationIter, QueryFetch};
-    use crate::system::{IntoSystem, Query, System, SystemState};
+    use crate::system::{IntoSystem, Query, RunMeta, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::any::type_name;
     use std::collections::HashSet;
@@ -629,7 +629,7 @@ count():       {count}"#
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world, RunMeta::new());
         }
         {
             fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
@@ -640,7 +640,7 @@ count():       {count}"#
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world, RunMeta::new());
         }
         {
             fn system(query: Query<(Option<&A>, &B)>) {
@@ -653,7 +653,7 @@ count():       {count}"#
             }
             let mut system = IntoSystem::into_system(system);
             system.initialize(&mut world);
-            system.run((), &mut world);
+            system.run((), &mut world, RunMeta::new());
         }
     }
 

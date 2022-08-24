@@ -58,6 +58,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ParallelCommandsState {
     unsafe fn get_param(
         state: &'s mut Self,
         _: &crate::system::SystemMeta,
+        _: &crate::system::RunMeta,
         world: &'w World,
         _: u32,
     ) -> Self::Item {

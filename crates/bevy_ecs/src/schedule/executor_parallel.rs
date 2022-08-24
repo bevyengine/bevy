@@ -2,6 +2,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
     schedule::{ParallelSystemContainer, ParallelSystemExecutor},
+    system::RunMeta,
     world::World,
 };
 use async_channel::{Receiver, Sender};
@@ -191,7 +192,7 @@ impl ParallelExecutor {
                     #[cfg(feature = "trace")]
                     let system_guard = system_span.enter();
                     // SAFETY: the executor prevents two systems with conflicting access from running simultaneously.
-                    unsafe { system.run_unsafe((), world) };
+                    unsafe { system.run_unsafe((), world, RunMeta::new()) };
                     #[cfg(feature = "trace")]
                     drop(system_guard);
                     finish_sender
