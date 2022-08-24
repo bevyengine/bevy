@@ -708,13 +708,17 @@ impl<T: FromReflect> Reflect for Option<T> {
                         let field = value
                             .field_at(0)
                             .expect("Field at index 0 should exist")
-                            .clone_value();
-                        let field = field.take::<T>().unwrap_or_else(|_| {
-                            panic!(
-                                "Field at index 0 should be of type {}",
-                                std::any::type_name::<T>()
-                            )
-                        });
+                            .clone_value()
+                            .take::<T>()
+                            .unwrap_or_else(|value| {
+                                T::from_reflect(&*value).unwrap_or_else(|| {
+                                    panic!(
+                                        "Field in `Some` variant of {} should be of type {}",
+                                        std::any::type_name::<Option<T>>(),
+                                        std::any::type_name::<T>()
+                                    )
+                                })
+                            });
                         *self = Some(field);
                     }
                     "None" => {
@@ -762,13 +766,17 @@ impl<T: FromReflect> FromReflect for Option<T> {
                     let field = dyn_enum
                         .field_at(0)
                         .expect("Field at index 0 should exist")
-                        .clone_value();
-                    let field = T::from_reflect(field.as_ref()).unwrap_or_else(|| {
-                        panic!(
-                            "Field at index 0 should be of type {}",
-                            std::any::type_name::<T>()
-                        )
-                    });
+                        .clone_value()
+                        .take::<T>()
+                        .unwrap_or_else(|value| {
+                            T::from_reflect(&*value).unwrap_or_else(|| {
+                                panic!(
+                                    "Field in `Some` variant of {} should be of type {}",
+                                    std::any::type_name::<Option<T>>(),
+                                    std::any::type_name::<T>()
+                                )
+                            })
+                        });
                     Some(Some(field))
                 }
                 "None" => Some(None),
