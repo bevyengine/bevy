@@ -1427,7 +1427,7 @@ impl PreviousSystemName {
     }
 }
 
-impl<'s> std::fmt::Debug for PreviousSystemName {
+impl std::fmt::Debug for PreviousSystemName {
     #[inline(always)]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_tuple("PreviousSystemName")
@@ -1485,7 +1485,7 @@ impl NextSystemName {
     }
 }
 
-impl<'s> std::fmt::Debug for NextSystemName {
+impl std::fmt::Debug for NextSystemName {
     #[inline(always)]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_tuple("NextSystemName").field(&self.name()).finish()

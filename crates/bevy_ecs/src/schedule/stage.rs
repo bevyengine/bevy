@@ -838,7 +838,7 @@ impl Stage for SystemStage {
 
                 match &mut criteria.inner {
                     RunCriteriaInner::Single(system) => {
-                        criteria.should_run = system.run((), world, RunMeta::new())
+                        criteria.should_run = system.run((), world, RunMeta::new());
                     }
                     RunCriteriaInner::Piped {
                         input: parent,
@@ -847,7 +847,7 @@ impl Stage for SystemStage {
                     } => {
                         // FIXME: What value to pass for run_meta ?
                         criteria.should_run =
-                            system.run(run_criteria[*parent].should_run, world, RunMeta::new())
+                            system.run(run_criteria[*parent].should_run, world, RunMeta::new());
                     }
                 }
             }

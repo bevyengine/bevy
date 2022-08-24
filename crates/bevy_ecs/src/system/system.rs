@@ -101,6 +101,12 @@ pub struct RunMeta {
     pub next_system_name: Option<Cow<'static, str>>,
 }
 
+impl Default for RunMeta {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RunMeta {
     pub fn new() -> Self {
         Self {
