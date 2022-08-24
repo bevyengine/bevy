@@ -146,7 +146,7 @@ where
 /// A collection of common adapters for [chaining](super::ChainSystem) the result of a system.
 pub mod adapter {
     use crate::system::In;
-    use std::{fmt::Debug, str::FromStr};
+    use std::fmt::Debug;
 
     /// System adapter that converts [`Result<T, _>`] into [`Option<T>`].
     pub fn ok<T, E>(In(res): In<Result<T, E>>) -> Option<T> {
@@ -258,21 +258,6 @@ pub mod adapter {
     /// ```
     pub fn ignore<T>(In(_): In<T>) {}
 
-    /// System adapter that converts the output of a system to type `T`, via the [`Into`] trait.
-    pub fn into<T>(In(val): In<impl Into<T>>) -> T {
-        val.into()
-    }
-
-    /// System adapter that attempts to convert the output of a system to type `T`, via the [`TryInto`] trait.
-    pub fn try_into<T, U: TryInto<T>>(In(val): In<U>) -> Result<T, U::Error> {
-        val.try_into()
-    }
-
-    /// System adapter that attempts to convert a string-like value to type `T`, via the [`FromStr`] trait.
-    pub fn parse<T: FromStr>(In(str): In<impl AsRef<str>>) -> Result<T, T::Err> {
-        str.as_ref().parse::<T>()
-    }
-
     #[cfg(test)]
     #[test]
     fn assert_systems() {
@@ -289,9 +274,5 @@ pub mod adapter {
 
         assert_is_system(returning::<Result<u32, std::io::Error>>.chain(unwrap));
         assert_is_system(returning::<Option<()>>.chain(ignore));
-
-        assert_is_system(returning::<u32>.chain(into::<u64>));
-        assert_is_system(returning::<u64>.chain(try_into::<u32, _>));
-        assert_is_system(returning::<&str>.chain(parse::<u64>).chain(unwrap));
     }
 }
