@@ -1,7 +1,7 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::system::{Local, Res, ResMut, SystemParam};
+use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 use bevy_utils::tracing::trace;
 use std::ops::{Deref, DerefMut};
 use std::{
@@ -128,7 +128,7 @@ struct EventInstance<E: Event> {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that a.start_event_count + a.len() should always === events_b.start_event_count.

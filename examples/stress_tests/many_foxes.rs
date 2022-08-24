@@ -7,6 +7,7 @@ use bevy::{
     window::PresentMode,
 };
 
+#[derive(Resource)]
 struct Foxes {
     count: usize,
     speed: f32,
@@ -41,6 +42,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct Animations(Vec<Handle<AnimationClip>>);
 
 const RING_SPACING: f32 = 2.0;

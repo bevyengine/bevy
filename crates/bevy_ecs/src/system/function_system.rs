@@ -82,6 +82,7 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
+/// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
 /// #[derive(Component)]
@@ -110,6 +111,7 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
+/// #[derive(Resource)]
 /// struct CachedSystemState<'w, 's>{
 ///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
 /// }
@@ -246,10 +248,9 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 /// # Examples
 ///
 /// ```
-/// use bevy_ecs::system::IntoSystem;
-/// use bevy_ecs::system::Res;
+/// use bevy_ecs::prelude::*;
 ///
-/// fn my_system_function(an_usize_resource: Res<usize>) {}
+/// fn my_system_function(a_usize_local: Local<usize>) {}
 ///
 /// let system = IntoSystem::into_system(my_system_function);
 /// ```
@@ -526,6 +527,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     assert_eq!(chained_system.run((), &mut world), Some(42));
 /// }
 ///
+/// #[derive(Resource)]
 /// struct Message(String);
 ///
 /// fn parse_message(message: Res<Message>) -> Result<usize, ParseIntError> {

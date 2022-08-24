@@ -14,7 +14,7 @@ use crate::{
 };
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use std::hash::Hash;
@@ -162,6 +162,7 @@ impl ImageSampler {
 /// Global resource for [`Image`] settings.
 ///
 /// Can be set via `insert_resource` during app initialization to change the default settings.
+#[derive(Resource)]
 pub struct ImageSettings {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
     pub default_sampler: wgpu::SamplerDescriptor<'static>,
@@ -194,7 +195,7 @@ impl ImageSettings {
 ///
 /// The [`ImageSettings`] resource can be set during app initialization to change the default
 /// image sampler.
-#[derive(Debug, Clone, Deref, DerefMut)]
+#[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {

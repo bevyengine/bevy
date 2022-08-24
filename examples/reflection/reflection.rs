@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     reflect::{
         serde::{ReflectDeserializer, ReflectSerializer},
-        DynamicStruct, TypeRegistry,
+        DynamicStruct,
     },
 };
 use serde::de::DeserializeSeed;
@@ -44,7 +44,7 @@ pub struct NonReflectedValue {
     _a: usize,
 }
 
-fn setup(type_registry: Res<TypeRegistry>) {
+fn setup(type_registry: Res<AppTypeRegistry>) {
     let mut value = Foo {
         a: 1,
         _ignored: NonReflectedValue { _a: 10 },

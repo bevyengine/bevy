@@ -1,5 +1,5 @@
 //! A custom post processing effect, using two cameras, with one reusing the render texture of the first one.
-//! Here a chromatic aberration is applied to a 3d scene containting a rotating cube.
+//! Here a chromatic aberration is applied to a 3d scene containing a rotating cube.
 //! This example is useful to implement your own post-processing effect such as
 //! edge detection, blur, pixelization, vignette... and countless others.
 
@@ -13,6 +13,7 @@ use bevy::{
             AsBindGroup, Extent3d, ShaderRef, TextureDescriptor, TextureDimension, TextureFormat,
             TextureUsages,
         },
+        texture::BevyDefault,
         view::RenderLayers,
     },
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
@@ -56,7 +57,7 @@ fn setup(
             label: None,
             size,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
+            format: TextureFormat::bevy_default(),
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING

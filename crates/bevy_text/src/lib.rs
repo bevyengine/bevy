@@ -43,6 +43,8 @@ impl Plugin for TextPlugin {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .register_type::<Text>()
+            .register_type::<TextSection>()
+            .register_type::<TextAlignment>()
             .register_type::<VerticalAlign>()
             .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()

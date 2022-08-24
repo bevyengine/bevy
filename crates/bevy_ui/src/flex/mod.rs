@@ -5,7 +5,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     query::{Changed, With, Without, WorldQuery},
-    system::{Query, Res, ResMut},
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -16,6 +16,7 @@ use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
 use taffy::{number::Number, Taffy};
 
+#[derive(Resource)]
 pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<WindowId, taffy::node::Node>,
