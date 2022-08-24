@@ -1,6 +1,7 @@
 //! Demonstrates how reflection is used with generic Rust types.
 
 use bevy::prelude::*;
+use bevy::reflect::GetTypeRegistration;
 use std::any::TypeId;
 
 fn main() {
@@ -13,7 +14,7 @@ fn main() {
 }
 
 #[derive(Reflect)]
-struct MyType<T: Reflect> {
+struct MyType<T: Reflect + GetTypeRegistration> {
     value: T,
 }
 

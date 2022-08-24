@@ -57,7 +57,18 @@ impl Debug for TypeRegistryArc {
 ///
 /// [crate-level documentation]: crate
 pub trait GetTypeRegistration {
+    /// Returns the default [`TypeRegistration`] for this type.
     fn get_type_registration() -> TypeRegistration;
+    /// Registers other types needed by this type.
+    ///
+    /// This method is called by [`TypeRegistry::register`] to register any other required types.
+    /// Often, this is done for fields of structs and enum variants to ensure all types are properly registered.
+    ///
+    /// If manually implementing, it is _highly_ recommended to use [`TypeRegistry::try_register`] for these dependent types.
+    /// Using this method allows the type to be skipped if it has already been registered, thus preventing any
+    /// undesired overwrites and reducing registration costs.
+    #[allow(unused_variables)]
+    fn register_type_dependencies(registry: &mut TypeRegistry) {}
 }
 
 impl Default for TypeRegistry {
@@ -110,6 +121,21 @@ impl TypeRegistry {
         T: GetTypeRegistration,
     {
         self.add_registration(T::get_type_registration());
+        T::register_type_dependencies(self);
+    }
+
+    /// Attempts to register the type `T` if it has not yet been registered already.
+    ///
+    /// If the registration for type `T` already exists, it will not be registered again.
+    ///
+    /// To register the type, overwriting any existing registration, use [register](Self::register) instead.
+    pub fn try_register<T>(&mut self)
+    where
+        T: GetTypeRegistration + 'static,
+    {
+        if !self.contains(TypeId::of::<T>()) {
+            self.register::<T>();
+        }
     }
 
     /// Registers the type described by `registration`.
@@ -160,6 +186,10 @@ impl TypeRegistry {
             )
         });
         data.insert(D::from_type());
+    }
+
+    pub fn contains(&self, type_id: TypeId) -> bool {
+        self.registrations.contains_key(&type_id)
     }
 
     /// Returns a reference to the [`TypeRegistration`] of the type with the

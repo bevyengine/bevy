@@ -481,9 +481,11 @@ mod tuple_struct;
 mod type_info;
 mod type_path;
 mod type_registry;
+
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
+
     #[cfg(feature = "bevy_math")]
     mod math {
         mod direction;
@@ -491,6 +493,7 @@ mod impls {
         mod primitives3d;
         mod rect;
     }
+
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
@@ -1003,6 +1006,99 @@ mod tests {
     }
 
     #[test]
+    fn should_auto_register_fields() {
+        #[derive(Reflect)]
+        struct Foo {
+            bar: Bar,
+        }
+
+        #[derive(Reflect)]
+        enum Bar {
+            Variant(Baz),
+        }
+
+        #[derive(Reflect)]
+        struct Baz(usize);
+
+        // === Basic === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Foo>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `Foo`"
+        );
+
+        // === Option === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Option<Foo>>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `Option<Foo>`"
+        );
+
+        // === Tuple === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<(Foo, Foo)>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `(Foo, Foo)`"
+        );
+
+        // === Array === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<[Foo; 3]>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `[Foo; 3]`"
+        );
+
+        // === Vec === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Vec<Foo>>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `Vec<Foo>`"
+        );
+
+        // === HashMap === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<HashMap<i32, Foo>>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `HashMap<i32, Foo>`"
+        );
+    }
+
+    #[test]
+    fn should_not_auto_register_existing_types() {
+        #[derive(Reflect)]
+        struct Foo {
+            bar: Bar,
+        }
+
+        #[derive(Reflect, Default)]
+        struct Bar(usize);
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Bar>();
+        registry.register_type_data::<Bar, ReflectDefault>();
+        registry.register::<Foo>();
+
+        assert!(
+            registry
+                .get_type_data::<ReflectDefault>(TypeId::of::<Bar>())
+                .is_some(),
+            "registry should contain existing registration for `Bar`"
+        );
+    }
+
+    #[test]
     fn reflect_serialize() {
         #[derive(Reflect)]
         struct Foo {
@@ -1314,7 +1410,7 @@ mod tests {
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T> {
+        struct MyGenericStruct<T: GetTypeRegistration> {
             foo: T,
             bar: usize,
         }
@@ -1903,8 +1999,8 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_allow_multiple_custom_where() {
         #[derive(Reflect)]
-        #[reflect(where T: Default)]
-        #[reflect(where U: std::ops::Add<T>)]
+        #[reflect(where T: Default + GetTypeRegistration)]
+        #[reflect(where U: std::ops::Add < T > + GetTypeRegistration)]
         struct Foo<T, U>(T, U);
 
         #[derive(Reflect)]
@@ -1925,7 +2021,7 @@ bevy_reflect::tests::Test {
 
         // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
         #[derive(Reflect)]
-        #[reflect(where T::Assoc: core::fmt::Display)]
+        #[reflect(where T::Assoc: core::fmt::Display + GetTypeRegistration)]
         struct Foo<T: Trait>(T::Assoc);
 
         #[derive(TypePath)]
@@ -1949,7 +2045,7 @@ bevy_reflect::tests::Test {
     #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
-        struct Recurse<T>(T);
+        struct Recurse<T: GetTypeRegistration>(T);
 
         let _ = <Recurse<Recurse<()>> as Typed>::type_info();
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
@@ -1979,6 +2075,16 @@ bevy_reflect::tests::Test {
         let _ = <RecurseA as TypePath>::type_path();
         let _ = <RecurseB as Typed>::type_info();
         let _ = <RecurseB as TypePath>::type_path();
+    }
+
+    #[test]
+    fn recursive_registration_does_not_hang() {
+        #[derive(Reflect)]
+        struct Recurse<T: GetTypeRegistration>(T);
+
+        let mut registry = TypeRegistry::empty();
+
+        registry.register::<Recurse<Recurse<()>>>();
     }
 
     #[test]
