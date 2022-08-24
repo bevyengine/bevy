@@ -68,7 +68,7 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
     }
 
     fn out_system_name(&self) -> Cow<'static, str> {
-        self.system_b.in_system_name()
+        self.system_b.out_system_name()
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
