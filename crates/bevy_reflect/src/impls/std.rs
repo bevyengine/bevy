@@ -696,8 +696,7 @@ impl<T: FromReflect> Reflect for Option<T> {
             if self.variant_name() == value.variant_name() {
                 // Same variant -> just update fields
                 for (index, field) in value.iter_fields().enumerate() {
-                    let name = value.name_at(index).unwrap();
-                    if let Some(v) = self.field_mut(name) {
+                    if let Some(v) = self.field_at_mut(index) {
                         v.apply(field.value());
                     }
                 }
@@ -707,14 +706,23 @@ impl<T: FromReflect> Reflect for Option<T> {
                     "Some" => {
                         let field = value
                             .field_at(0)
-                            .expect("Field at index 0 should exist")
-                            .clone_value();
-                        let field = field.take::<T>().unwrap_or_else(|_| {
-                            panic!(
-                                "Field at index 0 should be of type {}",
-                                std::any::type_name::<T>()
-                            )
-                        });
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "Field in `Some` variant of {} should exist",
+                                    std::any::type_name::<Option<T>>()
+                                )
+                            })
+                            .clone_value()
+                            .take::<T>()
+                            .unwrap_or_else(|value| {
+                                T::from_reflect(&*value).unwrap_or_else(|| {
+                                    panic!(
+                                        "Field in `Some` variant of {} should be of type {}",
+                                        std::any::type_name::<Option<T>>(),
+                                        std::any::type_name::<T>()
+                                    )
+                                })
+                            });
                         *self = Some(field);
                     }
                     "None" => {
@@ -761,14 +769,23 @@ impl<T: FromReflect> FromReflect for Option<T> {
                 "Some" => {
                     let field = dyn_enum
                         .field_at(0)
-                        .expect("Field at index 0 should exist")
-                        .clone_value();
-                    let field = T::from_reflect(field.as_ref()).unwrap_or_else(|| {
-                        panic!(
-                            "Field at index 0 should be of type {}",
-                            std::any::type_name::<T>()
-                        )
-                    });
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Field in `Some` variant of {} should exist",
+                                std::any::type_name::<Option<T>>()
+                            )
+                        })
+                        .clone_value()
+                        .take::<T>()
+                        .unwrap_or_else(|value| {
+                            T::from_reflect(&*value).unwrap_or_else(|| {
+                                panic!(
+                                    "Field in `Some` variant of {} should be of type {}",
+                                    std::any::type_name::<Option<T>>(),
+                                    std::any::type_name::<T>()
+                                )
+                            })
+                        });
                     Some(Some(field))
                 }
                 "None" => Some(None),
@@ -951,6 +968,40 @@ mod tests {
         let output = <Option<Foo> as FromReflect>::from_reflect(&expected).unwrap();
 
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn option_should_apply() {
+        #[derive(Reflect, FromReflect, PartialEq, Debug)]
+        struct Foo(usize);
+
+        // === None on None === //
+        let patch = None::<Foo>;
+        let mut value = None;
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "None apply onto None");
+
+        // === Some on None === //
+        let patch = Some(Foo(123));
+        let mut value = None;
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "Some apply onto None");
+
+        // === None on Some === //
+        let patch = None::<Foo>;
+        let mut value = Some(Foo(321));
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "None apply onto Some");
+
+        // === Some on Some === //
+        let patch = Some(Foo(123));
+        let mut value = Some(Foo(321));
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "Some apply onto Some");
     }
 
     #[test]
