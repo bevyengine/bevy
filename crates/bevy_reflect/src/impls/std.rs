@@ -696,8 +696,7 @@ impl<T: FromReflect> Reflect for Option<T> {
             if self.variant_name() == value.variant_name() {
                 // Same variant -> just update fields
                 for (index, field) in value.iter_fields().enumerate() {
-                    let name = value.name_at(index).unwrap();
-                    if let Some(v) = self.field_mut(name) {
+                    if let Some(v) = self.field_at_mut(index) {
                         v.apply(field.value());
                     }
                 }
