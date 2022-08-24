@@ -10,7 +10,7 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::Component,
+    component::{Component, WriteComponent},
     entity::Entity,
     event::EventReader,
     query::Added,
@@ -305,7 +305,7 @@ impl RenderTarget {
     }
 }
 
-pub fn camera_system<T: CameraProjection + Component>(
+pub fn camera_system<T: CameraProjection + WriteComponent>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut image_asset_events: EventReader<AssetEvent<Image>>,

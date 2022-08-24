@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use bevy_app::{App, CoreStage, Plugin, StartupStage};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{component::WriteComponent, prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
 use bevy_reflect::{
     std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
@@ -22,7 +22,9 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
 #[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
-impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
+impl<T: CameraProjection + WriteComponent + GetTypeRegistration> Plugin
+    for CameraProjectionPlugin<T>
+{
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
             .add_startup_system_to_stage(

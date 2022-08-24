@@ -1,7 +1,9 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
+    component::{
+        Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, WriteComponent,
+    },
     entity::Entity,
     query::{debug_checked_unreachable, Access, FilteredAccess},
     storage::{ComponentSparseSet, Table, Tables},
@@ -746,9 +748,18 @@ pub struct WriteFetch<'w, T> {
     change_tick: u32,
 }
 
-/// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
-    type ReadOnly = &'__w T;
+/// A [`WorldQuery`] that provides mutable access to a component.
+pub struct Write<T, Vis = ()>
+where
+    T: WriteComponent<Vis>,
+{
+    _ref: PhantomData<&'static mut T>,
+    _vis: PhantomData<fn() -> Vis>,
+}
+
+/// SAFETY: access of `&'static T` is a subset of `Write<T>`
+unsafe impl<T: WriteComponent<Vis>, Vis> WorldQuery for Write<T, Vis> {
+    type ReadOnly = &'static T;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
@@ -905,6 +916,89 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(state)
+    }
+}
+
+impl<'w, T: WriteComponent<Vis>, Vis> WorldQueryGats<'w> for Write<T, Vis> {
+    type Fetch = WriteFetch<'w, T>;
+    type Item = Mut<'w, T>;
+}
+
+/// SAFETY: access of `&T` is a subset of `Write<T>`
+// Note: `&mut T` as a WorldQuery is essentially a shorthand for `Write<T, ()>`.
+unsafe impl<'__w, T: WriteComponent> WorldQuery for &'__w mut T {
+    type ReadOnly = &'__w T;
+    type State = <Write<T> as WorldQuery>::State;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
+        <Write<T> as WorldQuery>::shrink(item)
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: &'w World,
+        state: &Self::State,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        <Write<T> as WorldQuery>::init_fetch(world, state, last_change_tick, change_tick)
+    }
+
+    const IS_DENSE: bool = <Write<T> as WorldQuery>::IS_DENSE;
+
+    const IS_ARCHETYPAL: bool = <Write<T> as WorldQuery>::IS_ARCHETYPAL;
+
+    unsafe fn set_archetype<'w>(
+        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        tables: &'w Tables,
+    ) {
+        <Write<T> as WorldQuery>::set_archetype(fetch, state, archetype, tables);
+    }
+
+    unsafe fn set_table<'w>(
+        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        state: &Self::State,
+        table: &'w Table,
+    ) {
+        <Write<T> as WorldQuery>::set_table(fetch, state, table);
+    }
+
+    unsafe fn archetype_fetch<'w>(
+        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        archetype_index: usize,
+    ) -> <Self as WorldQueryGats<'w>>::Item {
+        <Write<T> as WorldQuery>::archetype_fetch(fetch, archetype_index)
+    }
+
+    unsafe fn table_fetch<'w>(
+        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        table_row: usize,
+    ) -> <Self as WorldQueryGats<'w>>::Item {
+        <Write<T> as WorldQuery>::table_fetch(fetch, table_row)
+    }
+
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        <Write<T> as WorldQuery>::update_component_access(state, access);
+    }
+
+    fn update_archetype_component_access(
+        state: &Self::State,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        <Write<T> as WorldQuery>::update_archetype_component_access(state, archetype, access);
+    }
+
+    fn init_state(world: &mut World) -> Self::State {
+        <Write<T> as WorldQuery>::init_state(world)
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        <Write<T> as WorldQuery>::matches_component_set(state, set_contains_id)
     }
 }
 
