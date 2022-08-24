@@ -1,4 +1,4 @@
-use crate::{schedule::ParallelSystemContainer, system::RunMeta, world::World};
+use crate::{schedule::ParallelSystemContainer, world::World};
 use downcast_rs::{impl_downcast, Downcast};
 
 pub trait ParallelSystemExecutor: Downcast + Send + Sync {
@@ -22,7 +22,7 @@ impl ParallelSystemExecutor for SingleThreadedExecutor {
                 #[cfg(feature = "trace")]
                 let _system_span =
                     bevy_utils::tracing::info_span!("system", name = &*system.name()).entered();
-                system.system_mut().run((), world, RunMeta::new());
+                system.system_mut().run((), world);
             }
         }
     }

@@ -11,7 +11,6 @@ use crate::{
         RunCriteriaInner, RunCriteriaLabelId, ShouldRun, SingleThreadedExecutor, SystemContainer,
         SystemDescriptor, SystemLabelId, SystemSet,
     },
-    system::RunMeta,
     world::{World, WorldId},
 };
 use bevy_ecs_macros::Resource;
@@ -838,7 +837,7 @@ impl Stage for SystemStage {
 
                 match &mut criteria.inner {
                     RunCriteriaInner::Single(system) => {
-                        criteria.should_run = system.run((), world, RunMeta::new());
+                        criteria.should_run = system.run((), world);
                     }
                     RunCriteriaInner::Piped {
                         input: parent,
@@ -846,8 +845,7 @@ impl Stage for SystemStage {
                         ..
                     } => {
                         // FIXME: What value to pass for run_meta ?
-                        criteria.should_run =
-                            system.run(run_criteria[*parent].should_run, world, RunMeta::new());
+                        criteria.should_run = system.run(run_criteria[*parent].should_run, world);
                     }
                 }
             }
@@ -947,19 +945,15 @@ impl Stage for SystemStage {
                         ShouldRun::YesAndCheckAgain | ShouldRun::NoAndCheckAgain => {
                             match &mut criteria.inner {
                                 RunCriteriaInner::Single(system) => {
-                                    criteria.should_run = system.run((), world, RunMeta::new());
+                                    criteria.should_run = system.run((), world);
                                 }
                                 RunCriteriaInner::Piped {
                                     input: parent,
                                     system,
                                     ..
                                 } => {
-                                    // FIXME: What value to pass for run_meta ?
-                                    criteria.should_run = system.run(
-                                        run_criteria[*parent].should_run,
-                                        world,
-                                        RunMeta::new(),
-                                    );
+                                    criteria.should_run =
+                                        system.run(run_criteria[*parent].should_run, world);
                                 }
                             }
                             match criteria.should_run {

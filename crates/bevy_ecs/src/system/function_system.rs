@@ -296,7 +296,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 ///
 ///     let mut world = World::default();
 ///     square_system.initialize(&mut world);
-///     assert_eq!(square_system.run(12, &mut world, RunMeta::new()), 144);
+///     assert_eq!(square_system.run(12, &mut world), 144);
 /// }
 ///
 /// fn square(In(input): In<usize>) -> usize {
@@ -534,7 +534,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     // chain the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut chained_system = IntoSystem::into_system(chain(parse_message, filter));
 ///     chained_system.initialize(&mut world);
-///     assert_eq!(chained_system.run((), &mut world, RunMeta::new()), Some(42));
+///     assert_eq!(chained_system.run((), &mut world), Some(42));
 /// }
 ///
 /// #[derive(Resource)]

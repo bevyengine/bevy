@@ -55,10 +55,10 @@ pub trait System: Send + Sync + 'static {
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World, run_meta: RunMeta)
         -> Self::Out;
     /// Runs the system with the given input in the world.
-    fn run(&mut self, input: Self::In, world: &mut World, run_meta: RunMeta) -> Self::Out {
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         self.update_archetype_component_access(world);
         // SAFETY: world and resources are exclusively borrowed
-        unsafe { self.run_unsafe(input, world, run_meta) }
+        unsafe { self.run_unsafe(input, world, RunMeta::new()) }
     }
     fn apply_buffers(&mut self, world: &mut World);
     /// Initialize the system.
