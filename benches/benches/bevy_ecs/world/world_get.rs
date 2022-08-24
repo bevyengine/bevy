@@ -1,6 +1,6 @@
 use bevy_ecs::{
     bundle::Bundle,
-    component::Component,
+    component::WriteComponent,
     entity::Entity,
     prelude::*,
     system::{Query, SystemState},
@@ -29,7 +29,7 @@ fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }
 
-fn setup<T: Component + Default>(entity_count: u32) -> World {
+fn setup<T: WriteComponent + Default>(entity_count: u32) -> World {
     let mut world = World::default();
     world.spawn_batch((0..entity_count).map(|_| (T::default(),)));
     black_box(world)

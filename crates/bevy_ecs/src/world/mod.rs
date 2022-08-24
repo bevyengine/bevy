@@ -13,7 +13,7 @@ use crate::{
     change_detection::{MutUntyped, Ticks},
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
-        StorageType,
+        StorageType, WriteComponent,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, WorldQuery},
@@ -478,7 +478,23 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
-    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
+    pub fn get_mut<T: WriteComponent>(&mut self, entity: Entity) -> Option<Mut<T>> {
+        self.get_mut_raw::<T>(entity)
+    }
+
+    /// Gets mutable access to a component that has protected mutability.
+    #[inline]
+    pub fn get_mut_protected<T: WriteComponent<Vis>, Vis>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
+        self.get_mut_raw::<T>(entity)
+    }
+
+    /// Allows mutable access to a component while ignoring visibility rules.
+    /// This is not unsafe, just error-prone.
+    #[inline]
+    pub(crate) fn get_mut_raw<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
         // SAFETY: lifetimes enforce correct usage of returned borrow
         unsafe { get_mut(self, entity, self.get_entity(entity)?.location()) }
     }

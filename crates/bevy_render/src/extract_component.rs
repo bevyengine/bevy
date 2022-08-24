@@ -7,7 +7,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
-    component::Component,
+    component::{Component, ProtectedBundle, WriteAccess},
     prelude::*,
     query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
     system::lifetimeless::Read,
@@ -133,12 +133,12 @@ fn prepare_uniform_components<C: Component>(
 ///
 /// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) step
 /// for the specified [`ExtractComponent`].
-pub struct ExtractComponentPlugin<C, F = ()> {
+pub struct ExtractComponentPlugin<C, F = (), Vis = ()> {
     only_extract_visible: bool,
-    marker: PhantomData<fn() -> (C, F)>,
+    marker: PhantomData<fn() -> (C, F, Vis)>,
 }
 
-impl<C, F> Default for ExtractComponentPlugin<C, F> {
+impl<C, F, Vis> Default for ExtractComponentPlugin<C, F, Vis> {
     fn default() -> Self {
         Self {
             only_extract_visible: false,
@@ -156,14 +156,17 @@ impl<C, F> ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
+impl<C, Vis: 'static> Plugin for ExtractComponentPlugin<C, Vis>
+where
+    C: ExtractComponent + WriteAccess<Vis>,
+{
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
                 render_app
-                    .add_system_to_stage(RenderStage::Extract, extract_visible_components::<C>);
+                    .add_system_to_stage(RenderStage::Extract, extract_visible_components::<C, _>);
             } else {
-                render_app.add_system_to_stage(RenderStage::Extract, extract_components::<C>);
+                render_app.add_system_to_stage(RenderStage::Extract, extract_components::<C, _>);
             }
         }
     }
@@ -180,21 +183,22 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`] type.
-fn extract_components<C: ExtractComponent>(
+fn extract_components<C: ExtractComponent + WriteAccess<Vis>, Vis: 'static>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut query: Extract<Query<(Entity, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in query.iter_mut() {
-        values.push((entity, (C::extract_component(query_item),)));
+        let component = C::extract_component(query_item);
+        values.push((entity, ProtectedBundle::new(component)));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
 }
 
 /// This system extracts all visible components of the corresponding [`ExtractComponent`] type.
-fn extract_visible_components<C: ExtractComponent>(
+fn extract_visible_components<C: ExtractComponent + WriteAccess<Vis>, Vis: 'static>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut query: Extract<Query<(Entity, &ComputedVisibility, C::Query), C::Filter>>,
@@ -202,7 +206,8 @@ fn extract_visible_components<C: ExtractComponent>(
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, query_item) in query.iter_mut() {
         if computed_visibility.is_visible() {
-            values.push((entity, (C::extract_component(query_item),)));
+            let component = C::extract_component(query_item);
+            values.push((entity, ProtectedBundle::new(component)));
         }
     }
     *previous_len = values.len();

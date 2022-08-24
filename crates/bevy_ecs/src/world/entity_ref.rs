@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
     change_detection::{MutUntyped, Ticks},
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType, WriteComponent},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
     world::{Mut, World},
@@ -192,7 +192,16 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
-    pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: WriteComponent>(&mut self) -> Option<Mut<'_, T>> {
+        self.get_mut_protected::<T, _>()
+    }
+
+    /// Gets mutable access to a component that has protected mutability.
+    #[inline]
+    pub fn get_mut_protected<T, Vis>(&mut self) -> Option<Mut<'_, T>>
+    where
+        T: WriteComponent<Vis>,
+    {
         // SAFETY: world access is unique, and lifetimes enforce correct usage of returned borrow
         unsafe { self.get_unchecked_mut::<T>() }
     }
@@ -442,12 +451,21 @@ impl<'w> EntityMut<'w> {
         }
     }
 
-    pub fn insert<T: Component>(&mut self, value: T) -> &mut Self {
-        self.insert_bundle((value,))
+    pub fn insert<Vis>(&mut self, value: impl WriteComponent<Vis>) -> &mut Self {
+        self.insert_bundle(crate::component::Unlocked(value))
     }
 
-    pub fn remove<T: Component>(&mut self) -> Option<T> {
-        self.remove_bundle::<(T,)>().map(|v| v.0)
+    pub fn remove<T: WriteComponent>(&mut self) -> Option<T> {
+        self.remove_protected::<T, _>()
+    }
+
+    /// Removes a component that has protected mutability.
+    pub fn remove_protected<T, Vis>(&mut self) -> Option<T>
+    where
+        T: WriteComponent<Vis>,
+    {
+        self.remove_bundle::<crate::component::Unlocked<T>>()
+            .map(|v| v.0)
     }
 
     pub fn despawn(self) {

@@ -1447,7 +1447,7 @@ all_tuples!(impl_system_param_tuple, 0, 16, P);
 pub mod lifetimeless {
     pub type SQuery<Q, F = ()> = super::Query<'static, 'static, Q, F>;
     pub type Read<T> = &'static T;
-    pub type Write<T> = &'static mut T;
+    pub use crate::query::Write;
     pub type SRes<T> = super::Res<'static, T>;
     pub type SResMut<T> = super::ResMut<'static, T>;
     pub type SCommands = crate::system::Commands<'static, 'static>;

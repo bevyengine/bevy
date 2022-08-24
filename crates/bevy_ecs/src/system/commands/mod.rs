@@ -3,7 +3,7 @@ mod parallel_scope;
 
 use crate::{
     bundle::Bundle,
-    component::Component,
+    component::WriteComponent,
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
@@ -507,7 +507,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self
     }
 
-    /// Adds a single [`Component`] to the entity.
+    /// Adds a single [`Component`](crate::component::Component) to the entity.
     ///
     /// # Example
     ///
@@ -533,10 +533,11 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
-    pub fn insert(&mut self, component: impl Component) -> &mut Self {
+    pub fn insert<Vis: 'static>(&mut self, component: impl WriteComponent<Vis>) -> &mut Self {
         self.commands.add(Insert {
             entity: self.entity,
             component,
+            phantom: PhantomData,
         });
         self
     }
@@ -596,9 +597,17 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     pub fn remove<T>(&mut self) -> &mut Self
     where
-        T: Component,
+        T: WriteComponent,
     {
-        self.commands.add(Remove::<T> {
+        self.remove_protected::<T, _>()
+    }
+
+    /// Removes a component that has protected mutability.
+    pub fn remove_protected<T, Vis: 'static>(&mut self) -> &mut Self
+    where
+        T: WriteComponent<Vis>,
+    {
+        self.commands.add(Remove::<T, Vis> {
             entity: self.entity,
             phantom: PhantomData,
         });
@@ -742,7 +751,7 @@ pub struct InsertBundle<T> {
 
 impl<T> Command for InsertBundle<T>
 where
-    T: Bundle + 'static,
+    T: Bundle,
 {
     fn write(self, world: &mut World) {
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
@@ -754,14 +763,15 @@ where
 }
 
 #[derive(Debug)]
-pub struct Insert<T> {
+pub struct Insert<T, Vis = ()> {
     pub entity: Entity,
     pub component: T,
+    pub phantom: PhantomData<fn() -> Vis>,
 }
 
-impl<T> Command for Insert<T>
+impl<T, Vis: 'static> Command for Insert<T, Vis>
 where
-    T: Component,
+    T: WriteComponent<Vis>,
 {
     fn write(self, world: &mut World) {
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
@@ -773,18 +783,18 @@ where
 }
 
 #[derive(Debug)]
-pub struct Remove<T> {
+pub struct Remove<T, Vis = ()> {
     pub entity: Entity,
-    pub phantom: PhantomData<T>,
+    pub phantom: PhantomData<(T, fn() -> Vis)>,
 }
 
-impl<T> Command for Remove<T>
+impl<T, Vis: 'static> Command for Remove<T, Vis>
 where
-    T: Component,
+    T: WriteComponent<Vis>,
 {
     fn write(self, world: &mut World) {
         if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            entity_mut.remove::<T>();
+            entity_mut.remove_protected::<T, _>();
         }
     }
 }

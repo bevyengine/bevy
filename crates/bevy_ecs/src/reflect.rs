@@ -116,27 +116,28 @@ impl ReflectComponent {
 
 impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
+        use crate::component::Unlocked;
         ReflectComponent {
             insert: |world, entity, reflected_component| {
                 let mut component = C::from_world(world);
                 component.apply(reflected_component);
-                world.entity_mut(entity).insert(component);
+                world.entity_mut(entity).insert_bundle(Unlocked(component));
             },
             apply: |world, entity, reflected_component| {
-                let mut component = world.get_mut::<C>(entity).unwrap();
+                let mut component = world.get_mut_raw::<C>(entity).unwrap();
                 component.apply(reflected_component);
             },
             apply_or_insert: |world, entity, reflected_component| {
-                if let Some(mut component) = world.get_mut::<C>(entity) {
+                if let Some(mut component) = world.get_mut_raw::<C>(entity) {
                     component.apply(reflected_component);
                 } else {
                     let mut component = C::from_world(world);
                     component.apply(reflected_component);
-                    world.entity_mut(entity).insert(component);
+                    world.entity_mut(entity).insert_bundle(Unlocked(component));
                 }
             },
             remove: |world, entity| {
-                world.entity_mut(entity).remove::<C>();
+                world.entity_mut(entity).remove_bundle::<Unlocked<C>>();
             },
             copy: |source_world, destination_world, source_entity, destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
@@ -144,7 +145,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 destination_component.apply(source_component);
                 destination_world
                     .entity_mut(destination_entity)
-                    .insert(destination_component);
+                    .insert_bundle(Unlocked(destination_component));
             },
             reflect: |world, entity| {
                 world
@@ -312,7 +313,7 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
         ReflectMapEntities {
             map_entities: |world, entity_map| {
                 for entity in entity_map.values() {
-                    if let Some(mut component) = world.get_mut::<C>(entity) {
+                    if let Some(mut component) = world.get_mut_raw::<C>(entity) {
                         component.map_entities(entity_map)?;
                     }
                 }
