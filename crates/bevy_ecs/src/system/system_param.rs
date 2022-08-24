@@ -663,10 +663,10 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// write_system.initialize(world);
 /// read_system.initialize(world);
 ///
-/// assert_eq!(read_system.run((), world), 0);
+/// assert_eq!(read_system.run((), world, RunMeta::new()), 0);
 /// write_system.run((), world);
 /// // Note how the read local is still 0 due to the locals not being shared.
-/// assert_eq!(read_system.run((), world), 0);
+/// assert_eq!(read_system.run((), world, RunMeta::run()), 0);
 /// ```
 ///
 /// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
