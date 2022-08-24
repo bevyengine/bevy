@@ -971,6 +971,40 @@ mod tests {
     }
 
     #[test]
+    fn option_should_apply() {
+        #[derive(Reflect, FromReflect, PartialEq, Debug)]
+        struct Foo(usize);
+
+        // === None on None === //
+        let patch = None::<Foo>;
+        let mut value = None;
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "None apply onto None");
+
+        // === Some on None === //
+        let patch = Some(Foo(123));
+        let mut value = None;
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "Some apply onto None");
+
+        // === None on Some === //
+        let patch = None::<Foo>;
+        let mut value = Some(Foo(321));
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "None apply onto Some");
+
+        // === Some on Some === //
+        let patch = Some(Foo(123));
+        let mut value = Some(Foo(321));
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "Some apply onto Some");
+    }
+
+    #[test]
     fn option_should_impl_typed() {
         type MyOption = Option<i32>;
         let info = MyOption::type_info();
