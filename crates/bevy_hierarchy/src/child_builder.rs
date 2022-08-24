@@ -49,20 +49,18 @@ fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
 }
 
 fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
-    let moved = children
-        .iter()
-        .filter_map(|child| {
-            update_parent(world, *child, parent).map(|previous| {
-                debug_assert!(parent != previous);
-                remove_from_children(world, previous, *child);
-                HierarchyEvent::ChildMoved {
-                    child: *child,
-                    previous_parent: previous,
-                    new_parent: parent,
-                }
-            })
-        })
-        .collect();
+    let mut moved: SmallVec<[HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
+    for child in children {
+        if let Some(previous) = update_parent(world, *child, parent) {
+            debug_assert!(parent != previous);
+            remove_from_children(world, previous, *child);
+            moved.push(HierarchyEvent::ChildMoved {
+                child: *child,
+                previous_parent: previous,
+                new_parent: parent,
+            });
+        }
+    }
 
     push_events(world, moved);
 }
