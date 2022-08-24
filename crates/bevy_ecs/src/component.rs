@@ -1,6 +1,7 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
+    bundle::Bundle,
     change_detection::MAX_CHANGE_AGE,
     storage::{SparseSetIndex, Storages},
     system::Resource,
@@ -11,6 +12,7 @@ use std::{
     alloc::Layout,
     any::{Any, TypeId},
     borrow::Cow,
+    marker::PhantomData,
     mem::needs_drop,
 };
 
@@ -126,6 +128,147 @@ pub fn assert_has_write_access<T: Component + WriteAccess>() {}
 /// [`Component`]s that have [write access](WriteAccess) - shorthand for `Component + WriteAccess`.
 pub trait WriteComponent<Marker = ()>: Component + WriteAccess<Marker> {}
 impl<T: ?Sized, Marker> WriteComponent<Marker> for T where T: Component + WriteAccess<Marker> {}
+
+/// A bundle that allows inserting/removing protected components. This is not unsafe, just easily abused.
+///
+/// Note that even being able to *name* this type can be abused, as it would
+/// allow users to call `remove_bundle::<Unlocked<T>>()` to remove protected values.
+pub(crate) struct Unlocked<T: Component>(pub T);
+
+// SAFETY: There is only one ComponentId, so the order does not matter.
+unsafe impl<T> Bundle for Unlocked<T>
+where
+    T: Component,
+{
+    fn component_ids(
+        components: &mut Components,
+        storages: &mut crate::storage::Storages,
+    ) -> Vec<ComponentId> {
+        vec![components.init_component::<T>(storages)]
+    }
+    unsafe fn from_components<U, F>(ctx: &mut U, mut func: F) -> Self
+    where
+        F: FnMut(&mut U) -> crate::ptr::OwningPtr,
+    {
+        Self(func(ctx).read::<T>())
+    }
+    fn get_components(self, func: impl FnMut(crate::ptr::OwningPtr)) {
+        crate::ptr::OwningPtr::make(self.0, func);
+    }
+}
+
+/// A [`Bundle`] type that can contain a [`Component`] with protected write access.
+///
+/// The resulting `Unlocked<T, Marker>` type is itself private, so it must be encapsulated
+/// somehow, which prevents outside modification of the protected component.
+///
+/// # Examples
+///
+/// ```
+/// use bevy_ecs::{prelude::*, component::WriteAccess};
+///
+/// // A set of components that we want to restrict mutable access to.
+/// // By marking the components with this type, they can only be mutated
+/// // in places that `Marker` can be named.
+/// struct Marker;
+///
+/// #[derive(Component)]
+/// #[component(vis = "Marker")]
+/// pub struct Chassis;
+///
+/// #[derive(Component)]
+/// #[component(vis = "Marker")]
+/// pub struct Axle {
+///     // The fields can be public, since no one outside this module can get mutable access
+///     // once this component has been inserted into the world.
+///     pub torque: f64,
+/// }
+///
+/// #[derive(Component)]
+/// #[component(vis = "Marker")]
+/// pub struct Tires {
+///     pub width: f64,
+/// }
+/// #
+/// # use bevy_ecs::component::ProtectedBundle;
+///
+/// // In order to include the components in a bundle, we must encapsulate the `Marker` type.
+///
+/// #[derive(Bundle)]
+/// pub struct Automobile {
+///     // Flatten the three smaller bundles to make one big bundle.
+///     #[bundle]
+///     chassis: ProtectedBundle<Chassis, Marker>,
+///     #[bundle]
+///     axle: ProtectedBundle<Axle, Marker>,
+///     #[bundle]
+///     tires: ProtectedBundle<Tires, Marker>,
+/// }
+/// #
+/// // `new` method omitted.
+/// # impl Automobile {
+/// #     pub fn new(axle: Axle, tires: Tires) -> Self {
+/// #         Self {
+/// #             chassis: ProtectedBundle::new(Chassis),
+/// #             axle: ProtectedBundle::new(axle),
+/// #             tires: ProtectedBundle::new(tires),
+/// #         }
+/// #     }
+/// # }
+///
+/// fn setup(mut commands: Commands) {
+///     commands.spawn_bundle(
+///         Automobile::new(Axle { torque: 100. }, Tires { width: 20. })
+///     );
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(setup);
+/// ```
+pub struct ProtectedBundle<T, Marker: 'static>
+where
+    T: WriteComponent<Marker>,
+{
+    // FIXME: Derive this when we can do #[bundle(ignore)].
+    val: Unlocked<T>,
+    _marker: PhantomData<fn() -> Marker>,
+}
+
+impl<T, Marker: 'static> ProtectedBundle<T, Marker>
+where
+    T: WriteComponent<Marker>,
+{
+    pub const fn new(val: T) -> Self {
+        Self {
+            val: Unlocked(val),
+            _marker: PhantomData,
+        }
+    }
+}
+
+// SAFETY: Defer to the safety of `Unlocked`.
+unsafe impl<T, Marker: 'static> Bundle for ProtectedBundle<T, Marker>
+where
+    T: WriteComponent<Marker>,
+{
+    fn component_ids(
+        components: &mut Components,
+        storages: &mut crate::storage::Storages,
+    ) -> Vec<ComponentId> {
+        <Unlocked<T> as Bundle>::component_ids(components, storages)
+    }
+    unsafe fn from_components<U, F>(ctx: &mut U, func: F) -> Self
+    where
+        F: FnMut(&mut U) -> crate::ptr::OwningPtr,
+    {
+        Self {
+            val: Unlocked::from_components(ctx, func),
+            _marker: PhantomData,
+        }
+    }
+    fn get_components(self, func: impl FnMut(crate::ptr::OwningPtr)) {
+        self.val.get_components(func);
+    }
+}
 
 pub struct TableStorage;
 pub struct SparseStorage;
