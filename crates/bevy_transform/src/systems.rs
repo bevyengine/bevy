@@ -103,7 +103,7 @@ mod test {
     use crate::components::{GlobalTransform, Transform};
     use crate::systems::transform_propagate_system;
     use crate::TransformBundle;
-    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
+    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children};
 
     #[test]
     fn did_propagate() {
@@ -322,48 +322,5 @@ mod test {
         for global in state.iter(&app.world) {
             assert_eq!(global, &GlobalTransform::from_translation(translation));
         }
-    }
-
-    #[test]
-    #[should_panic]
-    fn panic_when_hierarchy_cycle() {
-        // We cannot directly edit Parent and Children, so we use a temp world to break
-        // the hierarchy's invariants.
-        let mut temp = World::new();
-        let mut app = App::new();
-
-        app.add_system(transform_propagate_system);
-
-        fn setup_world(world: &mut World) -> (Entity, Entity) {
-            let mut grandchild = Entity::from_raw(0);
-            let child = world
-                .spawn()
-                .insert_bundle((Transform::identity(), GlobalTransform::default()))
-                .with_children(|builder| {
-                    grandchild = builder
-                        .spawn()
-                        .insert_bundle((Transform::identity(), GlobalTransform::default()))
-                        .id();
-                })
-                .id();
-            (child, grandchild)
-        }
-
-        let (temp_child, temp_grandchild) = setup_world(&mut temp);
-        let (child, grandchild) = setup_world(&mut app.world);
-
-        assert_eq!(temp_child, child);
-        assert_eq!(temp_grandchild, grandchild);
-
-        app.world
-            .spawn()
-            .insert_bundle((Transform::default(), GlobalTransform::default()))
-            .push_children(&[child]);
-        std::mem::swap(
-            &mut *app.world.get_mut::<Parent>(child).unwrap(),
-            &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
-        );
-
-        app.update();
     }
 }

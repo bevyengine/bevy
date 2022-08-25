@@ -11,6 +11,7 @@ use std::ops::Deref;
 /// This component should only be present on entities that actually have a parent entity.
 #[derive(Component, Debug, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
+#[component(vis = "crate::Vis")]
 pub struct Parent(pub(crate) Entity);
 
 impl Parent {

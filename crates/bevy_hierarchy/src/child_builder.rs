@@ -21,7 +21,7 @@ fn push_events(world: &mut World, events: SmallVec<[HierarchyEvent; 8]>) {
 
 fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
-    if let Some(mut children) = parent.get_mut::<Children>() {
+    if let Some(mut children) = parent.get_mut_protected::<Children, _>() {
         children.0.push(child);
     } else {
         parent.insert(Children(smallvec::smallvec![child]));
@@ -30,7 +30,7 @@ fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
 
 fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option<Entity> {
     let mut child = world.entity_mut(child);
-    if let Some(mut parent) = child.get_mut::<Parent>() {
+    if let Some(mut parent) = child.get_mut_protected::<Parent, _>() {
         let previous = parent.0;
         *parent = Parent(new_parent);
         Some(previous)
@@ -42,10 +42,10 @@ fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option
 
 fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
-    if let Some(mut children) = parent.get_mut::<Children>() {
+    if let Some(mut children) = parent.get_mut_protected::<Children, _>() {
         children.0.retain(|x| *x != child);
         if children.is_empty() {
-            parent.remove::<Children>();
+            parent.remove_protected::<Children, _>();
         }
     }
 }
@@ -69,7 +69,7 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
     for child in children {
-        world.entity_mut(*child).remove::<Parent>();
+        world.entity_mut(*child).remove_protected::<Parent, _>();
         events.push(HierarchyEvent::ChildRemoved {
             child: *child,
             parent,
@@ -77,7 +77,7 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     }
     push_events(world, events);
 
-    if let Some(mut parent_children) = world.get_mut::<Children>(parent) {
+    if let Some(mut parent_children) = world.get_mut_protected::<Children, _>(parent) {
         parent_children
             .0
             .retain(|parent_child| !children.contains(parent_child));
@@ -115,7 +115,7 @@ impl Command for AddChild {
             });
         }
         let mut parent = world.entity_mut(self.parent);
-        if let Some(mut children) = parent.get_mut::<Children>() {
+        if let Some(mut children) = parent.get_mut_protected::<Children, _>() {
             if !children.contains(&self.child) {
                 children.0.push(self.child);
             }
@@ -137,7 +137,7 @@ impl Command for InsertChildren {
     fn write(self, world: &mut World) {
         update_old_parents(world, self.parent, &self.children);
         let mut parent = world.entity_mut(self.parent);
-        if let Some(mut children) = parent.get_mut::<Children>() {
+        if let Some(mut children) = parent.get_mut_protected::<Children, _>() {
             children.0.retain(|value| !self.children.contains(value));
             children.0.insert_from_slice(self.index, &self.children);
         } else {
@@ -157,7 +157,7 @@ impl Command for PushChildren {
     fn write(mut self, world: &mut World) {
         update_old_parents(world, self.parent, &self.children);
         let mut parent = world.entity_mut(self.parent);
-        if let Some(mut children) = parent.get_mut::<Children>() {
+        if let Some(mut children) = parent.get_mut_protected::<Children, _>() {
             children.0.retain(|child| !self.children.contains(child));
             children.0.append(&mut self.children);
         } else {
@@ -326,7 +326,7 @@ pub struct WorldChildBuilder<'w> {
 
 impl<'w> WorldChildBuilder<'w> {
     /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
-    pub fn spawn_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
+    pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
         let entity = self
             .world
@@ -408,7 +408,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
-        if let Some(mut children_component) = self.get_mut::<Children>() {
+        if let Some(mut children_component) = self.get_mut_protected::<Children, _>() {
             children_component
                 .0
                 .retain(|value| !children.contains(value));
@@ -429,7 +429,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             self.update_location();
         }
 
-        if let Some(mut children_component) = self.get_mut::<Children>() {
+        if let Some(mut children_component) = self.get_mut_protected::<Children, _>() {
             children_component
                 .0
                 .retain(|value| !children.contains(value));
@@ -471,7 +471,7 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
             .current_entity
             .expect("Cannot add children without a parent. Try creating an entity first.");
         update_old_parents(self.world, parent, children);
-        if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
+        if let Some(mut children_component) = self.world.get_mut_protected::<Children, _>(parent) {
             children_component
                 .0
                 .retain(|value| !children.contains(value));
@@ -489,7 +489,7 @@ impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
             .current_entity
             .expect("Cannot add children without a parent. Try creating an entity first.");
         update_old_parents(self.world, parent, children);
-        if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
+        if let Some(mut children_component) = self.world.get_mut_protected::<Children, _>(parent) {
             children_component
                 .0
                 .retain(|value| !children.contains(value));
