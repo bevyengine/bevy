@@ -168,31 +168,6 @@ pub mod adapter {
         move |In(x)| f(x)
     }
 
-    /// System adapter that converts [`Result<T, _>`] into [`Option<T>`].
-    pub fn ok<T, E>(In(res): In<Result<T, E>>) -> Option<T> {
-        res.ok()
-    }
-
-    /// System adapter that maps [`None`] -> [`Err`].
-    ///
-    /// Often, it is better to call `Option::ok_or` at the place where the `?` operator is invoked,
-    /// as the extra context allows you to provide a better error message.
-    ///
-    /// Sometimes, it is more conevenient to handle it system-wide, though.
-    pub fn ok_or<T, E: Clone>(err: E) -> impl FnMut(In<Option<T>>) -> Result<T, E> {
-        ok_or_else(move || err.clone())
-    }
-
-    /// System adapter that maps [`None`] -> [`Err`], calling a closure to produce each error.
-    ///
-    /// Often, it is better to call `Option::ok_or_else` at the place where the `?` operator is invoked,
-    /// as the extra context allows you to provide a better error message.
-    ///
-    /// Sometimes, it is more convenient to handle it system-wide, though.
-    pub fn ok_or_else<T, E>(mut f: impl FnMut() -> E) -> impl FnMut(In<Option<T>>) -> Result<T, E> {
-        move |In(x)| x.ok_or_else(&mut f)
-    }
-
     /// System adapter that unwraps the `Ok` variant of a [`Result`].
     /// This is useful for fallible systems that should panic in the case of an error.
     ///
@@ -289,10 +264,6 @@ pub mod adapter {
         fn returning<T>() -> T {
             unimplemented!()
         }
-
-        assert_is_system(returning::<Result<String, std::io::Error>>.chain(ok));
-        assert_is_system(returning::<Option<usize>>.chain(ok_or("Oops")));
-        assert_is_system(returning::<Option<usize>>.chain(ok_or_else(|| "Sorry".to_owned())));
 
         assert_is_system(returning::<Result<u32, std::io::Error>>.chain(unwrap));
         assert_is_system(returning::<Option<()>>.chain(ignore));
