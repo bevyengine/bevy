@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::shadows
 
-#import bevy_pbr::mesh_view_view_types as view_types
-#import bevy_pbr::mesh_view_view_bindings as view_bindings
+#import bevy_pbr::mesh_view_types as view_types
+#import bevy_pbr::mesh_view_bindings as view_bindings
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
     let light = view_bindings::point_lights.data[light_id];

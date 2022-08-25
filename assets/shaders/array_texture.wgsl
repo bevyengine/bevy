@@ -10,7 +10,6 @@ var my_array_texture_sampler: sampler;
 @fragment
 fn fragment(
     @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
     mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
     let layer = i32(mesh.world_position.x) & 0x3;
@@ -24,7 +23,7 @@ fn fragment(
     pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
 #endif
 
-    pbr_input.frag_coord = frag_coord;
+    pbr_input.frag_coord = mesh.clip_position;
     pbr_input.world_position = mesh.world_position;
     pbr_input.world_normal = mesh.world_normal;
 

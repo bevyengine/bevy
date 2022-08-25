@@ -14,25 +14,9 @@ struct Vertex {
 #endif
 };
 
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    // have to copy-paste here, we can't currently embed an unlocated struct in the vertex stage output
-    @location(0) world_position: vec4<f32>,
-    @location(1) world_normal: vec3<f32>,
-    #ifdef VERTEX_UVS
-    @location(2) uv: vec2<f32>,
-    #endif
-    #ifdef VERTEX_TANGENTS
-    @location(3) world_tangent: vec4<f32>,
-    #endif
-    #ifdef VERTEX_COLORS
-    @location(4) color: vec4<f32>,
-    #endif    
-}
-
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
-    var out: VertexOutput;
+fn vertex(vertex: Vertex) -> bevy_sprite::mesh2d_vertex_output::MeshVertexOutput {
+    var out: bevy_sprite::mesh2d_vertex_output::MeshVertexOutput;
 #ifdef VERTEX_UVS
     out.uv = vertex.uv;
 #endif

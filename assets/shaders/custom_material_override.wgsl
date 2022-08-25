@@ -30,7 +30,6 @@ override fn bevy_pbr::lighting::point_light (
 fn fragment(
     mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
     @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
 ) -> @location(0) vec4<f32> {
-    return bevy_pbr::fragment::fragment(mesh, is_front, frag_coord);
+    return bevy_pbr::fragment::fragment(mesh, is_front);
 }

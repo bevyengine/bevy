@@ -12,7 +12,6 @@
 fn fragment(
     mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
     @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
@@ -66,7 +65,7 @@ fn fragment(
 #endif
         pbr_input.occlusion = occlusion;
 
-        pbr_input.frag_coord = frag_coord;
+        pbr_input.frag_coord = mesh.clip_position;
         pbr_input.world_position = mesh.world_position;
         pbr_input.world_normal = mesh.world_normal;
 

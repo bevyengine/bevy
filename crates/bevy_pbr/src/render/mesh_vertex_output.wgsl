@@ -1,6 +1,7 @@
 #define_import_path bevy_pbr::mesh_vertex_output
 
 struct MeshVertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
     @location(1) world_normal: vec3<f32>,
     #ifdef VERTEX_UVS

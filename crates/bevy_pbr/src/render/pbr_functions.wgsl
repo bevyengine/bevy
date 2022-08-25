@@ -191,7 +191,7 @@ fn pbr(
         let light = view_bindings::point_lights.data[light_id];
         var shadow: f32 = 1.0;
         if ((mesh_bindings::mesh.flags & mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & view_types::POINT_LIGHT_FLAGS_shadows_ENABLED_BIT) != 0u) {
+                && (light.flags & view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = lighting::point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
@@ -204,7 +204,7 @@ fn pbr(
         let light = view_bindings::point_lights.data[light_id];
         var shadow: f32 = 1.0;
         if ((mesh_bindings::mesh.flags & mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & view_types::POINT_LIGHT_FLAGS_shadows_ENABLED_BIT) != 0u) {
+                && (light.flags & view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = lighting::spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
@@ -216,7 +216,7 @@ fn pbr(
         let light = view_bindings::lights.directional_lights[i];
         var shadow: f32 = 1.0;
         if ((mesh_bindings::mesh.flags & mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & view_types::DIRECTIONAL_LIGHT_FLAGS_shadows_ENABLED_BIT) != 0u) {
+                && (light.flags & view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
         let light_contrib = lighting::directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
