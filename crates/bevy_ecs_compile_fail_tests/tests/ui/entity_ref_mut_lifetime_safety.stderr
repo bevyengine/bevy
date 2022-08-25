@@ -53,8 +53,8 @@ error[E0502]: cannot borrow `e_mut` as mutable because it is also borrowed as im
    |
 53 |         let gotten: &A = e_mut.get::<A>().unwrap();
    |                          ---------------- immutable borrow occurs here
-54 |         e_mut.insert::<B>(B);
-   |         ^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+54 |         e_mut.insert(B);
+   |         ^^^^^^^^^^^^^^^ mutable borrow occurs here
 55 |         assert_eq!(gotten, &A(Box::new(16_usize))); // oops UB
    |         ------------------------------------------ immutable borrow later used here
 
@@ -63,7 +63,7 @@ error[E0499]: cannot borrow `e_mut` as mutable more than once at a time
    |
 60 |         let mut gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
    |                                      -------------------- first mutable borrow occurs here
-61 |         e_mut.insert::<B>(B);
-   |         ^^^^^^^^^^^^^^^^^^^^ second mutable borrow occurs here
+61 |         e_mut.insert(B);
+   |         ^^^^^^^^^^^^^^^ second mutable borrow occurs here
 62 |         assert_eq!(&mut *gotten_mut, &mut A(Box::new(16_usize))); // oops UB
    |                          ---------- first borrow later used here

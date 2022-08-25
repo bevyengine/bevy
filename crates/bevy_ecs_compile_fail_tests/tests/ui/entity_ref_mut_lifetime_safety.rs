@@ -51,14 +51,14 @@ fn main() {
 
     {
         let gotten: &A = e_mut.get::<A>().unwrap();
-        e_mut.insert::<B>(B);
+        e_mut.insert(B);
         assert_eq!(gotten, &A(Box::new(16_usize))); // oops UB
         e_mut.remove::<B>();
     }
 
     {
         let mut gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
-        e_mut.insert::<B>(B);
+        e_mut.insert(B);
         assert_eq!(&mut *gotten_mut, &mut A(Box::new(16_usize))); // oops UB
     }
 }
