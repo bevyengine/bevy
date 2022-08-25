@@ -281,6 +281,13 @@ pub struct PipelineCache {
 }
 
 impl PipelineCache {
+    pub fn count_ready(&self) -> usize {
+        self.pipelines
+            .iter()
+            .filter(|pipeline| matches!(pipeline.state, CachedPipelineState::Ok(_)))
+            .count()
+    }
+
     pub fn new(device: RenderDevice) -> Self {
         Self {
             device,
