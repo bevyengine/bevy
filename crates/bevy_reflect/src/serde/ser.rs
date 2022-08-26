@@ -521,7 +521,7 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
-    "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
+    "type": "bevy_reflect::serde::ser::tests::MyEnum",
     "enum": {
         "variant": "Unit",
     },
@@ -533,7 +533,7 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
-    "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
+    "type": "bevy_reflect::serde::ser::tests::MyEnum",
     "enum": {
         "variant": "NewType",
         "tuple": [
@@ -551,7 +551,7 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let output = ron::ser::to_string_pretty(&serializer, config.clone()).unwrap();
         let expected = r#"{
-    "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
+    "type": "bevy_reflect::serde::ser::tests::MyEnum",
     "enum": {
         "variant": "Tuple",
         "tuple": [
@@ -575,12 +575,12 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
         let expected = r#"{
-    "type": "bevy_reflect::serde::ser::tests::enum_should_serialize::MyEnum",
+    "type": "bevy_reflect::serde::ser::tests::MyEnum",
     "enum": {
         "variant": "Struct",
         "struct": {
             "value": {
-                "type": "alloc::string::String",
+                "type": "String",
                 "value": "I <3 Enums",
             },
         },

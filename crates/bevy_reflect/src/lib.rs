@@ -538,17 +538,17 @@ mod tests {
     fn dynamic_names() {
         let list = Vec::<usize>::new();
         let dyn_list = List::clone_dynamic(&list);
-        assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+        assert_eq!(dyn_list.type_name(), <Vec<usize> as TypeName>::name());
 
         let array = [b'0'; 4];
         let dyn_array = Array::clone_dynamic(&array);
-        assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
+        assert_eq!(dyn_array.type_name(), <[u8; 4] as TypeName>::name());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
         assert_eq!(
             dyn_map.type_name(),
-            std::any::type_name::<HashMap<usize, String>>()
+            <HashMap<usize, String> as TypeName>::name()
         );
 
         let tuple = (0usize, "1".to_string(), 2.0f32);
@@ -556,7 +556,7 @@ mod tests {
         dyn_tuple.insert::<usize>(3);
         assert_eq!(
             dyn_tuple.type_name(),
-            std::any::type_name::<(usize, String, f32, usize)>()
+            <(usize, String, f32, usize) as TypeName>::name()
         );
 
         #[derive(Reflect)]
@@ -565,7 +565,7 @@ mod tests {
         }
         let struct_ = TestStruct { a: 0 };
         let dyn_struct = struct_.clone_dynamic();
-        assert_eq!(dyn_struct.type_name(), std::any::type_name::<TestStruct>());
+        assert_eq!(dyn_struct.type_name(), <TestStruct as TypeName>::name());
 
         #[derive(Reflect)]
         struct TestTupleStruct(usize);
@@ -573,7 +573,7 @@ mod tests {
         let dyn_tuple_struct = tuple_struct.clone_dynamic();
         assert_eq!(
             dyn_tuple_struct.type_name(),
-            std::any::type_name::<TestTupleStruct>()
+            <TestTupleStruct as TypeName>::name()
         );
     }
 
@@ -883,7 +883,7 @@ mod tests {
 
         let reflected: &dyn Reflect = &test;
         let expected = r#"
-bevy_reflect::tests::should_reflect_debug::Test {
+bevy_reflect::tests::Test {
     value: 123,
     list: [
         "A",
@@ -898,10 +898,10 @@ bevy_reflect::tests::should_reflect_debug::Test {
     map: {
         123: 1.23,
     },
-    a_struct: bevy_reflect::tests::should_reflect_debug::SomeStruct {
+    a_struct: bevy_reflect::tests::SomeStruct {
         foo: "A Struct!",
     },
-    a_tuple_struct: bevy_reflect::tests::should_reflect_debug::SomeTupleStruct(
+    a_tuple_struct: bevy_reflect::tests::SomeTupleStruct(
         "A Tuple Struct!",
     ),
     enum_unit: A,
@@ -933,10 +933,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         }
         let goo = Goo { _value: 42u32 };
         let name = goo.type_name();
-        assert_eq!(
-            name.as_ref(),
-            "bevy_reflect::tests::Goo<bevy_reflect::impls::std::u32>"
-        );
+        assert_eq!(name.as_ref(), "bevy_reflect::tests::Goo<u32>");
     }
 
     #[test]
@@ -957,7 +954,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         }
         let goo = Goo { _value: 42u32 };
         let name = goo.type_name();
-        assert_eq!(name.as_ref(), "MyType<bevy_reflect::impls::std::u32>");
+        assert_eq!(name.as_ref(), "MyType<u32>");
     }
 
     #[cfg(feature = "glam")]
