@@ -2,7 +2,6 @@
 
 use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -31,6 +30,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
+/// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
 /// fn my_system(mut resource: ResMut<MyResource>) {
@@ -165,9 +165,9 @@ pub(crate) struct Ticks<'a> {
     pub(crate) change_tick: u32,
 }
 
-/// Unique mutable borrow of a resource.
+/// Unique mutable borrow of a [`Resource`].
 ///
-/// See the [`World`](crate::world::World) documentation to see the usage of a resource.
+/// See the [`Resource`] documentation for usage.
 ///
 /// If you need a shared borrow, use [`Res`](crate::system::Res) instead.
 ///
@@ -229,7 +229,7 @@ impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
 }
 
 /// Unique mutable borrow of an entity's component
-pub struct Mut<'a, T> {
+pub struct Mut<'a, T: ?Sized> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
 }
@@ -237,18 +237,6 @@ pub struct Mut<'a, T> {
 change_detection_impl!(Mut<'a, T>, T,);
 impl_into_inner!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
-
-/// Unique mutable borrow of a reflected component or resource
-#[cfg(feature = "bevy_reflect")]
-pub struct ReflectMut<'a> {
-    pub(crate) value: &'a mut dyn Reflect,
-    pub(crate) ticks: Ticks<'a>,
-}
-
-#[cfg(feature = "bevy_reflect")]
-change_detection_impl!(ReflectMut<'a>, dyn Reflect,);
-#[cfg(feature = "bevy_reflect")]
-impl_into_inner!(ReflectMut<'a>, dyn Reflect,);
 
 /// Unique mutable borrow of resources or an entity's component.
 ///
@@ -306,6 +294,8 @@ impl std::fmt::Debug for MutUntyped<'_> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs_macros::Resource;
+
     use crate::{
         self as bevy_ecs,
         change_detection::{
@@ -320,7 +310,8 @@ mod tests {
     #[derive(Component)]
     struct C;
 
-    struct R; // Resource
+    #[derive(Resource)]
+    struct R;
 
     #[test]
     fn change_expiration() {

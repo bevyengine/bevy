@@ -8,8 +8,8 @@ use crate::{
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::event::EventReader;
 use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_utils::{default, tracing::error, Entry, HashMap, HashSet};
 use naga::valid::Capabilities;
 use std::{hash::Hash, mem, ops::Deref, sync::Arc};
@@ -71,7 +71,7 @@ impl CachedPipelineState {
 }
 
 #[derive(Default)]
-pub struct ShaderData {
+struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
     processed_shaders: HashMap<Vec<String>, Arc<ShaderModule>>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
@@ -347,6 +347,7 @@ impl LayoutCache {
     }
 }
 
+#[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: LayoutCache,
     shader_cache: ShaderCache,

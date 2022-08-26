@@ -24,12 +24,11 @@ fn fragment(
     mesh: bevy_sprite::mesh2d_vertex_output::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.color;
-    if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
 #ifdef VERTEX_COLORS
-        output_color = output_color * textureSample(texture, texture_sampler, mesh.uv) * mesh.color;
-#else
-        output_color = output_color * textureSample(texture, texture_sampler, mesh.uv);
+    output_color = output_color * mesh.color;
 #endif
+    if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
+        output_color = output_color * textureSample(texture, texture_sampler, mesh.uv);
     }
     return output_color;
 }

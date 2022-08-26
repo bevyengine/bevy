@@ -214,6 +214,18 @@ impl Size {
     pub fn new(width: Val, height: Val) -> Self {
         Size { width, height }
     }
+
+    /// Creates a Size where both values are [`Val::Auto`].
+    pub const AUTO: Size = Size {
+        width: Val::Auto,
+        height: Val::Auto,
+    };
+
+    /// Creates a Size where both values are [`Val::Undefined`].
+    pub const UNDEFINED: Size = Size {
+        width: Val::Undefined,
+        height: Val::Undefined,
+    };
 }
 
 impl Add<Vec2> for Size {

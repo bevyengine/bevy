@@ -6,20 +6,20 @@ use thiserror::Error;
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
-    #[error("expected an identifier at the given index")]
+    #[error("expected an identifier at index {index}")]
     ExpectedIdent { index: usize },
-    #[error("the current struct doesn't have a field with the given name")]
+    #[error("the current struct doesn't have a field with the name `{field}`")]
     InvalidField { index: usize, field: &'a str },
-    #[error("the current tuple struct doesn't have a field with the given index")]
+    #[error("the current tuple struct doesn't have a field with the index {tuple_struct_index}")]
     InvalidTupleStructIndex {
         index: usize,
         tuple_struct_index: usize,
     },
-    #[error("the current list doesn't have a value at the given index")]
+    #[error("the current list doesn't have a value at the index {list_index}")]
     InvalidListIndex { index: usize, list_index: usize },
-    #[error("encountered an unexpected token")]
+    #[error("encountered an unexpected token `{token}`")]
     UnexpectedToken { index: usize, token: &'a str },
-    #[error("expected a token, but it wasn't there.")]
+    #[error("expected token `{token}`, but it wasn't there.")]
     ExpectedToken { index: usize, token: &'a str },
     #[error("expected a struct, but found a different reflect value")]
     ExpectedStruct { index: usize },

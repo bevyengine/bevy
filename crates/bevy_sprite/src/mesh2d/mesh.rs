@@ -153,7 +153,7 @@ pub fn extract_mesh2d(
     commands.insert_or_spawn_batch(values);
 }
 
-#[derive(Clone)]
+#[derive(Resource, Clone)]
 pub struct Mesh2dPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -384,6 +384,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
     }
 }
 
+#[derive(Resource)]
 pub struct Mesh2dBindGroup {
     pub value: BindGroup,
 }

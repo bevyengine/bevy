@@ -21,12 +21,12 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera>()
+            .register_type::<Viewport>()
             .register_type::<Visibility>()
             .register_type::<ComputedVisibility>()
             .register_type::<VisibleEntities>()
             .register_type::<WindowOrigin>()
             .register_type::<ScalingMode>()
-            .register_type::<DepthCalculation>()
             .register_type::<Aabb>()
             .register_type::<CameraRenderGraph>()
             .add_plugin(CameraProjectionPlugin::<Projection>::default())
