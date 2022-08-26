@@ -10,7 +10,7 @@
             "value": (0.0, 0.0, 0.0),
           },
           "rotation": {
-            "type": "glam::f32::scalar::quat::Quat",
+            "type": "glam::f32::sse2::quat::Quat",
             "value": (0.0, 0.0, 0.0, 1.0),
           },
           "scale": {
