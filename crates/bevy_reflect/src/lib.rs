@@ -10,6 +10,7 @@ mod struct_trait;
 mod tuple;
 mod tuple_struct;
 mod type_info;
+mod type_name;
 mod type_registry;
 mod type_uuid;
 mod impls {
@@ -36,7 +37,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
-        ReflectSerialize, Struct, TupleStruct,
+        ReflectSerialize, ReflectTypeName, Struct, TupleStruct, TypeName,
     };
 }
 
@@ -52,6 +53,7 @@ pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
 pub use type_info::*;
+pub use type_name::*;
 pub use type_registry::*;
 pub use type_uuid::*;
 
@@ -628,7 +630,7 @@ mod tests {
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T: Reflect> {
+        struct MyGenericStruct<T: Reflect + TypeName> {
             foo: T,
             bar: usize,
         }
@@ -913,6 +915,49 @@ bevy_reflect::tests::should_reflect_debug::Test {
 }"#;
 
         assert_eq!(expected, format!("\n{:#?}", reflected));
+    }
+
+    #[test]
+    fn reflect_type_name() {
+        use bevy_reflect::ReflectTypeName;
+
+        #[derive(TypeName)]
+        struct Foo;
+        let foo = Foo;
+        let name = foo.type_name_();
+        assert_eq!(name.as_ref(), "bevy_reflect::tests::Foo");
+
+        #[derive(TypeName)]
+        struct Goo<T: TypeName> {
+            _value: T,
+        }
+        let goo = Goo { _value: 42u32 };
+        let name = goo.type_name_();
+        assert_eq!(
+            name.as_ref(),
+            "bevy_reflect::tests::Goo<bevy_reflect::impls::std::u32>"
+        );
+    }
+
+    #[test]
+    fn reflect_custom_type_name() {
+        use bevy_reflect::ReflectTypeName;
+
+        #[derive(TypeName)]
+        #[type_name("Banane")]
+        struct Foo;
+        let foo = Foo;
+        let name = foo.type_name_();
+        assert_eq!(name.as_ref(), "Banane");
+
+        #[derive(TypeName)]
+        #[type_name("MyType")]
+        struct Goo<T: TypeName> {
+            _value: T,
+        }
+        let goo = Goo { _value: 42u32 };
+        let name = goo.type_name_();
+        assert_eq!(name.as_ref(), "MyType<bevy_reflect::impls::std::u32>");
     }
 
     #[cfg(feature = "glam")]

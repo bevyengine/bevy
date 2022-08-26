@@ -420,12 +420,13 @@ macro_rules! load_internal_asset {
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
+    use bevy_reflect::TypeName;
 
     use crate::{AddAsset, Assets};
 
     #[test]
     fn asset_overwriting() {
-        #[derive(bevy_reflect::TypeUuid)]
+        #[derive(bevy_reflect::TypeUuid, TypeName)]
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();

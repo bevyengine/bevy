@@ -1,5 +1,8 @@
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
+use crate::{
+    self as bevy_reflect, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo,
+    TypeName, Typed,
+};
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
 use std::{
@@ -230,7 +233,7 @@ impl GetField for dyn Struct {
 }
 
 /// A struct type which allows fields to be added at runtime.
-#[derive(Default)]
+#[derive(Default, TypeName)]
 pub struct DynamicStruct {
     name: String,
     fields: Vec<Box<dyn Reflect>>,

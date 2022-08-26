@@ -13,7 +13,7 @@ fn main() {
 }
 
 #[derive(Reflect)]
-struct MyType<T: Reflect> {
+struct MyType<T: Reflect + TypeName> {
     value: T,
 }
 

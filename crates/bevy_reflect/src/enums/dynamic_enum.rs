@@ -1,7 +1,8 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum,
-    Reflect, ReflectMut, ReflectRef, Struct, Tuple, TypeInfo, Typed, VariantFieldIter, VariantType,
+    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct,
+    DynamicTuple, Enum, Reflect, ReflectMut, ReflectRef, Struct, Tuple, TypeInfo, TypeName, Typed,
+    VariantFieldIter, VariantType,
 };
 use std::any::Any;
 use std::fmt::Formatter;
@@ -72,7 +73,7 @@ impl From<()> for DynamicVariant {
 /// // Tada!
 /// assert_eq!(None, value);
 /// ```
-#[derive(Default)]
+#[derive(Default, TypeName)]
 pub struct DynamicEnum {
     name: String,
     variant_name: String,

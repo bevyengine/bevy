@@ -1,11 +1,17 @@
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use quote::quote;
+use syn::token::Comma;
 
-use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
+use crate::{
+    utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
+};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Type, Variant};
+use syn::{
+    Data, DeriveInput, Field, Fields, Generics, Ident, Lit, Meta, NestedMeta, Path, Token, Type,
+    Variant,
+};
 
 pub(crate) enum ReflectDerive<'a> {
     Struct(ReflectStruct<'a>),
@@ -35,6 +41,8 @@ pub(crate) struct ReflectMeta<'a> {
     type_name: &'a Ident,
     /// The generics defined on this type.
     generics: &'a Generics,
+    /// Override the default type name for `ReflectTypeName`.
+    reflected_type_name: Option<String>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
 }
@@ -110,6 +118,8 @@ impl<'a> ReflectDerive<'a> {
         // Should indicate whether `#[reflect_value]` was used
         let mut force_reflect_value = false;
 
+        let mut reflected_type_name = None;
+
         for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
             let meta_list = if let Meta::List(meta_list) = attribute {
                 meta_list
@@ -123,11 +133,14 @@ impl<'a> ReflectDerive<'a> {
                 } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
                     force_reflect_value = true;
                     traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                } else if ident == TYPE_NAME_ATTRIBUTE_NAME {
+                    let type_name = get_type_name_attribute(&meta_list.nested).ok_or_else(||syn::Error::new(meta_list.span(), format!("The attribute `{TYPE_NAME_ATTRIBUTE_NAME}` require a single literal string. \n\n #[{TYPE_NAME_ATTRIBUTE_NAME}(\"my_lib::foo\")]")) )?;
+                    reflected_type_name = Some(type_name);
                 }
             }
         }
 
-        let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
+        let meta = ReflectMeta::new(&input.ident, &input.generics, traits, reflected_type_name);
 
         if force_reflect_value {
             return Ok(Self::Value(meta));
@@ -211,11 +224,17 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new(type_name: &'a Ident, generics: &'a Generics, traits: ReflectTraits) -> Self {
+    pub fn new(
+        type_name: &'a Ident,
+        generics: &'a Generics,
+        traits: ReflectTraits,
+        reflected_type_name: Option<String>,
+    ) -> Self {
         Self {
             traits,
             type_name,
             generics,
+            reflected_type_name,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
         }
     }
@@ -233,6 +252,11 @@ impl<'a> ReflectMeta<'a> {
     /// The generics associated with this struct.
     pub fn generics(&self) -> &'a Generics {
         self.generics
+    }
+
+    /// Override the default type name for ReflectTypeName.
+    pub fn reflected_type_name(&self) -> Option<&str> {
+        self.reflected_type_name.as_ref().map(String::as_str)
     }
 
     /// The cached `bevy_reflect` path.
@@ -309,4 +333,14 @@ impl<'a> ReflectEnum<'a> {
     pub fn variants(&self) -> &[EnumVariant<'a>] {
         &self.variants
     }
+}
+
+/// Extracts the type name attribute or returns [`None`].
+fn get_type_name_attribute(nested_metas: &Punctuated<NestedMeta, Comma>) -> Option<String> {
+    (nested_metas.len() == 1)
+        .then(|| match nested_metas.first().unwrap() {
+            NestedMeta::Lit(Lit::Str(s)) => Some(s.value()),
+            _ => None,
+        })
+        .flatten()
 }

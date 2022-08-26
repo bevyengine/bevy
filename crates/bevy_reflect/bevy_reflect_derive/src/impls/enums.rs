@@ -1,6 +1,6 @@
 use crate::derive_data::{EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
-use crate::impls::impl_typed;
+use crate::impls::{impl_type_name, impl_typed};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -64,6 +64,11 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         bevy_reflect_path,
     );
 
+    let type_name_impl =
+        impl_type_name(enum_name, reflect_enum.meta().generics(),
+        reflect_enum.meta().reflected_type_name(),
+        bevy_reflect_path);
+
     let get_type_registration_impl = reflect_enum.meta().get_type_registration();
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().generics().split_for_impl();
@@ -72,6 +77,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         #get_type_registration_impl
 
         #typed_impl
+
+        #type_name_impl
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_name #ty_generics #where_clause {
             fn field(&self, #ref_name: &str) -> Option<&dyn #bevy_reflect_path::Reflect> {

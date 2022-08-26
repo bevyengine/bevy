@@ -23,6 +23,7 @@ mod impls;
 mod reflect_value;
 mod registration;
 mod trait_reflection;
+mod type_name;
 mod type_uuid;
 mod utility;
 
@@ -32,11 +33,13 @@ use quote::quote;
 use reflect_value::ReflectValueDef;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
+use type_name::TypeNameDef;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
+pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 
-#[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module))]
+#[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module, type_name))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -53,6 +56,41 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         ReflectDerive::Enum(meta) => impls::impl_enum(&meta),
         ReflectDerive::Value(meta) => impls::impl_value(&meta),
     }
+}
+
+#[proc_macro_derive(TypeName, attributes(module, type_name))]
+pub fn derive_type_name(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let derive_data = match ReflectDerive::from_input(&ast) {
+        Ok(data) => data,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    let s = match derive_data {
+        ReflectDerive::TupleStruct(struct_data)
+        | ReflectDerive::Struct(struct_data)
+        | ReflectDerive::UnitStruct(struct_data) => impls::impl_type_name(
+            struct_data.meta().type_name(),
+            struct_data.meta().generics(),
+            struct_data.meta().reflected_type_name(),
+            struct_data.meta().bevy_reflect_path(),
+        ),
+        ReflectDerive::Enum(meta) => impls::impl_type_name(
+            meta.meta().type_name(),
+            meta.meta().generics(),
+            meta.meta().reflected_type_name(),
+            meta.meta().bevy_reflect_path(),
+        ),
+        ReflectDerive::Value(meta) => impls::impl_type_name(
+            meta.type_name(),
+            meta.generics(),
+            meta.reflected_type_name(),
+            meta.bevy_reflect_path(),
+        ),
+    };
+
+    TokenStream::from(s)
 }
 
 /// Derives the `FromReflect` trait.
@@ -99,6 +137,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
+        None, // TODO
     ))
 }
 
@@ -175,5 +214,23 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
+        None, // TODO
+    ))
+}
+
+#[proc_macro]
+pub fn impl_type_name(input: TokenStream) -> TokenStream {
+    let def = parse_macro_input!(input as TypeNameDef);
+    let meta = ReflectMeta::new(
+        &def.type_name,
+        &def.generics,
+        Default::default(),
+        None, // TODO
+    );
+    TokenStream::from(impls::impl_type_name(
+        meta.type_name(),
+        meta.generics(),
+        meta.reflected_type_name(),
+        meta.bevy_reflect_path(),
     ))
 }

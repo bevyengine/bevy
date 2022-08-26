@@ -23,7 +23,7 @@ use std::any::{Any, TypeId};
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, TypeInfo, ValueInfo};
+/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, TypeInfo, TypeName, ValueInfo};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -46,6 +46,9 @@ use std::any::{Any, TypeId};
 ///   }
 /// }
 ///
+/// # impl TypeName for MyStruct {
+/// #   fn name() -> std::borrow::Cow<'static, str> { todo!() }
+/// # }
 /// #
 /// # impl Reflect for MyStruct {
 /// #   fn type_name(&self) -> &str { todo!() }

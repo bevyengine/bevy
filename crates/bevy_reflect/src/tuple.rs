@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectRef, TypeInfo,
-    TypeRegistration, Typed, UnnamedField,
+    self as bevy_reflect, DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut,
+    ReflectRef, TypeInfo, TypeName, TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -182,7 +182,7 @@ impl TupleInfo {
 }
 
 /// A tuple which allows fields to be added at runtime.
-#[derive(Default)]
+#[derive(Default, TypeName)]
 pub struct DynamicTuple {
     name: String,
     fields: Vec<Box<dyn Reflect>>,
@@ -420,7 +420,7 @@ pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> st
 
 macro_rules! impl_reflect_tuple {
     {$($index:tt : $name:tt),*} => {
-        impl<$($name: Reflect),*> Tuple for ($($name,)*) {
+        impl<$($name: Reflect + TypeName),*> Tuple for ($($name,)*) {
             #[inline]
             fn field(&self, index: usize) -> Option<&dyn Reflect> {
                 match index {
@@ -465,7 +465,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect + TypeName),*> Reflect for ($($name,)*) {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
             }
@@ -520,7 +520,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Reflect),*> Typed for ($($name,)*) {
+        impl <$($name: Reflect + TypeName),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
                 static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
@@ -533,13 +533,13 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + Typed),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + TypeName + Typed),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 TypeRegistration::of::<($($name,)*)>()
             }
         }
 
-        impl<$($name: FromReflect),*> FromReflect for ($($name,)*)
+        impl<$($name: FromReflect + TypeName),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
                 if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {

@@ -16,7 +16,7 @@ use std::any::{Any, TypeId};
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, Typed, TypeInfo};
+/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, Typed, TypeInfo, TypeName};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -33,6 +33,9 @@ use std::any::{Any, TypeId};
 ///     })
 ///   }
 /// }
+/// # impl TypeName for Foo {
+/// #   fn name() -> std::borrow::Cow<'static, str> { todo!() }
+/// # }
 /// #
 /// # impl Reflect for Foo {
 /// #   fn type_name(&self) -> &str { todo!() }
@@ -79,7 +82,7 @@ impl NonGenericTypeInfoCell {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
+/// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField, TypeName};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T: Reflect>(T);
@@ -94,6 +97,10 @@ impl NonGenericTypeInfoCell {
 ///     })
 ///   }
 /// }
+///
+/// # impl<T: Reflect> TypeName for Foo<T> {
+/// #   fn name() -> std::borrow::Cow<'static, str> { todo!() }
+/// # }
 /// #
 /// # impl<T: Reflect> Reflect for Foo<T> {
 /// #   fn type_name(&self) -> &str { todo!() }

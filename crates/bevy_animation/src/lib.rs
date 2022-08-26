@@ -17,7 +17,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{Reflect, TypeName, TypeUuid};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
@@ -60,7 +60,7 @@ pub struct EntityPath {
 }
 
 /// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
-#[derive(Clone, TypeUuid, Debug, Default)]
+#[derive(Clone, TypeUuid, Debug, Default, TypeName)]
 #[uuid = "d81b7179-0448-4eb0-89fe-c067222725bf"]
 pub struct AnimationClip {
     curves: HashMap<EntityPath, Vec<VariableCurve>>,

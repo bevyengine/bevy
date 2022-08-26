@@ -1,5 +1,8 @@
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed, UnnamedField};
+use crate::{
+    self as bevy_reflect, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, TypeName, Typed,
+    UnnamedField,
+};
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
@@ -187,7 +190,7 @@ impl GetTupleStructField for dyn TupleStruct {
 }
 
 /// A tuple struct which allows fields to be added at runtime.
-#[derive(Default)]
+#[derive(Default, TypeName)]
 pub struct DynamicTupleStruct {
     name: String,
     fields: Vec<Box<dyn Reflect>>,

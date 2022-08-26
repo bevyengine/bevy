@@ -1,4 +1,4 @@
-use crate::impls::impl_typed;
+use crate::impls::{impl_type_name, impl_typed};
 use crate::ReflectStruct;
 use proc_macro::TokenStream;
 use quote::quote;
@@ -64,6 +64,13 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         bevy_reflect_path,
     );
 
+    let type_name_impl = impl_type_name(
+        struct_name,
+        reflect_struct.meta().generics(),
+        reflect_struct.meta().reflected_type_name(),
+        bevy_reflect_path,
+    );
+
     let get_type_registration_impl = reflect_struct.meta().get_type_registration();
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
@@ -72,6 +79,8 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         #get_type_registration_impl
 
         #typed_impl
+
+        #type_name_impl
 
         impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_clause {
             fn field(&self, name: &str) -> Option<&dyn #bevy_reflect_path::Reflect> {

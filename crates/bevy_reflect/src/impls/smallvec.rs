@@ -1,13 +1,17 @@
+use bevy_reflect_derive::impl_type_name;
 use smallvec::SmallVec;
 use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    self as bevy_reflect, Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List,
+    ListInfo, Reflect, ReflectFromPtr, ReflectMut, ReflectRef, TypeInfo, TypeName,
+    TypeRegistration, Typed,
 };
 
-impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
+impl_type_name!(SmallVec<T: smallvec::Array + TypeName>);
+
+impl<T: smallvec::Array + TypeName + Send + Sync + 'static> Array for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -39,7 +43,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
+impl<T: smallvec::Array + TypeName + Send + Sync + 'static> List for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -56,7 +60,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
+impl<T: smallvec::Array + TypeName + Send + Sync + 'static> Reflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -114,7 +118,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> Typed for SmallVec<T>
+impl<T: smallvec::Array + TypeName + Send + Sync + 'static> Typed for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -124,7 +128,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> FromReflect for SmallVec<T>
+impl<T: smallvec::Array + TypeName + Send + Sync + 'static> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -141,7 +145,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> GetTypeRegistration for SmallVec<T>
+impl<T: smallvec::Array + TypeName + Send + Sync + 'static> GetTypeRegistration for SmallVec<T>
 where
     T::Item: FromReflect,
 {
