@@ -27,14 +27,16 @@ macro_rules! impl_type_name_tuple {
             fn name() -> Cow<'static, str> {
                 $(let $t = <$t as TypeName>::name();)*
                 let s = format!(
-                    concat!($(impl_type_name_tuple!(@bracket $t),)*),
+                    concat!("(", impl_type_name_tuple!(@bracket $($t),*), ")"),
                     $($t,)*
                 );
                 Cow::Owned(s)
             }
         }
     };
-    (@bracket $t:tt) => {"{}"}
+    (@bracket $t:tt, $($rest:tt),*) => {concat!("{}, ", impl_type_name_tuple!(@bracket $($rest),*))};
+    (@bracket $t:tt) => {"{}"};
+    (@bracket) => {""};
 }
 
 impl_type_name_tuple!();
@@ -50,3 +52,26 @@ impl_type_name_tuple!(A, B, C, D, E, F, G, H, I);
 impl_type_name_tuple!(A, B, C, D, E, F, G, H, I, J);
 impl_type_name_tuple!(A, B, C, D, E, F, G, H, I, J, K);
 impl_type_name_tuple!(A, B, C, D, E, F, G, H, I, J, K, L);
+
+#[cfg(test)]
+mod tests {
+    use crate::{self as bevy_reflect, TypeName};
+
+    #[test]
+    fn tuple_name() {
+        #[derive(TypeName)]
+        #[type_name("Foo")]
+        struct Foo;
+
+        #[derive(TypeName)]
+        #[type_name("Goo")]
+        struct Goo;
+
+        #[derive(TypeName)]
+        #[type_name("Hoo")]
+        struct Hoo;
+
+        let s = <(Foo, Goo, Hoo) as TypeName>::name();
+        assert_eq!(s, "(Foo, Goo, Hoo)");
+    }
+}
