@@ -137,7 +137,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
-        None, // TODO
+        Some(def.type_name.to_string()),
     ))
 }
 
@@ -225,7 +225,7 @@ pub fn impl_type_name(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         Default::default(),
-        None, // TODO
+        Some(def.type_name.to_string()),
     );
     TokenStream::from(impls::impl_type_name(
         meta.type_name(),
