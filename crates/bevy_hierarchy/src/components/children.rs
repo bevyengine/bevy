@@ -13,7 +13,7 @@ use std::ops::Deref;
 /// Contains references to the child entities of this entity
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component, MapEntities)]
-#[component(vis = "crate::Vis")]
+#[component(write_marker = "crate::Vis")]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {

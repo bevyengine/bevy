@@ -173,11 +173,11 @@ where
 /// struct Marker;
 ///
 /// #[derive(Component)]
-/// #[component(vis = "Marker")]
+/// #[component(write_marker = "Marker")]
 /// pub struct Chassis;
 ///
 /// #[derive(Component)]
-/// #[component(vis = "Marker")]
+/// #[component(write_marker = "Marker")]
 /// pub struct Axle {
 ///     // The fields can be public, since no one outside this module can get mutable access
 ///     // once this component has been inserted into the world.
@@ -185,7 +185,7 @@ where
 /// }
 ///
 /// #[derive(Component)]
-/// #[component(vis = "Marker")]
+/// #[component(write_marker = "Marker")]
 /// pub struct Tires {
 ///     pub width: f64,
 /// }

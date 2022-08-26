@@ -55,7 +55,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 pub const COMPONENT: Symbol = Symbol("component");
 pub const STORAGE: Symbol = Symbol("storage");
-pub const VISIBILITY: Symbol = Symbol("vis");
+pub const VISIBILITY: Symbol = Symbol("write_marker");
 
 struct Attrs {
     marker: Option<TokenStream2>,
