@@ -2,6 +2,7 @@
 
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_bindings as mesh_bindings
+#import bevy_pbr::mesh_types
 
 fn mesh_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     return model * vertex_position;
@@ -41,7 +42,7 @@ fn sign_determinant_model_3x3() -> f32 {
     // bool(u32) is false if 0u else true
     // f32(bool) is 1.0 if true else 0.0
     // * 2.0 - 1.0 remaps 0.0 or 1.0 to -1.0 or 1.0 respectively
-    return f32(bool(mesh.flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0;
+    return f32(bool(mesh_bindings::mesh.flags & bevy_pbr::mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0;
 }
 
 fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>) -> vec4<f32> {

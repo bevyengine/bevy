@@ -1,10 +1,10 @@
 use crate::PBR_OVERRIDE_HANDLE;
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_render::render_resource::{Shader, Source};
 use bevy_utils::tracing::warn;
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct PbrShaderFunctionOverrides {
     pub overrides: Vec<Handle<Shader>>,
 }

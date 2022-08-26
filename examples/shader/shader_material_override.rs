@@ -4,14 +4,12 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        render_asset::RenderAsset,
         render_resource::{
             AsBindGroup, AsBindGroupError, BindGroupLayout, PreparedBindGroup, ShaderRef,
         },
         renderer::RenderDevice,
         texture::FallbackImage,
     },
-    utils::HashMap,
 };
 
 fn main() {
@@ -105,7 +103,7 @@ impl AsBindGroup for CustomMaterial {
         &self,
         a: &BindGroupLayout,
         b: &RenderDevice,
-        c: &HashMap<Handle<Image>, <Image as RenderAsset>::PreparedAsset>,
+        c: &bevy::render::render_asset::RenderAssets<bevy::prelude::Image>,
         d: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self>, AsBindGroupError> {
         let inner_prepared = self.inner.as_bind_group(a, b, c, d)?;
