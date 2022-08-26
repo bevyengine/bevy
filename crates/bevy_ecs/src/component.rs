@@ -229,6 +229,7 @@ where
     T: WriteComponent<Marker>,
 {
     // FIXME: Derive this when we can do #[bundle(ignore)].
+    // https://github.com/bevyengine/bevy/pull/5628
     val: Unlocked<T>,
     _marker: PhantomData<fn() -> Marker>,
 }
