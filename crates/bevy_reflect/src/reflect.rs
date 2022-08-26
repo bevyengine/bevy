@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
     tuple_struct_debug, Array, Enum, List, Map, ReflectTypeName, Struct, Tuple, TupleStruct,
-    TypeInfo, Typed, ValueInfo,
+    TypeInfo, TypeName, Typed, ValueInfo,
 };
 use std::{
     any::{Any, TypeId},
@@ -236,11 +236,8 @@ impl dyn Reflect {
     ///
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
-    pub fn represents<T: Reflect>(&self) -> bool {
-        // FIXME
-        // self.type_name() == any::type_name::<T>()
-
-        todo!()
+    pub fn represents<T: Reflect + TypeName>(&self) -> bool {
+        self.type_name() == T::name()
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`
