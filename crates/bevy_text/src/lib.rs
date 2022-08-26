@@ -41,7 +41,7 @@ pub struct TextPlugin;
 /// `TextPlugin` settings
 #[derive(Resource)]
 pub struct TextSettings {
-    /// Number of font atlases supported in a FontAtlasSet
+    /// Maximum number of font atlases supported in a FontAtlasSet
     pub max_font_atlases: usize,
     /// Allows font size to be set dynamically exceeding the amount set in max_font_atlases.
     /// Note each font size has to be generated which can have a strong performance impact.
@@ -65,13 +65,12 @@ impl Plugin for TextPlugin {
             .register_type::<VerticalAlign>()
             .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
+            .init_resource::<TextSettings>()
             .insert_resource(DefaultTextPipeline::default())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_text2d_layout.after(ModifiesWindows),
             );
-
-        let _ = app.world.get_resource_or_insert_with(TextSettings::default);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(
