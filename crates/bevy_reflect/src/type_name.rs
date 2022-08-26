@@ -8,14 +8,12 @@ pub trait TypeName {
 /// A object-safe version of [`TypeName`].
 /// Automatically implemented via blanket implementation.
 pub trait ReflectTypeName {
-    // FIXME: named with a trailling underscore to avoid conflict
-    // with Reflect::type_name until it's replaced by this method.
-    fn type_name_(&self) -> Cow<'static, str>;
+    fn type_name(&self) -> Cow<str>;
 }
 
 impl<T: TypeName> ReflectTypeName for T {
     #[inline]
-    fn type_name_(&self) -> Cow<'static, str> {
+    fn type_name(&self) -> Cow<str> {
         Self::name()
     }
 }

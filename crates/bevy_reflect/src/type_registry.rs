@@ -452,7 +452,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 ///
 /// # Example
 /// ```rust
-/// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
+/// use bevy_reflect::{TypeRegistry, Reflect, ReflectTypeName, ReflectFromPtr};
 /// use bevy_ptr::Ptr;
 /// use std::ptr::NonNull;
 ///
@@ -524,7 +524,7 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 mod test {
     use std::ptr::NonNull;
 
-    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
+    use crate::{GetTypeRegistration, ReflectFromPtr, ReflectTypeName, TypeRegistration};
     use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
 

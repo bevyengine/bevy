@@ -924,7 +924,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         #[derive(TypeName)]
         struct Foo;
         let foo = Foo;
-        let name = foo.type_name_();
+        let name = foo.type_name();
         assert_eq!(name.as_ref(), "bevy_reflect::tests::Foo");
 
         #[derive(TypeName)]
@@ -932,7 +932,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
             _value: T,
         }
         let goo = Goo { _value: 42u32 };
-        let name = goo.type_name_();
+        let name = goo.type_name();
         assert_eq!(
             name.as_ref(),
             "bevy_reflect::tests::Goo<bevy_reflect::impls::std::u32>"
@@ -947,7 +947,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         #[type_name("Banane")]
         struct Foo;
         let foo = Foo;
-        let name = foo.type_name_();
+        let name = foo.type_name();
         assert_eq!(name.as_ref(), "Banane");
 
         #[derive(TypeName)]
@@ -956,7 +956,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
             _value: T,
         }
         let goo = Goo { _value: 42u32 };
-        let name = goo.type_name_();
+        let name = goo.type_name();
         assert_eq!(name.as_ref(), "MyType<bevy_reflect::impls::std::u32>");
     }
 

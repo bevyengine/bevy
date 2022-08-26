@@ -1,7 +1,6 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo,
-    TypeName, Typed,
+    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, ReflectTypeName, TypeInfo, Typed,
 };
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
@@ -22,7 +21,7 @@ use std::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Struct};
+/// use bevy_reflect::{Reflect, Struct, ReflectTypeName};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -186,7 +185,7 @@ impl<'a> ExactSizeIterator for FieldIter<'a> {}
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{GetField, Reflect};
+/// use bevy_reflect::{GetField, Reflect, ReflectTypeName};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -233,7 +232,7 @@ impl GetField for dyn Struct {
 }
 
 /// A struct type which allows fields to be added at runtime.
-#[derive(Default, TypeName)]
+#[derive(Default)]
 pub struct DynamicStruct {
     name: String,
     fields: Vec<Box<dyn Reflect>>,
@@ -283,6 +282,12 @@ impl DynamicStruct {
     /// Gets the index of the field with the given name.
     pub fn index_of(&self, name: &str) -> Option<usize> {
         self.field_indices.get(name).copied()
+    }
+}
+
+impl ReflectTypeName for DynamicStruct {
+    fn type_name(&self) -> std::borrow::Cow<str> {
+        self.name.as_str().into()
     }
 }
 
@@ -346,11 +351,6 @@ impl Struct for DynamicStruct {
 }
 
 impl Reflect for DynamicStruct {
-    #[inline]
-    fn type_name(&self) -> &str {
-        &self.name
-    }
-
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
@@ -478,7 +478,7 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::Reflect;
+/// use bevy_reflect::{Reflect, ReflectTypeName};
 /// #[derive(Reflect)]
 /// struct MyStruct {
 ///   foo: usize
@@ -495,7 +495,7 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
 /// ```
 #[inline]
 pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let mut debug = f.debug_struct(dyn_struct.type_name());
+    let mut debug = f.debug_struct(dyn_struct.type_name().as_ref());
     for field_index in 0..dyn_struct.field_len() {
         let field = dyn_struct.field_at(field_index).unwrap();
         debug.field(

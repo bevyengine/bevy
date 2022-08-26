@@ -64,10 +64,6 @@ impl<T: smallvec::Array + TypeName + Send + Sync + 'static> Reflect for SmallVec
 where
     T::Item: FromReflect,
 {
-    fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
-    }
-
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }

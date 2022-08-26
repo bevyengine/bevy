@@ -4,7 +4,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectTypeName};
 use std::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.

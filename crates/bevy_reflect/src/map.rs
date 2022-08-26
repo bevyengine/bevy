@@ -5,9 +5,7 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{
-    self as bevy_reflect, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, TypeName, Typed,
-};
+use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, ReflectTypeName, TypeInfo, Typed};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -137,7 +135,7 @@ impl MapInfo {
 const HASH_ERROR: &str = "the given key does not support hashing";
 
 /// An ordered mapping between reflected values.
-#[derive(Default, TypeName)]
+#[derive(Default)]
 pub struct DynamicMap {
     name: String,
     values: Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>,
@@ -164,6 +162,12 @@ impl DynamicMap {
     /// Inserts a typed key-value pair into the map.
     pub fn insert<K: Reflect, V: Reflect>(&mut self, key: K, value: V) {
         self.insert_boxed(Box::new(key), Box::new(value));
+    }
+}
+
+impl ReflectTypeName for DynamicMap {
+    fn type_name(&self) -> std::borrow::Cow<str> {
+        self.name.as_str().into()
     }
 }
 
@@ -231,10 +235,6 @@ impl Map for DynamicMap {
 }
 
 impl Reflect for DynamicMap {
-    fn type_name(&self) -> &str {
-        &self.name
-    }
-
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()

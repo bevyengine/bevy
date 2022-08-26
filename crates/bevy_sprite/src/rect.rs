@@ -1,5 +1,5 @@
 use bevy_math::Vec2;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectTypeName};
 
 /// A rectangle defined by two points. There is no defined origin, so 0,0 could be anywhere
 /// (top-left, bottom-left, etc)

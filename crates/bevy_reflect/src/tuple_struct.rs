@@ -1,7 +1,6 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, TypeName, Typed,
-    UnnamedField,
+    DynamicInfo, Reflect, ReflectMut, ReflectRef, ReflectTypeName, TypeInfo, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -16,7 +15,7 @@ use std::slice::Iter;
 /// `#[derive(Reflect)]`.
 ///
 /// ```
-/// use bevy_reflect::{Reflect, TupleStruct};
+/// use bevy_reflect::{Reflect, ReflectTypeName, TupleStruct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(String);
@@ -143,7 +142,7 @@ impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{GetTupleStructField, Reflect};
+/// use bevy_reflect::{GetTupleStructField, Reflect, ReflectTypeName};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(String);
@@ -190,7 +189,7 @@ impl GetTupleStructField for dyn TupleStruct {
 }
 
 /// A tuple struct which allows fields to be added at runtime.
-#[derive(Default, TypeName)]
+#[derive(Default)]
 pub struct DynamicTupleStruct {
     name: String,
     fields: Vec<Box<dyn Reflect>>,
@@ -215,6 +214,12 @@ impl DynamicTupleStruct {
     /// Appends a typed element with value `value` to the tuple struct.
     pub fn insert<T: Reflect>(&mut self, value: T) {
         self.insert_boxed(Box::new(value));
+    }
+}
+
+impl ReflectTypeName for DynamicTupleStruct {
+    fn type_name(&self) -> std::borrow::Cow<str> {
+        self.name.as_str().into()
     }
 }
 
@@ -255,11 +260,6 @@ impl TupleStruct for DynamicTupleStruct {
 }
 
 impl Reflect for DynamicTupleStruct {
-    #[inline]
-    fn type_name(&self) -> &str {
-        self.name.as_str()
-    }
-
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
@@ -384,7 +384,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::Reflect;
+/// use bevy_reflect::{Reflect, ReflectTypeName};
 /// #[derive(Reflect)]
 /// struct MyTupleStruct(usize);
 ///
@@ -402,7 +402,7 @@ pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
     f: &mut std::fmt::Formatter<'_>,
 ) -> std::fmt::Result {
-    let mut debug = f.debug_tuple(dyn_tuple_struct.type_name());
+    let mut debug = f.debug_tuple(dyn_tuple_struct.type_name().as_ref());
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
     }

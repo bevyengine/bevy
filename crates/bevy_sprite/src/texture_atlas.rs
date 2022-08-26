@@ -2,7 +2,7 @@ use crate::{Anchor, Rect};
 use bevy_asset::Handle;
 use bevy_ecs::component::Component;
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, TypeName, TypeUuid};
+use bevy_reflect::{Reflect, ReflectTypeName, TypeName, TypeUuid};
 use bevy_render::{color::Color, texture::Image};
 use bevy_utils::HashMap;
 

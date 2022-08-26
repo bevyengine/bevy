@@ -64,10 +64,12 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let type_name_impl =
-        impl_type_name(enum_name, reflect_enum.meta().generics(),
+    let type_name_impl = impl_type_name(
+        enum_name,
+        reflect_enum.meta().generics(),
         reflect_enum.meta().reflected_type_name(),
-        bevy_reflect_path);
+        bevy_reflect_path,
+    );
 
     let get_type_registration_impl = reflect_enum.meta().get_type_registration();
     let (impl_generics, ty_generics, where_clause) =
@@ -157,11 +159,6 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         }
 
         impl #impl_generics #bevy_reflect_path::Reflect for #enum_name #ty_generics #where_clause {
-            #[inline]
-            fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
-            }
-
             #[inline]
             fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
                 <Self as #bevy_reflect_path::Typed>::type_info()

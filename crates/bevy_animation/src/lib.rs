@@ -17,7 +17,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::{Reflect, TypeName, TypeUuid};
+use bevy_reflect::{Reflect, ReflectTypeName, TypeName, TypeUuid};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};

@@ -1,10 +1,10 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo, ReflectTypeName,
+    tuple_struct_debug, Array, Enum, List, Map, ReflectTypeName, Struct, Tuple, TupleStruct,
+    TypeInfo, Typed, ValueInfo,
 };
 use std::{
-    any::{self, Any, TypeId},
+    any::{Any, TypeId},
     fmt::Debug,
 };
 
@@ -53,9 +53,6 @@ pub enum ReflectMut<'a> {
 /// When using `#[derive(Reflect)]` with a struct or tuple struct, the suitable subtrait for that
 /// type (`Struct` or `TupleStruct`) is derived automatically.
 pub trait Reflect: ReflectTypeName + Any + Send + Sync {
-    /// Returns the [type name][std::any::type_name] of the underlying type.
-    fn type_name(&self) -> &str;
-
     /// Returns the [`TypeInfo`] of the underlying type.
     ///
     /// This method is great if you have an instance of a type or a `dyn Reflect`,
@@ -240,7 +237,10 @@ impl dyn Reflect {
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
     pub fn represents<T: Reflect>(&self) -> bool {
-        self.type_name() == any::type_name::<T>()
+        // FIXME
+        // self.type_name() == any::type_name::<T>()
+
+        todo!()
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`

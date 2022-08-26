@@ -1,7 +1,6 @@
-use crate::{self as bevy_reflect};
 use crate::{
-    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo,
-    TypeName, Typed,
+    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, ReflectTypeName,
+    TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -117,7 +116,6 @@ impl ArrayInfo {
 /// can be mutated— just that the _number_ of items cannot change.
 ///
 /// [`DynamicList`]: crate::DynamicList
-#[derive(TypeName)]
 pub struct DynamicArray {
     pub(crate) name: String,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
@@ -154,12 +152,13 @@ impl DynamicArray {
     }
 }
 
-impl Reflect for DynamicArray {
-    #[inline]
-    fn type_name(&self) -> &str {
-        self.name.as_str()
+impl ReflectTypeName for DynamicArray {
+    fn type_name(&self) -> std::borrow::Cow<str> {
+        self.name.as_str().into()
     }
+}
 
+impl Reflect for DynamicArray {
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()

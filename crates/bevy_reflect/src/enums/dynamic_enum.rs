@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct,
-    DynamicTuple, Enum, Reflect, ReflectMut, ReflectRef, Struct, Tuple, TypeInfo, TypeName, Typed,
+    enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum,
+    Reflect, ReflectMut, ReflectRef, ReflectTypeName, Struct, Tuple, TypeInfo, Typed,
     VariantFieldIter, VariantType,
 };
 use std::any::Any;
@@ -55,14 +55,14 @@ impl From<()> for DynamicVariant {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicEnum, DynamicVariant, Reflect};
+/// # use bevy_reflect::{DynamicEnum, DynamicVariant, Reflect, ReflectTypeName};
 ///
 /// // The original enum value
 /// let mut value: Option<usize> = Some(123);
 ///
 /// // Create a DynamicEnum to represent the new value
 /// let mut dyn_enum = DynamicEnum::new(
-///   Reflect::type_name(&value),
+///   ReflectTypeName::type_name(&value).as_ref(),
 ///   "None",
 ///   DynamicVariant::Unit
 /// );
@@ -73,7 +73,7 @@ impl From<()> for DynamicVariant {
 /// // Tada!
 /// assert_eq!(None, value);
 /// ```
-#[derive(Default, TypeName)]
+#[derive(Default)]
 pub struct DynamicEnum {
     name: String,
     variant_name: String,
@@ -130,7 +130,7 @@ impl DynamicEnum {
     pub fn from_ref<TEnum: Enum>(value: &TEnum) -> Self {
         match value.variant_type() {
             VariantType::Unit => DynamicEnum::new(
-                value.type_name(),
+                value.type_name().as_ref(),
                 value.variant_name(),
                 DynamicVariant::Unit,
             ),
@@ -140,7 +140,7 @@ impl DynamicEnum {
                     data.insert_boxed(field.value().clone_value());
                 }
                 DynamicEnum::new(
-                    value.type_name(),
+                    value.type_name().as_ref(),
                     value.variant_name(),
                     DynamicVariant::Tuple(data),
                 )
@@ -152,12 +152,18 @@ impl DynamicEnum {
                     data.insert_boxed(name, field.value().clone_value());
                 }
                 DynamicEnum::new(
-                    value.type_name(),
+                    value.type_name().as_ref(),
                     value.variant_name(),
                     DynamicVariant::Struct(data),
                 )
             }
         }
+    }
+}
+
+impl ReflectTypeName for DynamicEnum {
+    fn type_name(&self) -> std::borrow::Cow<str> {
+        self.name.as_str().into()
     }
 }
 
@@ -244,11 +250,6 @@ impl Enum for DynamicEnum {
 }
 
 impl Reflect for DynamicEnum {
-    #[inline]
-    fn type_name(&self) -> &str {
-        &self.name
-    }
-
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()

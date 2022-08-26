@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut,
-    ReflectRef, TypeInfo, TypeName, TypeRegistration, Typed, UnnamedField,
+    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectRef,
+    ReflectTypeName, TypeInfo, TypeName, TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -182,7 +182,7 @@ impl TupleInfo {
 }
 
 /// A tuple which allows fields to be added at runtime.
-#[derive(Default, TypeName)]
+#[derive(Default)]
 pub struct DynamicTuple {
     name: String,
     fields: Vec<Box<dyn Reflect>>,
@@ -223,9 +223,15 @@ impl DynamicTuple {
             if i > 0 {
                 name.push_str(", ");
             }
-            name.push_str(field.type_name());
+            name.push_str(field.type_name().as_ref());
         }
         name.push(')');
+    }
+}
+
+impl ReflectTypeName for DynamicTuple {
+    fn type_name(&self) -> std::borrow::Cow<str> {
+        self.name.as_str().into()
     }
 }
 
@@ -267,11 +273,6 @@ impl Tuple for DynamicTuple {
 }
 
 impl Reflect for DynamicTuple {
-    #[inline]
-    fn type_name(&self) -> &str {
-        self.name()
-    }
-
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
@@ -466,10 +467,6 @@ macro_rules! impl_reflect_tuple {
         }
 
         impl<$($name: Reflect + TypeName),*> Reflect for ($($name,)*) {
-            fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
-            }
-
             fn get_type_info(&self) -> &'static TypeInfo {
                 <Self as Typed>::type_info()
             }

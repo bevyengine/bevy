@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect,
-    ReflectMut, ReflectRef, TypeInfo, TypeName, Typed,
+    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef,
+    ReflectTypeName, TypeInfo, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -80,7 +80,7 @@ impl ListInfo {
 }
 
 /// A list of reflected values.
-#[derive(Default, TypeName)]
+#[derive(Default)]
 pub struct DynamicList {
     name: String,
     values: Vec<Box<dyn Reflect>>,
@@ -111,6 +111,12 @@ impl DynamicList {
     /// Appends a [`Reflect`] trait object to the list.
     pub fn push_box(&mut self, value: Box<dyn Reflect>) {
         self.values.push(value);
+    }
+}
+
+impl ReflectTypeName for DynamicList {
+    fn type_name(&self) -> std::borrow::Cow<str> {
+        self.name.as_str().into()
     }
 }
 
@@ -164,11 +170,6 @@ impl List for DynamicList {
 }
 
 impl Reflect for DynamicList {
-    #[inline]
-    fn type_name(&self) -> &str {
-        self.name.as_str()
-    }
-
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()

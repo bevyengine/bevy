@@ -99,7 +99,7 @@ impl DynamicScene {
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
                 let registration = type_registry
-                    .get_with_name(component.type_name())
+                    .get_with_name(component.type_name().as_ref())
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
                         type_name: component.type_name().to_string(),
                     })?;
