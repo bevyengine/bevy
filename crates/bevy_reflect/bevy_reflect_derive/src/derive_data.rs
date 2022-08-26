@@ -254,9 +254,9 @@ impl<'a> ReflectMeta<'a> {
         self.generics
     }
 
-    /// Override the default type name for ReflectTypeName.
+    /// Override the default type name for `TypeName`.
     pub fn reflected_type_name(&self) -> Option<&str> {
-        self.reflected_type_name.as_ref().map(String::as_str)
+        self.reflected_type_name.as_deref()
     }
 
     /// The cached `bevy_reflect` path.

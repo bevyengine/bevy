@@ -50,11 +50,8 @@ pub(crate) fn impl_type_name(
             // FIXME: Iterator::intersperse can be used here
             // currently unstable https://github.com/rust-lang/rust/issues/79524
 
-            let mut brackets = Vec::with_capacity(generics.params.len());
-            for _ in 0..generics.params.len() - 1 {
-                brackets.push("{}, ");
-            }
-            brackets.push("{}");
+            let mut brackets = vec!["{}, "; generics.params.len()];
+            *brackets.last_mut().unwrap() = "{}";
             brackets.into_iter().collect::<String>()
         };
 
