@@ -198,10 +198,7 @@ impl<'w> EntityMut<'w> {
 
     /// Gets mutable access to a component that has protected mutability.
     #[inline]
-    pub fn get_mut_protected<T, Vis>(&mut self) -> Option<Mut<'_, T>>
-    where
-        T: WriteComponent<Vis>,
-    {
+    pub fn get_mut_protected<T: WriteComponent<Vis>, Vis>(&mut self) -> Option<Mut<T>> {
         // SAFETY: world access is unique, and lifetimes enforce correct usage of returned borrow
         unsafe { self.get_unchecked_mut::<T>() }
     }
@@ -460,10 +457,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Removes a component that has protected mutability.
-    pub fn remove_protected<T, Vis>(&mut self) -> Option<T>
-    where
-        T: WriteComponent<Vis>,
-    {
+    pub fn remove_protected<T: WriteComponent<Vis>, Vis>(&mut self) -> Option<T> {
         self.remove_bundle::<crate::component::Unlocked<T>>()
             .map(|v| v.0)
     }
