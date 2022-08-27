@@ -5,7 +5,7 @@ use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
 use bevy_reflect::{
     std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectSerialize, ReflectTypeName,
+    ReflectSerialize,
 };
 use bevy_window::ModifiesWindows;
 use serde::{Deserialize, Serialize};

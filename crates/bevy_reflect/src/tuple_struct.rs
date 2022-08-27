@@ -15,7 +15,7 @@ use std::slice::Iter;
 /// `#[derive(Reflect)]`.
 ///
 /// ```
-/// use bevy_reflect::{Reflect, ReflectTypeName, TupleStruct};
+/// use bevy_reflect::{Reflect,TupleStruct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(String);
@@ -142,7 +142,7 @@ impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{GetTupleStructField, Reflect, ReflectTypeName};
+/// use bevy_reflect::{GetTupleStructField, Reflect};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(String);
@@ -384,7 +384,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::{Reflect, ReflectTypeName};
+/// use bevy_reflect::Reflect;
 /// #[derive(Reflect)]
 /// struct MyTupleStruct(usize);
 ///

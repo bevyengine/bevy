@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
-use bevy_reflect::{Reflect, ReflectTypeName};
+use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,
     texture::Image,

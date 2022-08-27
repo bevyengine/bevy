@@ -89,6 +89,8 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTupleStruct {
+                use #bevy_reflect_path::ReflectTypeName;
+
                 let mut dynamic = #bevy_reflect_path::DynamicTupleStruct::default();
                 dynamic.set_name(self.type_name().to_string());
                 #(dynamic.insert_boxed(self.#field_idents.clone_value());)*

@@ -846,8 +846,8 @@ impl FromReflect for Cow<'static, str> {
 mod tests {
     use crate as bevy_reflect;
     use crate::{
-        Enum, FromReflect, Reflect, ReflectSerialize, ReflectTypeName, TypeInfo, TypeRegistry,
-        Typed, VariantInfo, VariantType,
+        Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
+        VariantType,
     };
     use bevy_utils::{HashMap, Instant};
     use std::f32::consts::{PI, TAU};

@@ -5,7 +5,7 @@ use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, ReflectTypeName, TypeUuid};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::Extract;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},

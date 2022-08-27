@@ -5,7 +5,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, ReflectTypeName};
+use bevy_reflect::Reflect;
 use core::slice;
 use smallvec::SmallVec;
 use std::ops::Deref;

@@ -202,6 +202,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
             #[inline]
             fn apply(&mut self, #ref_value: &dyn #bevy_reflect_path::Reflect) {
+                use #bevy_reflect_path::ReflectTypeName;
+
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #ref_value.reflect_ref() {
                     if #bevy_reflect_path::Enum::variant_name(self) == #ref_value.variant_name() {
                         // Same variant -> just update fields

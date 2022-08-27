@@ -21,7 +21,7 @@ use std::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Struct, ReflectTypeName};
+/// use bevy_reflect::{Reflect, Struct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -185,7 +185,7 @@ impl<'a> ExactSizeIterator for FieldIter<'a> {}
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{GetField, Reflect, ReflectTypeName};
+/// use bevy_reflect::{GetField, Reflect};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -478,7 +478,7 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::{Reflect, ReflectTypeName};
+/// use bevy_reflect::Reflect;
 /// #[derive(Reflect)]
 /// struct MyStruct {
 ///   foo: usize

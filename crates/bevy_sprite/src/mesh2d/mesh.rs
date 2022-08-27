@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat4, Vec2};
-use bevy_reflect::{Reflect, ReflectTypeName, TypeUuid};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},

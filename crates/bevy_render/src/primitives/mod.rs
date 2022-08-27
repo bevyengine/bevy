@@ -1,6 +1,6 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
-use bevy_reflect::{Reflect, ReflectTypeName};
+use bevy_reflect::Reflect;
 
 /// An Axis-Aligned Bounding Box
 #[derive(Component, Clone, Debug, Default, Reflect)]

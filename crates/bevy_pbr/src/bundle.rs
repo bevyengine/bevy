@@ -1,7 +1,7 @@
 use crate::{DirectionalLight, Material, PointLight, SpotLight, StandardMaterial};
 use bevy_asset::Handle;
 use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
-use bevy_reflect::{Reflect, ReflectTypeName};
+use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CubemapFrusta, Frustum},
