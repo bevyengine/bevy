@@ -30,7 +30,7 @@ mod utility;
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use quote::quote;
-use reflect_value::ReflectValueDef;
+use reflect_value::{NamedReflectValueDef, ReflectValueDef};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 use type_name::TypeNameDef;
@@ -132,12 +132,17 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as ReflectValueDef);
+    let def = parse_macro_input!(input as NamedReflectValueDef);
+
+    let reflected_type_name = def
+        .reflected_type_name
+        .unwrap_or_else(|| def.def.type_name.to_string());
+
     impls::impl_value(&ReflectMeta::new(
-        &def.type_name,
-        &def.generics,
-        def.traits.unwrap_or_default(),
-        Some(def.type_name.to_string()),
+        &def.def.type_name,
+        &def.def.generics,
+        def.def.traits.unwrap_or_default(),
+        Some(reflected_type_name),
     ))
 }
 
@@ -214,7 +219,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
-        None, // TODO
+        None,
     ))
 }
 

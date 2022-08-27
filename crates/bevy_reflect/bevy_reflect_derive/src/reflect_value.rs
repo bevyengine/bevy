@@ -2,7 +2,7 @@ use crate::container_attributes::ReflectTraits;
 use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Paren, Where};
-use syn::{parenthesized, Generics};
+use syn::{parenthesized, Generics, LitStr, Token};
 
 /// A struct used to define a simple reflected value type (such as primitives).
 ///
@@ -49,6 +49,35 @@ impl Parse for ReflectValueDef {
                 ..generics
             },
             traits,
+        })
+    }
+}
+
+/// A [`ReflectValueDef`] that allow an optional custom type name in front.
+///
+/// ```ignore
+/// @"my_lib::MyType" foo<T1, T2> where T1: Bar (TraitA, TraitB)
+/// ```
+pub(crate) struct NamedReflectValueDef {
+    pub reflected_type_name: Option<String>,
+    pub def: ReflectValueDef,
+}
+
+impl Parse for NamedReflectValueDef {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let lookahead = input.lookahead1();
+        let mut reflected_type_name = None;
+        if lookahead.peek(Token![@]) {
+            let _at: Token![@] = input.parse()?;
+            let name: LitStr = input.parse()?;
+            reflected_type_name = Some(name.value());
+        }
+
+        let def = input.parse()?;
+
+        Ok(Self {
+            reflected_type_name,
+            def,
         })
     }
 }
