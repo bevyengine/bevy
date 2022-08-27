@@ -139,7 +139,7 @@ pub fn ui_focus_system(
                     })
                     .map(|(window, cursor_position, image)| {
                         // cursor_position goes from 0 to window width and height
-                        // This needs to be map from 0 to image width and height instead
+                        // This needs to be mapped from 0 to image width and height instead
                         let x = cursor_position.x / window.width() * image.x;
                         let y = cursor_position.y / window.height() * image.y;
                         Vec2::new(x, y)
