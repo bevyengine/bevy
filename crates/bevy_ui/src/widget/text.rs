@@ -9,7 +9,7 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
-use bevy_window::{WindowId, Windows};
+use bevy_window::Windows;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -53,6 +53,8 @@ pub fn text_system(
         Query<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
+    // TODO: This should support window-independent scale settings.
+    // See https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = if let Some(window) = windows.get_primary() {
         window.scale_factor() * ui_scale.scale
     } else {

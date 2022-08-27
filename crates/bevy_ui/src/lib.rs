@@ -50,20 +50,13 @@ pub enum UiSystem {
     Focus,
 }
 
-/// The current scale of the UI for all windows
+/// The current scale of the UI.
 ///
-/// ## Note
-/// This is purely about the logical scale, and can
-/// be considered like a zoom
-///
-/// This only affects pixel sizes, so a percent size will stay at that
+/// A multiplier to fixed-sized ui values.
+/// **Note:** This will not affect non-fixed ui values like [`Val::Percent`]
 #[derive(Debug, Resource)]
 pub struct UiScale {
-    /// The scale to be applied
-    ///
-    /// # Example
-    ///
-    /// A scale of `2.` will make every pixel size twice as large.
+    /// The scale to be applied.
     pub scale: f64,
 }
 
