@@ -1,43 +1,77 @@
-use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::prelude::{Changed, Entity, Query, With, Without};
-use bevy_hierarchy::{Children, Parent};
+use bevy_ecs::prelude::*;
 
-/// Update [`GlobalTransform`] component of entities based on entity hierarchy and
-/// [`Transform`] component.
-pub fn transform_propagate_system(
+use crate::{Children, Parent};
+
+/// Marks a component as propagatable thrown hierachy alike `Transform`/`GlobalTransorm`
+/// or `Visibility`/`ComputedVisibility`.
+pub trait Propagate: Component {
+    /// The computed version of this component.
+    type Computed: Component;
+    /// The payload passed to children for computation.
+    type Payload;
+
+    /// If set to `true`, children are computed only if the hierarchy is changed
+    /// or their local component changed.
+    /// Otherwise, always compute all components.
+    const PROPAGATE_IF_CHANGED: bool;
+
+    /// Update computed component for root entity from it's local component.
+    fn compute_root(computed: &mut Self::Computed, local: &Self);
+
+    /// Update computed component from the parent's payload and the local component.
+    fn compute(computed: &mut Self::Computed, payload: &Self::Payload, local: &Self);
+
+    /// Compute the payload to pass to children from the computed component.
+    fn payload(computed: &Self::Computed) -> Self::Payload;
+}
+
+type LocalQuery<'w, 's, 'a, T> = Query<
+    'w,
+    's,
+    (
+        &'a T,
+        Changed<T>,
+        &'a mut <T as Propagate>::Computed,
+        &'a Parent,
+    ),
+>;
+type ChildrenQuery<'w, 's, 'a, T> = Query<
+    'w,
+    's,
+    (&'a Children, Changed<Children>),
+    (With<Parent>, With<T>, With<<T as Propagate>::Computed>),
+>;
+
+/// Update `T::Computed` component of entities based on entity hierarchy and
+/// `T` component.
+pub fn propagate_system<T: Propagate>(
     mut root_query: Query<
         (
             Option<(&Children, Changed<Children>)>,
-            &Transform,
-            Changed<Transform>,
-            &mut GlobalTransform,
+            &T,
+            Changed<T>,
+            &mut T::Computed,
             Entity,
         ),
         Without<Parent>,
     >,
-    mut transform_query: Query<(
-        &Transform,
-        Changed<Transform>,
-        &mut GlobalTransform,
-        &Parent,
-    )>,
-    children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
+    mut local_query: LocalQuery<T>,
+    children_query: ChildrenQuery<T>,
 ) {
-    for (children, transform, transform_changed, mut global_transform, entity) in
-        root_query.iter_mut()
-    {
-        let mut changed = transform_changed;
-        if transform_changed {
-            *global_transform = GlobalTransform::from(*transform);
+    for (children, local, local_changed, mut computed, entity) in root_query.iter_mut() {
+        let mut changed = local_changed;
+        if !T::PROPAGATE_IF_CHANGED | changed {
+            T::compute_root(computed.as_mut(), local);
         }
 
         if let Some((children, changed_children)) = children {
             // If our `Children` has changed, we need to recalculate everything below us
             changed |= changed_children;
+            let payload = T::payload(computed.as_ref());
             for child in children {
                 let _ = propagate_recursive(
-                    &global_transform,
-                    &mut transform_query,
+                    &payload,
+                    &mut local_query,
                     &children_query,
                     *child,
                     entity,
@@ -48,33 +82,28 @@ pub fn transform_propagate_system(
     }
 }
 
-fn propagate_recursive(
-    parent: &GlobalTransform,
-    transform_query: &mut Query<(
-        &Transform,
-        Changed<Transform>,
-        &mut GlobalTransform,
-        &Parent,
-    )>,
-    children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
+fn propagate_recursive<T: Propagate>(
+    payload: &T::Payload,
+    local_query: &mut LocalQuery<T>,
+    children_query: &ChildrenQuery<T>,
     entity: Entity,
     expected_parent: Entity,
     mut changed: bool,
+    // BLOCKED: https://github.com/rust-lang/rust/issues/31436
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
-    let global_matrix = {
-        let (transform, transform_changed, mut global_transform, child_parent) =
-            transform_query.get_mut(entity).map_err(drop)?;
-        // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
+    let payload = {
+        let (local, local_changed, mut computed, child_parent) =
+            local_query.get_mut(entity).map_err(drop)?;
         assert_eq!(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        changed |= transform_changed;
-        if changed {
-            *global_transform = parent.mul_transform(*transform);
+        changed |= local_changed;
+        if !T::PROPAGATE_IF_CHANGED | changed {
+            T::compute(computed.as_mut(), payload, local);
         }
-        *global_transform
+        T::payload(computed.as_ref())
     };
 
     let (children, changed_children) = children_query.get(entity).map_err(drop)?;
@@ -82,8 +111,8 @@ fn propagate_recursive(
     changed |= changed_children;
     for child in children {
         let _ = propagate_recursive(
-            &global_matrix,
-            transform_query,
+            &payload,
+            local_query,
             children_query,
             *child,
             entity,
@@ -95,57 +124,92 @@ fn propagate_recursive(
 
 #[cfg(test)]
 mod test {
-    use bevy_app::prelude::*;
+    use bevy_app::App;
     use bevy_ecs::prelude::*;
     use bevy_ecs::system::CommandQueue;
-    use bevy_math::vec3;
 
-    use crate::components::{GlobalTransform, Transform};
-    use crate::systems::transform_propagate_system;
-    use crate::TransformBundle;
-    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
+    use crate::{propagate_system, BuildChildren, BuildWorldChildren, Children, Parent, Propagate};
+
+    #[derive(Component)]
+    struct MyComponent(i32);
+
+    #[derive(Default, Component, Clone, Copy)]
+    struct MyComputedComponent(i32);
+
+    impl MyComponent {
+        const IDENTITY: Self = Self(1);
+    }
+
+    impl Default for MyComponent {
+        fn default() -> Self {
+            Self::IDENTITY
+        }
+    }
+
+    impl Propagate for MyComponent {
+        type Computed = MyComputedComponent;
+        type Payload = MyComputedComponent;
+        const PROPAGATE_IF_CHANGED: bool = true;
+
+        fn compute_root(computed: &mut Self::Computed, local: &Self) {
+            computed.0 = local.0;
+        }
+
+        fn compute(computed: &mut Self::Computed, payload: &Self::Payload, local: &Self) {
+            computed.0 = payload.0 * local.0;
+        }
+
+        fn payload(computed: &Self::Computed) -> Self::Payload {
+            *computed
+        }
+    }
 
     #[test]
     fn did_propagate() {
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(propagate_system::<MyComponent>);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
 
-        // Root entity
-        world
-            .spawn()
-            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
+        const ROOT_VALUE: i32 = 5;
+        const CHILDREN_0_VALUE: i32 = 3;
+        const CHILDREN_1_VALUE: i32 = -2;
 
         let mut children = Vec::new();
         world
             .spawn()
-            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .insert_bundle((MyComponent(ROOT_VALUE), MyComputedComponent::default()))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
+                        .spawn_bundle((
+                            MyComponent(CHILDREN_0_VALUE),
+                            MyComputedComponent::default(),
+                        ))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
+                        .spawn_bundle((
+                            MyComponent(CHILDREN_1_VALUE),
+                            MyComputedComponent::default(),
+                        ))
                         .id(),
                 );
             });
         schedule.run(&mut world);
 
         assert_eq!(
-            *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
+            world.get::<MyComputedComponent>(children[0]).unwrap().0,
+            ROOT_VALUE * CHILDREN_0_VALUE
         );
 
         assert_eq!(
-            *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
+            world.get::<MyComputedComponent>(children[1]).unwrap().0,
+            ROOT_VALUE * CHILDREN_1_VALUE
         );
     }
 
@@ -153,26 +217,36 @@ mod test {
     fn did_propagate_command_buffer() {
         let mut world = World::default();
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(propagate_system::<MyComponent>);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
+
+        const ROOT_VALUE: i32 = 5;
+        const CHILDREN_0_VALUE: i32 = 3;
+        const CHILDREN_1_VALUE: i32 = -2;
 
         // Root entity
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn_bundle((MyComponent(ROOT_VALUE), MyComputedComponent::default()))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
+                        .spawn_bundle((
+                            MyComponent(CHILDREN_0_VALUE),
+                            MyComputedComponent::default(),
+                        ))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
+                        .spawn_bundle((
+                            MyComponent(CHILDREN_1_VALUE),
+                            MyComputedComponent::default(),
+                        ))
                         .id(),
                 );
             });
@@ -180,13 +254,13 @@ mod test {
         schedule.run(&mut world);
 
         assert_eq!(
-            *world.get::<GlobalTransform>(children[0]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 2.0, 0.0)
+            world.get::<MyComputedComponent>(children[0]).unwrap().0,
+            ROOT_VALUE * CHILDREN_0_VALUE
         );
 
         assert_eq!(
-            *world.get::<GlobalTransform>(children[1]).unwrap(),
-            GlobalTransform::from_xyz(1.0, 0.0, 0.0) * Transform::from_xyz(0.0, 0.0, 3.0)
+            world.get::<MyComputedComponent>(children[1]).unwrap().0,
+            ROOT_VALUE * CHILDREN_1_VALUE
         );
     }
 
@@ -195,7 +269,7 @@ mod test {
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(transform_propagate_system);
+        update_stage.add_system(propagate_system::<MyComponent>);
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update", update_stage);
@@ -205,23 +279,10 @@ mod test {
         let parent = {
             let mut command_queue = CommandQueue::default();
             let mut commands = Commands::new(&mut command_queue, &world);
-            let parent = commands
-                .spawn()
-                .insert(Transform::from_xyz(1.0, 0.0, 0.0))
-                .id();
+            let parent = commands.spawn().insert(MyComponent::default()).id();
             commands.entity(parent).with_children(|parent| {
-                children.push(
-                    parent
-                        .spawn()
-                        .insert(Transform::from_xyz(0.0, 2.0, 0.0))
-                        .id(),
-                );
-                children.push(
-                    parent
-                        .spawn()
-                        .insert(Transform::from_xyz(0.0, 3.0, 0.0))
-                        .id(),
-                );
+                children.push(parent.spawn().insert(MyComponent::default()).id());
+                children.push(parent.spawn().insert(MyComponent::default()).id());
             });
             command_queue.apply(&mut world);
             schedule.run(&mut world);
@@ -283,12 +344,12 @@ mod test {
     }
 
     #[test]
-    fn correct_transforms_when_no_children() {
+    fn correct_when_no_children() {
         let mut app = App::new();
 
-        app.add_system(transform_propagate_system);
+        app.add_system(propagate_system::<MyComponent>);
 
-        let translation = vec3(1.0, 0.0, 0.0);
+        const ROOT_VALUE: i32 = 5;
 
         // These will be overwritten.
         let mut child = Entity::from_raw(0);
@@ -296,14 +357,14 @@ mod test {
         let parent = app
             .world
             .spawn()
-            .insert(Transform::from_translation(translation))
-            .insert(GlobalTransform::default())
+            .insert(MyComponent(ROOT_VALUE))
+            .insert(MyComputedComponent::default())
             .with_children(|builder| {
                 child = builder
-                    .spawn_bundle((Transform::identity(), GlobalTransform::default()))
+                    .spawn_bundle((MyComponent::IDENTITY, MyComputedComponent::default()))
                     .with_children(|builder| {
                         grandchild = builder
-                            .spawn_bundle((Transform::identity(), GlobalTransform::default()))
+                            .spawn_bundle((MyComponent::IDENTITY, MyComputedComponent::default()))
                             .id();
                     })
                     .id();
@@ -318,9 +379,9 @@ mod test {
         // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
         app.update();
 
-        let mut state = app.world.query::<&GlobalTransform>();
+        let mut state = app.world.query::<&MyComputedComponent>();
         for global in state.iter(&app.world) {
-            assert_eq!(global, &GlobalTransform::from_translation(translation));
+            assert_eq!(global.0, ROOT_VALUE);
         }
     }
 
@@ -332,17 +393,17 @@ mod test {
         let mut temp = World::new();
         let mut app = App::new();
 
-        app.add_system(transform_propagate_system);
+        app.add_system(propagate_system::<MyComponent>);
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);
             let child = world
                 .spawn()
-                .insert_bundle((Transform::identity(), GlobalTransform::default()))
+                .insert_bundle((MyComponent::default(), MyComputedComponent::default()))
                 .with_children(|builder| {
                     grandchild = builder
                         .spawn()
-                        .insert_bundle((Transform::identity(), GlobalTransform::default()))
+                        .insert_bundle((MyComponent::default(), MyComputedComponent::default()))
                         .id();
                 })
                 .id();
@@ -357,7 +418,7 @@ mod test {
 
         app.world
             .spawn()
-            .insert_bundle((Transform::default(), GlobalTransform::default()))
+            .insert_bundle((MyComponent::default(), MyComputedComponent::default()))
             .push_children(&[child]);
         std::mem::swap(
             &mut *app.world.get_mut::<Parent>(child).unwrap(),
