@@ -130,7 +130,7 @@ impl DynamicEnum {
     pub fn from_ref<TEnum: Enum>(value: &TEnum) -> Self {
         match value.variant_type() {
             VariantType::Unit => DynamicEnum::new(
-                value.type_name().as_ref(),
+                value.type_name(),
                 value.variant_name(),
                 DynamicVariant::Unit,
             ),
@@ -140,7 +140,7 @@ impl DynamicEnum {
                     data.insert_boxed(field.value().clone_value());
                 }
                 DynamicEnum::new(
-                    value.type_name().as_ref(),
+                    value.type_name(),
                     value.variant_name(),
                     DynamicVariant::Tuple(data),
                 )
@@ -152,7 +152,7 @@ impl DynamicEnum {
                     data.insert_boxed(name, field.value().clone_value());
                 }
                 DynamicEnum::new(
-                    value.type_name().as_ref(),
+                    value.type_name(),
                     value.variant_name(),
                     DynamicVariant::Struct(data),
                 )
