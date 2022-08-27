@@ -1,3 +1,5 @@
+//! This example illustrates the UIScale resource from bevy_ui
+
 use bevy::{prelude::*, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
@@ -5,7 +7,6 @@ const SCALE_TIME: u64 = 400;
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, SystemLabel)]
 struct ApplyScaling;
 
-/// This example illustrates the UIScale resource from bevy_ui
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -20,12 +21,8 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: ResMut<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    commands.spawn_bundle(UiCameraBundle::default());
+fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+    commands.spawn_bundle(Camera2dBundle::default());
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
@@ -38,53 +35,51 @@ fn setup(
             style: Style {
                 size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
                 position_type: PositionType::Absolute,
-                position: Rect {
+                position: UiRect {
                     left: Val::Percent(25.),
                     top: Val::Percent(25.),
-                    ..Default::default()
+                    ..default()
                 },
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
-            material: materials.add(Color::ANTIQUE_WHITE.into()),
-            ..Default::default()
+            color: Color::ANTIQUE_WHITE.into(),
+            ..default()
         })
         .with_children(|parent| {
             parent
                 .spawn_bundle(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(40.), Val::Px(40.)),
-                        ..Default::default()
+                        ..default()
                     },
-                    material: materials.add(Color::RED.into()),
-                    ..Default::default()
+                    color: Color::RED.into(),
+                    ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn_bundle(TextBundle {
-                        text: Text::with_section("Size!", text_style, TextAlignment::default()),
-                        ..Default::default()
-                    });
+                    parent.spawn_bundle(TextBundle::from_section("Size!", text_style));
                 });
             parent.spawn_bundle(NodeBundle {
                 style: Style {
                     size: Size::new(Val::Percent(15.), Val::Percent(15.)),
-                    ..Default::default()
+                    ..default()
                 },
-                material: materials.add(Color::BLUE.into()),
-                ..Default::default()
+                color: Color::BLUE.into(),
+                ..default()
             });
             parent.spawn_bundle(ImageBundle {
                 style: Style {
                     size: Size::new(Val::Px(30.0), Val::Px(30.0)),
-                    ..Default::default()
+                    ..default()
                 },
-                material: materials.add(asset_server.load("branding/icon.png").into()),
-                ..Default::default()
+                image: asset_server.load("branding/icon.png").into(),
+                ..default()
             });
         });
 }
 
+/// System that changes the scale of the ui when pressing up or down on the keyboard.
 fn change_scaling(input: Res<Input<KeyCode>>, mut ui_scale: ResMut<TargetScale>) {
     if input.just_pressed(KeyCode::Up) {
         let scale = (ui_scale.target_scale * 2.0).min(8.);
@@ -98,6 +93,7 @@ fn change_scaling(input: Res<Input<KeyCode>>, mut ui_scale: ResMut<TargetScale>)
     }
 }
 
+#[derive(Resource)]
 struct TargetScale {
     start_scale: f64,
     target_scale: f64,

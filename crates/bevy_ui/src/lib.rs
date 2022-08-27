@@ -22,13 +22,14 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale,
-    };
+    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::{
+    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
+    system::Resource,
+};
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
@@ -49,7 +50,6 @@ pub enum UiSystem {
     Focus,
 }
 
-#[derive(Debug)]
 /// The current scale of the UI for all windows
 ///
 /// ## Note
@@ -57,6 +57,7 @@ pub enum UiSystem {
 /// be considered like a zoom
 ///
 /// This only affects pixel sizes, so a percent size will stay at that
+#[derive(Debug, Resource)]
 pub struct UiScale {
     /// The scale to be applied
     ///
