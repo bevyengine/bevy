@@ -1,7 +1,8 @@
 use std::num::ParseIntError;
 
-use crate::{Reflect, ReflectMut, ReflectRef};
 use thiserror::Error;
+
+use crate::{Reflect, ReflectMut, ReflectRef};
 
 /// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -17,6 +18,8 @@ pub enum ReflectPathError<'a> {
     },
     #[error("the current list doesn't have a value at the index {list_index}")]
     InvalidListIndex { index: usize, list_index: usize },
+    #[error("the current map doesn't have a value for the key {map_key}")]
+    InvalidMapKey { index: usize, map_key: &'a str },
     #[error("encountered an unexpected token `{token}`")]
     UnexpectedToken { index: usize, token: &'a str },
     #[error("expected token `{token}`, but it wasn't there.")]
@@ -25,6 +28,8 @@ pub enum ReflectPathError<'a> {
     ExpectedStruct { index: usize },
     #[error("expected a list, but found a different reflect value")]
     ExpectedList { index: usize },
+    #[error("expected a map, but found a different reflect value")]
+    ExpectedMap { index: usize },
     #[error("failed to parse a usize")]
     IndexParseError(#[from] ParseIntError),
     #[error("failed to downcast to the path result to the given type")]
@@ -119,8 +124,8 @@ impl GetPath for dyn Reflect {
                     }
                 }
                 Token::OpenBracket => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        match current.reflect_ref() {
+                    match next_token(path, &mut index) {
+                        Some(Token::Ident(value)) => match current.reflect_ref() {
                             ReflectRef::List(reflect_list) => {
                                 let list_index = value.parse::<usize>()?;
                                 let list_item = reflect_list.get(list_index).ok_or(
@@ -136,12 +141,48 @@ impl GetPath for dyn Reflect {
                                     index: current_index,
                                 })
                             }
+                        },
+                        Some(Token::SingleQuote) => {
+                            let ident =
+                                if let Some(Token::Ident(ident)) = next_token(path, &mut index) {
+                                    ident
+                                } else {
+                                    return Err(ReflectPathError::ExpectedIdent {
+                                        index: current_index,
+                                    });
+                                };
+
+                            if let Some(Token::SingleQuote) = next_token(path, &mut index) {
+                            } else {
+                                return Err(ReflectPathError::ExpectedToken {
+                                    index: current_index,
+                                    token: "'",
+                                });
+                            }
+
+                            match current.reflect_ref() {
+                                ReflectRef::Map(reflect_list) => {
+                                    let list_item = reflect_list.get(&String::from(ident)).ok_or(
+                                        ReflectPathError::InvalidMapKey {
+                                            index: current_index,
+                                            map_key: ident,
+                                        },
+                                    )?;
+                                    current = list_item;
+                                }
+                                _ => {
+                                    return Err(ReflectPathError::ExpectedMap {
+                                        index: current_index,
+                                    })
+                                }
+                            }
                         }
-                    } else {
-                        return Err(ReflectPathError::ExpectedIdent {
-                            index: current_index,
-                        });
-                    }
+                        _ => {
+                            return Err(ReflectPathError::ExpectedIdent {
+                                index: current_index,
+                            });
+                        }
+                    };
 
                     if let Some(Token::CloseBracket) = next_token(path, &mut index) {
                     } else {
@@ -155,6 +196,12 @@ impl GetPath for dyn Reflect {
                     return Err(ReflectPathError::UnexpectedToken {
                         index: current_index,
                         token: "]",
+                    })
+                }
+                Token::SingleQuote => {
+                    return Err(ReflectPathError::UnexpectedToken {
+                        index: current_index,
+                        token: "'",
                     })
                 }
                 Token::Ident(value) => {
@@ -185,8 +232,8 @@ impl GetPath for dyn Reflect {
                     }
                 }
                 Token::OpenBracket => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        match current.reflect_mut() {
+                    match next_token(path, &mut index) {
+                        Some(Token::Ident(value)) => match current.reflect_mut() {
                             ReflectMut::List(reflect_list) => {
                                 let list_index = value.parse::<usize>()?;
                                 let list_item = reflect_list.get_mut(list_index).ok_or(
@@ -202,11 +249,47 @@ impl GetPath for dyn Reflect {
                                     index: current_index,
                                 })
                             }
+                        },
+                        Some(Token::SingleQuote) => {
+                            let ident =
+                                if let Some(Token::Ident(ident)) = next_token(path, &mut index) {
+                                    ident
+                                } else {
+                                    return Err(ReflectPathError::ExpectedIdent {
+                                        index: current_index,
+                                    });
+                                };
+
+                            if let Some(Token::SingleQuote) = next_token(path, &mut index) {
+                            } else {
+                                return Err(ReflectPathError::ExpectedToken {
+                                    index: current_index,
+                                    token: "'",
+                                });
+                            }
+
+                            match current.reflect_mut() {
+                                ReflectMut::Map(reflect_list) => {
+                                    let list_item = reflect_list
+                                        .get_mut(&String::from(ident))
+                                        .ok_or(ReflectPathError::InvalidMapKey {
+                                            index: current_index,
+                                            map_key: ident,
+                                        })?;
+                                    current = list_item;
+                                }
+                                _ => {
+                                    return Err(ReflectPathError::ExpectedMap {
+                                        index: current_index,
+                                    })
+                                }
+                            }
                         }
-                    } else {
-                        return Err(ReflectPathError::ExpectedIdent {
-                            index: current_index,
-                        });
+                        _ => {
+                            return Err(ReflectPathError::ExpectedIdent {
+                                index: current_index,
+                            });
+                        }
                     }
 
                     if let Some(Token::CloseBracket) = next_token(path, &mut index) {
@@ -221,6 +304,12 @@ impl GetPath for dyn Reflect {
                     return Err(ReflectPathError::UnexpectedToken {
                         index: current_index,
                         token: "]",
+                    })
+                }
+                Token::SingleQuote => {
+                    return Err(ReflectPathError::UnexpectedToken {
+                        index: current_index,
+                        token: "'",
                     })
                 }
                 Token::Ident(value) => {
@@ -295,6 +384,7 @@ enum Token<'a> {
     Dot,
     OpenBracket,
     CloseBracket,
+    SingleQuote,
     Ident(&'a str),
 }
 
@@ -316,13 +406,17 @@ fn next_token<'a>(path: &'a str, index: &mut usize) -> Option<Token<'a>> {
             *index += 1;
             return Some(Token::CloseBracket);
         }
+        '\'' => {
+            *index += 1;
+            return Some(Token::SingleQuote);
+        }
         _ => {}
     }
 
     // we can assume we are parsing an ident now
     for (char_index, character) in path[*index..].chars().enumerate() {
         match character {
-            '.' | '[' | ']' => {
+            '.' | '[' | ']' | '\'' => {
                 let ident = Token::Ident(&path[*index..*index + char_index]);
                 *index += char_index;
                 return Some(ident);
@@ -338,9 +432,13 @@ fn next_token<'a>(path: &'a str, index: &mut usize) -> Option<Token<'a>> {
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
-    use super::GetPath;
+    use bevy_utils::HashMap;
+
     use crate as bevy_reflect;
     use crate::*;
+
+    use super::GetPath;
+
     #[test]
     fn reflect_path() {
         #[derive(Reflect)]
@@ -349,6 +447,7 @@ mod tests {
             x: B,
             y: Vec<C>,
             z: D,
+            map: HashMap<String, usize>,
         }
 
         #[derive(Reflect)]
@@ -368,6 +467,10 @@ mod tests {
         #[derive(Reflect)]
         struct E(f32, usize);
 
+        let mut map = HashMap::new();
+        map.insert(String::from("test"), 42);
+        map.insert(String::from("another"), 123);
+
         let a = A {
             w: 1,
             x: B {
@@ -376,6 +479,7 @@ mod tests {
             },
             y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
             z: D(E(10.0, 42)),
+            map,
         };
 
         assert_eq!(*a.get_path::<usize>("w").unwrap(), 1);
@@ -383,6 +487,7 @@ mod tests {
         assert_eq!(*a.get_path::<f32>("x.bar.baz").unwrap(), 3.14);
         assert_eq!(*a.get_path::<f32>("y[1].baz").unwrap(), 2.0);
         assert_eq!(*a.get_path::<usize>("z.0.1").unwrap(), 42);
+        assert_eq!(*a.get_path::<usize>("map['test']").unwrap(), 42);
 
         assert_eq!(
             a.path("x.notreal").err().unwrap(),
@@ -421,6 +526,7 @@ mod tests {
             x: B,
             y: Vec<C>,
             z: D,
+            map: HashMap<String, usize>,
         }
 
         #[derive(Reflect)]
@@ -440,6 +546,10 @@ mod tests {
         #[derive(Reflect)]
         struct E(f32, usize);
 
+        let mut map = HashMap::new();
+        map.insert(String::from("test"), 42);
+        map.insert(String::from("another"), 123);
+
         let mut a = A {
             w: 1,
             x: B {
@@ -448,6 +558,7 @@ mod tests {
             },
             y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
             z: D(E(10.0, 42)),
+            map,
         };
 
         assert_eq!(*a.get_path_mut::<usize>("w").unwrap(), 1);
@@ -455,12 +566,16 @@ mod tests {
         assert_eq!(*a.get_path_mut::<f32>("x.bar.baz").unwrap(), 3.14);
         assert_eq!(*a.get_path_mut::<f32>("y[1].baz").unwrap(), 2.0);
         assert_eq!(*a.get_path_mut::<usize>("z.0.1").unwrap(), 42);
+        assert_eq!(*a.get_path_mut::<usize>("map['test']").unwrap(), 42);
 
         *a.get_path_mut::<f32>("y[1].baz").unwrap() = 3.0;
         assert_eq!(a.y[1].baz, 3.0);
 
         *a.get_path_mut::<usize>("w").unwrap() = 2;
         assert_eq!(a.w, 2);
+
+        *a.get_path_mut::<usize>("map['test']").unwrap() = 1337;
+        assert_eq!(a.map["test"], 1337);
 
         assert_eq!(
             a.path_mut("x.notreal").err().unwrap(),
@@ -478,6 +593,11 @@ mod tests {
         assert_eq!(
             a.path_mut("x[0]").err().unwrap(),
             ReflectPathError::ExpectedList { index: 2 }
+        );
+
+        assert_eq!(
+            a.path_mut("x['key']").err().unwrap(),
+            ReflectPathError::ExpectedMap { index: 2 }
         );
 
         assert_eq!(
