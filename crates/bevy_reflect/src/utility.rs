@@ -57,13 +57,13 @@ impl<Data> GenericDataCell<Data> {
             return info;
         }
 
-        mapping.write().entry(type_id).or_insert_with(|| {
-            // We leak here in order to obtain a `&'static` reference.
-            // Otherwise, we won't be able to return a reference due to the `RwLock`.
-            // This should be okay, though, since we expect it to remain statically
-            // available over the course of the application.
-            Box::leak(Box::new(f()))
-        })
+        // We leak here in order to obtain a `&'static` reference.
+        // Otherwise, we won't be able to return a reference due to the `RwLock`.
+        // This should be okay, though, since we expect it to remain statically
+        // available over the course of the application.
+        let value = Box::leak(Box::new(f()));
+
+        mapping.write().entry(type_id).or_insert(value)
     }
 }
 
