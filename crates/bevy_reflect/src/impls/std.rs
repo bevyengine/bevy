@@ -7,7 +7,7 @@ use crate::{
     VariantFieldIter, VariantInfo, VariantType,
 };
 
-use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
+use crate::utility::{GenericTypeInfoCell, GenericTypeNameCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value, impl_type_name};
 use bevy_utils::{Duration, HashMap, HashSet, Instant};
 use std::{
@@ -90,22 +90,22 @@ impl_from_reflect_value!(NonZeroU16);
 impl_from_reflect_value!(NonZeroU8);
 impl_from_reflect_value!(NonZeroI8);
 
-impl_type_name!(Vec<T: TypeName>);
-impl_type_name!(HashMap<K: TypeName, V: TypeName>);
-impl_type_name!(Option<T: TypeName>);
+impl_type_name!(Vec<T: TypeName + 'static>);
+impl_type_name!(HashMap<K: TypeName + 'static, V: TypeName + 'static>);
+impl_type_name!(Option<T: TypeName + 'static>);
 
 // impl_type_name expecte a type name followed by generic between `<` and `>`.
 // so array is manually implemented.
-impl<T: TypeName, const N: usize> TypeName for [T; N] {
-    fn name() -> Cow<'static, str> {
-        let s = format!("[{}; {N}]", T::name());
-        Cow::Owned(s)
+impl<T: TypeName + 'static, const N: usize> TypeName for [T; N] {
+    fn name() -> &'static str {
+        static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
+        CELL.get_or_insert::<Self, _>(|| format!("[{}; {N}]", T::name()))
     }
 }
 
 impl TypeName for Cow<'static, str> {
-    fn name() -> Cow<'static, str> {
-        Cow::Borrowed("Cow<'static, str>")
+    fn name() -> &'static str {
+        "Cow<'static, str>"
     }
 }
 

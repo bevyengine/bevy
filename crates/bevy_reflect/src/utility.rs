@@ -6,6 +6,67 @@ use once_cell::race::OnceBox;
 use parking_lot::RwLock;
 use std::any::{Any, TypeId};
 
+/// A container over non-generic types, allowing instances to be stored statically.
+///
+/// This is specifically meant for use with _non_-generic types. If your type _is_ generic,
+/// then use [`GenericDataCell`] instead. Otherwise, it will not take into account all
+/// monomorphizations of your type.
+pub struct NonGenericDataCell<Data>(OnceBox<Data>);
+
+impl<Data> NonGenericDataCell<Data> {
+    /// Initialize a [`NonGenericDataCell`] for non-generic types.
+    pub const fn new() -> Self {
+        Self(OnceBox::new())
+    }
+
+    /// Returns a reference to the `Data` stored in the cell.
+    ///
+    /// If there is no `Data` found, a new one will be generated from the given function.
+    pub fn get_or_set<F>(&self, f: F) -> &Data
+    where
+        F: FnOnce() -> Data,
+    {
+        self.0.get_or_init(|| Box::new(f()))
+    }
+}
+
+/// A container over generic types, allowing instances to be stored statically.
+///
+/// This is specifically meant for use with generic types. If your type isn't generic,
+/// then use [`NonGenericDataCell`] instead as it should be much more performant.
+pub struct GenericDataCell<Data: 'static>(OnceBox<RwLock<HashMap<TypeId, &'static Data>>>);
+
+impl<Data> GenericDataCell<Data> {
+    /// Initialize a [`GenericDataCell`] for generic types.
+    pub const fn new() -> Self {
+        Self(OnceBox::new())
+    }
+
+    /// Returns a reference to the `Data` stored in the cell.
+    ///
+    /// This method will then return the correct `Data` reference for the given type `T`.
+    /// If there is no `Data` found, a new one will be generated from the given function.
+    pub fn get_or_insert<T, F>(&self, f: F) -> &Data
+    where
+        T: Any + ?Sized,
+        F: FnOnce() -> Data,
+    {
+        let type_id = TypeId::of::<T>();
+        let mapping = self.0.get_or_init(|| Box::new(RwLock::default()));
+        if let Some(info) = mapping.read().get(&type_id) {
+            return info;
+        }
+
+        mapping.write().entry(type_id).or_insert_with(|| {
+            // We leak here in order to obtain a `&'static` reference.
+            // Otherwise, we won't be able to return a reference due to the `RwLock`.
+            // This should be okay, though, since we expect it to remain statically
+            // available over the course of the application.
+            Box::leak(Box::new(f()))
+        })
+    }
+}
+
 /// A container for [`TypeInfo`] over non-generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with _non_-generic types. If your type _is_ generic,
@@ -51,26 +112,7 @@ use std::any::{Any, TypeId};
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
-pub struct NonGenericTypeInfoCell(OnceBox<TypeInfo>);
-
-impl NonGenericTypeInfoCell {
-    /// Initialize a [`NonGenericTypeInfoCell`] for non-generic types.
-    pub const fn new() -> Self {
-        Self(OnceBox::new())
-    }
-
-    /// Returns a reference to the [`TypeInfo`] stored in the cell.
-    ///
-    /// If there is no [`TypeInfo`] found, a new one will be generated from the given function.
-    ///
-    /// [`TypeInfos`]: TypeInfo
-    pub fn get_or_set<F>(&self, f: F) -> &TypeInfo
-    where
-        F: FnOnce() -> TypeInfo,
-    {
-        self.0.get_or_init(|| Box::new(f()))
-    }
-}
+pub type NonGenericTypeInfoCell = NonGenericDataCell<TypeInfo>;
 
 /// A container for [`TypeInfo`] over generic types, allowing instances to be stored statically.
 ///
@@ -115,35 +157,6 @@ impl NonGenericTypeInfoCell {
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
-pub struct GenericTypeInfoCell(OnceBox<RwLock<HashMap<TypeId, &'static TypeInfo>>>);
+pub type GenericTypeInfoCell = GenericDataCell<TypeInfo>;
 
-impl GenericTypeInfoCell {
-    /// Initialize a [`GenericTypeInfoCell`] for generic types.
-    pub const fn new() -> Self {
-        Self(OnceBox::new())
-    }
-
-    /// Returns a reference to the [`TypeInfo`] stored in the cell.
-    ///
-    /// This method will then return the correct [`TypeInfo`] reference for the given type `T`.
-    /// If there is no [`TypeInfo`] found, a new one will be generated from the given function.
-    pub fn get_or_insert<T, F>(&self, f: F) -> &TypeInfo
-    where
-        T: Any + ?Sized,
-        F: FnOnce() -> TypeInfo,
-    {
-        let type_id = TypeId::of::<T>();
-        let mapping = self.0.get_or_init(|| Box::new(RwLock::default()));
-        if let Some(info) = mapping.read().get(&type_id) {
-            return info;
-        }
-
-        mapping.write().entry(type_id).or_insert_with(|| {
-            // We leak here in order to obtain a `&'static` reference.
-            // Otherwise, we won't be able to return a reference due to the `RwLock`.
-            // This should be okay, though, since we expect it to remain statically
-            // available over the course of the application.
-            Box::leak(Box::new(f()))
-        })
-    }
-}
+pub type GenericTypeNameCell = GenericDataCell<String>;

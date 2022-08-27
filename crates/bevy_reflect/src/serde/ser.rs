@@ -110,7 +110,7 @@ impl<'a> Serialize for ReflectValueSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(type_fields::TYPE, self.value.type_name().as_ref())?;
+        state.serialize_entry(type_fields::TYPE, self.value.type_name())?;
         state.serialize_entry(
             type_fields::VALUE,
             get_serializable::<S::Error>(self.value, self.registry)?.borrow(),
@@ -131,7 +131,7 @@ impl<'a> Serialize for StructSerializer<'a> {
     {
         let mut state = serializer.serialize_map(Some(2))?;
 
-        state.serialize_entry(type_fields::TYPE, self.struct_value.type_name().as_ref())?;
+        state.serialize_entry(type_fields::TYPE, self.struct_value.type_name())?;
         state.serialize_entry(
             type_fields::STRUCT,
             &StructValueSerializer {
@@ -174,7 +174,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
     {
         let mut state = serializer.serialize_map(Some(2))?;
 
-        state.serialize_entry(type_fields::TYPE, self.tuple_struct.type_name().as_ref())?;
+        state.serialize_entry(type_fields::TYPE, self.tuple_struct.type_name())?;
         state.serialize_entry(
             type_fields::TUPLE_STRUCT,
             &TupleStructValueSerializer {
@@ -216,7 +216,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
     {
         let mut state = serializer.serialize_map(Some(2))?;
 
-        state.serialize_entry(type_fields::TYPE, self.enum_value.type_name().as_ref())?;
+        state.serialize_entry(type_fields::TYPE, self.enum_value.type_name())?;
         state.serialize_entry(
             type_fields::ENUM,
             &EnumValueSerializer {
@@ -327,7 +327,7 @@ impl<'a> Serialize for TupleSerializer<'a> {
     {
         let mut state = serializer.serialize_map(Some(2))?;
 
-        state.serialize_entry(type_fields::TYPE, self.tuple.type_name().as_ref())?;
+        state.serialize_entry(type_fields::TYPE, self.tuple.type_name())?;
         state.serialize_entry(
             type_fields::TUPLE,
             &TupleValueSerializer {
@@ -369,7 +369,7 @@ impl<'a> Serialize for MapSerializer<'a> {
     {
         let mut state = serializer.serialize_map(Some(2))?;
 
-        state.serialize_entry(type_fields::TYPE, self.map.type_name().as_ref())?;
+        state.serialize_entry(type_fields::TYPE, self.map.type_name())?;
         state.serialize_entry(
             type_fields::MAP,
             &MapValueSerializer {
@@ -413,7 +413,7 @@ impl<'a> Serialize for ListSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(type_fields::TYPE, self.list.type_name().as_ref())?;
+        state.serialize_entry(type_fields::TYPE, self.list.type_name())?;
         state.serialize_entry(
             type_fields::LIST,
             &ListValueSerializer {
@@ -454,7 +454,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(type_fields::TYPE, self.array.type_name().as_ref())?;
+        state.serialize_entry(type_fields::TYPE, self.array.type_name())?;
         state.serialize_entry(
             type_fields::ARRAY,
             &ArrayValueSerializer {

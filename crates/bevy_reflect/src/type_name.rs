@@ -1,20 +1,20 @@
-use std::borrow::Cow;
+use crate::utility::GenericTypeNameCell;
 
 /// Provide the name of the type as string.
 pub trait TypeName {
-    fn name() -> Cow<'static, str>;
+    fn name() -> &'static str;
 }
 
 /// An object-safe version of [`TypeName`].
-/// 
+///
 /// Automatically implemented via blanket implementation.
 pub trait ReflectTypeName {
-    fn type_name(&self) -> Cow<str>;
+    fn type_name(&self) -> &str;
 }
 
 impl<T: TypeName> ReflectTypeName for T {
     #[inline]
-    fn type_name(&self) -> Cow<str> {
+    fn type_name(&self) -> &str {
         Self::name()
     }
 }
@@ -23,15 +23,17 @@ macro_rules! impl_type_name_tuple {
     (
         $($t:tt),*
     ) => {
-        impl<$($t: TypeName),*> TypeName for ($($t,)*) {
+        impl<$($t: TypeName + 'static),*> TypeName for ($($t,)*) {
             #[allow(non_snake_case)]
-            fn name() -> Cow<'static, str> {
-                $(let $t = <$t as TypeName>::name();)*
-                let s = format!(
-                    concat!("(", impl_type_name_tuple!(@bracket $($t),*), ")"),
-                    $($t,)*
-                );
-                Cow::Owned(s)
+            fn name() -> &'static str {
+                static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    $(let $t = <$t as TypeName>::name();)*
+                    format!(
+                        concat!("(", impl_type_name_tuple!(@bracket $($t),*), ")"),
+                        $($t,)*
+                    )
+                })
             }
         }
     };

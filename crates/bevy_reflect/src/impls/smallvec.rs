@@ -9,7 +9,7 @@ use crate::{
     TypeRegistration, Typed,
 };
 
-impl_type_name!(SmallVec<T: smallvec::Array + TypeName>);
+impl_type_name!(SmallVec<T: smallvec::Array + TypeName + 'static>);
 
 impl<T: smallvec::Array + TypeName + Send + Sync + 'static> Array for SmallVec<T>
 where

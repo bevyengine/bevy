@@ -286,8 +286,8 @@ impl DynamicStruct {
 }
 
 impl ReflectTypeName for DynamicStruct {
-    fn type_name(&self) -> std::borrow::Cow<str> {
-        self.name.as_str().into()
+    fn type_name(&self) -> &str {
+        self.name.as_str()
     }
 }
 

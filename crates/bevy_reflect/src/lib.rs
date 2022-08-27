@@ -925,15 +925,15 @@ bevy_reflect::tests::Test {
         struct Foo;
         let foo = Foo;
         let name = foo.type_name();
-        assert_eq!(name.as_ref(), "bevy_reflect::tests::Foo");
+        assert_eq!(name, "bevy_reflect::tests::Foo");
 
         #[derive(TypeName)]
-        struct Goo<T: TypeName> {
+        struct Goo<T: TypeName + 'static> {
             _value: T,
         }
         let goo = Goo { _value: 42u32 };
         let name = goo.type_name();
-        assert_eq!(name.as_ref(), "bevy_reflect::tests::Goo<u32>");
+        assert_eq!(name, "bevy_reflect::tests::Goo<u32>");
     }
 
     #[test]
@@ -945,16 +945,16 @@ bevy_reflect::tests::Test {
         struct Foo;
         let foo = Foo;
         let name = foo.type_name();
-        assert_eq!(name.as_ref(), "Banane");
+        assert_eq!(name, "Banane");
 
         #[derive(TypeName)]
         #[type_name("MyType")]
-        struct Goo<T: TypeName> {
+        struct Goo<T: TypeName + 'static> {
             _value: T,
         }
         let goo = Goo { _value: 42u32 };
         let name = goo.type_name();
-        assert_eq!(name.as_ref(), "MyType<u32>");
+        assert_eq!(name, "MyType<u32>");
     }
 
     #[cfg(feature = "glam")]

@@ -56,12 +56,14 @@ pub(crate) fn impl_type_name(
         };
 
         quote! {
-            let name = format!(concat!("{}<", #brackets, ">"), BASE_NAME, #values);
-            std::borrow::Cow::Owned(name)
+            static CELL: #bevy_reflect_path::utility::GenericTypeNameCell = #bevy_reflect_path::utility::GenericTypeNameCell::new();
+            CELL.get_or_insert::<Self, _>(|| {
+                format!(concat!("{}<", #brackets, ">"), BASE_NAME, #values)
+            })
         }
     } else {
         quote! {
-            std::borrow::Cow::Borrowed(BASE_NAME)
+            BASE_NAME
         }
     };
 
@@ -69,7 +71,7 @@ pub(crate) fn impl_type_name(
 
     quote! {
         impl #impl_generics #bevy_reflect_path::TypeName for #type_name #ty_generics #where_clause {
-            fn name() -> std::borrow::Cow<'static, str> {
+            fn name() -> &'static str {
                 const BASE_NAME: &'static str = #base_name;
                 #get_type_name
             }
