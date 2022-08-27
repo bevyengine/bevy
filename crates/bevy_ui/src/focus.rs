@@ -1,4 +1,5 @@
 use crate::{entity::UiCameraConfig, CalculatedClip, Node};
+use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -8,8 +9,11 @@ use bevy_ecs::{
 use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_render::camera::{Camera, RenderTarget};
 use bevy_render::view::ComputedVisibility;
+use bevy_render::{
+    camera::{Camera, RenderTarget},
+    texture::Image,
+};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_window::Windows;
@@ -71,6 +75,7 @@ pub fn ui_focus_system(
     windows: Res<Windows>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
+    images: Res<Assets<Image>>,
     mut node_query: Query<(
         Entity,
         &Node,
@@ -111,16 +116,36 @@ pub fn ui_focus_system(
     let cursor_position = camera
         .iter()
         .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
-        .filter_map(|(camera, _)| {
-            if let RenderTarget::Window(window_id) = camera.target {
-                Some(window_id)
-            } else {
-                None
+        .find_map(|(camera, _)| {
+            match &camera.target {
+                RenderTarget::Window(window_id) => windows.get(*window_id).and_then(|window| {
+                    if window.is_focused() {
+                        window.cursor_position()
+                    } else {
+                        None
+                    }
+                }),
+                RenderTarget::Image(handle) => images
+                    .get(handle)
+                    .and_then(|image| windows.get_primary().map(|window| (window, image)))
+                    .and_then(|(window, image)| {
+                        if window.is_focused() {
+                            window
+                                .cursor_position()
+                                .map(|cursor_position| (window, cursor_position, image.size()))
+                        } else {
+                            None
+                        }
+                    })
+                    .map(|(window, cursor_position, image)| {
+                        // cursor_position goes from 0 to window width and height
+                        // This needs to be map from 0 to image width and height instead
+                        let x = cursor_position.x / window.width() * image.x;
+                        let y = cursor_position.y / window.height() * image.y;
+                        Vec2::new(x, y)
+                    }),
             }
         })
-        .filter_map(|window_id| windows.get(window_id))
-        .filter(|window| window.is_focused())
-        .find_map(|window| window.cursor_position())
         .or_else(|| touches_input.first_pressed_position());
 
     let mut moused_over_z_sorted_nodes = node_query
