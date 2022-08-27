@@ -5,20 +5,6 @@ pub trait TypeName {
     fn name() -> &'static str;
 }
 
-/// An object-safe version of [`TypeName`].
-///
-/// Automatically implemented via blanket implementation.
-pub trait ReflectTypeName {
-    fn type_name(&self) -> &str;
-}
-
-impl<T: TypeName> ReflectTypeName for T {
-    #[inline]
-    fn type_name(&self) -> &str {
-        Self::name()
-    }
-}
-
 macro_rules! impl_type_name_tuple {
     (
         $($t:tt),*

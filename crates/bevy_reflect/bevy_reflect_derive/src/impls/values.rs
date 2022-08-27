@@ -41,6 +41,11 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
         impl #impl_generics #bevy_reflect_path::Reflect for #type_name #ty_generics #where_clause  {
             #[inline]
+            fn type_name(&self) -> &str {
+                <Self as #bevy_reflect_path::TypeName>::name()
+            }
+
+            #[inline]
             fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
                 <Self as #bevy_reflect_path::Typed>::type_info()
             }
@@ -81,7 +86,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
                 if let Some(value) = value.downcast_ref::<Self>() {
                     *self = value.clone();
                 } else {
-                    panic!("Value is not {}.", <Self as #bevy_reflect_path::TypeName>::name());
+                    panic!("Value is not {}.", self.type_name());
                 }
             }
 

@@ -160,6 +160,11 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
         impl #impl_generics #bevy_reflect_path::Reflect for #enum_name #ty_generics #where_clause {
             #[inline]
+            fn type_name(&self) -> &str {
+                <Self as #bevy_reflect_path::TypeName>::name()
+            }
+
+            #[inline]
             fn get_type_info(&self) -> &'static #bevy_reflect_path::TypeInfo {
                 <Self as #bevy_reflect_path::Typed>::type_info()
             }
@@ -202,8 +207,6 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
             #[inline]
             fn apply(&mut self, #ref_value: &dyn #bevy_reflect_path::Reflect) {
-                use #bevy_reflect_path::ReflectTypeName;
-
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #ref_value.reflect_ref() {
                     if #bevy_reflect_path::Enum::variant_name(self) == #ref_value.variant_name() {
                         // Same variant -> just update fields
@@ -227,7 +230,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                             #(#variant_names => {
                                 *self = #variant_constructors
                             })*
-                            name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypeName>::name()),
+                            name => panic!("variant with name `{}` does not exist on enum `{}`", name, self.type_name()),
                         }
                     }
                 } else {

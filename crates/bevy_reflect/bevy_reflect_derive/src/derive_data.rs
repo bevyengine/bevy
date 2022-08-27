@@ -41,7 +41,7 @@ pub(crate) struct ReflectMeta<'a> {
     type_name: &'a Ident,
     /// The generics defined on this type.
     generics: &'a Generics,
-    /// Override the default type name for `ReflectTypeName`.
+    /// Override the default type name for `TypeName`.
     reflected_type_name: Option<String>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,

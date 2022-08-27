@@ -1,6 +1,6 @@
 use crate::{
-    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, ReflectTypeName,
-    TypeInfo, TypeName, Typed,
+    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo,
+    TypeName, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -152,13 +152,12 @@ impl DynamicArray {
     }
 }
 
-impl ReflectTypeName for DynamicArray {
-    fn type_name(&self) -> &str {
-        self.name.as_str()
-    }
-}
-
 impl Reflect for DynamicArray {
+    #[inline]
+    fn type_name(&self) -> &str {
+        &self.name
+    }
+
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()

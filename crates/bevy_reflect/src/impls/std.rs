@@ -2,9 +2,9 @@ use crate::{self as bevy_reflect, ReflectFromPtr, TypeName};
 use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
     EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
-    Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, ReflectTypeName,
-    TupleVariantInfo, TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo,
-    VariantFieldIter, VariantInfo, VariantType,
+    Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TupleVariantInfo,
+    TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter,
+    VariantInfo, VariantType,
 };
 
 use crate::utility::{GenericTypeInfoCell, GenericTypeNameCell, NonGenericTypeInfoCell};
@@ -149,6 +149,10 @@ impl<T: FromReflect + TypeName> List for Vec<T> {
 }
 
 impl<T: FromReflect + TypeName> Reflect for Vec<T> {
+    fn type_name(&self) -> &str {
+        <Self as TypeName>::name()
+    }
+
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
@@ -298,6 +302,10 @@ impl<K: FromReflect + TypeName + Eq + Hash, V: FromReflect + TypeName> Map for H
 }
 
 impl<K: FromReflect + TypeName + Eq + Hash, V: FromReflect + TypeName> Reflect for HashMap<K, V> {
+    fn type_name(&self) -> &str {
+        <Self as TypeName>::name()
+    }
+
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
@@ -411,6 +419,10 @@ impl<T: Reflect + TypeName, const N: usize> Array for [T; N] {
 }
 
 impl<T: Reflect + TypeName, const N: usize> Reflect for [T; N] {
+    fn type_name(&self) -> &str {
+        <Self as TypeName>::name()
+    }
+
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
@@ -523,6 +535,10 @@ impl_array_get_type_registration! {
 }
 
 impl Reflect for Cow<'static, str> {
+    fn type_name(&self) -> &str {
+        <Self as TypeName>::name()
+    }
+
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
     }
@@ -661,6 +677,10 @@ impl<T: FromReflect + TypeName> Enum for Option<T> {
 }
 
 impl<T: FromReflect + TypeName> Reflect for Option<T> {
+    fn type_name(&self) -> &str {
+        <Self as TypeName>::name()
+    }
+
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()

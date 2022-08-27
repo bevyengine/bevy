@@ -1,8 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum,
-    Reflect, ReflectMut, ReflectRef, ReflectTypeName, Struct, Tuple, TypeInfo, Typed,
-    VariantFieldIter, VariantType,
+    Reflect, ReflectMut, ReflectRef, Struct, Tuple, TypeInfo, Typed, VariantFieldIter, VariantType,
 };
 use std::any::Any;
 use std::fmt::Formatter;
@@ -161,12 +160,6 @@ impl DynamicEnum {
     }
 }
 
-impl ReflectTypeName for DynamicEnum {
-    fn type_name(&self) -> &str {
-        self.name.as_str()
-    }
-}
-
 impl Enum for DynamicEnum {
     fn field(&self, name: &str) -> Option<&dyn Reflect> {
         if let DynamicVariant::Struct(data) = &self.variant {
@@ -250,6 +243,11 @@ impl Enum for DynamicEnum {
 }
 
 impl Reflect for DynamicEnum {
+    #[inline]
+    fn type_name(&self) -> &str {
+        &self.name
+    }
+
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()

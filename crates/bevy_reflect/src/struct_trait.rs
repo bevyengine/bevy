@@ -1,8 +1,5 @@
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{
-    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, ReflectTypeName, TypeInfo, TypeName,
-    Typed,
-};
+use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, TypeName, Typed};
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
 use std::{
@@ -286,12 +283,6 @@ impl DynamicStruct {
     }
 }
 
-impl ReflectTypeName for DynamicStruct {
-    fn type_name(&self) -> &str {
-        self.name.as_str()
-    }
-}
-
 impl Struct for DynamicStruct {
     #[inline]
     fn field(&self, name: &str) -> Option<&dyn Reflect> {
@@ -352,6 +343,11 @@ impl Struct for DynamicStruct {
 }
 
 impl Reflect for DynamicStruct {
+    #[inline]
+    fn type_name(&self) -> &str {
+        &self.name
+    }
+
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()

@@ -37,7 +37,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
-        ReflectSerialize, ReflectTypeName, Struct, TupleStruct, TypeName,
+        ReflectSerialize, Struct, TupleStruct, TypeName,
     };
 }
 
@@ -898,32 +898,25 @@ bevy_reflect::tests::Test {
 
     #[test]
     fn reflect_type_name() {
-        use bevy_reflect::ReflectTypeName;
-
         #[derive(TypeName)]
         struct Foo;
-        let foo = Foo;
-        let name = foo.type_name();
+        let name = Foo::name();
         assert_eq!(name, "bevy_reflect::tests::Foo");
 
         #[derive(TypeName)]
         struct Goo<T: TypeName + 'static> {
             _value: T,
         }
-        let goo = Goo { _value: 42u32 };
-        let name = goo.type_name();
+        let name = Goo::<u32>::name();
         assert_eq!(name, "bevy_reflect::tests::Goo<u32>");
     }
 
     #[test]
     fn reflect_custom_type_name() {
-        use bevy_reflect::ReflectTypeName;
-
         #[derive(TypeName)]
         #[type_name("Banane")]
         struct Foo;
-        let foo = Foo;
-        let name = foo.type_name();
+        let name = Foo::name();
         assert_eq!(name, "Banane");
 
         #[derive(TypeName)]
@@ -931,8 +924,7 @@ bevy_reflect::tests::Test {
         struct Goo<T: TypeName + 'static> {
             _value: T,
         }
-        let goo = Goo { _value: 42u32 };
-        let name = goo.type_name();
+        let name = Goo::<u32>::name();
         assert_eq!(name, "MyType<u32>");
     }
 

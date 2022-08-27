@@ -1,7 +1,6 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, Reflect, ReflectMut, ReflectRef, ReflectTypeName, TypeInfo, TypeName, Typed,
-    UnnamedField,
+    DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, TypeName, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -218,12 +217,6 @@ impl DynamicTupleStruct {
     }
 }
 
-impl ReflectTypeName for DynamicTupleStruct {
-    fn type_name(&self) -> &str {
-        self.name.as_str()
-    }
-}
-
 impl TupleStruct for DynamicTupleStruct {
     #[inline]
     fn field(&self, index: usize) -> Option<&dyn Reflect> {
@@ -261,6 +254,11 @@ impl TupleStruct for DynamicTupleStruct {
 }
 
 impl Reflect for DynamicTupleStruct {
+    #[inline]
+    fn type_name(&self) -> &str {
+        &self.name
+    }
+
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()

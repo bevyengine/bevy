@@ -4,7 +4,7 @@ use std::fmt::{Debug, Formatter};
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef,
-    ReflectTypeName, TypeInfo, TypeName, Typed,
+    TypeInfo, TypeName, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -114,12 +114,6 @@ impl DynamicList {
     }
 }
 
-impl ReflectTypeName for DynamicList {
-    fn type_name(&self) -> &str {
-        self.name.as_str()
-    }
-}
-
 impl Array for DynamicList {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.values.get(index).map(|value| &**value)
@@ -170,6 +164,11 @@ impl List for DynamicList {
 }
 
 impl Reflect for DynamicList {
+    #[inline]
+    fn type_name(&self) -> &str {
+        &self.name
+    }
+
     #[inline]
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
