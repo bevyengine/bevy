@@ -1527,6 +1527,10 @@ path = "tests/window/minimising.rs"
 [package.metadata.example.minimising]
 hidden = true
 
+[[example]]
+name = "window_resize"
+path = "examples/window/window_resize.rs"
+
 # Android
 [[example]]
 crate-type = ["cdylib"]
