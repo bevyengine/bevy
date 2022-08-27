@@ -324,7 +324,7 @@ Example | Description
 [Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 [Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
-`window_resize` | [`window/window_resize.rs`](./window/window_resize.rs) | Demonstrates how to handle window resize events and fit the window
+[Window Resizing](../examples/window/window_resizing.rs) | Demonstrates how to resize a window and how to respond to resize events
 
 # Tests
 
