@@ -1,4 +1,4 @@
-use crate::{DynamicEnum, Reflect, VariantInfo, VariantType};
+use crate::{DynamicEnum, Reflect, TypeName, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
@@ -144,7 +144,7 @@ impl EnumInfo {
     ///
     /// * `variants`: The variants of this enum in the order they are defined
     ///
-    pub fn new<TEnum: Enum>(variants: &[VariantInfo]) -> Self {
+    pub fn new<TEnum: Enum + TypeName>(variants: &[VariantInfo]) -> Self {
         let variant_indices = variants
             .iter()
             .enumerate()
@@ -155,7 +155,7 @@ impl EnumInfo {
             .collect::<HashMap<_, _>>();
 
         Self {
-            type_name: std::any::type_name::<TEnum>(),
+            type_name: TEnum::name(),
             type_id: TypeId::of::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_indices,
@@ -203,7 +203,7 @@ impl EnumInfo {
 
     /// The [type name] of the enum.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: crate::TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }

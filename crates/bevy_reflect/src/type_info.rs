@@ -94,7 +94,7 @@ pub trait Typed: Reflect {
 /// [`Reflect::get_type_info`]: crate::Reflect::get_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
 /// [`TypeId`]: std::any::TypeId
-/// [type name]: std::any::type_name
+/// [type name]: crate::TypeName
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
     Struct(StructInfo),
@@ -129,7 +129,7 @@ impl TypeInfo {
 
     /// The [name] of the underlying type.
     ///
-    /// [name]: std::any::type_name
+    /// [name]: crate::TypeName
     pub fn type_name(&self) -> &'static str {
         match self {
             Self::Struct(info) => info.type_name(),
@@ -166,6 +166,7 @@ pub struct ValueInfo {
 
 impl ValueInfo {
     pub fn new<T: Reflect + ?Sized>() -> Self {
+        // FIXME: use TypeName instead of any::type_name.
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
@@ -174,7 +175,7 @@ impl ValueInfo {
 
     /// The [type name] of the value.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: crate::TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }

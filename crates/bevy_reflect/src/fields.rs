@@ -1,4 +1,4 @@
-use crate::Reflect;
+use crate::{Reflect, TypeName};
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
 
@@ -12,10 +12,10 @@ pub struct NamedField {
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect, TName: Into<Cow<'static, str>>>(name: TName) -> Self {
+    pub fn new<T: Reflect + TypeName, TName: Into<Cow<'static, str>>>(name: TName) -> Self {
         Self {
             name: name.into(),
-            type_name: std::any::type_name::<T>(),
+            type_name: T::name(),
             type_id: TypeId::of::<T>(),
         }
     }
@@ -27,7 +27,7 @@ impl NamedField {
 
     /// The [type name] of the field.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -52,10 +52,10 @@ pub struct UnnamedField {
 }
 
 impl UnnamedField {
-    pub fn new<T: Reflect>(index: usize) -> Self {
+    pub fn new<T: Reflect + TypeName>(index: usize) -> Self {
         Self {
             index,
-            type_name: std::any::type_name::<T>(),
+            type_name: T::name(),
             type_id: TypeId::of::<T>(),
         }
     }
@@ -67,7 +67,7 @@ impl UnnamedField {
 
     /// The [type name] of the field.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }

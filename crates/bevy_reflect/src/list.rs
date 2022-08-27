@@ -4,7 +4,7 @@ use std::fmt::{Debug, Formatter};
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef,
-    ReflectTypeName, TypeInfo, Typed,
+    ReflectTypeName, TypeInfo, TypeName, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -35,18 +35,18 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List, TItem: FromReflect>() -> Self {
+    pub fn new<TList: List + TypeName, TItem: FromReflect + TypeName>() -> Self {
         Self {
-            type_name: std::any::type_name::<TList>(),
+            type_name: TList::name(),
             type_id: TypeId::of::<TList>(),
-            item_type_name: std::any::type_name::<TItem>(),
+            item_type_name: TItem::name(),
             item_type_id: TypeId::of::<TItem>(),
         }
     }
 
     /// The [type name] of the list.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -63,7 +63,7 @@ impl ListInfo {
 
     /// The [type name] of the list item.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn item_type_name(&self) -> &'static str {
         self.item_type_name
     }

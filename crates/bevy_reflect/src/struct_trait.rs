@@ -1,6 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, ReflectTypeName, TypeInfo, Typed,
+    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, ReflectTypeName, TypeInfo, TypeName,
+    Typed,
 };
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
@@ -84,7 +85,7 @@ impl StructInfo {
     ///
     /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<T: Reflect>(fields: &[NamedField]) -> Self {
+    pub fn new<T: Reflect + TypeName>(fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
@@ -95,7 +96,7 @@ impl StructInfo {
             .collect::<HashMap<_, _>>();
 
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_name: T::name(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             field_indices,
@@ -131,7 +132,7 @@ impl StructInfo {
 
     /// The [type name] of the struct.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }

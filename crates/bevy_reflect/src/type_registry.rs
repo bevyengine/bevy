@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
+use crate::{serde::Serializable, Reflect, TypeInfo, TypeName, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
@@ -314,8 +314,8 @@ impl TypeRegistration {
     }
 
     /// Creates type registration information for `T`.
-    pub fn of<T: Reflect + Typed>() -> Self {
-        let type_name = std::any::type_name::<T>();
+    pub fn of<T: Reflect + Typed + TypeName>() -> Self {
+        let type_name = T::name();
         Self {
             data: HashMap::default(),
             short_name: bevy_utils::get_short_name(type_name),

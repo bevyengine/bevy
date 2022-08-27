@@ -5,7 +5,9 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, ReflectTypeName, TypeInfo, Typed};
+use crate::{
+    DynamicInfo, Reflect, ReflectMut, ReflectRef, ReflectTypeName, TypeInfo, TypeName, Typed,
+};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -69,20 +71,24 @@ pub struct MapInfo {
 
 impl MapInfo {
     /// Create a new [`MapInfo`].
-    pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
+    pub fn new<
+        TMap: Map + TypeName,
+        TKey: Hash + Reflect + TypeName,
+        TValue: Reflect + TypeName,
+    >() -> Self {
         Self {
-            type_name: std::any::type_name::<TMap>(),
+            type_name: TMap::name(),
             type_id: TypeId::of::<TMap>(),
-            key_type_name: std::any::type_name::<TKey>(),
+            key_type_name: TKey::name(),
             key_type_id: TypeId::of::<TKey>(),
-            value_type_name: std::any::type_name::<TValue>(),
+            value_type_name: TValue::name(),
             value_type_id: TypeId::of::<TValue>(),
         }
     }
 
     /// The [type name] of the map.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -99,7 +105,7 @@ impl MapInfo {
 
     /// The [type name] of the key.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn key_type_name(&self) -> &'static str {
         self.key_type_name
     }
@@ -116,7 +122,7 @@ impl MapInfo {
 
     /// The [type name] of the value.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn value_type_name(&self) -> &'static str {
         self.value_type_name
     }

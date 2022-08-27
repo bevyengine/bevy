@@ -1,6 +1,6 @@
 use crate::{
     utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, ReflectTypeName,
-    TypeInfo, Typed,
+    TypeInfo, TypeName, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -57,11 +57,11 @@ impl ArrayInfo {
     ///
     /// * `capacity`: The maximum capacity of the underlying array.
     ///
-    pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
+    pub fn new<TArray: Array + TypeName, TItem: Reflect + TypeName>(capacity: usize) -> Self {
         Self {
-            type_name: std::any::type_name::<TArray>(),
+            type_name: TArray::name(),
             type_id: TypeId::of::<TArray>(),
-            item_type_name: std::any::type_name::<TItem>(),
+            item_type_name: TItem::name(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
         }
@@ -74,7 +74,7 @@ impl ArrayInfo {
 
     /// The [type name] of the array.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -91,7 +91,7 @@ impl ArrayInfo {
 
     /// The [type name] of the array item.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn item_type_name(&self) -> &'static str {
         self.item_type_name
     }

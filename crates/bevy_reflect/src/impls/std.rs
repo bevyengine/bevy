@@ -552,7 +552,7 @@ impl Reflect for Cow<'static, str> {
         if let Some(value) = value.downcast_ref::<Self>() {
             *self = value.clone();
         } else {
-            panic!("Value is not a {}.", std::any::type_name::<Self>());
+            panic!("Value is not a {}.", Self::name());
         }
     }
 
@@ -708,7 +708,7 @@ impl<T: FromReflect + TypeName> Reflect for Option<T> {
                             .unwrap_or_else(|| {
                                 panic!(
                                     "Field in `Some` variant of {} should exist",
-                                    std::any::type_name::<Option<T>>()
+                                    Option::<T>::name()
                                 )
                             })
                             .clone_value()
@@ -717,8 +717,8 @@ impl<T: FromReflect + TypeName> Reflect for Option<T> {
                                 T::from_reflect(&*value).unwrap_or_else(|| {
                                     panic!(
                                         "Field in `Some` variant of {} should be of type {}",
-                                        std::any::type_name::<Option<T>>(),
-                                        std::any::type_name::<T>()
+                                        Option::<T>::name(),
+                                        T::name()
                                     )
                                 })
                             });
@@ -727,7 +727,7 @@ impl<T: FromReflect + TypeName> Reflect for Option<T> {
                     "None" => {
                         *self = None;
                     }
-                    _ => panic!("Enum is not a {}.", std::any::type_name::<Self>()),
+                    _ => panic!("Enum is not a {}.", Self::name()),
                 }
             }
         }
@@ -771,7 +771,7 @@ impl<T: FromReflect + TypeName> FromReflect for Option<T> {
                         .unwrap_or_else(|| {
                             panic!(
                                 "Field in `Some` variant of {} should exist",
-                                std::any::type_name::<Option<T>>()
+                                Option::<T>::name()
                             )
                         })
                         .clone_value()
@@ -780,8 +780,8 @@ impl<T: FromReflect + TypeName> FromReflect for Option<T> {
                             T::from_reflect(&*value).unwrap_or_else(|| {
                                 panic!(
                                     "Field in `Some` variant of {} should be of type {}",
-                                    std::any::type_name::<Option<T>>(),
-                                    std::any::type_name::<T>()
+                                    Option::<T>::name(),
+                                    T::name()
                                 )
                             })
                         });
@@ -791,7 +791,7 @@ impl<T: FromReflect + TypeName> FromReflect for Option<T> {
                 name => panic!(
                     "variant with name `{}` does not exist on enum `{}`",
                     name,
-                    std::any::type_name::<Self>()
+                    Self::name()
                 ),
             }
         } else {

@@ -13,7 +13,7 @@ impl_type_name!(SmallVec<T: smallvec::Array + TypeName + 'static>);
 
 impl<T: smallvec::Array + TypeName + Send + Sync + 'static> Array for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypeName,
 {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         if index < SmallVec::len(self) {
@@ -45,7 +45,7 @@ where
 
 impl<T: smallvec::Array + TypeName + Send + Sync + 'static> List for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypeName,
 {
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
@@ -62,7 +62,7 @@ where
 
 impl<T: smallvec::Array + TypeName + Send + Sync + 'static> Reflect for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypeName,
 {
     fn get_type_info(&self) -> &'static TypeInfo {
         <Self as Typed>::type_info()
@@ -116,7 +116,7 @@ where
 
 impl<T: smallvec::Array + TypeName + Send + Sync + 'static> Typed for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypeName,
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -126,7 +126,7 @@ where
 
 impl<T: smallvec::Array + TypeName + Send + Sync + 'static> FromReflect for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypeName,
 {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
@@ -143,7 +143,7 @@ where
 
 impl<T: smallvec::Array + TypeName + Send + Sync + 'static> GetTypeRegistration for SmallVec<T>
 where
-    T::Item: FromReflect,
+    T::Item: FromReflect + TypeName,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<SmallVec<T>>();

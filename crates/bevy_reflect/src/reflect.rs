@@ -207,6 +207,7 @@ impl Debug for dyn Reflect {
 impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        // FIXME : how to build ValueInfo here with TypeName ?
         CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
 }

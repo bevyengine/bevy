@@ -140,9 +140,9 @@ impl TupleInfo {
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
     ///
-    pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
+    pub fn new<T: Reflect + TypeName>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_name: T::name(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
         }
@@ -165,7 +165,7 @@ impl TupleInfo {
 
     /// The [type name] of the tuple.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
