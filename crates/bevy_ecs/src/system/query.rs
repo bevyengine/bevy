@@ -700,7 +700,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # Panics
     ///
     /// This method panics if the [`ComputeTaskPool`] resource is added to the `World` before using this method.
-    /// If using this from a query that is being initialized and run from the [`Schedule`](crate::schedule::Schedule), this should never panic.
+    /// If using this from a query that is being initialized and run from the [`Schedule`](crate::schedule::Schedule), this never panics.
     ///
     /// # See also
     ///
@@ -731,7 +731,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     /// # Panics
     ///
     /// This method panics if the [`ComputeTaskPool`] resource is added to the `World` before using this method.
-    /// If using this from a query that is being initialized and run from the [`Schedule`](crate::schedule::Schedule), this should never panic.
+    /// If using this from a query that is being initialized and run from the [`Schedule`](crate::schedule::Schedule), this never panics.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::prelude::ComputeTaskPool
     ///
