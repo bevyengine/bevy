@@ -6,6 +6,7 @@ pub trait TypeName {
 }
 
 /// An object-safe version of [`TypeName`].
+/// 
 /// Automatically implemented via blanket implementation.
 pub trait ReflectTypeName {
     fn type_name(&self) -> Cow<str>;
