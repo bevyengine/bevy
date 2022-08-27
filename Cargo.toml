@@ -1452,6 +1452,10 @@ description = "Illustrates various features of Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "scaling"
+path = "examples/ui/scaling.rs"
+
 # Window
 [[example]]
 name = "clear_color"
