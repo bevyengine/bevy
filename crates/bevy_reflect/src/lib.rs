@@ -946,13 +946,13 @@ bevy_reflect::tests::Test {
 
             assert_eq!(
                 result,
-                r#"{"type":"glam::f32::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
+                r#"{"type":"glam::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
             );
         }
 
         #[test]
         fn vec3_deserialization() {
-            let data = r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#;
+            let data = r#"{"type":"glam::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#;
 
             let mut registry = TypeRegistry::default();
             registry.add_registration(Vec3::get_type_registration());
