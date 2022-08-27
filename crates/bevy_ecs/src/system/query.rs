@@ -1154,7 +1154,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # Panics
     ///
-    /// This method panics if the number of query items is not exactly one.
+    /// This method panics if the number of query items is **not** exactly one.
     ///
     /// # Example
     ///
@@ -1229,7 +1229,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # Panics
     ///
-    /// This method panics if the number of query item is not exactly one.
+    /// This method panics if the number of query item is **not** exactly one.
     ///
     /// # Example
     ///
