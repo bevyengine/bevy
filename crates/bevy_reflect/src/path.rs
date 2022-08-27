@@ -198,7 +198,7 @@ impl GetPath for dyn Reflect {
                                 current = list_item;
                             }
                             _ => {
-                                return Err(ReflectPathError::ExpectedStruct {
+                                return Err(ReflectPathError::ExpectedList {
                                     index: current_index,
                                 })
                             }
@@ -368,7 +368,7 @@ mod tests {
         #[derive(Reflect)]
         struct E(f32, usize);
 
-        let mut a = A {
+        let a = A {
             w: 1,
             x: B {
                 foo: 10,
@@ -383,9 +383,6 @@ mod tests {
         assert_eq!(*a.get_path::<f32>("x.bar.baz").unwrap(), 3.14);
         assert_eq!(*a.get_path::<f32>("y[1].baz").unwrap(), 2.0);
         assert_eq!(*a.get_path::<usize>("z.0.1").unwrap(), 42);
-
-        *a.get_path_mut::<f32>("y[1].baz").unwrap() = 3.0;
-        assert_eq!(a.y[1].baz, 3.0);
 
         assert_eq!(
             a.path("x.notreal").err().unwrap(),
@@ -412,6 +409,84 @@ mod tests {
 
         assert!(matches!(
             a.path("y[badindex]"),
+            Err(ReflectPathError::IndexParseError(_))
+        ));
+    }
+
+    #[test]
+    fn reflect_path_mut() {
+        #[derive(Reflect)]
+        struct A {
+            w: usize,
+            x: B,
+            y: Vec<C>,
+            z: D,
+        }
+
+        #[derive(Reflect)]
+        struct B {
+            foo: usize,
+            bar: C,
+        }
+
+        #[derive(Reflect, FromReflect)]
+        struct C {
+            baz: f32,
+        }
+
+        #[derive(Reflect)]
+        struct D(E);
+
+        #[derive(Reflect)]
+        struct E(f32, usize);
+
+        let mut a = A {
+            w: 1,
+            x: B {
+                foo: 10,
+                bar: C { baz: 3.14 },
+            },
+            y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
+            z: D(E(10.0, 42)),
+        };
+
+        assert_eq!(*a.get_path_mut::<usize>("w").unwrap(), 1);
+        assert_eq!(*a.get_path_mut::<usize>("x.foo").unwrap(), 10);
+        assert_eq!(*a.get_path_mut::<f32>("x.bar.baz").unwrap(), 3.14);
+        assert_eq!(*a.get_path_mut::<f32>("y[1].baz").unwrap(), 2.0);
+        assert_eq!(*a.get_path_mut::<usize>("z.0.1").unwrap(), 42);
+
+        *a.get_path_mut::<f32>("y[1].baz").unwrap() = 3.0;
+        assert_eq!(a.y[1].baz, 3.0);
+
+        *a.get_path_mut::<usize>("w").unwrap() = 2;
+        assert_eq!(a.w, 2);
+
+        assert_eq!(
+            a.path_mut("x.notreal").err().unwrap(),
+            ReflectPathError::InvalidField {
+                index: 2,
+                field: "notreal"
+            }
+        );
+
+        assert_eq!(
+            a.path_mut("x..").err().unwrap(),
+            ReflectPathError::ExpectedIdent { index: 2 }
+        );
+
+        assert_eq!(
+            a.path_mut("x[0]").err().unwrap(),
+            ReflectPathError::ExpectedList { index: 2 }
+        );
+
+        assert_eq!(
+            a.path_mut("y.x").err().unwrap(),
+            ReflectPathError::ExpectedStruct { index: 2 }
+        );
+
+        assert!(matches!(
+            a.path_mut("y[badindex]"),
             Err(ReflectPathError::IndexParseError(_))
         ));
     }
