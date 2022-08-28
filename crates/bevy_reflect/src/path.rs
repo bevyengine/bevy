@@ -146,8 +146,8 @@ impl GetPath for dyn Reflect {
                             let ident = match_quoted_ident(path, &mut index)?;
 
                             match current.reflect_ref() {
-                                ReflectRef::Map(reflect_list) => {
-                                    let list_item = reflect_list.get(&String::from(ident)).ok_or(
+                                ReflectRef::Map(reflect_map) => {
+                                    let list_item = reflect_map.get(&String::from(ident)).ok_or(
                                         ReflectPathError::InvalidMapKey {
                                             index: current_index,
                                             map_key: ident,
@@ -238,8 +238,8 @@ impl GetPath for dyn Reflect {
                             let ident = match_quoted_ident(path, &mut index)?;
 
                             match current.reflect_mut() {
-                                ReflectMut::Map(reflect_list) => {
-                                    let list_item = reflect_list
+                                ReflectMut::Map(reflect_map) => {
+                                    let list_item = reflect_map
                                         .get_mut(&String::from(ident))
                                         .ok_or(ReflectPathError::InvalidMapKey {
                                             index: current_index,
