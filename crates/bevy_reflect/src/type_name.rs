@@ -1,7 +1,18 @@
 use crate::utility::GenericTypeNameCell;
 
-/// Provide the name of the type as string.
+/// Provide the name of the type as a string slice.
+///
+/// This is a stable alternative to [`std::any::type_name`] whose output isn't guarentee
+/// and may change between versions of the compiler.
+///
+/// This trait may be derived via `#[derive(TypeName)]`.
+/// Checkout the [derive macro documentation][bevy_reflect_derive::TypeName] for more details
+/// about how this trait must be implemented.
 pub trait TypeName: 'static {
+    /// Returns the name of the type.
+    ///
+    /// This is a stable alternative to [`std::any::type_name`] whose output isn't guarentee
+    /// and may change between versions of the compiler.
     fn name() -> &'static str;
 }
 
