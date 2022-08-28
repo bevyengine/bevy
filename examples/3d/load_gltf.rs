@@ -1,5 +1,7 @@
 //! Loads and renders a glTF file as a scene.
 
+use std::f32::consts::TAU;
+
 use bevy::prelude::*;
 
 fn main() {
@@ -51,7 +53,7 @@ fn animate_light_direction(
             EulerRot::ZYX,
             0.0,
             time.seconds_since_startup() as f32 * std::f32::consts::TAU / 10.0,
-            -std::f32::consts::FRAC_PI_4,
+            -TAU / 8.,
         );
     }
 }

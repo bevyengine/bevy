@@ -1,5 +1,7 @@
 //! This example shows various ways to configure texture materials in 3D.
 
+use std::f32::consts::TAU;
+
 use bevy::prelude::*;
 
 fn main() {
@@ -59,7 +61,7 @@ fn setup(
         material: material_handle,
         transform: Transform {
             translation: Vec3::new(0.0, 0.0, 1.5),
-            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+            rotation: Quat::from_rotation_x(-TAU / 10.0),
             ..default()
         },
         ..default()
@@ -70,7 +72,7 @@ fn setup(
         material: red_material_handle,
         transform: Transform {
             translation: Vec3::new(0.0, 0.0, 0.0),
-            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+            rotation: Quat::from_rotation_x(-TAU / 10.0),
             ..default()
         },
         ..default()
@@ -81,7 +83,7 @@ fn setup(
         material: blue_material_handle,
         transform: Transform {
             translation: Vec3::new(0.0, 0.0, -1.5),
-            rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+            rotation: Quat::from_rotation_x(-TAU / 10.0),
             ..default()
         },
         ..default()

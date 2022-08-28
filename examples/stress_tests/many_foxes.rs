@@ -1,6 +1,8 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
+use std::f32::consts::TAU;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -93,7 +95,7 @@ fn setup(
 
     let ring_directions = [
         (
-            Quat::from_rotation_y(std::f32::consts::PI),
+            Quat::from_rotation_y(TAU / 2.),
             RotationDirection::CounterClockwise,
         ),
         (Quat::IDENTITY, RotationDirection::Clockwise),
@@ -165,12 +167,7 @@ fn setup(
 
     // Light
     commands.spawn_bundle(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            1.0,
-            -std::f32::consts::FRAC_PI_4,
-        )),
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -TAU / 8.)),
         directional_light: DirectionalLight {
             shadows_enabled: true,
             ..default()

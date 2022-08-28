@@ -1,5 +1,7 @@
 //! Eat the cakes. Eat them all. An example 3D game.
 
+use std::f32::consts::TAU;
+
 use bevy::{ecs::schedule::SystemSet, prelude::*, time::FixedTimestep};
 use rand::Rng;
 
@@ -194,21 +196,21 @@ fn move_player(
             if game.player.i < BOARD_SIZE_I - 1 {
                 game.player.i += 1;
             }
-            rotation = -std::f32::consts::FRAC_PI_2;
+            rotation = -TAU / 4.;
             moved = true;
         }
         if keyboard_input.pressed(KeyCode::Down) {
             if game.player.i > 0 {
                 game.player.i -= 1;
             }
-            rotation = std::f32::consts::FRAC_PI_2;
+            rotation = TAU / 4.;
             moved = true;
         }
         if keyboard_input.pressed(KeyCode::Right) {
             if game.player.j < BOARD_SIZE_J - 1 {
                 game.player.j += 1;
             }
-            rotation = std::f32::consts::PI;
+            rotation = TAU / 2.;
             moved = true;
         }
         if keyboard_input.pressed(KeyCode::Left) {

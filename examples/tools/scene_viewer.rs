@@ -526,16 +526,10 @@ fn camera_controller(
 
         if mouse_delta != Vec2::ZERO {
             // Apply look update
-            let (pitch, yaw) = (
-                (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt).clamp(
-                    -0.99 * std::f32::consts::FRAC_PI_2,
-                    0.99 * std::f32::consts::FRAC_PI_2,
-                ),
-                options.yaw - mouse_delta.x * options.sensitivity * dt,
-            );
-            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, yaw, pitch);
-            options.pitch = pitch;
-            options.yaw = yaw;
+            options.pitch = (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt)
+                .clamp(-TAU / 4., TAU / 4.);
+            options.yaw -= mouse_delta.x * options.sensitivity * dt;
+            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
         }
     }
 }
