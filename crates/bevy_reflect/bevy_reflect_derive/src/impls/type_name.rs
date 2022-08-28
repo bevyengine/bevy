@@ -12,7 +12,10 @@ pub(crate) fn impl_type_name(reflect_meta: &ReflectMeta) -> proc_macro2::TokenSt
     let base_name = reflect_meta
         .reflected_type_name()
         .map(|x| quote!(#x))
-        .unwrap_or_else(|| quote!(concat!(module_path!(), "::", stringify!(#type_name))));
+        .unwrap_or_else(|| {
+            let type_name = type_name.to_string();
+            quote!(concat!(module_path!(), "::", #type_name))
+        });
 
     let get_type_name = if is_generic {
         let values = {
@@ -22,8 +25,8 @@ pub(crate) fn impl_type_name(reflect_meta: &ReflectMeta) -> proc_macro2::TokenSt
                     quote!(<#ty as #bevy_reflect_path::TypeName>::name())
                 }
                 syn::GenericParam::Lifetime(p) => {
-                    let name = &p.lifetime.ident;
-                    quote!(concat!("'", stringify!(#name)))
+                    let name = &p.lifetime.ident.to_string();
+                    quote!(concat!("'", #name))
                 }
                 syn::GenericParam::Const(p) => {
                     let name = &p.ident;
