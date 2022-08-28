@@ -399,10 +399,10 @@ fn next_token<'a>(path: &'a str, index: &mut usize) -> Option<Token<'a>> {
 
 fn match_quoted_ident<'a>(
     path: &'a str,
-    mut index: &mut usize,
+    index: &mut usize,
 ) -> Result<&'a str, ReflectPathError<'a>> {
     let start_of_ident_index = *index;
-    let ident = if let Some(Token::Ident(ident)) = next_token(path, &mut index) {
+    let ident = if let Some(Token::Ident(ident)) = next_token(path, index) {
         ident
     } else {
         return Err(ReflectPathError::ExpectedIdent {
@@ -411,7 +411,7 @@ fn match_quoted_ident<'a>(
     };
 
     let end_of_ident_index = *index;
-    if !matches!(next_token(path, &mut index), Some(Token::SingleQuote)) {
+    if !matches!(next_token(path, index), Some(Token::SingleQuote)) {
         return Err(ReflectPathError::ExpectedToken {
             index: end_of_ident_index,
             token: "'",
