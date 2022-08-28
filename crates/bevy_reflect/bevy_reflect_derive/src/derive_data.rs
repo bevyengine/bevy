@@ -340,10 +340,13 @@ impl<'a> ReflectEnum<'a> {
 
 /// Extracts the type name attribute or returns [`None`].
 fn get_type_name_attribute(nested_metas: &Punctuated<NestedMeta, Comma>) -> Option<String> {
-    (nested_metas.len() == 1)
-        .then(|| match nested_metas.first().unwrap() {
-            NestedMeta::Lit(Lit::Str(s)) => Some(s.value()),
+    // Having more than 1 element in nested_metas is invalid.
+    if nested_metas.len() == 1 {
+        match nested_metas.first() {
+            Some(NestedMeta::Lit(Lit::Str(s))) => Some(s.value()),
             _ => None,
-        })
-        .flatten()
+        }
+    } else {
+        None
+    }
 }
