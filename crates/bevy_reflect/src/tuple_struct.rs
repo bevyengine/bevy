@@ -15,7 +15,7 @@ use std::slice::Iter;
 /// `#[derive(Reflect)]`.
 ///
 /// ```
-/// use bevy_reflect::{Reflect,TupleStruct};
+/// use bevy_reflect::{Reflect, TupleStruct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo(String);
