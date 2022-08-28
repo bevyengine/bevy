@@ -136,7 +136,7 @@ impl TextAlignment {
         horizontal: HorizontalAlign::Center,
     };
 
-    /// A [`TextAlignment`] set to the the top-right.
+    /// A [`TextAlignment`] set to the top-right.
     pub const TOP_RIGHT: Self = TextAlignment {
         vertical: VerticalAlign::Top,
         horizontal: HorizontalAlign::Right,
@@ -187,7 +187,7 @@ impl Default for TextAlignment {
 
 /// Describes horizontal alignment preference for positioning & bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
-#[reflect_value(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
 pub enum HorizontalAlign {
     /// Leftmost character is immediately to the right of the render position.<br/>
     /// Bounds start from the render position and advance rightwards.
@@ -195,7 +195,7 @@ pub enum HorizontalAlign {
     /// Leftmost & rightmost characters are equidistant to the render position.<br/>
     /// Bounds start from the render position and advance equally left & right.
     Center,
-    /// Rightmost character is immetiately to the left of the render position.<br/>
+    /// Rightmost character is immediately to the left of the render position.<br/>
     /// Bounds start from the render position and advance leftwards.
     Right,
 }
@@ -213,7 +213,7 @@ impl From<HorizontalAlign> for glyph_brush_layout::HorizontalAlign {
 /// Describes vertical alignment preference for positioning & bounds. Currently a placeholder
 /// for future functionality.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
-#[reflect_value(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
 pub enum VerticalAlign {
     /// Characters/bounds start underneath the render position and progress downwards.
     Top,

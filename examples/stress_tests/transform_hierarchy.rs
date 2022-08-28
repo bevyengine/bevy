@@ -191,7 +191,7 @@ fn main() {
 }
 
 /// test configuration
-#[derive(Debug, Clone)]
+#[derive(Resource, Debug, Clone)]
 struct Cfg {
     /// which test case should be inserted
     test_case: TestCase,

@@ -15,7 +15,13 @@ fn prepare_normal(
 #endif
     is_front: bool,
 ) -> vec3<f32> {
-    var N: vec3<f32> = normalize(world_normal);
+    // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
+    // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
+    // bakes vertex tangents and normal maps so that this is the exact inverse. Blender, Unity,
+    // Unreal Engine, Godot, and more all use the mikktspace method. Do not change this code
+    // unless you really know what you are doing.
+    // http://www.mikktspace.com/
+    var N: vec3<f32> = world_normal;
 
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
@@ -236,7 +242,7 @@ fn pbr(
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // tone_mapping
     return vec4<f32>(reinhard_luminance(in.rgb), in.a);
-    
+
     // Gamma correction.
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));

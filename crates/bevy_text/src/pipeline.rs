@@ -2,6 +2,7 @@ use std::hash::Hash;
 
 use ab_glyph::{PxScale, ScaleFont};
 use bevy_asset::{Assets, Handle, HandleId};
+use bevy_ecs::system::Resource;
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
@@ -14,6 +15,7 @@ use crate::{
     TextAlignment, TextSection,
 };
 
+#[derive(Resource)]
 pub struct TextPipeline<ID> {
     brush: GlyphBrush,
     glyph_map: HashMap<ID, TextLayoutInfo>,

@@ -3,6 +3,7 @@
 use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
+    sprite::MaterialMesh2dBundle,
     time::FixedTimestep,
 };
 
@@ -88,6 +89,7 @@ struct CollisionEvent;
 #[derive(Component)]
 struct Brick;
 
+#[derive(Resource)]
 struct CollisionSound(Handle<AudioSource>);
 
 // This bundle is a collection of the components that define a "wall" in our game
@@ -164,12 +166,18 @@ impl WallBundle {
 }
 
 // This resource tracks the game's score
+#[derive(Resource)]
 struct Scoreboard {
     score: usize,
 }
 
 // Add the game's entities to our world
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
     // Camera
     commands.spawn_bundle(Camera2dBundle::default());
 
@@ -201,16 +209,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn()
         .insert(Ball)
-        .insert_bundle(SpriteBundle {
-            transform: Transform {
-                scale: BALL_SIZE,
-                translation: BALL_STARTING_POSITION,
-                ..default()
-            },
-            sprite: Sprite {
-                color: BALL_COLOR,
-                ..default()
-            },
+        .insert_bundle(MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::default().into()).into(),
+            material: materials.add(ColorMaterial::from(BALL_COLOR)),
+            transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
             ..default()
         })
         .insert(Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED));

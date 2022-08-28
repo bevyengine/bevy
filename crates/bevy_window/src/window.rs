@@ -1,8 +1,11 @@
+use bevy_ecs::system::Resource;
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
+#[reflect_value(PartialEq, Hash)]
 /// A unique ID for a [`Window`].
 pub struct WindowId(Uuid);
 
@@ -245,7 +248,7 @@ pub enum WindowCommand {
     SetDecorations {
         decorations: bool,
     },
-    /// Set whether or not the cursor's postition is locked.
+    /// Set whether or not the cursor's position is locked.
     SetCursorLockMode {
         locked: bool,
     },
@@ -261,7 +264,7 @@ pub enum WindowCommand {
     SetCursorPosition {
         position: Vec2,
     },
-    /// Set whether or not the window is maxizimed.
+    /// Set whether or not the window is maximized.
     SetMaximized {
         maximized: bool,
     },
@@ -450,8 +453,8 @@ impl Window {
             .push(WindowCommand::SetResizeConstraints { resize_constraints });
     }
 
-    /// Request the OS to resize the window such the the client area matches the
-    /// specified width and height.
+    /// Request the OS to resize the window such the client area matches the specified
+    /// width and height.
     #[allow(clippy::float_cmp)]
     pub fn set_resolution(&mut self, width: f32, height: f32) {
         if self.requested_width == width && self.requested_height == height {
@@ -625,10 +628,10 @@ impl Window {
     /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
-    pub fn set_cursor_visibility(&mut self, visibile_mode: bool) {
-        self.cursor_visible = visibile_mode;
+    pub fn set_cursor_visibility(&mut self, visible_mode: bool) {
+        self.cursor_visible = visible_mode;
         self.command_queue.push(WindowCommand::SetCursorVisibility {
-            visible: visibile_mode,
+            visible: visible_mode,
         });
     }
     /// Get the current [`CursorIcon`]
@@ -775,7 +778,7 @@ pub enum MonitorSelection {
 /// See [`examples/window/window_settings.rs`] for usage.
 ///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Debug, Clone)]
+#[derive(Resource, Debug, Clone)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     ///

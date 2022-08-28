@@ -16,6 +16,7 @@ const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
 const HALF_BIRD_SIZE: f32 = 256. * BIRD_SCALE * 0.5;
 
+#[derive(Resource)]
 struct BevyCounter {
     pub count: usize,
     pub color: Color,
@@ -56,6 +57,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct BirdScheduled {
     wave: usize,
     per_wave: usize,
@@ -83,7 +85,7 @@ fn scheduled_spawner(
     }
 }
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct BirdTexture(Handle<Image>);
 
 #[derive(Component)]

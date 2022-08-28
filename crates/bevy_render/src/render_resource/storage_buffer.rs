@@ -32,6 +32,8 @@ pub struct StorageBuffer<T: ShaderType> {
     scratch: StorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     capacity: usize,
+    label: Option<String>,
+    label_changed: bool,
 }
 
 impl<T: ShaderType> From<T> for StorageBuffer<T> {
@@ -41,6 +43,8 @@ impl<T: ShaderType> From<T> for StorageBuffer<T> {
             scratch: StorageBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
+            label: None,
+            label_changed: false,
         }
     }
 }
@@ -52,6 +56,8 @@ impl<T: ShaderType + Default> Default for StorageBuffer<T> {
             scratch: StorageBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
+            label: None,
+            label_changed: false,
         }
     }
 }
@@ -81,6 +87,20 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         &mut self.value
     }
 
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.label_changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
     /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
     ///
@@ -91,13 +111,14 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 
         let size = self.scratch.as_ref().len();
 
-        if self.capacity < size {
+        if self.capacity < size || self.label_changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: None,
+                label: self.label.as_deref(),
                 usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;
+            self.label_changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
@@ -130,6 +151,8 @@ pub struct DynamicStorageBuffer<T: ShaderType> {
     scratch: DynamicStorageBufferWrapper<Vec<u8>>,
     buffer: Option<Buffer>,
     capacity: usize,
+    label: Option<String>,
+    label_changed: bool,
 }
 
 impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
@@ -139,6 +162,8 @@ impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
             scratch: DynamicStorageBufferWrapper::new(Vec::new()),
             buffer: None,
             capacity: 0,
+            label: None,
+            label_changed: false,
         }
     }
 }
@@ -175,17 +200,32 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         offset
     }
 
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.label_changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         let size = self.scratch.as_ref().len();
 
-        if self.capacity < size {
+        if self.capacity < size || self.label_changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
-                label: None,
+                label: self.label.as_deref(),
                 usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
                 contents: self.scratch.as_ref(),
             }));
             self.capacity = size;
+            self.label_changed = false;
         } else if let Some(buffer) = &self.buffer {
             queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }

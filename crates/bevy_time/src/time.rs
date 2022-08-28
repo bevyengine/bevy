@@ -1,7 +1,10 @@
+use bevy_ecs::{reflect::ReflectResource, system::Resource};
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
-#[derive(Debug, Clone)]
+#[derive(Resource, Reflect, FromReflect, Debug, Clone)]
+#[reflect(Resource)]
 pub struct Time {
     delta: Duration,
     last_update: Option<Instant>,
@@ -51,6 +54,7 @@ impl Time {
     /// # fn main () {
     /// #     test_health_system();
     /// # }
+    /// #[derive(Resource)]
     /// struct Health {
     ///     // Health value between 0.0 and 1.0
     ///     health_value: f32,

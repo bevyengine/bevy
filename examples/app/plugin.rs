@@ -35,6 +35,7 @@ impl Plugin for PrintMessagePlugin {
     }
 }
 
+#[derive(Resource)]
 struct PrintMessageState {
     message: String,
     timer: Timer,

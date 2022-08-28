@@ -1,9 +1,9 @@
 use crate::{
-    serde::type_fields, DynamicArray, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, Map, Reflect, ReflectDeserialize, TypeRegistry,
+    serde::type_fields, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct,
+    DynamicTuple, DynamicTupleStruct, Map, Reflect, ReflectDeserialize, TypeRegistry,
 };
 use erased_serde::Deserializer;
-use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
+use serde::de::{self, DeserializeSeed, Error, MapAccess, SeqAccess, Visitor};
 
 pub trait DeserializeValue {
     fn deserialize(
@@ -202,6 +202,16 @@ impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
                         registry: self.registry,
                     })?;
                     return Ok(Box::new(array));
+                }
+                type_fields::ENUM => {
+                    let type_name = type_name
+                        .take()
+                        .ok_or_else(|| de::Error::missing_field(type_fields::TYPE))?;
+                    let mut dynamic_enum = map.next_value_seed(EnumDeserializer {
+                        registry: self.registry,
+                    })?;
+                    dynamic_enum.set_name(type_name);
+                    return Ok(Box::new(dynamic_enum));
                 }
                 type_fields::VALUE => {
                     let type_name = type_name
@@ -505,5 +515,189 @@ impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
             tuple.insert_boxed(value);
         }
         Ok(tuple)
+    }
+}
+
+struct EnumDeserializer<'a> {
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for EnumDeserializer<'a> {
+    type Value = DynamicEnum;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(EnumVisitor {
+            registry: self.registry,
+        })
+    }
+}
+
+struct EnumVisitor<'a> {
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
+    type Value = DynamicEnum;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("enum value")
+    }
+
+    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+    where
+        V: MapAccess<'de>,
+    {
+        let key = map.next_key::<String>()?;
+        match key.as_deref() {
+            Some(type_fields::VARIANT) => {}
+            Some(key) => return Err(V::Error::unknown_field(key, &[type_fields::VARIANT])),
+            _ => {
+                return Err(V::Error::missing_field(type_fields::VARIANT));
+            }
+        }
+
+        let variant_name = map.next_value::<String>()?;
+
+        let mut dynamic_enum = DynamicEnum::default();
+
+        let key = map.next_key::<String>()?;
+        match key.as_deref() {
+            Some(type_fields::STRUCT) => {
+                let dynamic_struct = map.next_value_seed(StructDeserializer {
+                    registry: self.registry,
+                })?;
+                dynamic_enum.set_variant(variant_name, dynamic_struct);
+            }
+            Some(type_fields::TUPLE) => {
+                let dynamic_tuple = map.next_value_seed(TupleDeserializer {
+                    registry: self.registry,
+                })?;
+                dynamic_enum.set_variant(variant_name, dynamic_tuple);
+            }
+            Some(invalid_key) => {
+                return Err(V::Error::unknown_field(
+                    invalid_key,
+                    &[type_fields::STRUCT, type_fields::TUPLE],
+                ));
+            }
+            None => dynamic_enum.set_variant(variant_name, ()),
+        }
+
+        Ok(dynamic_enum)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ReflectDeserializer;
+    use crate as bevy_reflect;
+    use crate::prelude::*;
+    use crate::{DynamicEnum, TypeRegistry};
+    use ::serde::de::DeserializeSeed;
+
+    fn get_registry() -> TypeRegistry {
+        let mut registry = TypeRegistry::default();
+        registry.register::<usize>();
+        registry.register::<f32>();
+        registry.register::<String>();
+        registry.register::<(f32, f32)>();
+        registry
+    }
+
+    #[test]
+    fn enum_should_deserialize() {
+        #[derive(Reflect)]
+        enum MyEnum {
+            Unit,
+            NewType(usize),
+            Tuple(f32, f32),
+            Struct { value: String },
+        }
+
+        let mut registry = get_registry();
+        registry.register::<MyEnum>();
+
+        // === Unit Variant === //
+        let input = r#"{
+    "type": "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum",
+    "enum": {
+        "variant": "Unit",
+    },
+}"#;
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+        let expected = DynamicEnum::from(MyEnum::Unit);
+        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+
+        // === NewType Variant === //
+        let input = r#"{
+    "type": "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum",
+    "enum": {
+        "variant": "NewType",
+        "tuple": [
+            {
+                "type": "usize",
+                "value": 123,
+            },
+        ],
+    },
+}"#;
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+        let expected = DynamicEnum::from(MyEnum::NewType(123));
+        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+
+        // === Tuple Variant === //
+        let input = r#"{
+    "type": "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum",
+    "enum": {
+        "variant": "Tuple",
+        "tuple": [
+            {
+                "type": "f32",
+                "value": 1.23,
+            },
+            {
+                "type": "f32",
+                "value": 3.21,
+            },
+        ],
+    },
+}"#;
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+        let expected = DynamicEnum::from(MyEnum::Tuple(1.23, 3.21));
+        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+
+        // === Struct Variant === //
+        let input = r#"{
+    "type": "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum",
+    "enum": {
+        "variant": "Struct",
+        "struct": {
+            "value": {
+                "type": "alloc::string::String",
+                "value": "I <3 Enums",
+            },
+        },
+    },
+}"#;
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+        let expected = DynamicEnum::from(MyEnum::Struct {
+            value: String::from("I <3 Enums"),
+        });
+        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
     }
 }

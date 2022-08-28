@@ -33,7 +33,7 @@ use smallvec::SmallVec;
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
-#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
     /// The node has been clicked
     Clicked,
@@ -48,7 +48,7 @@ pub enum Interaction {
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
-#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     /// Blocks interaction
     #[default]

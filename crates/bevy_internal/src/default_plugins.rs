@@ -34,9 +34,14 @@ impl PluginGroup for DefaultPlugins {
         group.add(bevy_diagnostic::DiagnosticsPlugin::default());
         group.add(bevy_input::InputPlugin::default());
         group.add(bevy_window::WindowPlugin::default());
+
+        #[cfg(feature = "bevy_asset")]
         group.add(bevy_asset::AssetPlugin::default());
+
         #[cfg(feature = "debug_asset_server")]
         group.add(bevy_asset::debug_asset_server::DebugAssetServerPlugin::default());
+
+        #[cfg(feature = "bevy_scene")]
         group.add(bevy_scene::ScenePlugin::default());
 
         #[cfg(feature = "bevy_winit")]

@@ -36,12 +36,12 @@ impl FromWorld for Children {
 }
 
 impl Children {
-    /// Builds and returns a [`Children`] component with the given entities
-    pub fn with(entity: &[Entity]) -> Self {
-        Self(SmallVec::from_slice(entity))
+    /// Constructs a [`Children`] component with the given entities.
+    pub(crate) fn from_entities(entities: &[Entity]) -> Self {
+        Self(SmallVec::from_slice(entities))
     }
 
-    /// Swaps the child at `a_index` with the child at `b_index`
+    /// Swaps the child at `a_index` with the child at `b_index`.
     pub fn swap(&mut self, a_index: usize, b_index: usize) {
         self.0.swap(a_index, b_index);
     }

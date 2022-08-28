@@ -33,6 +33,8 @@ pub struct BufferVec<T: Pod> {
     capacity: usize,
     item_size: usize,
     buffer_usage: BufferUsages,
+    label: Option<String>,
+    label_changed: bool,
 }
 
 impl<T: Pod> BufferVec<T> {
@@ -43,6 +45,8 @@ impl<T: Pod> BufferVec<T> {
             capacity: 0,
             item_size: std::mem::size_of::<T>(),
             buffer_usage,
+            label: None,
+            label_changed: false,
         }
     }
 
@@ -72,6 +76,20 @@ impl<T: Pod> BufferVec<T> {
         index
     }
 
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.label_changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
     /// Creates a [`Buffer`](crate::render_resource::Buffer) on the [`RenderDevice`](crate::renderer::RenderDevice) with size
     /// at least `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
     ///
@@ -84,15 +102,16 @@ impl<T: Pod> BufferVec<T> {
     /// the `BufferVec` was created, the buffer on the [`RenderDevice`](crate::renderer::RenderDevice)
     /// is marked as [`BufferUsages::COPY_DST`](crate::render_resource::BufferUsages).
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
-        if capacity > self.capacity {
+        if capacity > self.capacity || self.label_changed {
             self.capacity = capacity;
             let size = self.item_size * capacity;
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
-                label: None,
+                label: self.label.as_deref(),
                 size: size as wgpu::BufferAddress,
                 usage: BufferUsages::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
             }));
+            self.label_changed = false;
         }
     }
 

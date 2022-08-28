@@ -13,7 +13,7 @@ struct Scaling {
     min_element_size: f32,
 }
 
-// Implement a simple initialisation.
+// Implement a simple initialization.
 impl Scaling {
     fn new() -> Self {
         Scaling {
