@@ -65,6 +65,17 @@ pub(crate) struct NamedReflectValueDef {
     pub def: ReflectValueDef,
 }
 
+impl NamedReflectValueDef {
+    /// Returns the string to use as the reflected type name.
+    ///
+    /// Use `reflected_type_name` if avaible otherwise use the `type_name` ident.
+    pub fn get_reflected_type_name(&self) -> String {
+        self.reflected_type_name
+            .clone()
+            .unwrap_or_else(|| self.def.type_name.to_string())
+    }
+}
+
 impl Parse for NamedReflectValueDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();

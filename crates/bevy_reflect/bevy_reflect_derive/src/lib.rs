@@ -119,9 +119,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as NamedReflectValueDef);
 
-    let reflected_type_name = def
-        .reflected_type_name
-        .unwrap_or_else(|| def.def.type_name.to_string());
+    let reflected_type_name = def.get_reflected_type_name();
 
     impls::impl_value(&ReflectMeta::new(
         &def.def.type_name,
