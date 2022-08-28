@@ -67,15 +67,14 @@ pub fn derive_type_name(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let s = match derive_data {
+    match derive_data {
         ReflectDerive::TupleStruct(struct_data)
         | ReflectDerive::Struct(struct_data)
         | ReflectDerive::UnitStruct(struct_data) => impls::impl_type_name(struct_data.meta()),
         ReflectDerive::Enum(meta) => impls::impl_type_name(meta.meta()),
         ReflectDerive::Value(meta) => impls::impl_type_name(&meta),
-    };
-
-    TokenStream::from(s)
+    }
+    .into()
 }
 
 /// Derives the `FromReflect` trait.
