@@ -131,14 +131,16 @@ impl Default for PerspectiveProjection {
 #[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum WindowOrigin {
+    /// `(0, 0, 0)` is at the center of the screen.
     Center,
+    /// `(0, 0, 0)` is at the bottom left of the screen.
     BottomLeft,
 }
 
 #[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
-    /// Manually specify left/right/top/bottom values.
+    /// Manually specify `left`/`right`/`top`/`bottom` values.
     /// Ignore window resizing; the image will stretch.
     None,
     /// Match the window size. 1 world unit = 1 pixel.
@@ -154,17 +156,50 @@ pub enum ScalingMode {
     FixedHorizontal(f32),
 }
 
+
+/// A camera using `OrthographicProjection` displays the world within a rectangular prism (the "viewport", the "frustum", or
+/// "field of view"). Objects that do not lie in this prism are culled ("frustum culling"): in other words, they are not displayed.
+/// The size of the field of view is specified in "world units".
+///
+/// The camera displays objects in its field of view within a 2D window on the computer screen. If the window is smaller
+/// than the field of view, then some objects will naturally not appear on the screen. The relationship between the field of view
+/// and the window is governed by [`window_origin`].
+///
+/// Note also that the larger the field of view, the smaller the objects in the field of view will appear, and vice versa.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
+    /// The location of the left face of the camera's field of view, relative to the origin specified in [`window_origin`], in
+    /// world units.
+    ///
+    /// If [`scaling_mode`] is not `None`, then `left` will be updated as appropriate based on the size of the window.
     pub left: f32,
+    /// The location of the right face of the camera's field of view, relative to the origin specified in [`window_origin`], in
+    /// world units.
+    ///
+    /// If [`scaling_mode`] is not `None`, then `left` will be updated as appropriate based on the size of the window.
     pub right: f32,
+    /// The location of the bottom face of the camera's field of view, relative to the origin specified in [`window_origin`], in
+    /// world units.
+    ///
+    /// If [`scaling_mode`] is not `None`, then `right` will be updated as appropriate based on the size of the window.
     pub bottom: f32,
+    /// The location of the top face of the camera's field of view, relative to the origin specified in [`window_origin`], in
+    /// world units.
+    ///
+    /// If [`scaling_mode`] is not `None`, then `bottom` will be updated as appropriate based on the size of the window.
     pub top: f32,
+    /// The location of the face (in the z-direction) nearest to the camera, in world units.
     pub near: f32,
+    /// The location of the face (in the z-direction) farthest from the camera, in world units.
     pub far: f32,
+    /// Specifies where `(0, 0, 0)` is located.
     pub window_origin: WindowOrigin,
+    /// Specifies how `left`, `right`, `bottom`, and `top` are updated given the window size.
     pub scaling_mode: ScalingMode,
+    /// The value by which `left`, `right`, `bottom`, and `top` are multiplied (scaled). The smaller the `scale`, the smaller the
+    /// field of view, and thus, the *greater* the magnification of objects in the field of view. The larger the `scale`, the
+    /// larger the field of view, and thus the *smaller* the magnification of objects in the field of view.
     pub scale: f32,
 }
 
