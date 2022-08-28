@@ -5,9 +5,41 @@ use crate::utility::GenericTypeNameCell;
 /// This is a stable alternative to [`std::any::type_name`] whose output isn't guarentee
 /// and may change between versions of the compiler.
 ///
-/// This trait may be derived via `#[derive(TypeName)]`.
-/// Checkout the [derive macro documentation][bevy_reflect_derive::TypeName] for more details
-/// about how this trait must be implemented.
+/// This trait may be derived via [`#[derive(TypeName)]`][bevy_reflect_derive::TypeName].
+///
+/// ## Manual implementation
+///
+/// For some reason you may need to manually implement [`TypeName`].
+///
+/// ```ignore
+/// bevy_reflect::TypeName;
+///
+/// struct MyType;
+///
+/// impl TypeName for MyType{
+///     fn name() -> &'static str {
+///         concat!(module_path!(), "::", "MyType")
+///     }
+/// }
+/// ```
+///
+/// If your type is generic you must use
+/// [`GenericTypeNameCell`][crate::utility::GenericTypeNameCell].
+///
+/// ```ignore
+/// bevy_reflect::{TypeName, utility::GenericTypeNameCell};
+///
+/// struct MyType<T>(T);
+///
+/// impl<T: TypeName> TypeName for MyType<T> {
+///     fn name() -> &'static str {
+///         static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
+///         CELL.get_or_insert::<Self, _>(|| {
+///             format!(concat!(module_path!(), "::MyType<{}>"), T::name())
+///         })
+///     }
+/// }
+/// ```
 pub trait TypeName: 'static {
     /// Returns the name of the type.
     ///

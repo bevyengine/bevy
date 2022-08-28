@@ -129,7 +129,7 @@ pub type NonGenericTypeInfoCell = NonGenericDataCell<TypeInfo>;
 ///
 /// struct Foo<T: Reflect>(T);
 ///
-/// impl<T: Reflect> Typed for Foo<T> {
+/// impl<T: Reflect + TypeName> Typed for Foo<T> {
 ///   fn type_info() -> &'static TypeInfo {
 ///     static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///     CELL.get_or_insert::<Self, _>(|| {

@@ -78,40 +78,6 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 /// It's highly discouraged to using unprefixed type name that could collide with another type
 /// or an malformed type name (e.g. `BlAH@blah blah`).
 ///
-/// ## Manual implementation
-///
-/// For some reason you may need to manually implement [`TypeName`].
-///
-/// ```ignore
-/// bevy_reflect::TypeName;
-///
-/// struct MyType;
-///
-/// impl TypeName for MyType{
-///     fn name() -> &'static str {
-///         concat!(module_path!(), "::", "MyType")
-///     }
-/// }
-/// ```
-///
-/// If your type is generic you must use
-/// [`GenericTypeNameCell`][bevy_reflect::utility::GenericTypeNameCell].
-///
-/// ```ignore
-/// bevy_reflect::{TypeName, utility::GenericTypeNameCell};
-///
-/// struct MyType<T>(T);
-///
-/// impl<T: TypeName> TypeName for MyType<T> {
-///     fn name() -> &'static str {
-///         static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
-///         CELL.get_or_insert::<Self, _>(|| {
-///             format!(concat!(module_path!(), "::MyType<{}>"), T::name())
-///         })
-///     }
-/// }
-/// ```
-///
 /// ## Example
 ///
 /// ```ignore

@@ -52,6 +52,7 @@ use std::any::{Any, TypeId};
 /// # }
 /// #
 /// # impl Reflect for MyStruct {
+/// #   fn type_name(&self) -> &str { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
