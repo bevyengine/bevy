@@ -58,6 +58,89 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     }
 }
 
+/// Implement [`TypeName`] on a type. The type name is automatically deducted following a
+/// specific convention.
+///
+/// ## Type name convetion
+///
+/// The type name is the module path followed by the ident of the type.
+/// If the type is generic the type name of it's generic parameter is included between `<` and `>`.
+///
+/// See examples.
+///
+/// ## Custom type name
+///
+/// It's possible to override the default behaviour and choosing a custom type name by using
+/// the `type_name` attribute after the `derive` attribute.
+///
+/// A common usage is to using your crate name instead of the complete module path.
+///
+/// It's highly discouraged to using unprefixed type name that could collide with another type
+/// or an malformed type name (e.g. `BlAH@blah blah`).
+///
+/// ## Manual implementation
+///
+/// For some reason you may need to manually implement [`TypeName`].
+///
+/// ```ignore
+/// bevy_reflect::TypeName;
+///
+/// struct MyType;
+///
+/// impl TypeName for MyType{
+///     fn name() -> &'static str {
+///         concat!(module_path!(), "::", "MyType")
+///     }
+/// }
+/// ```
+///
+/// If your type is generic you must use
+/// [`GenericTypeNameCell`][bevy_reflect::utility::GenericTypeNameCell].
+///
+/// ```ignore
+/// bevy_reflect::{TypeName, utility::GenericTypeNameCell};
+///
+/// struct MyType<T>(T);
+///
+/// impl<T: TypeName> TypeName for MyType<T> {
+///     fn name() -> &'static str {
+///         static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
+///         CELL.get_or_insert::<Self, _>(|| {
+///             format!(concat!(module_path!(), "::MyType<{}>"), T::name())
+///         })
+///     }
+/// }
+/// ```
+///
+/// ## Example
+///
+/// ```ignore
+/// # bevy_reflect::TypeName;
+///
+/// mod a {
+///     pub mod b {
+///         pub mod c {
+///             #[derive(TypeName)]
+///             pub struct ABC;
+///         }
+///
+///         #[derive(TypeName)]
+///         #[type_name("my_lib::AB")]
+///         pub struct AB<T>(T);
+///     }
+///
+///     #[derive(TypeName)]
+///     pub struct A<const N: usize>(N);
+/// }
+///
+/// # use a::A;
+/// # use a::b::AB;
+/// # use a::b::c::ABC;
+///
+/// assert_eq!(ABC::name(), "a::b::c::ABC");
+/// assert_eq!(AB::<u32>::name(), "my_lib::AB<u32>");
+/// assert_eq!(A::<5>::name(), "a::A<5>");
+/// ```
 #[proc_macro_derive(TypeName, attributes(module, type_name))]
 pub fn derive_type_name(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
