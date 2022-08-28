@@ -685,7 +685,7 @@ mod tests {
         "variant": "Struct",
         "struct": {
             "value": {
-                "type": "alloc::string::String",
+                "type": "String",
                 "value": "I <3 Enums",
             },
         },
