@@ -22,12 +22,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let type_name_impl = impl_type_name(
-        type_name,
-        meta.generics(),
-        meta.reflected_type_name(),
-        bevy_reflect_path,
-    );
+    let type_name_impl = impl_type_name(meta);
 
     let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
     let get_type_registration_impl = meta.get_type_registration();

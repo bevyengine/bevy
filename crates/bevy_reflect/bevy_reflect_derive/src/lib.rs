@@ -70,24 +70,9 @@ pub fn derive_type_name(input: TokenStream) -> TokenStream {
     let s = match derive_data {
         ReflectDerive::TupleStruct(struct_data)
         | ReflectDerive::Struct(struct_data)
-        | ReflectDerive::UnitStruct(struct_data) => impls::impl_type_name(
-            struct_data.meta().type_name(),
-            struct_data.meta().generics(),
-            struct_data.meta().reflected_type_name(),
-            struct_data.meta().bevy_reflect_path(),
-        ),
-        ReflectDerive::Enum(meta) => impls::impl_type_name(
-            meta.meta().type_name(),
-            meta.meta().generics(),
-            meta.meta().reflected_type_name(),
-            meta.meta().bevy_reflect_path(),
-        ),
-        ReflectDerive::Value(meta) => impls::impl_type_name(
-            meta.type_name(),
-            meta.generics(),
-            meta.reflected_type_name(),
-            meta.bevy_reflect_path(),
-        ),
+        | ReflectDerive::UnitStruct(struct_data) => impls::impl_type_name(struct_data.meta()),
+        ReflectDerive::Enum(meta) => impls::impl_type_name(meta.meta()),
+        ReflectDerive::Value(meta) => impls::impl_type_name(&meta),
     };
 
     TokenStream::from(s)
@@ -232,10 +217,5 @@ pub fn impl_type_name(input: TokenStream) -> TokenStream {
         Default::default(),
         Some(def.type_name.to_string()),
     );
-    TokenStream::from(impls::impl_type_name(
-        meta.type_name(),
-        meta.generics(),
-        meta.reflected_type_name(),
-        meta.bevy_reflect_path(),
-    ))
+    TokenStream::from(impls::impl_type_name(&meta))
 }

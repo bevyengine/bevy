@@ -1,16 +1,16 @@
-use proc_macro2::Ident;
 use quote::quote;
-use syn::{Generics, Path};
 
-pub(crate) fn impl_type_name(
-    type_name: &Ident,
-    generics: &Generics,
-    reflected_type_name: Option<&str>,
-    bevy_reflect_path: &Path,
-) -> proc_macro2::TokenStream {
+use crate::derive_data::ReflectMeta;
+
+pub(crate) fn impl_type_name(reflect_meta: &ReflectMeta) -> proc_macro2::TokenStream {
+    let generics = reflect_meta.generics();
+    let type_name = reflect_meta.type_name();
+    let bevy_reflect_path = reflect_meta.bevy_reflect_path();
+
     let is_generic = !generics.params.is_empty();
 
-    let base_name = reflected_type_name
+    let base_name = reflect_meta
+        .reflected_type_name()
         .map(|x| quote!(#x))
         .unwrap_or_else(|| quote!(concat!(module_path!(), "::", stringify!(#type_name))));
 

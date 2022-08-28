@@ -48,12 +48,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let type_name_impl = impl_type_name(
-        struct_name,
-        reflect_struct.meta().generics(),
-        reflect_struct.meta().reflected_type_name(),
-        bevy_reflect_path,
-    );
+    let type_name_impl = impl_type_name(reflect_struct.meta());
 
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
