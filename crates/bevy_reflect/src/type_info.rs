@@ -1,5 +1,6 @@
 use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
+    TypeName,
 };
 use std::any::{Any, TypeId};
 
@@ -165,10 +166,9 @@ pub struct ValueInfo {
 }
 
 impl ValueInfo {
-    pub fn new<T: Reflect + ?Sized>() -> Self {
-        // FIXME: use TypeName instead of any::type_name.
+    pub fn new<T: Reflect + TypeName + ?Sized>() -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_name: T::name(),
             type_id: TypeId::of::<T>(),
         }
     }
