@@ -140,7 +140,7 @@ pub type NonGenericTypeInfoCell = NonGenericDataCell<TypeInfo>;
 /// }
 ///
 /// # impl<T: Reflect> TypeName for Foo<T> {
-/// #   fn name() -> std::borrow::Cow<'static, str> { todo!() }
+/// #   fn name() -> &'static str { todo!() }
 /// # }
 /// #
 /// # impl<T: Reflect> Reflect for Foo<T> {
