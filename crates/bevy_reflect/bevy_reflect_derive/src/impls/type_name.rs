@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::Ident;
 use quote::quote;
 use syn::{Generics, Path};
 
@@ -16,7 +16,7 @@ pub(crate) fn impl_type_name(
 
     let get_type_name = if is_generic {
         let values = {
-            let mut getters = generics.params.iter().map(|p| match p {
+            let getters = generics.params.iter().map(|p| match p {
                 syn::GenericParam::Type(p) => {
                     let ty = &p.ident;
                     quote!(<#ty as #bevy_reflect_path::TypeName>::name())
@@ -31,18 +31,12 @@ pub(crate) fn impl_type_name(
                 }
             });
 
-            // FIXME: Iterator::intersperse can be used here
-            // currently unstable https://github.com/rust-lang/rust/issues/79524
-
             quote!(#(#getters),*)
         };
 
         let brackets = {
-            // FIXME: Iterator::intersperse can be used here
-            // currently unstable https://github.com/rust-lang/rust/issues/79524
-
-            let mut brackets = "{}".repeat(generics.params.len());
-            quote!(#(#brackets),*)
+            let brackets = vec![quote!({}); generics.params.len()];
+            quote!(#(#brackets),*).to_string()
         };
 
         quote! {
