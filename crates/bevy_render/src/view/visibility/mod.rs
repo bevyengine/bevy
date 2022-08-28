@@ -59,13 +59,13 @@ pub struct ComputedVisibility {
 
 impl Default for ComputedVisibility {
     fn default() -> Self {
-        Self::DEFAULT
+        Self::INVISIBLE
     }
 }
 
 impl ComputedVisibility {
     /// A [`ComputedVisibility`], set as invisible.
-    pub const DEFAULT: Self = ComputedVisibility {
+    pub const INVISIBLE: Self = ComputedVisibility {
         is_visible_in_hierarchy: false,
         is_visible_in_view: false,
     };

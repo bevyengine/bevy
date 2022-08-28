@@ -40,7 +40,7 @@ impl SpatialBundle {
     /// A visible [`SpatialBundle`], with no translation, rotation, and a scale of 1 on all axes.
     pub const VISIBLE_IDENTITY: Self = SpatialBundle {
         visibility: Visibility::VISIBLE,
-        computed: ComputedVisibility::DEFAULT,
+        computed: ComputedVisibility::INVISIBLE,
         transform: Transform::IDENTITY,
         global_transform: GlobalTransform::IDENTITY,
     };
