@@ -650,7 +650,6 @@ mod test {
     use bevy_reflect::{TypeName, TypeUuid};
     use bevy_utils::BoxedFuture;
 
-    // FIXME: reflect only the type name
     #[derive(Debug, TypeUuid, TypeName)]
     #[uuid = "a5189b72-0572-4290-a2e0-96f73a491c44"]
     struct PngAsset;
