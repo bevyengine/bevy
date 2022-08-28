@@ -94,7 +94,7 @@ impl_type_name!(Vec<T: TypeName + 'static>);
 impl_type_name!(HashMap<K: TypeName + 'static, V: TypeName + 'static>);
 impl_type_name!(Option<T: TypeName + 'static>);
 
-// impl_type_name expecte a type name followed by generic between `<` and `>`.
+// impl_type_name expects a type name followed by generic between `<` and `>`.
 // so array is manually implemented.
 impl<T: TypeName + 'static, const N: usize> TypeName for [T; N] {
     fn name() -> &'static str {
