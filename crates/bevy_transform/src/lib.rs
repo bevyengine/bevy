@@ -47,7 +47,7 @@ pub struct TransformBundle {
 
 impl TransformBundle {
     /// An identity [`TransformBundle`] with no translation, rotation, and a scale of 1 on all axes.
-    pub const IDENTITY: Self = Self {
+    pub const IDENTITY: Self = TransformBundle {
         local: Transform::IDENTITY,
         global: GlobalTransform::IDENTITY,
     };
@@ -62,14 +62,6 @@ impl TransformBundle {
             local: transform,
             ..Self::IDENTITY
         }
-    }
-
-    /// Creates a new identity [`TransformBundle`], with no translation, rotation, and a scale of 1
-    /// on all axes.
-    #[inline]
-    #[deprecated = "Use `TransformBundle::IDENTITY` instead."]
-    pub const fn identity() -> Self {
-        TransformBundle::IDENTITY
     }
 }
 
