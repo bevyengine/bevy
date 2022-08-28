@@ -55,8 +55,10 @@ impl Parse for ReflectValueDef {
 
 /// A [`ReflectValueDef`] that allow an optional custom type name in front.
 ///
+/// # Example
+///
 /// ```ignore
-/// @"my_lib::MyType" foo<T1, T2> where T1: Bar (TraitA, TraitB)
+/// impl_reflect_value!(@"my_lib::MyType" Foo<T1, T2> where T1: Bar (TraitA, TraitB));
 /// ```
 pub(crate) struct NamedReflectValueDef {
     pub reflected_type_name: Option<String>,
