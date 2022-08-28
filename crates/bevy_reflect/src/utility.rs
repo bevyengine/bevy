@@ -99,6 +99,7 @@ impl<Data> GenericDataCell<Data> {
 /// # }
 /// #
 /// # impl Reflect for Foo {
+/// #   fn type_name(&self) -> &str { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
@@ -144,6 +145,7 @@ pub type NonGenericTypeInfoCell = NonGenericDataCell<TypeInfo>;
 /// # }
 /// #
 /// # impl<T: Reflect> Reflect for Foo<T> {
+/// #   fn type_name(&self) -> &str { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
