@@ -95,7 +95,7 @@ impl<Data> GenericDataCell<Data> {
 ///   }
 /// }
 /// # impl TypeName for Foo {
-/// #   fn name() -> std::borrow::Cow<'static, str> { todo!() }
+/// #   fn name() -> &'static str { "Foo" }
 /// # }
 /// #
 /// # impl Reflect for Foo {
