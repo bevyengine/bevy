@@ -34,25 +34,15 @@ pub(crate) fn impl_type_name(
             // FIXME: Iterator::intersperse can be used here
             // currently unstable https://github.com/rust-lang/rust/issues/79524
 
-            let mut values = Vec::with_capacity(generics.params.len());
-            for _ in 0..generics.params.len() - 1 {
-                // SAFETY: don't panic because we consume all but one item.
-                let x = getters.next().unwrap();
-                values.push(quote! {#x,});
-            }
-            // SAFETY: don't panic because the previous for loop didn't consume the last element
-            // and there is at least one generic parameter.
-            values.push(getters.next().unwrap());
-            values.into_iter().collect::<TokenStream>()
+            quote!(#(#getters),*)
         };
 
         let brackets = {
             // FIXME: Iterator::intersperse can be used here
             // currently unstable https://github.com/rust-lang/rust/issues/79524
 
-            let mut brackets = vec!["{}, "; generics.params.len()];
-            *brackets.last_mut().unwrap() = "{}";
-            brackets.into_iter().collect::<String>()
+            let mut brackets = "{}".repeat(generics.params.len());
+            quote!(#(#brackets),*)
         };
 
         quote! {
