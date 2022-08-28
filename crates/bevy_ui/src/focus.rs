@@ -119,23 +119,23 @@ pub fn ui_focus_system(
         .find_map(|(camera, _)| {
             match &camera.target {
                 RenderTarget::Window(window_id) => windows.get(*window_id).and_then(|window| {
-                    if window.is_focused() {
-                        window.cursor_position()
-                    } else {
-                        None
-                    }
+                    window
+                        .is_focused()
+                        .then(|| window.cursor_position())
+                        .flatten()
                 }),
                 RenderTarget::Image(handle) => images
                     .get(handle)
                     .and_then(|image| windows.get_primary().map(|window| (window, image)))
                     .and_then(|(window, image)| {
-                        if window.is_focused() {
-                            window
-                                .cursor_position()
-                                .map(|cursor_position| (window, cursor_position, image.size()))
-                        } else {
-                            None
-                        }
+                        window
+                            .is_focused()
+                            .then(|| {
+                                window
+                                    .cursor_position()
+                                    .map(|cursor_position| (window, cursor_position, image.size()))
+                            })
+                            .flatten()
                     })
                     .map(|(window, cursor_position, image)| {
                         // cursor_position goes from 0 to window width and height
