@@ -161,4 +161,25 @@ pub type NonGenericTypeInfoCell = NonGenericDataCell<TypeInfo>;
 /// ```
 pub type GenericTypeInfoCell = GenericDataCell<TypeInfo>;
 
+/// A container for [`String`] over generic types, allowing instances to be stored statically.
+///
+/// Used when implementing [`TypeName`][crate::TypeName] for generic type to store the type name.
+///
+/// ## Example
+///
+/// ```
+/// # use bevy_reflect::TypeName;
+/// use bevy_reflect::utility::GenericTypeNameCell;
+///
+/// struct Foo<T>(T);
+///
+/// impl<T: TypeName> TypeName for Foo<T> {
+///     fn name() -> &'static str {
+///         static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
+///         CELL.get_or_insert::<Self, _>(|| {
+///             format!(concat!(module_path!(), "::Foo<{}>"), T::name())
+///         })
+///     }
+/// }
+/// ```
 pub type GenericTypeNameCell = GenericDataCell<String>;
