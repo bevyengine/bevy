@@ -127,16 +127,19 @@ impl<'a> ReflectDerive<'a> {
                 continue;
             };
 
-            if let Some(ident) = meta_list.path.get_ident() {
-                if ident == REFLECT_ATTRIBUTE_NAME {
+            match meta_list.path.get_ident() {
+                Some(ident) if ident == REFLECT_ATTRIBUTE_NAME => {
                     traits = ReflectTraits::from_nested_metas(&meta_list.nested);
-                } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+                }
+                Some(ident) if ident == REFLECT_VALUE_ATTRIBUTE_NAME => {
                     force_reflect_value = true;
                     traits = ReflectTraits::from_nested_metas(&meta_list.nested);
-                } else if ident == TYPE_NAME_ATTRIBUTE_NAME {
+                }
+                Some(ident) if ident == TYPE_NAME_ATTRIBUTE_NAME => {
                     let type_name = get_type_name_attribute(&meta_list.nested).ok_or_else(|| syn::Error::new(meta_list.span(), format!("the attribute `{TYPE_NAME_ATTRIBUTE_NAME}` requires a single string literal. For example: `#[{TYPE_NAME_ATTRIBUTE_NAME}(\"my_lib::foo\")]`")) )?;
                     reflected_type_name = Some(type_name);
                 }
+                _ => {}
             }
         }
 
