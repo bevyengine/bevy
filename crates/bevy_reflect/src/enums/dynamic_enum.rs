@@ -61,7 +61,7 @@ impl From<()> for DynamicVariant {
 ///
 /// // Create a DynamicEnum to represent the new value
 /// let mut dyn_enum = DynamicEnum::new(
-///   ReflectTypeName::type_name(&value).as_ref(),
+///   ReflectTypeName::type_name(&value),
 ///   "None",
 ///   DynamicVariant::Unit
 /// );

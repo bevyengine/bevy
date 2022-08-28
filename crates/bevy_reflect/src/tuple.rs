@@ -223,7 +223,7 @@ impl DynamicTuple {
             if i > 0 {
                 name.push_str(", ");
             }
-            name.push_str(field.type_name().as_ref());
+            name.push_str(field.type_name());
         }
         name.push(')');
     }
