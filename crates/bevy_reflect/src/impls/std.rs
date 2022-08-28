@@ -38,9 +38,12 @@ impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(Result<T: Clone + Reflect + TypeName + 'static, E: Clone + Reflect + TypeName + 'static>());
-impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypeName + 'static>());
-impl_reflect_value!(Range<T: Clone +  Send + Sync + TypeName + 'static>());
+impl_reflect_value!(
+    Result < T: Clone + Reflect + TypeName,
+    E: Clone + Reflect + TypeName > ()
+);
+impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypeName>());
+impl_reflect_value!(Range<T: Clone +  Send + Sync + TypeName >());
 impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Instant(Debug, Hash, PartialEq));
 impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -73,8 +76,8 @@ impl_from_reflect_value!(isize);
 impl_from_reflect_value!(f32);
 impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
-impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypeName + 'static>);
-impl_from_reflect_value!(Range<T: Clone + Send + Sync + TypeName + 'static>);
+impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypeName>);
+impl_from_reflect_value!(Range<T: Clone + Send + Sync + TypeName>);
 impl_from_reflect_value!(Duration);
 impl_from_reflect_value!(Instant);
 impl_from_reflect_value!(NonZeroI128);
@@ -90,13 +93,13 @@ impl_from_reflect_value!(NonZeroU16);
 impl_from_reflect_value!(NonZeroU8);
 impl_from_reflect_value!(NonZeroI8);
 
-impl_type_name!(Vec<T: TypeName + 'static>);
-impl_type_name!(HashMap<K: TypeName + 'static, V: TypeName + 'static>);
-impl_type_name!(Option<T: TypeName + 'static>);
+impl_type_name!(Vec<T: TypeName>);
+impl_type_name!(HashMap<K: TypeName, V: TypeName >);
+impl_type_name!(Option<T: TypeName>);
 
 // impl_type_name expects a type name followed by generic between `<` and `>`.
 // so array is manually implemented.
-impl<T: TypeName + 'static, const N: usize> TypeName for [T; N] {
+impl<T: TypeName, const N: usize> TypeName for [T; N] {
     fn name() -> &'static str {
         static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
         CELL.get_or_insert::<Self, _>(|| format!("[{}; {N}]", T::name()))

@@ -298,7 +298,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// # Example
 /// Implementing `TypeName` for `Vec<T>`:
 /// ```ignore
-/// impl_type_name!(Vec<T: TypeName + 'static>);
+/// impl_type_name!(Vec<T: TypeName>);
 /// ```
 #[proc_macro]
 pub fn impl_type_name(input: TokenStream) -> TokenStream {

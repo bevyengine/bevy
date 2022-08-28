@@ -904,7 +904,7 @@ bevy_reflect::tests::Test {
         assert_eq!(name, "bevy_reflect::tests::Foo");
 
         #[derive(TypeName)]
-        struct Goo<T: TypeName + 'static> {
+        struct Goo<T: TypeName> {
             _value: T,
         }
         let name = Goo::<u32>::name();
@@ -921,7 +921,7 @@ bevy_reflect::tests::Test {
 
         #[derive(TypeName)]
         #[type_name("MyType")]
-        struct Goo<T: TypeName + 'static> {
+        struct Goo<T: TypeName> {
             _value: T,
         }
         let name = Goo::<u32>::name();

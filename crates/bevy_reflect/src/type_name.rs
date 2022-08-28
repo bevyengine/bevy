@@ -1,7 +1,7 @@
 use crate::utility::GenericTypeNameCell;
 
 /// Provide the name of the type as string.
-pub trait TypeName {
+pub trait TypeName: 'static {
     fn name() -> &'static str;
 }
 
@@ -9,7 +9,7 @@ macro_rules! impl_type_name_tuple {
     (
         $($t:tt),*
     ) => {
-        impl<$($t: TypeName + 'static),*> TypeName for ($($t,)*) {
+        impl<$($t: TypeName),*> TypeName for ($($t,)*) {
             #[allow(non_snake_case)]
             fn name() -> &'static str {
                 static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
