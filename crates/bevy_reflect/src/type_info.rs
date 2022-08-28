@@ -47,7 +47,7 @@ use std::any::{Any, TypeId};
 /// }
 ///
 /// # impl TypeName for MyStruct {
-/// #   fn name() -> std::borrow::Cow<'static, str> { todo!() }
+/// #   fn name() -> &'static str { "MyStruct" }
 /// # }
 /// #
 /// # impl Reflect for MyStruct {
