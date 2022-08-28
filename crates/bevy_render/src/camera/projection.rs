@@ -156,7 +156,6 @@ pub enum ScalingMode {
     FixedHorizontal(f32),
 }
 
-
 /// A camera using `OrthographicProjection` displays the world within a rectangular prism (the "viewport", the "frustum", or
 /// "field of view"). Objects that do not lie in this prism are culled ("frustum culling"): in other words, they are not displayed.
 /// The size of the field of view is specified in "world units".
