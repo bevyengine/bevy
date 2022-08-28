@@ -134,7 +134,7 @@ impl<'a> ReflectDerive<'a> {
                     force_reflect_value = true;
                     traits = ReflectTraits::from_nested_metas(&meta_list.nested);
                 } else if ident == TYPE_NAME_ATTRIBUTE_NAME {
-                    let type_name = get_type_name_attribute(&meta_list.nested).ok_or_else(||syn::Error::new(meta_list.span(), format!("The attribute `{TYPE_NAME_ATTRIBUTE_NAME}` require a single literal string. \n\n #[{TYPE_NAME_ATTRIBUTE_NAME}(\"my_lib::foo\")]")) )?;
+                    let type_name = get_type_name_attribute(&meta_list.nested).ok_or_else(|| syn::Error::new(meta_list.span(), format!("the attribute `{TYPE_NAME_ATTRIBUTE_NAME}` requires a single string literal. For example: `#[{TYPE_NAME_ATTRIBUTE_NAME}(\"my_lib::foo\")]`")) )?;
                     reflected_type_name = Some(type_name);
                 }
             }
