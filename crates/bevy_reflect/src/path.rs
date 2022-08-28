@@ -143,22 +143,7 @@ impl GetPath for dyn Reflect {
                             }
                         },
                         Some(Token::SingleQuote) => {
-                            let ident =
-                                if let Some(Token::Ident(ident)) = next_token(path, &mut index) {
-                                    ident
-                                } else {
-                                    return Err(ReflectPathError::ExpectedIdent {
-                                        index: current_index,
-                                    });
-                                };
-
-                            if let Some(Token::SingleQuote) = next_token(path, &mut index) {
-                            } else {
-                                return Err(ReflectPathError::ExpectedToken {
-                                    index: current_index,
-                                    token: "'",
-                                });
-                            }
+                            let ident = match_quoted_ident(path, &mut index, current_index)?;
 
                             match current.reflect_ref() {
                                 ReflectRef::Map(reflect_list) => {
@@ -182,7 +167,7 @@ impl GetPath for dyn Reflect {
                                 index: current_index,
                             });
                         }
-                    };
+                    }
 
                     if let Some(Token::CloseBracket) = next_token(path, &mut index) {
                     } else {
@@ -251,22 +236,7 @@ impl GetPath for dyn Reflect {
                             }
                         },
                         Some(Token::SingleQuote) => {
-                            let ident =
-                                if let Some(Token::Ident(ident)) = next_token(path, &mut index) {
-                                    ident
-                                } else {
-                                    return Err(ReflectPathError::ExpectedIdent {
-                                        index: current_index,
-                                    });
-                                };
-
-                            if let Some(Token::SingleQuote) = next_token(path, &mut index) {
-                            } else {
-                                return Err(ReflectPathError::ExpectedToken {
-                                    index: current_index,
-                                    token: "'",
-                                });
-                            }
+                            let ident = match_quoted_ident(path, &mut index, current_index)?;
 
                             match current.reflect_mut() {
                                 ReflectMut::Map(reflect_list) => {
@@ -427,6 +397,29 @@ fn next_token<'a>(path: &'a str, index: &mut usize) -> Option<Token<'a>> {
     let ident = Token::Ident(&path[*index..]);
     *index = path.len();
     Some(ident)
+}
+
+fn match_quoted_ident<'a>(
+    path: &'a str,
+    mut index: &mut usize,
+    current_index: usize,
+) -> Result<&'a str, ReflectPathError<'a>> {
+    let ident = if let Some(Token::Ident(ident)) = next_token(path, &mut index) {
+        ident
+    } else {
+        return Err(ReflectPathError::ExpectedIdent {
+            index: current_index,
+        });
+    };
+
+    if !matches!(next_token(path, &mut index), Some(Token::SingleQuote)) {
+        return Err(ReflectPathError::ExpectedToken {
+            index: current_index,
+            token: "'",
+        });
+    }
+
+    Ok(ident)
 }
 
 #[cfg(test)]
