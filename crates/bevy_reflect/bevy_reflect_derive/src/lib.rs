@@ -205,6 +205,18 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     ))
 }
 
+/// A replacement for `#[derive(TypeName)]` to be used with foreign types which
+/// the definitions of cannot be altered.
+///
+/// But unlike `#[derive(TypeName)]` that prefix the type name with the module path
+/// using the macro [`module_path`], `impl_type_name` use only the ident of the type
+/// as type name.
+///
+/// # Example
+/// Implementing `TypeName` for `Vec<T>`:
+/// ```ignore
+/// impl_type_name!(Vec<T: TypeName + 'static>);
+/// ```
 #[proc_macro]
 pub fn impl_type_name(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as TypeNameDef);
