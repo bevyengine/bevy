@@ -258,8 +258,8 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// the definitions of cannot be altered.
 ///
 /// But unlike `#[derive(TypeName)]` that prefix the type name with the module path
-/// using the macro [`module_path`], `impl_type_name` use only the ident of the type
-/// as type name.
+/// using the macro [`module_path`], by default `impl_type_name` only uses the ident of the type
+/// as the type name.
 ///
 /// # Example
 /// Implementing `TypeName` for `Vec<T>`:
