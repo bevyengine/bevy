@@ -1537,6 +1537,16 @@ path = "tests/window/minimising.rs"
 [package.metadata.example.minimising]
 hidden = true
 
+[[example]]
+name = "window_resizing"
+path = "examples/window/window_resizing.rs"
+
+[package.metadata.example.window_resizing]
+name = "Window Resizing"
+description = "Demonstrates resizing and responding to resizing a window"
+category = "Window"
+wasm = true
+
 # Android
 [[example]]
 crate-type = ["cdylib"]
