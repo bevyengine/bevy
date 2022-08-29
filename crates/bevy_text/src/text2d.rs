@@ -6,7 +6,7 @@ use bevy_ecs::{
     event::EventReader,
     query::Changed,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
@@ -22,7 +22,8 @@ use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
-    DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError, VerticalAlign,
+    BidiCorrectedText, DefaultTextPipeline, Font, FontAtlasSet, HorizontalAlign, Text, TextError,
+    VerticalAlign,
 };
 
 /// The calculated size of text drawn in 2D scene.
@@ -76,6 +77,7 @@ pub fn extract_text2d_sprite(
             Entity,
             &ComputedVisibility,
             &Text,
+            &BidiCorrectedText,
             &GlobalTransform,
             &Text2dSize,
         )>,
@@ -83,7 +85,8 @@ pub fn extract_text2d_sprite(
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, computed_visibility, text, text_transform, calculated_size) in text2d_query.iter()
+    for (entity, computed_visibility, text, bidi_corrected, text_transform, calculated_size) in
+        text2d_query.iter()
     {
         if !computed_visibility.is_visible() {
             continue;
@@ -106,7 +109,7 @@ pub fn extract_text2d_sprite(
             let mut current_section = usize::MAX;
             for text_glyph in text_glyphs {
                 if text_glyph.section_index != current_section {
-                    color = text.sections[text_glyph.section_index]
+                    color = bidi_corrected.sections[text_glyph.section_index]
                         .style
                         .color
                         .as_rgba_linear();
@@ -147,6 +150,7 @@ pub fn extract_text2d_sprite(
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
+    mut commands: Commands,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,
@@ -160,6 +164,7 @@ pub fn update_text2d_layout(
         Entity,
         Changed<Text>,
         &Text,
+        Option<&mut BidiCorrectedText>,
         Option<&Text2dBounds>,
         &mut Text2dSize,
     )>,
@@ -168,7 +173,9 @@ pub fn update_text2d_layout(
     let factor_changed = scale_factor_changed.iter().last().is_some();
     let scale_factor = windows.scale_factor(WindowId::primary());
 
-    for (entity, text_changed, text, maybe_bounds, mut calculated_size) in &mut text_query {
+    for (entity, text_changed, text, bidi_corrected, maybe_bounds, mut calculated_size) in
+        &mut text_query
+    {
         if factor_changed || text_changed || queue.remove(&entity) {
             let text_bounds = match maybe_bounds {
                 Some(bounds) => Vec2::new(
@@ -177,10 +184,13 @@ pub fn update_text2d_layout(
                 ),
                 None => Vec2::new(f32::MAX, f32::MAX),
             };
+
+            let bidi_corrected_internal = BidiCorrectedText::new(&text.sections);
+
             match text_pipeline.queue_text(
                 entity,
                 &fonts,
-                &text.sections,
+                &bidi_corrected_internal.sections,
                 scale_factor,
                 text.alignment,
                 text_bounds,
@@ -205,6 +215,12 @@ pub fn update_text2d_layout(
                         scale_value(text_layout_info.size.y, 1. / scale_factor),
                     );
                 }
+            }
+
+            if let Some(mut bidi_corrected) = bidi_corrected {
+                *bidi_corrected = bidi_corrected_internal;
+            } else {
+                commands.entity(entity).insert(bidi_corrected_internal);
             }
         }
     }

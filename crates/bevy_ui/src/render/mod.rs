@@ -24,7 +24,7 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
-use bevy_text::{DefaultTextPipeline, Text};
+use bevy_text::{BidiCorrectedText, DefaultTextPipeline};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
@@ -279,14 +279,15 @@ pub fn extract_text_uinodes(
             Entity,
             &Node,
             &GlobalTransform,
-            &Text,
+            &BidiCorrectedText,
             &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
-    for (entity, uinode, global_transform, text, visibility, clip) in uinode_query.iter() {
+    for (entity, uinode, global_transform, bidi_corrected, visibility, clip) in uinode_query.iter()
+    {
         if !visibility.is_visible() {
             continue;
         }
@@ -302,7 +303,7 @@ pub fn extract_text_uinodes(
             let mut current_section = usize::MAX;
             for text_glyph in text_glyphs {
                 if text_glyph.section_index != current_section {
-                    color = text.sections[text_glyph.section_index]
+                    color = bidi_corrected.sections[text_glyph.section_index]
                         .style
                         .color
                         .as_rgba_linear();

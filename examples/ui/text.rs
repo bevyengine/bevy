@@ -30,6 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn_bundle(Camera2dBundle::default());
     // Text with one section
+
     commands
         .spawn_bundle(
             // Create a TextBundle that has a Text with a single section.
@@ -56,7 +57,34 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
         )
         .insert(ColorText);
-    // Text with multiple sections
+
+    commands.spawn_bundle(
+        TextBundle::from_section(
+            // also supports RTL / Bidi
+            concat![
+                "s", "u", "p", "p", "o", "r", "t", "s", " ", "מ", "י", "א", "ו", " ", "R", "T", "L"
+            ],
+            TextStyle {
+                font: asset_server.load("fonts/Rubik-Light.otf"),
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
+        ) // Set the alignment of the Text
+        .with_text_alignment(TextAlignment::TOP_CENTER)
+        // Set the style of the TextBundle itself.
+        .with_style(Style {
+            align_self: AlignSelf::FlexEnd,
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                bottom: Val::Px(5.0),
+                right: Val::Px(500.0),
+                ..default()
+            },
+            ..default()
+        }),
+    );
+
+    // Rich text with multiple sections
     commands
         .spawn_bundle(
             // Create a TextBundle that has a Text with a list of sections.
