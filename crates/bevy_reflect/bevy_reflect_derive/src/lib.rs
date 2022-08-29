@@ -58,8 +58,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Implement [`TypeName`] on a type. The type name is automatically deducted following a
-/// specific convention.
+/// Implement `TypeName` on a type.
 ///
 /// ## Type name convention
 ///
