@@ -44,7 +44,7 @@ use crate::utility::GenericTypeNameCell;
 pub trait TypeName: 'static {
     /// Returns the name of the type.
     ///
-    /// This is a stable alternative to [`std::any::type_name`] whose output isn't guarentee
+    /// This is a stable alternative to [`std::any::type_name`] whose output isn't guarenteed
     /// and may change between versions of the compiler.
     fn name() -> &'static str;
 }
