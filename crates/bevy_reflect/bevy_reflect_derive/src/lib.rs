@@ -61,7 +61,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 /// Implement [`TypeName`] on a type. The type name is automatically deducted following a
 /// specific convention.
 ///
-/// ## Type name convetion
+/// ## Type name convention
 ///
 /// The type name is the module path followed by the ident of the type.
 /// If the type is generic the type name of it's generic parameter is included between `<` and `>`.
