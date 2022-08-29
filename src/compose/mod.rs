@@ -91,11 +91,11 @@
 /// #endif
 /// }
 /// ```
-/// 
+///
 /// ## error reporting
-/// 
+///
 /// codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
-/// 
+///
 use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
     files::SimpleFile,
@@ -230,7 +230,7 @@ pub struct ImportDefinition {
 
 #[derive(Debug)]
 enum ErrSource {
-    Composed(String, HashSet<String>),
+    Module(String, usize),
     Constructing {
         path: String,
         source: String,
@@ -241,29 +241,21 @@ enum ErrSource {
 impl ErrSource {
     fn path<'a>(&'a self, composer: &'a Composer) -> &'a String {
         match self {
-            ErrSource::Composed(c, _) => &composer.module_sets.get(c).unwrap().file_path,
+            ErrSource::Module(c, _) => &composer.module_sets.get(c).unwrap().file_path,
             ErrSource::Constructing { path, .. } => path,
         }
     }
 
     fn source<'a>(&'a self, composer: &'a Composer) -> &'a String {
         match self {
-            ErrSource::Composed(c, _) => &composer.module_sets.get(c).unwrap().substituted_source,
+            ErrSource::Module(c, _) => &composer.module_sets.get(c).unwrap().substituted_source,
             ErrSource::Constructing { source, .. } => source,
         }
     }
 
-    fn offset(&self, composer: &Composer) -> usize {
+    fn offset(&self) -> usize {
         match self {
-            ErrSource::Composed(c, defs) => {
-                composer
-                    .module_sets
-                    .get(c)
-                    .unwrap()
-                    .get_module(defs)
-                    .unwrap()
-                    .start_offset
-            }
+            ErrSource::Module(_, offset) => *offset,
             ErrSource::Constructing { offset, .. } => *offset,
         }
     }
@@ -344,7 +336,7 @@ impl ComposerError {
     fn emit_to_string_internal(&self, composer: &Composer) -> String {
         let path = self.source.path(composer);
         let source = self.source.source(composer);
-        let source_offset = self.source.offset(composer);
+        let source_offset = self.source.offset();
 
         // println!("emit error: {:#?}", self);
 
@@ -601,7 +593,6 @@ impl Composer {
         &self,
         name: &str,
         source: String,
-        path: &str,
         language: ShaderLanguage,
         imports: &[ImportDefinition],
         shader_defs: &HashSet<String>,
@@ -658,11 +649,7 @@ impl Composer {
                 debug!("full err'd source file: \n---\n{}\n---", module_string);
                 ComposerError {
                     inner: ComposerErrorInner::WgslParseError(e),
-                    source: ErrSource::Constructing {
-                        path: path.to_owned(),
-                        source,
-                        offset: start_offset,
-                    },
+                    source: ErrSource::Module(name.to_owned(), start_offset),
                 }
             })?,
             ShaderLanguage::Glsl => naga::front::glsl::Parser::default()
@@ -677,11 +664,7 @@ impl Composer {
                     debug!("full err'd source file: \n---\n{}\n---", module_string);
                     ComposerError {
                         inner: ComposerErrorInner::GlslParseError(e),
-                        source: ErrSource::Constructing {
-                            path: path.to_owned(),
-                            source,
-                            offset: start_offset,
-                        },
+                        source: ErrSource::Module(name.to_owned(), start_offset),
                     }
                 })?,
         };
@@ -698,12 +681,10 @@ impl Composer {
     // also strip "#version xxx"
     fn preprocess_defs(
         &self,
-        _mod_name: &str,
         shader_str: &str,
-        path: &str,
         shader_defs: &HashSet<String>,
         validate_len: bool,
-    ) -> Result<(Option<String>, String, Vec<ImportDefinition>), ComposerError> {
+    ) -> Result<(Option<String>, String, Vec<ImportDefinition>), ComposerErrorInner> {
         let mut imports = Vec::new();
         let mut scopes = vec![true];
         let mut final_string = String::new();
@@ -718,14 +699,7 @@ impl Composer {
             if let Some(cap) = self.version_regex.captures(line) {
                 let v = cap.get(1).unwrap().as_str();
                 if v != "440" && v != "450" {
-                    return Err(ComposerError {
-                        inner: ComposerErrorInner::GlslInvalidVersion(offset),
-                        source: ErrSource::Constructing {
-                            path: path.to_owned(),
-                            source: shader_str.to_owned(),
-                            offset: 0,
-                        },
-                    });
+                    return Err(ComposerErrorInner::GlslInvalidVersion(offset));
                 }
             } else if let Some(cap) = self.ifdef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
@@ -744,14 +718,7 @@ impl Composer {
             } else if self.endif_regex.is_match(line) {
                 scopes.pop();
                 if scopes.is_empty() {
-                    return Err(ComposerError {
-                        inner: ComposerErrorInner::TooManyEndIfs(offset),
-                        source: ErrSource::Constructing {
-                            path: path.to_owned(),
-                            source: shader_str.to_owned(),
-                            offset: 0,
-                        },
-                    });
+                    return Err(ComposerErrorInner::TooManyEndIfs(offset));
                 }
             } else if let Some(cap) = self.define_import_path_regex.captures(line) {
                 name = Some(cap.get(1).unwrap().as_str().to_string());
@@ -782,14 +749,7 @@ impl Composer {
         }
 
         if scopes.len() != 1 {
-            return Err(ComposerError {
-                inner: ComposerErrorInner::NotEnoughEndIfs(offset),
-                source: ErrSource::Constructing {
-                    path: path.to_owned(),
-                    source: shader_str.to_owned(),
-                    offset: 0,
-                },
-            });
+            return Err(ComposerErrorInner::NotEnoughEndIfs(offset));
         }
 
         let revised_len = final_string.len();
@@ -842,13 +802,12 @@ impl Composer {
         create_headers: bool,
         demote_entrypoints: bool,
     ) -> Result<ComposableModule, ComposerError> {
-        let (_, source, imports) = self.preprocess_defs(
-            &module_definition.name,
-            &module_definition.substituted_source,
-            &module_definition.file_path,
-            shader_defs,
-            true,
-        )?;
+        let (_, source, imports) = self
+            .preprocess_defs(&module_definition.substituted_source, shader_defs, true)
+            .map_err(|inner| ComposerError {
+                inner,
+                source: ErrSource::Module(module_definition.name.to_owned(), 0),
+            })?;
 
         debug!(
             "create composable module {}: source len {}",
@@ -911,7 +870,6 @@ impl Composer {
         } = self.create_module_ir(
             &module_definition.name,
             source,
-            &module_definition.file_path,
             module_definition.language,
             &imports,
             shader_defs,
@@ -1057,11 +1015,7 @@ impl Composer {
             Err(e) => {
                 return Err(ComposerError {
                     inner: ComposerErrorInner::HeaderValidationError(e),
-                    source: ErrSource::Constructing {
-                        path: module_definition.file_path.to_owned(),
-                        source: module_definition.substituted_source.to_owned(),
-                        offset: start_offset,
-                    },
+                    source: ErrSource::Module(module_definition.name.to_owned(), start_offset),
                 });
             }
         };
@@ -1077,11 +1031,7 @@ impl Composer {
                     )
                     .map_err(|e| ComposerError {
                         inner: ComposerErrorInner::WgslBackError(e),
-                        source: ErrSource::Constructing {
-                            path: module_definition.file_path.to_owned(),
-                            source: module_definition.substituted_source.to_owned(),
-                            offset: start_offset,
-                        },
+                        source: ErrSource::Module(module_definition.name.to_owned(), start_offset),
                     })?,
                 ),
                 (
@@ -1121,11 +1071,10 @@ impl Composer {
                             Err(e) => {
                                 return Err(ComposerError {
                                     inner: ComposerErrorInner::HeaderValidationError(e),
-                                    source: ErrSource::Constructing {
-                                        path: module_definition.file_path.to_owned(),
-                                        source: module_definition.substituted_source.to_owned(),
-                                        offset: start_offset,
-                                    },
+                                    source: ErrSource::Module(
+                                        module_definition.name.to_owned(),
+                                        start_offset,
+                                    ),
                                 });
                             }
                         };
@@ -1151,19 +1100,17 @@ impl Composer {
                         )
                         .map_err(|e| ComposerError {
                             inner: ComposerErrorInner::GlslBackError(e),
-                            source: ErrSource::Constructing {
-                                path: module_definition.file_path.to_owned(),
-                                source: module_definition.substituted_source.to_owned(),
-                                offset: start_offset,
-                            },
+                            source: ErrSource::Module(
+                                module_definition.name.to_owned(),
+                                start_offset,
+                            ),
                         })?;
                         writer.write().map_err(|e| ComposerError {
                             inner: ComposerErrorInner::GlslBackError(e),
-                            source: ErrSource::Constructing {
-                                path: module_definition.file_path.to_owned(),
-                                source: module_definition.substituted_source.to_owned(),
-                                offset: start_offset,
-                            },
+                            source: ErrSource::Module(
+                                module_definition.name.to_owned(),
+                                start_offset,
+                            ),
                         })?;
                         // strip version decl and main() impl
                         let lines: Vec<_> = string.lines().collect();
@@ -1257,10 +1204,7 @@ impl Composer {
                 .module_sets
                 .get(&import.import)
                 .ok_or_else(|| ComposerError {
-                        inner: ComposerErrorInner::ImportNotFound(
-                            import.import.clone(),
-                            import.offset,
-                        ),
+                    inner: ComposerErrorInner::ImportNotFound(import.import.clone(), import.offset),
                     source: ErrSource::Constructing {
                         path: file_path.to_owned(),
                         source: substituted_source.clone(),
@@ -1397,6 +1341,29 @@ impl Composer {
         );
     }
 
+    fn ensure_import(
+        &mut self,
+        module_set: &ComposableModuleDefinition,
+        shader_defs: &HashSet<String>,
+    ) -> Result<ComposableModule, ComposerError> {
+        let (_, _, imports) = self
+            .preprocess_defs(&module_set.substituted_source, shader_defs, true)
+            .map_err(|inner| ComposerError {
+                inner,
+                source: ErrSource::Module(module_set.name.to_owned(), 0),
+            })?;
+
+        self.ensure_imports(imports, shader_defs)?;
+
+        self.create_composable_module(
+            module_set,
+            &Self::decorate(&module_set.name),
+            shader_defs,
+            true,
+            true,
+        )
+    }
+
     // build required ComposableModules for a given set of shader_defs
     fn ensure_imports(
         &mut self,
@@ -1413,23 +1380,17 @@ impl Composer {
             // we need to build the module
             // take the set so we can recurse without borrowing
             let (set_key, mut module_set) = self.module_sets.remove_entry(&import).unwrap();
-                        let (_, _, imports) = self.preprocess_defs(
-                            &import,
-                            &module_set.substituted_source,
-                            &module_set.file_path,
-                            shader_defs,
-                            true,
-                        )?;
-            self.ensure_imports(imports, shader_defs)?;
-            let module = self.create_composable_module(
-                &module_set,
-                &Self::decorate(&module_set.name),
-                shader_defs,
-                true,
-                true,
-            )?;
-            module_set.insert_module(shader_defs, module);
-            self.module_sets.insert(set_key, module_set);
+
+            match self.ensure_import(&module_set, shader_defs) {
+                Ok(module) => {
+                    module_set.insert_module(shader_defs, module);
+                    self.module_sets.insert(set_key, module_set);
+                }
+                Err(e) => {
+                    self.module_sets.insert(set_key, module_set);
+                    return Err(e);
+                }
+            }
         }
 
         Ok(())
@@ -1445,8 +1406,16 @@ impl Composer {
     ) -> Result<naga::Module, ComposerError> {
         let shader_defs = shader_defs.iter().cloned().collect();
 
-        let (name, modified_source, imports) =
-            self.preprocess_defs("", source, path, &shader_defs, false)?;
+        let (name, modified_source, imports) = self
+            .preprocess_defs(source, &shader_defs, false)
+            .map_err(|inner| ComposerError {
+                inner,
+                source: ErrSource::Constructing {
+                    path: path.to_owned(),
+                    source: source.to_owned(),
+                    offset: 0,
+                },
+            })?;
 
         let name = name.unwrap_or_default();
         let substituted_source = Self::sanitize_and_substitute_shader_string(source, &imports);
@@ -1465,8 +1434,16 @@ impl Composer {
             modules: Default::default(),
         };
 
-        let composable =
-            self.create_composable_module(&definition, "", &shader_defs, false, false)?;
+        let composable = self
+            .create_composable_module(&definition, "", &shader_defs, false, false)
+            .map_err(|e| ComposerError {
+                inner: e.inner,
+                source: ErrSource::Constructing {
+                    path: definition.file_path.to_owned(),
+                    source: definition.substituted_source.to_owned(),
+                    offset: e.source.offset(),
+                },
+            })?;
 
         let mut derived = DerivedModule::default();
 
@@ -1555,12 +1532,16 @@ impl Composer {
                                     offset: composable.start_offset,
                                 },
                                 _ => {
-                                    let module_name = self
-                                        .module_index
-                                        .get(&module_index)
-                                        .map(String::as_str)
-                                        .unwrap();
-                                    ErrSource::Composed(module_name.to_owned(), shader_defs)
+                                    let module_name =
+                                        self.module_index.get(&module_index).unwrap().clone();
+                                    let offset = self
+                                        .module_sets
+                                        .get(&module_name)
+                                        .unwrap()
+                                        .get_module(&shader_defs)
+                                        .unwrap()
+                                        .start_offset;
+                                    ErrSource::Module(module_name, offset)
                                 }
                             }
                         }
