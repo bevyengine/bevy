@@ -73,7 +73,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 /// It's possible to override the default behaviour and choose a custom type name by using
 /// the `type_name` attribute.
 ///
-/// A common usage is to using your crate name instead of the complete module path.
+/// If specifying a custom type name, it's recommended to prefix it with the name of your crate.
 ///
 /// It's highly discouraged to using unprefixed type name that could collide with another type
 /// or an malformed type name (e.g. `BlAH@blah blah`).
