@@ -39,7 +39,7 @@ pub trait GetTypeRegistration {
 
     /// Returns the static set of aliases that can be used to refer to this type.
     ///
-    /// Note that these are the _default_ aliases— used specifically for type registration.
+    /// Note that these are the _default_ aliases used specifically for type registration.
     /// For a given [registry], the actual set of aliases for a registered type may differ from the
     /// ones listed here.
     ///
@@ -54,7 +54,7 @@ pub trait GetTypeRegistration {
     ///
     /// For the list of _current_ aliases, try using [`aliases`] instead.
     ///
-    /// Note that, like [`aliases`], this is the _default_ set— used specifically for type registration.
+    /// Note that, like [`aliases`], this is the _default_ set used specifically for type registration.
     /// For a given [registry], the actual set of deprecated aliases for a registered type may differ from the
     /// ones listed here.
     ///
@@ -425,8 +425,8 @@ impl TypeRegistry {
     /// Prints a warning stating that the given alias has been deprecated for the given registration.
     fn warn_alias_deprecation(alias: &str, registration: &TypeRegistration) {
         warn!(
-            "the alias `{}` has been deprecated for the type `{}` ({:?}). Consider using the full type name or \
-            one of the current aliases: {:?}",
+            "the alias `{}` has been deprecated for the type `{}` ({:?}) and may be removed in the future. \
+            Consider using the full type name or one of the current aliases: {:?}",
             alias,
             registration.type_name(),
             registration.type_id(),
