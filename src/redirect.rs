@@ -130,13 +130,13 @@ impl Redirector {
             .functions
             .iter()
             .find(|(_, f)| f.name.as_deref() == Some(original))
-            .ok_or(RedirectError::FunctionNotFound(original.to_owned()))?;
+            .ok_or_else(|| RedirectError::FunctionNotFound(original.to_owned()))?;
         let (h_replacement, f_replacement) = self
             .module
             .functions
             .iter()
             .find(|(_, f)| f.name.as_deref() == Some(replacement))
-            .ok_or(RedirectError::FunctionNotFound(replacement.to_owned()))?;
+            .ok_or_else(|| RedirectError::FunctionNotFound(replacement.to_owned()))?;
 
         for (arg1, arg2) in f_original
             .arguments
@@ -214,7 +214,7 @@ impl Redirector {
         let mut derived = DerivedModule::default();
         derived.set_shader_source(&self.module, 0);
 
-        while requirements.len() > 0 {
+        while !requirements.is_empty() {
             let start_len = requirements.len();
 
             let mut added: HashSet<Handle<Function>> = HashSet::new();

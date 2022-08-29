@@ -83,9 +83,10 @@ mod prune_test {
                         let vertex_module =
                             naga::front::wgsl::parse_str(vertex_shader.get_wgsl_source().unwrap())
                                 .unwrap();
-                        let fragment_module =
-                            naga::front::wgsl::parse_str(fragment_shader.get_wgsl_source().unwrap())
-                                .unwrap();
+                        let fragment_module = naga::front::wgsl::parse_str(
+                            fragment_shader.get_wgsl_source().unwrap(),
+                        )
+                        .unwrap();
                         println!("{:#?}", fragment_module);
 
                         let frag_entrypoint = fragment_module
