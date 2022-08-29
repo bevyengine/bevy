@@ -924,7 +924,7 @@ mod tests {
     use super::MeshPipelineKey;
     #[test]
     fn mesh_key_msaa_samples() {
-        for i in 1..=64 {
+        for i in [1, 2, 4, 8, 16, 32, 64, 128] {
             assert_eq!(MeshPipelineKey::from_msaa_samples(i).msaa_samples(), i);
         }
     }
