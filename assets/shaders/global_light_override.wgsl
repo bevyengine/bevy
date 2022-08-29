@@ -25,7 +25,7 @@ override fn bevy_pbr::lighting::point_light(
     return clamp(vec3<f32>(quantized) / quantize_steps(), vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
-override fn Lighting::directional_light(
+override fn bevy_pbr::lighting::directional_light(
     light: bevy_pbr::mesh_view_types::DirectionalLight, 
     roughness: f32, 
     NdotV: f32, 
