@@ -2,7 +2,7 @@ use crate::utility::GenericTypeNameCell;
 
 /// Provide the name of the type as a string slice.
 ///
-/// This is a stable alternative to [`std::any::type_name`] whose output isn't guarentee
+/// This is a stable alternative to [`std::any::type_name`] whose output isn't guarenteed
 /// and may change between versions of the compiler.
 ///
 /// This trait may be derived via [`#[derive(TypeName)]`][bevy_reflect_derive::TypeName].
