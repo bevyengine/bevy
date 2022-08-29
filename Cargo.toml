@@ -1452,6 +1452,16 @@ description = "Illustrates various features of Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "ui_scaling"
+path = "examples/ui/scaling.rs"
+
+[package.metadata.example.ui_scaling]
+name = "UI Scaling"
+description = "Illustrates how to scale the UI"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
