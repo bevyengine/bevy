@@ -216,19 +216,12 @@ pub fn flex_node_system(
 
     // assume one window for time being...
     let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
+    let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
     if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
-        update_changed(
-            &mut *flex_surface,
-            logical_to_physical_factor * ui_scale.scale,
-            full_node_query,
-        );
+        update_changed(&mut *flex_surface, scale_factor, full_node_query);
     } else {
-        update_changed(
-            &mut *flex_surface,
-            logical_to_physical_factor * ui_scale.scale,
-            node_query,
-        );
+        update_changed(&mut *flex_surface, scale_factor, node_query);
     }
 
     fn update_changed<F: WorldQuery>(
@@ -248,12 +241,7 @@ pub fn flex_node_system(
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(
-            entity,
-            style,
-            *calculated_size,
-            logical_to_physical_factor * ui_scale.scale,
-        );
+        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
     }
 
     // TODO: handle removed nodes
