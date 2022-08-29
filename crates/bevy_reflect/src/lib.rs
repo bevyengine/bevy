@@ -436,6 +436,69 @@ mod tests {
         assert_eq!(new_foo, expected_new_foo);
     }
 
+    // FIXME: This test doesn't actually test anything since the current deserializer doesn't rely on
+    //        the type name being correct and registered.
+    #[test]
+    fn reflect_alias() {
+        #[derive(Reflect, FromReflect)]
+        #[reflect(alias = "SomeAlias")]
+        #[reflect(alias = "SomeOtherAlias")]
+        #[reflect(deprecated_alias = "SomeOldAlias")]
+        struct Foo {
+            x: u32,
+        }
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<Foo>();
+        registry.register::<u32>();
+
+        let deserialize_foo = |serialized: &str| {
+            let mut deserializer = Deserializer::from_str(serialized).unwrap();
+            let reflect_deserializer = ReflectDeserializer::new(&registry);
+            let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+            <Foo as FromReflect>::from_reflect(value.as_ref()).unwrap()
+        };
+
+        let serialized = r#"{
+            "type": "SomeAlias",
+            "struct": {
+                "x": {
+                    "type": "u32",
+                    "value": 123,
+                }
+            }
+        }"#;
+        let dynamic_struct = deserialize_foo(serialized);
+        let expected: Box<dyn Reflect> = Box::new(Foo { x: 123 });
+        assert!(expected.reflect_partial_eq(&dynamic_struct).unwrap());
+
+        let serialized = r#"{
+            "type": "SomeOtherAlias",
+            "struct": {
+                "x": {
+                    "type": "u32",
+                    "value": 123,
+                }
+            }
+        }"#;
+        let dynamic_struct = deserialize_foo(serialized);
+        let expected: Box<dyn Reflect> = Box::new(Foo { x: 123 });
+        assert!(expected.reflect_partial_eq(&dynamic_struct).unwrap());
+
+        let serialized = r#"{
+            "type": "SomeOldAlias",
+            "struct": {
+                "x": {
+                    "type": "u32",
+                    "value": 123,
+                }
+            }
+        }"#;
+        let dynamic_struct = deserialize_foo(serialized);
+        let expected: Box<dyn Reflect> = Box::new(Foo { x: 123 });
+        assert!(expected.reflect_partial_eq(&dynamic_struct).unwrap());
+    }
+
     #[test]
     fn reflect_serialize() {
         #[derive(Reflect)]

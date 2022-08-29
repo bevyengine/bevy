@@ -217,8 +217,11 @@ impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
                     let type_name = type_name
                         .take()
                         .ok_or_else(|| de::Error::missing_field(type_fields::TYPE))?;
-                    let registration =
-                        self.registry.get_with_name(&type_name).ok_or_else(|| {
+                    let registration = self
+                        .registry
+                        .get_with_name(&type_name)
+                        .or_else(|| self.registry.get_with_alias(&type_name))
+                        .ok_or_else(|| {
                             de::Error::custom(format_args!(
                                 "No registration found for {}",
                                 type_name

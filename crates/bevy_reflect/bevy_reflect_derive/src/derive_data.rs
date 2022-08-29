@@ -119,10 +119,19 @@ impl<'a> ReflectDerive<'a> {
 
             if let Some(ident) = meta_list.path.get_ident() {
                 if ident == REFLECT_ATTRIBUTE_NAME {
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                    if force_reflect_value {
+                        force_reflect_value = false;
+                        traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                    } else {
+                        traits.combine(ReflectTraits::from_nested_metas(&meta_list.nested)?);
+                    }
                 } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
-                    force_reflect_value = true;
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                    if !force_reflect_value {
+                        force_reflect_value = true;
+                        traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                    } else {
+                        traits.combine(ReflectTraits::from_nested_metas(&meta_list.nested)?);
+                    }
                 }
             }
         }
@@ -242,12 +251,7 @@ impl<'a> ReflectMeta<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
-        crate::registration::impl_get_type_registration(
-            self.type_name,
-            &self.bevy_reflect_path,
-            self.traits.idents(),
-            self.generics,
-        )
+        crate::registration::impl_get_type_registration(self)
     }
 }
 
