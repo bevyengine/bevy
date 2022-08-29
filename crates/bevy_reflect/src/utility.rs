@@ -163,7 +163,7 @@ pub type GenericTypeInfoCell = GenericDataCell<TypeInfo>;
 
 /// A container for [`String`] over generic types, allowing instances to be stored statically.
 ///
-/// Used when implementing [`TypeName`][crate::TypeName] for generic type to store the type name.
+/// Used when implementing [`TypeName`][crate::TypeName] for generic types to store the type name.
 ///
 /// ## Example
 ///
