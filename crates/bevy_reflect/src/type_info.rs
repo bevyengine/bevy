@@ -207,9 +207,9 @@ pub struct DynamicInfo {
 }
 
 impl DynamicInfo {
-    pub fn new<T: Reflect>() -> Self {
+    pub fn new<T: Reflect + TypeName>() -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_name: T::name(),
             type_id: TypeId::of::<T>(),
         }
     }

@@ -5,7 +5,9 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, TypeName, Typed};
+use crate::{
+    self as bevy_reflect, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, TypeName, Typed,
+};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -139,7 +141,7 @@ impl MapInfo {
 const HASH_ERROR: &str = "the given key does not support hashing";
 
 /// An ordered mapping between reflected values.
-#[derive(Default)]
+#[derive(Default, TypeName)]
 pub struct DynamicMap {
     name: String,
     values: Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>,
