@@ -12,9 +12,9 @@ fn main() {
         .run();
 }
 
+/// Because `#[derive(Reflect)]` also derives `TypeName` for `MyType`,
+/// the generic parameter must also implement `TypeName`.
 #[derive(Reflect)]
-// Because `#[derive(Reflect)]` also derive `TypeName` for `MyType`,
-// the generic parameter must also implement `TypeName`.
 struct MyType<T: Reflect + TypeName> {
     value: T,
 }
