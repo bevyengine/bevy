@@ -1,6 +1,6 @@
 use crate::utility::GenericTypeNameCell;
 
-/// Provides the name of the type as a string slice.
+/// Provides the name of the type as a string.
 ///
 /// This is a stable alternative to [`std::any::type_name`] whose output isn't guarenteed
 /// and may change between versions of the compiler.
