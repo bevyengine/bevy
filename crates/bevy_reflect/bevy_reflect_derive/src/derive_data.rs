@@ -110,6 +110,8 @@ impl<'a> ReflectDerive<'a> {
         // Should indicate whether `#[reflect_value]` was used
         let mut force_reflect_value = false;
 
+        let is_generic = utility::is_generic(&input.generics, false);
+
         for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
             let meta_list = if let Meta::List(meta_list) = attribute {
                 meta_list
@@ -121,16 +123,22 @@ impl<'a> ReflectDerive<'a> {
                 if ident == REFLECT_ATTRIBUTE_NAME {
                     if force_reflect_value {
                         force_reflect_value = false;
-                        traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                        traits = ReflectTraits::from_nested_metas(&meta_list.nested, is_generic)?;
                     } else {
-                        traits.combine(ReflectTraits::from_nested_metas(&meta_list.nested)?);
+                        traits.combine(ReflectTraits::from_nested_metas(
+                            &meta_list.nested,
+                            is_generic,
+                        )?);
                     }
                 } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
                     if !force_reflect_value {
                         force_reflect_value = true;
-                        traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                        traits = ReflectTraits::from_nested_metas(&meta_list.nested, is_generic)?;
                     } else {
-                        traits.combine(ReflectTraits::from_nested_metas(&meta_list.nested)?);
+                        traits.combine(ReflectTraits::from_nested_metas(
+                            &meta_list.nested,
+                            is_generic,
+                        )?);
                     }
                 }
             }

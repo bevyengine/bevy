@@ -8,7 +8,6 @@
 use crate::utility;
 use proc_macro2::Ident;
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
@@ -114,7 +113,10 @@ pub(crate) struct ReflectTraits {
 
 impl ReflectTraits {
     /// Create a new [`ReflectTraits`] instance from a set of nested metas.
-    pub fn from_nested_metas(nested_metas: &Punctuated<NestedMeta, Comma>) -> syn::Result<Self> {
+    pub fn from_nested_metas(
+        nested_metas: &Punctuated<NestedMeta, Comma>,
+        is_generic: bool,
+    ) -> syn::Result<Self> {
         let mut traits = ReflectTraits::default();
         for nested_meta in nested_metas.iter() {
             match nested_meta {
@@ -165,15 +167,27 @@ impl ReflectTraits {
                         .get_ident()
                         .ok_or_else(|| syn::Error::new(pair.span(), "not a valid path"))?;
 
+                    // Closure that handles defining an alias on a generic type
+                    let try_handle_generic_alias = || -> syn::Result<()> {
+                        if is_generic {
+                            Err(syn::Error::new(ident.span(), "cannot specify non-generic aliases on generic types. Consider using `TypeRegistry::register_alias` instead"))
+                        } else {
+                            Ok(())
+                        }
+                    };
+
                     let attr_name = ident.to_string();
                     match (attr_name.as_str(), &pair.lit) {
                         (ALIAS_ATTR, Lit::Str(alias)) => {
+                            try_handle_generic_alias()?;
                             traits.aliases.push(alias.clone());
                         }
                         (DEPRECATED_ALIAS_ATTR, Lit::Str(alias)) => {
+                            try_handle_generic_alias()?;
                             traits.deprecated_aliases.push(alias.clone());
                         }
                         (DEPRECATED_ALIAS_ATTR | ALIAS_ATTR, lit) => {
+                            try_handle_generic_alias()?;
                             return Err(syn::Error::new(lit.span(), "expected a string literal"));
                         }
                         (_, _) => {
@@ -327,12 +341,5 @@ impl ReflectTraits {
             }),
             TraitImpl::NotImplemented => None,
         }
-    }
-}
-
-impl Parse for ReflectTraits {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let result = Punctuated::<NestedMeta, Comma>::parse_terminated(input)?;
-        ReflectTraits::from_nested_metas(&result)
     }
 }
