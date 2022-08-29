@@ -138,10 +138,10 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
         A: MapAccess<'de>,
     {
         let type_name = map
-            .next_key::<&str>()?
+            .next_key::<String>()?
             .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
 
-        let registration = self.registry.get_with_name(type_name).ok_or_else(|| {
+        let registration = self.registry.get_with_name(&type_name).ok_or_else(|| {
             Error::custom(format_args!("No registration found for {}", type_name))
         })?;
         let type_info = registration.type_info();
@@ -512,12 +512,12 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
         V: MapAccess<'de>,
     {
         let variant_name = map
-            .next_key::<&str>()?
+            .next_key::<String>()?
             .ok_or_else(|| Error::missing_field("the variant name of the enum"))?;
 
         let variant_info = self
             .enum_info
-            .variant(variant_name)
+            .variant(&variant_name)
             .ok_or_else(|| Error::custom(format_args!("unknown variant {}", variant_name)))?;
 
         let mut dynamic_enum = DynamicEnum::default();
