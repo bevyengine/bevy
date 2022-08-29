@@ -75,8 +75,8 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 ///
 /// If specifying a custom type name, it's recommended to prefix it with the name of your crate.
 ///
-/// It's highly discouraged to using unprefixed type name that could collide with another type
-/// or an malformed type name (e.g. `BlAH@blah blah`).
+/// It's highly discouraged to use an unprefixed type name that could collide with another type
+/// or a malformed type name (e.g. `BlAH@blah blah`).
 ///
 /// ## Example
 ///
