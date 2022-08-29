@@ -9,7 +9,8 @@ use crate::utility::GenericTypeNameCell;
 ///
 /// ## Manual implementation
 ///
-/// For some reason you may need to manually implement [`TypeName`].
+/// If you need to manually implement [`TypeName`], it's recommended to follow
+/// the example below (unless specifying a custom name).
 ///
 /// ```ignore
 /// bevy_reflect::TypeName;
