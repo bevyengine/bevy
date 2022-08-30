@@ -392,12 +392,12 @@ pub struct ReflectSerialize {
     get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
 }
 
-impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
+impl<T: Reflect + TypeName + erased_serde::Serialize> FromType<T> for ReflectSerialize {
     fn from_type() -> Self {
         ReflectSerialize {
             get_serializable: |value| {
                 let value = value.downcast_ref::<T>().unwrap_or_else(|| {
-                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.type_name(), std::any::type_name::<T>())
+                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.type_name(), T::name())
                 });
                 Serializable::Borrowed(value)
             },

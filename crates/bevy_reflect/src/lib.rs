@@ -773,7 +773,7 @@ mod tests {
         let info = MyDynamic::type_info();
         if let TypeInfo::Dynamic(info) = info {
             assert!(info.is::<MyDynamic>());
-            assert_eq!(std::any::type_name::<MyDynamic>(), info.type_name());
+            assert_eq!(<MyDynamic as TypeName>::name(), info.type_name());
         } else {
             panic!("Expected `TypeInfo::Dynamic`");
         }
