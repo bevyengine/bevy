@@ -271,6 +271,7 @@ pub fn load_font(
     default_font: Res<DefaultFont>,
     mut event: EventWriter<RequestRedraw>,
 ) {
+    let mut needs_redraw = false;
     for mut text in &mut query {
         for mut section in &mut text.sections {
             let path = match &section.style.font {
@@ -297,10 +298,13 @@ pub fn load_font(
                 }
                 bevy_asset::LoadState::Failed => panic!("Failed to load font {:?}", path),
             };
-            // This is to avoid an issue in low power mode where the fonts were not loaded in time
-            // and there would be no text until the next redraw.
-            event.send(RequestRedraw);
             section.style.font = FontRef::Handle(handle);
+            needs_redraw = true;
         }
+    }
+    if needs_redraw {
+        // This is to avoid an issue in low power mode where the fonts were not loaded in time
+        // and there would be no text until the next redraw.
+        event.send(RequestRedraw);
     }
 }
