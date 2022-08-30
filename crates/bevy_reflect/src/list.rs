@@ -137,6 +137,10 @@ impl Array for DynamicList {
         }
     }
 
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.values
+    }
+
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.name.clone(),
