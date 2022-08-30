@@ -337,7 +337,7 @@ impl TypeRegistration {
 
     /// Returns the [name] of the type.
     ///
-    /// [name]: std::any::type_name
+    /// [name]: crate::TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_info.type_name()
     }

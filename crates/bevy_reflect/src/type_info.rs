@@ -216,7 +216,7 @@ impl DynamicInfo {
 
     /// The [type name] of the dynamic value.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: crate::TypeName
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
