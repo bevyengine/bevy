@@ -43,21 +43,21 @@ impl_reflect_value!(
     E: Clone + Reflect + TypeName > ()
 );
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypeName>());
-impl_reflect_value!(Range<T: Clone +  Send + Sync + TypeName >());
-impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(Instant(Debug, Hash, PartialEq));
-impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroIsize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroUsize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::Range" Range<T: Clone +  Send + Sync + TypeName >());
+impl_reflect_value!(@"std::Duration" Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::Instant" Instant(Debug, Hash, PartialEq));
+impl_reflect_value!(@"std::NonZeroI128" NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroU128" NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroIsize" NonZeroIsize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroUsize" NonZeroUsize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroI64" NonZeroI64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroU64" NonZeroU64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroU32" NonZeroU32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroI32" NonZeroI32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroI16" NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroU16" NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroU8" NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std::NonZeroI8" NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -94,7 +94,7 @@ impl_from_reflect_value!(NonZeroU8);
 impl_from_reflect_value!(NonZeroI8);
 
 impl_type_name!(Vec<T: TypeName>);
-impl_type_name!(HashMap<K: TypeName, V: TypeName >);
+impl_type_name!(HashMap<K: TypeName, V: TypeName>);
 impl_type_name!(Option<T: TypeName>);
 
 // impl_type_name expects a type name followed by generic between `<` and `>`.
