@@ -197,9 +197,9 @@ impl Default for Style {
             flex_grow: 0.0,
             flex_shrink: 1.0,
             flex_basis: Val::Auto,
-            size: Size::new(Val::Auto, Val::Auto),
-            min_size: Size::new(Val::Auto, Val::Auto),
-            max_size: Size::new(Val::Auto, Val::Auto),
+            size: Size::AUTO,
+            min_size: Size::AUTO,
+            max_size: Size::AUTO,
             aspect_ratio: Default::default(),
             overflow: Default::default(),
         }

@@ -30,6 +30,8 @@ pub trait Array: Reflect {
     }
     /// Returns an iterator over the collection.
     fn iter(&self) -> ArrayIter;
+    /// Drain the elements of this array to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
@@ -244,6 +246,11 @@ impl Array for DynamicArray {
             array: self,
             index: 0,
         }
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.values.into_vec()
     }
 
     #[inline]

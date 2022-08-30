@@ -9,7 +9,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Mat4, Vec2};
+use bevy_math::{Mat3A, Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -117,6 +117,9 @@ bitflags::bitflags! {
     #[repr(transparent)]
     struct MeshFlags: u32 {
         const SHADOW_RECEIVER            = (1 << 0);
+        // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
+        // then the flag should be set, else it should not be set.
+        const SIGN_DETERMINANT_MODEL_3X3 = (1 << 31);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -143,13 +146,16 @@ pub fn extract_meshes(
 
     for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
         let transform = transform.compute_matrix();
-        let shadow_receiver_flags = if not_receiver.is_some() {
-            MeshFlags::empty().bits
+        let mut flags = if not_receiver.is_some() {
+            MeshFlags::empty()
         } else {
-            MeshFlags::SHADOW_RECEIVER.bits
+            MeshFlags::SHADOW_RECEIVER
         };
+        if Mat3A::from_mat4(transform).determinant().is_sign_positive() {
+            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+        }
         let uniform = MeshUniform {
-            flags: shadow_receiver_flags,
+            flags: flags.bits,
             transform,
             inverse_transpose_model: transform.inverse().transpose(),
         };
@@ -494,35 +500,36 @@ impl MeshPipeline {
 bitflags::bitflags! {
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
+    /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
         const TRANSPARENT_MAIN_PASS       = (1 << 0);
-        const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
 impl MeshPipelineKey {
-    const MSAA_MASK_BITS: u32 = 0b111111;
-    const MSAA_SHIFT_BITS: u32 = 32 - 6;
+    const MSAA_MASK_BITS: u32 = 0b111;
+    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
-        let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        MeshPipelineKey::from_bits(msaa_bits).unwrap()
+        let msaa_bits =
+            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        Self::from_bits(msaa_bits).unwrap()
     }
 
     pub fn msaa_samples(&self) -> u32 {
-        ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+        1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        MeshPipelineKey::from_bits(primitive_topology_bits).unwrap()
+        Self::from_bits(primitive_topology_bits).unwrap()
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -917,7 +924,7 @@ mod tests {
     use super::MeshPipelineKey;
     #[test]
     fn mesh_key_msaa_samples() {
-        for i in 1..=64 {
+        for i in [1, 2, 4, 8, 16, 32, 64, 128] {
             assert_eq!(MeshPipelineKey::from_msaa_samples(i).msaa_samples(), i);
         }
     }

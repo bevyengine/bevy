@@ -1,5 +1,7 @@
 //! Renders two cameras to the same window to accomplish "split screen".
 
+use std::f32::consts::PI;
+
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
@@ -36,12 +38,7 @@ fn setup(
 
     // Light
     commands.spawn_bundle(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            1.0,
-            -std::f32::consts::FRAC_PI_4,
-        )),
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
             shadows_enabled: true,
             ..default()
@@ -67,7 +64,7 @@ fn setup(
                 ..default()
             },
             camera_3d: Camera3d {
-                // dont clear on the second camera because the first camera already cleared the window
+                // don't clear on the second camera because the first camera already cleared the window
                 clear_color: ClearColorConfig::None,
                 ..default()
             },
