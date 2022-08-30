@@ -947,6 +947,36 @@ mod tests {
     }
 
     #[test]
+    fn should_register_alias_for_generic() {
+        #[derive(Reflect)]
+        struct Foo<T: Reflect>(T);
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Foo<u32>>();
+        registry.register::<Foo<i32>>();
+
+        let previous = registry.register_alias::<Foo<u32>>("my_alias");
+        assert_eq!(None, previous);
+
+        let registration = registry.get_with_alias("my_alias").unwrap();
+        assert_eq!(TypeId::of::<Foo<u32>>(), registration.type_id());
+        assert!(registration.aliases().contains("my_alias"));
+
+        let previous = registry.register_alias::<Foo<i32>>("my_alias");
+        assert_eq!(Some(TypeId::of::<Foo<u32>>()), previous);
+
+        let registration = registry.get_with_alias("my_alias").unwrap();
+        assert_eq!(TypeId::of::<Foo<i32>>(), registration.type_id());
+        assert!(registration.aliases().contains("my_alias"));
+
+        // Confirm that the registrations' aliases have been updated
+        let foo_registration = registry.get(TypeId::of::<Foo<u32>>()).unwrap();
+        let bar_registration = registry.get(TypeId::of::<Foo<i32>>()).unwrap();
+        assert!(!foo_registration.aliases().contains("my_alias"));
+        assert!(bar_registration.aliases().contains("my_alias"));
+    }
+
+    #[test]
     fn should_register_new_alias() {
         #[derive(Reflect)]
         struct Foo;
