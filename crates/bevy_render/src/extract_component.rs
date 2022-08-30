@@ -69,6 +69,7 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
 }
 
 /// Stores all uniforms of the component type.
+#[derive(Resource)]
 pub struct ComponentUniforms<C: Component + ShaderType> {
     uniforms: DynamicUniformBuffer<C>,
 }

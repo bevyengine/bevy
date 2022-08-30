@@ -8,6 +8,7 @@ struct Enemy {
 
 struct EnemyDied(u32);
 
+#[derive(Resource)]
 struct Score(u32);
 
 fn update_score(mut dead_enemies: EventReader<EnemyDied>, mut score: ResMut<Score>) {

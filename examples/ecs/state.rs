@@ -26,6 +26,7 @@ enum AppState {
     InGame,
 }
 
+#[derive(Resource)]
 struct MenuData {
     button_entity: Entity,
 }

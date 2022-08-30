@@ -24,11 +24,13 @@ fn main() {
 // Store contributors in a collection that preserves the uniqueness
 type Contributors = HashSet<String>;
 
+#[derive(Resource)]
 struct ContributorSelection {
     order: Vec<Entity>,
     idx: usize,
 }
 
+#[derive(Resource)]
 struct SelectionState {
     timer: Timer,
     has_triggered: bool,

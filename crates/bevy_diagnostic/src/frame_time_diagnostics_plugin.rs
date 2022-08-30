@@ -1,12 +1,13 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_time::Time;
 
 /// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;
 
+#[derive(Resource)]
 pub struct FrameTimeDiagnosticsState {
     frame_count: u64,
 }

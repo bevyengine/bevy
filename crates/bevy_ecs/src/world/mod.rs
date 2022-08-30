@@ -30,6 +30,7 @@ use std::{
 mod identifier;
 
 pub use identifier::WorldId;
+
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
 ///
@@ -43,41 +44,12 @@ pub use identifier::WorldId;
 /// To mutate different parts of the world simultaneously,
 /// use [`World::resource_scope`] or [`SystemState`](crate::system::SystemState).
 ///
-/// # Resources
+/// ## Resources
 ///
-/// Worlds can also store *resources*, which are unique instances of a given type that don't
-/// belong to a specific Entity. There are also *non send resources*, which can only be
-/// accessed on the main thread.
-///
-/// ## Usage of global resources
-///
-/// 1. Insert the resource into the `World`, using [`World::insert_resource`].
-/// 2. Fetch the resource from a system, using [`Res`](crate::system::Res) or [`ResMut`](crate::system::ResMut).
-///
-/// ```
-/// # let mut world = World::default();
-/// # let mut schedule = Schedule::default();
-/// # schedule.add_stage("update", SystemStage::parallel());
-/// # use bevy_ecs::prelude::*;
-/// #
-/// struct MyResource { value: u32 }
-///
-/// world.insert_resource(MyResource { value: 42 });
-///
-/// fn read_resource_system(resource: Res<MyResource>) {
-///     assert_eq!(resource.value, 42);
-/// }
-///
-/// fn write_resource_system(mut resource: ResMut<MyResource>) {
-///     assert_eq!(resource.value, 42);
-///     resource.value = 0;
-///     assert_eq!(resource.value, 0);
-/// }
-/// #
-/// # schedule.add_system_to_stage("update", read_resource_system.label("first"));
-/// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
-/// # schedule.run_once(&mut world);
-/// ```
+/// Worlds can also store [`Resource`]s,
+/// which are unique instances of a given type that don't belong to a specific Entity.
+/// There are also *non send resources*, which can only be accessed on the main thread.
+/// See [`Resource`] for usage.
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
@@ -1097,8 +1069,8 @@ impl World {
     ///
     /// # Example
     /// ```
-    /// use bevy_ecs::{component::Component, world::{World, Mut}};
-    /// #[derive(Component)]
+    /// use bevy_ecs::prelude::*;
+    /// #[derive(Resource)]
     /// struct A(u32);
     /// #[derive(Component)]
     /// struct B(u32);
@@ -1147,7 +1119,10 @@ impl World {
             },
         };
         let result = f(self, value_mut);
-        assert!(!self.contains_resource::<R>());
+        assert!(!self.contains_resource::<R>(),
+            "Resource `{}` was inserted during a call to World::resource_scope.\n\
+            This is not allowed as the original resource is reinserted to the world after the FnOnce param is invoked.",
+            std::any::type_name::<R>());
 
         let resource_archetype = self.archetypes.resource_mut();
         let unique_components = resource_archetype.unique_components_mut();
@@ -1263,13 +1238,7 @@ impl World {
             // SAFETY: column is of type R and has been allocated above
             column.push(value, ComponentTicks::new(change_tick));
         } else {
-            let ptr = column.get_data_unchecked_mut(0);
-            std::ptr::copy_nonoverlapping::<u8>(
-                value.as_ptr(),
-                ptr.as_ptr(),
-                column.item_layout().size(),
-            );
-            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
+            column.replace(0, value, change_tick);
         }
     }
 
@@ -1584,6 +1553,7 @@ mod tests {
         change_detection::DetectChanges,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         ptr::OwningPtr,
+        system::Resource,
     };
     use bevy_ecs_macros::Component;
     use bevy_utils::HashSet;
@@ -1607,7 +1577,7 @@ mod tests {
         Drop(ID),
     }
 
-    #[derive(Component)]
+    #[derive(Resource, Component)]
     struct MayPanicInDrop {
         drop_log: Arc<Mutex<Vec<DropLogItem>>>,
         expected_panic_flag: Arc<AtomicBool>,
@@ -1713,7 +1683,7 @@ mod tests {
         );
     }
 
-    #[derive(Component)]
+    #[derive(Resource)]
     struct TestResource(u32);
 
     #[test]
