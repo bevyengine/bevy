@@ -221,11 +221,9 @@ impl ReflectTraits {
         }
 
         for ident in other.idents {
-            if self.idents.contains(&ident) {
-                continue;
+            if !self.idents.contains(&ident) {
+                self.idents.push(ident);
             }
-
-            self.idents.push(ident);
         }
 
         for alias in other.aliases {
