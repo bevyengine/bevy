@@ -231,12 +231,10 @@ impl ReflectTraits {
             if self
                 .aliases
                 .iter()
-                .any(|other_alias| value == other_alias.value())
+                .all(|other_alias| value != other_alias.value())
             {
-                continue;
+                self.aliases.push(alias);
             }
-
-            self.aliases.push(alias);
         }
 
         for alias in other.deprecated_aliases {
@@ -244,12 +242,10 @@ impl ReflectTraits {
             if self
                 .deprecated_aliases
                 .iter()
-                .any(|other_alias| value == other_alias.value())
+                .all(|other_alias| value != other_alias.value())
             {
-                continue;
+                self.deprecated_aliases.push(alias);
             }
-
-            self.deprecated_aliases.push(alias);
         }
     }
 
