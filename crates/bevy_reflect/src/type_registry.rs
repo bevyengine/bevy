@@ -221,7 +221,7 @@ impl TypeRegistry {
         let registration = self.get(alias_data.type_id)?;
 
         if alias_data.is_deprecated {
-            Self::warn_alias_deprecation(alias, registration);
+            Self::warn_alias_deprecation_internal(alias, registration);
         }
 
         Some(registration)
@@ -236,7 +236,7 @@ impl TypeRegistry {
         let registration = self.get_mut(alias_data.type_id)?;
 
         if alias_data.is_deprecated {
-            Self::warn_alias_deprecation(alias, registration);
+            Self::warn_alias_deprecation_internal(alias, registration);
         }
 
         Some(registration)
@@ -453,8 +453,19 @@ impl TypeRegistry {
         }
     }
 
+    /// If the given alias exists in the registry, prints a warning if it's deprecated.
+    pub(crate) fn warn_on_alias_deprecation(&self, alias: &str) {
+        if let Some(data) = self.alias_to_id.get(alias) {
+            if data.is_deprecated {
+                if let Some(registration) = self.get(data.type_id) {
+                    Self::warn_alias_deprecation_internal(alias, registration);
+                }
+            }
+        }
+    }
+
     /// Prints a warning stating that the given alias has been deprecated for the given registration.
-    fn warn_alias_deprecation(alias: &str, registration: &TypeRegistration) {
+    fn warn_alias_deprecation_internal(alias: &str, registration: &TypeRegistration) {
         warn!(
             "the alias `{}` has been deprecated for the type `{}` ({:?}) and may be removed in the future. \
             Consider using the full type name or one of the current aliases: {:?}",

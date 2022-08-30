@@ -145,7 +145,11 @@ impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
         while let Some(key) = map.next_key::<String>()? {
             match key.as_str() {
                 type_fields::TYPE => {
-                    type_name = Some(map.next_value()?);
+                    let key = map.next_value::<String>()?;
+
+                    self.registry.warn_on_alias_deprecation(&key);
+
+                    type_name = Some(key);
                 }
                 type_fields::MAP => {
                     let _type_name = type_name
