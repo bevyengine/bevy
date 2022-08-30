@@ -99,14 +99,6 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub(crate) unsafe fn get_ticks_unchecked_mut(&mut self, row: usize) -> &mut ComponentTicks {
-        debug_assert!(row < self.len());
-        self.ticks.get_unchecked_mut(row).get_mut()
-    }
-
-    /// # Safety
-    /// index must be in-bounds
-    #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: usize) {
         self.data.swap_remove_and_drop_unchecked(row);
         self.ticks.swap_remove(row);
