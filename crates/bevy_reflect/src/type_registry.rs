@@ -316,7 +316,8 @@ impl TypeRegistry {
     /// and print a warning to the console if it does so.
     ///
     /// To register the alias only if it isn't already in use, try using [`try_register_alias`](Self::try_register_alias).
-    /// Otherwise, to explicitly overwrite existing aliases without the warning, try using [`overwrite_alias`](Self::overwrite_alias).
+    /// Otherwise, to explicitly overwrite existing aliases without the warning,
+    /// try using [`overwrite_alias`](Self::overwrite_alias).
     ///
     /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
     pub fn register_alias<T: Reflect + 'static>(
@@ -331,11 +332,12 @@ impl TypeRegistry {
     ///
     /// To register an alias that isn't marked as deprecated, use [`register_alias`](Self::register_alias).
     ///
-    /// This will implicitly overwrite existing usages of the given alias
-    /// and print a warning to the console if it does so.
+    /// This will implicitly overwrite existing usages of the given alias and print a warning to the console if it does so.
     ///
-    /// To register the alias only if it isn't already in use, try using [`try_register_deprecated_alias`](Self::try_register_deprecated_alias).
-    /// Otherwise, to explicitly overwrite existing aliases without the warning, try using [`overwrite_deprecated_alias`](Self::overwrite_deprecated_alias).
+    /// To register the alias only if it isn't already in use,
+    /// try using [`try_register_deprecated_alias`](Self::try_register_deprecated_alias).
+    /// Otherwise, to explicitly overwrite existing aliases without the warning,
+    /// try using [`overwrite_deprecated_alias`](Self::overwrite_deprecated_alias).
     ///
     /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
     pub fn register_deprecated_alias<T: Reflect + 'static>(
@@ -349,8 +351,8 @@ impl TypeRegistry {
 
     /// Attempts to register an alias for the given type, `T`, if it isn't already in use.
     ///
-    /// To register the alias whether or not it exists, try using either [`register_alias`](Self::register_alias) or
-    /// [`overwrite_alias`](Self::overwrite_alias).
+    /// To register the alias whether or not it exists,
+    /// try using either [`register_alias`](Self::register_alias) or [`overwrite_alias`](Self::overwrite_alias).
     ///
     /// If the given alias is already in use, then the [`TypeId`] of that type is returned.
     pub fn try_register_alias<T: Reflect + 'static>(
@@ -365,8 +367,9 @@ impl TypeRegistry {
     ///
     /// To try and register an alias that isn't marked as deprecated, use [`try_register_alias`](Self::try_register_alias).
     ///
-    /// To register the alias whether or not it exists, try using either [`register_deprecated_alias`](Self::register_deprecated_alias) or
-    /// [`overwrite_deprecated_alias`](Self::overwrite_deprecated_alias).
+    /// To register the alias whether or not it exists,
+    /// try using either [`register_deprecated_alias`](Self::register_deprecated_alias)
+    /// or [`overwrite_deprecated_alias`](Self::overwrite_deprecated_alias).
     ///
     /// If the given alias is already in use, then the [`TypeId`] of that type is returned.
     pub fn try_register_deprecated_alias<T: Reflect + 'static>(
@@ -397,9 +400,11 @@ impl TypeRegistry {
     ///
     /// To register an alias that isn't marked as deprecated, use [`overwrite_alias`](Self::overwrite_alias).
     ///
-    /// Unlike, [`register_deprecated_alias`](Self::register_deprecated_alias), this does not print a warning when overwriting existing aliases.
+    /// Unlike, [`register_deprecated_alias`](Self::register_deprecated_alias),
+    /// this does not print a warning when overwriting existing aliases.
     ///
-    /// To register the alias only if it isn't already in use, try using [`try_register_deprecated_alias`](Self::try_register_deprecated_alias).
+    /// To register the alias only if it isn't already in use,
+    /// try using [`try_register_deprecated_alias`](Self::try_register_deprecated_alias).
     ///
     /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
     pub fn overwrite_deprecated_alias<T: Reflect + 'static>(
