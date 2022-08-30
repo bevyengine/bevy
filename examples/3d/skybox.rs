@@ -1,5 +1,7 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
+use std::f32::consts::PI;
+
 use bevy::{
     asset::LoadState,
     input::mouse::MouseMotion,
@@ -66,11 +68,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             illuminance: 32000.0,
             ..default()
         },
-        transform: Transform {
-            translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
-            ..default()
-        },
+        transform: Transform::from_xyz(0.0, 2.0, 0.0)
+            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
         ..default()
     });
 
@@ -78,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // camera
     commands
         .spawn_bundle(Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })
         .insert(CameraController::default());
@@ -410,16 +409,10 @@ pub fn camera_controller(
 
         if mouse_delta != Vec2::ZERO {
             // Apply look update
-            let (pitch, yaw) = (
-                (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt).clamp(
-                    -0.99 * std::f32::consts::FRAC_PI_2,
-                    0.99 * std::f32::consts::FRAC_PI_2,
-                ),
-                options.yaw - mouse_delta.x * options.sensitivity * dt,
-            );
-            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, yaw, pitch);
-            options.pitch = pitch;
-            options.yaw = yaw;
+            options.pitch = (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt)
+                .clamp(-PI / 2., PI / 2.);
+            options.yaw -= mouse_delta.x * options.sensitivity * dt;
+            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
         }
     }
 }

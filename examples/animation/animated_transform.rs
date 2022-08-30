@@ -1,6 +1,6 @@
 //! Create and play an animation defined by code that operates on the `Transform` component.
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
@@ -62,11 +62,11 @@ fn setup(
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
-                Quat::from_axis_angle(Vec3::Y, 0.0),
-                Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),
-                Quat::from_axis_angle(Vec3::Y, PI),
-                Quat::from_axis_angle(Vec3::Y, 3.0 * FRAC_PI_2),
-                Quat::from_axis_angle(Vec3::Y, 0.0),
+                Quat::IDENTITY,
+                Quat::from_axis_angle(Vec3::Y, PI / 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
+                Quat::IDENTITY,
             ]),
         },
     );
@@ -100,11 +100,11 @@ fn setup(
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
-                Quat::from_axis_angle(Vec3::Y, 0.0),
-                Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),
-                Quat::from_axis_angle(Vec3::Y, PI),
-                Quat::from_axis_angle(Vec3::Y, 3.0 * FRAC_PI_2),
-                Quat::from_axis_angle(Vec3::Y, 0.0),
+                Quat::IDENTITY,
+                Quat::from_axis_angle(Vec3::Y, PI / 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
+                Quat::IDENTITY,
             ]),
         },
     );

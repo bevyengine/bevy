@@ -1,6 +1,8 @@
 //! Illustrates different lights of various types and colors, some static, some moving over
 //! a simple scene.
 
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 
 fn main() {
@@ -34,7 +36,7 @@ fn setup(
 
     // left wall
     let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
-    transform.rotate_z(std::f32::consts::FRAC_PI_2);
+    transform.rotate_z(PI / 2.);
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
@@ -47,7 +49,7 @@ fn setup(
     });
     // back (right) wall
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
-    transform.rotate_x(std::f32::consts::FRAC_PI_2);
+    transform.rotate_x(PI / 2.);
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
@@ -138,9 +140,7 @@ fn setup(
         })
         .with_children(|builder| {
             builder.spawn_bundle(PbrBundle {
-                transform: Transform::from_rotation(Quat::from_rotation_x(
-                    std::f32::consts::PI / 2.0,
-                )),
+                transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
                 mesh: meshes.add(Mesh::from(shape::Capsule {
                     depth: 0.125,
                     radius: 0.1,
@@ -202,7 +202,7 @@ fn setup(
         },
         transform: Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
+            rotation: Quat::from_rotation_x(-PI / 4.),
             ..default()
         },
         ..default()

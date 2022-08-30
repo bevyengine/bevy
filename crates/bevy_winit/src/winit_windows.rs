@@ -66,7 +66,7 @@ impl WinitWindows {
                         if let Some(monitor) = maybe_monitor {
                             let screen_size = monitor.size();
 
-                            let scale_factor = scale_factor_override.unwrap_or(1.0);
+                            let scale_factor = monitor.scale_factor();
 
                             // Logical to physical window size
                             let (width, height): (u32, u32) = LogicalSize::new(*width, *height)

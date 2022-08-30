@@ -18,7 +18,7 @@ use std::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
-    ops::Range,
+    ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
 };
 
 impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -44,6 +44,11 @@ impl_reflect_value!(
 );
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypeName>());
 impl_reflect_value!(@"std::Range" Range<T: Clone +  Send + Sync + TypeName >());
+impl_reflect_value!(@"std::RangeInclusive" RangeInclusive<T: Clone +  Send + Sync + TypeName>());
+impl_reflect_value!(@"std::RangeFrom" RangeFrom<T: Clone +  Send + Sync + TypeName>());
+impl_reflect_value!(@"std::RangeTo" RangeTo<T: Clone +  Send + Sync + TypeName>());
+impl_reflect_value!(@"std::RangeToInclusive" RangeToInclusive<T: Clone +  Send + Sync + TypeName>());
+impl_reflect_value!(@"std::RangeFull" RangeFull());
 impl_reflect_value!(@"std::Duration" Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(@"std::Instant" Instant(Debug, Hash, PartialEq));
 impl_reflect_value!(@"std::NonZeroI128" NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -78,6 +83,11 @@ impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
 impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypeName>);
 impl_from_reflect_value!(Range<T: Clone + Send + Sync + TypeName>);
+impl_from_reflect_value!(RangeInclusive<T: Clone + Send + Sync + TypeName>);
+impl_from_reflect_value!(RangeFrom<T: Clone + Send + Sync + TypeName>);
+impl_from_reflect_value!(RangeTo<T: Clone + Send + Sync + TypeName>);
+impl_from_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + TypeName>);
+impl_from_reflect_value!(RangeFull);
 impl_from_reflect_value!(Duration);
 impl_from_reflect_value!(Instant);
 impl_from_reflect_value!(NonZeroI128);
