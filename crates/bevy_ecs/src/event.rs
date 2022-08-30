@@ -363,7 +363,7 @@ impl<E: Event> ManualEventReader<E> {
         if missed > 0 {
             let plural = if missed == 1 { "event" } else { "events" };
             let type_name = std::any::type_name::<E>();
-            warn!("Missed {missed} `{type_name}` {plural}. Consider reading from the `EventReader` more often or updating the `Events` to update less. This is most likely due to run criteria/fixed timesteps or consuming events conditionally.");
+            warn!("Missed {missed} `{type_name}` {plural}. Consider reading from the `EventReader` more often (generally the best solution) or calling Events::update() less frequently (normally this is called once per frame). This problem is most likely due to run criteria/fixed timesteps or consuming events conditionally. See the Events documentation for more information.");
         }
 
         let a_index = (self.last_event_count).saturating_sub(events.events_a.start_event_count);
