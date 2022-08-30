@@ -12,6 +12,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::{tracing::debug, HashMap};
+use std::borrow::Cow;
 use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
@@ -919,6 +920,155 @@ impl App {
         {
             let registry = self.world.resource_mut::<AppTypeRegistry>();
             registry.write().register_type_data::<T, D>();
+        }
+        self
+    }
+
+    /// Register an alias for the given type, `T`, in the [`TypeRegistry`] resource.
+    ///
+    /// This will implicitly overwrite existing usages of the given alias and print a warning to the console if it does so.
+    ///
+    /// To register the alias only if it isn't already in use, try using [`try_register_type_alias`].
+    /// Otherwise, to explicitly overwrite existing aliases without the warning, try using [`overwrite_type_alias`].
+    ///
+    /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
+    ///
+    /// [`TypeRegistry`]: bevy_reflect::TypeRegistry
+    /// [`try_register_type_alias`]: Self::try_register_type_alias
+    /// [`overwrite_type_alias`]: Self::overwrite_type_alias
+    /// [`TypeId`]: std::any::TypeId
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_alias<T: bevy_reflect::Reflect>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> &mut Self {
+        {
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
+            registry.write().register_alias::<T>(alias);
+        }
+        self
+    }
+
+    /// Register a _deprecated_ alias for the given type, `T`, in the [`TypeRegistry`] resource.
+    ///
+    /// To register an alias that isn't marked as deprecated, use [`register_type_alias`].
+    ///
+    /// This will implicitly overwrite existing usages of the given alias and print a warning to the console if it does so.
+    ///
+    /// To register the alias only if it isn't already in use, try using [`try_register_type_alias`].
+    /// Otherwise, to explicitly overwrite existing aliases without the warning, try using [`overwrite_type_alias`].
+    ///
+    /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
+    ///
+    /// [`TypeRegistry`]: bevy_reflect::TypeRegistry
+    /// [`register_type_alias`]: Self::register_type_alias
+    /// [`try_register_type_alias`]: Self::try_register_type_alias
+    /// [`overwrite_type_alias`]: Self::overwrite_type_alias
+    /// [`TypeId`]: std::any::TypeId
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_deprecated_type_alias<T: bevy_reflect::Reflect>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> &mut Self {
+        {
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
+            registry.write().register_deprecated_alias::<T>(alias);
+        }
+        self
+    }
+
+    /// Attempts to register an alias for the given type, `T`, in the [`TypeRegistry`] resource if it isn't already in use.
+    ///
+    /// To register the alias whether or not it exists, try using either [`register_type_alias`] or [`overwrite_type_alias`].
+    ///
+    /// If the given alias is already in use, then the [`TypeId`] of that type is returned.
+    ///
+    /// [`TypeRegistry`]: bevy_reflect::TypeRegistry
+    /// [`register_type_alias`]: Self::register_type_alias
+    /// [`overwrite_type_alias`]: Self::overwrite_type_alias
+    /// [`TypeId`]: std::any::TypeId
+    #[cfg(feature = "bevy_reflect")]
+    pub fn try_register_type_alias<T: bevy_reflect::Reflect>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> &mut Self {
+        {
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
+            registry.write().try_register_alias::<T>(alias);
+        }
+        self
+    }
+
+    /// Attempts to register a _deprecated_ alias for the given type, `T`, in the [`TypeRegistry`] resource if it isn't already in use.
+    ///
+    /// To try and register an alias that isn't marked as deprecated, use [`try_register_type_alias`].
+    ///
+    /// To register the alias whether or not it exists, try using either [`register_deprecated_type_alias`] or [`overwrite_deprecated_type_alias`].
+    ///
+    /// If the given alias is already in use, then the [`TypeId`] of that type is returned.
+    ///
+    /// [`TypeRegistry`]: bevy_reflect::TypeRegistry
+    /// [`try_register_type_alias`]: Self::try_register_type_alias
+    /// [`register_deprecated_type_alias`]: Self::register_deprecated_type_alias
+    /// [`overwrite_deprecated_type_alias`]: Self::overwrite_deprecated_type_alias
+    /// [`TypeId`]: std::any::TypeId
+    #[cfg(feature = "bevy_reflect")]
+    pub fn try_register_deprecated_type_alias<T: bevy_reflect::Reflect>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> &mut Self {
+        {
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
+            registry.write().try_register_deprecated_alias::<T>(alias);
+        }
+        self
+    }
+
+    /// Register an alias for the given type, `T`, in the [`TypeRegistry`] resource, explicitly overwriting existing aliases.
+    ///
+    /// Unlike, [`register_type_alias`], this does not print a warning when overwriting existing aliases.
+    ///
+    /// To register the alias only if it isn't already in use, try using [`try_register_type_alias`].
+    ///
+    /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
+    /// [`TypeRegistry`]: bevy_reflect::TypeRegistry
+    /// [`register_type_alias`]: Self::register_type_alias
+    /// [`try_register_type_alias`]: Self::try_register_type_alias
+    /// [`TypeId`]: std::any::TypeId
+    #[cfg(feature = "bevy_reflect")]
+    pub fn overwrite_type_alias<T: bevy_reflect::Reflect>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> &mut Self {
+        {
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
+            registry.write().overwrite_alias::<T>(alias);
+        }
+        self
+    }
+
+    /// Register a _deprecated_ alias for the given type, `T`, in the [`TypeRegistry`] resource, explicitly overwriting existing aliases.
+    ///
+    /// To register an alias that isn't marked as deprecated, use [`overwrite_type_alias`].
+    ///
+    /// Unlike, [`register_type_alias`], this does not print a warning when overwriting existing aliases.
+    ///
+    /// To register the alias only if it isn't already in use, try using [`try_register_type_alias`].
+    ///
+    /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
+    /// [`TypeRegistry`]: bevy_reflect::TypeRegistry
+    /// [`overwrite_type_alias`]: Self::overwrite_type_alias
+    /// [`register_type_alias`]: Self::register_type_alias
+    /// [`try_register_type_alias`]: Self::try_register_type_alias
+    /// [`TypeId`]: std::any::TypeId
+    #[cfg(feature = "bevy_reflect")]
+    pub fn overwrite_deprecated_type_alias<T: bevy_reflect::Reflect>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> &mut Self {
+        {
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
+            registry.write().overwrite_deprecated_alias::<T>(alias);
         }
         self
     }
