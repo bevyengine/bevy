@@ -43,11 +43,11 @@ impl_reflect_value!(
     E: Clone + Reflect + TypeName > ()
 );
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypeName>());
-impl_reflect_value!(@"std::Range" Range<T: Clone +  Send + Sync + TypeName >());
-impl_reflect_value!(@"std::RangeInclusive" RangeInclusive<T: Clone +  Send + Sync + TypeName>());
-impl_reflect_value!(@"std::RangeFrom" RangeFrom<T: Clone +  Send + Sync + TypeName>());
-impl_reflect_value!(@"std::RangeTo" RangeTo<T: Clone +  Send + Sync + TypeName>());
-impl_reflect_value!(@"std::RangeToInclusive" RangeToInclusive<T: Clone +  Send + Sync + TypeName>());
+impl_reflect_value!(@"std::Range" Range<T: Clone + Send + Sync + TypeName >());
+impl_reflect_value!(@"std::RangeInclusive" RangeInclusive<T: Clone + Send + Sync + TypeName>());
+impl_reflect_value!(@"std::RangeFrom" RangeFrom<T: Clone + Send + Sync + TypeName>());
+impl_reflect_value!(@"std::RangeTo" RangeTo<T: Clone + Send + Sync + TypeName>());
+impl_reflect_value!(@"std::RangeToInclusive" RangeToInclusive<T: Clone + Send + Sync + TypeName>());
 impl_reflect_value!(@"std::RangeFull" RangeFull());
 impl_reflect_value!(@"std::Duration" Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(@"std::Instant" Instant(Debug, Hash, PartialEq));
