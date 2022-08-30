@@ -54,6 +54,10 @@ where
         });
         SmallVec::push(self, value);
     }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
+    }
 }
 
 impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>

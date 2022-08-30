@@ -137,6 +137,10 @@ impl<T: FromReflect> List for Vec<T> {
         });
         Vec::push(self, value);
     }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
+    }
 }
 
 impl<T: FromReflect> Reflect for Vec<T> {
