@@ -1,6 +1,6 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use bevy::{
     asset::LoadState,
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         transform: Transform::from_xyz(0.0, 2.0, 0.0)
-            .with_rotation(Quat::from_rotation_x(-TAU / 8.)),
+            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
         ..default()
     });
 
@@ -410,7 +410,7 @@ pub fn camera_controller(
         if mouse_delta != Vec2::ZERO {
             // Apply look update
             options.pitch = (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt)
-                .clamp(-TAU / 4., TAU / 4.);
+                .clamp(-PI / 2., PI / 2.);
             options.yaw -= mouse_delta.x * options.sensitivity * dt;
             transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
         }

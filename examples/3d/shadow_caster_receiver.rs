@@ -1,6 +1,6 @@
 //! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
 
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
@@ -109,8 +109,8 @@ fn setup(
         transform: Transform::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
             0.0,
-            TAU / 4.,
-            -TAU / 8.,
+            PI / 2.,
+            -PI / 4.,
         )),
         ..default()
     });

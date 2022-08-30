@@ -1,7 +1,7 @@
 //! This example demonstrates the built-in 3d shapes in Bevy.
 //! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
 
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use bevy::{
     prelude::*,
@@ -55,7 +55,7 @@ fn setup(
                     2.0,
                     0.0,
                 )
-                .with_rotation(Quat::from_rotation_x(-TAU / 8.)),
+                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
             })
             .insert(Shape);

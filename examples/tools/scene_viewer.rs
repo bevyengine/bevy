@@ -14,7 +14,7 @@ use bevy::{
     scene::InstanceId,
 };
 
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 struct CameraControllerCheckSystem;
@@ -330,8 +330,8 @@ fn update_lights(
             transform.rotation = Quat::from_euler(
                 EulerRot::ZYX,
                 0.0,
-                time.seconds_since_startup() as f32 * TAU / 30.0,
-                -TAU / 8.,
+                time.seconds_since_startup() as f32 * PI / 15.0,
+                -PI / 4.,
             );
         }
     }
@@ -527,7 +527,7 @@ fn camera_controller(
         if mouse_delta != Vec2::ZERO {
             // Apply look update
             options.pitch = (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt)
-                .clamp(-TAU / 4., TAU / 4.);
+                .clamp(-PI / 2., PI / 2.);
             options.yaw -= mouse_delta.x * options.sensitivity * dt;
             transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
         }

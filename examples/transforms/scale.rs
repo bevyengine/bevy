@@ -1,6 +1,6 @@
 //! Illustrates how to scale an object in each direction.
 
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
@@ -46,7 +46,7 @@ fn setup(
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
-            transform: Transform::from_rotation(Quat::from_rotation_y(TAU / 8.0)),
+            transform: Transform::from_rotation(Quat::from_rotation_y(PI / 4.0)),
             ..default()
         })
         .insert(Scaling::new());

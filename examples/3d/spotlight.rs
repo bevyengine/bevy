@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -76,8 +76,8 @@ fn setup(
                         intensity: 200.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
-                        inner_angle: TAU / 8.0 * 0.85,
-                        outer_angle: TAU / 8.0,
+                        inner_angle: PI / 4.0 * 0.85,
+                        outer_angle: PI / 4.0,
                         ..default()
                     },
                     ..default()
@@ -125,11 +125,11 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)
     for (mut transform, mut angles) in query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
-            -TAU / 4. + (time.seconds_since_startup() * 0.67 * 3.0).sin() as f32 * 0.5,
+            -PI / 2. + (time.seconds_since_startup() * 0.67 * 3.0).sin() as f32 * 0.5,
             (time.seconds_since_startup() * 3.0).sin() as f32 * 0.5,
             0.0,
         );
-        let angle = ((time.seconds_since_startup() * 1.2).sin() as f32 + 1.0) * (TAU / 8. - 0.1);
+        let angle = ((time.seconds_since_startup() * 1.2).sin() as f32 + 1.0) * (PI / 4. - 0.1);
         angles.inner_angle = angle * 0.8;
         angles.outer_angle = angle;
     }

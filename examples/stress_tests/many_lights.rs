@@ -1,7 +1,7 @@
 //! Simple benchmark to test rendering many point lights.
 //! Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
 
-use std::f64::consts::TAU;
+use std::f64::consts::PI;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -115,7 +115,7 @@ fn setup(
 const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
-        TAU * (i as f64 / golden_ratio),
+        PI * 2. * (i as f64 / golden_ratio),
         (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
     )
 }

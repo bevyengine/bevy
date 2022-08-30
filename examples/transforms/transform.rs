@@ -1,6 +1,6 @@
 //! Shows multiple transformations of objects.
 
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
@@ -60,7 +60,7 @@ fn setup(
     // Define a start transform for an orbiting cube, that's away from our central object (sphere)
     // and rotate it so it will be able to move around the sphere and not towards it.
     let cube_spawn =
-        Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(TAU / 4.));
+        Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(PI / 2.));
     commands
         .spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),

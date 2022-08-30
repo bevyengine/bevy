@@ -1,6 +1,6 @@
 //! Create and play an animation defined by code that operates on the `Transform` component.
 
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
@@ -63,9 +63,9 @@ fn setup(
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
                 Quat::IDENTITY,
-                Quat::from_axis_angle(Vec3::Y, TAU / 4.),
-                Quat::from_axis_angle(Vec3::Y, TAU / 4. * 2.),
-                Quat::from_axis_angle(Vec3::Y, TAU / 4. * 3.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
                 Quat::IDENTITY,
             ]),
         },
@@ -101,9 +101,9 @@ fn setup(
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
                 Quat::IDENTITY,
-                Quat::from_axis_angle(Vec3::Y, TAU / 4.),
-                Quat::from_axis_angle(Vec3::Y, TAU / 4. * 2.),
-                Quat::from_axis_angle(Vec3::Y, TAU / 4. * 3.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
                 Quat::IDENTITY,
             ]),
         },

@@ -1,6 +1,6 @@
 //! Creates a hierarchy of parents and children entities.
 
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
@@ -66,14 +66,14 @@ fn rotate(
 ) {
     for (parent, children) in &mut parents_query {
         if let Ok(mut transform) = transform_query.get_mut(parent) {
-            transform.rotate_z(-TAU / 4. * time.delta_seconds());
+            transform.rotate_z(-PI / 2. * time.delta_seconds());
         }
 
         // To iterate through the entities children, just treat the Children component as a Vec
         // Alternatively, you could query entities that have a Parent component
         for child in children {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
-                transform.rotate_z(TAU / 2. * time.delta_seconds());
+                transform.rotate_z(PI * time.delta_seconds());
             }
         }
 

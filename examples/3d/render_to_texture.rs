@@ -1,6 +1,6 @@
 //! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
 
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
@@ -128,7 +128,7 @@ fn setup(
             mesh: cube_handle,
             material: material_handle,
             transform: Transform::from_xyz(0.0, 0.0, 1.5)
-                .with_rotation(Quat::from_rotation_x(-TAU / 10.0)),
+                .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
             ..default()
         })
         .insert(MainPassCube);

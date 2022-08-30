@@ -3,7 +3,7 @@
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
 
-use std::f32::consts::TAU;
+use std::f32::consts::{ PI};
 
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
@@ -65,7 +65,7 @@ fn star(
     let mut v_pos = vec![[0.0, 0.0, 0.0]];
     for i in 0..10 {
         // The angle between each vertex is 1/10 of a full rotation.
-        let a = i as f32 * TAU / 10.0;
+        let a = i as f32 * PI / 5.0;
         // The radius of inner vertices (even indices) is 100. For outer vertices (odd indices) it's 200.
         let r = (1 - i % 2) as f32 * 100.0 + 100.0;
         // Add the vertex position.
