@@ -1,3 +1,5 @@
+use bevy_utils::tracing::warn;
+
 use crate::{
     archetype::ArchetypeComponentId,
     component::ComponentId,
@@ -105,6 +107,15 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
     fn check_change_tick(&mut self, change_tick: u32) {
         self.system_a.check_change_tick(change_tick);
         self.system_b.check_change_tick(change_tick);
+    }
+
+    fn get_last_change_tick(&self) -> u32 {
+        warn!("Can't `get_last_change_tick` call on a chained system!");
+        return 0;
+    }
+
+    fn set_last_change_tick(&mut self, _last_change_tick: u32) {
+        warn!("Can't `set_last_change_tick` call on a chained system!");
     }
 }
 

@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{IntoSystem, Res, ResMut, Resource, System},
     world::World,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::warn, HashMap};
 use std::borrow::Cow;
 
 /// The internal state of each [`FixedTimestep`].
@@ -223,6 +223,15 @@ impl System for FixedTimestep {
 
     fn check_change_tick(&mut self, change_tick: u32) {
         self.internal_system.check_change_tick(change_tick);
+    }
+
+    fn get_last_change_tick(&self) -> u32 {
+        warn!("Cannot use `get_last_change_tick` call on a fixed timestep system!");
+        return 0;
+    }
+
+    fn set_last_change_tick(&mut self, _last_change_tick: u32) {
+        warn!("Cannot use `get_last_change_tick` call on a fixed timestep system!");
     }
 }
 
