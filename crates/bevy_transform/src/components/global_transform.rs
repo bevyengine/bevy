@@ -46,6 +46,9 @@ macro_rules! impl_local_axis {
 }
 
 impl GlobalTransform {
+    /// An identity [`GlobalTransform`] that maps all points in space to themselves.
+    pub const IDENTITY: Self = Self(Affine3A::IDENTITY);
+
     #[doc(hidden)]
     #[inline]
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
@@ -105,12 +108,6 @@ impl GlobalTransform {
         self.0.to_scale_rotation_translation()
     }
 
-    /// Creates a new identity [`GlobalTransform`], that maps all points in space to themselves.
-    #[inline]
-    pub const fn identity() -> Self {
-        Self(Affine3A::IDENTITY)
-    }
-
     impl_local_axis!(right, left, X);
     impl_local_axis!(up, down, Y);
     impl_local_axis!(back, forward, Z);
@@ -154,7 +151,7 @@ impl GlobalTransform {
 
 impl Default for GlobalTransform {
     fn default() -> Self {
-        Self::identity()
+        Self::IDENTITY
     }
 }
 
