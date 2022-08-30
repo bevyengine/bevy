@@ -15,12 +15,16 @@ mod type_uuid;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
+    #[cfg(feature = "bevy_math")]
+    mod rect;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     mod std;
 
     #[cfg(feature = "glam")]
     pub use self::glam::*;
+    #[cfg(feature = "bevy_math")]
+    pub use self::rect::*;
     #[cfg(feature = "smallvec")]
     pub use self::smallvec::*;
     pub use self::std::*;
