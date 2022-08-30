@@ -317,53 +317,28 @@ impl TypeRegistry {
     ///
     /// To register the alias only if it isn't already in use, try using [`try_register_alias`](Self::try_register_alias).
     /// Otherwise, to explicitly overwrite existing aliases without the warning, try using [`overwrite_alias`](Self::overwrite_alias).
-    pub fn register_alias<T: Reflect + 'static>(&mut self, alias: impl Into<Cow<'static, str>>) {
-        let alias = alias.into();
-
-        let registration = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
-            panic!(
-                "attempted to call `TypeRegistry::register_alias` for type `{T}` with alias `{alias}` without registering `{T}` first",
-                T = std::any::type_name::<T>(),
-            )
-        });
-
-        registration.aliases.insert(alias.clone());
-
-        let type_name = registration.type_name();
-        let type_id = registration.type_id();
-
-        self.register_alias_internal(alias, type_name, type_id, false, true);
+    ///
+    /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
+    pub fn register_alias<T: Reflect + 'static>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> Option<TypeId> {
+        let registerer = AliasRegisterer::implicit_overwrite(self, "TypeRegistry::register_alias");
+        registerer.register::<T>(alias, false)
     }
 
     /// Attempts to register an alias for the given type, `T`, if it isn't already in use.
     ///
     /// To register the alias whether or not it exists, try using either [`register_alias`](Self::register_alias) or
     /// [`overwrite_alias`](Self::overwrite_alias).
+    ///
+    /// If the given alias is already in use, then the [`TypeId`] of that type is returned.
     pub fn try_register_alias<T: Reflect + 'static>(
         &mut self,
         alias: impl Into<Cow<'static, str>>,
-    ) -> bool {
-        let alias = alias.into();
-
-        if self.alias_to_id.contains_key(&alias) {
-            false
-        } else {
-            let registration = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
-                panic!(
-                    "attempted to call `TypeRegistry::try_register_alias` for type `{T}` with alias `{alias}` without registering `{T}` first",
-                    T = std::any::type_name::<T>(),
-                )
-            });
-
-            registration.aliases.insert(alias.clone());
-
-            let type_name = registration.type_name();
-            let type_id = registration.type_id();
-
-            self.register_alias_internal(alias, type_name, type_id, false, false);
-
-            true
-        }
+    ) -> Option<TypeId> {
+        let registerer = AliasRegisterer::no_overwrite(self, "TypeRegistry::try_register_alias");
+        registerer.register::<T>(alias, false)
     }
 
     /// Register an alias for the given type, `T`, explicitly overwriting existing aliases.
@@ -371,22 +346,14 @@ impl TypeRegistry {
     /// Unlike, [`register_alias`](Self::register_alias), this does not print a warning when overwriting existing aliases.
     ///
     /// To register the alias only if it isn't already in use, try using [`try_register_alias`](Self::try_register_alias).
-    pub fn overwrite_alias<T: Reflect + 'static>(&mut self, alias: impl Into<Cow<'static, str>>) {
-        let alias = alias.into();
-
-        let registration = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
-            panic!(
-                "attempted to call `TypeRegistry::overwrite_alias` for type `{T}` with alias `{alias}` without registering `{T}` first",
-                T = std::any::type_name::<T>(),
-            )
-        });
-
-        registration.aliases.insert(alias.clone());
-
-        let type_name = registration.type_name();
-        let type_id = registration.type_id();
-
-        self.register_alias_internal(alias, type_name, type_id, false, false);
+    ///
+    /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
+    pub fn overwrite_alias<T: Reflect + 'static>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> Option<TypeId> {
+        let registerer = AliasRegisterer::explicit_overwrite(self, "TypeRegistry::overwrite_alias");
+        registerer.register::<T>(alias, false)
     }
 
     /// Registers an alias for the given type.
@@ -397,7 +364,7 @@ impl TypeRegistry {
         type_id: TypeId,
         is_deprecated: bool,
         should_warn: bool,
-    ) {
+    ) -> Option<TypeId> {
         let existing = self.alias_to_id.insert(
             alias.clone(),
             AliasData {
@@ -406,19 +373,21 @@ impl TypeRegistry {
             },
         );
 
-        if !should_warn {
-            return;
-        }
-
         if let Some(existing) = existing.and_then(|existing| self.get_mut(existing.type_id)) {
             existing.aliases.remove(&alias);
-            warn!(
-                 "overwrote alias `{alias}` — was assigned to type `{}` ({:?}), but is now assigned to type `{}` ({:?})",
-                 existing.type_name(),
-                 existing.type_id(),
-                 type_name,
-                 type_id
-             );
+            if should_warn {
+                warn!(
+                     "overwrote alias `{alias}` — was assigned to type `{}` ({:?}), but is now assigned to type `{}` ({:?})",
+                     existing.type_name(),
+                     existing.type_id(),
+                     type_name,
+                     type_id
+                 );
+            }
+
+            Some(existing.type_id())
+        } else {
+            None
         }
     }
 
@@ -445,12 +414,6 @@ impl TypeRegistryArc {
     pub fn write(&self) -> RwLockWriteGuard<'_, TypeRegistry> {
         self.internal.write()
     }
-}
-
-#[derive(Copy, Clone)]
-struct AliasData {
-    pub type_id: TypeId,
-    pub is_deprecated: bool,
 }
 
 /// A record of data about a type.
@@ -574,6 +537,88 @@ impl Clone for TypeRegistration {
             aliases: self.aliases.clone(),
             deprecated_aliases: self.deprecated_aliases.clone(),
         }
+    }
+}
+
+#[derive(Copy, Clone)]
+struct AliasData {
+    pub type_id: TypeId,
+    pub is_deprecated: bool,
+}
+
+/// A simple helper struct for registering type aliases.
+struct AliasRegisterer<'a> {
+    registry: &'a mut TypeRegistry,
+    func_name: &'static str,
+    allow_overwrite: bool,
+    should_warn: bool,
+}
+
+impl<'a> AliasRegisterer<'a> {
+    /// Configure the registerer to register aliases with an implicit overwrite (produces a warning).
+    fn implicit_overwrite(registry: &'a mut TypeRegistry, func_name: &'static str) -> Self {
+        Self {
+            registry,
+            func_name,
+            allow_overwrite: true,
+            should_warn: true,
+        }
+    }
+
+    /// Configure the registerer to register aliases with an explicit overwrite (does not produce a warning).
+    fn explicit_overwrite(registry: &'a mut TypeRegistry, func_name: &'static str) -> Self {
+        Self {
+            registry,
+            func_name,
+            allow_overwrite: true,
+            should_warn: false,
+        }
+    }
+
+    /// Configure the registerer to register aliases as long as they are not already in use.
+    fn no_overwrite(registry: &'a mut TypeRegistry, func_name: &'static str) -> Self {
+        Self {
+            registry,
+            func_name,
+            allow_overwrite: false,
+            should_warn: false,
+        }
+    }
+
+    /// Register the given alias for type, `T`.
+    fn register<T: Reflect + 'static>(
+        self,
+        alias: impl Into<Cow<'static, str>>,
+        is_deprecated: bool,
+    ) -> Option<TypeId> {
+        let Self {
+            registry,
+            func_name,
+            allow_overwrite,
+            should_warn,
+        } = self;
+
+        let alias = alias.into();
+
+        if !allow_overwrite {
+            if let Some(data) = registry.alias_to_id.get(&alias) {
+                return Some(data.type_id);
+            }
+        }
+
+        let registration = registry.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
+            panic!(
+                "attempted to call `{func_name}` for type `{T}` with alias `{alias}` without registering `{T}` first",
+                T = std::any::type_name::<T>(),
+            )
+        });
+
+        registration.aliases.insert(alias.clone());
+
+        let type_name = registration.type_name();
+        let type_id = registration.type_id();
+
+        registry.register_alias_internal(alias, type_name, type_id, is_deprecated, should_warn)
     }
 }
 
@@ -745,7 +790,7 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::any::TypeId;
     use std::ptr::NonNull;
 
@@ -811,12 +856,16 @@ mod test {
         registry.register::<Foo>();
         registry.register::<Bar>();
 
-        registry.register_alias::<Foo>("my_alias");
+        let previous = registry.register_alias::<Foo>("my_alias");
+        assert_eq!(None, previous);
+
         let registration = registry.get_with_alias("my_alias").unwrap();
         assert_eq!(TypeId::of::<Foo>(), registration.type_id());
         assert!(registration.aliases().contains("my_alias"));
 
-        registry.register_alias::<Bar>("my_alias");
+        let previous = registry.register_alias::<Bar>("my_alias");
+        assert_eq!(Some(TypeId::of::<Foo>()), previous);
+
         let registration = registry.get_with_alias("my_alias").unwrap();
         assert_eq!(TypeId::of::<Bar>(), registration.type_id());
         assert!(registration.aliases().contains("my_alias"));
@@ -840,7 +889,9 @@ mod test {
         registry.register::<Bar>();
 
         registry.register_alias::<Foo>("my_alias");
-        registry.try_register_alias::<Bar>("my_alias");
+        let current = registry.try_register_alias::<Bar>("my_alias");
+        assert_eq!(Some(TypeId::of::<Foo>()), current);
+
         let registration = registry.get_with_alias("my_alias").unwrap();
         assert_eq!(TypeId::of::<Foo>(), registration.type_id());
 
