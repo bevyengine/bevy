@@ -34,7 +34,7 @@ fn setup_camera(mut cmd: Commands) {
 }
 
 // Spawns the UI
-fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
+fn setup_ui(mut cmd: Commands) {
     // Node that fills entire background
     cmd.spawn_bundle(NodeBundle {
         style: Style {
@@ -48,7 +48,7 @@ fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
         root.spawn_bundle(TextBundle::from_section(
             "Resolution",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font: "fonts/FiraMono-Medium.ttf".into(),
                 font_size: 50.0,
                 color: Color::BLACK,
             },
