@@ -327,6 +327,26 @@ impl TypeRegistry {
         registerer.register::<T>(alias, false)
     }
 
+    /// Register a _deprecated_ alias for the given type, `T`.
+    ///
+    /// To register an alias that isn't marked as deprecated, use [`register_alias`](Self::register_alias).
+    ///
+    /// This will implicitly overwrite existing usages of the given alias
+    /// and print a warning to the console if it does so.
+    ///
+    /// To register the alias only if it isn't already in use, try using [`try_register_deprecated_alias`](Self::try_register_deprecated_alias).
+    /// Otherwise, to explicitly overwrite existing aliases without the warning, try using [`overwrite_deprecated_alias`](Self::overwrite_deprecated_alias).
+    ///
+    /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
+    pub fn register_deprecated_alias<T: Reflect + 'static>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> Option<TypeId> {
+        let registerer =
+            AliasRegisterer::implicit_overwrite(self, "TypeRegistry::register_deprecated_alias");
+        registerer.register::<T>(alias, true)
+    }
+
     /// Attempts to register an alias for the given type, `T`, if it isn't already in use.
     ///
     /// To register the alias whether or not it exists, try using either [`register_alias`](Self::register_alias) or
@@ -339,6 +359,23 @@ impl TypeRegistry {
     ) -> Option<TypeId> {
         let registerer = AliasRegisterer::no_overwrite(self, "TypeRegistry::try_register_alias");
         registerer.register::<T>(alias, false)
+    }
+
+    /// Attempts to register a _deprecated_ alias for the given type, `T`, if it isn't already in use.
+    ///
+    /// To try and register an alias that isn't marked as deprecated, use [`try_register_alias`](Self::try_register_alias).
+    ///
+    /// To register the alias whether or not it exists, try using either [`register_deprecated_alias`](Self::register_deprecated_alias) or
+    /// [`overwrite_deprecated_alias`](Self::overwrite_deprecated_alias).
+    ///
+    /// If the given alias is already in use, then the [`TypeId`] of that type is returned.
+    pub fn try_register_deprecated_alias<T: Reflect + 'static>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> Option<TypeId> {
+        let registerer =
+            AliasRegisterer::no_overwrite(self, "TypeRegistry::try_register_deprecated_alias");
+        registerer.register::<T>(alias, true)
     }
 
     /// Register an alias for the given type, `T`, explicitly overwriting existing aliases.
@@ -354,6 +391,24 @@ impl TypeRegistry {
     ) -> Option<TypeId> {
         let registerer = AliasRegisterer::explicit_overwrite(self, "TypeRegistry::overwrite_alias");
         registerer.register::<T>(alias, false)
+    }
+
+    /// Register a _deprecated_ alias for the given type, `T`, explicitly overwriting existing aliases.
+    ///
+    /// To register an alias that isn't marked as deprecated, use [`overwrite_alias`](Self::overwrite_alias).
+    ///
+    /// Unlike, [`register_deprecated_alias`](Self::register_deprecated_alias), this does not print a warning when overwriting existing aliases.
+    ///
+    /// To register the alias only if it isn't already in use, try using [`try_register_deprecated_alias`](Self::try_register_deprecated_alias).
+    ///
+    /// If an alias was overwritten, then the [`TypeId`] of the previous type is returned.
+    pub fn overwrite_deprecated_alias<T: Reflect + 'static>(
+        &mut self,
+        alias: impl Into<Cow<'static, str>>,
+    ) -> Option<TypeId> {
+        let registerer =
+            AliasRegisterer::explicit_overwrite(self, "TypeRegistry::overwrite_deprecated_alias");
+        registerer.register::<T>(alias, true)
     }
 
     /// Registers an alias for the given type.
@@ -375,6 +430,8 @@ impl TypeRegistry {
 
         if let Some(existing) = existing.and_then(|existing| self.get_mut(existing.type_id)) {
             existing.aliases.remove(&alias);
+            existing.deprecated_aliases.remove(&alias);
+
             if should_warn {
                 warn!(
                      "overwrote alias `{alias}` — was assigned to type `{}` ({:?}), but is now assigned to type `{}` ({:?})",
@@ -613,7 +670,11 @@ impl<'a> AliasRegisterer<'a> {
             )
         });
 
-        registration.aliases.insert(alias.clone());
+        if is_deprecated {
+            registration.deprecated_aliases.insert(alias.clone());
+        } else {
+            registration.aliases.insert(alias.clone());
+        }
 
         let type_name = registration.type_name();
         let type_id = registration.type_id();
@@ -843,6 +904,46 @@ mod tests {
                 _ => panic!("invalid reflection"),
             }
         }
+    }
+
+    #[test]
+    fn should_register_deprecated_alias() {
+        #[derive(Reflect)]
+        struct Foo;
+        #[derive(Reflect)]
+        struct Bar;
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Foo>();
+        registry.register::<Bar>();
+
+        let previous = registry.register_deprecated_alias::<Foo>("my_deprecated_alias");
+        assert_eq!(None, previous);
+
+        let registration = registry.get_with_alias("my_deprecated_alias").unwrap();
+        assert_eq!(TypeId::of::<Foo>(), registration.type_id());
+        assert!(registration
+            .deprecated_aliases()
+            .contains("my_deprecated_alias"));
+
+        let previous = registry.register_deprecated_alias::<Bar>("my_deprecated_alias");
+        assert_eq!(Some(TypeId::of::<Foo>()), previous);
+
+        let registration = registry.get_with_alias("my_deprecated_alias").unwrap();
+        assert_eq!(TypeId::of::<Bar>(), registration.type_id());
+        assert!(registration
+            .deprecated_aliases()
+            .contains("my_deprecated_alias"));
+
+        // Confirm that the registrations' aliases have been updated
+        let foo_registration = registry.get(TypeId::of::<Foo>()).unwrap();
+        let bar_registration = registry.get(TypeId::of::<Bar>()).unwrap();
+        assert!(!foo_registration
+            .deprecated_aliases()
+            .contains("my_deprecated_alias"));
+        assert!(bar_registration
+            .deprecated_aliases()
+            .contains("my_deprecated_alias"));
     }
 
     #[test]
