@@ -110,12 +110,12 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for ChainSystem
     }
 
     fn get_last_change_tick(&self) -> u32 {
-        warn!("Can't `get_last_change_tick` call on a chained system!");
-        0
+        self.system_a.get_last_change_tick()
     }
 
-    fn set_last_change_tick(&mut self, _last_change_tick: u32) {
-        warn!("Can't `set_last_change_tick` call on a chained system!");
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.system_a.set_last_change_tick(last_change_tick);
+        self.system_b.set_last_change_tick(last_change_tick);
     }
 }
 

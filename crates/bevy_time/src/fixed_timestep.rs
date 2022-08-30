@@ -226,12 +226,11 @@ impl System for FixedTimestep {
     }
 
     fn get_last_change_tick(&self) -> u32 {
-        warn!("Cannot use `get_last_change_tick` call on a fixed timestep system!");
-        0
+        self.internal_system.get_last_change_tick()
     }
 
-    fn set_last_change_tick(&mut self, _last_change_tick: u32) {
-        warn!("Cannot use `get_last_change_tick` call on a fixed timestep system!");
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.internal_system.set_last_change_tick(last_change_tick);
     }
 }
 
