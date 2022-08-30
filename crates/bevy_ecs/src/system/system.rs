@@ -60,9 +60,13 @@ pub trait System: Send + Sync + 'static {
     fn default_labels(&self) -> Vec<SystemLabelId> {
         Vec::new()
     }
-    /// Allows users to get the system's last change tick.
+    /// Gets the system's last change tick
     fn get_last_change_tick(&self) -> u32;
-    /// Allows users to set the system's last change tick.
+    /// Sets the system's last change tick
+    /// # Warning
+    /// This is a complex and error-prone operation, that can have unexpected consequences on any system relying on this code.
+    /// However, it can be an essential escape hatch when, for example,
+    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn set_last_change_tick(&mut self, last_change_tick: u32);
 }
 
