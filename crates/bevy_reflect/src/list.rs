@@ -15,7 +15,7 @@ pub trait List: Reflect + Array {
     /// Appends an element to the list.
     fn push(&mut self, value: Box<dyn Reflect>);
 
-    /// Removes the last element from the list and returns it, or [`None`] if it is empty.
+    /// Removes the last element from the list (highest index in the array) and returns it, or [`None`] if it is empty.
     fn pop(&mut self) -> Option<Box<dyn Reflect>>;
 
     /// Clones the list, producing a [`DynamicList`].
