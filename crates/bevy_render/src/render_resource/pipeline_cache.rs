@@ -24,7 +24,7 @@ use wgpu::{
     VertexBufferLayout as RawVertexBufferLayout,
 };
 
-enum PipelineDescriptor {
+pub enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
     ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
 }
@@ -51,9 +51,9 @@ impl CachedComputePipelineId {
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
 }
 
-struct CachedPipeline {
-    descriptor: PipelineDescriptor,
-    state: CachedPipelineState,
+pub struct CachedPipeline {
+    pub descriptor: PipelineDescriptor,
+    pub state: CachedPipelineState,
 }
 
 #[derive(Debug)]
@@ -281,11 +281,8 @@ pub struct PipelineCache {
 }
 
 impl PipelineCache {
-    pub fn count_ready(&self) -> usize {
-        self.pipelines
-            .iter()
-            .filter(|pipeline| matches!(pipeline.state, CachedPipelineState::Ok(_)))
-            .count()
+    pub fn pipelines(&self) -> impl Iterator<Item = &CachedPipeline> {
+        self.pipelines.iter()
     }
 
     pub fn new(device: RenderDevice) -> Self {
