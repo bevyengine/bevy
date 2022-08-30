@@ -213,14 +213,6 @@ impl Enum for DynamicEnum {
         VariantFieldIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        match self.variant {
-            DynamicVariant::Unit => Vec::new(),
-            DynamicVariant::Tuple(tuple_variant) => Box::new(tuple_variant).drain(),
-            DynamicVariant::Struct(struct_variant) => Box::new(struct_variant).drain(),
-        }
-    }
-
     fn field_len(&self) -> usize {
         match &self.variant {
             DynamicVariant::Unit => 0,

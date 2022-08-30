@@ -79,12 +79,6 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                 #bevy_reflect_path::TupleStructFieldIter::new(self)
             }
 
-            fn drain(self: Box<Self>) -> Vec<Box<dyn #bevy_reflect_path::Reflect>> {
-                vec![
-                    #(Box::new(self.#field_idents),)*
-                ]
-            }
-
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTupleStruct {
                 let mut dynamic = #bevy_reflect_path::DynamicTupleStruct::default();
                 dynamic.set_name(self.type_name().to_string());

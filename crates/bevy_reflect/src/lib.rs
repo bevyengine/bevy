@@ -521,25 +521,6 @@ mod tests {
 
     #[test]
     fn should_drain_fields() {
-        #[derive(Reflect, PartialEq, Debug)]
-        #[reflect(PartialEq, Debug)]
-        struct Foo(usize);
-
-        #[derive(Reflect, PartialEq, Debug)]
-        #[reflect(PartialEq, Debug)]
-        struct Bar {
-            a: i32,
-            b: f32,
-        }
-
-        #[derive(Reflect, PartialEq, Debug)]
-        #[reflect(PartialEq, Debug)]
-        enum Baz {
-            Unit,
-            Tuple(i32, f32),
-            Struct { value: i32 },
-        }
-
         let array_value: Box<dyn Array> = Box::new([123_i32, 321_i32]);
         let fields = array_value.drain();
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
@@ -550,37 +531,15 @@ mod tests {
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
-        let tuple_value: Box<dyn Tuple> = Box::new((123_i32, Foo(1337)));
+        let tuple_value: Box<dyn Tuple> = Box::new((123_i32, 321_i32));
         let fields = tuple_value.drain();
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
-        assert!(fields[1].reflect_partial_eq(&Foo(1337)).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
         let map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
         let fields = map_value.drain();
         assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());
-
-        let tuple_struct_value: Box<dyn TupleStruct> = Box::new(Foo(123));
-        let fields = tuple_struct_value.drain();
-        assert!(fields[0].reflect_partial_eq(&123usize).unwrap_or_default());
-
-        let struct_value: Box<dyn Struct> = Box::new(Bar { a: 123, b: 1.23 });
-        let fields = struct_value.drain();
-        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
-        assert!(fields[1].reflect_partial_eq(&1.23_f32).unwrap_or_default());
-
-        let unit_variant_value: Box<dyn Enum> = Box::new(Baz::Unit);
-        let fields = unit_variant_value.drain();
-        assert_eq!(0, fields.len());
-
-        let tuple_variant_value: Box<dyn Enum> = Box::new(Baz::Tuple(123, 1.23));
-        let fields = tuple_variant_value.drain();
-        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
-        assert!(fields[1].reflect_partial_eq(&1.23_f32).unwrap_or_default());
-
-        let struct_variant_value: Box<dyn Enum> = Box::new(Baz::Struct { value: 123 });
-        let fields = struct_variant_value.drain();
-        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
     }
 
     #[test]

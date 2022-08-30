@@ -117,12 +117,6 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                 #bevy_reflect_path::FieldIter::new(self)
             }
 
-            fn drain(self: Box<Self>) -> Vec<Box<dyn #bevy_reflect_path::Reflect>> {
-                vec![
-                    #(Box::new(self.#field_idents),)*
-                ]
-            }
-
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
                 let mut dynamic = #bevy_reflect_path::DynamicStruct::default();
                 dynamic.set_name(self.type_name().to_string());

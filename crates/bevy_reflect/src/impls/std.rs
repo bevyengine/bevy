@@ -652,13 +652,6 @@ impl<T: FromReflect> Enum for Option<T> {
         VariantFieldIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        match *self {
-            Some(value) => vec![Box::new(value) as Box<dyn Reflect>],
-            None => Vec::new(),
-        }
-    }
-
     #[inline]
     fn field_len(&self) -> usize {
         match self {
