@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, TypeName, Typed};
+use crate::{self as bevy_reflect, serde::Serializable, Reflect, TypeInfo, TypeName, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
@@ -120,12 +120,17 @@ impl TypeRegistry {
     /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
     /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
     /// ```
-    pub fn register_type_data<T: Reflect + 'static, D: TypeData + FromType<T>>(&mut self) {
+    pub fn register_type_data<
+        T: Reflect + TypeName + 'static,
+        D: TypeData + TypeName + FromType<T>,
+    >(
+        &mut self,
+    ) {
         let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
                 "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
-                T = std::any::type_name::<T>(),
-                D = std::any::type_name::<D>(),
+                T = T::name(),
+                D = D::name(),
             )
         });
         data.insert(D::from_type());
@@ -382,7 +387,7 @@ pub trait FromType<T> {
 ///
 /// A `ReflectSerialize` for type `T` can be obtained via
 /// [`FromType::from_type`].
-#[derive(Clone)]
+#[derive(Clone, TypeName)]
 pub struct ReflectSerialize {
     get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
 }
@@ -411,7 +416,7 @@ impl ReflectSerialize {
 ///
 /// A `ReflectDeserialize` for type `T` can be obtained via
 /// [`FromType::from_type`].
-#[derive(Clone)]
+#[derive(Clone, TypeName)]
 pub struct ReflectDeserialize {
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
