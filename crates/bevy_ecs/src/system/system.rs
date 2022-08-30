@@ -60,10 +60,8 @@ pub trait System: Send + Sync + 'static {
     fn default_labels(&self) -> Vec<SystemLabelId> {
         Vec::new()
     }
-
     /// Allows users to get the system's last change tick.
     fn get_last_change_tick(&self) -> u32;
-
     /// Allows users to set the system's last change tick.
     fn set_last_change_tick(&mut self, last_change_tick: u32);
 }
