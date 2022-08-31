@@ -138,15 +138,19 @@ impl VertexBufferLayout {
         vertex_formats: T,
     ) -> Self {
         let mut offset = 0;
-        let mut attributes = Vec::new();
-        for (shader_location, format) in vertex_formats.into_iter().enumerate() {
-            attributes.push(VertexAttribute {
-                format,
-                offset,
-                shader_location: shader_location as u32,
-            });
-            offset += format.size();
-        }
+        let attributes = vertex_formats
+            .into_iter()
+            .enumerate()
+            .map(|(shader_location, format)| {
+                let attribute = VertexAttribute {
+                    format,
+                    offset,
+                    shader_location: shader_location as u32,
+                };
+                offset += format.size();
+                attribute
+            })
+            .collect();
 
         VertexBufferLayout {
             array_stride: offset,

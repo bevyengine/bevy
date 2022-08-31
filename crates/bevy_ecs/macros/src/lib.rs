@@ -48,23 +48,24 @@ impl Parse for AllTuples {
 #[proc_macro]
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
-    let len = input.end - input.start;
-    let mut ident_tuples = Vec::with_capacity(len);
-    for i in input.start..=input.end {
-        let idents = input
-            .idents
-            .iter()
-            .map(|ident| format_ident!("{}{}", ident, i));
-        if input.idents.len() < 2 {
-            ident_tuples.push(quote! {
-                #(#idents)*
-            });
-        } else {
-            ident_tuples.push(quote! {
-                (#(#idents),*)
-            });
-        }
-    }
+
+    let ident_tuples = (input.start..=input.end)
+        .map(|i| {
+            let idents = input
+                .idents
+                .iter()
+                .map(|ident| format_ident!("{}{}", ident, i));
+            if input.idents.len() < 2 {
+                quote! {
+                    #(#idents)*
+                }
+            } else {
+                quote! {
+                    (#(#idents),*)
+                }
+            }
+        })
+        .collect::<Vec<_>>();
 
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
@@ -186,11 +187,11 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let params = get_idents(|i| format!("P{}", i), max_params);
     let params_fetch = get_idents(|i| format!("PF{}", i), max_params);
     let metas = get_idents(|i| format!("m{}", i), max_params);
-    let mut param_fn_muts = Vec::new();
-    for (i, param) in params.iter().enumerate() {
+
+    let param_fn_muts = params.iter().enumerate().map(|(i, param)| {
         let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
         let index = Index::from(i);
-        param_fn_muts.push(quote! {
+        quote! {
             pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
                 // SAFETY: systems run without conflicts with other systems.
                 // Conflicting params in ParamSet are not accessible at the same time
@@ -199,8 +200,8 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
                 }
             }
-        });
-    }
+        }
+    }).collect::<Vec<_>>();
 
     for param_count in 1..=max_params {
         let param = &params[0..param_count];

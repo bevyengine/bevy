@@ -55,7 +55,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         &mut self,
         id: ID,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
+        text_sections: &[TextSection],
         scale_factor: f64,
         text_alignment: TextAlignment,
         bounds: Vec2,
@@ -63,27 +63,25 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
     ) -> Result<(), TextError> {
-        let mut scaled_fonts = Vec::new();
-        let sections = sections
-            .iter()
-            .map(|section| {
-                let font = fonts
-                    .get(&section.style.font)
-                    .ok_or(TextError::NoSuchFont)?;
-                let font_id = self.get_or_insert_font_id(&section.style.font, font);
-                let font_size = scale_value(section.style.font_size, scale_factor);
+        let text_sections_len = text_sections.len();
+        let mut sections = Vec::with_capacity(text_sections_len);
+        let mut scaled_fonts = Vec::with_capacity(text_sections_len);
 
-                scaled_fonts.push(ab_glyph::Font::as_scaled(&font.font, font_size));
+        for section in text_sections {
+            let font = fonts
+                .get(&section.style.font)
+                .ok_or(TextError::NoSuchFont)?;
+            let font_id = self.get_or_insert_font_id(&section.style.font, font);
+            let font_size = scale_value(section.style.font_size, scale_factor);
 
-                let section = SectionText {
-                    font_id,
-                    scale: PxScale::from(font_size),
-                    text: &section.value,
-                };
+            sections.push(SectionText {
+                font_id,
+                scale: PxScale::from(font_size),
+                text: &section.value,
+            });
 
-                Ok(section)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+            scaled_fonts.push(ab_glyph::Font::as_scaled(&font.font, font_size));
+        }
 
         let section_glyphs = self
             .brush

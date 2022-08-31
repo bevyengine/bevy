@@ -13,9 +13,7 @@ use smallvec::SmallVec;
 
 fn push_events(world: &mut World, events: SmallVec<[HierarchyEvent; 8]>) {
     if let Some(mut moved) = world.get_resource_mut::<Events<HierarchyEvent>>() {
-        for evt in events {
-            moved.send(evt);
-        }
+        moved.extend(events);
     }
 }
 
@@ -63,18 +61,22 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
             });
         }
     }
+
     push_events(world, moved);
 }
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
-    let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
-    for child in children {
-        world.entity_mut(*child).remove::<Parent>();
-        events.push(HierarchyEvent::ChildRemoved {
-            child: *child,
-            parent,
-        });
-    }
+    let events = children
+        .iter()
+        .map(|child| {
+            world.entity_mut(*child).remove::<Parent>();
+            HierarchyEvent::ChildRemoved {
+                child: *child,
+                parent,
+            }
+        })
+        .collect();
+
     push_events(world, events);
 
     if let Some(mut parent_children) = world.get_mut::<Children>(parent) {

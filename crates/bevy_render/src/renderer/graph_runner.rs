@@ -99,26 +99,30 @@ impl RenderGraphRunner {
 
         // pass inputs into the graph
         if let Some(input_node) = graph.input_node() {
-            let mut input_values: SmallVec<[SlotValue; 4]> = SmallVec::new();
-            for (i, input_slot) in input_node.input_slots.iter().enumerate() {
-                if let Some(input_value) = inputs.get(i) {
-                    if input_slot.slot_type != input_value.slot_type() {
-                        return Err(RenderGraphRunnerError::MismatchedInputSlotType {
+            let input_values = input_node
+                .input_slots
+                .iter()
+                .enumerate()
+                .map(|(i, input_slot)| {
+                    if let Some(input_value) = inputs.get(i) {
+                        if input_slot.slot_type != input_value.slot_type() {
+                            return Err(RenderGraphRunnerError::MismatchedInputSlotType {
+                                slot_index: i,
+                                actual: input_value.slot_type(),
+                                expected: input_slot.slot_type,
+                                label: input_slot.name.clone().into(),
+                            });
+                        }
+                        Ok(input_value.clone())
+                    } else {
+                        Err(RenderGraphRunnerError::MissingInput {
                             slot_index: i,
-                            actual: input_value.slot_type(),
-                            expected: input_slot.slot_type,
-                            label: input_slot.name.clone().into(),
-                        });
+                            slot_name: input_slot.name.clone(),
+                            graph_name: graph_name.clone(),
+                        })
                     }
-                    input_values.push(input_value.clone());
-                } else {
-                    return Err(RenderGraphRunnerError::MissingInput {
-                        slot_index: i,
-                        slot_name: input_slot.name.clone(),
-                        graph_name: graph_name.clone(),
-                    });
-                }
-            }
+                })
+                .collect::<Result<SmallVec<[SlotValue; 4]>, _>>()?;
 
             node_outputs.insert(input_node.id, input_values);
 
@@ -202,19 +206,23 @@ impl RenderGraphRunner {
                 }
             }
 
-            let mut values: SmallVec<[SlotValue; 4]> = SmallVec::new();
-            for (i, output) in outputs.into_iter().enumerate() {
-                if let Some(value) = output {
-                    values.push(value);
-                } else {
-                    let empty_slot = node_state.output_slots.get_slot(i).unwrap();
-                    return Err(RenderGraphRunnerError::EmptyNodeOutputSlot {
-                        type_name: node_state.type_name,
-                        slot_index: i,
-                        slot_name: empty_slot.name.clone(),
-                    });
-                }
-            }
+            let values = outputs
+                .into_iter()
+                .enumerate()
+                .map(|(i, output)| {
+                    if let Some(value) = output {
+                        Ok(value)
+                    } else {
+                        let empty_slot = node_state.output_slots.get_slot(i).unwrap();
+                        Err(RenderGraphRunnerError::EmptyNodeOutputSlot {
+                            type_name: node_state.type_name,
+                            slot_index: i,
+                            slot_name: empty_slot.name.clone(),
+                        })
+                    }
+                })
+                .collect::<Result<SmallVec<[SlotValue; 4]>, _>>()?;
+
             node_outputs.insert(node_state.id, values);
 
             for (_, node_state) in graph.iter_node_outputs(node_state.id).expect("node exists") {

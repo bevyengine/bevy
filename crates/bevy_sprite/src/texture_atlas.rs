@@ -90,7 +90,7 @@ impl TextureAtlas {
         padding: Vec2,
         offset: Vec2,
     ) -> TextureAtlas {
-        let mut sprites = Vec::new();
+        let mut sprites = Vec::with_capacity(rows * columns);
         let mut x_padding = 0.0;
         let mut y_padding = 0.0;
 

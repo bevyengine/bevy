@@ -846,67 +846,70 @@ pub fn prepare_lights(
             .reserve(point_lights.len());
     }
 
-    let mut gpu_point_lights = Vec::new();
-    for (index, &(entity, light)) in point_lights.iter().enumerate() {
-        let mut flags = PointLightFlags::NONE;
+    let gpu_point_lights = point_lights
+        .iter()
+        .enumerate()
+        .map(|(index, &(entity, light))| {
+            let mut flags = PointLightFlags::NONE;
 
-        // Lights are sorted, shadow enabled lights are first
-        if light.shadows_enabled
-            && (index < point_light_shadow_maps_count
-                || (light.spot_light_angles.is_some()
-                    && index - point_light_count < spot_light_shadow_maps_count))
-        {
-            flags |= PointLightFlags::SHADOWS_ENABLED;
-        }
+            // Lights are sorted, shadow enabled lights are first
+            if light.shadows_enabled
+                && (index < point_light_shadow_maps_count
+                    || (light.spot_light_angles.is_some()
+                        && index - point_light_count < spot_light_shadow_maps_count))
+            {
+                flags |= PointLightFlags::SHADOWS_ENABLED;
+            }
 
-        let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
-            Some((inner, outer)) => {
-                let light_direction = light.transform.forward();
-                if light_direction.y.is_sign_negative() {
-                    flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
+            let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
+                Some((inner, outer)) => {
+                    let light_direction = light.transform.forward();
+                    if light_direction.y.is_sign_negative() {
+                        flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
+                    }
+
+                    let cos_outer = outer.cos();
+                    let spot_scale = 1.0 / f32::max(inner.cos() - cos_outer, 1e-4);
+                    let spot_offset = -cos_outer * spot_scale;
+
+                    (
+                        // For spot lights: the direction (x,z), spot_scale and spot_offset
+                        light_direction.xz().extend(spot_scale).extend(spot_offset),
+                        outer.tan(),
+                    )
                 }
+                None => {
+                    (
+                        // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
+                        Vec4::new(
+                            cube_face_projection.z_axis.z,
+                            cube_face_projection.z_axis.w,
+                            cube_face_projection.w_axis.z,
+                            cube_face_projection.w_axis.w,
+                        ),
+                        // unused
+                        0.0,
+                    )
+                }
+            };
 
-                let cos_outer = outer.cos();
-                let spot_scale = 1.0 / f32::max(inner.cos() - cos_outer, 1e-4);
-                let spot_offset = -cos_outer * spot_scale;
-
-                (
-                    // For spot lights: the direction (x,z), spot_scale and spot_offset
-                    light_direction.xz().extend(spot_scale).extend(spot_offset),
-                    outer.tan(),
-                )
+            global_light_meta.entity_to_index.insert(entity, index);
+            GpuPointLight {
+                light_custom_data,
+                // premultiply color by intensity
+                // we don't use the alpha at all, so no reason to multiply only [0..3]
+                color_inverse_square_range: (Vec4::from_slice(&light.color.as_linear_rgba_f32())
+                    * light.intensity)
+                    .xyz()
+                    .extend(1.0 / (light.range * light.range)),
+                position_radius: light.transform.translation().extend(light.radius),
+                flags: flags.bits,
+                shadow_depth_bias: light.shadow_depth_bias,
+                shadow_normal_bias: light.shadow_normal_bias,
+                spot_light_tan_angle,
             }
-            None => {
-                (
-                    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
-                    Vec4::new(
-                        cube_face_projection.z_axis.z,
-                        cube_face_projection.z_axis.w,
-                        cube_face_projection.w_axis.z,
-                        cube_face_projection.w_axis.w,
-                    ),
-                    // unused
-                    0.0,
-                )
-            }
-        };
-
-        gpu_point_lights.push(GpuPointLight {
-            light_custom_data,
-            // premultiply color by intensity
-            // we don't use the alpha at all, so no reason to multiply only [0..3]
-            color_inverse_square_range: (Vec4::from_slice(&light.color.as_linear_rgba_f32())
-                * light.intensity)
-                .xyz()
-                .extend(1.0 / (light.range * light.range)),
-            position_radius: light.transform.translation().extend(light.radius),
-            flags: flags.bits,
-            shadow_depth_bias: light.shadow_depth_bias,
-            shadow_normal_bias: light.shadow_normal_bias,
-            spot_light_tan_angle,
-        });
-        global_light_meta.entity_to_index.insert(entity, index);
-    }
+        })
+        .collect();
 
     global_light_meta.gpu_point_lights.set(gpu_point_lights);
     global_light_meta

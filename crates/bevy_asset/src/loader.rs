@@ -179,15 +179,14 @@ impl<'a> LoadContext<'a> {
 
     /// Generates metadata for the assets managed by this load context.
     pub fn get_asset_metas(&self) -> Vec<AssetMeta> {
-        let mut asset_metas = Vec::new();
-        for (label, asset) in &self.labeled_assets {
-            asset_metas.push(AssetMeta {
+        self.labeled_assets
+            .iter()
+            .map(|(label, asset)| AssetMeta {
                 dependencies: asset.dependencies.clone(),
                 label: label.clone(),
                 type_uuid: asset.value.as_ref().unwrap().type_uuid(),
-            });
-        }
-        asset_metas
+            })
+            .collect()
     }
 
     /// Gets the asset I/O associated with this load context.
