@@ -170,7 +170,7 @@ impl ReflectTraits {
                     // Closure that handles defining an alias on a generic type
                     let try_handle_generic_alias = || -> syn::Result<()> {
                         if is_generic {
-                            Err(syn::Error::new(ident.span(), "cannot specify non-generic aliases on generic types. Consider using `TypeRegistry::register_alias` instead"))
+                            Err(syn::Error::new(ident.span(), "alias attributes cannot be used on generic types. Consider using `TypeRegistry::register_alias` instead"))
                         } else {
                             Ok(())
                         }
