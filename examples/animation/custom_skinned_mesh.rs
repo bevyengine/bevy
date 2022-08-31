@@ -123,14 +123,14 @@ fn setup(
         let joint_0 = commands
             .spawn_bundle((
                 Transform::from_xyz(i as f32 * 1.5, 0.0, 0.0),
-                GlobalTransform::identity(),
+                GlobalTransform::IDENTITY,
             ))
             .id();
         let joint_1 = commands
             .spawn_bundle((
                 AnimatedJoint,
-                Transform::identity(),
-                GlobalTransform::identity(),
+                Transform::IDENTITY,
+                GlobalTransform::IDENTITY,
             ))
             .id();
 

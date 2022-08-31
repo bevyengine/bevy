@@ -15,6 +15,9 @@ pub trait List: Reflect + Array {
     /// Appends an element to the list.
     fn push(&mut self, value: Box<dyn Reflect>);
 
+    /// Removes the last element from the list (highest index in the array) and returns it, or [`None`] if it is empty.
+    fn pop(&mut self) -> Option<Box<dyn Reflect>>;
+
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
@@ -134,6 +137,10 @@ impl Array for DynamicList {
         }
     }
 
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.values
+    }
+
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.name.clone(),
@@ -149,6 +156,10 @@ impl Array for DynamicList {
 impl List for DynamicList {
     fn push(&mut self, value: Box<dyn Reflect>) {
         DynamicList::push_box(self, value);
+    }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.values.pop()
     }
 
     fn clone_dynamic(&self) -> DynamicList {

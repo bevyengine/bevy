@@ -145,6 +145,13 @@ impl<T: FromReflect + TypeName> Array for Vec<T> {
             index: 0,
         }
     }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
+    }
 }
 
 impl<T: FromReflect + TypeName> List for Vec<T> {
@@ -158,6 +165,10 @@ impl<T: FromReflect + TypeName> List for Vec<T> {
             })
         });
         Vec::push(self, value);
+    }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
     }
 }
 
@@ -277,6 +288,17 @@ impl<K: FromReflect + TypeName + Eq + Hash, V: FromReflect + TypeName> Map for H
             map: self,
             index: 0,
         }
+    }
+
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+        self.into_iter()
+            .map(|(key, value)| {
+                (
+                    Box::new(key) as Box<dyn Reflect>,
+                    Box::new(value) as Box<dyn Reflect>,
+                )
+            })
+            .collect()
     }
 
     fn clone_dynamic(&self) -> DynamicMap {
@@ -428,6 +450,13 @@ impl<T: Reflect + TypeName, const N: usize> Array for [T; N] {
             array: self,
             index: 0,
         }
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
     }
 }
 

@@ -150,7 +150,7 @@ mod tests {
     struct Label(&'static str);
 
     fn node_with_transform(name: &'static str) -> (Label, Node, Transform) {
-        (Label(name), Node::default(), Transform::identity())
+        (Label(name), Node::default(), Transform::IDENTITY)
     }
 
     fn node_without_transform(name: &'static str) -> (Label, Node) {

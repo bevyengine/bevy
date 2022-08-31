@@ -41,6 +41,12 @@ where
             index: 0,
         }
     }
+
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
+    }
 }
 
 impl<T: smallvec::Array + TypeName + Send + Sync + 'static> List for SmallVec<T>
@@ -57,6 +63,10 @@ where
             })
         });
         SmallVec::push(self, value);
+    }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
     }
 }
 
