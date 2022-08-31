@@ -1,5 +1,3 @@
-use bevy_utils::tracing::warn;
-
 use crate::{
     archetype::ArchetypeComponentId,
     component::ComponentId,

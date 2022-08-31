@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{IntoSystem, Res, ResMut, Resource, System},
     world::World,
 };
-use bevy_utils::{tracing::warn, HashMap};
+use bevy_utils::HashMap;
 use std::borrow::Cow;
 
 /// The internal state of each [`FixedTimestep`].
