@@ -224,6 +224,14 @@ impl System for FixedTimestep {
     fn check_change_tick(&mut self, change_tick: u32) {
         self.internal_system.check_change_tick(change_tick);
     }
+
+    fn get_last_change_tick(&self) -> u32 {
+        self.internal_system.get_last_change_tick()
+    }
+
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.internal_system.set_last_change_tick(last_change_tick);
+    }
 }
 
 #[cfg(test)]
