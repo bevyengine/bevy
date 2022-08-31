@@ -50,8 +50,8 @@ pub enum ReflectMut<'a> {
 /// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
 /// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
 ///
-/// When using `#[derive(Reflect)]` on a struct, tuple struct, or enum, the suitable subtrait for that
-/// type (`Struct`, `TupleStruct`, or `Enum`) is derived automatically.
+/// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
+/// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
 pub trait Reflect: Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
@@ -141,7 +141,7 @@ pub trait Reflect: Any + Send + Sync {
 
     /// Clones the value as a `Reflect` trait object.
     ///
-    /// When deriving `Reflect` for a struct, tuple struct, or enum, the value is
+    /// When deriving `Reflect` for a struct, tuple struct or enum, the value is
     /// cloned via [`Struct::clone_dynamic`], [`TupleStruct::clone_dynamic`],
     /// or [`Enum::clone_dynamic`], respectively.
     /// Implementors of other `Reflect` subtraits (e.g. [`List`], [`Map`]) should
