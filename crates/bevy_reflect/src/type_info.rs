@@ -14,6 +14,9 @@ use thiserror::Error;
 /// This trait is automatically implemented by the [`#[derive(Reflect)]`](derive@crate::Reflect) macro
 /// and allows type information to be processed without an instance of that type.
 ///
+/// If you need to use this trait as a generic bound along with other reflection traits,
+/// for your convenience, consider using [`Reflectable`] instead.
+///
 /// # Implementing
 ///
 /// While it is recommended to leave implementing this trait to the `#[derive(Reflect)]` macro,
@@ -81,6 +84,7 @@ use thiserror::Error;
 /// # }
 /// ```
 ///
+/// [`Reflectable`]: crate::Reflectable
 /// [utility]: crate::utility
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `Typed` so cannot provide static type information",
