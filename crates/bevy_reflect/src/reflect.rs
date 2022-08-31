@@ -52,6 +52,12 @@ pub enum ReflectMut<'a> {
 ///
 /// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
 /// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
+///
+/// Typically, generic types will require that their generic arguments be bound by `Reflect`, among
+/// other reflection traits. In these cases, it's recommended to use the [`Reflectable`] trait to
+/// cover all the necessary bounds.
+///
+/// [`Reflectable`]: crate::Reflectable
 pub trait Reflect: Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;

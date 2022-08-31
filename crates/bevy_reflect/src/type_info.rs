@@ -8,6 +8,8 @@ use std::any::{Any, TypeId};
 /// This trait is automatically implemented by the `#[derive(Reflect)]` macro
 /// and allows type information to be processed without an instance of that type.
 ///
+/// As a core trait to the reflection system, it is a supertrait of [`Reflectable`].
+///
 /// # Implementing
 ///
 /// While it is recommended to leave implementing this trait to the `#[derive(Reflect)]` macro,
@@ -63,6 +65,7 @@ use std::any::{Any, TypeId};
 /// # }
 /// ```
 ///
+/// [`Reflectable`]: crate::Reflectable
 /// [utility]: crate::utility
 pub trait Typed: Reflect {
     /// Returns the compile-time [info] for the underlying type.

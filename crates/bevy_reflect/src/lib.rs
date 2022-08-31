@@ -59,7 +59,7 @@ pub use type_info::*;
 pub use type_registry::*;
 pub use type_uuid::*;
 
-/// A catch-all trait bound by the core reflection traits for easy reflection-based trait bounds.
+/// A catch-all trait, bound by the core reflection traits for easy reflection-based trait bounds.
 ///
 /// You do _not_ need to implement this trait manually.
 /// It is automatically implemented for all types that implement its supertraits.
