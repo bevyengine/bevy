@@ -575,7 +575,7 @@ impl AssetServer {
                 asset_lifecycle.create_asset(id, asset_value, load_context.version);
                 for label in labels.iter().skip(1) {
                     let alias = AssetPath::new_ref(load_context.path, Some(label)).into();
-                    asset_lifecycle.alias_asset(id, alias);
+                    asset_lifecycle.alias_asset(alias, id);
                 }
             } else {
                 panic!(
@@ -617,8 +617,8 @@ impl AssetServer {
                     }
                     assets.set_untracked(result.id, *result.asset);
                 }
-                Ok(AssetLifecycleEvent::Alias { extant, alias }) => {
-                    assets.add_alias(extant, alias);
+                Ok(AssetLifecycleEvent::Alias { for_label, alias }) => {
+                    assets.set_alias(alias, for_label);
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
                     if let HandleId::AssetPathId(id) = handle_id {

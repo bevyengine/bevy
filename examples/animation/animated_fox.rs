@@ -28,9 +28,9 @@ fn setup(
 ) {
     // Insert a resource with the current scene information
     commands.insert_resource(Animations(vec![
-        asset_server.load("models/animated/Fox.glb#Animation2"),
-        asset_server.load("models/animated/Fox.glb#Animation1"),
-        asset_server.load("models/animated/Fox.glb#Animation0"),
+        asset_server.load("models/animated/Fox.glb#Animation/Run"),
+        asset_server.load("models/animated/Fox.glb#Animation/Walk"),
+        asset_server.load("models/animated/Fox.glb#Animation/Survey"),
     ]));
 
     // Camera

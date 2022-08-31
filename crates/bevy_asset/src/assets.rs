@@ -126,10 +126,12 @@ impl<T: Asset> Assets<T> {
     /// Adds a handle that refers to an extant asset
     ///
     /// # Panics
-    /// Panics if the extant asset is not found or the alias already points to an asset.
-    pub(crate) fn add_alias(&mut self, extant: HandleId, alias: HandleId) {
-        let index = *self.indices.get(&extant).expect("Asset to alias not found");
-        assert!(!self.indices.contains_key(&alias));
+    /// Panics if the extant asset is not found
+    pub(crate) fn set_alias(&mut self, alias: HandleId, for_label: HandleId) {
+        let index = *self
+            .indices
+            .get(&for_label)
+            .expect("Asset to alias not found");
         self.indices.insert(alias, index);
         self.assets[index].as_mut().unwrap().handles.push(alias);
     }

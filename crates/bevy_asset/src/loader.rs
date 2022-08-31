@@ -175,12 +175,12 @@ impl<'a> LoadContext<'a> {
     /// Adds an alias for an already added secondary asset.
     ///
     /// # Panics
-    /// Panics if `extant` doesn't refer to an asset or alias is ""
-    pub fn add_asset_alias(&mut self, extant: &str, alias: &str) {
+    /// Panics if `for_label` doesn't refer to an asset or alias is ""
+    pub fn add_asset_alias(&mut self, alias: &str, for_label: &str) {
         assert!(!alias.is_empty());
         let index = *self
             .label_indices
-            .get(&Some(extant.to_string()))
+            .get(&Some(for_label.to_string()))
             .expect("Existing asset not found");
         self.labeled_assets[index].0.push(alias.to_string());
         self.label_indices.insert(Some(alias.to_string()), index);
@@ -243,7 +243,7 @@ pub enum AssetLifecycleEvent<T> {
     /// An alias for an already existing asset was created.
     Alias {
         /// An asset that was already created
-        extant: HandleId,
+        for_label: HandleId,
         /// An alias to be added
         alias: HandleId,
     },
@@ -256,7 +256,7 @@ pub trait AssetLifecycle: Downcast + Send + Sync + 'static {
     /// Notifies the asset server that a new asset was created.
     fn create_asset(&self, id: HandleId, asset: Box<dyn AssetDynamic>, version: usize);
     /// Notifies the asset server that there is an alias for an extant asset.
-    fn alias_asset(&self, extant: HandleId, alias: HandleId);
+    fn alias_asset(&self, alias: HandleId, for_label: HandleId);
     /// Notifies the asset server that an asset was freed.
     fn free_asset(&self, id: HandleId);
 }
@@ -280,9 +280,9 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
         }
     }
 
-    fn alias_asset(&self, extant: HandleId, alias: HandleId) {
+    fn alias_asset(&self, alias: HandleId, for_label: HandleId) {
         self.sender
-            .send(AssetLifecycleEvent::Alias { extant, alias })
+            .send(AssetLifecycleEvent::Alias { for_label, alias })
             .unwrap();
     }
 
