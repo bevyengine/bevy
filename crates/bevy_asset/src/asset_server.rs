@@ -412,8 +412,9 @@ impl AssetServer {
         });
 
         // load asset dependencies and prepare asset type hashmap
-        for (label, loaded_asset) in &mut load_context.labeled_assets {
+        for (label, index) in &mut load_context.label_indices {
             let label_id = LabelId::from(label.as_ref().map(|label| label.as_str()));
+            let loaded_asset = &load_context.labeled_assets[*index].1;
             let type_uuid = loaded_asset.value.as_ref().unwrap().type_uuid();
             source_info.asset_types.insert(label_id, type_uuid);
             for dependency in &loaded_asset.dependencies {
@@ -463,7 +464,7 @@ impl AssetServer {
             .entry(handle_id)
             .or_insert_with(|| asset_path.to_owned());
 
-        asset_path.into()
+        handle_id
     }
 
     /// Loads assets from the specified folder recursively.
@@ -560,20 +561,27 @@ impl AssetServer {
 
     fn create_assets_in_load_context(&self, load_context: &mut LoadContext) {
         let asset_lifecycles = self.server.asset_lifecycles.read();
-        for (label, asset) in &mut load_context.labeled_assets {
+        for (labels, asset) in &mut load_context.labeled_assets {
             let asset_value = asset
                 .value
                 .take()
                 .expect("Asset should exist at this point.");
             if let Some(asset_lifecycle) = asset_lifecycles.get(&asset_value.type_uuid()) {
-                let asset_path =
-                    AssetPath::new_ref(load_context.path, label.as_ref().map(|l| l.as_str()));
-                asset_lifecycle.create_asset(asset_path.into(), asset_value, load_context.version);
+                let id = AssetPath::new_ref(
+                    load_context.path,
+                    labels.as_ref().first().map(|l| l.as_str()),
+                )
+                .into();
+                asset_lifecycle.create_asset(id, asset_value, load_context.version);
+                for label in labels.iter().skip(1) {
+                    let alias = AssetPath::new_ref(load_context.path, Some(label)).into();
+                    asset_lifecycle.alias_asset(id, alias);
+                }
             } else {
                 panic!(
                     "Failed to find AssetLifecycle for label '{:?}', which has an asset type {} (UUID {:?}). \
                         Are you sure this asset type has been added to your app builder?",
-                    label,
+                    labels.first(),
                     asset_value.type_name(),
                     asset_value.type_uuid(),
                 );
@@ -607,8 +615,10 @@ impl AssetServer {
                             }
                         }
                     }
-
                     assets.set_untracked(result.id, *result.asset);
+                }
+                Ok(AssetLifecycleEvent::Alias { extant, alias }) => {
+                    assets.add_alias(extant, alias);
                 }
                 Ok(AssetLifecycleEvent::Free(handle_id)) => {
                     if let HandleId::AssetPathId(id) = handle_id {

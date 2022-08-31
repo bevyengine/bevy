@@ -13,8 +13,8 @@ pub struct SourceMeta {
 /// Metadata for an asset.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AssetMeta {
-    /// Asset label.
-    pub label: Option<String>,
+    /// Asset labels, empty for the default asset.
+    pub label: Vec<String>,
     /// Asset dependencies.
     pub dependencies: Vec<AssetPath<'static>>,
     /// An unique identifier for an asset type.

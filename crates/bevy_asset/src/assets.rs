@@ -9,8 +9,9 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
-use bevy_utils::HashMap;
+use bevy_utils::{Entry, HashMap};
 use crossbeam_channel::Sender;
+use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
 
 /// Events that involve assets of type `T`.
@@ -54,6 +55,12 @@ impl<T: Asset> Debug for AssetEvent<T> {
     }
 }
 
+#[derive(Debug)]
+struct AssetSlot<T> {
+    asset: T,
+    handles: SmallVec<[HandleId; 1]>,
+}
+
 /// Stores Assets of a given type and tracks changes to them.
 ///
 /// Each asset is mapped by a unique [`HandleId`], allowing any [`Handle`] with the same
@@ -69,7 +76,13 @@ impl<T: Asset> Debug for AssetEvent<T> {
 /// loaded!
 #[derive(Debug, Resource)]
 pub struct Assets<T: Asset> {
-    assets: HashMap<HandleId, T>,
+    /// This indirection is necessary as an asset may be referred to
+    /// by multiple paths (`bevy_gltf` labels subassets both by name and by index).
+    assets: Vec<Option<AssetSlot<T>>>,
+    /// Indices into `assets`. The item there is always `Some`.
+    indices: HashMap<HandleId, usize>,
+    /// Reuse old slots. Repeated `add` and `remove` shouldn't leak memory.
+    free_list: Vec<usize>,
     events: Events<AssetEvent<T>>,
     pub(crate) ref_change_sender: Sender<RefChange>,
 }
@@ -77,7 +90,9 @@ pub struct Assets<T: Asset> {
 impl<T: Asset> Assets<T> {
     pub(crate) fn new(ref_change_sender: Sender<RefChange>) -> Self {
         Assets {
-            assets: HashMap::default(),
+            assets: Vec::default(),
+            indices: HashMap::default(),
+            free_list: Vec::default(),
             events: Events::default(),
             ref_change_sender,
         }
@@ -90,11 +105,33 @@ impl<T: Asset> Assets<T> {
     /// * [`AssetEvent::Created`]
     pub fn add(&mut self, asset: T) -> Handle<T> {
         let id = HandleId::random::<T>();
-        self.assets.insert(id, asset);
+        let slot = Some(AssetSlot {
+            asset,
+            handles: smallvec![id],
+        });
+        let index = if let Some(index) = self.free_list.pop() {
+            self.assets[index] = slot;
+            index
+        } else {
+            self.assets.push(slot);
+            self.assets.len() - 1
+        };
+        self.indices.insert(id, index);
         self.events.send(AssetEvent::Created {
             handle: Handle::weak(id),
         });
         self.get_handle(id)
+    }
+
+    /// Adds a handle that refers to an extant asset
+    ///
+    /// # Panics
+    /// Panics if the extant asset is not found or the alias already points to an asset.
+    pub(crate) fn add_alias(&mut self, extant: HandleId, alias: HandleId) {
+        let index = *self.indices.get(&extant).expect("Asset to alias not found");
+        assert!(!self.indices.contains_key(&alias));
+        self.indices.insert(alias, index);
+        self.assets[index].as_mut().unwrap().handles.push(alias);
     }
 
     /// Add/modify the asset pointed to by the given handle.
@@ -120,12 +157,28 @@ impl<T: Asset> Assets<T> {
     /// * [`AssetEvent::Created`]: Sent if the asset did not yet exist with the given handle.
     /// * [`AssetEvent::Modified`]: Sent if the asset with given handle already existed.
     pub fn set_untracked<H: Into<HandleId>>(&mut self, handle: H, asset: T) {
-        let id: HandleId = handle.into();
-        if self.assets.insert(id, asset).is_some() {
-            self.events.send(AssetEvent::Modified {
-                handle: Handle::weak(id),
-            });
+        let id = handle.into();
+        if let Some(index) = self.indices.get(&id) {
+            let slot = self.assets[*index].as_mut().unwrap();
+            slot.asset = asset;
+            for handle in &slot.handles {
+                self.events.send(AssetEvent::Modified {
+                    handle: Handle::weak(*handle),
+                });
+            }
         } else {
+            let slot = Some(AssetSlot {
+                asset,
+                handles: smallvec![id],
+            });
+            let index = if let Some(index) = self.free_list.pop() {
+                self.assets[index] = slot;
+                index
+            } else {
+                self.assets.push(slot);
+                self.assets.len() - 1
+            };
+            self.indices.insert(id, index);
             self.events.send(AssetEvent::Created {
                 handle: Handle::weak(id),
             });
@@ -137,12 +190,13 @@ impl<T: Asset> Assets<T> {
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
     /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
     pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
-        self.assets.get(&handle.into())
+        let index = self.indices.get(&handle.into())?;
+        self.assets[*index].as_ref().map(|slot| &slot.asset)
     }
 
     /// Checks if an asset exists for the given handle
     pub fn contains(&self, handle: &Handle<T>) -> bool {
-        self.assets.contains_key(&handle.into())
+        self.indices.contains_key(&handle.into())
     }
 
     /// Get mutable access to the asset for the given handle.
@@ -150,11 +204,15 @@ impl<T: Asset> Assets<T> {
     /// This is the main method for mutably accessing asset data from an [Assets] collection. If you
     /// do not need mutable access to the asset, you may also use [get](Assets::get).
     pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
-        let id: HandleId = handle.into();
-        self.events.send(AssetEvent::Modified {
-            handle: Handle::weak(id),
-        });
-        self.assets.get_mut(&id)
+        let id = handle.into();
+        let index = self.indices.get(&id)?;
+        let slot = self.assets[*index].as_mut().unwrap();
+        for handle in &slot.handles {
+            self.events.send(AssetEvent::Modified {
+                handle: Handle::weak(*handle),
+            });
+        }
+        Some(&mut slot.asset)
     }
 
     /// Gets a _Strong_ handle pointing to the same asset as the given one.
@@ -172,43 +230,66 @@ impl<T: Asset> Assets<T> {
         handle: H,
         insert_fn: impl FnOnce() -> T,
     ) -> &mut T {
-        let mut event = None;
-        let id: HandleId = handle.into();
-        let borrowed = self.assets.entry(id).or_insert_with(|| {
-            event = Some(AssetEvent::Created {
-                handle: Handle::weak(id),
-            });
-            insert_fn()
-        });
-
-        if let Some(event) = event {
-            self.events.send(event);
+        let id = handle.into();
+        match self.indices.entry(id) {
+            Entry::Occupied(entry) => {
+                let slot = self.assets[*entry.get()].as_mut().unwrap();
+                for handle in &slot.handles {
+                    self.events.send(AssetEvent::Modified {
+                        handle: Handle::weak(*handle),
+                    });
+                }
+                &mut slot.asset
+            }
+            Entry::Vacant(entry) => {
+                let slot = Some(AssetSlot {
+                    asset: insert_fn(),
+                    handles: smallvec![id],
+                });
+                let index = if let Some(index) = self.free_list.pop() {
+                    self.assets[index] = slot;
+                    index
+                } else {
+                    self.assets.push(slot);
+                    self.assets.len() - 1
+                };
+                entry.insert(index);
+                self.events.send(AssetEvent::Created {
+                    handle: Handle::weak(id),
+                });
+                &mut self.assets[index].as_mut().unwrap().asset
+            }
         }
-        borrowed
     }
 
     /// Gets an iterator over all assets in the collection.
-    pub fn iter(&self) -> impl Iterator<Item = (HandleId, &T)> {
-        self.assets.iter().map(|(k, v)| (*k, v))
+    pub fn iter(&self) -> impl Iterator<Item = (&[HandleId], &T)> {
+        self.assets
+            .iter()
+            .flatten()
+            .map(|slot| (slot.handles.as_slice(), &slot.asset))
     }
 
     /// Gets a mutable iterator over all assets in the collection.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (HandleId, &mut T)> {
-        self.assets.iter_mut().map(|(k, v)| {
-            self.events.send(AssetEvent::Modified {
-                handle: Handle::weak(*k),
-            });
-            (*k, v)
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&[HandleId], &mut T)> {
+        self.assets.iter_mut().flatten().map(|slot| {
+            for handle in &slot.handles {
+                self.events.send(AssetEvent::Modified {
+                    handle: Handle::weak(*handle),
+                });
+            }
+            (slot.handles.as_slice(), &mut slot.asset)
         })
     }
 
     /// Gets an iterator over all [`HandleId`]'s in the collection.
     pub fn ids(&self) -> impl Iterator<Item = HandleId> + '_ {
-        self.assets.keys().cloned()
+        self.indices.keys().cloned()
     }
 
     /// Removes an asset for the given handle.
     ///
+    /// The asset also won't available via other handles previously pointing to it.
     /// The asset is returned if it existed in the collection, otherwise `None`.
     ///
     /// # Events
@@ -216,27 +297,33 @@ impl<T: Asset> Assets<T> {
     /// * [`AssetEvent::Removed`]
     pub fn remove<H: Into<HandleId>>(&mut self, handle: H) -> Option<T> {
         let id: HandleId = handle.into();
-        let asset = self.assets.remove(&id);
-        if asset.is_some() {
-            self.events.send(AssetEvent::Removed {
-                handle: Handle::weak(id),
-            });
+        let index = self.indices.remove(&id)?;
+        if let Some(slot) = &self.assets[index] {
+            for handle in &slot.handles {
+                self.indices.remove(handle);
+                self.events.send(AssetEvent::Removed {
+                    handle: Handle::weak(id),
+                });
+            }
+            self.free_list.push(index);
+            self.assets[index].take().map(|slot| slot.asset)
+        } else {
+            None
         }
-        asset
     }
 
     /// Clears the inner asset map, removing all key-value pairs.
     ///
     /// Keeps the allocated memory for reuse.
     pub fn clear(&mut self) {
-        self.assets.clear();
+        self.indices.clear();
     }
 
     /// Reserves capacity for at least additional more elements to be inserted into the assets.
     ///
     /// The collection may reserve more space to avoid frequent reallocations.
     pub fn reserve(&mut self, additional: usize) {
-        self.assets.reserve(additional);
+        self.indices.reserve(additional);
     }
 
     /// Shrinks the capacity of the asset map as much as possible.
@@ -244,7 +331,7 @@ impl<T: Asset> Assets<T> {
     /// It will drop down as much as possible while maintaining the internal rules and possibly
     /// leaving some space in accordance with the resize policy.
     pub fn shrink_to_fit(&mut self) {
-        self.assets.shrink_to_fit();
+        self.indices.shrink_to_fit();
     }
 
     /// A system that creates [`AssetEvent`]s at the end of the frame based on changes in the
@@ -262,12 +349,12 @@ impl<T: Asset> Assets<T> {
 
     /// Gets the number of assets in the collection.
     pub fn len(&self) -> usize {
-        self.assets.len()
+        self.indices.len()
     }
 
     /// Returns `true` if there are no stored assets.
     pub fn is_empty(&self) -> bool {
-        self.assets.is_empty()
+        self.indices.is_empty()
     }
 }
 

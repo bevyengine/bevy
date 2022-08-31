@@ -6,9 +6,10 @@ use anyhow::Error;
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
-use bevy_utils::{BoxedFuture, HashMap};
+use bevy_utils::{default, BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
+use smallvec::{smallvec, SmallVec};
 use std::path::Path;
 
 /// A loader for an asset source.
@@ -122,7 +123,8 @@ impl<T: Asset> From<LoadedAsset<T>> for BoxedLoadedAsset {
 pub struct LoadContext<'a> {
     pub(crate) ref_change_channel: &'a RefChangeChannel,
     pub(crate) asset_io: &'a dyn AssetIo,
-    pub(crate) labeled_assets: HashMap<Option<String>, BoxedLoadedAsset>,
+    pub(crate) labeled_assets: Vec<(SmallVec<[String; 1]>, BoxedLoadedAsset)>,
+    pub(crate) label_indices: HashMap<Option<String>, usize>,
     pub(crate) path: &'a Path,
     pub(crate) version: usize,
 }
@@ -137,7 +139,8 @@ impl<'a> LoadContext<'a> {
         Self {
             ref_change_channel,
             asset_io,
-            labeled_assets: Default::default(),
+            labeled_assets: default(),
+            label_indices: default(),
             version,
             path,
         }
@@ -150,20 +153,37 @@ impl<'a> LoadContext<'a> {
 
     /// Returns `true` if the load context contains an asset with the specified label.
     pub fn has_labeled_asset(&self, label: &str) -> bool {
-        self.labeled_assets.contains_key(&Some(label.to_string()))
+        self.label_indices.contains_key(&Some(label.to_string()))
     }
 
     /// Sets the primary asset loaded from the asset source.
     pub fn set_default_asset<T: Asset>(&mut self, asset: LoadedAsset<T>) {
-        self.labeled_assets.insert(None, asset.into());
+        self.label_indices.insert(None, self.labeled_assets.len());
+        self.labeled_assets.push((default(), asset.into()));
     }
 
     /// Sets a secondary asset loaded from the asset source.
     pub fn set_labeled_asset<T: Asset>(&mut self, label: &str, asset: LoadedAsset<T>) -> Handle<T> {
         assert!(!label.is_empty());
+        self.label_indices
+            .insert(Some(label.to_string()), self.labeled_assets.len());
         self.labeled_assets
-            .insert(Some(label.to_string()), asset.into());
+            .push((smallvec![label.to_string()], asset.into()));
         self.get_handle(AssetPath::new_ref(self.path(), Some(label)))
+    }
+
+    /// Adds an alias for an already added secondary asset.
+    ///
+    /// # Panics
+    /// Panics if `extant` doesn't refer to an asset or alias is ""
+    pub fn add_asset_alias(&mut self, extant: &str, alias: &str) {
+        assert!(!alias.is_empty());
+        let index = *self
+            .label_indices
+            .get(&Some(extant.to_string()))
+            .expect("Existing asset not found");
+        self.labeled_assets[index].0.push(alias.to_string());
+        self.label_indices.insert(Some(alias.to_string()), index);
     }
 
     /// Gets a handle to an asset of type `T` from its id.
@@ -183,7 +203,7 @@ impl<'a> LoadContext<'a> {
         for (label, asset) in &self.labeled_assets {
             asset_metas.push(AssetMeta {
                 dependencies: asset.dependencies.clone(),
-                label: label.clone(),
+                label: label.iter().cloned().collect(),
                 type_uuid: asset.value.as_ref().unwrap().type_uuid(),
             });
         }
@@ -220,6 +240,13 @@ pub struct AssetLifecycleChannel<T> {
 pub enum AssetLifecycleEvent<T> {
     /// An asset was created.
     Create(AssetResult<T>),
+    /// An alias for an already existing asset was created.
+    Alias {
+        /// An asset that was already created
+        extant: HandleId,
+        /// An alias to be added
+        alias: HandleId,
+    },
     /// An asset was freed.
     Free(HandleId),
 }
@@ -228,6 +255,8 @@ pub enum AssetLifecycleEvent<T> {
 pub trait AssetLifecycle: Downcast + Send + Sync + 'static {
     /// Notifies the asset server that a new asset was created.
     fn create_asset(&self, id: HandleId, asset: Box<dyn AssetDynamic>, version: usize);
+    /// Notifies the asset server that there is an alias for an extant asset.
+    fn alias_asset(&self, extant: HandleId, alias: HandleId);
     /// Notifies the asset server that an asset was freed.
     fn free_asset(&self, id: HandleId);
 }
@@ -249,6 +278,12 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
                 std::any::type_name::<T>()
             );
         }
+    }
+
+    fn alias_asset(&self, extant: HandleId, alias: HandleId) {
+        self.sender
+            .send(AssetLifecycleEvent::Alias { extant, alias })
+            .unwrap();
     }
 
     fn free_asset(&self, id: HandleId) {
