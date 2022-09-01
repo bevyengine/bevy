@@ -508,6 +508,19 @@ impl<'w> EntityMut<'w> {
         self.world
     }
 
+    /// Access the inner `&mut World` within `use_world` and run [`Self::update_location`].
+    ///
+    /// This is a safe alternative to [`EntityMut::world_mut`].
+    ///
+    /// If you _know_ that `use_world` doesn't change the current entity's location,
+    /// then `self.update_location` is extaneous and it might be more efficient to use
+    /// the unsafe `world_mut` method instead.
+    #[inline]
+    pub fn with_world_mut(&mut self, use_world: impl FnOnce(&mut World)) {
+        use_world(self.world);
+        self.update_location();
+    }
+
     /// Return this `EntityMut`'s [`World`], consuming itself.
     #[inline]
     pub fn into_world_mut(self) -> &'w mut World {
