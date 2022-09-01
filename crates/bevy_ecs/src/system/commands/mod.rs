@@ -255,7 +255,7 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     /// Returns an option containing an [`EntityCommands`] builder for the requested [`Entity`] if it exists, otherwise `None`.
-    /// This does not ensure that the commands will succeed as the entity may no longer exist by the time they are executed.
+    /// This does not ensure that the commands will succeed as the entity may no longer exist by the time the associated commands are executed.
     ///
     /// # Example
     ///
