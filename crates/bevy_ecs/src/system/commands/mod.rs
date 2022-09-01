@@ -275,7 +275,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
-        self.entities.contains(entity).then(EntityCommands {
+        self.entities.contains(entity).then_some(EntityCommands {
             entity,
             commands: self,
         })
