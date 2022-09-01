@@ -275,14 +275,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
-        if self.entities.contains(entity) {
-            Some(EntityCommands {
-                entity,
-                commands: self,
-            })
-        } else {
-            None
-        }
+        self.entities.contains(entity).then(EntityCommands {
+            entity,
+            commands: self,
+        })
     }
 
     /// Spawns entities to the [`World`] according to the given iterator (or a type that can
