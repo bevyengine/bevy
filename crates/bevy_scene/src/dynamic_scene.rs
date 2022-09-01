@@ -78,7 +78,7 @@ impl DynamicScene {
 
     /// Write the dynamic entities and their corresponding components to the given world.
     ///
-    /// This method will return a [`SceneSpawnError`] if either a type is not registered
+    /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
     pub fn write_to_world(
         &self,

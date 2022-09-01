@@ -27,7 +27,7 @@ impl Scene {
 
     /// Clone the scene.
     ///
-    /// This method will return a [`SceneSpawnError`] if either a type is not registered in the
+    /// This method will return a [`SceneSpawnError`] if a type either is not registered in the
     /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
     pub fn clone_with(&self, type_registry: &AppTypeRegistry) -> Result<Scene, SceneSpawnError> {
         let mut new_world = World::new();
@@ -39,7 +39,7 @@ impl Scene {
 
     /// Write the entities and their corresponding components to the given world.
     ///
-    /// This method will return a [`SceneSpawnError`] if either a type is not registered
+    /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
     pub fn write_to_world(&self, world: &mut World) -> Result<InstanceInfo, SceneSpawnError> {
         let mut instance_info = InstanceInfo {
