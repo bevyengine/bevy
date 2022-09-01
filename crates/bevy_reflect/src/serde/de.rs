@@ -99,22 +99,12 @@ impl TupleLikeInfo for TupleVariantInfo {
 /// let expected = vec!["foo", "bar", "baz"];
 /// assert_eq!("`foo`, `bar`, `baz`", format!("{}", ExpectedValues(expected)));
 /// ```
-struct ExpectedValues<TIntoIter, TIter, TItem>(TIntoIter)
-where
-    TIntoIter: IntoIterator<IntoIter = TIter> + Clone,
-    TIter: Iterator<Item = TItem> + ExactSizeIterator,
-    TItem: Display;
+struct ExpectedValues<T: Display>(Vec<T>);
 
-impl<TIntoIter, TIter, TItem> Debug for ExpectedValues<TIntoIter, TIter, TItem>
-where
-    TIntoIter: IntoIterator<IntoIter = TIter> + Clone,
-    TIter: Iterator<Item = TItem> + ExactSizeIterator,
-    TItem: Display,
-{
+impl<T: Display> Debug for ExpectedValues<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let iter = self.0.clone().into_iter();
-        let len = iter.len();
-        for (index, item) in iter.enumerate() {
+        let len = self.0.len();
+        for (index, item) in self.0.iter().enumerate() {
             write!(f, "`{}`", item)?;
             if index < len - 1 {
                 write!(f, ", ")?;
@@ -624,7 +614,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
             Error::custom(format_args!(
                 "unknown variant `{}`, expected one of {:?}",
                 variant_name,
-                ExpectedValues(names)
+                ExpectedValues(names.collect())
             ))
         })?;
         let value: DynamicVariant = match variant_info {
@@ -773,7 +763,7 @@ where
             Error::custom(format_args!(
                 "unknown field `{}`, expected one of {:?}",
                 key,
-                ExpectedValues(fields)
+                ExpectedValues(fields.collect())
             ))
         })?;
         let registration = get_registration(field.type_id(), field.type_name(), registry)?;
