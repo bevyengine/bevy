@@ -2,11 +2,31 @@ use std::marker::PhantomData;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_core::Name;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, schedule::ShouldRun};
 use bevy_log::warn;
 use bevy_utils::{get_short_name, HashSet};
 
 use crate::Parent;
+
+/// When enabled, runs [`check_hierarchy_component_has_valid_parent<T>`].
+///
+/// This resource is added by [`ValidParentCheckPlugin<T>`].
+/// It is enabled on debug builds and disabled in release builds by default,
+/// you can update this resource at runtime to change the default behavior.
+#[derive(Resource)]
+pub struct ReportHierarchyIssue<T> {
+    /// Whether to run [`check_hierarchy_component_has_valid_parent<T>`].
+    pub enabled: bool,
+    _comp: PhantomData<fn(T)>,
+}
+impl<T> Default for ReportHierarchyIssue<T> {
+    fn default() -> Self {
+        Self {
+            enabled: cfg!(debug_assertions),
+            _comp: PhantomData,
+        }
+    }
+}
 
 /// System to print a warning for each `Entity` with a `T` component
 /// which parent hasn't a `T` component.
@@ -38,6 +58,14 @@ pub fn check_hierarchy_component_has_valid_parent<T: Component>(
     }
 }
 
+/// Run criteria that only allows running when [`ReportHierarchyIssue<T>`] is enabled.
+pub fn on_hierarchy_reports_enabled<T>(report: Res<ReportHierarchyIssue<T>>) -> ShouldRun
+where
+    T: Component,
+{
+    report.enabled.into()
+}
+
 /// Print a warning for each `Entity` with a `T` component
 /// which parent hasn't a `T` component.
 ///
@@ -51,9 +79,11 @@ impl<T: Component> Default for ValidParentCheckPlugin<T> {
 
 impl<T: Component> Plugin for ValidParentCheckPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_system_to_stage(
-            CoreStage::Last,
-            check_hierarchy_component_has_valid_parent::<T>,
-        );
+        app.init_resource::<ReportHierarchyIssue<T>>()
+            .add_system_to_stage(
+                CoreStage::Last,
+                check_hierarchy_component_has_valid_parent::<T>
+                    .with_run_criteria(on_hierarchy_reports_enabled::<T>),
+            );
     }
 }

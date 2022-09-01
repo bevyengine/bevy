@@ -35,11 +35,6 @@ impl PluginGroup for DefaultPlugins {
         group.add(bevy_input::InputPlugin::default());
         group.add(bevy_window::WindowPlugin::default());
 
-        #[cfg(debug_assertions)]
-        group.add(bevy_hierarchy::ValidParentCheckPlugin::<
-            crate::prelude::GlobalTransform,
-        >::default());
-
         #[cfg(feature = "bevy_asset")]
         group.add(bevy_asset::AssetPlugin::default());
 
@@ -54,11 +49,6 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_render")]
         group.add(bevy_render::RenderPlugin::default());
-
-        #[cfg(all(feature = "bevy_render", debug_assertions))]
-        group.add(bevy_hierarchy::ValidParentCheckPlugin::<
-            crate::prelude::ComputedVisibility,
-        >::default());
 
         #[cfg(feature = "bevy_core_pipeline")]
         group.add(bevy_core_pipeline::CorePipelinePlugin::default());
