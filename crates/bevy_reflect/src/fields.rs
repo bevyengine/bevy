@@ -11,9 +11,9 @@ pub struct NamedField {
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect, TName: Into<&'static str>>(name: TName) -> Self {
+    pub fn new<T: Reflect>(name: &'static str) -> Self {
         Self {
-            name: name.into(),
+            name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
         }

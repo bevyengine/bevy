@@ -343,7 +343,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     });
 
                     let field_ty = &field.data.ty;
-                    quote! { #bevy_reflect_path::NamedField::new::<#field_ty, _>(#field_name) }
+                    quote! { #bevy_reflect_path::NamedField::new::<#field_ty>(#field_name) }
                 });
                 let arguments = quote!(#name, &[ #(#argument),* ]);
                 add_fields_branch("Struct", "StructVariantInfo", arguments, field_len);
