@@ -77,6 +77,7 @@ impl From<()> for DynamicVariant {
 pub struct DynamicEnum {
     name: String,
     variant_name: String,
+    variant_index: usize,
     variant: DynamicVariant,
 }
 
@@ -96,6 +97,30 @@ impl DynamicEnum {
     ) -> Self {
         Self {
             name: name.into(),
+            variant_index: 0,
+            variant_name: variant_name.into(),
+            variant: variant.into(),
+        }
+    }
+
+    /// Create a new [`DynamicEnum`] with a variant index to represent an enum at runtime.
+    ///
+    /// # Arguments
+    ///
+    /// * `name`: The type name of the enum
+    /// * `variant_index`: The index of the variant to set
+    /// * `variant_name`: The name of the variant to set
+    /// * `variant`: The variant data
+    ///
+    pub fn new_with_index<I: Into<String>, V: Into<DynamicVariant>>(
+        name: I,
+        variant_index: usize,
+        variant_name: I,
+        variant: V,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            variant_index,
             variant_name: variant_name.into(),
             variant: variant.into(),
         }
@@ -117,6 +142,18 @@ impl DynamicEnum {
         self.variant = variant.into();
     }
 
+    /// Set the current enum variant represented by this struct along with its variant index.
+    pub fn set_variant_with_index<I: Into<String>, V: Into<DynamicVariant>>(
+        &mut self,
+        variant_index: usize,
+        name: I,
+        variant: V,
+    ) {
+        self.variant_index = variant_index;
+        self.variant_name = name.into();
+        self.variant = variant.into();
+    }
+
     /// Create a [`DynamicEnum`] from an existing one.
     ///
     /// This is functionally the same as [`DynamicEnum::from_ref`] except it takes an owned value.
@@ -129,8 +166,9 @@ impl DynamicEnum {
     /// This is functionally the same as [`DynamicEnum::from`] except it takes a reference.
     pub fn from_ref<TEnum: Enum>(value: &TEnum) -> Self {
         match value.variant_type() {
-            VariantType::Unit => DynamicEnum::new(
+            VariantType::Unit => DynamicEnum::new_with_index(
                 value.type_name(),
+                value.variant_index(),
                 value.variant_name(),
                 DynamicVariant::Unit,
             ),
@@ -139,8 +177,9 @@ impl DynamicEnum {
                 for field in value.iter_fields() {
                     data.insert_boxed(field.value().clone_value());
                 }
-                DynamicEnum::new(
+                DynamicEnum::new_with_index(
                     value.type_name(),
+                    value.variant_index(),
                     value.variant_name(),
                     DynamicVariant::Tuple(data),
                 )
@@ -151,8 +190,9 @@ impl DynamicEnum {
                     let name = field.name().unwrap();
                     data.insert_boxed(name, field.value().clone_value());
                 }
-                DynamicEnum::new(
+                DynamicEnum::new_with_index(
                     value.type_name(),
+                    value.variant_index(),
                     value.variant_name(),
                     DynamicVariant::Struct(data),
                 )
@@ -226,6 +266,10 @@ impl Enum for DynamicEnum {
         &self.variant_name
     }
 
+    fn variant_index(&self) -> usize {
+        self.variant_index
+    }
+
     fn variant_type(&self) -> VariantType {
         match &self.variant {
             DynamicVariant::Unit => VariantType::Unit,
@@ -237,6 +281,7 @@ impl Enum for DynamicEnum {
     fn clone_dynamic(&self) -> DynamicEnum {
         Self {
             name: self.name.clone(),
+            variant_index: self.variant_index,
             variant_name: self.variant_name.clone(),
             variant: self.variant.clone(),
         }

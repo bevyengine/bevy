@@ -303,22 +303,15 @@ impl<'a> Serialize for EnumSerializer<'a> {
         };
 
         let enum_name = enum_info.name();
+        let variant_index = self.enum_value.variant_index() as u32;
         let variant_info = enum_info
-            .variant(self.enum_value.variant_name())
+            .variant_at(variant_index as usize)
             .ok_or_else(|| {
                 Error::custom(format_args!(
-                    "variant `{}` does not exist",
-                    self.enum_value.variant_name()
+                    "variant at index `{}` does not exist",
+                    variant_index
                 ))
             })?;
-        let variant_index = enum_info
-            .index_of(self.enum_value.variant_name())
-            .ok_or_else(|| {
-                Error::custom(format_args!(
-                    "variant `{}` does not exist",
-                    self.enum_value.variant_name()
-                ))
-            })? as u32;
         let variant_name = variant_info.name();
         let variant_type = self.enum_value.variant_type();
         let field_len = self.enum_value.field_len();

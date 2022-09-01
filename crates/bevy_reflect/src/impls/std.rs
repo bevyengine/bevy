@@ -682,6 +682,13 @@ impl<T: FromReflect> Enum for Option<T> {
         }
     }
 
+    fn variant_index(&self) -> usize {
+        match self {
+            None => 0,
+            Some(..) => 1,
+        }
+    }
+
     #[inline]
     fn variant_type(&self) -> VariantType {
         match self {

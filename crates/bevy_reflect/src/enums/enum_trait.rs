@@ -113,6 +113,8 @@ pub trait Enum: Reflect {
     fn field_len(&self) -> usize;
     /// The name of the current variant.
     fn variant_name(&self) -> &str;
+    /// The index of the current variant.
+    fn variant_index(&self) -> usize;
     /// The type of the current variant.
     fn variant_type(&self) -> VariantType;
     // Clones the enum into a [`DynamicEnum`].
