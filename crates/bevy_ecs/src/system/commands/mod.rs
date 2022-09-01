@@ -243,17 +243,47 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
+    #[inline]
     #[track_caller]
     pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
-        assert!(
-            self.entities.contains(entity),
-            "Attempting to create an EntityCommands for entity {:?}, which doesn't exist.",
-            entity
-        );
-        EntityCommands {
+        self.get_entity(entity).unwrap_or_else(|| {
+            panic!(
+                "Attempting to create an EntityCommands for entity {:?}, which doesn't exist.",
+                entity
+            )
+        })
+    }
+
+    /// Returns an option containing an [`EntityCommands`] builder for the requested [`Entity`] if it exists, otherwise `None`.
+    /// This does not ensure that the commands will succeed as the entity may no longer exist by the time the associated commands are executed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new, empty entity
+    ///     let entity = commands.spawn().id();
+    ///
+    ///     // Get the entity if it still exists, which it will in this case
+    ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
+    ///         // adds a single component to the entity
+    ///         entity_commands.insert(Label("hello world"));
+    ///     }      
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
+    #[inline]
+    #[track_caller]
+    pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
+        self.entities.contains(entity).then_some(EntityCommands {
             entity,
             commands: self,
-        }
+        })
     }
 
     /// Spawns entities to the [`World`] according to the given iterator (or a type that can
