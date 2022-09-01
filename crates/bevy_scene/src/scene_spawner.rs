@@ -1,4 +1,5 @@
 use crate::{DynamicScene, Scene};
+use bevy_app::AppTypeRegistry;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
@@ -169,7 +170,8 @@ impl SceneSpawner {
                         handle: scene_handle.clone(),
                     })?;
 
-            let instance_info = scene.write_to_world(world)?;
+            let instance_info =
+                scene.write_to_world_with(world, &world.resource::<AppTypeRegistry>().clone())?;
 
             self.spawned_instances.insert(instance_id, instance_info);
             let spawned = self
