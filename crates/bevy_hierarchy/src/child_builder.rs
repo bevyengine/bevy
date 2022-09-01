@@ -166,7 +166,8 @@ impl Command for PushChildren {
     }
 }
 
-/// Command that removes children from an entity, and removes that child's parent and inserts it into the previous parent component
+/// Command that removes children from an entity,
+/// and removes that child's parent and inserts it into the previous parent component
 pub struct RemoveChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
@@ -192,7 +193,9 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
         e
     }
 
-    /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`ChildBuilder`] which adds the [`Parent`] component to it.
+    /// Spawns an [`Entity`] with no components
+    /// and inserts it into the children defined by the [`ChildBuilder`]
+    /// which adds the [`Parent`] component to it.
     pub fn spawn(&mut self) -> EntityCommands<'w, 's, '_> {
         let e = self.commands.spawn();
         self.push_children.children.push(e.id());
@@ -345,7 +348,9 @@ impl<'w> WorldChildBuilder<'w> {
         self.world.entity_mut(entity)
     }
 
-    /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`WorldChildBuilder`] which adds the [`Parent`] component to it.
+    /// Spawns an [`Entity`] with no components and inserts it
+    /// into the children defined by the [`WorldChildBuilder`]
+    /// which adds the [`Parent`] component to it.
     pub fn spawn(&mut self) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
         let entity = self.world.spawn().insert(Parent(parent_entity)).id();
