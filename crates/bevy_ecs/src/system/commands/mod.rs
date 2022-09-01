@@ -245,10 +245,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
-        self.get_entity(entity).expect(&format!(
-            "Attempting to create an EntityCommands for entity {:?}, which doesn't exist.",
-            entity
-        ))
+        self.get_entity(entity).unwrap_or_else(|| {
+            panic!(
+                "Attempting to create an EntityCommands for entity {:?}, which doesn't exist.",
+                entity
+            )
+        })
     }
 
     /// Returns an option containing an [`EntityCommands`] builder for the requested [`Entity`] if it exists, otherwise None.
