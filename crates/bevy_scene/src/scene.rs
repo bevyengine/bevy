@@ -24,9 +24,7 @@ impl Scene {
     pub fn new(world: World) -> Self {
         Self { world }
     }
-}
 
-impl Scene {
     /// Clone the scene.
     ///
     /// This method will return a `SceneSpawnError` if either a type is not registered in the
