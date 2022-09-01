@@ -29,7 +29,7 @@ impl Scene {
     ///
     /// This method will return a `SceneSpawnError` if either a type is not registered in the
     /// provided `AppTypeRegistry` or doesn't reflect the `Component` trait.
-    pub fn clone(&self, type_registry: &AppTypeRegistry) -> Result<Scene, SceneSpawnError> {
+    pub fn clone_with(&self, type_registry: &AppTypeRegistry) -> Result<Scene, SceneSpawnError> {
         let mut new_world = World::new();
         new_world.insert_resource(type_registry.clone());
         self.write_to_world(&mut new_world)?;
