@@ -73,7 +73,6 @@ pub struct StructInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[NamedField]>,
-    field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
 }
 
@@ -91,13 +90,11 @@ impl StructInfo {
             .enumerate()
             .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
-        let field_names = fields.iter().map(|field| field.name()).collect::<Vec<_>>();
 
         Self {
             name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
-            field_names: field_names.into_boxed_slice(),
             fields: fields.to_vec().into_boxed_slice(),
             field_indices,
         }
@@ -108,11 +105,6 @@ impl StructInfo {
         self.field_indices
             .get(name)
             .map(|index| &self.fields[*index])
-    }
-
-    /// A slice containing the names of all fields in order.
-    pub fn field_names(&self) -> &[&'static str] {
-        &self.field_names
     }
 
     /// Get the field at the given index.

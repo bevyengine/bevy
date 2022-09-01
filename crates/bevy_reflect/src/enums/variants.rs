@@ -79,7 +79,6 @@ impl VariantInfo {
 pub struct StructVariantInfo {
     name: &'static str,
     fields: Box<[NamedField]>,
-    field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
 }
 
@@ -87,11 +86,9 @@ impl StructVariantInfo {
     /// Create a new [`StructVariantInfo`].
     pub fn new(name: &'static str, fields: &[NamedField]) -> Self {
         let field_indices = Self::collect_field_indices(fields);
-        let field_names = fields.iter().map(|field| field.name()).collect::<Vec<_>>();
         Self {
             name,
             fields: fields.to_vec().into_boxed_slice(),
-            field_names: field_names.into_boxed_slice(),
             field_indices,
         }
     }
@@ -106,11 +103,6 @@ impl StructVariantInfo {
         self.field_indices
             .get(name)
             .map(|index| &self.fields[*index])
-    }
-
-    /// A slice containing the names of all fields in order.
-    pub fn field_names(&self) -> &[&'static str] {
-        &self.field_names
     }
 
     /// Get the field at the given index.

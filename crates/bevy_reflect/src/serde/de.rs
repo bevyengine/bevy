@@ -13,7 +13,8 @@ use serde::de::{
 use serde::Deserialize;
 use std::any::TypeId;
 use std::fmt;
-use std::fmt::Formatter;
+use std::fmt::{Debug, Display, Formatter};
+use std::slice::Iter;
 
 pub trait DeserializeValue {
     fn deserialize(
@@ -25,7 +26,7 @@ pub trait DeserializeValue {
 trait StructLikeInfo {
     fn get_name(&self) -> &str;
     fn get_field(&self, name: &str) -> Option<&NamedField>;
-    fn get_field_names(&self) -> &[&'static str];
+    fn iter_fields(&self) -> Iter<'_, NamedField>;
 }
 
 trait TupleLikeInfo {
@@ -43,8 +44,8 @@ impl StructLikeInfo for StructInfo {
         self.field(name)
     }
 
-    fn get_field_names(&self) -> &[&'static str] {
-        self.field_names()
+    fn iter_fields(&self) -> Iter<'_, NamedField> {
+        self.iter()
     }
 }
 
@@ -57,8 +58,8 @@ impl StructLikeInfo for StructVariantInfo {
         self.field(name)
     }
 
-    fn get_field_names(&self) -> &[&'static str] {
-        self.field_names()
+    fn iter_fields(&self) -> Iter<'_, NamedField> {
+        self.iter()
     }
 }
 
@@ -87,6 +88,39 @@ impl TupleLikeInfo for TupleVariantInfo {
 
     fn get_field_len(&self) -> usize {
         self.field_len()
+    }
+}
+
+/// A debug struct used for error messages that displays a list of expected values.
+///
+/// # Example
+///
+/// ```ignore
+/// let expected = vec!["foo", "bar", "baz"];
+/// assert_eq!("`foo`, `bar`, `baz`", format!("{}", ExpectedValues(expected)));
+/// ```
+struct ExpectedValues<TIntoIter, TIter, TItem>(TIntoIter)
+where
+    TIntoIter: IntoIterator<IntoIter = TIter> + Clone,
+    TIter: Iterator<Item = TItem> + ExactSizeIterator,
+    TItem: Display;
+
+impl<TIntoIter, TIter, TItem> Debug for ExpectedValues<TIntoIter, TIter, TItem>
+where
+    TIntoIter: IntoIterator<IntoIter = TIter> + Clone,
+    TIter: Iterator<Item = TItem> + ExactSizeIterator,
+    TItem: Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let iter = self.0.clone().into_iter();
+        let len = iter.len();
+        for (index, item) in iter.enumerate() {
+            write!(f, "`{}`", item)?;
+            if index < len - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -255,7 +289,8 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             TypeInfo::Struct(struct_info) => {
                 let mut dynamic_struct = deserializer.deserialize_struct(
                     struct_info.name(),
-                    struct_info.field_names(),
+                    // Field names are mainly just a hint, we don't necessarily need to store and pass that data
+                    &[],
                     StructVisitor {
                         struct_info,
                         registry: self.registry,
@@ -324,7 +359,8 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 } else {
                     deserializer.deserialize_enum(
                         enum_info.name(),
-                        enum_info.variant_names(),
+                        // Variant names are mainly just a hint, we don't necessarily need to store and pass that data
+                        &[],
                         EnumVisitor {
                             enum_info,
                             registry: self.registry,
@@ -583,15 +619,20 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
     {
         let mut dynamic_enum = DynamicEnum::default();
         let (Ident(variant_name), variant) = data.variant().unwrap();
-        let variant_info = self
-            .enum_info
-            .variant(&variant_name)
-            .ok_or_else(|| Error::unknown_variant(&variant_name, self.enum_info.variant_names()))?;
+        let variant_info = self.enum_info.variant(&variant_name).ok_or_else(|| {
+            let names = self.enum_info.iter().map(|variant| variant.name());
+            Error::custom(format_args!(
+                "unknown variant `{}`, expected one of {:?}",
+                variant_name,
+                ExpectedValues(names)
+            ))
+        })?;
         let value: DynamicVariant = match variant_info {
             VariantInfo::Unit(..) => variant.unit_variant()?.into(),
             VariantInfo::Struct(struct_info) => variant
                 .struct_variant(
-                    struct_info.field_names(),
+                    // Field names are mainly just a hint, we don't necessarily need to store and pass that data
+                    &[],
                     StructVariantVisitor {
                         struct_info,
                         registry: self.registry,
@@ -727,9 +768,14 @@ where
 {
     let mut dynamic_struct = DynamicStruct::default();
     while let Some(Ident(key)) = map.next_key::<Ident>()? {
-        let field = info
-            .get_field(&key)
-            .ok_or_else(|| Error::unknown_field(&key, info.get_field_names()))?;
+        let field = info.get_field(&key).ok_or_else(|| {
+            let fields = info.iter_fields().map(|field| field.name());
+            Error::custom(format_args!(
+                "unknown field `{}`, expected one of {:?}",
+                key,
+                ExpectedValues(fields)
+            ))
+        })?;
         let registration = get_registration(field.type_id(), field.type_name(), registry)?;
         let value = map.next_value_seed(TypedReflectDeserializer {
             registration,
