@@ -259,6 +259,11 @@ pub trait BuildChildren {
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Adds a single child
     fn add_child(&mut self, child: Entity) -> &mut Self;
+
+    /// Set the parent.
+    ///
+    /// This overwrites the existing parent.
+    fn set_parent(&mut self, parent: Entity) -> &mut Self;
 }
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
@@ -314,6 +319,12 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
+        self.commands().add(AddChild { child, parent });
+        self
+    }
+
+    fn set_parent(&mut self, parent: Entity) -> &mut Self {
+        let child = self.id();
         self.commands().add(AddChild { child, parent });
         self
     }
@@ -530,6 +541,8 @@ mod tests {
                 parent.spawn().insert(C(4)).id(),
             ]
         });
+        let mut children = children.to_vec();
+        children.push(commands.spawn().insert(C(5)).set_parent(parent).id());
 
         queue.apply(&mut world);
         assert_eq!(
