@@ -584,6 +584,7 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
 
+        // Why are those assertions repeated?
         assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
 
