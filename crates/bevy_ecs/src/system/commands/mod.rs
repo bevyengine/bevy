@@ -245,14 +245,43 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
-        assert!(
-            self.entities.contains(entity),
+        self.get_entity(entity).expect(&format!(
             "Attempting to create an EntityCommands for entity {:?}, which doesn't exist.",
             entity
-        );
-        EntityCommands {
-            entity,
-            commands: self,
+        ))
+    }
+
+    /// Returns an option containing an [`EntityCommands`] builder for the requested [`Entity`] if it exists, otherwise None.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new, empty entity
+    ///     let entity = commands.spawn().id();
+    ///
+    ///     // Get the entity if it still exists, which it will in this case
+    ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
+    ///         // adds a single component to the entity
+    ///         entity_commands.insert(Label("hello world"));
+    ///     }      
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
+    #[track_caller]
+    pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
+        if self.entities.contains(entity) {
+            Some(EntityCommands {
+                entity,
+                commands: self,
+            })
+        } else {
+            None
         }
     }
 
