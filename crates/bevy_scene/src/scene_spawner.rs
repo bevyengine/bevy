@@ -15,7 +15,7 @@ use uuid::Uuid;
 /// Informations about a scene instance.
 #[derive(Debug)]
 pub struct InstanceInfo {
-    /// Mapping of entities between the scene world and the instance world.
+    /// Mapping of entities from the scene world to the instance world.
     pub entity_map: EntityMap,
 }
 
