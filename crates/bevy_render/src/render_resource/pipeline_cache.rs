@@ -24,11 +24,18 @@ use wgpu::{
     VertexBufferLayout as RawVertexBufferLayout,
 };
 
+/// A descriptor for a [`Pipeline`].
+///
+/// Used to store an heterogenous collection of render and compute pipeline descriptors together.
+#[derive(Debug)]
 pub enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
     ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
 }
 
+/// A pipeline defining the data layout and shader logic for a specific GPU task.
+///
+/// Used to store an heterogenous collection of render and compute pipelines together.
 #[derive(Debug)]
 pub enum Pipeline {
     RenderPipeline(RenderPipeline),
@@ -37,17 +44,21 @@ pub enum Pipeline {
 
 type CachedPipelineId = usize;
 
+/// Index of a cached render pipeline in a [`PipelineCache`].
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct CachedRenderPipelineId(CachedPipelineId);
 
 impl CachedRenderPipelineId {
+    /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
 }
 
+/// Index of a cached compute pipeline in a [`PipelineCache`].
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct CachedComputePipelineId(CachedPipelineId);
 
 impl CachedComputePipelineId {
+    /// An invalid cached compute pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
 }
 
@@ -56,14 +67,28 @@ pub struct CachedPipeline {
     pub state: CachedPipelineState,
 }
 
+/// State of a cached pipeline inserted into a [`PipelineCache`].
 #[derive(Debug)]
 pub enum CachedPipelineState {
+    /// The pipeline GPU object is queued for creation.
     Queued,
+    /// The pipeline GPU object was created successfully and is available (allocated on the GPU).
     Ok(Pipeline),
+    /// An error occurred while trying to create the pipeline GPU object.
     Err(PipelineCacheError),
 }
 
 impl CachedPipelineState {
+    /// Convenience method to "unwrap" a pipeline state into its underlying GPU object.
+    ///
+    /// # Returns
+    ///
+    /// The method returns the allocated pipeline GPU object.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the pipeline GPU object is not available, either because it is
+    /// pending creation or because an error occurred while attempting to create GPU object.
     pub fn unwrap(&self) -> &Pipeline {
         match self {
             CachedPipelineState::Ok(pipeline) => pipeline,
@@ -271,6 +296,18 @@ impl LayoutCache {
     }
 }
 
+/// Cache for render and compute pipelines.
+///
+/// The cache stores existing render and compute pipelines allocated on the GPU, as well as
+/// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
+/// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
+/// pipeline object is deferred to the [`RenderStage::Render`] stage, just before the render
+/// graph starts being processed, as this requires access to the GPU.
+///
+/// Note that the cache do not perform automatic deduplication of identical pipelines. It is
+/// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
+///
+/// [`RenderStage::Render`]: crate::RenderStage::Render
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: LayoutCache,
@@ -285,6 +322,7 @@ impl PipelineCache {
         self.pipelines.iter()
     }
 
+    /// Create a new pipeline cache associated with the given render device.
     pub fn new(device: RenderDevice) -> Self {
         Self {
             device,
@@ -295,16 +333,25 @@ impl PipelineCache {
         }
     }
 
+    /// Get the state of a cached render pipeline.
+    ///
+    /// See [`PipelineCache::queue_render_pipeline()`].
     #[inline]
     pub fn get_render_pipeline_state(&self, id: CachedRenderPipelineId) -> &CachedPipelineState {
         &self.pipelines[id.0].state
     }
 
+    /// Get the state of a cached compute pipeline.
+    ///
+    /// See [`PipelineCache::queue_compute_pipeline()`].
     #[inline]
     pub fn get_compute_pipeline_state(&self, id: CachedComputePipelineId) -> &CachedPipelineState {
         &self.pipelines[id.0].state
     }
 
+    /// Get the render pipeline descriptor a cached render pipeline was inserted from.
+    ///
+    /// See [`PipelineCache::queue_render_pipeline()`].
     #[inline]
     pub fn get_render_pipeline_descriptor(
         &self,
@@ -316,6 +363,9 @@ impl PipelineCache {
         }
     }
 
+    /// Get the compute pipeline descriptor a cached render pipeline was inserted from.
+    ///
+    /// See [`PipelineCache::queue_compute_pipeline()`].
     #[inline]
     pub fn get_compute_pipeline_descriptor(
         &self,
@@ -327,6 +377,13 @@ impl PipelineCache {
         }
     }
 
+    /// Try to retrieve a render pipeline GPU object from a cached ID.
+    ///
+    /// # Returns
+    ///
+    /// This method returns a successfully created render pipeline if any, or `None` if the pipeline
+    /// was not created yet or if there was an error during creation. You can check the actual creation
+    /// state with [`PipelineCache::get_render_pipeline_state()`].
     #[inline]
     pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
@@ -338,6 +395,13 @@ impl PipelineCache {
         }
     }
 
+    /// Try to retrieve a compute pipeline GPU object from a cached ID.
+    ///
+    /// # Returns
+    ///
+    /// This method returns a successfully created compute pipeline if any, or `None` if the pipeline
+    /// was not created yet or if there was an error during creation. You can check the actual creation
+    /// state with [`PipelineCache::get_compute_pipeline_state()`].
     #[inline]
     pub fn get_compute_pipeline(&self, id: CachedComputePipelineId) -> Option<&ComputePipeline> {
         if let CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline)) =
@@ -349,6 +413,19 @@ impl PipelineCache {
         }
     }
 
+    /// Insert a render pipeline into the cache, and queue its creation.
+    ///
+    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate it with
+    /// an already cached pipeline.
+    ///
+    /// # Returns
+    ///
+    /// This method returns the unique render shader ID of the cached pipeline, which can be used to query
+    /// the caching state with [`get_render_pipeline_state()`] and to retrieve the created GPU pipeline once
+    /// it's ready with [`get_render_pipeline()`].
+    ///
+    /// [`get_render_pipeline_state()`]: PipelineCache::get_render_pipeline_state
+    /// [`get_render_pipeline()`]: PipelineCache::get_render_pipeline
     pub fn queue_render_pipeline(
         &mut self,
         descriptor: RenderPipelineDescriptor,
@@ -362,6 +439,19 @@ impl PipelineCache {
         id
     }
 
+    /// Insert a compute pipeline into the cache, and queue its creation.
+    ///
+    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate it with
+    /// an already cached pipeline.
+    ///
+    /// # Returns
+    ///
+    /// This method returns the unique compute shader ID of the cached pipeline, which can be used to query
+    /// the caching state with [`get_compute_pipeline_state()`] and to retrieve the created GPU pipeline once
+    /// it's ready with [`get_compute_pipeline()`].
+    ///
+    /// [`get_compute_pipeline_state()`]: PipelineCache::get_compute_pipeline_state
+    /// [`get_compute_pipeline()`]: PipelineCache::get_compute_pipeline
     pub fn queue_compute_pipeline(
         &mut self,
         descriptor: ComputePipelineDescriptor,
@@ -507,6 +597,12 @@ impl PipelineCache {
         CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline))
     }
 
+    /// Process the pipeline queue and create all pending pipelines if possible.
+    ///
+    /// This is generally called automatically during the [`RenderStage::Render`] stage, but can
+    /// be called manually to force creation at a different time.
+    ///
+    /// [`RenderStage::Render`]: crate::RenderStage::Render
     pub fn process_queue(&mut self) {
         let waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
@@ -667,6 +763,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
     }
 }
 
+/// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
