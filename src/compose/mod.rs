@@ -228,7 +228,13 @@ impl ComposableModuleDefinition {
 #[derive(Debug, Clone)]
 pub struct ImportDefinition {
     pub import: String,
-    pub as_name: String,
+    pub as_name: Option<String>,
+}
+
+impl ImportDefinition {
+    fn as_name(&self) -> &str {
+        self.as_name.as_deref().unwrap_or(self.import.as_str())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -569,11 +575,18 @@ impl Composer {
 
         // sort imports by decreasing length so we don't accidentally replace substrings of a longer import
         let mut imports = imports.to_vec();
-        imports.sort_by_key(|import| usize::MAX - import.definition.as_name.len());
+        imports.sort_by_key(|import| {
+            usize::MAX
+                - import.definition.as_name().len()
+        });
 
         for import in imports.iter() {
             substituted_source = substituted_source.replace(
-                format!("{}::", import.definition.as_name).as_str(),
+                format!(
+                    "{}::",
+                    import.definition.as_name()
+                )
+                .as_str(),
                 &Self::decorate(&import.definition.import),
             );
         }
@@ -719,7 +732,7 @@ impl Composer {
                     imports.push(ImportDefWithOffset {
                         definition: ImportDefinition {
                             import: cap.get(1).unwrap().as_str().to_string(),
-                            as_name: cap.get(2).unwrap().as_str().to_string(),
+                            as_name: Some(cap.get(2).unwrap().as_str().to_string()),
                         },
                         offset,
                     });
@@ -727,7 +740,7 @@ impl Composer {
                     imports.push(ImportDefWithOffset {
                         definition: ImportDefinition {
                             import: cap.get(1).unwrap().as_str().to_string(),
-                            as_name: cap.get(1).unwrap().as_str().to_string(),
+                            as_name: None,
                         },
                         offset,
                     });
@@ -772,7 +785,7 @@ impl Composer {
                 imports.push(ImportDefWithOffset {
                     definition: ImportDefinition {
                         import: cap.get(1).unwrap().as_str().to_string(),
-                        as_name: cap.get(2).unwrap().as_str().to_string(),
+                        as_name: Some(cap.get(2).unwrap().as_str().to_string()),
                     },
                     offset,
                 });
@@ -780,7 +793,7 @@ impl Composer {
                 imports.push(ImportDefWithOffset {
                     definition: ImportDefinition {
                         import: cap.get(1).unwrap().as_str().to_string(),
-                        as_name: cap.get(1).unwrap().as_str().to_string(),
+                        as_name: None,
                     },
                     offset,
                 });
@@ -1384,7 +1397,7 @@ impl Composer {
 
         if imports
             .iter()
-            .map(|i| &i.definition.as_name)
+            .map(|i| i.definition.as_name())
             .collect::<HashSet<_>>()
             .len()
             < imports.len()

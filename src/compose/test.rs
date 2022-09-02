@@ -466,7 +466,7 @@ mod test {
                 file_path: "tests/add_imports/top.wgsl",
                 additional_imports: &[ImportDefinition {
                     import: "plugin".to_owned(),
-                    as_name: "plugin".to_owned(),
+                    as_name: None,
                 }],
                 ..Default::default()
             })
@@ -499,7 +499,7 @@ mod test {
                 as_name: Some("test_module".to_owned()),
                 additional_imports: &[ImportDefinition {
                     import: "plugin".to_owned(),
-                    as_name: "plugin".to_owned(),
+                    as_name: None,
                 }],
                 ..Default::default()
             })
