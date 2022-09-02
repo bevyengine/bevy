@@ -3,16 +3,16 @@ use bevy_ecs::prelude::*;
 #[derive(Component)]
 struct A(usize);
 
-fn system(mut query: Query<&mut A>, e: Res<Entity>) {
+fn system(mut query: Query<&mut A>, e: Entity) {
     let iter = query.iter_combinations_mut();
     // This should fail to compile.
     is_iterator(iter);
 
-    let iter = query.iter_many_mut([*e]);
+    let iter = query.iter_many_mut([e]);
     // This should fail to compile.
     is_iterator(iter);
 
-    let iter = query.iter_join_map_mut([*e], |e| *e);
+    let iter = query.iter_join_map_mut([e], |e| *e);
     // This should fail to compile.
     is_iterator(iter);
 }
