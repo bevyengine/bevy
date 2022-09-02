@@ -75,19 +75,14 @@ pub struct ComputedCameraValues {
 ///
 /// The [`Camera`] component is added to an entity to define the properties of the viewpoint from
 /// which rendering occurs. It defines the position of the view to render, the projection method
-/// to transform the 3D objects into a 2D image, as well as the window into which that image
-/// is drawn.
+/// to transform the 3D objects into a 2D image, as well as the render target into which that image
+/// is produced.
 ///
-/// Adding a camera is typically done by adding a bundle, either the [`OrthographicCameraBundle`]
-/// or the [`PerspectiveCameraBundle`].
+/// Adding a camera is typically done by adding a bundle, either the [`Camera2dBundle`] or the
+/// [`Camera3dBundle`].
 ///
-/// The internal Bevy renderer makes a distinction between 2D and 3D content, which are rendered
-/// separately. To that end, at most two cameras should be added to the world, one per content.
-/// The content type is determined by the camera name, which is automatically set as appropriate
-/// by the various bundles.
-///
-/// [`OrthographicCameraBundle`]: crate::camera::OrthographicCameraBundle
-/// [`PerspectiveCameraBundle`]: crate::camera::PerspectiveCameraBundle
+/// [`Camera2dBundle`]: bevy_core_pipeline::core_2d::Camera2dBundle
+/// [`Camera3dBundle`]: bevy_core_pipeline::core_3d::Camera3dBundle
 #[derive(Component, Debug, Reflect, FromReflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
@@ -95,7 +90,7 @@ pub struct Camera {
     pub viewport: Option<Viewport>,
     /// Cameras with a lower priority will be rendered before cameras with a higher priority.
     pub priority: isize,
-    /// If this is set to true, this camera will be rendered to its specified [`RenderTarget`]. If false, this
+    /// If this is set to `true`, this camera will be rendered to its specified [`RenderTarget`]. If `false`, this
     /// camera will not be rendered.
     pub is_active: bool,
     /// Computed values for this camera, such as the projection matrix and the render target size.
@@ -331,10 +326,12 @@ impl RenderTarget {
 ///
 /// The system function is generic over the camera projection type, and only instances of
 /// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
-/// the app, running during the [`CoreStage::PostUpdate`] stage.
+/// the app, as well as the runtime-selected [`Projection`]. The system runs during the
+/// [`CoreStage::PostUpdate`] stage.
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
+/// [`Projection`]: crate::camera::Projection
 /// [`CoreStage::PostUpdate`]: bevy_app::CoreStage::PostUpdate
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
@@ -357,17 +354,6 @@ pub fn camera_system<T: CameraProjection + Component>(
 
         changed_window_ids.push(event.id);
     }
-
-    let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
-        .iter()
-        .filter_map(|event| {
-            if let AssetEvent::Modified { handle } = event {
-                Some(handle)
-            } else {
-                None
-            }
-        })
-        .collect();
 
     let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
         .iter()
