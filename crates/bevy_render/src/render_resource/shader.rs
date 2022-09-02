@@ -36,6 +36,8 @@ pub struct Shader {
     pub source: Source,
     pub import_path: Option<ShaderImport>,
     pub imports: Vec<ShaderImport>,
+    // extra imports not specified in the source string
+    pub additional_imports: Vec<naga_oil::compose::ImportDefinition>,
 }
 
 impl Shader {
@@ -57,6 +59,7 @@ impl Shader {
             imports: shader_imports.imports,
             import_path: shader_imports.import_path,
             source: Source::Wgsl(source),
+            additional_imports: Default::default(),
         }
     }
 
@@ -79,6 +82,7 @@ impl Shader {
             imports: shader_imports.imports,
             import_path: shader_imports.import_path,
             source: Source::Glsl(source, stage),
+            additional_imports: Default::default(),
         }
     }
 
@@ -88,6 +92,7 @@ impl Shader {
             imports: Vec::new(),
             import_path: None,
             source: Source::SpirV(source.into()),
+            additional_imports: Default::default(),
         }
     }
 
@@ -108,6 +113,29 @@ impl Shader {
 
     pub fn imports(&self) -> impl ExactSizeIterator<Item = &ShaderImport> {
         self.imports.iter()
+    }
+}
+
+impl<'a> From<&'a Shader> for naga_oil::compose::ComposableModuleDescriptor<'a> {
+    fn from(shader: &'a Shader) -> Self {
+        naga_oil::compose::ComposableModuleDescriptor {
+            source: shader.source.as_str(),
+            file_path: shader.path.as_deref().unwrap_or(""),
+            language: (&shader.source).into(),
+            additional_imports: &shader.additional_imports,
+            ..Default::default()
+        }
+    }
+}
+
+impl<'a> From<&'a Shader> for naga_oil::compose::NagaModuleDescriptor<'a> {
+    fn from(shader: &'a Shader) -> Self {
+        naga_oil::compose::NagaModuleDescriptor {
+            source: shader.source.as_str(),
+            file_path: shader.path.as_deref().unwrap_or(""),
+            shader_type: (&shader.source).into(),
+            ..Default::default()
+        }
     }
 }
 

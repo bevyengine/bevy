@@ -138,12 +138,7 @@ impl ShaderCache {
                         )?;
                     }
 
-                    composer.add_composable_module(
-                        shader.source.as_str(),
-                        shader.path.as_deref().unwrap_or(""),
-                        (&shader.source).into(),
-                        None,
-                    )?;
+                    composer.add_composable_module(shader.into())?;
                 }
             }
             // if we fail to add a module the composer will tell us what is missing
@@ -213,10 +208,10 @@ impl ShaderCache {
                         }
 
                         let naga = self.composer.make_naga_module(
-                            shader.source.as_str(),
-                            shader.path.as_deref().unwrap_or(""),
-                            (&shader.source).into(),
-                            &shader_defs,
+                            naga_oil::compose::NagaModuleDescriptor {
+                                shader_defs: &shader_defs,
+                                ..shader.into()
+                            },
                         )?;
 
                         wgpu::ShaderSource::Naga(naga)

@@ -1,6 +1,7 @@
 //! A shader and a material that uses it.
 
 use bevy::{
+    pbr::MaterialPipelineKey,
     prelude::*,
     reflect::TypeUuid,
     render::{
@@ -78,35 +79,61 @@ fn move_light(mut q: Query<&mut Transform, With<Move>>, time: Res<Time>) {
     }
 }
 
-/// The Material trait is very configurable, but comes with sensible defaults for all methods.
-/// You only need to implement functions for features that need non-default behavior. See the Material api docs for details!
-impl Material for CustomMaterial {
-    fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material_override.wgsl".into()
-    }
-
-    fn alpha_mode(&self) -> AlphaMode {
-        self.inner.alpha_mode()
-    }
-}
-
-// This is the struct that will be passed to your shader
 #[derive(TypeUuid, Debug, Clone)]
 #[uuid = "f690fdae-d598-45ab-8225-97e4a3f056e0"]
 pub struct CustomMaterial {
     inner: StandardMaterial,
 }
 
+// todo this should be done with a configurable standard material extension once implemented
+impl Material for CustomMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/custom_material_override.wgsl".into()
+    }
+
+    fn vertex_shader() -> ShaderRef {
+        StandardMaterial::vertex_shader()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode {
+        self.inner.alpha_mode()
+    }
+
+    fn specialize(
+        pipeline: &bevy::pbr::MaterialPipeline<Self>,
+        descriptor: &mut bevy::render::render_resource::RenderPipelineDescriptor,
+        layout: &bevy::render::mesh::MeshVertexBufferLayout,
+        key: bevy::pbr::MaterialPipelineKey<Self>,
+    ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
+        // safety - because CustomMaterial::Data == StanadardMaterial::Data, the only difference is the phantom marker. but even though PhantomData is a ZST
+        // we still can't *guarantee* the same struct layout. so this is not actually safe without #[repr(C)] or #[repr(Transparent)] on Material...
+        let pipeline = unsafe { std::mem::transmute(pipeline) };
+
+        let key = MaterialPipelineKey {
+            mesh_key: key.mesh_key,
+            bind_group_data: key.bind_group_data,
+        };
+
+        StandardMaterial::specialize(pipeline, descriptor, layout, key)
+    }
+
+    fn depth_bias(&self) -> f32 {
+        self.inner.depth_bias()
+    }
+}
+
 impl AsBindGroup for CustomMaterial {
     type Data = <StandardMaterial as AsBindGroup>::Data;
     fn as_bind_group(
         &self,
-        a: &BindGroupLayout,
-        b: &RenderDevice,
-        c: &bevy::render::render_asset::RenderAssets<bevy::prelude::Image>,
-        d: &FallbackImage,
+        layout: &BindGroupLayout,
+        render_device: &RenderDevice,
+        images: &bevy::render::render_asset::RenderAssets<bevy::prelude::Image>,
+        fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self>, AsBindGroupError> {
-        let inner_prepared = self.inner.as_bind_group(a, b, c, d)?;
+        let inner_prepared =
+            self.inner
+                .as_bind_group(layout, render_device, images, fallback_image)?;
         Ok(PreparedBindGroup {
             bindings: inner_prepared.bindings,
             bind_group: inner_prepared.bind_group,
