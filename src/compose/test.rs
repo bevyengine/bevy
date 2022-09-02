@@ -9,7 +9,7 @@ mod test {
         ComputePipelineDescriptor, ShaderStages,
     };
 
-    use crate::compose::{Composer, ShaderLanguage, ShaderType};
+    use crate::compose::{Composer, ImportDefinition, ShaderLanguage, ShaderType};
 
     #[test]
     fn simple_compose() {
@@ -21,6 +21,7 @@ mod test {
                 "tests/simple/inc.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
         let module = composer
@@ -28,6 +29,7 @@ mod test {
                 include_str!("tests/simple/top.wgsl"),
                 "tests/simple/top.wgsl",
                 ShaderType::Wgsl,
+                &[],
                 &[],
             )
             .unwrap();
@@ -63,6 +65,7 @@ mod test {
                 "tests/dup_import/consts.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
         composer
@@ -71,6 +74,7 @@ mod test {
                 "tests/dup_import/a.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
         composer
@@ -79,6 +83,7 @@ mod test {
                 "tests/dup_import/b.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
         let module = composer
@@ -86,6 +91,7 @@ mod test {
                 include_str!("tests/dup_import/top.wgsl"),
                 "tests/dup_import/top.wgsl",
                 ShaderType::Wgsl,
+                &[],
                 &[],
             )
             .unwrap();
@@ -122,6 +128,7 @@ mod test {
                     "tests/error_test/wgsl_valid_err.wgsl",
                     ShaderType::Wgsl,
                     &[],
+                    &[],
                 )
                 .err()
                 .unwrap();
@@ -142,6 +149,7 @@ mod test {
                     "tests/error_test/wgsl_valid_err.wgsl",
                     ShaderLanguage::Wgsl,
                     None,
+                    &[],
                 )
                 .unwrap();
 
@@ -150,6 +158,7 @@ mod test {
                     include_str!("tests/error_test/wgsl_valid_wrap.wgsl"),
                     "tests/error_test/wgsl_valid_wrap.wgsl",
                     ShaderType::Wgsl,
+                    &[],
                     &[],
                 )
                 .err()
@@ -177,6 +186,7 @@ mod test {
                     "tests/error_test/wgsl_parse_err.wgsl",
                     ShaderType::Wgsl,
                     &[],
+                    &[],
                 )
                 .err()
                 .unwrap();
@@ -197,6 +207,7 @@ mod test {
                     "tests/error_test/wgsl_parse_err.wgsl",
                     ShaderLanguage::Wgsl,
                     None,
+                    &[],
                 )
                 .unwrap();
 
@@ -205,6 +216,7 @@ mod test {
                     include_str!("tests/error_test/wgsl_parse_wrap.wgsl"),
                     "tests/error_test/wgsl_parse_wrap.wgsl",
                     ShaderType::Wgsl,
+                    &[],
                     &[],
                 )
                 .err()
@@ -224,6 +236,7 @@ mod test {
                 "tests/error_test/include.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .err()
             .unwrap();
@@ -244,6 +257,7 @@ mod test {
                 "tests/glsl/module.glsl",
                 ShaderLanguage::Glsl,
                 None,
+                &[],
             )
             .unwrap();
 
@@ -252,6 +266,7 @@ mod test {
                 include_str!("tests/glsl/top.wgsl"),
                 "tests/glsl/top.wgsl",
                 ShaderType::Wgsl,
+                &[],
                 &[],
             )
             .unwrap();
@@ -296,6 +311,7 @@ mod test {
                 "tests/glsl/module.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
 
@@ -304,6 +320,7 @@ mod test {
                 include_str!("tests/glsl/top.glsl"),
                 "tests/glsl/top.glsl",
                 ShaderType::GlslVertex,
+                &[],
                 &[],
             )
             .unwrap();
@@ -337,6 +354,7 @@ mod test {
                 "tests/glsl/basic.glsl",
                 ShaderType::GlslFragment,
                 &[],
+                &[],
             )
             .unwrap();
     }
@@ -351,6 +369,7 @@ mod test {
                 "tests/call_entrypoint/include.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
 
@@ -359,6 +378,7 @@ mod test {
                 include_str!("tests/call_entrypoint/top.wgsl"),
                 "tests/call_entrypoint/top.wgsl",
                 ShaderType::Wgsl,
+                &[],
                 &[],
             )
             .unwrap();
@@ -395,6 +415,7 @@ mod test {
                 "tests/overrides/mod.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
 
@@ -403,6 +424,7 @@ mod test {
                 include_str!("tests/overrides/top.wgsl"),
                 "tests/overrides/top.wgsl",
                 ShaderType::Wgsl,
+                &[],
                 &[],
             )
             .unwrap();
@@ -435,6 +457,7 @@ mod test {
                 "tests/overrides/mod.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
 
@@ -444,6 +467,7 @@ mod test {
                 "tests/overrides/middle.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
 
@@ -453,10 +477,83 @@ mod test {
                 "tests/overrides/top_with_middle.wgsl",
                 ShaderLanguage::Wgsl,
                 None,
+                &[],
             )
             .unwrap();
 
         assert_eq!(test_shader(&mut composer), 3.0);
+    }
+
+    #[test]
+    fn additional_import() {
+        let mut composer = Composer::default();
+        composer
+            .add_composable_module(
+                include_str!("tests/add_imports/overridable.wgsl"),
+                "tests/add_imports/overridable.wgsl",
+                ShaderLanguage::Wgsl,
+                None,
+                &[],
+            )
+            .unwrap();
+        composer
+            .add_composable_module(
+                include_str!("tests/add_imports/plugin.wgsl"),
+                "tests/add_imports/plugin.wgsl",
+                ShaderLanguage::Wgsl,
+                Some("plugin".to_owned()),
+                &[],
+            )
+            .unwrap();
+
+        // test as shader
+        let module = composer
+            .make_naga_module(
+                include_str!("tests/add_imports/top.wgsl"),
+                "tests/add_imports/top.wgsl",
+                ShaderType::Wgsl,
+                &[],
+                &[ImportDefinition {
+                    import: "plugin".to_owned(),
+                    as_name: "plugin".to_owned(),
+                }],
+            )
+            .unwrap();
+
+        let info = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::default(),
+        )
+        .validate(&module)
+        .unwrap();
+        let wgsl = naga::back::wgsl::write_string(
+            &module,
+            &info,
+            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+        )
+        .unwrap();
+
+        // let mut f = std::fs::File::create("additional_import.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+
+        assert_eq!(wgsl, include_str!("tests/expected/additional_import.txt"));
+
+        // test as module
+        composer
+            .add_composable_module(
+                include_str!("tests/add_imports/top.wgsl"),
+                "tests/add_imports/top.wgsl",
+                ShaderLanguage::Wgsl,
+                Some("test_module".to_owned()),
+                &[ImportDefinition {
+                    import: "plugin".to_owned(),
+                    as_name: "plugin".to_owned(),
+                }],
+            )
+            .unwrap();
+
+        assert_eq!(test_shader(&mut composer), 2.0);
     }
 
     // actually run a shader and extract the result
@@ -467,6 +564,7 @@ mod test {
                 include_str!("tests/compute_test.wgsl"),
                 "tests/compute_test.wgsl",
                 ShaderType::Wgsl,
+                &[],
                 &[],
             )
             .unwrap();

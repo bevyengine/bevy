@@ -5,7 +5,7 @@ fn init_composer() -> Composer {
     let mut composer = Composer::default();
 
     let mut load_composable = |source: &str, path: &str| -> () {
-        match composer.add_composable_module(source, path, ShaderLanguage::Wgsl, None) {
+        match composer.add_composable_module(source, path, ShaderLanguage::Wgsl, None, &[]) {
             Ok(_module) => {
                 // println!("{} -> {:#?}", module.name, module)
             }
@@ -85,6 +85,7 @@ fn test_compose_full() -> Result<naga::Module, ComposerError> {
         "examples/bevy_pbr_wgsl/pbr.wgsl",
         ShaderType::Wgsl,
         &["VERTEX_UVS".to_owned()],
+        &[],
     ) {
         Ok(module) => {
             // println!("shader: {:#?}", module);
@@ -109,6 +110,7 @@ fn test_compose_final_module(n: usize, composer: &mut Composer) {
             "examples/bevy_pbr_wgsl/pbr.wgsl",
             ShaderType::Wgsl,
             &["VERTEX_UVS".to_owned()],
+            &[],
         ) {
             Ok(module) => {
                 // println!("shader: {:#?}", module);
@@ -172,6 +174,7 @@ fn test_composer_compile(n: usize, composer: &mut Composer) {
                 "examples/bevy_pbr_wgsl/pbr.wgsl",
                 ShaderType::Wgsl,
                 &["VERTEX_UVS".to_owned()],
+                &[],
             )
             .unwrap();
         let _desc = device.create_shader_module(wgpu::ShaderModuleDescriptor {

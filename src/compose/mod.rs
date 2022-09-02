@@ -194,6 +194,8 @@ pub struct ComposableModuleDefinition {
     effective_defs: Vec<String>,
     // full list of possible imports (regardless of shader_def configuration)
     all_imports: HashSet<String>,
+    // additional imports to add (as though they were included in the source after any other imports)
+    additional_imports: Vec<ImportDefinition>,
     // built composable modules for a given set of shader defs
     modules: HashMap<ModuleKey, ComposableModule>,
     // used in spans when this module is included
@@ -225,7 +227,12 @@ impl ComposableModuleDefinition {
 pub struct ImportDefinition {
     pub import: String,
     pub as_name: String,
-    pub offset: usize,
+}
+
+#[derive(Debug, Clone)]
+struct ImportDefWithOffset {
+    definition: ImportDefinition,
+    offset: usize,
 }
 
 #[derive(Debug)]
@@ -487,7 +494,14 @@ impl Default for Composer {
                 .unwrap(),
             import_custom_path_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)").unwrap(),
             define_import_path_regex: Regex::new(r"^\s*#\s*define_import_path\s+([^\s]+)").unwrap(),
-            virtual_fn_regex: Regex::new(format!(r"(?P<lead>[\s]*override\s*fn\s*){}(?P<module>[^\s]+){}(?P<function>[^\s]+)(?P<trail>\s*)\(", regex_syntax::escape(DECORATION_PRE), regex_syntax::escape(DECORATION_POST)).as_str()).unwrap(),
+            virtual_fn_regex: Regex::new(
+                format!(
+                    r"(?P<lead>[\s]*override\s*fn\s*){}(?P<module>[^\s]+){}(?P<function>[^\s]+)(?P<trail>\s*)\(", 
+                    regex_syntax::escape(DECORATION_PRE),
+                    regex_syntax::escape(DECORATION_POST)
+                )
+                .as_str()
+            ).unwrap(),
             undecorate_virtual_regex: Regex::new(
                 format!(
                     "{}([A-Z0-9]*){}",
@@ -568,7 +582,10 @@ impl Composer {
         self.module_sets.contains_key(module_name)
     }
 
-    fn sanitize_and_substitute_shader_string(source: &str, imports: &[ImportDefinition]) -> String {
+    fn sanitize_and_substitute_shader_string(
+        source: &str,
+        imports: &[ImportDefWithOffset],
+    ) -> String {
         let mut substituted_source = source.replace("\r\n", "\n").replace('\r', "\n");
         if !substituted_source.ends_with('\n') {
             substituted_source.push('\n');
@@ -576,14 +593,13 @@ impl Composer {
 
         // sort imports by decreasing length so we don't accidentally replace substrings of a longer import
         let mut imports = imports.to_vec();
-        imports.sort_by_key(|import| usize::MAX - import.as_name.len());
+        imports.sort_by_key(|import| usize::MAX - import.definition.as_name.len());
 
-        for ImportDefinition {
-            import, as_name, ..
-        } in imports.iter()
-        {
-            substituted_source = substituted_source
-                .replace(format!("{}::", as_name).as_str(), &Self::decorate(import));
+        for import in imports.iter() {
+            substituted_source = substituted_source.replace(
+                format!("{}::", import.definition.as_name).as_str(),
+                &Self::decorate(&import.definition.import),
+            );
         }
         substituted_source
     }
@@ -684,7 +700,7 @@ impl Composer {
         shader_str: &str,
         shader_defs: &HashSet<String>,
         validate_len: bool,
-    ) -> Result<(Option<String>, String, Vec<ImportDefinition>), ComposerErrorInner> {
+    ) -> Result<(Option<String>, String, Vec<ImportDefWithOffset>), ComposerErrorInner> {
         let mut imports = Vec::new();
         let mut scopes = vec![true];
         let mut final_string = String::new();
@@ -724,15 +740,19 @@ impl Composer {
                 name = Some(cap.get(1).unwrap().as_str().to_string());
             } else if *scopes.last().unwrap() {
                 if let Some(cap) = self.import_custom_path_as_regex.captures(line) {
-                    imports.push(ImportDefinition {
-                        import: cap.get(1).unwrap().as_str().to_string(),
-                        as_name: cap.get(2).unwrap().as_str().to_string(),
+                    imports.push(ImportDefWithOffset {
+                        definition: ImportDefinition {
+                            import: cap.get(1).unwrap().as_str().to_string(),
+                            as_name: cap.get(2).unwrap().as_str().to_string(),
+                        },
                         offset,
                     });
                 } else if let Some(cap) = self.import_custom_path_regex.captures(line) {
-                    imports.push(ImportDefinition {
-                        import: cap.get(1).unwrap().as_str().to_string(),
-                        as_name: cap.get(1).unwrap().as_str().to_string(),
+                    imports.push(ImportDefWithOffset {
+                        definition: ImportDefinition {
+                            import: cap.get(1).unwrap().as_str().to_string(),
+                            as_name: cap.get(1).unwrap().as_str().to_string(),
+                        },
                         offset,
                     });
                 } else {
@@ -742,6 +762,7 @@ impl Composer {
             }
 
             if !output {
+                // output spaces for removed lines to keep spans consistent (errors report against substituted_source, which is not preprocessed)
                 final_string.extend(std::iter::repeat(" ").take(line.len()));
             }
             final_string.push('\n');
@@ -763,21 +784,28 @@ impl Composer {
     }
 
     // extract module name and imports
-    fn get_preprocessor_data(&self, shader_str: &str) -> (Option<String>, Vec<ImportDefinition>) {
+    fn get_preprocessor_data(
+        &self,
+        shader_str: &str,
+    ) -> (Option<String>, Vec<ImportDefWithOffset>) {
         let mut imports = Vec::new();
         let mut name = None;
         let mut offset = 0;
         for line in shader_str.lines() {
             if let Some(cap) = self.import_custom_path_as_regex.captures(line) {
-                imports.push(ImportDefinition {
-                    import: cap.get(1).unwrap().as_str().to_string(),
-                    as_name: cap.get(2).unwrap().as_str().to_string(),
+                imports.push(ImportDefWithOffset {
+                    definition: ImportDefinition {
+                        import: cap.get(1).unwrap().as_str().to_string(),
+                        as_name: cap.get(2).unwrap().as_str().to_string(),
+                    },
                     offset,
                 });
             } else if let Some(cap) = self.import_custom_path_regex.captures(line) {
-                imports.push(ImportDefinition {
-                    import: cap.get(1).unwrap().as_str().to_string(),
-                    as_name: cap.get(1).unwrap().as_str().to_string(),
+                imports.push(ImportDefWithOffset {
+                    definition: ImportDefinition {
+                        import: cap.get(1).unwrap().as_str().to_string(),
+                        as_name: cap.get(1).unwrap().as_str().to_string(),
+                    },
                     offset,
                 });
             } else if let Some(cap) = self.define_import_path_regex.captures(line) {
@@ -808,6 +836,12 @@ impl Composer {
                 inner,
                 source: ErrSource::Module(module_definition.name.to_owned(), 0),
             })?;
+
+        let mut imports: Vec<_> = imports
+            .into_iter()
+            .map(|import_with_offset| import_with_offset.definition)
+            .collect();
+        imports.extend(module_definition.additional_imports.to_vec());
 
         debug!(
             "create composable module {}: source len {}",
@@ -1151,6 +1185,7 @@ impl Composer {
         file_path: &str,
         language: ShaderLanguage,
         as_name: Option<String>,
+        additional_imports: &[ImportDefinition],
     ) -> Result<&ComposableModuleDefinition, ComposerError> {
         // reject a module containing the DECORATION strings
         if let Some(decor) = self.check_decoration_regex.find(source) {
@@ -1164,7 +1199,7 @@ impl Composer {
             });
         }
 
-        let (module_name, imports) = self.get_preprocessor_data(source);
+        let (module_name, mut imports) = self.get_preprocessor_data(source);
         let module_name = as_name.or(module_name);
         if module_name.is_none() {
             return Err(ComposerError {
@@ -1178,9 +1213,21 @@ impl Composer {
         }
         let module_name = module_name.unwrap();
 
+        // add custom imports
+        let additional_imports = additional_imports.to_vec();
+        imports.extend(
+            additional_imports
+                .iter()
+                .cloned()
+                .map(|def| ImportDefWithOffset {
+                    definition: def,
+                    offset: 0,
+                }),
+        );
+
         if imports
             .iter()
-            .map(|i| &i.as_name)
+            .map(|i| &i.definition.as_name)
             .collect::<HashSet<_>>()
             .len()
             < imports.len()
@@ -1202,9 +1249,12 @@ impl Composer {
             // we require modules already added so that we can capture the shader_defs that may impact us by impacting our dependencies
             let module_set = self
                 .module_sets
-                .get(&import.import)
+                .get(&import.definition.import)
                 .ok_or_else(|| ComposerError {
-                    inner: ComposerErrorInner::ImportNotFound(import.import.clone(), import.offset),
+                    inner: ComposerErrorInner::ImportNotFound(
+                        import.definition.import.clone(),
+                        import.offset,
+                    ),
                     source: ErrSource::Constructing {
                         path: file_path.to_owned(),
                         source: substituted_source.clone(),
@@ -1236,7 +1286,8 @@ impl Composer {
             file_path: file_path.to_owned(),
             language,
             effective_defs: effective_defs.into_iter().collect(),
-            all_imports: imports.into_iter().map(|id| id.import).collect(),
+            all_imports: imports.into_iter().map(|id| id.definition.import).collect(),
+            additional_imports,
             module_index,
             modules: Default::default(),
         };
@@ -1367,10 +1418,14 @@ impl Composer {
     // build required ComposableModules for a given set of shader_defs
     fn ensure_imports(
         &mut self,
-        imports: Vec<ImportDefinition>,
+        imports: Vec<ImportDefWithOffset>,
         shader_defs: &HashSet<String>,
     ) -> Result<(), ComposerError> {
-        for ImportDefinition { import, .. } in imports.into_iter() {
+        for ImportDefWithOffset {
+            definition: ImportDefinition { import, .. },
+            ..
+        } in imports
+        {
             // we've already ensured imports exist when they were added
             let module_set = self.module_sets.get(&import).unwrap();
             if module_set.get_module(shader_defs).is_some() {
@@ -1403,10 +1458,11 @@ impl Composer {
         path: &str,
         shader_type: ShaderType,
         shader_defs: &[String],
+        additional_imports: &[ImportDefinition],
     ) -> Result<naga::Module, ComposerError> {
         let shader_defs = shader_defs.iter().cloned().collect();
 
-        let (name, modified_source, imports) = self
+        let (name, modified_source, mut imports) = self
             .preprocess_defs(source, &shader_defs, false)
             .map_err(|inner| ComposerError {
                 inner,
@@ -1420,6 +1476,10 @@ impl Composer {
         let name = name.unwrap_or_default();
         let substituted_source = Self::sanitize_and_substitute_shader_string(source, &imports);
 
+        imports.extend(additional_imports.iter().map(|add| ImportDefWithOffset {
+            definition: add.clone(),
+            offset: 0,
+        }));
         self.ensure_imports(imports, &shader_defs)?;
 
         let definition = ComposableModuleDefinition {
@@ -1428,6 +1488,7 @@ impl Composer {
             language: shader_type.into(),
             file_path: path.to_owned(),
             module_index: 0,
+            additional_imports: additional_imports.to_vec(),
             // we don't care about these for creating a top-level module
             effective_defs: Default::default(),
             all_imports: Default::default(),
