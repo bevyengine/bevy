@@ -278,7 +278,7 @@ pub enum GamepadButtonType {
     DPadRight,
 
     /// Miscellaneous buttons, considered non-standard (i.e. Extra buttons on a flight stick that do not have a gamepad equivalent).
-    Button(u8),
+    Other(u8),
 }
 
 /// A button of a [`Gamepad`].
