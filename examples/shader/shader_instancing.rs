@@ -160,6 +160,7 @@ fn prepare_instance_buffers(
     }
 }
 
+#[derive(Resource)]
 pub struct CustomPipeline {
     shader: Handle<Shader>,
     mesh_pipeline: MeshPipeline,

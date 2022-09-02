@@ -2,13 +2,14 @@ use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
+use bevy_ecs::system::Resource;
 use std::sync::Arc;
 use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
 
 use super::RenderQueue;
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
-#[derive(Clone)]
+#[derive(Resource, Clone)]
 pub struct RenderDevice {
     device: Arc<wgpu::Device>,
 }

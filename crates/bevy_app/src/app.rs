@@ -1,5 +1,6 @@
 use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::{Event, Events},
     prelude::{FromWorld, IntoExclusiveSystem},
@@ -21,6 +22,11 @@ bevy_utils::define_label!(
     /// A strongly-typed identifier for an [`AppLabel`].
     AppLabelId,
 );
+
+/// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
+#[cfg(feature = "bevy_reflect")]
+#[derive(Resource, Clone, Deref, DerefMut, Default)]
+pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -74,7 +80,7 @@ impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<bevy_reflect::TypeRegistryArc>();
+        app.init_resource::<AppTypeRegistry>();
 
         app.add_default_stages()
             .add_event::<AppExit>()
@@ -647,7 +653,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -660,15 +668,16 @@ impl App {
         self
     }
 
-    /// Inserts a non-send [`Resource`] to the app.
+    /// Inserts a non-send resource to the app.
     ///
     /// You usually want to use [`insert_resource`](Self::insert_resource),
-    /// but there are some special cases when a [`Resource`] cannot be sent across threads.
+    /// but there are some special cases when a resource cannot be sent across threads.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
     /// struct MyCounter {
     ///     counter: usize,
@@ -694,7 +703,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -873,7 +884,7 @@ impl App {
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {
-            let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
             registry.write().register::<T>();
         }
         self
@@ -906,7 +917,7 @@ impl App {
         &mut self,
     ) -> &mut Self {
         {
-            let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
             registry.write().register_type_data::<T, D>();
         }
         self

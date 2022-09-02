@@ -22,6 +22,7 @@ struct MyEvent {
 #[derive(Default)]
 struct PlaySound;
 
+#[derive(Resource)]
 struct EventTriggerState {
     event_timer: Timer,
 }

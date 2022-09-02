@@ -56,7 +56,7 @@ struct Bonus {
     handle: Handle<Scene>,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct Game {
     board: Vec<Vec<Cell>>,
     player: Player,

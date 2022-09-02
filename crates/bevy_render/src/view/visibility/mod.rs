@@ -14,7 +14,10 @@ use std::cell::Cell;
 use thread_local::ThreadLocal;
 
 use crate::{
-    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection},
+    camera::{
+        camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        Projection,
+    },
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
@@ -186,18 +189,21 @@ impl Plugin for VisibilityPlugin {
             CoreStage::PostUpdate,
             update_frusta::<OrthographicProjection>
                 .label(UpdateOrthographicFrusta)
+                .after(camera_system::<OrthographicProjection>)
                 .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             update_frusta::<PerspectiveProjection>
                 .label(UpdatePerspectiveFrusta)
+                .after(camera_system::<PerspectiveProjection>)
                 .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             update_frusta::<Projection>
                 .label(UpdateProjectionFrusta)
+                .after(camera_system::<Projection>)
                 .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(

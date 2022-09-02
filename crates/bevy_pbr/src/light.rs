@@ -73,7 +73,7 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct PointLightShadowMap {
     pub size: usize,
@@ -208,7 +208,7 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Clone, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
@@ -224,7 +224,7 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Clone, Debug, ExtractResource, Reflect)]
+#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct AmbientLight {
     pub color: Color,
@@ -773,7 +773,7 @@ impl PointLightAssignmentData {
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct GlobalVisiblePointLights {
     entities: HashSet<Entity>,
 }

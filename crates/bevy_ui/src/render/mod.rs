@@ -12,7 +12,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
+    camera::{Camera, CameraProjection, OrthographicProjection, WindowOrigin},
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -168,7 +168,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
 }
@@ -195,6 +195,10 @@ pub fn extract_uinodes(
         let image = image.0.clone_weak();
         // Skip loading images
         if !images.contains(&image) {
+            continue;
+        }
+        // Skip completely transparent nodes
+        if color.0.a() == 0.0 {
             continue;
         }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
@@ -241,7 +245,6 @@ pub fn extract_default_ui_camera_view<T: Component>(
             let mut projection = OrthographicProjection {
                 far: UI_CAMERA_FAR,
                 window_origin: WindowOrigin::BottomLeft,
-                depth_calculation: DepthCalculation::ZDifference,
                 ..Default::default()
             };
             projection.update(logical_size.x, logical_size.y);
@@ -341,6 +344,7 @@ struct UiVertex {
     pub color: [f32; 4],
 }
 
+#[derive(Resource)]
 pub struct UiMeta {
     vertices: BufferVec<UiVertex>,
     view_bind_group: Option<BindGroup>,
@@ -504,7 +508,7 @@ pub fn prepare_uinodes(
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct UiImageBindGroups {
     pub values: HashMap<Handle<Image>, BindGroup>,
 }

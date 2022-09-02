@@ -112,7 +112,7 @@ mod tests {
         entity::Entity,
         query::With,
         schedule::{Stage, SystemStage},
-        system::{Commands, IntoExclusiveSystem, Query, ResMut},
+        system::{Commands, IntoExclusiveSystem, Query, ResMut, Resource},
         world::World,
     };
 
@@ -123,49 +123,55 @@ mod tests {
     fn parallel_with_commands_as_exclusive() {
         let mut world = World::new();
 
+        #[derive(Resource)]
+        struct Counter(usize);
+
         fn removal(
             mut commands: Commands,
             query: Query<Entity, With<Foo>>,
-            mut counter: ResMut<usize>,
+            mut counter: ResMut<Counter>,
         ) {
             for entity in &query {
-                *counter += 1;
+                counter.0 += 1;
                 commands.entity(entity).remove::<Foo>();
             }
         }
 
         let mut stage = SystemStage::parallel().with_system(removal);
         world.spawn().insert(Foo(0.0f32));
-        world.insert_resource(0usize);
+        world.insert_resource(Counter(0));
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.resource::<usize>(), 1);
+        assert_eq!(world.resource::<Counter>().0, 1);
 
         let mut stage = SystemStage::parallel().with_system(removal.exclusive_system());
         world.spawn().insert(Foo(0.0f32));
-        world.insert_resource(0usize);
+        world.insert_resource(Counter(0));
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.resource::<usize>(), 1);
+        assert_eq!(world.resource::<Counter>().0, 1);
     }
 
     #[test]
     fn update_archetype_for_exclusive_system_coerced() {
+        #[derive(Resource, Default)]
+        struct CountEntities(Vec<usize>);
+
         fn spawn_entity(mut commands: crate::prelude::Commands) {
             commands.spawn().insert(Foo(0.0));
         }
 
-        fn count_entities(query: Query<&Foo>, mut res: ResMut<Vec<usize>>) {
-            res.push(query.iter().len());
+        fn count_entities(query: Query<&Foo>, mut res: ResMut<CountEntities>) {
+            res.0.push(query.iter().len());
         }
 
         let mut world = World::new();
-        world.insert_resource(Vec::<usize>::new());
+        world.init_resource::<CountEntities>();
         let mut stage = SystemStage::parallel()
             .with_system(spawn_entity)
             .with_system(count_entities.exclusive_system());
         stage.run(&mut world);
         stage.run(&mut world);
-        assert_eq!(*world.resource::<Vec<usize>>(), vec![0, 1]);
+        assert_eq!(world.resource::<CountEntities>().0, vec![0, 1]);
     }
 }
