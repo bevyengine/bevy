@@ -30,4 +30,4 @@ smallvec = { version = "1.6", features = ["serde", "union", "const_generics"], o
 glam = { version = "0.21", features = ["serde"], optional = true }
 
 [dev-dependencies]
-ron = "0.7.0"
+ron = "0.8.0"

@@ -141,7 +141,6 @@ where
     S: Serialize,
 {
     let pretty_config = ron::ser::PrettyConfig::default()
-        .decimal_floats(true)
         .indentor("  ".to_string())
         .new_line("\n".to_string());
     ron::ser::to_string_pretty(&serialize, pretty_config)
