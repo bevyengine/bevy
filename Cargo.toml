@@ -1575,3 +1575,7 @@ inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+[[example]]
+name = "drag_drop"
+path = "examples/ui/drag_drop.rs"
