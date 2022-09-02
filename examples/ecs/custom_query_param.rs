@@ -12,10 +12,7 @@
 //!
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
-use bevy::{
-    ecs::{component::Component, query::WorldQuery},
-    prelude::*,
-};
+use bevy::{prelude::*, ecs::query::WorldQuery};
 use std::fmt::Debug;
 
 fn main() {
