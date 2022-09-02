@@ -391,8 +391,6 @@ mod test {
             })
             .unwrap();
 
-        // println!("failed: {}", module.emit_to_string(&composer));
-
         let info = naga::valid::Validator::new(
             naga::valid::ValidationFlags::all(),
             naga::valid::Capabilities::default(),
@@ -406,6 +404,7 @@ mod test {
         )
         .unwrap();
 
+        // todo test properly - the redirect returns the functions in random order so can't rely on string repr
         println!("{}", wgsl);
     }
 
