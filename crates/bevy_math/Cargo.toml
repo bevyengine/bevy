@@ -10,3 +10,4 @@ keywords = ["bevy"]
 
 [dependencies]
 glam = { version = "0.21", features = ["serde", "bytemuck"] }
+serde = "1"
