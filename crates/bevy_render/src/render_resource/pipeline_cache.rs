@@ -12,7 +12,11 @@ use crate::{
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
-use bevy_utils::{default, tracing::error, Entry, HashMap, HashSet};
+use bevy_utils::{
+    default,
+    tracing::{debug, error},
+    Entry, HashMap, HashSet,
+};
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
 use wgpu::{
@@ -20,7 +24,7 @@ use wgpu::{
     VertexBufferLayout as RawVertexBufferLayout,
 };
 
-enum PipelineDescriptor {
+pub enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
     ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
 }
@@ -47,9 +51,9 @@ impl CachedComputePipelineId {
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
 }
 
-struct CachedPipeline {
-    descriptor: PipelineDescriptor,
-    state: CachedPipelineState,
+pub struct CachedPipeline {
+    pub descriptor: PipelineDescriptor,
+    pub state: CachedPipelineState,
 }
 
 #[derive(Debug)]
@@ -137,6 +141,10 @@ impl ShaderCache {
                     shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
                 }
 
+                debug!(
+                    "processing shader {:?}, with shader defs {:?}",
+                    handle, shader_defs
+                );
                 let processed = self.processor.process(
                     shader,
                     &shader_defs,
@@ -273,6 +281,10 @@ pub struct PipelineCache {
 }
 
 impl PipelineCache {
+    pub fn pipelines(&self) -> impl Iterator<Item = &CachedPipeline> {
+        self.pipelines.iter()
+    }
+
     pub fn new(device: RenderDevice) -> Self {
         Self {
             device,
