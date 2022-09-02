@@ -2,7 +2,8 @@ use std::hash::Hash;
 
 use ab_glyph::{PxScale, ScaleFont};
 use bevy_asset::{Assets, Handle, HandleId};
-use bevy_math::Size;
+use bevy_ecs::system::Resource;
+use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
@@ -14,6 +15,7 @@ use crate::{
     TextAlignment, TextSection,
 };
 
+#[derive(Resource)]
 pub struct TextPipeline<ID> {
     brush: GlyphBrush,
     glyph_map: HashMap<ID, TextLayoutInfo>,
@@ -32,7 +34,7 @@ impl<ID> Default for TextPipeline<ID> {
 
 pub struct TextLayoutInfo {
     pub glyphs: Vec<PositionedGlyph>,
-    pub size: Size,
+    pub size: Vec2,
 }
 
 impl<ID: Hash + Eq> TextPipeline<ID> {
@@ -56,7 +58,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         sections: &[TextSection],
         scale_factor: f64,
         text_alignment: TextAlignment,
-        bounds: Size,
+        bounds: Vec2,
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
@@ -66,7 +68,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
             .iter()
             .map(|section| {
                 let font = fonts
-                    .get(section.style.font.id)
+                    .get(&section.style.font)
                     .ok_or(TextError::NoSuchFont)?;
                 let font_id = self.get_or_insert_font_id(&section.style.font, font);
                 let font_size = scale_value(section.style.font_size, scale_factor);
@@ -92,7 +94,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
                 id,
                 TextLayoutInfo {
                     glyphs: Vec::new(),
-                    size: Size::new(0., 0.),
+                    size: Vec2::ZERO,
                 },
             );
             return Ok(());
@@ -103,7 +105,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
         let mut max_x: f32 = std::f32::MIN;
         let mut max_y: f32 = std::f32::MIN;
 
-        for sg in section_glyphs.iter() {
+        for sg in &section_glyphs {
             let scaled_font = scaled_fonts[sg.section_index];
             let glyph = &sg.glyph;
             min_x = min_x.min(glyph.position.x);
@@ -112,7 +114,7 @@ impl<ID: Hash + Eq> TextPipeline<ID> {
             max_y = max_y.max(glyph.position.y - scaled_font.descent());
         }
 
-        let size = Size::new(max_x - min_x, max_y - min_y);
+        let size = Vec2::new(max_x - min_x, max_y - min_y);
 
         let glyphs = self.brush.process_glyphs(
             section_glyphs,

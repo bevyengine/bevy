@@ -16,8 +16,8 @@ fn main() {
     let mut update = SystemStage::parallel();
 
     // Add systems to increase the counter and to print out the current value
-    update.add_system(increase_counter.label(CounterSystem::Increase));
-    update.add_system(print_counter.after(CounterSystem::Increase));
+    update.add_system(increase_counter);
+    update.add_system(print_counter.after(increase_counter));
     schedule.add_stage("update", update);
 
     for iteration in 1..=10 {
@@ -27,15 +27,9 @@ fn main() {
 }
 
 // Counter resource to be increased and read by systems
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 struct Counter {
     pub value: i32,
-}
-
-// System label to enforce a run order of our systems
-#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
-enum CounterSystem {
-    Increase,
 }
 
 fn increase_counter(mut counter: ResMut<Counter>) {

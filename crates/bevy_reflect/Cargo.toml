@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.5.0"
+version = "0.9.0-dev"
 edition = "2021"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
@@ -10,21 +10,24 @@ keywords = ["bevy"]
 readme = "README.md"
 
 [features]
-bevy = ["glam", "smallvec"]
+bevy = ["glam", "smallvec", "bevy_math"]
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.5.0" }
-bevy_utils = { path = "../bevy_utils", version = "0.5.0" }
+bevy_math = { path = "../bevy_math", version = "0.9.0-dev", optional = true }
+bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.9.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.9.0-dev" }
 
 # other
 erased-serde = "0.3"
 downcast-rs = "1.2"
-parking_lot = "0.11.0"
+parking_lot = "0.12.1"
 thiserror = "1.0"
+once_cell = "1.11"
 serde = "1"
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"], optional = true }
-glam = { version = "0.20.0", features = ["serde"], optional = true }
+glam = { version = "0.21", features = ["serde"], optional = true }
 
 [dev-dependencies]
-ron = "0.7.0"
+ron = "0.8.0"

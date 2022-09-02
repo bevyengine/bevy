@@ -1,9 +1,23 @@
 //! Types that detect when their internal data mutate.
 
-use crate::{component::ComponentTicks, system::Resource};
+use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
+
+/// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
+///
+/// Change ticks can only be scanned when systems aren't running. Thus, if the threshold is `N`,
+/// the maximum is `2 * N - 1` (i.e. the world ticks `N - 1` times, then `N` times).
+///
+/// If no change is older than `u32::MAX - (2 * N - 1)` following a scan, none of their ages can
+/// overflow and cause false positives.
+// (518,400,000 = 1000 ticks per frame * 144 frames per second * 3600 seconds per hour)
+pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
+
+/// The maximum change tick difference that won't overflow before the next `check_tick` scan.
+///
+/// Changes stop being detected once they become this old.
+pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 
 /// Types that implement reliable change detection.
 ///
@@ -16,6 +30,7 @@ use std::ops::{Deref, DerefMut};
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
+/// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
 /// fn my_system(mut resource: ResMut<MyResource>) {
@@ -28,20 +43,28 @@ use std::ops::{Deref, DerefMut};
 /// ```
 ///
 pub trait DetectChanges {
-    /// Returns true if (and only if) this value been added since the last execution of this
-    /// system.
+    /// Returns `true` if this value was added after the system last ran.
     fn is_added(&self) -> bool;
 
-    /// Returns true if (and only if) this value been changed since the last execution of this
-    /// system.
+    /// Returns `true` if this value was added or mutably dereferenced after the system last ran.
     fn is_changed(&self) -> bool;
 
-    /// Manually flags this value as having been changed. This normally isn't
-    /// required because accessing this pointer mutably automatically flags this
-    /// value as "changed".
+    /// Flags this value as having been changed.
     ///
-    /// **Note**: This operation is irreversible.
+    /// Mutably accessing this smart pointer will automatically flag this value as having been changed.
+    /// However, mutation through interior mutability requires manual reporting.
+    ///
+    /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
+
+    /// Returns the change tick recording the previous time this component (or resource) was changed.
+    ///
+    /// Note that components and resources are also marked as changed upon insertion.
+    ///
+    /// For comparison, the previous change tick of a system can be read using the
+    /// [`SystemChangeTick`](crate::system::SystemChangeTick)
+    /// [`SystemParam`](crate::system::SystemParam).
+    fn last_changed(&self) -> u32;
 }
 
 macro_rules! change_detection_impl {
@@ -66,6 +89,11 @@ macro_rules! change_detection_impl {
                 self.ticks
                     .component_ticks
                     .set_changed(self.ticks.change_tick);
+            }
+
+            #[inline]
+            fn last_changed(&self) -> u32 {
+                self.ticks.last_change_tick
             }
         }
 
@@ -137,9 +165,9 @@ pub(crate) struct Ticks<'a> {
     pub(crate) change_tick: u32,
 }
 
-/// Unique mutable borrow of a resource.
+/// Unique mutable borrow of a [`Resource`].
 ///
-/// See the [`World`](crate::world::World) documentation to see the usage of a resource.
+/// See the [`Resource`] documentation for usage.
 ///
 /// If you need a shared borrow, use [`Res`](crate::system::Res) instead.
 ///
@@ -156,6 +184,17 @@ pub struct ResMut<'a, T: Resource> {
 change_detection_impl!(ResMut<'a, T>, T, Resource);
 impl_into_inner!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
+
+impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
+    /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
+    /// while losing the specificity of `ResMut` for resources.
+    fn from(other: ResMut<'a, T>) -> Mut<'a, T> {
+        Mut {
+            value: other.value,
+            ticks: other.ticks,
+        }
+    }
+}
 
 /// Unique borrow of a non-[`Send`] resource.
 ///
@@ -178,8 +217,19 @@ change_detection_impl!(NonSendMut<'a, T>, T,);
 impl_into_inner!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
+impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
+    /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
+    /// while losing the specificity of `NonSendMut`.
+    fn from(other: NonSendMut<'a, T>) -> Mut<'a, T> {
+        Mut {
+            value: other.value,
+            ticks: other.ticks,
+        }
+    }
+}
+
 /// Unique mutable borrow of an entity's component
-pub struct Mut<'a, T> {
+pub struct Mut<'a, T: ?Sized> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
 }
@@ -188,12 +238,213 @@ change_detection_impl!(Mut<'a, T>, T,);
 impl_into_inner!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
-/// Unique mutable borrow of a Reflected component
-#[cfg(feature = "bevy_reflect")]
-pub struct ReflectMut<'a> {
-    pub(crate) value: &'a mut dyn Reflect,
+/// Unique mutable borrow of resources or an entity's component.
+///
+/// Similar to [`Mut`], but not generic over the component type, instead
+/// exposing the raw pointer as a `*mut ()`.
+///
+/// Usually you don't need to use this and can instead use the APIs returning a
+/// [`Mut`], but in situations where the types are not known at compile time
+/// or are defined outside of rust this can be used.
+pub struct MutUntyped<'a> {
+    pub(crate) value: PtrMut<'a>,
     pub(crate) ticks: Ticks<'a>,
 }
 
-#[cfg(feature = "bevy_reflect")]
-change_detection_impl!(ReflectMut<'a>, dyn Reflect,);
+impl<'a> MutUntyped<'a> {
+    /// Returns the pointer to the value, without marking it as changed.
+    ///
+    /// In order to mark the value as changed, you need to call [`set_changed`](DetectChanges::set_changed) manually.
+    pub fn into_inner(self) -> PtrMut<'a> {
+        self.value
+    }
+}
+
+impl DetectChanges for MutUntyped<'_> {
+    fn is_added(&self) -> bool {
+        self.ticks
+            .component_ticks
+            .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+    }
+
+    fn is_changed(&self) -> bool {
+        self.ticks
+            .component_ticks
+            .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+    }
+
+    fn set_changed(&mut self) {
+        self.ticks
+            .component_ticks
+            .set_changed(self.ticks.change_tick);
+    }
+
+    fn last_changed(&self) -> u32 {
+        self.ticks.last_change_tick
+    }
+}
+
+impl std::fmt::Debug for MutUntyped<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("MutUntyped")
+            .field(&self.value.as_ptr())
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs_macros::Resource;
+
+    use crate::{
+        self as bevy_ecs,
+        change_detection::{
+            ComponentTicks, Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+        },
+        component::Component,
+        query::ChangeTrackers,
+        system::{IntoSystem, Query, System},
+        world::World,
+    };
+
+    #[derive(Component)]
+    struct C;
+
+    #[derive(Resource)]
+    struct R;
+
+    #[test]
+    fn change_expiration() {
+        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
+            query.single().is_changed()
+        }
+
+        fn change_expired(query: Query<ChangeTrackers<C>>) -> bool {
+            query.single().is_changed()
+        }
+
+        let mut world = World::new();
+
+        // component added: 1, changed: 1
+        world.spawn().insert(C);
+
+        let mut change_detected_system = IntoSystem::into_system(change_detected);
+        let mut change_expired_system = IntoSystem::into_system(change_expired);
+        change_detected_system.initialize(&mut world);
+        change_expired_system.initialize(&mut world);
+
+        // world: 1, system last ran: 0, component changed: 1
+        // The spawn will be detected since it happened after the system "last ran".
+        assert!(change_detected_system.run((), &mut world));
+
+        // world: 1 + MAX_CHANGE_AGE
+        let change_tick = world.change_tick.get_mut();
+        *change_tick = change_tick.wrapping_add(MAX_CHANGE_AGE);
+
+        // Both the system and component appeared `MAX_CHANGE_AGE` ticks ago.
+        // Since we clamp things to `MAX_CHANGE_AGE` for determinism,
+        // `ComponentTicks::is_changed` will now see `MAX_CHANGE_AGE > MAX_CHANGE_AGE`
+        // and return `false`.
+        assert!(!change_expired_system.run((), &mut world));
+    }
+
+    #[test]
+    fn change_tick_wraparound() {
+        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
+            query.single().is_changed()
+        }
+
+        let mut world = World::new();
+        world.last_change_tick = u32::MAX;
+        *world.change_tick.get_mut() = 0;
+
+        // component added: 0, changed: 0
+        world.spawn().insert(C);
+
+        // system last ran: u32::MAX
+        let mut change_detected_system = IntoSystem::into_system(change_detected);
+        change_detected_system.initialize(&mut world);
+
+        // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
+        // the wrapping difference will always be positive, so wraparound doesn't matter.
+        assert!(change_detected_system.run((), &mut world));
+    }
+
+    #[test]
+    fn change_tick_scan() {
+        let mut world = World::new();
+
+        // component added: 1, changed: 1
+        world.spawn().insert(C);
+
+        // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
+        *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
+        let change_tick = world.change_tick();
+
+        let mut query = world.query::<ChangeTrackers<C>>();
+        for tracker in query.iter(&world) {
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed);
+            assert!(ticks_since_insert > MAX_CHANGE_AGE);
+            assert!(ticks_since_change > MAX_CHANGE_AGE);
+        }
+
+        // scan change ticks and clamp those at risk of overflow
+        world.check_change_ticks();
+
+        for tracker in query.iter(&world) {
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed);
+            assert!(ticks_since_insert == MAX_CHANGE_AGE);
+            assert!(ticks_since_change == MAX_CHANGE_AGE);
+        }
+    }
+
+    #[test]
+    fn mut_from_res_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: 1,
+            changed: 2,
+        };
+        let ticks = Ticks {
+            component_ticks: &mut component_ticks,
+            last_change_tick: 3,
+            change_tick: 4,
+        };
+        let mut res = R {};
+        let res_mut = ResMut {
+            value: &mut res,
+            ticks,
+        };
+
+        let into_mut: Mut<R> = res_mut.into();
+        assert_eq!(1, into_mut.ticks.component_ticks.added);
+        assert_eq!(2, into_mut.ticks.component_ticks.changed);
+        assert_eq!(3, into_mut.ticks.last_change_tick);
+        assert_eq!(4, into_mut.ticks.change_tick);
+    }
+
+    #[test]
+    fn mut_from_non_send_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: 1,
+            changed: 2,
+        };
+        let ticks = Ticks {
+            component_ticks: &mut component_ticks,
+            last_change_tick: 3,
+            change_tick: 4,
+        };
+        let mut res = R {};
+        let non_send_mut = NonSendMut {
+            value: &mut res,
+            ticks,
+        };
+
+        let into_mut: Mut<R> = non_send_mut.into();
+        assert_eq!(1, into_mut.ticks.component_ticks.added);
+        assert_eq!(2, into_mut.ticks.component_ticks.changed);
+        assert_eq!(3, into_mut.ticks.last_change_tick);
+        assert_eq!(4, into_mut.ticks.change_tick);
+    }
+}

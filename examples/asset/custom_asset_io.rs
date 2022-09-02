@@ -1,5 +1,9 @@
+//! Implements a custom asset io loader.
+//! An [`AssetIo`] is what the asset server uses to read the raw bytes of assets.
+//! It does not know anything about the asset formats, only how to talk to the underlying storage.
+
 use bevy::{
-    asset::{AssetIo, AssetIoError},
+    asset::{AssetIo, AssetIoError, Metadata},
     prelude::*,
     utils::BoxedFuture,
 };
@@ -26,11 +30,6 @@ impl AssetIo for CustomAssetIo {
         self.0.read_directory(path)
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
-        info!("is_directory({:?})", path);
-        self.0.is_directory(path)
-    }
-
     fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
         info!("watch_path_for_changes({:?})", path);
         self.0.watch_path_for_changes(path)
@@ -40,6 +39,11 @@ impl AssetIo for CustomAssetIo {
         info!("watch_for_changes()");
         self.0.watch_for_changes()
     }
+
+    fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
+        info!("get_metadata({:?})", path);
+        self.0.get_metadata(path)
+    }
 }
 
 /// A plugin used to execute the override of the asset io
@@ -47,15 +51,6 @@ struct CustomAssetIoPlugin;
 
 impl Plugin for CustomAssetIoPlugin {
     fn build(&self, app: &mut App) {
-        // must get a hold of the task pool in order to create the asset server
-
-        let task_pool = app
-            .world
-            .get_resource::<bevy::tasks::IoTaskPool>()
-            .expect("`IoTaskPool` resource not found.")
-            .0
-            .clone();
-
         let asset_io = {
             // the platform default asset io requires a reference to the app
             // builder to find its configuration
@@ -69,7 +64,7 @@ impl Plugin for CustomAssetIoPlugin {
 
         // the asset server is constructed and added the resource manager
 
-        app.insert_resource(AssetServer::new(asset_io, task_pool));
+        app.insert_resource(AssetServer::new(asset_io));
     }
 }
 
@@ -80,7 +75,7 @@ fn main() {
             // `CorePlugin' and `AssetPlugin`. It needs to be after the
             // CorePlugin, so that the IO task pool has already been constructed.
             // And it must be before the `AssetPlugin` so that the asset plugin
-            // doesn't create another instance of an assert server. In general,
+            // doesn't create another instance of an asset server. In general,
             // the AssetPlugin should still run so that other aspects of the
             // asset system are initialized correctly.
             group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
@@ -90,9 +85,9 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
-        ..Default::default()
+        ..default()
     });
 }

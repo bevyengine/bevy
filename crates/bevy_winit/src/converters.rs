@@ -2,7 +2,7 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     mouse::MouseButton,
     touch::{ForceTouch, TouchInput, TouchPhase},
-    ElementState,
+    ButtonState,
 };
 use bevy_math::Vec2;
 use bevy_window::CursorIcon;
@@ -15,10 +15,10 @@ pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> K
     }
 }
 
-pub fn convert_element_state(element_state: winit::event::ElementState) -> ElementState {
+pub fn convert_element_state(element_state: winit::event::ElementState) -> ButtonState {
     match element_state {
-        winit::event::ElementState::Pressed => ElementState::Pressed,
-        winit::event::ElementState::Released => ElementState::Released,
+        winit::event::ElementState::Pressed => ButtonState::Pressed,
+        winit::event::ElementState::Released => ButtonState::Released,
     }
 }
 

@@ -6,7 +6,9 @@
 
 ## What is Bevy ECS?
 
-Bevy ECS is an Entity Component System custom-built for the [Bevy][bevy] game engine. It aims to be simple to use, ergonomic, fast, massively parallel, opinionated, and featureful. It was created specifically for Bevy's needs, but it can easily be used as a standalone crate in other projects.
+Bevy ECS is an Entity Component System custom-built for the [Bevy][bevy] game engine.
+It aims to be simple to use, ergonomic, fast, massively parallel, opinionated, and featureful.
+It was created specifically for Bevy's needs, but it can easily be used as a standalone crate in other projects.
 
 ## ECS
 
@@ -76,7 +78,7 @@ use bevy_ecs::prelude::*;
 struct Position { x: f32, y: f32 }
 
 fn print_position(query: Query<(Entity, &Position)>) {
-    for (entity, position) in query.iter() {
+    for (entity, position) in &query {
         println!("Entity {:?} is at position: x {}, y {}", entity, position.x, position.y);
     }
 }
@@ -89,7 +91,7 @@ Apps often require unique resources, such as asset collections, renderers, audio
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct Time {
     seconds: f32,
 }
@@ -128,7 +130,7 @@ struct Velocity { x: f32, y: f32 }
 
 // This system moves each entity with a Position and Velocity component
 fn movement(mut query: Query<(&mut Position, &Velocity)>) {
-    for (mut position, velocity) in query.iter_mut() {
+    for (mut position, velocity) in &mut query {
         position.x += velocity.x;
         position.y += velocity.y;
     }
@@ -174,7 +176,7 @@ struct Alive;
 // Gets the Position component of all Entities with Player component and without the Alive
 // component. 
 fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
-    for position in query.iter() {
+    for position in &query {
     }
 }
 ```
@@ -195,13 +197,13 @@ struct Velocity { x: f32, y: f32 }
 
 // Gets the Position component of all Entities whose Velocity has changed since the last run of the System
 fn system_changed(query: Query<&Position, Changed<Velocity>>) {
-    for position in query.iter() {
+    for position in &query {
     }
 }
 
-// Gets the i32 component of all Entities that had a f32 component added since the last run of the System
+// Gets the Position component of all Entities that had a Velocity component added since the last run of the System
 fn system_added(query: Query<&Position, Added<Velocity>>) {
-    for position in query.iter() {
+    for position in &query {
     }
 }
 ```
@@ -211,6 +213,7 @@ Resources also expose change state:
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Resource)]
 struct Time(f32);
 
 // Prints "time changed!" if the Time resource has changed since the last run of the System

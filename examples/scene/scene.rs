@@ -1,6 +1,7 @@
-use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
+//! This example illustrates loading scenes from files.
 
-/// This example illustrates loading and saving scenes from files
+use bevy::{prelude::*, utils::Duration};
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -40,7 +41,7 @@ struct ComponentB {
 
 impl FromWorld for ComponentB {
     fn from_world(world: &mut World) -> Self {
-        let time = world.get_resource::<Time>().unwrap();
+        let time = world.resource::<Time>();
         ComponentB {
             _time_since_startup: time.time_since_startup(),
             value: "Default Value".to_string(),
@@ -48,14 +49,14 @@ impl FromWorld for ComponentB {
     }
 }
 
-fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<SceneSpawner>) {
-    // Scenes are loaded just like any other asset.
-    let scene_handle: Handle<DynamicScene> = asset_server.load("scenes/load_scene_example.scn.ron");
-
-    // SceneSpawner can "spawn" scenes. "Spawning" a scene creates a new instance of the scene in
-    // the World with new entity ids. This guarantees that it will not overwrite existing
-    // entities.
-    scene_spawner.spawn_dynamic(scene_handle);
+fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // "Spawning" a scene bundle creates a new entity and spawns new instances
+    // of the given scene's entities as children of that entity.
+    commands.spawn_bundle(DynamicSceneBundle {
+        // Scenes are loaded just like any other asset.
+        scene: asset_server.load("scenes/load_scene_example.scn.ron"),
+        ..default()
+    });
 
     // This tells the AssetServer to watch for changes to assets.
     // It enables our scenes to automatically reload in game when we modify their files
@@ -65,7 +66,7 @@ fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<S
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
 // load_scene_example.scn. You should immediately see the changes appear in the console.
 fn log_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
-    for (entity, component_a) in query.iter() {
+    for (entity, component_a) in &query {
         info!("  Entity({})", entity.id());
         info!(
             "    ComponentA: {{ x: {} y: {} }}\n",
@@ -83,7 +84,7 @@ fn save_scene_system(world: &mut World) {
     scene_world.spawn().insert_bundle((
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
-        Transform::identity(),
+        Transform::IDENTITY,
     ));
     scene_world
         .spawn()
@@ -91,7 +92,7 @@ fn save_scene_system(world: &mut World) {
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
-    let type_registry = world.get_resource::<TypeRegistry>().unwrap();
+    let type_registry = world.resource::<AppTypeRegistry>();
     let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     // Scenes can be serialized like this:
@@ -103,21 +104,19 @@ fn save_scene_system(world: &mut World) {
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(UiCameraBundle::default());
-    commands.spawn_bundle(TextBundle {
-        style: Style {
-            align_self: AlignSelf::FlexEnd,
-            ..Default::default()
-        },
-        text: Text::with_section(
+    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn_bundle(
+        TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
             },
-            Default::default(),
-        ),
-        ..Default::default()
-    });
+        )
+        .with_style(Style {
+            align_self: AlignSelf::FlexEnd,
+            ..default()
+        }),
+    );
 }

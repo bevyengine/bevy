@@ -1,6 +1,6 @@
 //! Types for handling [`Bundle`]s.
 //!
-//! This module contains the `Bundle` trait and some other helper types.
+//! This module contains the [`Bundle`] trait and some other helper types.
 
 pub use bevy_ecs_macros::Bundle;
 
@@ -11,9 +11,10 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
 use bevy_ecs_macros::all_tuples;
+use bevy_ptr::OwningPtr;
 use std::{any::TypeId, collections::HashMap};
 
-/// An ordered collection of components.
+/// An ordered collection of [`Component`]s.
 ///
 /// Commonly used for spawning entities and adding and removing components in bulk. This
 /// trait is automatically implemented for tuples of components: `(ComponentA, ComponentB)`
@@ -71,33 +72,37 @@ use std::{any::TypeId, collections::HashMap};
 ///
 /// # Safety
 ///
-/// - [Bundle::component_ids] must return the ComponentId for each component type in the bundle, in the
-///   _exact_ order that [Bundle::get_components] is called.
-/// - [Bundle::from_components] must call `func` exactly once for each [ComponentId] returned by
-///   [Bundle::component_ids].
+/// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
+/// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
+/// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
+///   [`Bundle::component_ids`].
 pub unsafe trait Bundle: Send + Sync + 'static {
-    /// Gets this [Bundle]'s component ids, in the order of this bundle's Components
+    /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
-    /// this bundle's Components
+    /// this bundle's [`Component`]s
     ///
     /// # Safety
     /// Caller must return data for each component in the bundle, in the order of this bundle's
-    /// Components
-    unsafe fn from_components(func: impl FnMut() -> *mut u8) -> Self
+    /// [`Component`]s
+    unsafe fn from_components<T, F>(ctx: &mut T, func: F) -> Self
     where
+        F: FnMut(&mut T) -> OwningPtr<'_>,
         Self: Sized;
 
-    /// Calls `func` on each value, in the order of this bundle's Components. This will
-    /// "mem::forget" the bundle fields, so callers are responsible for dropping the fields if
-    /// that is desirable.
-    fn get_components(self, func: impl FnMut(*mut u8));
+    /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This will
+    /// [`std::mem::forget`] the bundle fields, so callers are responsible for dropping the fields
+    /// if that is desirable.
+    fn get_components(self, func: impl FnMut(OwningPtr<'_>));
 }
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
-        /// SAFE: Component is returned in tuple-order. [Bundle::from_components] and [Bundle::get_components] use tuple-order
+        // SAFETY:
+        // - `Bundle::component_ids` returns the `ComponentId`s for each component type in the
+        // bundle, in the exact order that `Bundle::get_components` is called.
+        // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
@@ -106,21 +111,20 @@ macro_rules! tuple_impl {
 
             #[allow(unused_variables, unused_mut)]
             #[allow(clippy::unused_unit)]
-            unsafe fn from_components(mut func: impl FnMut() -> *mut u8) -> Self {
+            unsafe fn from_components<T, F>(ctx: &mut T, mut func: F) -> Self
+            where
+                F: FnMut(&mut T) -> OwningPtr<'_>
+            {
                 #[allow(non_snake_case)]
-                let ($(mut $name,)*) = (
-                    $(func().cast::<$name>(),)*
-                );
-                ($($name.read(),)*)
+                ($(func(ctx).read::<$name>(),)*)
             }
 
             #[allow(unused_variables, unused_mut)]
-            fn get_components(self, mut func: impl FnMut(*mut u8)) {
+            fn get_components(self, mut func: impl FnMut(OwningPtr<'_>)) {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
-                    func((&mut $name as *mut $name).cast::<u8>());
-                    std::mem::forget($name);
+                    OwningPtr::make($name, &mut func);
                 )*
             }
         }
@@ -129,7 +133,7 @@ macro_rules! tuple_impl {
 
 all_tuples!(tuple_impl, 0, 15, C);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct BundleId(usize);
 
 impl BundleId {
@@ -258,7 +262,8 @@ impl BundleInfo {
     }
 
     /// # Safety
-    /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the `entity`, `bundle` must match this BundleInfo's type
+    /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
+    /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
     #[allow(clippy::too_many_arguments)]
     unsafe fn write_components<T: Bundle>(
@@ -301,9 +306,9 @@ impl BundleInfo {
         });
     }
 
-    /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the same
-    /// [ArchetypeId], in the event that adding the given bundle does not result in an Archetype change.
-    /// Results are cached in the Archetype Graph to avoid redundant work.
+    /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the
+    /// same [`ArchetypeId`], in the event that adding the given bundle does not result in an
+    /// [`Archetype`] change. Results are cached in the [`Archetype`] graph to avoid redundant work.
     pub(crate) fn add_bundle_to_archetype(
         &self,
         archetypes: &mut Archetypes,
@@ -324,7 +329,7 @@ impl BundleInfo {
                 bundle_status.push(ComponentStatus::Mutated);
             } else {
                 bundle_status.push(ComponentStatus::Added);
-                // SAFE: component_id exists
+                // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
@@ -353,7 +358,7 @@ impl BundleInfo {
                     new_table_components.extend(current_archetype.table_components());
                     // sort to ignore order while hashing
                     new_table_components.sort();
-                    // SAFE: all component ids in `new_table_components` exist
+                    // SAFETY: all component ids in `new_table_components` exist
                     table_id = unsafe {
                         storages
                             .tables
@@ -409,8 +414,8 @@ pub(crate) enum InsertBundleResult<'a> {
 
 impl<'a, 'b> BundleInserter<'a, 'b> {
     /// # Safety
-    /// `entity` must currently exist in the source archetype for this inserter. `archetype_index` must be `entity`'s location in the archetype.
-    /// `T` must match this BundleInfo's type
+    /// `entity` must currently exist in the source archetype for this inserter. `archetype_index`
+    /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
     pub unsafe fn insert<T: Bundle>(
         &mut self,
@@ -489,9 +494,9 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     {
                         &mut *self.archetype
                     } else if new_archetype.id() == swapped_location.archetype_id {
-                        &mut *new_archetype
+                        new_archetype
                     } else {
-                        // SAFE: the only two borrowed archetypes are above and we just did collision checks
+                        // SAFETY: the only two borrowed archetypes are above and we just did collision checks
                         &mut *self
                             .archetypes_ptr
                             .add(swapped_location.archetype_id.index())
@@ -538,7 +543,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
         self.table.reserve(additional);
     }
     /// # Safety
-    /// `entity` must be allocated (but non existent), `T` must match this BundleInfo's type
+    /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
     #[inline]
     pub unsafe fn spawn_non_existent<T: Bundle>(
         &mut self,
@@ -562,11 +567,11 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     }
 
     /// # Safety
-    /// `T` must match this BundleInfo's type
+    /// `T` must match this [`BundleInfo`]'s type
     #[inline]
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
         let entity = self.entities.alloc();
-        // SAFE: entity is allocated (but non-existent), `T` matches this BundleInfo's type
+        // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         self.spawn_non_existent(entity, bundle);
         entity
     }
@@ -598,21 +603,21 @@ impl Bundles {
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let component_ids = T::component_ids(components, storages);
             let id = BundleId(bundle_infos.len());
-            // SAFE: T::component_id ensures info was created
+            // SAFETY: T::component_id ensures info was created
             let bundle_info = unsafe {
                 initialize_bundle(std::any::type_name::<T>(), component_ids, id, components)
             };
             bundle_infos.push(bundle_info);
             id
         });
-        // SAFE: index either exists, or was initialized
+        // SAFETY: index either exists, or was initialized
         unsafe { self.bundle_infos.get_unchecked(id.0) }
     }
 }
 
 /// # Safety
 ///
-/// `component_id` must be valid [ComponentId]'s
+/// `component_id` must be valid [`ComponentId`]'s
 unsafe fn initialize_bundle(
     bundle_type_name: &'static str,
     component_ids: Vec<ComponentId>,
@@ -622,7 +627,7 @@ unsafe fn initialize_bundle(
     let mut storage_types = Vec::new();
 
     for &component_id in &component_ids {
-        // SAFE: component_id exists and is therefore valid
+        // SAFETY: component_id exists and is therefore valid
         let component_info = components.get_info_unchecked(component_id);
         storage_types.push(component_info.storage_type());
     }
@@ -630,9 +635,11 @@ unsafe fn initialize_bundle(
     let mut deduped = component_ids.clone();
     deduped.sort();
     deduped.dedup();
-    if deduped.len() != component_ids.len() {
-        panic!("Bundle {} has duplicate components", bundle_type_name);
-    }
+    assert!(
+        deduped.len() == component_ids.len(),
+        "Bundle {} has duplicate components",
+        bundle_type_name
+    );
 
     BundleInfo {
         id,

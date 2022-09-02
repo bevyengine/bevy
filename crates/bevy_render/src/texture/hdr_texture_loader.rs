@@ -22,7 +22,7 @@ impl AssetLoader for HdrTextureLoader {
                 "Format should have 32bit x 4 size"
             );
 
-            let decoder = image::hdr::HdrDecoder::new(bytes)?;
+            let decoder = image::codecs::hdr::HdrDecoder::new(bytes)?;
             let info = decoder.metadata();
             let rgb_data = decoder.read_image_hdr()?;
             let mut rgba_data = Vec::with_capacity(rgb_data.len() * format.pixel_size());

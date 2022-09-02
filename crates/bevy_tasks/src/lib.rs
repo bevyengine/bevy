@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
 mod slice;
@@ -19,12 +20,10 @@ pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 mod usages;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
-mod countdown_event;
-pub use countdown_event::CountdownEvent;
-
 mod iter;
 pub use iter::ParallelIterator;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -34,10 +33,5 @@ pub mod prelude {
     };
 }
 
-pub fn logical_core_count() -> usize {
-    num_cpus::get()
-}
-
-pub fn physical_core_count() -> usize {
-    num_cpus::get_physical()
-}
+pub use num_cpus::get as logical_core_count;
+pub use num_cpus::get_physical as physical_core_count;
