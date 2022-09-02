@@ -136,6 +136,7 @@ mod tests {
         bundle::Bundles,
         component::{Component, Components},
         entity::{Entities, Entity},
+        event::{EventReader, Events},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
@@ -1185,6 +1186,57 @@ mod tests {
             for a in &q {
                 assert_eq!(a.0, 0);
             }
+        });
+    }
+
+    #[test]
+    fn iter_join_map() {
+        struct DamageEvent {
+            target: Entity,
+            damage: f32,
+        }
+
+        #[derive(Component, PartialEq, Debug)]
+        struct Health(f32);
+
+        let mut world = World::new();
+
+        let e1 = world.spawn().insert(Health(200.)).id();
+        let e2 = world.spawn().insert(Health(100.)).id();
+
+        let mut events = Events::<DamageEvent>::default();
+
+        events.extend([
+            DamageEvent {
+                target: e1,
+                damage: 50.,
+            },
+            DamageEvent {
+                target: e2,
+                damage: 80.,
+            },
+            DamageEvent {
+                target: e1,
+                damage: 150.,
+            },
+        ]);
+
+        world.insert_resource(events);
+
+        fn process_damage_events(
+            mut health_query: Query<&mut Health>,
+            mut event_reader: EventReader<DamageEvent>,
+        ) {
+            let mut join =
+                health_query.iter_join_map_mut(event_reader.iter(), |event| event.target);
+            while let Some((mut health, event)) = join.fetch_next() {
+                health.0 -= event.damage;
+            }
+        }
+        run_system(&mut world, process_damage_events);
+
+        run_system(&mut world, move |query: Query<&Health>| {
+            assert_eq!([&Health(0.), &Health(20.)], query.many([e1, e2]));
         });
     }
 }
