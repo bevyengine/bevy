@@ -156,7 +156,7 @@ fn spawn_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .insert(DropContainer::default())
                 .with_children(|parent| {
                     parent.spawn_bundle(TextBundle::from_section(
-                        format!("Drop into free space!"),
+                        "Drop into free space!".to_string(),
                         TextStyle {
                             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                             font_size: 20.,
@@ -175,18 +175,16 @@ fn mouse_hover(
 ) {
     for (entity, interaction) in query_start_hover.iter_mut() {
         match *interaction {
-            Interaction::Clicked => {}
+            Interaction::Clicked | Interaction::None => {}
             Interaction::Hovered => {
                 event_mouse_enter.send(MouseEnterEvent(entity));
             }
-            Interaction::None => {}
         }
     }
 
     for (entity, interaction) in query_stop_hover.iter_mut() {
         match *interaction {
-            Interaction::Clicked => {}
-            Interaction::Hovered => {}
+            Interaction::Clicked | Interaction::Hovered => {}
             Interaction::None => {
                 event_mouse_exit.send(MouseExitEvent(entity));
             }
@@ -281,7 +279,7 @@ fn dragable_drop_event(
             .insert(Interaction::default())
             .insert(FocusPolicy::Block);
 
-        for (drag_entity, mut style, _dragable, source_drop_container, parent) in
+        if let Ok((drag_entity, mut style, _dragable, source_drop_container, parent)) =
             query_style.get_mut(event.0)
         {
             if let Some((drop_container_entity, drop_container)) = query_drop_containers
