@@ -646,7 +646,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
     /// Returns an [`Iterator`] over the inner join of the results of a query and list of items mapped to [`Entity`]'s.
     ///
-    /// This can only be called for read-only queries, see [`Self::iter_list_mut`] for write-queries.
+    /// This can only be called for read-only queries, see [`Self::iter_join_map_mut`] for write-queries.
     #[inline]
     pub fn iter_join_map<'w, 's, I: IntoIterator, MapFn: FnMut(&I::Item) -> Entity>(
         &'s mut self,
