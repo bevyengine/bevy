@@ -3,7 +3,9 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     prelude::FromWorld,
-    query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, WorldQuery},
+    query::{
+        Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryJoinMapIter, WorldQuery,
+    },
     storage::TableId,
     world::{World, WorldId},
 };
@@ -642,6 +644,50 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// Returns an [`Iterator`] over the inner join of the results of a query and list of items mapped to [`Entity`]'s.
+    ///
+    /// This can only be called for read-only queries, see [`Self::iter_list_mut`] for write-queries.
+    #[inline]
+    pub fn iter_join_map<'w, 's, I: IntoIterator, MapFn: FnMut(&I::Item) -> Entity>(
+        &'s mut self,
+        world: &'w World,
+        list: I,
+        map_f: MapFn,
+    ) -> QueryJoinMapIter<'w, 's, Q::ReadOnly, F::ReadOnly, I::IntoIter, MapFn> {
+        self.update_archetypes(world);
+        // SAFETY: Query has unique world access.
+        unsafe {
+            self.as_readonly().iter_join_map_unchecked_manual(
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+                list,
+                map_f,
+            )
+        }
+    }
+
+    /// Returns an iterator over the inner join of the results of a query and list of items mapped to [`Entity`]'s.
+    #[inline]
+    pub fn iter_join_map_mut<'w, 's, I: IntoIterator, MapFn: FnMut(&I::Item) -> Entity>(
+        &'s mut self,
+        world: &'w mut World,
+        list: I,
+        map_f: MapFn,
+    ) -> QueryJoinMapIter<'w, 's, Q, F, I::IntoIter, MapFn> {
+        self.update_archetypes(world);
+        // SAFETY: Query has unique world access.
+        unsafe {
+            self.iter_join_map_unchecked_manual(
+                world,
+                world.last_change_tick(),
+                world.read_change_tick(),
+                list,
+                map_f,
+            )
+        }
+    }
+
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
     /// # Safety
@@ -704,7 +750,6 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    /// This does not check for entity uniqueness
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     #[inline]
@@ -719,6 +764,29 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         EntityList::Item: Borrow<Entity>,
     {
         QueryManyIter::new(world, self, entities, last_change_tick, change_tick)
+    }
+
+    /// Returns an [`Iterator`] over each item in an inner join on [`Entity`] between the query and a list of items which are mapped to [`Entity`]'s.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    #[inline]
+    pub(crate) unsafe fn iter_join_map_unchecked_manual<'w, 's, I: IntoIterator, MapFn>(
+        &'s self,
+        world: &'w World,
+        last_change_tick: u32,
+        change_tick: u32,
+        list: I,
+        map_f: MapFn,
+    ) -> QueryJoinMapIter<'w, 's, Q, F, I::IntoIter, MapFn>
+    where
+        MapFn: FnMut(&I::Item) -> Entity,
+    {
+        QueryJoinMapIter::new(world, self, last_change_tick, change_tick, list, map_f)
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results for the

@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        QueryCombinationIter, QueryEntityError, QueryItem, QueryIter, QueryManyIter,
-        QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery,
+        QueryCombinationIter, QueryEntityError, QueryItem, QueryIter, QueryJoinMapIter,
+        QueryManyIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -516,6 +516,97 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
                 self.world,
                 self.last_change_tick,
                 self.change_tick,
+            )
+        }
+    }
+
+    /// Returns an [`Iterator`] over the inner join of the results of a [`Query`] and list of items mapped to [`Entity`]'s.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Health {
+    /// #     value: f32
+    /// # }
+    /// #[derive(Component)]
+    /// struct DamageEvent {
+    ///     target: Entity,
+    ///     damage: f32,
+    /// }
+    ///
+    /// fn system(
+    ///     mut damage_events: EventReader<DamageEvent>,
+    ///     health_query: Query<&Health>,
+    /// ) {
+    ///     for (health, event) in
+    ///         health_query.iter_join_map(damage_events.iter(), |event| event.target)
+    ///     {
+    ///         println!("Entity has {} health and will take {} damage!", health.value, event.damage);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn iter_join_map<I: IntoIterator, MapFn: FnMut(&I::Item) -> Entity>(
+        &self,
+        list: I,
+        map_f: MapFn,
+    ) -> QueryJoinMapIter<'w, 's, Q::ReadOnly, F::ReadOnly, I::IntoIter, MapFn> {
+        // SAFETY: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.as_readonly().iter_join_map_unchecked_manual(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+                list,
+                map_f,
+            )
+        }
+    }
+
+    /// Returns an iterator over the inner join of the results of a [`Query`] and list of items mapped to [`Entity`]'s.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Health {
+    /// #     value: f32
+    /// # }
+    /// #[derive(Component)]
+    /// struct DamageEvent {
+    ///     target: Entity,
+    ///     damage: f32,
+    /// }
+    ///
+    /// fn system(
+    ///     mut damage_events: EventReader<DamageEvent>,
+    ///     mut health_query: Query<&mut Health>,
+    /// ) {
+    ///     let mut join = health_query.iter_join_map_mut(damage_events.iter(), |event| event.target);
+    ///     while let Some((mut health, event)) = join.fetch_next() {
+    ///         health.value -= event.damage;
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn iter_join_map_mut<I: IntoIterator, MapFn: FnMut(&I::Item) -> Entity>(
+        &mut self,
+        list: I,
+        map_f: MapFn,
+    ) -> QueryJoinMapIter<'_, '_, Q, F, I::IntoIter, MapFn> {
+        // SAFETY: system runs without conflicts with other systems.
+        // same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            self.state.iter_join_map_unchecked_manual(
+                self.world,
+                self.last_change_tick,
+                self.change_tick,
+                list,
+                map_f,
             )
         }
     }

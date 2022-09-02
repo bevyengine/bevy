@@ -214,6 +214,155 @@ where
 {
 }
 
+/// An [`Iterator`] over [`Query`](crate::system::Query) results a list mapped to [`Entity`]'s and the list items.
+///
+/// This struct is created by the [`Query::iter_join_map`](crate::system::Query::iter_join_map) and [`Query::iter_join_map_mut`](crate::system::Query::iter_join_map_mut) methods.
+pub struct QueryJoinMapIter<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator, MapFn>
+where
+    MapFn: FnMut(&I::Item) -> Entity,
+{
+    list: I,
+    map_f: MapFn,
+    entities: &'w Entities,
+    tables: &'w Tables,
+    archetypes: &'w Archetypes,
+    fetch: QueryFetch<'w, Q>,
+    filter: QueryFetch<'w, F>,
+    query_state: &'s QueryState<Q, F>,
+}
+
+impl<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator, MapFn>
+    QueryJoinMapIter<'w, 's, Q, F, I, MapFn>
+where
+    MapFn: FnMut(&I::Item) -> Entity,
+{
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
+    pub(crate) unsafe fn new<II: IntoIterator<IntoIter = I>>(
+        world: &'w World,
+        query_state: &'s QueryState<Q, F>,
+        last_change_tick: u32,
+        change_tick: u32,
+        entity_map: II,
+        map_f: MapFn,
+    ) -> QueryJoinMapIter<'w, 's, Q, F, I, MapFn> {
+        let fetch = Q::init_fetch(
+            world,
+            &query_state.fetch_state,
+            last_change_tick,
+            change_tick,
+        );
+        let filter = F::init_fetch(
+            world,
+            &query_state.filter_state,
+            last_change_tick,
+            change_tick,
+        );
+        QueryJoinMapIter {
+            query_state,
+            entities: &world.entities,
+            archetypes: &world.archetypes,
+            tables: &world.storages.tables,
+            fetch,
+            filter,
+            list: entity_map.into_iter(),
+            map_f,
+        }
+    }
+
+    /// SAFETY:
+    /// The lifetime here is not restrictive enough for Fetch with &mut access,
+    /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
+    /// references to the same component, leading to unique reference aliasing.
+    ///
+    /// It is always safe for immutable borrows.
+    #[inline(always)]
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<(QueryItem<'w, Q>, I::Item)> {
+        for item in self.list.by_ref() {
+            let location = match self.entities.get((self.map_f)(&item)) {
+                Some(location) => location,
+                None => continue,
+            };
+
+            if !self
+                .query_state
+                .matched_archetypes
+                .contains(location.archetype_id.index())
+            {
+                continue;
+            }
+
+            let archetype = &self.archetypes[location.archetype_id];
+
+            // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
+            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+            Q::set_archetype(
+                &mut self.fetch,
+                &self.query_state.fetch_state,
+                archetype,
+                self.tables,
+            );
+            // SAFETY: `table` is from the world that `fetch/filter` were created for,
+            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+            F::set_archetype(
+                &mut self.filter,
+                &self.query_state.filter_state,
+                archetype,
+                self.tables,
+            );
+            // SAFETY: set_archetype was called prior.
+            // `location.index` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
+            if F::archetype_filter_fetch(&mut self.filter, location.index) {
+                // SAFETY: set_archetype was called prior, `location.index` is an archetype index in range of the current archetype
+                return Some((Q::archetype_fetch(&mut self.fetch, location.index), item));
+            }
+        }
+        None
+    }
+
+    /// Get the next item from the iterator.
+    #[inline(always)]
+    pub fn fetch_next(&mut self) -> Option<(QueryItem<'_, Q>, I::Item)> {
+        // safety: we are limiting the returned reference to self,
+        // making sure this method cannot be called multiple times without getting rid
+        // of any previously returned unique references first, thus preventing aliasing.
+        unsafe {
+            self.fetch_next_aliased_unchecked()
+                .map(|(q_item, item)| (Q::shrink(q_item), item))
+        }
+    }
+}
+
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator, MapFn> Iterator
+    for QueryJoinMapIter<'w, 's, Q, F, I, MapFn>
+where
+    MapFn: FnMut(&I::Item) -> Entity,
+{
+    type Item = (QueryItem<'w, Q>, I::Item);
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY: it is safe to alias for ReadOnlyWorldQuery
+        unsafe { self.fetch_next_aliased_unchecked() }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_, max_size) = self.list.size_hint();
+        (0, max_size)
+    }
+}
+
+// This is correct as QueryJoinMapIter always returns `None` once exhausted.
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator, MapFn> FusedIterator
+    for QueryJoinMapIter<'w, 's, Q, F, I, MapFn>
+where
+    MapFn: FnMut(&I::Item) -> Entity,
+{
+}
+
 /// An iterator over `K`-sized combinations of query items without repetition.
 ///
 /// In this context, a combination is an unordered subset of `K` elements.
