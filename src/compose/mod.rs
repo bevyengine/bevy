@@ -109,7 +109,7 @@ use std::{
     ops::Range,
 };
 use thiserror::Error;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{
     derive::DerivedModule,
@@ -575,18 +575,11 @@ impl Composer {
 
         // sort imports by decreasing length so we don't accidentally replace substrings of a longer import
         let mut imports = imports.to_vec();
-        imports.sort_by_key(|import| {
-            usize::MAX
-                - import.definition.as_name().len()
-        });
+        imports.sort_by_key(|import| usize::MAX - import.definition.as_name().len());
 
         for import in imports.iter() {
             substituted_source = substituted_source.replace(
-                format!(
-                    "{}::",
-                    import.definition.as_name()
-                )
-                .as_str(),
+                format!("{}::", import.definition.as_name()).as_str(),
                 &Self::decorate(&import.definition.import),
             );
         }
@@ -602,6 +595,8 @@ impl Composer {
         imports: &[ImportDefinition],
         shader_defs: &HashSet<String>,
     ) -> Result<IrBuildResult, ComposerError> {
+        info!("creating IR for {} with defs: {:?}", name, shader_defs);
+
         let mut module_string = match language {
             ShaderLanguage::Wgsl => String::new(),
             ShaderLanguage::Glsl => String::from("#version 450\n"),
@@ -611,8 +606,11 @@ impl Composer {
 
         for import in imports {
             // // we must have ensured these exist with Composer::ensure_imports()
+            debug!("looking for {}", import.import);
             let import_module_set = self.module_sets.get(&import.import).unwrap();
+            debug!("with defs {:?}", shader_defs);
             let module = import_module_set.get_module(shader_defs).unwrap();
+            debug!("ok");
 
             // add header string
             module_string.push_str(module.headers.get(&language).unwrap().as_str());
@@ -1249,7 +1247,8 @@ impl Composer {
                 source: ErrSource::Module(module_set.name.to_owned(), 0),
             })?;
 
-        self.ensure_imports(imports, shader_defs)?;
+        self.ensure_imports(imports.iter().map(|import| &import.definition), shader_defs)?;
+        self.ensure_imports(&module_set.additional_imports, shader_defs)?;
 
         self.create_composable_module(
             module_set,
@@ -1261,25 +1260,21 @@ impl Composer {
     }
 
     // build required ComposableModules for a given set of shader_defs
-    fn ensure_imports(
+    fn ensure_imports<'a>(
         &mut self,
-        imports: Vec<ImportDefWithOffset>,
+        imports: impl IntoIterator<Item = &'a ImportDefinition>,
         shader_defs: &HashSet<String>,
     ) -> Result<(), ComposerError> {
-        for ImportDefWithOffset {
-            definition: ImportDefinition { import, .. },
-            ..
-        } in imports
-        {
+        for ImportDefinition { import, .. } in imports.into_iter() {
             // we've already ensured imports exist when they were added
-            let module_set = self.module_sets.get(&import).unwrap();
+            let module_set = self.module_sets.get(import).unwrap();
             if module_set.get_module(shader_defs).is_some() {
                 continue;
             }
 
             // we need to build the module
             // take the set so we can recurse without borrowing
-            let (set_key, mut module_set) = self.module_sets.remove_entry(&import).unwrap();
+            let (set_key, mut module_set) = self.module_sets.remove_entry(import).unwrap();
 
             match self.ensure_import(&module_set, shader_defs) {
                 Ok(module) => {
@@ -1382,6 +1377,8 @@ impl Composer {
             });
         }
         let module_name = module_name.unwrap();
+
+        info!("adding module definition for {}", module_name);
 
         // add custom imports
         let additional_imports = additional_imports.to_vec();
@@ -1503,10 +1500,9 @@ impl Composer {
             shader_defs,
             additional_imports,
         } = desc;
-
         let shader_defs = shader_defs.iter().cloned().collect();
 
-        let (name, modified_source, mut imports) = self
+        let (name, modified_source, imports) = self
             .preprocess_defs(source, &shader_defs, false)
             .map_err(|inner| ComposerError {
                 inner,
@@ -1520,11 +1516,11 @@ impl Composer {
         let name = name.unwrap_or_default();
         let substituted_source = Self::sanitize_and_substitute_shader_string(source, &imports);
 
-        imports.extend(additional_imports.iter().map(|add| ImportDefWithOffset {
-            definition: add.clone(),
-            offset: 0,
-        }));
-        self.ensure_imports(imports, &shader_defs)?;
+        self.ensure_imports(
+            imports.iter().map(|import| &import.definition),
+            &shader_defs,
+        )?;
+        self.ensure_imports(additional_imports, &shader_defs)?;
 
         let definition = ComposableModuleDefinition {
             name,
