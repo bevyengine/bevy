@@ -24,6 +24,10 @@ use wgpu::{
     VertexBufferLayout as RawVertexBufferLayout,
 };
 
+/// A descriptor for a [`Pipeline`].
+///
+/// Used to store an heterogenous collection of render and compute pipeline descriptors together.
+#[derive(Debug)]
 pub enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
     ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
@@ -40,17 +44,21 @@ pub enum Pipeline {
 
 type CachedPipelineId = usize;
 
+/// Index of a cached render pipeline in a [`PipelineCache`].
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct CachedRenderPipelineId(CachedPipelineId);
 
 impl CachedRenderPipelineId {
+    /// An invalid cached render pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
 }
 
+/// Index of a cached compute pipeline in a [`PipelineCache`].
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct CachedComputePipelineId(CachedPipelineId);
 
 impl CachedComputePipelineId {
+    /// An invalid cached compute pipeline index, often used to initialize a variable.
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
 }
 
@@ -59,7 +67,7 @@ pub struct CachedPipeline {
     pub state: CachedPipelineState,
 }
 
-/// State of a cached render pipeline.
+/// State of a cached pipeline inserted into a [`PipelineCache`].
 #[derive(Debug)]
 pub enum CachedPipelineState {
     /// The pipeline GPU object is queued for creation.
