@@ -78,11 +78,8 @@ pub struct ComputedCameraValues {
 /// to transform the 3D objects into a 2D image, as well as the render target into which that image
 /// is produced.
 ///
-/// Adding a camera is typically done by adding a bundle, either the [`Camera2dBundle`] or the
-/// [`Camera3dBundle`].
-///
-/// [`Camera2dBundle`]: bevy_core_pipeline::core_2d::Camera2dBundle
-/// [`Camera3dBundle`]: bevy_core_pipeline::core_3d::Camera3dBundle
+/// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
+/// `Camera3dBundle`.
 #[derive(Component, Debug, Reflect, FromReflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
