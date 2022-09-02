@@ -346,6 +346,15 @@ pub fn camera_system<T: CameraProjection + Component>(
 ) {
     let mut changed_window_ids = Vec::new();
 
+    // Collect all unique window IDs of changed windows by inspecting created windows
+    for event in window_created_events.iter() {
+        if changed_window_ids.contains(&event.id) {
+            continue;
+        }
+
+        changed_window_ids.push(event.id);
+    }
+
     // Collect all unique window IDs of changed windows by inspecting resized windows
     for event in window_resized_events.iter() {
         if changed_window_ids.contains(&event.id) {
