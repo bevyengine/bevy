@@ -241,12 +241,12 @@ where
     /// have unique access to the components they query.
     /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
-    pub(crate) unsafe fn new<II: IntoIterator<IntoIter = I>>(
+    pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
-        entity_map: II,
+        entity_map: impl IntoIterator<IntoIter = I>,
         map_f: MapFn,
     ) -> QueryJoinMapIter<'w, 's, Q, F, I, MapFn> {
         let fetch = Q::init_fetch(
