@@ -1,11 +1,17 @@
-use naga_oil::compose::{Composer, ComposerError, ShaderLanguage, ShaderType};
+use naga_oil::compose::{
+    ComposableModuleDescriptor, Composer, ComposerError, NagaModuleDescriptor,
+};
 #[allow(unused_variables, dead_code)]
 
 fn init_composer() -> Composer {
     let mut composer = Composer::default();
 
-    let mut load_composable = |source: &str, path: &str| -> () {
-        match composer.add_composable_module(source, path, ShaderLanguage::Wgsl, None, &[]) {
+    let mut load_composable = |source: &str, file_path: &str| -> () {
+        match composer.add_composable_module(ComposableModuleDescriptor {
+            source,
+            file_path,
+            ..Default::default()
+        }) {
             Ok(_module) => {
                 // println!("{} -> {:#?}", module.name, module)
             }
@@ -80,13 +86,12 @@ fn init_composer() -> Composer {
 fn test_compose_full() -> Result<naga::Module, ComposerError> {
     let mut composer = init_composer();
 
-    match composer.make_naga_module(
-        include_str!("bevy_pbr_wgsl/pbr.wgsl"),
-        "examples/bevy_pbr_wgsl/pbr.wgsl",
-        ShaderType::Wgsl,
-        &["VERTEX_UVS".to_owned()],
-        &[],
-    ) {
+    match composer.make_naga_module(NagaModuleDescriptor {
+        source: include_str!("bevy_pbr_wgsl/pbr.wgsl"),
+        file_path: "examples/bevy_pbr_wgsl/pbr.wgsl",
+        shader_defs: &["VERTEX_UVS".to_owned()],
+        ..Default::default()
+    }) {
         Ok(module) => {
             // println!("shader: {:#?}", module);
             // let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::default()).validate(&module).unwrap();
@@ -105,13 +110,12 @@ fn test_compose_full() -> Result<naga::Module, ComposerError> {
 fn test_compose_final_module(n: usize, composer: &mut Composer) {
     let mut shader;
     for _ in 0..n {
-        shader = match composer.make_naga_module(
-            include_str!("bevy_pbr_wgsl/pbr.wgsl"),
-            "examples/bevy_pbr_wgsl/pbr.wgsl",
-            ShaderType::Wgsl,
-            &["VERTEX_UVS".to_owned()],
-            &[],
-        ) {
+        shader = match composer.make_naga_module(NagaModuleDescriptor {
+            source: include_str!("bevy_pbr_wgsl/pbr.wgsl"),
+            file_path: "examples/bevy_pbr_wgsl/pbr.wgsl",
+            shader_defs: &["VERTEX_UVS".to_owned()],
+            ..Default::default()
+        }) {
             Ok(module) => {
                 // println!("shader: {:#?}", module);
                 // let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::default()).validate(&module).unwrap();
@@ -169,13 +173,12 @@ fn test_composer_compile(n: usize, composer: &mut Composer) {
 
     for _ in 0..n {
         let module = composer
-            .make_naga_module(
-                include_str!("bevy_pbr_wgsl/pbr.wgsl"),
-                "examples/bevy_pbr_wgsl/pbr.wgsl",
-                ShaderType::Wgsl,
-                &["VERTEX_UVS".to_owned()],
-                &[],
-            )
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("bevy_pbr_wgsl/pbr.wgsl"),
+                file_path: "examples/bevy_pbr_wgsl/pbr.wgsl",
+                shader_defs: &["VERTEX_UVS".to_owned()],
+                ..Default::default()
+            })
             .unwrap();
         let _desc = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             source: wgpu::ShaderSource::Naga(module),

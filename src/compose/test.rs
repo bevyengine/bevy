@@ -9,29 +9,28 @@ mod test {
         ComputePipelineDescriptor, ShaderStages,
     };
 
-    use crate::compose::{Composer, ImportDefinition, ShaderLanguage, ShaderType};
+    use crate::compose::{
+        ComposableModuleDescriptor, Composer, ImportDefinition, NagaModuleDescriptor,
+        ShaderLanguage, ShaderType,
+    };
 
     #[test]
     fn simple_compose() {
         let mut composer = Composer::default();
 
         composer
-            .add_composable_module(
-                include_str!("tests/simple/inc.wgsl"),
-                "tests/simple/inc.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/simple/inc.wgsl"),
+                file_path: "tests/simple/inc.wgsl",
+                ..Default::default()
+            })
             .unwrap();
         let module = composer
-            .make_naga_module(
-                include_str!("tests/simple/top.wgsl"),
-                "tests/simple/top.wgsl",
-                ShaderType::Wgsl,
-                &[],
-                &[],
-            )
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/simple/top.wgsl"),
+                file_path: "tests/simple/top.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         let info = naga::valid::Validator::new(
@@ -60,40 +59,32 @@ mod test {
         let mut composer = Composer::default();
 
         composer
-            .add_composable_module(
-                include_str!("tests/dup_import/consts.wgsl"),
-                "tests/dup_import/consts.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/dup_import/consts.wgsl"),
+                file_path: "tests/dup_import/consts.wgsl",
+                ..Default::default()
+            })
             .unwrap();
         composer
-            .add_composable_module(
-                include_str!("tests/dup_import/a.wgsl"),
-                "tests/dup_import/a.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/dup_import/a.wgsl"),
+                file_path: "tests/dup_import/a.wgsl",
+                ..Default::default()
+            })
             .unwrap();
         composer
-            .add_composable_module(
-                include_str!("tests/dup_import/b.wgsl"),
-                "tests/dup_import/b.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/dup_import/b.wgsl"),
+                file_path: "tests/dup_import/b.wgsl",
+                ..Default::default()
+            })
             .unwrap();
         let module = composer
-            .make_naga_module(
-                include_str!("tests/dup_import/top.wgsl"),
-                "tests/dup_import/top.wgsl",
-                ShaderType::Wgsl,
-                &[],
-                &[],
-            )
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/dup_import/top.wgsl"),
+                file_path: "tests/dup_import/top.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         let info = naga::valid::Validator::new(
@@ -123,13 +114,11 @@ mod test {
 
         {
             let error = composer
-                .make_naga_module(
-                    include_str!("tests/error_test/wgsl_valid_err.wgsl"),
-                    "tests/error_test/wgsl_valid_err.wgsl",
-                    ShaderType::Wgsl,
-                    &[],
-                    &[],
-                )
+                .make_naga_module(NagaModuleDescriptor {
+                    source: include_str!("tests/error_test/wgsl_valid_err.wgsl"),
+                    file_path: "tests/error_test/wgsl_valid_err.wgsl",
+                    ..Default::default()
+                })
                 .err()
                 .unwrap();
             let text = error.emit_to_string(&composer);
@@ -144,23 +133,19 @@ mod test {
 
         {
             composer
-                .add_composable_module(
-                    include_str!("tests/error_test/wgsl_valid_err.wgsl"),
-                    "tests/error_test/wgsl_valid_err.wgsl",
-                    ShaderLanguage::Wgsl,
-                    None,
-                    &[],
-                )
+                .add_composable_module(ComposableModuleDescriptor {
+                    source: include_str!("tests/error_test/wgsl_valid_err.wgsl"),
+                    file_path: "tests/error_test/wgsl_valid_err.wgsl",
+                    ..Default::default()
+                })
                 .unwrap();
 
             let error = composer
-                .make_naga_module(
-                    include_str!("tests/error_test/wgsl_valid_wrap.wgsl"),
-                    "tests/error_test/wgsl_valid_wrap.wgsl",
-                    ShaderType::Wgsl,
-                    &[],
-                    &[],
-                )
+                .make_naga_module(NagaModuleDescriptor {
+                    source: include_str!("tests/error_test/wgsl_valid_wrap.wgsl"),
+                    file_path: "tests/error_test/wgsl_valid_wrap.wgsl",
+                    ..Default::default()
+                })
                 .err()
                 .unwrap();
 
@@ -181,13 +166,11 @@ mod test {
 
         {
             let error = composer
-                .make_naga_module(
-                    include_str!("tests/error_test/wgsl_parse_err.wgsl"),
-                    "tests/error_test/wgsl_parse_err.wgsl",
-                    ShaderType::Wgsl,
-                    &[],
-                    &[],
-                )
+                .make_naga_module(NagaModuleDescriptor {
+                    source: include_str!("tests/error_test/wgsl_parse_err.wgsl"),
+                    file_path: "tests/error_test/wgsl_parse_err.wgsl",
+                    ..Default::default()
+                })
                 .err()
                 .unwrap();
             let text = error.emit_to_string(&composer);
@@ -202,23 +185,19 @@ mod test {
 
         {
             composer
-                .add_composable_module(
-                    include_str!("tests/error_test/wgsl_parse_err.wgsl"),
-                    "tests/error_test/wgsl_parse_err.wgsl",
-                    ShaderLanguage::Wgsl,
-                    None,
-                    &[],
-                )
+                .add_composable_module(ComposableModuleDescriptor {
+                    source: include_str!("tests/error_test/wgsl_parse_err.wgsl"),
+                    file_path: "tests/error_test/wgsl_parse_err.wgsl",
+                    ..Default::default()
+                })
                 .unwrap();
 
             let error_2 = composer
-                .make_naga_module(
-                    include_str!("tests/error_test/wgsl_parse_wrap.wgsl"),
-                    "tests/error_test/wgsl_parse_wrap.wgsl",
-                    ShaderType::Wgsl,
-                    &[],
-                    &[],
-                )
+                .make_naga_module(NagaModuleDescriptor {
+                    source: include_str!("tests/error_test/wgsl_parse_wrap.wgsl"),
+                    file_path: "tests/error_test/wgsl_parse_wrap.wgsl",
+                    ..Default::default()
+                })
                 .err()
                 .unwrap();
             let text2 = error_2.emit_to_string(&composer);
@@ -231,13 +210,11 @@ mod test {
         let mut composer = Composer::default();
 
         let error = composer
-            .add_composable_module(
-                include_str!("tests/error_test/include.wgsl"),
-                "tests/error_test/include.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/error_test/include.wgsl"),
+                file_path: "tests/error_test/include.wgsl",
+                ..Default::default()
+            })
             .err()
             .unwrap();
         let text = error.emit_to_string(&composer);
@@ -252,23 +229,20 @@ mod test {
         let mut composer = Composer::default();
 
         composer
-            .add_composable_module(
-                include_str!("tests/glsl/module.glsl"),
-                "tests/glsl/module.glsl",
-                ShaderLanguage::Glsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/glsl/module.glsl"),
+                file_path: "tests/glsl/module.glsl",
+                language: ShaderLanguage::Glsl,
+                ..Default::default()
+            })
             .unwrap();
 
         let module = composer
-            .make_naga_module(
-                include_str!("tests/glsl/top.wgsl"),
-                "tests/glsl/top.wgsl",
-                ShaderType::Wgsl,
-                &[],
-                &[],
-            )
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/glsl/top.wgsl"),
+                file_path: "tests/glsl/top.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         let info = naga::valid::Validator::new(
@@ -306,23 +280,20 @@ mod test {
         let mut composer = Composer::default();
 
         composer
-            .add_composable_module(
-                include_str!("tests/glsl/module.wgsl"),
-                "tests/glsl/module.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/glsl/module.wgsl"),
+                file_path: "tests/glsl/module.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         let module = composer
-            .make_naga_module(
-                include_str!("tests/glsl/top.glsl"),
-                "tests/glsl/top.glsl",
-                ShaderType::GlslVertex,
-                &[],
-                &[],
-            )
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/glsl/top.glsl"),
+                file_path: "tests/glsl/top.glsl",
+                shader_type: ShaderType::GlslVertex,
+                ..Default::default()
+            })
             .unwrap();
 
         let info = naga::valid::Validator::new(
@@ -349,13 +320,12 @@ mod test {
         let mut composer = Composer::default();
 
         composer
-            .make_naga_module(
-                include_str!("tests/glsl/basic.glsl"),
-                "tests/glsl/basic.glsl",
-                ShaderType::GlslFragment,
-                &[],
-                &[],
-            )
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/glsl/basic.glsl"),
+                file_path: "tests/glsl/basic.glsl",
+                shader_type: ShaderType::GlslFragment,
+                ..Default::default()
+            })
             .unwrap();
     }
 
@@ -364,23 +334,19 @@ mod test {
         let mut composer = Composer::default();
 
         composer
-            .add_composable_module(
-                include_str!("tests/call_entrypoint/include.wgsl"),
-                "tests/call_entrypoint/include.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/call_entrypoint/include.wgsl"),
+                file_path: "tests/call_entrypoint/include.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         let module = composer
-            .make_naga_module(
-                include_str!("tests/call_entrypoint/top.wgsl"),
-                "tests/call_entrypoint/top.wgsl",
-                ShaderType::Wgsl,
-                &[],
-                &[],
-            )
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/call_entrypoint/top.wgsl"),
+                file_path: "tests/call_entrypoint/top.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         let info = naga::valid::Validator::new(
@@ -410,23 +376,19 @@ mod test {
         let mut composer = Composer::default();
 
         composer
-            .add_composable_module(
-                include_str!("tests/overrides/mod.wgsl"),
-                "tests/overrides/mod.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/overrides/mod.wgsl"),
+                file_path: "tests/overrides/mod.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         let module = composer
-            .make_naga_module(
-                include_str!("tests/overrides/top.wgsl"),
-                "tests/overrides/top.wgsl",
-                ShaderType::Wgsl,
-                &[],
-                &[],
-            )
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/overrides/top.wgsl"),
+                file_path: "tests/overrides/top.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         // println!("failed: {}", module.emit_to_string(&composer));
@@ -452,33 +414,27 @@ mod test {
         let mut composer = Composer::default();
 
         composer
-            .add_composable_module(
-                include_str!("tests/overrides/mod.wgsl"),
-                "tests/overrides/mod.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/overrides/mod.wgsl"),
+                file_path: "tests/overrides/mod.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         composer
-            .add_composable_module(
-                include_str!("tests/overrides/middle.wgsl"),
-                "tests/overrides/middle.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/overrides/middle.wgsl"),
+                file_path: "tests/overrides/middle.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         composer
-            .add_composable_module(
-                include_str!("tests/overrides/top_with_middle.wgsl"),
-                "tests/overrides/top_with_middle.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/overrides/top_with_middle.wgsl"),
+                file_path: "tests/overrides/top_with_middle.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         assert_eq!(test_shader(&mut composer), 3.0);
@@ -488,36 +444,32 @@ mod test {
     fn additional_import() {
         let mut composer = Composer::default();
         composer
-            .add_composable_module(
-                include_str!("tests/add_imports/overridable.wgsl"),
-                "tests/add_imports/overridable.wgsl",
-                ShaderLanguage::Wgsl,
-                None,
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/add_imports/overridable.wgsl"),
+                file_path: "tests/add_imports/overridable.wgsl",
+                ..Default::default()
+            })
             .unwrap();
         composer
-            .add_composable_module(
-                include_str!("tests/add_imports/plugin.wgsl"),
-                "tests/add_imports/plugin.wgsl",
-                ShaderLanguage::Wgsl,
-                Some("plugin".to_owned()),
-                &[],
-            )
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/add_imports/plugin.wgsl"),
+                file_path: "tests/add_imports/plugin.wgsl",
+                as_name: Some("plugin".to_owned()),
+                ..Default::default()
+            })
             .unwrap();
 
         // test as shader
         let module = composer
-            .make_naga_module(
-                include_str!("tests/add_imports/top.wgsl"),
-                "tests/add_imports/top.wgsl",
-                ShaderType::Wgsl,
-                &[],
-                &[ImportDefinition {
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/add_imports/top.wgsl"),
+                file_path: "tests/add_imports/top.wgsl",
+                additional_imports: &[ImportDefinition {
                     import: "plugin".to_owned(),
                     as_name: "plugin".to_owned(),
                 }],
-            )
+                ..Default::default()
+            })
             .unwrap();
 
         let info = naga::valid::Validator::new(
@@ -541,16 +493,16 @@ mod test {
 
         // test as module
         composer
-            .add_composable_module(
-                include_str!("tests/add_imports/top.wgsl"),
-                "tests/add_imports/top.wgsl",
-                ShaderLanguage::Wgsl,
-                Some("test_module".to_owned()),
-                &[ImportDefinition {
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/add_imports/top.wgsl"),
+                file_path: "tests/add_imports/top.wgsl",
+                as_name: Some("test_module".to_owned()),
+                additional_imports: &[ImportDefinition {
                     import: "plugin".to_owned(),
                     as_name: "plugin".to_owned(),
                 }],
-            )
+                ..Default::default()
+            })
             .unwrap();
 
         assert_eq!(test_shader(&mut composer), 2.0);
@@ -560,13 +512,11 @@ mod test {
     // needs the composer to contain a module called "test_module", with a function called "entry_point" returning an f32.
     fn test_shader(composer: &mut Composer) -> f32 {
         let module = composer
-            .make_naga_module(
-                include_str!("tests/compute_test.wgsl"),
-                "tests/compute_test.wgsl",
-                ShaderType::Wgsl,
-                &[],
-                &[],
-            )
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/compute_test.wgsl"),
+                file_path: "tests/compute_test.wgsl",
+                ..Default::default()
+            })
             .unwrap();
 
         let instance = wgpu::Instance::new(wgpu::Backends::all());

@@ -118,14 +118,16 @@ use crate::{
 
 mod test;
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Default)]
 pub enum ShaderLanguage {
+    #[default]
     Wgsl,
     Glsl,
 }
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Default)]
 pub enum ShaderType {
+    #[default]
     Wgsl,
     GlslVertex,
     GlslFragment,
@@ -554,32 +556,6 @@ impl Composer {
                 });
 
         undecor.to_string()
-    }
-
-    /// create a non-validating composer.
-    /// validation errors in the final shader will not be caught, and errors resulting from their
-    /// use will have bad span data, so codespan reporting will fail.
-    /// use default() to create a validating composer.
-    pub fn non_validating() -> Self {
-        Self {
-            validate: false,
-            ..Default::default()
-        }
-    }
-
-    /// specify capabilities to be used for naga module generation.
-    /// purges any existing modules
-    pub fn with_capabilities(self, capabilities: naga::valid::Capabilities) -> Self {
-        Self {
-            capabilities,
-            validate: self.validate,
-            ..Default::default()
-        }
-    }
-
-    /// check if a module with the given name has been added
-    pub fn contains_module(&self, module_name: &str) -> bool {
-        self.module_sets.contains_key(module_name)
     }
 
     fn sanitize_and_substitute_shader_string(
@@ -1177,16 +1153,197 @@ impl Composer {
         Ok(composable_module)
     }
 
+    // shunt all data owned by a composable into a derived module
+    fn add_composable_data<'a>(
+        derived: &mut DerivedModule<'a>,
+        composable: &'a ComposableModule,
+        span_offset: usize,
+    ) {
+        derived.set_shader_source(&composable.module_ir, span_offset);
+
+        for (h, ty) in composable.module_ir.types.iter() {
+            if let Some(name) = &ty.name {
+                if composable.owned_types.contains(name) {
+                    derived.import_type(&h);
+                }
+            }
+        }
+
+        for (h, c) in composable.module_ir.constants.iter() {
+            if let Some(name) = &c.name {
+                if composable.owned_constants.contains(name) {
+                    derived.import_const(&h);
+                }
+            }
+        }
+
+        for (h, v) in composable.module_ir.global_variables.iter() {
+            if let Some(name) = &v.name {
+                if composable.owned_vars.contains(name) {
+                    derived.import_global(&h);
+                }
+            }
+        }
+
+        for (h_f, f) in composable.module_ir.functions.iter() {
+            if let Some(name) = &f.name {
+                if composable.owned_functions.contains(name) {
+                    let span = composable.module_ir.functions.get_span(h_f);
+                    derived.import_function(f, span);
+                }
+            }
+        }
+
+        derived.clear_shader_source();
+    }
+
+    // add an import (and recursive imports) into a derived module
+    fn add_import<'a>(
+        &'a self,
+        derived: &mut DerivedModule<'a>,
+        import: &String,
+        shader_defs: &HashSet<String>,
+        already_added: &mut HashSet<String>,
+    ) {
+        if already_added.contains(import) {
+            return;
+        }
+        already_added.insert(import.clone());
+
+        let import_module_set = self.module_sets.get(import).unwrap();
+        let module = import_module_set.get_module(shader_defs).unwrap();
+
+        for import in module.imports.iter() {
+            self.add_import(derived, import, shader_defs, already_added);
+        }
+
+        Self::add_composable_data(
+            derived,
+            module,
+            import_module_set.module_index << SPAN_SHIFT,
+        );
+    }
+
+    fn ensure_import(
+        &mut self,
+        module_set: &ComposableModuleDefinition,
+        shader_defs: &HashSet<String>,
+    ) -> Result<ComposableModule, ComposerError> {
+        let (_, _, imports) = self
+            .preprocess_defs(&module_set.substituted_source, shader_defs, true)
+            .map_err(|inner| ComposerError {
+                inner,
+                source: ErrSource::Module(module_set.name.to_owned(), 0),
+            })?;
+
+        self.ensure_imports(imports, shader_defs)?;
+
+        self.create_composable_module(
+            module_set,
+            &Self::decorate(&module_set.name),
+            shader_defs,
+            true,
+            true,
+        )
+    }
+
+    // build required ComposableModules for a given set of shader_defs
+    fn ensure_imports(
+        &mut self,
+        imports: Vec<ImportDefWithOffset>,
+        shader_defs: &HashSet<String>,
+    ) -> Result<(), ComposerError> {
+        for ImportDefWithOffset {
+            definition: ImportDefinition { import, .. },
+            ..
+        } in imports
+        {
+            // we've already ensured imports exist when they were added
+            let module_set = self.module_sets.get(&import).unwrap();
+            if module_set.get_module(shader_defs).is_some() {
+                continue;
+            }
+
+            // we need to build the module
+            // take the set so we can recurse without borrowing
+            let (set_key, mut module_set) = self.module_sets.remove_entry(&import).unwrap();
+
+            match self.ensure_import(&module_set, shader_defs) {
+                Ok(module) => {
+                    module_set.insert_module(shader_defs, module);
+                    self.module_sets.insert(set_key, module_set);
+                }
+                Err(e) => {
+                    self.module_sets.insert(set_key, module_set);
+                    return Err(e);
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct ComposableModuleDescriptor<'a> {
+    pub source: &'a str,
+    pub file_path: &'a str,
+    pub language: ShaderLanguage,
+    pub as_name: Option<String>,
+    pub additional_imports: &'a [ImportDefinition],
+}
+
+#[derive(Default)]
+pub struct NagaModuleDescriptor<'a> {
+    pub source: &'a str,
+    pub file_path: &'a str,
+    pub shader_type: ShaderType,
+    pub shader_defs: &'a [String],
+    pub additional_imports: &'a [ImportDefinition],
+}
+
+// public api
+impl Composer {
+    /// create a non-validating composer.
+    /// validation errors in the final shader will not be caught, and errors resulting from their
+    /// use will have bad span data, so codespan reporting will fail.
+    /// use default() to create a validating composer.
+    pub fn non_validating() -> Self {
+        Self {
+            validate: false,
+            ..Default::default()
+        }
+    }
+
+    /// specify capabilities to be used for naga module generation.
+    /// purges any existing modules
+    pub fn with_capabilities(self, capabilities: naga::valid::Capabilities) -> Self {
+        Self {
+            capabilities,
+            validate: self.validate,
+            ..Default::default()
+        }
+    }
+
+    /// check if a module with the given name has been added
+    pub fn contains_module(&self, module_name: &str) -> bool {
+        self.module_sets.contains_key(module_name)
+    }
+
     /// add a composable module to the composer.
     /// all modules imported by this module must already have been added
     pub fn add_composable_module(
         &mut self,
-        source: &str,
-        file_path: &str,
-        language: ShaderLanguage,
-        as_name: Option<String>,
-        additional_imports: &[ImportDefinition],
+        desc: ComposableModuleDescriptor,
     ) -> Result<&ComposableModuleDefinition, ComposerError> {
+        let ComposableModuleDescriptor {
+            source,
+            file_path,
+            language,
+            as_name,
+            additional_imports,
+        } = desc;
+
         // reject a module containing the DECORATION strings
         if let Some(decor) = self.check_decoration_regex.find(source) {
             return Err(ComposerError {
@@ -1321,145 +1478,19 @@ impl Composer {
         }
     }
 
-    // shunt all data owned by a composable into a derived module
-    fn add_composable_data<'a>(
-        derived: &mut DerivedModule<'a>,
-        composable: &'a ComposableModule,
-        span_offset: usize,
-    ) {
-        derived.set_shader_source(&composable.module_ir, span_offset);
-
-        for (h, ty) in composable.module_ir.types.iter() {
-            if let Some(name) = &ty.name {
-                if composable.owned_types.contains(name) {
-                    derived.import_type(&h);
-                }
-            }
-        }
-
-        for (h, c) in composable.module_ir.constants.iter() {
-            if let Some(name) = &c.name {
-                if composable.owned_constants.contains(name) {
-                    derived.import_const(&h);
-                }
-            }
-        }
-
-        for (h, v) in composable.module_ir.global_variables.iter() {
-            if let Some(name) = &v.name {
-                if composable.owned_vars.contains(name) {
-                    derived.import_global(&h);
-                }
-            }
-        }
-
-        for (h_f, f) in composable.module_ir.functions.iter() {
-            if let Some(name) = &f.name {
-                if composable.owned_functions.contains(name) {
-                    let span = composable.module_ir.functions.get_span(h_f);
-                    derived.import_function(f, span);
-                }
-            }
-        }
-
-        derived.clear_shader_source();
-    }
-
-    // add an import (and recursive imports) into a derived module
-    fn add_import<'a>(
-        &'a self,
-        derived: &mut DerivedModule<'a>,
-        import: &String,
-        shader_defs: &HashSet<String>,
-        already_added: &mut HashSet<String>,
-    ) {
-        if already_added.contains(import) {
-            return;
-        }
-        already_added.insert(import.clone());
-
-        let import_module_set = self.module_sets.get(import).unwrap();
-        let module = import_module_set.get_module(shader_defs).unwrap();
-
-        for import in module.imports.iter() {
-            self.add_import(derived, import, shader_defs, already_added);
-        }
-
-        Self::add_composable_data(
-            derived,
-            module,
-            import_module_set.module_index << SPAN_SHIFT,
-        );
-    }
-
-    fn ensure_import(
-        &mut self,
-        module_set: &ComposableModuleDefinition,
-        shader_defs: &HashSet<String>,
-    ) -> Result<ComposableModule, ComposerError> {
-        let (_, _, imports) = self
-            .preprocess_defs(&module_set.substituted_source, shader_defs, true)
-            .map_err(|inner| ComposerError {
-                inner,
-                source: ErrSource::Module(module_set.name.to_owned(), 0),
-            })?;
-
-        self.ensure_imports(imports, shader_defs)?;
-
-        self.create_composable_module(
-            module_set,
-            &Self::decorate(&module_set.name),
-            shader_defs,
-            true,
-            true,
-        )
-    }
-
-    // build required ComposableModules for a given set of shader_defs
-    fn ensure_imports(
-        &mut self,
-        imports: Vec<ImportDefWithOffset>,
-        shader_defs: &HashSet<String>,
-    ) -> Result<(), ComposerError> {
-        for ImportDefWithOffset {
-            definition: ImportDefinition { import, .. },
-            ..
-        } in imports
-        {
-            // we've already ensured imports exist when they were added
-            let module_set = self.module_sets.get(&import).unwrap();
-            if module_set.get_module(shader_defs).is_some() {
-                continue;
-            }
-
-            // we need to build the module
-            // take the set so we can recurse without borrowing
-            let (set_key, mut module_set) = self.module_sets.remove_entry(&import).unwrap();
-
-            match self.ensure_import(&module_set, shader_defs) {
-                Ok(module) => {
-                    module_set.insert_module(shader_defs, module);
-                    self.module_sets.insert(set_key, module_set);
-                }
-                Err(e) => {
-                    self.module_sets.insert(set_key, module_set);
-                    return Err(e);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     /// build a naga shader module
     pub fn make_naga_module(
         &mut self,
-        source: &str,
-        path: &str,
-        shader_type: ShaderType,
-        shader_defs: &[String],
-        additional_imports: &[ImportDefinition],
+        desc: NagaModuleDescriptor,
     ) -> Result<naga::Module, ComposerError> {
+        let NagaModuleDescriptor {
+            source,
+            file_path,
+            shader_type,
+            shader_defs,
+            additional_imports,
+        } = desc;
+
         let shader_defs = shader_defs.iter().cloned().collect();
 
         let (name, modified_source, mut imports) = self
@@ -1467,7 +1498,7 @@ impl Composer {
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Constructing {
-                    path: path.to_owned(),
+                    path: file_path.to_owned(),
                     source: source.to_owned(),
                     offset: 0,
                 },
@@ -1486,7 +1517,7 @@ impl Composer {
             name,
             substituted_source,
             language: shader_type.into(),
-            file_path: path.to_owned(),
+            file_path: file_path.to_owned(),
             module_index: 0,
             additional_imports: additional_imports.to_vec(),
             // we don't care about these for creating a top-level module
@@ -1554,7 +1585,7 @@ impl Composer {
                         .map_err(|e| ComposerError {
                             inner: e.into(),
                             source: ErrSource::Constructing {
-                                path: path.to_owned(),
+                                path: file_path.to_owned(),
                                 source: modified_source.clone(),
                                 offset: composable.start_offset,
                             },
@@ -1567,7 +1598,7 @@ impl Composer {
             naga_module = redirect.into_module().map_err(|e| ComposerError {
                 inner: e.into(),
                 source: ErrSource::Constructing {
-                    path: path.to_owned(),
+                    path: file_path.to_owned(),
                     source: modified_source.clone(),
                     offset: composable.start_offset,
                 },
@@ -1588,7 +1619,7 @@ impl Composer {
                             let module_index = rng.start >> SPAN_SHIFT;
                             match module_index {
                                 0 => ErrSource::Constructing {
-                                    path: path.to_owned(),
+                                    path: file_path.to_owned(),
                                     source: definition.substituted_source,
                                     offset: composable.start_offset,
                                 },
@@ -1607,7 +1638,7 @@ impl Composer {
                             }
                         }
                         None => ErrSource::Constructing {
-                            path: path.to_owned(),
+                            path: file_path.to_owned(),
                             source: modified_source,
                             offset: composable.start_offset,
                         },
