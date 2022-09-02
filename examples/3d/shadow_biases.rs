@@ -1,5 +1,7 @@
 //! Demonstrates how shadow biases affect shadows in a 3d scene.
 
+use std::f32::consts::PI;
+
 use bevy::{input::mouse::MouseMotion, prelude::*};
 
 fn main() {
@@ -61,8 +63,6 @@ fn setup(
         ..default()
     });
 
-    let theta = std::f32::consts::FRAC_PI_4;
-    let light_transform = Mat4::from_euler(EulerRot::ZYX, 0.0, std::f32::consts::FRAC_PI_2, -theta);
     commands.spawn_bundle(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
@@ -80,7 +80,12 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_matrix(light_transform),
+        transform: Transform::from_rotation(Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            PI / 2.,
+            -PI / 4.,
+        )),
         ..default()
     });
 
@@ -308,16 +313,10 @@ fn camera_controller(
 
         if mouse_delta != Vec2::ZERO {
             // Apply look update
-            let (pitch, yaw) = (
-                (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt).clamp(
-                    -0.99 * std::f32::consts::FRAC_PI_2,
-                    0.99 * std::f32::consts::FRAC_PI_2,
-                ),
-                options.yaw - mouse_delta.x * options.sensitivity * dt,
-            );
-            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, yaw, pitch);
-            options.pitch = pitch;
-            options.yaw = yaw;
+            options.pitch = (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt)
+                .clamp(-PI / 2., PI / 2.);
+            options.yaw -= mouse_delta.x * options.sensitivity * dt;
+            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
         }
     }
 }

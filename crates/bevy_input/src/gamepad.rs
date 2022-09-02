@@ -276,6 +276,9 @@ pub enum GamepadButtonType {
     DPadLeft,
     /// The right button of the D-Pad.
     DPadRight,
+
+    /// Miscellaneous buttons, considered non-standard (i.e. Extra buttons on a flight stick that do not have a gamepad equivalent).
+    Other(u8),
 }
 
 /// A button of a [`Gamepad`].
@@ -341,6 +344,9 @@ pub enum GamepadAxisType {
     RightStickY,
     /// The value of the right `Z` button.
     RightZ,
+
+    /// Non-standard support for other axis types (i.e. HOTAS sliders, potentiometers, etc).
+    Other(u8),
 }
 
 /// An axis of a [`Gamepad`].
