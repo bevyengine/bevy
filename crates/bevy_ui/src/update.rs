@@ -9,8 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::Vec2;
-use bevy_sprite::Rect;
+use bevy_math::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// The resolution of `Z` values for UI
@@ -109,18 +108,8 @@ fn update_clipping(
         Overflow::Visible => clip,
         Overflow::Hidden => {
             let node_center = global_transform.translation().truncate();
-            let node_rect = Rect {
-                min: node_center - node.size / 2.,
-                max: node_center + node.size / 2.,
-            };
-            if let Some(clip) = clip {
-                Some(Rect {
-                    min: Vec2::max(clip.min, node_rect.min),
-                    max: Vec2::min(clip.max, node_rect.max),
-                })
-            } else {
-                Some(node_rect)
-            }
+            let node_rect = Rect::from_center_size(node_center, node.size);
+            Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
         }
     };
 

@@ -2,7 +2,7 @@ use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
@@ -408,5 +408,5 @@ impl From<Handle<Image>> for UiImage {
 #[reflect(Component)]
 pub struct CalculatedClip {
     /// The rect of the clip
-    pub clip: bevy_sprite::Rect,
+    pub clip: Rect,
 }
