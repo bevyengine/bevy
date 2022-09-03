@@ -3,7 +3,6 @@
 use std::{
     any::Any,
     hash::{Hash, Hasher},
-    ops::Deref,
 };
 
 use crate::Interner;
@@ -48,15 +47,6 @@ where
         T::hash(self, &mut state);
         self.type_id().hash(&mut state);
     }
-}
-
-/// Trait for implementors of `*Label` types that support downcasting.
-pub trait LabelDowncast {
-    // FIXME: use "return position impl Trait in traits" when that stabilizes.
-    /// The type returned from [`downcast_from`](#method.downcast_from).
-    type Output: Deref<Target = Self>;
-    /// Attempts to convert data from a label to type `Self`. Returns a reference-like type.
-    fn downcast_from(data: u64) -> Option<Self::Output>;
 }
 
 #[doc(hidden)]
@@ -175,33 +165,6 @@ macro_rules! define_label {
             /// Returns true if this label was constructed from an instance of type `L`.
             pub fn is<L: $label_name>(self) -> bool {
                 self.type_id() == ::std::any::TypeId::of::<L>()
-            }
-            /// Attempts to downcast this label to type `L`.
-            ///
-            /// As an anti-footgun measure, the returned reference-like type is `!Send + !Sync`
-            /// -- often it is a mutex guard type, so it should be contained to one thread,
-            /// and should not be held onto for very long.
-            ///
-            /// This method is not available for all types of labels.
-            pub fn downcast<L>(self) -> Option<impl ::std::ops::Deref<Target = L>>
-            where
-                L: $label_name + $crate::label::LabelDowncast
-            {
-                // Wraps a deref type and forces it to be !Send + !Sync
-                struct NonSendSyncDeref<L>(L, ::std::marker::PhantomData<*mut u8>);
-                impl<L: ::std::ops::Deref> ::std::ops::Deref for NonSendSyncDeref<L> {
-                    type Target = <L as ::std::ops::Deref>::Target;
-                    fn deref(&self) -> &Self::Target {
-                        &*self.0
-                    }
-                }
-
-                if self.is::<L>() {
-                    let val = L::downcast_from(self.data)?;
-                    Some(NonSendSyncDeref(val, ::std::marker::PhantomData))
-                } else {
-                    None
-                }
             }
         }
 

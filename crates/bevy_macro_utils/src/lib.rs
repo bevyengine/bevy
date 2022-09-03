@@ -370,12 +370,6 @@ fn derive_interned_label(
         path
     };
     let interner_ident = format_ident!("{}_INTERN", ident.to_string().to_uppercase());
-    let downcast_trait_path = {
-        let mut path = manifest.get_path("bevy_utils");
-        path.segments.push(format_ident!("label").into());
-        path.segments.push(format_ident!("LabelDowncast").into());
-        path
-    };
 
     Ok(quote! {
         static #interner_ident : #interner_type_expr = #interner_type_path::new();
@@ -388,13 +382,6 @@ fn derive_interned_label(
             fn fmt(idx: u64, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
                 let val: #guard_type_path <Self> = #interner_ident .get(idx as usize).ok_or(::std::fmt::Error)?;
                 ::std::fmt::Debug::fmt(&*val, f)
-            }
-        }
-
-        impl #impl_generics #downcast_trait_path for #ident #ty_generics #where_clause {
-            type Output = #guard_type_path <'static, Self>;
-            fn downcast_from(idx: u64) -> Option<Self::Output> {
-                #interner_ident .get(idx as usize)
             }
         }
     })
