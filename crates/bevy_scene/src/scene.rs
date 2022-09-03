@@ -1,4 +1,5 @@
 use bevy_app::AppTypeRegistry;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityMap,
     reflect::{ReflectComponent, ReflectMapEntities},
@@ -14,7 +15,7 @@ use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 /// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
-#[derive(Debug, TypeUuid)]
+#[derive(Debug, TypeUuid, Deref, DerefMut)]
 #[uuid = "c156503c-edd9-4ec7-8d33-dab392df03cd"]
 pub struct Scene {
     pub world: World,
