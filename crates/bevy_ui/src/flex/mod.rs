@@ -1,11 +1,11 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style};
+use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     query::{Changed, With, Without, WorldQuery},
-    system::{Query, Res, ResMut},
+    system::{Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -16,6 +16,7 @@ use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
 use taffy::{number::Number, Taffy};
 
+#[derive(Resource)]
 pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<WindowId, taffy::node::Node>,
@@ -195,6 +196,7 @@ pub enum FlexError {
 #[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(
     windows: Res<Windows>,
+    ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
@@ -214,15 +216,12 @@ pub fn flex_node_system(
 
     // assume one window for time being...
     let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
+    let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
-    if scale_factor_events.iter().next_back().is_some() {
-        update_changed(
-            &mut *flex_surface,
-            logical_to_physical_factor,
-            full_node_query,
-        );
+    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
+        update_changed(&mut *flex_surface, scale_factor, full_node_query);
     } else {
-        update_changed(&mut *flex_surface, logical_to_physical_factor, node_query);
+        update_changed(&mut *flex_surface, scale_factor, node_query);
     }
 
     fn update_changed<F: WorldQuery>(
@@ -242,7 +241,7 @@ pub fn flex_node_system(
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, logical_to_physical_factor);
+        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
     }
 
     // TODO: handle removed nodes

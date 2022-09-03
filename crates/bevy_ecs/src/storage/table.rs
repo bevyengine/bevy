@@ -99,14 +99,6 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub(crate) unsafe fn get_ticks_unchecked_mut(&mut self, row: usize) -> &mut ComponentTicks {
-        debug_assert!(row < self.len());
-        self.ticks.get_unchecked_mut(row).get_mut()
-    }
-
-    /// # Safety
-    /// index must be in-bounds
-    #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: usize) {
         self.data.swap_remove_and_drop_unchecked(row);
         self.ticks.swap_remove(row);
@@ -133,7 +125,7 @@ impl Column {
     ///  - `src_row` must be in bounds for `other`
     ///  - `dst_row` must be in bounds for `self`
     ///  - `other[src_row]` must be initialized to a valid value.
-    ///  - `self[dst_row]` must not be initalized yet.
+    ///  - `self[dst_row]` must not be initialized yet.
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,

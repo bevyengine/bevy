@@ -1,6 +1,6 @@
 //! This example illustrates loading scenes from files.
 
-use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
+use bevy::{prelude::*, utils::Duration};
 
 fn main() {
     App::new()
@@ -84,7 +84,7 @@ fn save_scene_system(world: &mut World) {
     scene_world.spawn().insert_bundle((
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
-        Transform::identity(),
+        Transform::IDENTITY,
     ));
     scene_world
         .spawn()
@@ -92,7 +92,7 @@ fn save_scene_system(world: &mut World) {
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
-    let type_registry = world.resource::<TypeRegistry>();
+    let type_registry = world.resource::<AppTypeRegistry>();
     let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     // Scenes can be serialized like this:
@@ -105,20 +105,18 @@ fn save_scene_system(world: &mut World) {
 // text example.
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(TextBundle {
-        style: Style {
-            align_self: AlignSelf::FlexEnd,
-            ..default()
-        },
-        text: Text::with_section(
+    commands.spawn_bundle(
+        TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
             },
-            Default::default(),
-        ),
-        ..default()
-    });
+        )
+        .with_style(Style {
+            align_self: AlignSelf::FlexEnd,
+            ..default()
+        }),
+    );
 }

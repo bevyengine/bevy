@@ -69,6 +69,7 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
 }
 
 /// Stores all uniforms of the component type.
+#[derive(Resource)]
 pub struct ComponentUniforms<C: Component + ShaderType> {
     uniforms: DynamicUniformBuffer<C>,
 }
@@ -200,7 +201,7 @@ fn extract_visible_components<C: ExtractComponent>(
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, query_item) in query.iter_mut() {
-        if computed_visibility.is_visible {
+        if computed_visibility.is_visible() {
             values.push((entity, (C::extract_component(query_item),)));
         }
     }

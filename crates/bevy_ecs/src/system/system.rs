@@ -2,7 +2,7 @@ use bevy_utils::tracing::warn;
 
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    query::Access, schedule::SystemLabel, world::World,
+    query::Access, schedule::SystemLabelId, world::World,
 };
 use std::borrow::Cow;
 
@@ -31,6 +31,7 @@ pub trait System: Send + Sync + 'static {
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
+
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// takes a shared reference to [`World`] and may therefore break Rust's aliasing rules, making
     /// it unsafe to call.
@@ -56,9 +57,17 @@ pub trait System: Send + Sync + 'static {
     fn update_archetype_component_access(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
     /// The default labels for the system
-    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+    fn default_labels(&self) -> Vec<SystemLabelId> {
         Vec::new()
     }
+    /// Gets the system's last change tick
+    fn get_last_change_tick(&self) -> u32;
+    /// Sets the system's last change tick
+    /// # Warning
+    /// This is a complex and error-prone operation, that can have unexpected consequences on any system relying on this code.
+    /// However, it can be an essential escape hatch when, for example,
+    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
+    fn set_last_change_tick(&mut self, last_change_tick: u32);
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.

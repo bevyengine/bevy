@@ -63,10 +63,17 @@ pub fn build_schedule(criterion: &mut Criterion) {
 
     // Use multiple different kinds of label to ensure that dynamic dispatch
     // doesn't somehow get optimized away.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+    #[derive(Debug, Clone, Copy)]
     struct NumLabel(usize);
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+    #[derive(Debug, Clone, Copy, SystemLabel)]
     struct DummyLabel;
+
+    impl SystemLabel for NumLabel {
+        fn as_str(&self) -> &'static str {
+            let s = self.0.to_string();
+            Box::leak(s.into_boxed_str())
+        }
+    }
 
     let mut group = criterion.benchmark_group("build_schedule");
     group.warm_up_time(std::time::Duration::from_millis(500));
@@ -75,7 +82,10 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
     // Add system to the stage with full constraints. Hopefully this should be maximimally
     // difficult for bevy to figure out.
-    let labels: Vec<_> = (0..1000).map(NumLabel).collect();
+    // Also, we are performing the `as_label` operation outside of the loop since that
+    // requires an allocation and a leak. This is not something that would be necessary in a
+    // real scenario, just a contrivance for the benchmark.
+    let labels: Vec<_> = (0..1000).map(|i| NumLabel(i).as_label()).collect();
 
     // Benchmark graphs of different sizes.
     for graph_size in [100, 500, 1000] {

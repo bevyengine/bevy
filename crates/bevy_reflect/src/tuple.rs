@@ -1,9 +1,8 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
+    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectRef, TypeInfo,
+    TypeRegistration, Typed, UnnamedField,
 };
-use serde::Deserialize;
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
@@ -40,6 +39,9 @@ pub trait Tuple: Reflect {
 
     /// Returns an iterator over the values of the tuple's fields.
     fn iter_fields(&self) -> TupleFieldIter;
+
+    /// Drain the fields of this tuple to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
@@ -255,6 +257,11 @@ impl Tuple for DynamicTuple {
     }
 
     #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.fields
+    }
+
+    #[inline]
     fn clone_dynamic(&self) -> DynamicTuple {
         DynamicTuple {
             name: self.name.clone(),
@@ -453,6 +460,13 @@ macro_rules! impl_reflect_tuple {
             }
 
             #[inline]
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+                vec![
+                    $(Box::new(self.$index),)*
+                ]
+            }
+
+            #[inline]
             fn clone_dynamic(&self) -> DynamicTuple {
                 let mut dyn_tuple = DynamicTuple {
                     name: String::default(),
@@ -534,11 +548,9 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + Typed + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + Typed),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
-                let mut registration = TypeRegistration::of::<($($name,)*)>();
-                registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());
-                registration
+                TypeRegistration::of::<($($name,)*)>()
             }
         }
 

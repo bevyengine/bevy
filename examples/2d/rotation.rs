@@ -44,9 +44,9 @@ struct RotateToPlayer {
 ///
 /// The Bevy coordinate system is the same for 2D and 3D, in terms of 2D this means that:
 ///
-/// * X axis goes from left to right (+X points right)
-/// * Y axis goes from bottom to top (+Y point up)
-/// * Z axis goes from far to near (+Z points towards you, out of the screen)
+/// * `X` axis goes from left to right (`+X` points right)
+/// * `Y` axis goes from bottom to top (`+Y` point up)
+/// * `Z` axis goes from far to near (`+Z` points towards you, out of the screen)
 ///
 /// The origin is at the center of the screen.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

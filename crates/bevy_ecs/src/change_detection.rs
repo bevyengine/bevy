@@ -2,7 +2,6 @@
 
 use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -31,6 +30,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
+/// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
 /// fn my_system(mut resource: ResMut<MyResource>) {
@@ -165,9 +165,9 @@ pub(crate) struct Ticks<'a> {
     pub(crate) change_tick: u32,
 }
 
-/// Unique mutable borrow of a resource.
+/// Unique mutable borrow of a [`Resource`].
 ///
-/// See the [`World`](crate::world::World) documentation to see the usage of a resource.
+/// See the [`Resource`] documentation for usage.
 ///
 /// If you need a shared borrow, use [`Res`](crate::system::Res) instead.
 ///
@@ -184,6 +184,17 @@ pub struct ResMut<'a, T: Resource> {
 change_detection_impl!(ResMut<'a, T>, T, Resource);
 impl_into_inner!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
+
+impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
+    /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
+    /// while losing the specificity of `ResMut` for resources.
+    fn from(other: ResMut<'a, T>) -> Mut<'a, T> {
+        Mut {
+            value: other.value,
+            ticks: other.ticks,
+        }
+    }
+}
 
 /// Unique borrow of a non-[`Send`] resource.
 ///
@@ -206,8 +217,19 @@ change_detection_impl!(NonSendMut<'a, T>, T,);
 impl_into_inner!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
+impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
+    /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
+    /// while losing the specificity of `NonSendMut`.
+    fn from(other: NonSendMut<'a, T>) -> Mut<'a, T> {
+        Mut {
+            value: other.value,
+            ticks: other.ticks,
+        }
+    }
+}
+
 /// Unique mutable borrow of an entity's component
-pub struct Mut<'a, T> {
+pub struct Mut<'a, T: ?Sized> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
 }
@@ -215,18 +237,6 @@ pub struct Mut<'a, T> {
 change_detection_impl!(Mut<'a, T>, T,);
 impl_into_inner!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
-
-/// Unique mutable borrow of a reflected component or resource
-#[cfg(feature = "bevy_reflect")]
-pub struct ReflectMut<'a> {
-    pub(crate) value: &'a mut dyn Reflect,
-    pub(crate) ticks: Ticks<'a>,
-}
-
-#[cfg(feature = "bevy_reflect")]
-change_detection_impl!(ReflectMut<'a>, dyn Reflect,);
-#[cfg(feature = "bevy_reflect")]
-impl_into_inner!(ReflectMut<'a>, dyn Reflect,);
 
 /// Unique mutable borrow of resources or an entity's component.
 ///
@@ -284,9 +294,13 @@ impl std::fmt::Debug for MutUntyped<'_> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs_macros::Resource;
+
     use crate::{
         self as bevy_ecs,
-        change_detection::{CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
+        change_detection::{
+            ComponentTicks, Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+        },
         component::Component,
         query::ChangeTrackers,
         system::{IntoSystem, Query, System},
@@ -295,6 +309,9 @@ mod tests {
 
     #[derive(Component)]
     struct C;
+
+    #[derive(Resource)]
+    struct R;
 
     #[test]
     fn change_expiration() {
@@ -381,5 +398,53 @@ mod tests {
             assert!(ticks_since_insert == MAX_CHANGE_AGE);
             assert!(ticks_since_change == MAX_CHANGE_AGE);
         }
+    }
+
+    #[test]
+    fn mut_from_res_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: 1,
+            changed: 2,
+        };
+        let ticks = Ticks {
+            component_ticks: &mut component_ticks,
+            last_change_tick: 3,
+            change_tick: 4,
+        };
+        let mut res = R {};
+        let res_mut = ResMut {
+            value: &mut res,
+            ticks,
+        };
+
+        let into_mut: Mut<R> = res_mut.into();
+        assert_eq!(1, into_mut.ticks.component_ticks.added);
+        assert_eq!(2, into_mut.ticks.component_ticks.changed);
+        assert_eq!(3, into_mut.ticks.last_change_tick);
+        assert_eq!(4, into_mut.ticks.change_tick);
+    }
+
+    #[test]
+    fn mut_from_non_send_mut() {
+        let mut component_ticks = ComponentTicks {
+            added: 1,
+            changed: 2,
+        };
+        let ticks = Ticks {
+            component_ticks: &mut component_ticks,
+            last_change_tick: 3,
+            change_tick: 4,
+        };
+        let mut res = R {};
+        let non_send_mut = NonSendMut {
+            value: &mut res,
+            ticks,
+        };
+
+        let into_mut: Mut<R> = non_send_mut.into();
+        assert_eq!(1, into_mut.ticks.component_ticks.added);
+        assert_eq!(2, into_mut.ticks.component_ticks.changed);
+        assert_eq!(3, into_mut.ticks.last_change_tick);
+        assert_eq!(4, into_mut.ticks.change_tick);
     }
 }

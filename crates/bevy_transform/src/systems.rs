@@ -297,14 +297,12 @@ mod test {
             .world
             .spawn()
             .insert(Transform::from_translation(translation))
-            .insert(GlobalTransform::default())
+            .insert(GlobalTransform::IDENTITY)
             .with_children(|builder| {
                 child = builder
-                    .spawn_bundle((Transform::identity(), GlobalTransform::default()))
+                    .spawn_bundle(TransformBundle::IDENTITY)
                     .with_children(|builder| {
-                        grandchild = builder
-                            .spawn_bundle((Transform::identity(), GlobalTransform::default()))
-                            .id();
+                        grandchild = builder.spawn_bundle(TransformBundle::IDENTITY).id();
                     })
                     .id();
             })
@@ -320,13 +318,7 @@ mod test {
 
         let mut state = app.world.query::<&GlobalTransform>();
         for global in state.iter(&app.world) {
-            assert_eq!(
-                global,
-                &GlobalTransform {
-                    translation,
-                    ..Default::default()
-                },
-            );
+            assert_eq!(global, &GlobalTransform::from_translation(translation));
         }
     }
 
@@ -344,11 +336,11 @@ mod test {
             let mut grandchild = Entity::from_raw(0);
             let child = world
                 .spawn()
-                .insert_bundle((Transform::identity(), GlobalTransform::default()))
+                .insert_bundle(TransformBundle::IDENTITY)
                 .with_children(|builder| {
                     grandchild = builder
                         .spawn()
-                        .insert_bundle((Transform::identity(), GlobalTransform::default()))
+                        .insert_bundle(TransformBundle::IDENTITY)
                         .id();
                 })
                 .id();
@@ -363,7 +355,7 @@ mod test {
 
         app.world
             .spawn()
-            .insert_bundle((Transform::default(), GlobalTransform::default()))
+            .insert_bundle(TransformBundle::IDENTITY)
             .push_children(&[child]);
         std::mem::swap(
             &mut *app.world.get_mut::<Parent>(child).unwrap(),

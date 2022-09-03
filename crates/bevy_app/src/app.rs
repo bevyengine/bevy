@@ -1,5 +1,6 @@
 use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::{Event, Events},
     prelude::{FromWorld, IntoExclusiveSystem},
@@ -15,7 +16,17 @@ use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-bevy_utils::define_label!(AppLabel);
+bevy_utils::define_label!(
+    /// A strongly-typed class of labels used to identify an [`App`].
+    AppLabel,
+    /// A strongly-typed identifier for an [`AppLabel`].
+    AppLabelId,
+);
+
+/// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
+#[cfg(feature = "bevy_reflect")]
+#[derive(Resource, Clone, Deref, DerefMut, Default)]
+pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -56,7 +67,7 @@ pub struct App {
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
-    sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
+    sub_apps: HashMap<AppLabelId, SubApp>,
 }
 
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
@@ -69,7 +80,7 @@ impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<bevy_reflect::TypeRegistryArc>();
+        app.init_resource::<AppTypeRegistry>();
 
         app.add_default_stages()
             .add_event::<AppExit>()
@@ -371,7 +382,7 @@ impl App {
         use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "add systems to a startup stage using App::add_startup_system_to_stage"
+            "use `add_startup_system_to_stage` instead of `add_system_to_stage` to add a system to a StartupStage"
         );
         self.schedule.add_system_to_stage(stage_label, system);
         self
@@ -406,7 +417,7 @@ impl App {
         use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "add system sets to a startup stage using App::add_startup_system_set_to_stage"
+            "use `add_startup_system_set_to_stage` instead of `add_system_set_to_stage` to add system sets to a StartupStage"
         );
         self.schedule
             .add_system_set_to_stage(stage_label, system_set);
@@ -642,7 +653,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -655,15 +668,16 @@ impl App {
         self
     }
 
-    /// Inserts a non-send [`Resource`] to the app.
+    /// Inserts a non-send resource to the app.
     ///
     /// You usually want to use [`insert_resource`](Self::insert_resource),
-    /// but there are some special cases when a [`Resource`] cannot be sent across threads.
+    /// but there are some special cases when a resource cannot be sent across threads.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
     /// struct MyCounter {
     ///     counter: usize,
@@ -689,7 +703,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -857,12 +873,52 @@ impl App {
         self
     }
 
-    /// Adds the type `T` to the type registry [`Resource`].
+    /// Registers the type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource,
+    /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
+    /// ```rust,ignore
+    /// #[derive(Reflect)]
+    /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {
-            let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
             registry.write().register::<T>();
+        }
+        self
+    }
+
+    /// Adds the type data `D` to type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
+    ///
+    /// Most of the time [`App::register_type`] can be used instead to register a type you derived [`Reflect`](bevy_reflect::Reflect) for.
+    /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
+    /// or where the type is generic and cannot register e.g. `ReflectSerialize` unconditionally without knowing the specific type parameters,
+    /// this method can be used to insert additional type data.
+    ///
+    /// # Example
+    /// ```rust
+    /// use bevy_app::App;
+    /// use bevy_reflect::{ReflectSerialize, ReflectDeserialize};
+    ///
+    /// App::new()
+    ///     .register_type::<Option<String>>()
+    ///     .register_type_data::<Option<String>, ReflectSerialize>()
+    ///     .register_type_data::<Option<String>, ReflectDeserialize>();
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_type_data`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_data<
+        T: bevy_reflect::Reflect + 'static,
+        D: bevy_reflect::TypeData + bevy_reflect::FromType<T>,
+    >(
+        &mut self,
+    ) -> &mut Self {
+        {
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
+            registry.write().register_type_data::<T, D>();
         }
         self
     }
@@ -879,7 +935,7 @@ impl App {
         sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
-            Box::new(label),
+            label.as_label(),
             SubApp {
                 app,
                 runner: Box::new(sub_app_runner),
@@ -896,15 +952,16 @@ impl App {
     pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
         }
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
-    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, AppLabelId> {
+        let label = label.as_label();
         self.sub_apps
-            .get_mut((&label) as &dyn AppLabel)
+            .get_mut(&label)
             .map(|sub_app| &mut sub_app.app)
             .ok_or(label)
     }
@@ -917,7 +974,7 @@ impl App {
     pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
         }
     }
 
@@ -925,7 +982,7 @@ impl App {
     /// an [`Err`] containing the given label.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get((&label) as &dyn AppLabel)
+            .get(&label.as_label())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }

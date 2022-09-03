@@ -114,7 +114,7 @@ impl From<Box> for Mesh {
     }
 }
 
-/// A rectangle on the XY plane centered at the origin.
+/// A rectangle on the `XY` plane centered at the origin.
 #[derive(Debug, Copy, Clone)]
 pub struct Quad {
     /// Full width and height of the rectangle.
@@ -167,7 +167,7 @@ impl From<Quad> for Mesh {
     }
 }
 
-/// A square on the XZ plane centered at the origin.
+/// A square on the `XZ` plane centered at the origin.
 #[derive(Debug, Copy, Clone)]
 pub struct Plane {
     /// The total side length of the square.

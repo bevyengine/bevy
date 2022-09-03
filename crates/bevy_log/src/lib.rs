@@ -30,6 +30,8 @@ pub use bevy_utils::tracing::{
     Level,
 };
 
+use bevy_ecs::prelude::Resource;
+
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
@@ -89,6 +91,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 pub struct LogPlugin;
 
 /// `LogPlugin` settings
+#[derive(Resource)]
 pub struct LogSettings {
     /// Filters logs using the [`EnvFilter`] format
     pub filter: String,

@@ -9,14 +9,13 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::Vec2;
-use bevy_sprite::Rect;
+use bevy_math::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
-/// The resolution of Z values for UI
+/// The resolution of `Z` values for UI
 pub const UI_Z_STEP: f32 = 0.001;
 
-/// Updates transforms of nodes to fit with the z system
+/// Updates transforms of nodes to fit with the `Z` system
 pub fn ui_z_system(
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     mut node_query: Query<&mut Transform, With<Node>>,
@@ -108,19 +107,9 @@ fn update_clipping(
     let children_clip = match style.overflow {
         Overflow::Visible => clip,
         Overflow::Hidden => {
-            let node_center = global_transform.translation.truncate();
-            let node_rect = Rect {
-                min: node_center - node.size / 2.,
-                max: node_center + node.size / 2.,
-            };
-            if let Some(clip) = clip {
-                Some(Rect {
-                    min: Vec2::max(clip.min, node_rect.min),
-                    max: Vec2::min(clip.max, node_rect.max),
-                })
-            } else {
-                Some(node_rect)
-            }
+            let node_center = global_transform.translation().truncate();
+            let node_rect = Rect::from_center_size(node_center, node.size);
+            Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
         }
     };
 
@@ -150,7 +139,7 @@ mod tests {
     struct Label(&'static str);
 
     fn node_with_transform(name: &'static str) -> (Label, Node, Transform) {
-        (Label(name), Node::default(), Transform::identity())
+        (Label(name), Node::default(), Transform::IDENTITY)
     }
 
     fn node_without_transform(name: &'static str) -> (Label, Node) {

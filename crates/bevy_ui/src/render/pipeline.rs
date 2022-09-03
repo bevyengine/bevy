@@ -3,6 +3,7 @@ use bevy_render::{
     render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
 };
 
+#[derive(Resource)]
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
@@ -86,11 +87,11 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
+                targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
             primitive: PrimitiveState {

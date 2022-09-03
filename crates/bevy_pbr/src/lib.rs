@@ -150,6 +150,7 @@ impl Plugin for PbrPlugin {
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
+                    .after(VisibilitySystems::CheckVisibility)
                     .after(CameraUpdateSystem)
                     .after(ModifiesWindows),
             )
@@ -157,6 +158,8 @@ impl Plugin for PbrPlugin {
                 CoreStage::PostUpdate,
                 update_directional_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
+                    // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
+                    .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(

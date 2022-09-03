@@ -1,6 +1,8 @@
 //! Simple benchmark to test rendering many point lights.
 //! Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
 
+use std::f64::consts::PI;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
@@ -17,7 +19,7 @@ fn main() {
             width: 1024.0,
             height: 768.0,
             title: "many_lights".to_string(),
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .add_plugins(DefaultPlugins)
@@ -35,6 +37,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     const LIGHT_RADIUS: f32 = 0.3;
     const LIGHT_INTENSITY: f32 = 5.0;
     const RADIUS: f32 = 50.0;
@@ -111,7 +115,7 @@ fn setup(
 const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
-        2.0 * std::f64::consts::PI * (i as f64 / golden_ratio),
+        PI * 2. * (i as f64 / golden_ratio),
         (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
     )
 }
@@ -172,7 +176,7 @@ fn print_visible_light_count(
     }
 }
 
-#[derive(Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct ExtractedTime(Time);
 
 fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {

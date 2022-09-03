@@ -9,10 +9,10 @@ use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, DepthCalculation, OrthographicProjection, WindowOrigin},
+    camera::{Camera, CameraProjection, OrthographicProjection, WindowOrigin},
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -20,10 +20,10 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ExtractedView, ViewUniforms, Visibility},
+    view::{ComputedVisibility, ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
-use bevy_sprite::{Rect, SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 use bevy_text::{DefaultTextPipeline, Text};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
@@ -168,7 +168,7 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
 }
@@ -182,14 +182,14 @@ pub fn extract_uinodes(
             &GlobalTransform,
             &UiColor,
             &UiImage,
-            &Visibility,
+            &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
         let image = image.0.clone_weak();
@@ -197,10 +197,14 @@ pub fn extract_uinodes(
         if !images.contains(&image) {
             continue;
         }
+        // Skip completely transparent nodes
+        if color.0.a() == 0.0 {
+            continue;
+        }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
             color: color.0,
-            rect: bevy_sprite::Rect {
+            rect: Rect {
                 min: Vec2::ZERO,
                 max: uinode.size,
             },
@@ -241,7 +245,6 @@ pub fn extract_default_ui_camera_view<T: Component>(
             let mut projection = OrthographicProjection {
                 far: UI_CAMERA_FAR,
                 window_origin: WindowOrigin::BottomLeft,
-                depth_calculation: DepthCalculation::ZDifference,
                 ..Default::default()
             };
             projection.update(logical_size.x, logical_size.y);
@@ -277,14 +280,14 @@ pub fn extract_text_uinodes(
             &Node,
             &GlobalTransform,
             &Text,
-            &Visibility,
+            &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
-    for (entity, uinode, transform, text, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible {
+    for (entity, uinode, global_transform, text, visibility, clip) in uinode_query.iter() {
+        if !visibility.is_visible() {
             continue;
         }
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -295,8 +298,16 @@ pub fn extract_text_uinodes(
             let text_glyphs = &text_layout.glyphs;
             let alignment_offset = (uinode.size / -2.0).extend(0.0);
 
+            let mut color = Color::WHITE;
+            let mut current_section = usize::MAX;
             for text_glyph in text_glyphs {
-                let color = text.sections[text_glyph.section_index].style.color;
+                if text_glyph.section_index != current_section {
+                    color = text.sections[text_glyph.section_index]
+                        .style
+                        .color
+                        .as_rgba_linear();
+                    current_section = text_glyph.section_index;
+                }
                 let atlas = texture_atlases
                     .get(&text_glyph.atlas_info.texture_atlas)
                     .unwrap();
@@ -305,15 +316,15 @@ pub fn extract_text_uinodes(
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
 
-                let transform =
-                    Mat4::from_rotation_translation(transform.rotation, transform.translation)
-                        * Mat4::from_scale(transform.scale / scale_factor)
-                        * Mat4::from_translation(
-                            alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                        );
+                // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
+                let extracted_transform = global_transform.compute_matrix()
+                    * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
+                    * Mat4::from_translation(
+                        alignment_offset * scale_factor + text_glyph.position.extend(0.),
+                    );
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    transform,
+                    transform: extracted_transform,
                     color,
                     rect,
                     image: texture,
@@ -333,6 +344,7 @@ struct UiVertex {
     pub color: [f32; 4],
 }
 
+#[derive(Resource)]
 pub struct UiMeta {
     vertices: BufferVec<UiVertex>,
     view_bind_group: Option<BindGroup>,
@@ -435,11 +447,19 @@ pub fn prepare_uinodes(
 
         let transformed_rect_size = extracted_uinode.transform.transform_vector3(rect_size);
 
-        // Cull nodes that are completely clipped
-        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-        {
-            continue;
+        // Don't try to cull nodes that have a rotation
+        // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
+        // In those two cases, the culling check can proceed normally as corners will be on
+        // horizontal / vertical lines
+        // For all other angles, bypass the culling check
+        // This does not properly handles all rotations on all axis
+        if extracted_uinode.transform.x_axis[1] == 0.0 {
+            // Cull nodes that are completely clipped
+            if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+                || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
+            {
+                continue;
+            }
         }
 
         // Clip UVs (Note: y is reversed in UV space)
@@ -488,7 +508,7 @@ pub fn prepare_uinodes(
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct UiImageBindGroups {
     pub values: HashMap<Handle<Image>, BindGroup>,
 }

@@ -58,7 +58,7 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa { samples: 4 })
 ///     .run();
 /// ```
-#[derive(Clone, ExtractResource, Reflect)]
+#[derive(Resource, Clone, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
@@ -105,7 +105,7 @@ pub struct ViewUniform {
     height: f32,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ViewUniforms {
     pub uniforms: DynamicUniformBuffer<ViewUniform>,
 }
@@ -162,7 +162,7 @@ fn prepare_view_uniforms(
                 inverse_view,
                 projection,
                 inverse_projection,
-                world_position: camera.transform.translation,
+                world_position: camera.transform.translation(),
                 width: camera.width as f32,
                 height: camera.height as f32,
             }),

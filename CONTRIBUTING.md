@@ -119,6 +119,8 @@ PRs are controversial if there is serious design discussion required, or a large
 7. Large-scale code reorganization.
 8. High levels of technical complexity.
 9. Adding a dependency.
+10. Touching licensing information (due to the level of precision required).
+11. Adding root-level files (due to the high level of visibility).
 
 Finally, changes are "relatively uncontroversial" if they are neither trivial or controversial.
 Most PRs should fall into this category.

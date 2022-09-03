@@ -14,6 +14,7 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
+mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
@@ -22,12 +23,13 @@ pub use extract_param::Extract;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{Camera, OrthographicProjection, PerspectiveProjection},
+        camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
-        texture::Image,
-        view::{ComputedVisibility, Msaa, Visibility},
+        spatial_bundle::SpatialBundle,
+        texture::{Image, ImageSettings},
+        view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
 
@@ -40,7 +42,7 @@ use crate::{
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::render_system,
+    renderer::{render_system, RenderInstance},
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -89,8 +91,12 @@ pub enum RenderStage {
 /// This resource is only available during [`RenderStage::Extract`] and not
 /// during command application of that stage.
 /// See [`Extract`] for more details.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct MainWorld(World);
+
+/// The Render App World. This is only available as a resource during the Extract step.
+#[derive(Resource, Default)]
+pub struct RenderWorld(World);
 
 impl Deref for MainWorld {
     type Target = World;
@@ -192,13 +198,12 @@ impl Plugin for RenderPlugin {
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .init_resource::<RenderGraph>()
-                .insert_resource(instance)
+                .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
-                .insert_resource(asset_server)
-                .init_resource::<RenderGraph>();
+                .insert_resource(asset_server);
 
             let (sender, receiver) = bevy_time::create_time_channels();
             app.insert_resource(receiver);
@@ -244,7 +249,7 @@ impl Plugin for RenderPlugin {
                     // prepare
                     let prepare = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Prepare)
+                        .get_stage_mut::<SystemStage>(RenderStage::Prepare)
                         .unwrap();
                     prepare.run(&mut render_app.world);
                 }
@@ -257,7 +262,7 @@ impl Plugin for RenderPlugin {
                     // queue
                     let queue = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Queue)
+                        .get_stage_mut::<SystemStage>(RenderStage::Queue)
                         .unwrap();
                     queue.run(&mut render_app.world);
                 }
@@ -270,7 +275,7 @@ impl Plugin for RenderPlugin {
                     // phase sort
                     let phase_sort = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::PhaseSort)
+                        .get_stage_mut::<SystemStage>(RenderStage::PhaseSort)
                         .unwrap();
                     phase_sort.run(&mut render_app.world);
                 }
@@ -283,7 +288,7 @@ impl Plugin for RenderPlugin {
                     // render
                     let render = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Render)
+                        .get_stage_mut::<SystemStage>(RenderStage::Render)
                         .unwrap();
                     render.run(&mut render_app.world);
                 }
@@ -296,7 +301,7 @@ impl Plugin for RenderPlugin {
                     // cleanup
                     let cleanup = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
+                        .get_stage_mut::<SystemStage>(RenderStage::Cleanup)
                         .unwrap();
                     cleanup.run(&mut render_app.world);
                 }
@@ -322,7 +327,7 @@ impl Plugin for RenderPlugin {
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
 /// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct ScratchMainWorld(World);
 
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
@@ -330,7 +335,7 @@ struct ScratchMainWorld(World);
 fn extract(app_world: &mut World, render_app: &mut App) {
     let extract = render_app
         .schedule
-        .get_stage_mut::<SystemStage>(&RenderStage::Extract)
+        .get_stage_mut::<SystemStage>(RenderStage::Extract)
         .unwrap();
 
     // temporarily add the app world to the render world as a resource

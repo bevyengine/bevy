@@ -26,11 +26,12 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{
-        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
+        ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,
+        VisibleEntities,
     },
     Extract,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::FloatOrd;
 use bevy_utils::{
     tracing::{error, warn},
@@ -213,6 +214,7 @@ pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
+#[derive(Resource)]
 pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -378,7 +380,7 @@ pub struct ExtractedClusterConfig {
     /// Special near value for cluster calculations
     near: f32,
     far: f32,
-    /// Number of clusters in x / y / z in the view frustum
+    /// Number of clusters in `X` / `Y` / `Z` in the view frustum
     dimensions: UVec3,
 }
 
@@ -411,8 +413,22 @@ pub fn extract_lights(
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
     global_point_lights: Extract<Res<GlobalVisiblePointLights>>,
-    point_lights: Extract<Query<(&PointLight, &CubemapVisibleEntities, &GlobalTransform)>>,
-    spot_lights: Extract<Query<(&SpotLight, &VisibleEntities, &GlobalTransform)>>,
+    point_lights: Extract<
+        Query<(
+            &PointLight,
+            &CubemapVisibleEntities,
+            &GlobalTransform,
+            &ComputedVisibility,
+        )>,
+    >,
+    spot_lights: Extract<
+        Query<(
+            &SpotLight,
+            &VisibleEntities,
+            &GlobalTransform,
+            &ComputedVisibility,
+        )>,
+    >,
     directional_lights: Extract<
         Query<
             (
@@ -420,7 +436,7 @@ pub fn extract_lights(
                 &DirectionalLight,
                 &VisibleEntities,
                 &GlobalTransform,
-                &Visibility,
+                &ComputedVisibility,
             ),
             Without<SpotLight>,
         >,
@@ -447,7 +463,12 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get(entity) {
+        if let Ok((point_light, cubemap_visible_entities, transform, visibility)) =
+            point_lights.get(entity)
+        {
+            if !visibility.is_visible() {
+                continue;
+            }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
             let render_cubemap_visible_entities = cubemap_visible_entities.clone();
@@ -481,7 +502,10 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform)) = spot_lights.get(entity) {
+        if let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) {
+            if !visibility.is_visible() {
+                continue;
+            }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
             let render_visible_entities = visible_entities.clone();
@@ -522,7 +546,7 @@ pub fn extract_lights(
     for (entity, directional_light, visible_entities, transform, visibility) in
         directional_lights.iter()
     {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
 
@@ -639,6 +663,7 @@ pub struct ViewLightsUniformOffset {
 // at least that many are supported using this constant and SupportedBindingType::from_device()
 pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 
+#[derive(Resource)]
 pub struct GlobalLightMeta {
     pub gpu_point_lights: GpuPointLights,
     pub entity_to_index: HashMap<Entity, usize>,
@@ -663,7 +688,7 @@ impl GlobalLightMeta {
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct LightMeta {
     pub view_gpu_lights: DynamicUniformBuffer<GpuLights>,
     pub shadow_view_bind_group: Option<BindGroup>,
@@ -705,7 +730,7 @@ pub fn calculate_cluster_factors(
 // could move this onto transform but it's pretty niche
 pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
-    let fwd_dir = transform.local_z().extend(0.0);
+    let fwd_dir = transform.back().extend(0.0);
 
     let sign = 1f32.copysign(fwd_dir.z);
     let a = -1.0 / (fwd_dir.z + sign);
@@ -722,7 +747,7 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
         right_dir,
         up_dir,
         fwd_dir,
-        transform.translation.extend(1.0),
+        transform.translation().extend(1.0),
     )
 }
 
@@ -756,7 +781,7 @@ pub fn prepare_lights(
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
         .collect::<Vec<_>>();
 
     global_light_meta.entity_to_index.clear();
@@ -774,10 +799,14 @@ pub fn prepare_lights(
 
     let point_light_count = point_lights
         .iter()
-        .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
+        .filter(|light| light.1.spot_light_angles.is_none())
         .count();
 
-    let point_light_shadow_maps_count = point_light_count.min(max_texture_cubes);
+    let point_light_shadow_maps_count = point_lights
+        .iter()
+        .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
+        .count()
+        .min(max_texture_cubes);
 
     let directional_shadow_maps_count = directional_lights
         .iter()
@@ -870,7 +899,7 @@ pub fn prepare_lights(
                 * light.intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
-            position_radius: light.transform.translation.extend(light.radius),
+            position_radius: light.transform.translation().extend(light.radius),
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
@@ -947,7 +976,7 @@ pub fn prepare_lights(
             n_directional_lights: directional_lights.iter().len() as u32,
             // spotlight shadow maps are stored in the directional light array, starting at directional_shadow_maps_count.
             // the spot lights themselves start in the light array at point_light_count. so to go from light
-            // index to shadow map index, we need to subtract point light shadowmap count and add directional shadowmap count.
+            // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: directional_shadow_maps_count as i32
                 - point_light_count as i32,
         };
@@ -966,7 +995,7 @@ pub fn prepare_lights(
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
-            let view_translation = GlobalTransform::from_translation(light.transform.translation);
+            let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
             for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                 let depth_texture_view =
@@ -1019,10 +1048,10 @@ pub fn prepare_lights(
             .enumerate()
         {
             let spot_view_matrix = spot_light_view_matrix(&light.transform);
-            let spot_view_transform = GlobalTransform::from_matrix(spot_view_matrix);
+            let spot_view_transform = spot_view_matrix.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_shadow_maps_count..point_light_shadow_maps_count + spot_light_shadow_maps_count] are spot lights").1;
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
             let spot_projection = spot_light_projection_matrix(angle);
 
             let depth_texture_view =
@@ -1129,7 +1158,7 @@ pub fn prepare_lights(
                         ExtractedView {
                             width: directional_light_shadow_map.size as u32,
                             height: directional_light_shadow_map.size as u32,
-                            transform: GlobalTransform::from_matrix(view.inverse()),
+                            transform: GlobalTransform::from(view.inverse()),
                             projection,
                         },
                         RenderPhase::<Shadow>::default(),

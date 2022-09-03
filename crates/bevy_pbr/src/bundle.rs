@@ -73,6 +73,8 @@ pub struct PointLightBundle {
     pub global_transform: GlobalTransform,
     /// Enables or disables the light
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 /// A component bundle for spot light entities
@@ -85,6 +87,8 @@ pub struct SpotLightBundle {
     pub global_transform: GlobalTransform,
     /// Enables or disables the light
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 /// A component bundle for [`DirectionalLight`] entities.
@@ -97,4 +101,6 @@ pub struct DirectionalLightBundle {
     pub global_transform: GlobalTransform,
     /// Enables or disables the light
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
