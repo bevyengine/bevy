@@ -51,7 +51,7 @@ impl Gamepads {
         self.gamepads.contains(&gamepad)
     }
 
-    /// Returns an iterator over registered [`Gamepad`]s in an arbitrary order
+    /// Returns an iterator over registered [`Gamepad`]s in an arbitrary order.
     pub fn iter(&self) -> impl Iterator<Item = Gamepad> + '_ {
         self.gamepads.iter().copied()
     }
