@@ -154,7 +154,7 @@ impl GamepadEvent {
 ///     button_inputs: ResMut<Input<GamepadButton>>,
 /// ) {
 ///     let gamepad = gamepads.iter().next().unwrap();
-///     let gamepad_button= GamepadButton::new(*gamepad, GamepadButtonType::South);
+///     let gamepad_button= GamepadButton::new(gamepad, GamepadButtonType::South);
 ///
 ///     my_resource.0 = button_inputs.pressed(gamepad_button);
 /// }
