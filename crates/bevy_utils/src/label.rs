@@ -133,9 +133,11 @@ macro_rules! define_label {
         impl<T: $into_label> $label_name for T {
             #[inline]
             fn as_label(&self) -> $id_name {
-                // This is just machinery that lets us store the TypeId and formatter fn in the same static reference.
+                // This type never gets created, it is only used to declare an associated const that uses `T`.
                 struct VTables<L: ?::std::marker::Sized>(L);
                 impl<L: $into_label + ?::std::marker::Sized> VTables<L> {
+                    // Store the `TypeId` and formatter fn in the same static,
+                    // so they can both be referred to using a single pointer.
                     const VTABLE: $crate::label::VTable = $crate::label::VTable {
                         ty: || ::std::any::TypeId::of::<L>(),
                         fmt: <L as $into_label>::fmt,
