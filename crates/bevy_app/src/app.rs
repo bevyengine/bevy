@@ -432,7 +432,7 @@ impl App {
     ) -> &mut Self {
         let stage_label = stage_label.as_label();
         assert!(
-            stage_label.is::<StartupStage>(),
+            !stage_label.is::<StartupStage>(),
             "use `add_startup_system_set_to_stage` instead of `add_system_set_to_stage` to add system sets to a StartupStage"
         );
         self.schedule
