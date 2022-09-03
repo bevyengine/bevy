@@ -10,6 +10,8 @@
 //! To start the demo using the spherical layout run
 //! `cargo run --example many_cubes --release sphere`
 
+use std::f64::consts::PI;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
@@ -142,7 +144,7 @@ const EPSILON: f64 = 0.36;
 
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
-        2.0 * std::f64::consts::PI * (i as f64 / golden_ratio),
+        PI * 2. * (i as f64 / golden_ratio),
         (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
     )
 }

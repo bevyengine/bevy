@@ -47,11 +47,11 @@ pub enum ReflectMut<'a> {
 
 /// A reflected Rust type.
 ///
-/// Methods for working with particular kinds of Rust type are available using the [`List`], [`Map`],
-/// [`Struct`], [`TupleStruct`], and [`Tuple`] subtraits.
+/// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
+/// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
 ///
-/// When using `#[derive(Reflect)]` with a struct or tuple struct, the suitable subtrait for that
-/// type (`Struct` or `TupleStruct`) is derived automatically.
+/// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
+/// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
 pub trait Reflect: Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
@@ -91,8 +91,12 @@ pub trait Reflect: Any + Send + Sync {
     /// - If `T` is a [`TupleStruct`] or [`Tuple`], then the value of each
     ///   numbered field is applied to the corresponding numbered field of
     ///   `self.` Fields which are not present in both values are ignored.
-    /// - If `T` is a [`List`], then each element of `value` is applied to the
-    ///   corresponding element of `self`. Up to `self.len()` items are applied,
+    /// - If `T` is an [`Enum`], then the variant of `self` is `updated` to match
+    ///   the variant of `value`. The corresponding fields of that variant are
+    ///   applied from `value` onto `self`. Fields which are not present in both
+    ///   values are ignored.
+    /// - If `T` is a [`List`] or [`Array`], then each element of `value` is applied
+    ///   to the corresponding element of `self`. Up to `self.len()` items are applied,
     ///   and excess elements in `value` are appended to `self`.
     /// - If `T` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
@@ -102,7 +106,7 @@ pub trait Reflect: Any + Send + Sync {
     ///
     /// Note that `Reflect` must be implemented manually for [`List`]s and
     /// [`Map`]s in order to achieve the correct semantics, as derived
-    /// implementations will have the semantics for [`Struct`], [`TupleStruct`]
+    /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
     /// or none of the above depending on the kind of type. For lists and maps, use the
     /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
     ///
@@ -137,11 +141,11 @@ pub trait Reflect: Any + Send + Sync {
 
     /// Clones the value as a `Reflect` trait object.
     ///
-    /// When deriving `Reflect` for a struct or struct tuple, the value is
-    /// cloned via [`Struct::clone_dynamic`] (resp.
-    /// [`TupleStruct::clone_dynamic`]). Implementors of other `Reflect`
-    /// subtraits (e.g. [`List`], [`Map`]) should use those subtraits'
-    /// respective `clone_dynamic` methods.
+    /// When deriving `Reflect` for a struct, tuple struct or enum, the value is
+    /// cloned via [`Struct::clone_dynamic`], [`TupleStruct::clone_dynamic`],
+    /// or [`Enum::clone_dynamic`], respectively.
+    /// Implementors of other `Reflect` subtraits (e.g. [`List`], [`Map`]) should
+    /// use those subtraits' respective `clone_dynamic` methods.
     fn clone_value(&self) -> Box<dyn Reflect>;
 
     /// Returns a hash of the value (which includes the type).

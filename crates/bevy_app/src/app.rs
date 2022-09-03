@@ -382,7 +382,7 @@ impl App {
         use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "add systems to a startup stage using App::add_startup_system_to_stage"
+            "use `add_startup_system_to_stage` instead of `add_system_to_stage` to add a system to a StartupStage"
         );
         self.schedule.add_system_to_stage(stage_label, system);
         self
@@ -417,7 +417,7 @@ impl App {
         use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "add system sets to a startup stage using App::add_startup_system_set_to_stage"
+            "use `add_startup_system_set_to_stage` instead of `add_system_set_to_stage` to add system sets to a StartupStage"
         );
         self.schedule
             .add_system_set_to_stage(stage_label, system_set);
