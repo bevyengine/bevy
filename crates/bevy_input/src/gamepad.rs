@@ -46,12 +46,12 @@ pub struct Gamepads {
 }
 
 impl Gamepads {
-    /// Returns true if [`Gamepads`] contains a [`Gamepad`].
+    /// Returns true if the `gamepad` is connected.
     pub fn contains(&self, gamepad: Gamepad) -> bool {
         self.gamepads.contains(&gamepad)
     }
 
-    /// Iterates over registered [`Gamepad`]s
+    /// Returns an iterator over registered [`Gamepad`]s in an arbitrary order
     pub fn iter(&self) -> impl Iterator<Item = Gamepad> + '_ {
         self.gamepads.iter().copied()
     }
@@ -61,7 +61,7 @@ impl Gamepads {
         self.gamepads.insert(gamepad);
     }
 
-    /// Deregisters the [`Gamepad`], marking it as disconnected.
+    /// Deregisters the `gamepad`, marking it as disconnected.
     fn deregister(&mut self, gamepad: Gamepad) {
         self.gamepads.remove(&gamepad);
     }
