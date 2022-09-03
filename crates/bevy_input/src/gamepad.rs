@@ -56,7 +56,7 @@ impl Gamepads {
         self.gamepads.iter().copied()
     }
 
-    /// Registers the `gamepad` marking it as connected.
+    /// Registers the `gamepad`, marking it as connected.
     fn register(&mut self, gamepad: Gamepad) {
         self.gamepads.insert(gamepad);
     }
