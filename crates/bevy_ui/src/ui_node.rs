@@ -2,7 +2,7 @@ use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
@@ -197,9 +197,9 @@ impl Default for Style {
             flex_grow: 0.0,
             flex_shrink: 1.0,
             flex_basis: Val::Auto,
-            size: Size::new(Val::Auto, Val::Auto),
-            min_size: Size::new(Val::Auto, Val::Auto),
-            max_size: Size::new(Val::Auto, Val::Auto),
+            size: Size::AUTO,
+            min_size: Size::AUTO,
+            max_size: Size::AUTO,
             aspect_ratio: Default::default(),
             overflow: Default::default(),
         }
@@ -408,5 +408,5 @@ impl From<Handle<Image>> for UiImage {
 #[reflect(Component)]
 pub struct CalculatedClip {
     /// The rect of the clip
-    pub clip: bevy_sprite::Rect,
+    pub clip: Rect,
 }

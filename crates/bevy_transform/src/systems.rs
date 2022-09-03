@@ -105,6 +105,9 @@ mod test {
     use crate::TransformBundle;
     use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
 
+    #[derive(StageLabel)]
+    struct Update;
+
     #[test]
     fn did_propagate() {
         let mut world = World::default();
@@ -113,7 +116,7 @@ mod test {
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Root entity
         world
@@ -156,7 +159,7 @@ mod test {
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Root entity
         let mut queue = CommandQueue::default();
@@ -198,7 +201,7 @@ mod test {
         update_stage.add_system(transform_propagate_system);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Add parent entities
         let mut children = Vec::new();
@@ -297,14 +300,12 @@ mod test {
             .world
             .spawn()
             .insert(Transform::from_translation(translation))
-            .insert(GlobalTransform::default())
+            .insert(GlobalTransform::IDENTITY)
             .with_children(|builder| {
                 child = builder
-                    .spawn_bundle((Transform::identity(), GlobalTransform::default()))
+                    .spawn_bundle(TransformBundle::IDENTITY)
                     .with_children(|builder| {
-                        grandchild = builder
-                            .spawn_bundle((Transform::identity(), GlobalTransform::default()))
-                            .id();
+                        grandchild = builder.spawn_bundle(TransformBundle::IDENTITY).id();
                     })
                     .id();
             })
@@ -338,11 +339,11 @@ mod test {
             let mut grandchild = Entity::from_raw(0);
             let child = world
                 .spawn()
-                .insert_bundle((Transform::identity(), GlobalTransform::default()))
+                .insert_bundle(TransformBundle::IDENTITY)
                 .with_children(|builder| {
                     grandchild = builder
                         .spawn()
-                        .insert_bundle((Transform::identity(), GlobalTransform::default()))
+                        .insert_bundle(TransformBundle::IDENTITY)
                         .id();
                 })
                 .id();
@@ -357,7 +358,7 @@ mod test {
 
         app.world
             .spawn()
-            .insert_bundle((Transform::default(), GlobalTransform::default()))
+            .insert_bundle(TransformBundle::IDENTITY)
             .push_children(&[child]);
         std::mem::swap(
             &mut *app.world.get_mut::<Parent>(child).unwrap(),

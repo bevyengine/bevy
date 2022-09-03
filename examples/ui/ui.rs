@@ -126,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     style: Style {
                                         flex_direction: FlexDirection::ColumnReverse,
                                         flex_grow: 1.0,
-                                        max_size: Size::new(Val::Undefined, Val::Undefined),
+                                        max_size: Size::UNDEFINED,
                                         ..default()
                                     },
                                     color: Color::NONE.into(),

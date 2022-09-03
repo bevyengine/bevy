@@ -149,8 +149,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
-            ) -> Vec<#ecs_path::component::ComponentId> {
-                let mut component_ids = Vec::with_capacity(#field_len);
+            ) -> ::std::vec::Vec<#ecs_path::component::ComponentId> {
+                let mut component_ids = ::std::vec::Vec::with_capacity(#field_len);
                 #(#field_component_ids)*
                 component_ids
             }

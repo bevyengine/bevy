@@ -16,6 +16,7 @@ pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_param_set};
 use bevy_ptr::UnsafeCellDeref;
 use std::{
+    borrow::Cow,
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -1300,6 +1301,91 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
         SystemChangeTick {
             last_change_tick: system_meta.last_change_tick,
             change_tick,
+        }
+    }
+}
+
+/// Name of the system that corresponds to this [`crate::system::SystemState`].
+///
+/// This is not a reliable identifier, it is more so useful for debugging
+/// purposes of finding where a system parameter is being used incorrectly.
+pub struct SystemName<'s> {
+    name: &'s str,
+}
+
+impl<'s> SystemName<'s> {
+    pub fn name(&self) -> &str {
+        self.name
+    }
+}
+
+impl<'s> Deref for SystemName<'s> {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        self.name()
+    }
+}
+
+impl<'s> AsRef<str> for SystemName<'s> {
+    fn as_ref(&self) -> &str {
+        self.name()
+    }
+}
+
+impl<'s> From<SystemName<'s>> for &'s str {
+    fn from(name: SystemName<'s>) -> &'s str {
+        name.name
+    }
+}
+
+impl<'s> std::fmt::Debug for SystemName<'s> {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_tuple("SystemName").field(&self.name()).finish()
+    }
+}
+
+impl<'s> std::fmt::Display for SystemName<'s> {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.name(), f)
+    }
+}
+
+impl<'s> SystemParam for SystemName<'s> {
+    type Fetch = SystemNameState;
+}
+
+// SAFETY: Only reads internal system state
+unsafe impl ReadOnlySystemParamFetch for SystemNameState {}
+
+/// The [`SystemParamState`] of [`SystemName`].
+#[doc(hidden)]
+pub struct SystemNameState {
+    name: Cow<'static, str>,
+}
+
+// SAFETY: no component value access
+unsafe impl SystemParamState for SystemNameState {
+    fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        Self {
+            name: system_meta.name.clone(),
+        }
+    }
+}
+
+impl<'w, 's> SystemParamFetch<'w, 's> for SystemNameState {
+    type Item = SystemName<'s>;
+
+    #[inline]
+    unsafe fn get_param(
+        state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        _world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        SystemName {
+            name: state.name.as_ref(),
         }
     }
 }

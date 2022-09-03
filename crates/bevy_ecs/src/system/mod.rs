@@ -59,6 +59,7 @@
 //! - [`NonSendMut`] and `Option<NonSendMut>`
 //! - [`&World`](crate::world::World)
 //! - [`RemovedComponents`]
+//! - [`SystemName`]
 //! - [`SystemChangeTick`]
 //! - [`Archetypes`](crate::archetype::Archetypes) (Provides Archetype metadata)
 //! - [`Bundles`](crate::bundle::Bundles) (Provides Bundles metadata)
@@ -129,6 +130,8 @@ pub fn assert_is_exclusive_system<Params, SystemType>(
 mod tests {
     use std::any::TypeId;
 
+    use crate::prelude::StageLabel;
+
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
@@ -167,6 +170,9 @@ mod tests {
     #[derive(Component)]
     struct W<T>(T);
 
+    #[derive(StageLabel)]
+    struct UpdateStage;
+
     #[test]
     fn simple_system() {
         fn sys(query: Query<&A>) {
@@ -187,7 +193,7 @@ mod tests {
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
         update.add_system(system);
-        schedule.add_stage("update", update);
+        schedule.add_stage(UpdateStage, update);
         schedule.run(world);
     }
 
@@ -309,12 +315,15 @@ mod tests {
         world.insert_resource(Added(0));
         world.insert_resource(Changed(0));
 
+        #[derive(StageLabel)]
+        struct ClearTrackers;
+
         let mut schedule = Schedule::default();
         let mut update = SystemStage::parallel();
         update.add_system(incr_e_on_flip);
-        schedule.add_stage("update", update);
+        schedule.add_stage(UpdateStage, update);
         schedule.add_stage(
-            "clear_trackers",
+            ClearTrackers,
             SystemStage::single(World::clear_trackers.exclusive_system()),
         );
 
