@@ -151,7 +151,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_stage("my_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
+    /// app.add_stage(MyStage, SystemStage::parallel());
     /// ```
     pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.schedule.add_stage(label, stage);
@@ -168,7 +170,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_stage_after(CoreStage::Update, "my_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
+    /// app.add_stage_after(CoreStage::Update, MyStage, SystemStage::parallel());
     /// ```
     pub fn add_stage_after<S: Stage>(
         &mut self,
@@ -190,7 +194,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_stage_before(CoreStage::Update, "my_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
+    /// app.add_stage_before(CoreStage::Update, MyStage, SystemStage::parallel());
     /// ```
     pub fn add_stage_before<S: Stage>(
         &mut self,
@@ -212,7 +218,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_startup_stage("my_startup_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStartupStage;
+    /// app.add_startup_stage(MyStartupStage, SystemStage::parallel());
     /// ```
     pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.schedule
@@ -234,9 +242,11 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
+    /// #[derive(StageLabel)]
+    /// struct MyStartupStage;
     /// app.add_startup_stage_after(
     ///     StartupStage::Startup,
-    ///     "my_startup_stage",
+    ///     MyStartupStage,
     ///     SystemStage::parallel()
     /// );
     /// ```
@@ -265,9 +275,11 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
+    /// #[derive(StageLabel)]
+    /// struct MyStartupStage;
     /// app.add_startup_stage_before(
     ///     StartupStage::Startup,
-    ///     "my_startup_stage",
+    ///     MyStartupStage,
     ///     SystemStage::parallel()
     /// );
     /// ```

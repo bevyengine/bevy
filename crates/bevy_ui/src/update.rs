@@ -124,7 +124,7 @@ fn update_clipping(
 mod tests {
     use bevy_ecs::{
         component::Component,
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::{Schedule, Stage, StageLabel, SystemStage},
         system::{CommandQueue, Commands},
         world::World,
     };
@@ -149,6 +149,9 @@ mod tests {
     fn get_steps(transform: &Transform) -> u32 {
         (transform.translation.z / UI_Z_STEP).round() as u32
     }
+
+    #[derive(StageLabel)]
+    struct Update;
 
     #[test]
     fn test_ui_z_system() {
@@ -198,7 +201,7 @@ mod tests {
         let mut schedule = Schedule::default();
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(ui_z_system);
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
         schedule.run(&mut world);
 
         let mut actual_result = world
