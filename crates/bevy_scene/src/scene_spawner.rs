@@ -144,7 +144,11 @@ impl SceneSpawner {
                     .ok_or_else(|| SceneSpawnError::NonExistentScene {
                         handle: scene_handle.clone_weak(),
                     })?;
-            scene.write_to_world(world, entity_map)
+            scene.write_to_world_with(
+                world,
+                entity_map,
+                &world.resource::<AppTypeRegistry>().clone(),
+            )
         })
     }
 
