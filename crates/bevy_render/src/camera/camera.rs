@@ -315,7 +315,7 @@ impl RenderTarget {
     }
 }
 
-/// System in charge of updating a [`Camera`] when its window or projection change.
+/// System in charge of updating a [`Camera`] when its window or projection changes.
 ///
 /// The system detects window creation and resize events to update the camera projection if
 /// needed. It also queries any [`CameraProjection`] component associated with the same entity
