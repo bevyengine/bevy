@@ -46,7 +46,7 @@ pub struct Gamepads {
 }
 
 impl Gamepads {
-    /// Returns true if the `gamepad` is connected.
+    /// Returns `true` if the `gamepad` is connected.
     pub fn contains(&self, gamepad: Gamepad) -> bool {
         self.gamepads.contains(&gamepad)
     }
