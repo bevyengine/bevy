@@ -21,7 +21,7 @@ bevy_utils::define_label!(
     AppLabel,
     /// Types that can be converted into [`AppLabelId`], except for `AppLabelId` itself.
     ///
-    /// Implementing this trait automatically implements [`AppLabel`] for you.
+    /// Implementing this trait automatically implements [`AppLabel`] due to a blanket implementation.
     IntoAppLabel,
     /// A strongly-typed identifier for an [`AppLabel`].
     AppLabelId,

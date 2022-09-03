@@ -6,7 +6,7 @@ define_label!(
     StageLabel,
     /// Types that can be converted into [`StageLabelId`], except for `StageLabelId` itself.
     ///
-    /// Implementing this trait automatically implements [`StageLabel`] for you.
+    /// Implementing this trait automatically implements [`StageLabel`] due to a blanket implementation.
     IntoStageLabel,
     /// Strongly-typed identifier for a [`StageLabel`].
     StageLabelId,
@@ -16,7 +16,7 @@ define_label!(
     SystemLabel,
     /// Types that can be converted into [`SystemLabelId`], except for `SystemLabelId` itself.
     ///
-    /// Implementing this trait automatically implements [`SystemLabel`] for you.
+    /// Implementing this trait automatically implements [`SystemLabel`] due to a blanket implementation.
     IntoSystemLabel,
     /// Strongly-typed identifier for a [`SystemLabel`].
     SystemLabelId,
@@ -26,7 +26,7 @@ define_label!(
     AmbiguitySetLabel,
     /// Types that can be converted into [`AmbiguitySetLabelId`], except for `AmbiguitySetLabelId` itself.
     ///
-    /// Implementing this trait automatically implements [`AmbiguitySetLabel`] for you.
+    /// Implementing this trait automatically implements [`AmbiguitySetLabel`] due to a blanket implementation.
     IntoAmbiguitySetLabel,
     /// Strongly-typed identifier for an [`AmbiguitySetLabel`].
     AmbiguitySetLabelId,
@@ -36,7 +36,7 @@ define_label!(
     RunCriteriaLabel,
     /// Types that can be converted into [`RunCriteriaLabelId`], except for `RunCriteriaLabelId` itself.
     ///
-    /// Implementing this trait automatically implements [`RunCriteriaLabel`] for you.
+    /// Implementing this trait automatically implements [`RunCriteriaLabel`] due to a blanket implementation.
     IntoRunCriteriaLabel,
     /// Strongly-typed identifier for a [`RunCriteriaLabel`].
     RunCriteriaLabelId,
