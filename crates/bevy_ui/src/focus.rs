@@ -166,16 +166,14 @@ pub fn ui_focus_system(
 
                 if contains_cursor {
                     return Some(entity);
-                } else {
-                    if let Some(mut interaction) = interaction {
-                        if *interaction == Interaction::Hovered
-                            || (cursor_position.is_none() && *interaction != Interaction::None)
-                        {
-                            *interaction = Interaction::None;
-                        }
+                } else if let Some(mut interaction) = interaction {
+                    if *interaction == Interaction::Hovered
+                        || (cursor_position.is_none() && *interaction != Interaction::None)
+                    {
+                        *interaction = Interaction::None;
                     }
-                    return None;
                 }
+                return None;
             }
             None
         })
@@ -210,12 +208,10 @@ pub fn ui_focus_system(
     }
     // reset lower nodes to None
     for entity in &moused_over_nodes {
-        if let Ok((_, _, _, interaction, _, _, _)) = node_query.get_mut(*entity) {
-            if let Some(mut interaction) = interaction {
-                // don't reset clicked nodes because they're handled separately
-                if *interaction != Interaction::Clicked && *interaction != Interaction::None {
-                    *interaction = Interaction::None;
-                }
+        if let Ok((_, _, _, Some(mut interaction), _, _, _)) = node_query.get_mut(*entity) {
+            // don't reset clicked nodes because they're handled separately
+            if *interaction != Interaction::Clicked && *interaction != Interaction::None {
+                *interaction = Interaction::None;
             }
         }
     }
