@@ -9,8 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::Vec2;
-use bevy_sprite::Rect;
+use bevy_math::Rect;
 use bevy_transform::components::GlobalTransform;
 
 /// Updates clipping for all nodes

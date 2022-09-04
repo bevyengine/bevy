@@ -29,8 +29,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Color::DARK_GREEN,
         Some(ZIndex::Global(1)),
         UiRect {
-            left: Val::Px(0.0),
-            bottom: Val::Px(0.0),
+            left: Val::Px(20.0),
+            bottom: Val::Px(80.0),
             ..default()
         },
     );
@@ -42,8 +42,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Color::ORANGE,
         Some(ZIndex::Global(-1)),
         UiRect {
-            left: Val::Px(100.0),
-            bottom: Val::Px(100.0),
+            left: Val::Px(20.0),
+            bottom: Val::Px(20.0),
             ..default()
         },
     );
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         None,
         UiRect {
             left: Val::Px(10.0),
-            bottom: Val::Px(100.0),
+            bottom: Val::Px(120.0),
             ..default()
         },
     ));
@@ -86,7 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Some(ZIndex::Global(2)),
         UiRect {
             left: Val::Px(10.0),
-            bottom: Val::Px(150.0),
+            bottom: Val::Px(180.0),
             ..default()
         },
     ));
