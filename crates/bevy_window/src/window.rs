@@ -792,7 +792,7 @@ pub struct WindowDescriptor {
     ///
     /// Ignored if `mode` is set to something other than [`WindowMode::Windowed`]
     ///
-    /// `WindowPosition::Automatic` will be overridden with `WindowPosition::At(Vec2::ZERO)` if a specific `monitor` is set.
+    /// `WindowPosition::Automatic` will be overridden with `WindowPosition::At(Vec2::ZERO)` if a specific `monitor` is selected.
     pub position: WindowPosition,
     /// The monitor to place the window on.
     pub monitor: MonitorSelection,
