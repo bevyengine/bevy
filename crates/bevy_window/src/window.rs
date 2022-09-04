@@ -747,15 +747,13 @@ impl Window {
 /// Defines where window should be placed at on creation.
 #[derive(Debug, Clone, Copy)]
 pub enum WindowPosition {
-    /// Position will be set by the window manager
+    /// The position will be set by the window manager.
     Automatic,
-    /// Window will be centered on the selected monitor
+    /// Window will be centered on the selected monitor.
+    Centered,
+    /// The window's top-left corner will be placed at the specified position (in pixels).
     ///
-    /// Note that this does not account for window decorations.
-    Centered(MonitorSelection),
-    /// The window's top-left corner will be placed at the specified position (in pixels)
-    ///
-    /// (0,0) represents top-left corner of screen space.
+    /// (0,0) represents top-left corner of the selected monitor.
     At(Vec2),
 }
 
@@ -763,11 +761,13 @@ pub enum WindowPosition {
 #[derive(Debug, Clone, Copy)]
 pub enum MonitorSelection {
     /// Uses current monitor of the window.
+    ///
+    /// Will fall back to the system default if the window has not yet been created.
     Current,
     /// Uses primary monitor of the system.
     Primary,
     /// Uses monitor with the specified index.
-    Number(usize),
+    Index(usize),
 }
 
 /// Describes the information needed for creating a window.
@@ -789,7 +789,13 @@ pub struct WindowDescriptor {
     /// May vary from the physical height due to different pixel density on different monitors.
     pub height: f32,
     /// The position on the screen that the window will be placed at.
+    ///
+    /// Ignored if `mode` is set to something other than [`WindowMode::Windowed`]
+    ///
+    /// `WindowPosition::Automatic` will be overridden with `WindowPosition::At(Vec2::ZERO)` if a specific `monitor` is set.
     pub position: WindowPosition,
+    /// The monitor to place the window on.
+    pub monitor: MonitorSelection,
     /// Sets minimum and maximum resize limits.
     pub resize_constraints: WindowResizeConstraints,
     /// Overrides the window's ratio of physical pixels to logical pixels.
@@ -854,6 +860,7 @@ impl Default for WindowDescriptor {
             width: 1280.,
             height: 720.,
             position: WindowPosition::Automatic,
+            monitor: MonitorSelection::Current,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
             present_mode: PresentMode::Fifo,

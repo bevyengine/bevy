@@ -1,8 +1,11 @@
-use bevy_math::IVec2;
-use bevy_utils::{tracing::warn, HashMap};
-use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
+use bevy_math::{DVec2, IVec2};
+use bevy_utils::HashMap;
+use bevy_window::{MonitorSelection, Window, WindowDescriptor, WindowId, WindowMode};
 use raw_window_handle::HasRawWindowHandle;
-use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition};
+use winit::{
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
+    window::Fullscreen,
+};
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -24,86 +27,43 @@ impl WinitWindows {
     ) -> Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
+        let &WindowDescriptor {
+            width,
+            height,
+            position,
+            monitor,
+            scale_factor_override,
+            ..
+        } = window_descriptor;
+
+        let logical_size = LogicalSize::new(width, height);
+
+        let monitor = match monitor {
+            MonitorSelection::Current => None,
+            MonitorSelection::Primary => event_loop.primary_monitor(),
+            MonitorSelection::Index(i) => event_loop.available_monitors().nth(i),
+        };
+
+        let selected_or_primary_monitor = monitor.clone().or_else(|| event_loop.primary_monitor());
+
         winit_window_builder = match window_descriptor.mode {
-            WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
+            WindowMode::BorderlessFullscreen => winit_window_builder
+                .with_fullscreen(Some(Fullscreen::Borderless(selected_or_primary_monitor))),
+            WindowMode::Fullscreen => winit_window_builder.with_fullscreen(Some(
+                Fullscreen::Exclusive(get_best_videomode(&selected_or_primary_monitor.unwrap())),
             )),
-            WindowMode::Fullscreen => {
-                winit_window_builder.with_fullscreen(Some(winit::window::Fullscreen::Exclusive(
-                    get_best_videomode(&event_loop.primary_monitor().unwrap()),
-                )))
-            }
             WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Exclusive(get_fitting_videomode(
-                    &event_loop.primary_monitor().unwrap(),
+                Fullscreen::Exclusive(get_fitting_videomode(
+                    &selected_or_primary_monitor.unwrap(),
                     window_descriptor.width as u32,
                     window_descriptor.height as u32,
                 )),
             )),
             _ => {
-                let WindowDescriptor {
-                    width,
-                    height,
-                    position,
-                    scale_factor_override,
-                    ..
-                } = window_descriptor;
-
-                use bevy_window::WindowPosition::*;
-                match position {
-                    Automatic => { /* Window manager will handle position */ }
-                    Centered(monitor_selection) => {
-                        use bevy_window::MonitorSelection::*;
-                        let maybe_monitor = match monitor_selection {
-                            Current => {
-                                warn!("Can't select current monitor on window creation!");
-                                None
-                            }
-                            Primary => event_loop.primary_monitor(),
-                            Number(n) => event_loop.available_monitors().nth(*n),
-                        };
-
-                        if let Some(monitor) = maybe_monitor {
-                            let screen_size = monitor.size();
-
-                            let scale_factor = monitor.scale_factor();
-
-                            // Logical to physical window size
-                            let (width, height): (u32, u32) = LogicalSize::new(*width, *height)
-                                .to_physical::<u32>(scale_factor)
-                                .into();
-
-                            let position = PhysicalPosition {
-                                x: screen_size.width.saturating_sub(width) as f64 / 2.
-                                    + monitor.position().x as f64,
-                                y: screen_size.height.saturating_sub(height) as f64 / 2.
-                                    + monitor.position().y as f64,
-                            };
-
-                            winit_window_builder = winit_window_builder.with_position(position);
-                        } else {
-                            warn!("Couldn't get monitor selected with: {monitor_selection:?}");
-                        }
-                    }
-                    At(position) => {
-                        if let Some(sf) = scale_factor_override {
-                            winit_window_builder = winit_window_builder.with_position(
-                                LogicalPosition::new(position[0] as f64, position[1] as f64)
-                                    .to_physical::<f64>(*sf),
-                            );
-                        } else {
-                            winit_window_builder = winit_window_builder.with_position(
-                                LogicalPosition::new(position[0] as f64, position[1] as f64),
-                            );
-                        }
-                    }
-                }
-
                 if let Some(sf) = scale_factor_override {
-                    winit_window_builder
-                        .with_inner_size(LogicalSize::new(*width, *height).to_physical::<f64>(*sf))
+                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
                 } else {
-                    winit_window_builder.with_inner_size(LogicalSize::new(*width, *height))
+                    winit_window_builder.with_inner_size(logical_size)
                 }
             }
             .with_resizable(window_descriptor.resizable)
@@ -154,6 +114,49 @@ impl WinitWindows {
         }
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
+
+        if window_descriptor.mode == WindowMode::Windowed {
+            use bevy_window::WindowPosition::*;
+            match position {
+                Automatic => {
+                    if let Some(monitor) = monitor {
+                        winit_window.set_outer_position(monitor.position());
+                    }
+                }
+                Centered => {
+                    if let Some(monitor) = monitor.or_else(|| winit_window.current_monitor()) {
+                        let monitor_position = monitor.position().cast::<f64>();
+                        let size = monitor.size();
+
+                        // Logical to physical window size
+                        let PhysicalSize::<u32> { width, height } =
+                            logical_size.to_physical(monitor.scale_factor());
+
+                        let position = PhysicalPosition {
+                            x: size.width.saturating_sub(width) as f64 / 2. + monitor_position.x,
+                            y: size.height.saturating_sub(height) as f64 / 2. + monitor_position.y,
+                        };
+
+                        winit_window.set_outer_position(position);
+                    }
+                }
+                At(position) => {
+                    if let Some(monitor) = monitor.or_else(|| winit_window.current_monitor()) {
+                        let monitor_position = DVec2::from(<(_, _)>::from(monitor.position()));
+                        let position = monitor_position + position.as_dvec2();
+
+                        if let Some(sf) = scale_factor_override {
+                            winit_window.set_outer_position(
+                                LogicalPosition::new(position.x, position.y).to_physical::<f64>(sf),
+                            );
+                        } else {
+                            winit_window
+                                .set_outer_position(LogicalPosition::new(position.x, position.y));
+                        }
+                    }
+                }
+            }
+        }
 
         if window_descriptor.cursor_locked {
             match winit_window.set_cursor_grab(true) {
