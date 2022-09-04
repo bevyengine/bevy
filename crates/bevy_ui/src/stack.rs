@@ -3,10 +3,10 @@
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 
-use crate::{ZIndex, Node};
+use crate::{Node, ZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth.
-/// 
+///
 /// The first entry is the furthest node from the camera and is the first one to get rendered
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
@@ -49,7 +49,7 @@ pub fn ui_stack_system(
     *ui_stack = UiStack {
         uinodes: Vec::<Entity>::with_capacity(total_entry_count),
     };
-    
+
     fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
 }
 

@@ -293,7 +293,9 @@ pub fn extract_text_uinodes(
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, global_transform, text, visibility, clip)) = uinode_query.get(*entity) {
+        if let Ok((entity, uinode, global_transform, text, visibility, clip)) =
+            uinode_query.get(*entity)
+        {
             if !visibility.is_visible() {
                 continue;
             }

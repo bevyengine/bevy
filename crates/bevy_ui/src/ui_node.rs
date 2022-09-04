@@ -413,12 +413,12 @@ pub struct CalculatedClip {
 
 /// Indicates that this node has special requirements for the order of depth in which
 /// it should appear in the UI instead of relying solely on the hierarchy of the UI.
-/// 
+///
 /// Omitting this component on a node will yield the same result as using [`ZIndex::Local(0)`].
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
-    /// 
+    ///
     /// For root UI nodes (nodes that have to parent), using this and [`ZIndex::Global`] is equivalent.
     Local(i32),
     /// Indicates the order in which this node should be rendered relative to all other nodes
