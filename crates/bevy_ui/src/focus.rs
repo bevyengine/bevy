@@ -1,4 +1,4 @@
-use crate::{entity::UiCameraConfig, CalculatedClip, Node};
+use crate::{entity::UiCameraConfig, CalculatedClip, Node, UiStack};
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -11,7 +11,6 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::camera::{Camera, RenderTarget};
 use bevy_render::view::ComputedVisibility;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::FloatOrd;
 use bevy_window::Windows;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -71,6 +70,7 @@ pub fn ui_focus_system(
     windows: Res<Windows>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
+    ui_stack: Res<UiStack>,
     mut node_query: Query<(
         Entity,
         &Node,
@@ -123,10 +123,14 @@ pub fn ui_focus_system(
         .find_map(|window| window.cursor_position())
         .or_else(|| touches_input.first_pressed_position());
 
-    let mut moused_over_z_sorted_nodes = node_query
-        .iter_mut()
-        .filter_map(
-            |(entity, node, global_transform, interaction, focus_policy, clip, visibility)| {
+    let moused_over_nodes = ui_stack
+        .uinodes
+        .iter()
+        .rev()
+        .filter_map(|entity| {
+            if let Ok((entity, node, global_transform, interaction, _, clip, visibility)) =
+                node_query.get_mut(*entity)
+            {
                 // Nodes that are not rendered should not be interactable
                 if let Some(computed_visibility) = visibility {
                     if !computed_visibility.is_visible() {
@@ -161,7 +165,7 @@ pub fn ui_focus_system(
                 };
 
                 if contains_cursor {
-                    Some((entity, focus_policy, interaction, FloatOrd(position.z)))
+                    return Some(entity);
                 } else {
                     if let Some(mut interaction) = interaction {
                         if *interaction == Interaction::Hovered
@@ -170,46 +174,48 @@ pub fn ui_focus_system(
                             *interaction = Interaction::None;
                         }
                     }
-                    None
+                    return None;
                 }
-            },
-        )
+            }
+            None
+        })
         .collect::<Vec<_>>();
 
-    moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
-
-    let mut moused_over_z_sorted_nodes = moused_over_z_sorted_nodes.into_iter();
     // set Clicked or Hovered on top nodes
-    for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes.by_ref() {
-        if let Some(mut interaction) = interaction {
-            if mouse_clicked {
-                // only consider nodes with Interaction "clickable"
-                if *interaction != Interaction::Clicked {
-                    *interaction = Interaction::Clicked;
-                    // if the mouse was simultaneously released, reset this Interaction in the next
-                    // frame
-                    if mouse_released {
-                        state.entities_to_reset.push(entity);
+    for entity in &moused_over_nodes {
+        if let Ok((_, _, _, interaction, focus_policy, _, _)) = node_query.get_mut(*entity) {
+            if let Some(mut interaction) = interaction {
+                if mouse_clicked {
+                    // only consider nodes with Interaction "clickable"
+                    if *interaction != Interaction::Clicked {
+                        *interaction = Interaction::Clicked;
+                        // if the mouse was simultaneously released, reset this Interaction in the next
+                        // frame
+                        if mouse_released {
+                            state.entities_to_reset.push(*entity);
+                        }
                     }
+                } else if *interaction == Interaction::None {
+                    *interaction = Interaction::Hovered;
                 }
-            } else if *interaction == Interaction::None {
-                *interaction = Interaction::Hovered;
             }
-        }
 
-        match focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
-            FocusPolicy::Block => {
-                break;
+            match focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
+                FocusPolicy::Block => {
+                    break;
+                }
+                FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
             }
-            FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
         }
     }
     // reset lower nodes to None
-    for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
-        if let Some(mut interaction) = interaction {
-            // don't reset clicked nodes because they're handled separately
-            if *interaction != Interaction::Clicked && *interaction != Interaction::None {
-                *interaction = Interaction::None;
+    for entity in &moused_over_nodes {
+        if let Ok((_, _, _, interaction, _, _, _)) = node_query.get_mut(*entity) {
+            if let Some(mut interaction) = interaction {
+                // don't reset clicked nodes because they're handled separately
+                if *interaction != Interaction::Clicked && *interaction != Interaction::None {
+                    *interaction = Interaction::None;
+                }
             }
         }
     }
