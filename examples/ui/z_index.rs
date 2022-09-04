@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // add a node with a global z-index
     stacked_nodes.push(spawn_stack_node(
         &mut commands,
-        font_handle.clone(),
+        font_handle,
         Color::PINK,
         Some(ZIndex::Global(2)),
         UiRect {
