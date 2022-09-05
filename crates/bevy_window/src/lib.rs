@@ -7,6 +7,7 @@ mod window;
 mod windows;
 
 pub use crate::raw_window_handle::*;
+use bevy_utils::tracing::warn;
 pub use cursor::*;
 pub use event::*;
 pub use system::*;
@@ -25,7 +26,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::{
     event::Events,
     schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
-    system::Resource,
+    system::{Local, Res, Resource},
 };
 
 /// The configuration information for the [`WindowPlugin`].
@@ -99,8 +100,7 @@ impl Plugin for WindowPlugin {
         if settings.add_primary_window {
             let window_descriptor = app
                 .world
-                .get_resource::<WindowDescriptor>()
-                .cloned()
+                .remove_resource::<WindowDescriptor>()
                 .unwrap_or_default();
             let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
             create_window_event.send(CreateWindow {
@@ -117,6 +117,16 @@ impl Plugin for WindowPlugin {
         }
         if settings.close_when_requested {
             app.add_system(close_when_requested);
+        }
+
+        #[cfg(debug_assertions)]
+        {
+            app.add_system(|wd: Option<Res<WindowDescriptor>>, mut once: Local<bool>| {
+                if !*once && wd.is_some() {
+                    warn!("The WindowDescriptor resource must be inserted before the WindowPlugin is added. Make sure to insert WindowDescriptor before adding the DefaultPlugins.");
+                    *once = true;
+                }
+            });
         }
     }
 }
