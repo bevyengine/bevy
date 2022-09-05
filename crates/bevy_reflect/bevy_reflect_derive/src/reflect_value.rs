@@ -80,7 +80,7 @@ impl Parse for NamedReflectValueDef {
 
         Ok(Self {
             type_path_options: TypePathOptions {
-                module_path,
+                module_path: module_path.or(Some("".to_string())),
                 type_ident: None,
             },
             def,
