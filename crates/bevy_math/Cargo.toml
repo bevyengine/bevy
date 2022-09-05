@@ -10,3 +10,8 @@ keywords = ["bevy"]
 
 [dependencies]
 glam = { version = "0.21", features = ["serde", "bytemuck"] }
+serde = "1"
+
+[features]
+# Enable interoperation of glam types with mint-compatible libraries
+mint = ["glam/mint"]

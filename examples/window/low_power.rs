@@ -3,10 +3,9 @@
 //! This is useful for making desktop applications, or any other program that doesn't need to be
 //! running the event loop non-stop.
 
-use std::time::Duration;
-
 use bevy::{
     prelude::*,
+    utils::Duration,
     window::{PresentMode, RequestRedraw},
     winit::WinitSettings,
 };

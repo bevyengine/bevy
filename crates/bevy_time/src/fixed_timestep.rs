@@ -257,8 +257,10 @@ mod test {
         world.insert_resource(Count(0));
         let mut schedule = Schedule::default();
 
+        #[derive(StageLabel)]
+        struct Update;
         schedule.add_stage(
-            "update",
+            Update,
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(0.5).with_label(LABEL))
                 .with_system(fixed_update),
