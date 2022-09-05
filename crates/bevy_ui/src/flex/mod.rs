@@ -419,7 +419,7 @@ fn get_flex_roots(
                     entity,
                     scaling_factor: camera.target_scaling_factor().unwrap_or(1.0) * ui_scale.scale,
                     // TODO: make sure this won't explode and it makes sense in system ordering.
-                    physical_rect: camera.physical_viewport_rect().unwrap(),
+                    physical_rect: camera.physical_viewport_rect().unwrap_or((UVec2::default(), UVec2::default())),
                 })
                 .or_else(|| {
                     windows.get_primary().map(|window| FlexRoot {
