@@ -94,7 +94,7 @@ impl<Data> GenericDataCell<Data> {
 ///     })
 ///   }
 /// }
-/// # impl TypePath for MyStruct {
+/// # impl TypePath for Foo {
 /// #   fn type_path() -> &'static str { todo!() }
 /// #   fn short_type_name_base() -> &'static str { todo!() }
 /// #   fn short_type_name() -> &'static str { todo!() }
@@ -145,7 +145,11 @@ pub type NonGenericTypeInfoCell = NonGenericDataCell<TypeInfo>;
 /// }
 ///
 /// # impl<T: Reflect> TypePath for Foo<T> {
-/// #   fn name() -> &'static str { todo!() }
+/// #   fn type_path() -> &'static str { todo!() }
+/// #   fn short_type_name_base() -> &'static str { todo!() }
+/// #   fn short_type_name() -> &'static str { todo!() }
+/// #   fn module_path() -> &'static str { todo!() }
+/// #   fn crate_name() -> &'static str { todo!() }
 /// # }
 /// #
 /// # impl<T: Reflect> Reflect for Foo<T> {
@@ -172,24 +176,42 @@ pub type GenericTypeInfoCell = GenericDataCell<TypeInfo>;
 /// ## Example
 ///
 /// ```
-/// # use bevy_reflect::TypePath;
-/// use bevy_reflect::utility::GenericTypePathCell;
+/// bevy_reflect::{TypePath, utility::GenericTypePathCell};
 ///
-/// struct Foo<T>(T);
+/// struct MyType<T>(T);
 ///
-/// impl<T: TypePath> TypePath for Foo<T> {
-///     fn name() -> &'static str {
+/// impl<T: TypePath> TypePath for MyType<T> {
+///     fn type_path() -> &'static str {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
-///             format!(concat!(module_path!(), "::Foo<{}>"), T::name())
+///             format!(concat!(module_path!(), "::MyType<{}>"), T::type_path())
 ///         })
+///     }
+///
+///     fn short_type_name_base() -> &'static str {
+///         const IDENT_POS: usize = module_path!().len() + 2;
+///         const GENERIC_POS: usize = IDENT_POS + "MyType".len();
+///         &<Self as TypePath>::type_path()[IDENT_POS..GENERIC_POS]
+///     }
+///
+///     fn short_type_name() -> &'static str {
+///         const IDENT_POS: usize = module_path!().len() + 2;
+///         &<Self as #bevy_reflect_path::TypePath>::type_path()[IDENT_POS..]
+///     }
+///
+///     fn module_path() -> &'static str {
+///         &<Self as #bevy_reflect_path::TypePath>::type_path()[..module_path!().len()]
+///     }
+///
+///     fn crate_name() -> &'static str {
+///         "my_crate"
 ///     }
 /// }
 /// ```
 pub type GenericTypePathCell = GenericDataCell<String>;
 
 pub const fn crate_name_len(type_path: &str) -> usize {
-    const SEPARATOR: u8 = ':' as u8;
+    const SEPARATOR: u8 = b':';
     let bytes = type_path.as_bytes();
     let end = bytes.len().saturating_sub(1);
     let mut i = 0;
@@ -199,5 +221,5 @@ pub const fn crate_name_len(type_path: &str) -> usize {
         }
         i += 1;
     }
-    return bytes.len();
+    bytes.len()
 }

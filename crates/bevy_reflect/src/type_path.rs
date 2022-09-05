@@ -49,11 +49,30 @@ use crate::utility::GenericTypePathCell;
 /// struct MyType<T>(T);
 ///
 /// impl<T: TypePath> TypePath for MyType<T> {
-///     fn name() -> &'static str {
+///     fn type_path() -> &'static str {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
-///             format!(concat!(module_path!(), "::MyType<{}>"), T::name())
+///             format!(concat!(module_path!(), "::MyType<{}>"), T::type_path())
 ///         })
+///     }
+///
+///     fn short_type_name_base() -> &'static str {
+///         const IDENT_POS: usize = module_path!().len() + 2;
+///         const GENERIC_POS: usize = IDENT_POS + "MyType".len();
+///         &<Self as TypePath>::type_path()[IDENT_POS..GENERIC_POS]
+///     }
+///
+///     fn short_type_name() -> &'static str {
+///         const IDENT_POS: usize = module_path!().len() + 2;
+///         &<Self as #bevy_reflect_path::TypePath>::type_path()[IDENT_POS..]
+///     }
+///
+///     fn module_path() -> &'static str {
+///         &<Self as #bevy_reflect_path::TypePath>::type_path()[..module_path!().len()]
+///     }
+///
+///     fn crate_name() -> &'static str {
+///         "my_crate"
 ///     }
 /// }
 /// ```
