@@ -1070,7 +1070,10 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     ///
     /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
     #[inline]
-    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
+    pub fn get_component<T: Component + Sync>(
+        &self,
+        entity: Entity,
+    ) -> Result<&T, QueryComponentError> {
         let world = self.world;
         let entity_ref = world
             .get_entity(entity)

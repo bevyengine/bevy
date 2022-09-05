@@ -36,7 +36,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     ast.generics
         .make_where_clause()
         .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
+        .push(parse_quote! { Self: Send + 'static });
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();

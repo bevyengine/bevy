@@ -275,6 +275,31 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
+/// ## Non-Sync Queries
+///
+/// Non-`Sync` components are supported, but cannot be accessed as `&T`,
+/// as the type cannot be safely read from multiple threads at the same
+/// time. These components must be accessed via a `&mut T` to guarentee
+/// that the system has exclusive access to the components.
+///
+/// ```compile_fail,E0277
+/// # use bevy_ecs::prelude::*;
+/// # use std::cell::Cell;
+///
+/// #[derive(Component)]
+/// struct NotSync(Cell<usize>);
+///
+/// // This will not compile!
+/// fn my_system(query: Query<&NotSync>) {
+///     for _ in query.iter() {}
+/// }
+///
+/// // This will compile!
+/// fn my_system_mut(query: Query<&mut NotSync>) {
+///     for _ in query.iter() {}
+/// }
+/// ```
+///
 /// # Safety
 ///
 /// Component access of `ROQueryFetch<Self>` must be a subset of `QueryFetch<Self>`
@@ -561,7 +586,7 @@ pub struct ReadFetch<'w, T> {
 }
 
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
-unsafe impl<T: Component> WorldQuery for &T {
+unsafe impl<T: Component + Sync> WorldQuery for &T {
     type ReadOnly = Self;
     type State = ComponentId;
 
@@ -702,9 +727,9 @@ impl<T> Clone for ReadFetch<'_, T> {
 }
 
 /// SAFETY: access is read only
-unsafe impl<T: Component> ReadOnlyWorldQuery for &T {}
+unsafe impl<T: Component + Sync> ReadOnlyWorldQuery for &T {}
 
-impl<'w, T: Component> WorldQueryGats<'w> for &T {
+impl<'w, T: Component + Sync> WorldQueryGats<'w> for &T {
     type Fetch = ReadFetch<'w, T>;
     type Item = &'w T;
 }
@@ -724,7 +749,7 @@ pub struct WriteFetch<'w, T> {
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
+unsafe impl<'__w, T: Component+ Sync> WorldQuery for &'__w mut T {
     type ReadOnly = &'__w T;
     type State = ComponentId;
 

@@ -58,7 +58,7 @@ impl<C> Default for UniformComponentPlugin<C> {
     }
 }
 
-impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
+impl<C: Component + ShaderType + WriteInto + Clone + Sync> Plugin for UniformComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -70,11 +70,11 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
 
 /// Stores all uniforms of the component type.
 #[derive(Resource)]
-pub struct ComponentUniforms<C: Component + ShaderType> {
+pub struct ComponentUniforms<C: Component + ShaderType + Sync> {
     uniforms: DynamicUniformBuffer<C>,
 }
 
-impl<C: Component + ShaderType> Deref for ComponentUniforms<C> {
+impl<C: Component + ShaderType + Sync> Deref for ComponentUniforms<C> {
     type Target = DynamicUniformBuffer<C>;
 
     #[inline]
@@ -83,14 +83,14 @@ impl<C: Component + ShaderType> Deref for ComponentUniforms<C> {
     }
 }
 
-impl<C: Component + ShaderType> ComponentUniforms<C> {
+impl<C: Component + ShaderType + Sync> ComponentUniforms<C> {
     #[inline]
     pub fn uniforms(&self) -> &DynamicUniformBuffer<C> {
         &self.uniforms
     }
 }
 
-impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
+impl<C: Component + ShaderType + Sync> Default for ComponentUniforms<C> {
     fn default() -> Self {
         Self {
             uniforms: Default::default(),
@@ -100,7 +100,7 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
 
 /// This system prepares all components of the corresponding component type.
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
-fn prepare_uniform_components<C: Component>(
+fn prepare_uniform_components<C: Component + Sync>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,

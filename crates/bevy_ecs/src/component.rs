@@ -17,7 +17,7 @@ use std::{
 /// A data type that can be used to store data for an [entity].
 ///
 /// `Component` is a [derivable trait]: this means that a data type can implement it by applying a `#[derive(Component)]` attribute to it.
-/// However, components must always satisfy the `Send + Sync + 'static` trait bounds.
+/// However, components must always satisfy the `Send  + 'static` trait bounds.
 ///
 /// [entity]: crate::entity
 /// [derivable trait]: https://doc.rust-lang.org/book/appendix-03-derivable-traits.html
@@ -109,7 +109,7 @@ use std::{
 ///
 /// [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type
 /// [newtype pattern]: https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-the-newtype-pattern-to-implement-external-traits-on-external-types
-pub trait Component: Send + Sync + 'static {
+pub trait Component: Send + 'static {
     type Storage: ComponentStorage;
 }
 
@@ -199,8 +199,8 @@ impl ComponentInfo {
     }
 
     #[inline]
-    pub fn is_send_and_sync(&self) -> bool {
-        self.descriptor.is_send_and_sync
+    pub fn is_send(&self) -> bool {
+        self.descriptor.is_send
     }
 
     fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
@@ -257,8 +257,9 @@ pub struct ComponentDescriptor {
     // associated rust component type if one exists.
     storage_type: StorageType,
     // SAFETY: This must remain private. It must only be set to "true" if this component is
-    // actually Send + Sync
-    is_send_and_sync: bool,
+    // actually Send
+    // TODO: Add is_sync to this when applicable.
+    is_send: bool,
     type_id: Option<TypeId>,
     layout: Layout,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
@@ -273,7 +274,7 @@ impl std::fmt::Debug for ComponentDescriptor {
         f.debug_struct("ComponentDescriptor")
             .field("name", &self.name)
             .field("storage_type", &self.storage_type)
-            .field("is_send_and_sync", &self.is_send_and_sync)
+            .field("is_send", &self.is_send)
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
             .finish()
@@ -291,7 +292,7 @@ impl ComponentDescriptor {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type: T::Storage::STORAGE_TYPE,
-            is_send_and_sync: true,
+            is_send: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
@@ -312,7 +313,7 @@ impl ComponentDescriptor {
         Self {
             name: name.into(),
             storage_type,
-            is_send_and_sync: true,
+            is_send: true,
             type_id: None,
             layout,
             drop,
@@ -328,7 +329,7 @@ impl ComponentDescriptor {
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
-            is_send_and_sync: true,
+            is_send: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
@@ -339,7 +340,7 @@ impl ComponentDescriptor {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type,
-            is_send_and_sync: false,
+            is_send: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),

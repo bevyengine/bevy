@@ -454,8 +454,25 @@ impl World {
     /// let position = world.get::<Position>(entity).unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
+    ///
+    /// Attempting to use this on a component that is not [`Sync`] will fail to compile.
+    ///
+    /// ```compile_fail,E0277
+    /// # use bevy_ecs::{component::Component, world::World};
+    /// # use std::cell::Cell;
+    ///
+    /// #[derive(Component)]
+    /// struct NotSync(Cell<usize>);
+    ///
+    /// # fn main() {
+    /// # let world = World::new();
+    /// # let entity = todo!();
+    /// // Will fail to compile!
+    /// world.get::<NotSync>(entity);
+    /// # }
+    /// ```
     #[inline]
-    pub fn get<T: Component>(&self, entity: Entity) -> Option<&T> {
+    pub fn get<T: Component + Sync>(&self, entity: Entity) -> Option<&T> {
         self.get_entity(entity)?.get()
     }
 
@@ -1385,7 +1402,7 @@ impl World {
     #[inline]
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
+        if !info.is_send() {
             self.validate_non_send_access_untyped(info.name());
         }
 
@@ -1402,7 +1419,7 @@ impl World {
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
+        if !info.is_send() {
             self.validate_non_send_access_untyped(info.name());
         }
 
@@ -1432,7 +1449,7 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
         let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
+        if !info.is_send() {
             self.validate_non_send_access_untyped(info.name());
         }
 

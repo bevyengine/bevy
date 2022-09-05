@@ -5,7 +5,7 @@ use crate::{
 };
 use std::borrow::Cow;
 
-pub trait ExclusiveSystem: Send + Sync + 'static {
+pub trait ExclusiveSystem: Send + 'static {
     fn name(&self) -> Cow<'static, str>;
 
     fn run(&mut self, world: &mut World);

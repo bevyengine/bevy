@@ -362,7 +362,7 @@ mod menu {
 
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
-    fn setting_button<T: Resource + Component + PartialEq + Copy>(
+    fn setting_button<T: Resource + Component + PartialEq + Copy + Sync>(
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
         mut selected_query: Query<(Entity, &mut UiColor), With<SelectedOption>>,
         mut commands: Commands,
