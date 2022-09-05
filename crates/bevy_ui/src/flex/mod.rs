@@ -172,8 +172,9 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    pub fn remove_entities(&mut self, entities: impl Iterator<Item = Entity>) {
-        for entity in entities {
+    /// Removes each entity from the internal map and then removes their associated node from taffy
+    pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        for entity in entities.into_iter() {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
                 self.taffy.remove(node);
             }
