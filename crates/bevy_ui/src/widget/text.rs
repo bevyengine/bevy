@@ -79,7 +79,7 @@ pub fn text_system(
                 window.height(),
             )
         } else {
-            (1., f32::MAX, f32::MAX)
+            panic!("Unable to get primary window");
         };
 
     let inv_scale_factor = 1. / scale_factor;
