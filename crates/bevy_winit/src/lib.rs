@@ -54,7 +54,9 @@ impl Plugin for WinitPlugin {
         let create_window_reader = WinitCreateWindowReader::default();
         // Note that we create a window here "early" because WASM/WebGL requires the window to exist prior to initializing
         // the renderer.
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        // And for ios and macos, we should not create window early, all ui related code should be executed inside
+        // UIApplicationMain/NSApplicationMain.
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
         handle_create_window_events(&mut app.world, &event_loop, &mut create_window_reader.0);
         app.insert_resource(create_window_reader)
             .insert_non_send_resource(event_loop);
