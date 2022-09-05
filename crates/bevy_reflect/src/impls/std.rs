@@ -43,26 +43,26 @@ impl_reflect_value!(
     E: Clone + Reflect + TypePath > ()
 );
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypePath>());
-impl_reflect_value!(@"std::Range" Range<T: Clone + Send + Sync + TypePath >());
-impl_reflect_value!(@"std::RangeInclusive" RangeInclusive<T: Clone + Send + Sync + TypePath>());
-impl_reflect_value!(@"std::RangeFrom" RangeFrom<T: Clone + Send + Sync + TypePath>());
-impl_reflect_value!(@"std::RangeTo" RangeTo<T: Clone + Send + Sync + TypePath>());
-impl_reflect_value!(@"std::RangeToInclusive" RangeToInclusive<T: Clone + Send + Sync + TypePath>());
-impl_reflect_value!(@"std::RangeFull" RangeFull());
-impl_reflect_value!(@"std::Duration" Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::Instant" Instant(Debug, Hash, PartialEq));
-impl_reflect_value!(@"std::NonZeroI128" NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroU128" NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroIsize" NonZeroIsize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroUsize" NonZeroUsize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroI64" NonZeroI64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroU64" NonZeroU64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroU32" NonZeroU32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroI32" NonZeroI32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroI16" NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroU16" NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroU8" NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(@"std::NonZeroI8" NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" Range<T: Clone + Send + Sync + TypePath >());
+impl_reflect_value!(@"std" RangeInclusive<T: Clone + Send + Sync + TypePath>());
+impl_reflect_value!(@"std" RangeFrom<T: Clone + Send + Sync + TypePath>());
+impl_reflect_value!(@"std" RangeTo<T: Clone + Send + Sync + TypePath>());
+impl_reflect_value!(@"std" RangeToInclusive<T: Clone + Send + Sync + TypePath>());
+impl_reflect_value!(@"std" RangeFull());
+impl_reflect_value!(@"std" Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" Instant(Debug, Hash, PartialEq));
+impl_reflect_value!(@"std" NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroIsize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroUsize(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroI64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroU64(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroU32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroI32(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(@"std" NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -114,11 +114,51 @@ impl<T: TypePath, const N: usize> TypePath for [T; N] {
         static CELL: GenericTypePathCell = GenericTypePathCell::new();
         CELL.get_or_insert::<Self, _>(|| format!("[{}; {N}]", T::type_path()))
     }
+    #[inline]
+    fn short_type_name_base() -> &'static str {
+        <Self as TypePath>::type_path()
+    }
+
+    #[inline]
+    fn short_type_name() -> &'static str {
+        <Self as TypePath>::type_path()
+    }
+
+    #[inline]
+    fn module_path() -> &'static str {
+        ""
+    }
+
+    #[inline]
+    fn crate_name() -> &'static str {
+        ""
+    }
 }
 
 impl TypePath for Cow<'static, str> {
+    #[inline]
     fn type_path() -> &'static str {
         "Cow<'static, str>"
+    }
+
+    #[inline]
+    fn short_type_name_base() -> &'static str {
+        "Cow"
+    }
+
+    #[inline]
+    fn short_type_name() -> &'static str {
+        <Self as TypePath>::type_path()
+    }
+
+    #[inline]
+    fn module_path() -> &'static str {
+        ""
+    }
+
+    #[inline]
+    fn crate_name() -> &'static str {
+        ""
     }
 }
 

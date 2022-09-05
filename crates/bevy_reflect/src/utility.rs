@@ -183,3 +183,17 @@ pub type GenericTypeInfoCell = GenericDataCell<TypeInfo>;
 /// }
 /// ```
 pub type GenericTypePathCell = GenericDataCell<String>;
+
+pub const fn crate_name_len(type_path: &str) -> usize {
+    const SEPARATOR: u8 = ':' as u8;
+    let bytes = type_path.as_bytes();
+    let end = bytes.len().saturating_sub(1);
+    let mut i = 0;
+    while i < end {
+        if bytes[i] == SEPARATOR && bytes[i + 1] == SEPARATOR {
+            return i;
+        }
+        i += 1;
+    }
+    return bytes.len();
+}

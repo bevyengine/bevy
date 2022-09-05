@@ -219,8 +219,29 @@ impl Typed for dyn Reflect {
 }
 
 impl TypePath for dyn Reflect {
+    #[inline]
     fn type_path() -> &'static str {
         "dyn Reflect"
+    }
+
+    #[inline]
+    fn short_type_name_base() -> &'static str {
+        <Self as TypePath>::type_path()
+    }
+
+    #[inline]
+    fn short_type_name() -> &'static str {
+        <Self as TypePath>::type_path()
+    }
+
+    #[inline]
+    fn module_path() -> &'static str {
+        ""
+    }
+
+    #[inline]
+    fn crate_name() -> &'static str {
+        ""
     }
 }
 

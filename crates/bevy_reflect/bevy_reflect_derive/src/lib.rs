@@ -28,6 +28,7 @@ mod type_uuid;
 mod utility;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
+use derive_data::TypePathOptions;
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::{NamedReflectValueDef, ReflectValueDef};
@@ -90,7 +91,7 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 ///         }
 ///
 ///         #[derive(TypePath)]
-///         #[type_path("my_lib::AB")]
+///         #[type_path(path = "my_lib")]
 ///         pub struct AB<T>(T);
 ///     }
 ///
@@ -166,13 +167,11 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as NamedReflectValueDef);
 
-    let reflected_type_path = def.get_reflected_type_path();
-
     impls::impl_value(&ReflectMeta::new(
         &def.def.type_name,
         &def.def.generics,
         def.def.traits.unwrap_or_default(),
-        Some(reflected_type_path),
+        def.type_path_options,
     ))
 }
 
@@ -249,7 +248,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
-        None,
+        TypePathOptions::default(),
     ))
 }
 
@@ -257,7 +256,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 /// the definitions of cannot be altered.
 ///
 /// But unlike `#[derive(TypePath)]` that prefix the type path with the module path
-/// using the macro [`module_path`], by default `impl_type_path` only uses the ident of the type
+/// using the macro [`module_path`], `impl_type_path` only uses the ident of the type
 /// as the type path.
 ///
 /// # Example
@@ -272,7 +271,10 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         Default::default(),
-        Some(def.type_name.to_string()),
+        TypePathOptions {
+            module_path: Some("".to_string()),
+            type_ident: None,
+        },
     );
     TokenStream::from(impls::impl_type_path(&meta))
 }

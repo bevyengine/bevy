@@ -42,11 +42,31 @@ use crate::utility::GenericTypePathCell;
 /// }
 /// ```
 pub trait TypePath: 'static {
-    /// Returns the path of the type.
+    /// Returns the full path of the type.
     ///
     /// This is a stable alternative to [`std::any::type_name`] whose output isn't guarenteed
     /// and may change between versions of the compiler.
     fn type_path() -> &'static str;
+
+    /// The short type name, without generics.
+    ///
+    /// e.g. `MyType`
+    fn short_type_name_base() -> &'static str;
+
+    /// The short type name, with generics.
+    ///
+    /// e.g. `MyType<Generics>`
+    fn short_type_name() -> &'static str;
+
+    /// The full type path, minus the actual type.
+    ///
+    /// e.g. `my_crate::my_mod`
+    fn module_path() -> &'static str;
+
+    /// The crate name.
+    ///
+    /// e.g. `"my_crate`
+    fn crate_name() -> &'static str;
 }
 
 /// Returns the [type path] of `T`.
@@ -71,6 +91,26 @@ macro_rules! impl_type_name_tuple {
                         $($t,)*
                     )
                 })
+            }
+
+            fn short_type_name_base() -> &'static str {
+                // FIXME: how to handle tuple ?
+                Self::type_path()
+            }
+
+            fn short_type_name() -> &'static str {
+                // FIXME: how to handle tuple ?
+                Self::type_path()
+            }
+
+            fn module_path() -> &'static str {
+                // FIXME: how to handle tuple ?
+                Self::type_path()
+            }
+
+            fn crate_name() -> &'static str {
+                // FIXME: how to handle tuple ?
+                ""
             }
         }
     };
@@ -100,15 +140,15 @@ mod tests {
     #[test]
     fn tuple_name() {
         #[derive(TypePath)]
-        #[type_path("Foo")]
+        #[type_path(path = "")]
         struct Foo;
 
         #[derive(TypePath)]
-        #[type_path("Goo")]
+        #[type_path(path = "")]
         struct Goo;
 
         #[derive(TypePath)]
-        #[type_path("Hoo")]
+        #[type_path(path = "")]
         struct Hoo;
 
         let s = <(Foo, Goo, Hoo) as TypePath>::type_path();

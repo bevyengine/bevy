@@ -1,4 +1,5 @@
 use crate::container_attributes::ReflectTraits;
+use crate::derive_data::TypePathOptions;
 use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Paren, Where};
@@ -58,38 +59,30 @@ impl Parse for ReflectValueDef {
 /// # Example
 ///
 /// ```ignore
-/// impl_reflect_value!(@"my_lib::MyType" Foo<T1, T2> where T1: Bar (TraitA, TraitB));
+/// impl_reflect_value!(@"my_lib::my_module" Foo<T1, T2> where T1: Bar (TraitA, TraitB));
 /// ```
 pub(crate) struct NamedReflectValueDef {
-    pub reflected_type_path: Option<String>,
+    pub type_path_options: TypePathOptions,
     pub def: ReflectValueDef,
-}
-
-impl NamedReflectValueDef {
-    /// Returns the string to use as the reflected type path.
-    ///
-    /// Use `reflected_type_path` if avaible otherwise use the `type_name` ident.
-    pub fn get_reflected_type_path(&self) -> String {
-        self.reflected_type_path
-            .clone()
-            .unwrap_or_else(|| self.def.type_name.to_string())
-    }
 }
 
 impl Parse for NamedReflectValueDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
-        let mut reflected_type_path = None;
+        let mut module_path = None;
         if lookahead.peek(Token![@]) {
             let _at: Token![@] = input.parse()?;
             let name: LitStr = input.parse()?;
-            reflected_type_path = Some(name.value());
+            module_path = Some(name.value());
         }
 
         let def = input.parse()?;
 
         Ok(Self {
-            reflected_type_path,
+            type_path_options: TypePathOptions {
+                module_path,
+                type_ident: None,
+            },
             def,
         })
     }

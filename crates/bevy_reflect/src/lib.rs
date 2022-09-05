@@ -942,15 +942,15 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
-    fn reflect_custom_type_name() {
+    fn reflect_custom_type_path() {
         #[derive(TypePath)]
-        #[type_path("Banane")]
+        #[type_path(path = "", ident = "Banane")]
         struct Foo;
         let name = Foo::type_path();
         assert_eq!(name, "Banane");
 
         #[derive(TypePath)]
-        #[type_path("MyType")]
+        #[type_path(path = "", ident = "MyType")]
         struct Goo<T: TypePath> {
             _value: T,
         }
