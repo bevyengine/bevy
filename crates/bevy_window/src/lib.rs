@@ -26,7 +26,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::{
     event::Events,
     schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
-    system::{Local, Res, Resource},
+    system::{Res, Resource},
 };
 
 /// The configuration information for the [`WindowPlugin`].
@@ -121,10 +121,11 @@ impl Plugin for WindowPlugin {
 
         #[cfg(debug_assertions)]
         {
-            app.add_system(|wd: Option<Res<WindowDescriptor>>, mut once: Local<bool>| {
-                if !*once && wd.is_some() {
-                    warn!("The WindowDescriptor resource must be inserted before the WindowPlugin is added. Make sure to insert WindowDescriptor before adding the DefaultPlugins.");
-                    *once = true;
+            app.add_system(|wd: Option<Res<WindowDescriptor>>| {
+                if let Some(wd) = wd {
+                    if wd.is_added() {
+                        warn!("The WindowDescriptor resource must be inserted before the WindowPlugin is added. Make sure to insert WindowDescriptor before adding the DefaultPlugins.");
+                    }
                 }
             });
         }
