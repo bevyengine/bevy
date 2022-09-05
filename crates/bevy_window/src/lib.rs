@@ -123,7 +123,10 @@ impl Plugin for WindowPlugin {
         app.add_system(|wd: Option<Res<WindowDescriptor>>| {
             if let Some(wd) = wd {
                 if wd.is_added() {
-                    warn!("The WindowDescriptor resource must be inserted before the WindowPlugin is added. Make sure to insert WindowDescriptor before adding the DefaultPlugins.");
+                    warn!(
+                        "The WindowDescriptor resource must be inserted before the WindowPlugin is added. \
+                        Make sure to insert WindowDescriptor before adding the DefaultPlugins.",
+                    );
                 }
             }
         });
