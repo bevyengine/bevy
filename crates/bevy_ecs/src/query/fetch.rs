@@ -749,7 +749,7 @@ pub struct WriteFetch<'w, T> {
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component+ Sync> WorldQuery for &'__w mut T {
+unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type ReadOnly = &'__w T;
     type State = ComponentId;
 
