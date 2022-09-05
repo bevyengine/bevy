@@ -66,9 +66,7 @@ fn joint_animation(
         // Get `Transform` in the second joint.
         let mut second_joint_transform = transform_query.get_mut(second_joint_entity).unwrap();
 
-        second_joint_transform.rotation = Quat::from_axis_angle(
-            Vec3::Z,
-            0.5 * PI * time.time_since_startup().as_secs_f32().sin(),
-        );
+        second_joint_transform.rotation =
+            Quat::from_rotation_z(PI / 2. * time.time_since_startup().as_secs_f32().sin());
     }
 }

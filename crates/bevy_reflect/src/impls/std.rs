@@ -18,7 +18,7 @@ use std::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
-    ops::Range,
+    ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
 };
 
 impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -40,7 +40,12 @@ impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Result<T: Clone + Reflect + 'static, E: Clone + Reflect + 'static>());
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
-impl_reflect_value!(Range<T: Clone +  Send + Sync + 'static>());
+impl_reflect_value!(Range<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeInclusive<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeFrom<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeTo<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeFull());
 impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Instant(Debug, Hash, PartialEq));
 impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -75,6 +80,11 @@ impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
 impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Range<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeInclusive<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeFrom<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeTo<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeFull);
 impl_from_reflect_value!(Duration);
 impl_from_reflect_value!(Instant);
 impl_from_reflect_value!(NonZeroI128);
@@ -113,6 +123,13 @@ impl<T: FromReflect> Array for Vec<T> {
             index: 0,
         }
     }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
+    }
 }
 
 impl<T: FromReflect> List for Vec<T> {
@@ -126,6 +143,10 @@ impl<T: FromReflect> List for Vec<T> {
             })
         });
         Vec::push(self, value);
+    }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
     }
 }
 
@@ -247,6 +268,17 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
         }
     }
 
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+        self.into_iter()
+            .map(|(key, value)| {
+                (
+                    Box::new(key) as Box<dyn Reflect>,
+                    Box::new(value) as Box<dyn Reflect>,
+                )
+            })
+            .collect()
+    }
+
     fn clone_dynamic(&self) -> DynamicMap {
         let mut dynamic_map = DynamicMap::default();
         dynamic_map.set_name(self.type_name().to_string());
@@ -346,8 +378,8 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Typed for HashMap<K, V> {
 
 impl<K, V> GetTypeRegistration for HashMap<K, V>
 where
-    K: FromReflect + Clone + Eq + Hash,
-    V: FromReflect + Clone,
+    K: FromReflect + Eq + Hash,
+    V: FromReflect,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<HashMap<K, V>>();
@@ -394,6 +426,13 @@ impl<T: Reflect, const N: usize> Array for [T; N] {
             array: self,
             index: 0,
         }
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
     }
 }
 
@@ -696,8 +735,7 @@ impl<T: FromReflect> Reflect for Option<T> {
             if self.variant_name() == value.variant_name() {
                 // Same variant -> just update fields
                 for (index, field) in value.iter_fields().enumerate() {
-                    let name = value.name_at(index).unwrap();
-                    if let Some(v) = self.field_mut(name) {
+                    if let Some(v) = self.field_at_mut(index) {
                         v.apply(field.value());
                     }
                 }
@@ -707,14 +745,23 @@ impl<T: FromReflect> Reflect for Option<T> {
                     "Some" => {
                         let field = value
                             .field_at(0)
-                            .expect("Field at index 0 should exist")
-                            .clone_value();
-                        let field = field.take::<T>().unwrap_or_else(|_| {
-                            panic!(
-                                "Field at index 0 should be of type {}",
-                                std::any::type_name::<T>()
-                            )
-                        });
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "Field in `Some` variant of {} should exist",
+                                    std::any::type_name::<Option<T>>()
+                                )
+                            })
+                            .clone_value()
+                            .take::<T>()
+                            .unwrap_or_else(|value| {
+                                T::from_reflect(&*value).unwrap_or_else(|| {
+                                    panic!(
+                                        "Field in `Some` variant of {} should be of type {}",
+                                        std::any::type_name::<Option<T>>(),
+                                        std::any::type_name::<T>()
+                                    )
+                                })
+                            });
                         *self = Some(field);
                     }
                     "None" => {
@@ -761,14 +808,23 @@ impl<T: FromReflect> FromReflect for Option<T> {
                 "Some" => {
                     let field = dyn_enum
                         .field_at(0)
-                        .expect("Field at index 0 should exist")
-                        .clone_value();
-                    let field = T::from_reflect(field.as_ref()).unwrap_or_else(|| {
-                        panic!(
-                            "Field at index 0 should be of type {}",
-                            std::any::type_name::<T>()
-                        )
-                    });
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Field in `Some` variant of {} should exist",
+                                std::any::type_name::<Option<T>>()
+                            )
+                        })
+                        .clone_value()
+                        .take::<T>()
+                        .unwrap_or_else(|value| {
+                            T::from_reflect(&*value).unwrap_or_else(|| {
+                                panic!(
+                                    "Field in `Some` variant of {} should be of type {}",
+                                    std::any::type_name::<Option<T>>(),
+                                    std::any::type_name::<T>()
+                                )
+                            })
+                        });
                     Some(Some(field))
                 }
                 "None" => Some(None),
@@ -951,6 +1007,40 @@ mod tests {
         let output = <Option<Foo> as FromReflect>::from_reflect(&expected).unwrap();
 
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn option_should_apply() {
+        #[derive(Reflect, FromReflect, PartialEq, Debug)]
+        struct Foo(usize);
+
+        // === None on None === //
+        let patch = None::<Foo>;
+        let mut value = None;
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "None apply onto None");
+
+        // === Some on None === //
+        let patch = Some(Foo(123));
+        let mut value = None;
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "Some apply onto None");
+
+        // === None on Some === //
+        let patch = None::<Foo>;
+        let mut value = Some(Foo(321));
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "None apply onto Some");
+
+        // === Some on Some === //
+        let patch = Some(Foo(123));
+        let mut value = Some(Foo(321));
+        Reflect::apply(&mut value, &patch);
+
+        assert_eq!(patch, value, "Some apply onto Some");
     }
 
     #[test]

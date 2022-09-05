@@ -660,8 +660,12 @@ impl World {
     #[inline]
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
         let component_id = self.components.init_resource::<R>();
-        // SAFETY: component_id just initialized and corresponds to resource of type T
-        unsafe { self.insert_resource_with_id(component_id, value) };
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: component_id was just initialized and corresponds to resource of type R
+            unsafe {
+                self.insert_resource_by_id(component_id, ptr);
+            }
+        });
     }
 
     /// Inserts a new non-send resource with standard starting values.
@@ -688,8 +692,12 @@ impl World {
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         self.validate_non_send_access::<R>();
         let component_id = self.components.init_non_send::<R>();
-        // SAFETY: component_id just initialized and corresponds to resource of type R
-        unsafe { self.insert_resource_with_id(component_id, value) };
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: component_id was just initialized and corresponds to resource of type R
+            unsafe {
+                self.insert_resource_by_id(component_id, ptr);
+            }
+        });
     }
 
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
@@ -1208,24 +1216,6 @@ impl World {
         self.get_resource_unchecked_mut_with_id(component_id)
     }
 
-    /// # Safety
-    /// `component_id` must be valid and correspond to a resource component of type `R`
-    #[inline]
-    unsafe fn insert_resource_with_id<R>(&mut self, component_id: ComponentId, value: R) {
-        let change_tick = self.change_tick();
-        let column = self.initialize_resource_internal(component_id);
-        if column.is_empty() {
-            // SAFETY: column is of type R and has been allocated above
-            OwningPtr::make(value, |ptr| {
-                column.push(ptr, ComponentTicks::new(change_tick));
-            });
-        } else {
-            // SAFETY: column is of type R and has already been allocated
-            *column.get_data_unchecked_mut(0).deref_mut::<R>() = value;
-            column.get_ticks_unchecked_mut(0).set_changed(change_tick);
-        }
-    }
-
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
     ///
     /// **You should prefer to use the typed API [`World::insert_resource`] where possible and only
@@ -1233,6 +1223,8 @@ impl World {
     ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
+    /// `component_id` must exist in this [`World`]
+    #[inline]
     pub unsafe fn insert_resource_by_id(
         &mut self,
         component_id: ComponentId,
@@ -1240,12 +1232,7 @@ impl World {
     ) {
         let change_tick = self.change_tick();
 
-        self.components().get_info(component_id).unwrap_or_else(|| {
-            panic!(
-                "insert_resource_by_id called with component id which doesn't exist in this world"
-            )
-        });
-        // SAFETY: component_id is valid, checked by the lines above
+        // SAFETY: component_id is valid, ensured by caller
         let column = self.initialize_resource_internal(component_id);
         if column.is_empty() {
             // SAFETY: column is of type R and has been allocated above
@@ -1564,7 +1551,7 @@ mod tests {
     use super::World;
     use crate::{
         change_detection::DetectChanges,
-        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
+        component::{ComponentDescriptor, ComponentInfo, StorageType},
         ptr::OwningPtr,
         system::Resource,
     };
@@ -1781,62 +1768,6 @@ mod tests {
         assert!(world.remove_resource_by_id(component_id).is_some());
 
         assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
-    }
-
-    #[test]
-    fn insert_resource_by_id_drop_old() {
-        let drop_test_helper = DropTestHelper::new();
-        let res = std::panic::catch_unwind(|| {
-            let mut world = World::new();
-
-            world.insert_resource(drop_test_helper.make_component(false, 0));
-            let component_id = world
-                .components()
-                .get_resource_id(std::any::TypeId::of::<MayPanicInDrop>())
-                .unwrap();
-
-            OwningPtr::make(drop_test_helper.make_component(true, 1), |ptr| {
-                // SAFETY: value is valid for the component layout
-                unsafe {
-                    world.insert_resource_by_id(component_id, ptr);
-                }
-            });
-
-            OwningPtr::make(drop_test_helper.make_component(false, 2), |ptr| {
-                // SAFETY: value is valid for the component layout
-                unsafe {
-                    world.insert_resource_by_id(component_id, ptr);
-                }
-            });
-        });
-
-        let drop_log = drop_test_helper.finish(res);
-
-        assert_eq!(
-            drop_log,
-            [
-                DropLogItem::Create(0),
-                DropLogItem::Create(1),
-                DropLogItem::Drop(0), // inserting 1 drops 0
-                DropLogItem::Create(2),
-                DropLogItem::Drop(1), // inserting 2 drops 1
-                DropLogItem::Drop(2), // 2 could not be inserted because dropping 1 panicked, so it is dropped as well
-            ]
-        );
-    }
-
-    #[test]
-    #[should_panic = "insert_resource_by_id called with component id which doesn't exist in this world"]
-    fn insert_resource_by_id_invalid_component_id() {
-        let invalid_component_id = ComponentId::new(usize::MAX);
-
-        let mut world = World::new();
-        OwningPtr::make((), |ptr| {
-            // SAFETY: ptr must be valid for the component_id `invalid_component_id` which is invalid, but checked by `insert_resource_by_id`
-            unsafe {
-                world.insert_resource_by_id(invalid_component_id, ptr);
-            }
-        });
     }
 
     #[derive(Component)]

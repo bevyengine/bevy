@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Node, Size, Style, Val};
+use crate::{CalculatedSize, Node, Size, Style, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -58,6 +58,7 @@ pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
+    ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
@@ -68,10 +69,15 @@ pub fn text_system(
     )>,
     node_query: Query<&Node>,
 ) {
-    // FIXME: this will be problematic for multi-window UI's since its only checking the primary display
+    // TODO: This should support window-independent scale settings.
+    // See https://github.com/bevyengine/bevy/issues/5621
     let (scale_factor, window_width_constraint, window_height_constraint) =
         if let Some(window) = windows.get_primary() {
-            (window.scale_factor(), window.width(), window.height())
+            (
+                window.scale_factor() * ui_scale.scale,
+                window.width(),
+                window.height(),
+            )
         } else {
             (1., f32::MAX, f32::MAX)
         };
