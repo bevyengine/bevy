@@ -18,8 +18,14 @@ use taffy::{number::Number, Taffy};
 
 #[derive(Resource)]
 pub struct FlexSurface {
+    /// Maps UI entities to taffy nodes.
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
-    window_nodes: HashMap<WindowId, taffy::node::Node>,
+    /// Maps UI root entities to taffy root nodes.
+    /// 
+    /// The taffy root node is a special node that has only one child: the real root node
+    /// present that is stored in `entity_to_taffy`. This means that two taffy nodes are
+    /// maintained for each bevy_ui root node.
+    root_nodes: HashMap<Entity, taffy::node::Node>,
     taffy: Taffy,
 }
 
@@ -41,7 +47,6 @@ impl fmt::Debug for FlexSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("FlexSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
-            .field("window_nodes", &self.window_nodes)
             .finish()
     }
 }
@@ -50,7 +55,7 @@ impl Default for FlexSurface {
     fn default() -> Self {
         Self {
             entity_to_taffy: Default::default(),
-            window_nodes: Default::default(),
+            root_nodes: Default::default(),
             taffy: Taffy::new(),
         }
     }
@@ -130,9 +135,9 @@ without UI components as a child of an entity with UI components, results may be
             .unwrap();
     }
 
-    pub fn update_window(&mut self, window: &Window) {
+    pub fn update_root(&mut self, entity: &Entity, window: &Window) {
         let taffy = &mut self.taffy;
-        let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
+        let node = self.root_nodes.entry(*entity).or_insert_with(|| {
             taffy
                 .new_node(taffy::style::Style::default(), &Vec::new())
                 .unwrap()
@@ -152,22 +157,18 @@ without UI components as a child of an entity with UI components, results may be
             .unwrap();
     }
 
-    pub fn set_window_children(
-        &mut self,
-        window_id: WindowId,
-        children: impl Iterator<Item = Entity>,
-    ) {
-        let taffy_node = self.window_nodes.get(&window_id).unwrap();
-        let child_nodes = children
-            .map(|e| *self.entity_to_taffy.get(&e).unwrap())
-            .collect::<Vec<taffy::node::Node>>();
-        self.taffy.set_children(*taffy_node, &child_nodes).unwrap();
+    pub fn update_root_children(&mut self, root_entities: impl Iterator<Item = Entity>) {
+        for entity in root_entities {
+            let root_node = self.root_nodes.get(&entity).unwrap();
+            let root_entity_node = self.entity_to_taffy.get(&entity).unwrap();
+            self.taffy.set_children(*root_node, &[*root_entity_node]).unwrap();
+        }
     }
 
-    pub fn compute_window_layouts(&mut self) {
-        for window_node in self.window_nodes.values() {
+    pub fn compute_root_layouts(&mut self) {
+        for root_node in self.root_nodes.values() {
             self.taffy
-                .compute_layout(*window_node, taffy::geometry::Size::undefined())
+                .compute_layout(*root_node, taffy::geometry::Size::undefined())
                 .unwrap();
         }
     }
@@ -209,9 +210,12 @@ pub fn flex_node_system(
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
 ) {
-    // update window root nodes
-    for window in windows.iter() {
-        flex_surface.update_window(window);
+    // update root nodes
+    for entity in &root_node_query {
+        // -- TODO: replace primary window with the actual root window here.
+        if let Some(primary_window) = windows.get_primary() {
+            flex_surface.update_root(&entity, primary_window);
+        }
     }
 
     // assume one window for time being...
@@ -246,10 +250,8 @@ pub fn flex_node_system(
 
     // TODO: handle removed nodes
 
-    // update window children (for now assuming all Nodes live in the primary window)
-    if let Some(primary_window) = windows.get_primary() {
-        flex_surface.set_window_children(primary_window.id(), root_node_query.iter());
-    }
+    // update root children (for now assuming all Nodes live in the primary window)
+    flex_surface.update_root_children(root_node_query.iter());
 
     // update children
     for (entity, children) in &children_query {
@@ -257,7 +259,7 @@ pub fn flex_node_system(
     }
 
     // compute layouts
-    flex_surface.compute_window_layouts();
+    flex_surface.compute_root_layouts();
 
     let physical_to_logical_factor = 1. / logical_to_physical_factor;
 
