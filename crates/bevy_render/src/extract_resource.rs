@@ -13,7 +13,7 @@ use crate::{Extract, RenderApp, RenderStage};
 /// Therefore the resource is transferred from the "main world" into the "render world"
 /// in the [`RenderStage::Extract`](crate::RenderStage::Extract) step.
 pub trait ExtractResource: Resource {
-    type Source: Resource;
+    type Source: Resource + Sync;
 
     /// Defines how the resource is transferred into the "render world".
     fn extract_resource(source: &Self::Source) -> Self;
@@ -31,7 +31,7 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
     }
 }
 
-impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
+impl<R: ExtractResource + Sync> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
