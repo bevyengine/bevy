@@ -70,7 +70,7 @@ where
 /// which parent hasn't a `T` component.
 ///
 /// See [`check_hierarchy_component_has_valid_parent`] for details.
-pub struct ValidParentCheckPlugin<T>(PhantomData<fn() -> T>);
+pub struct ValidParentCheckPlugin<T: Component>(PhantomData<fn() -> T>);
 impl<T: Component> Default for ValidParentCheckPlugin<T> {
     fn default() -> Self {
         Self(PhantomData)
