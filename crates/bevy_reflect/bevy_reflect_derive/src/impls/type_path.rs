@@ -43,7 +43,7 @@ pub(crate) fn impl_type_path(reflect_meta: &ReflectMeta) -> proc_macro2::TokenSt
         };
 
         quote! {
-            static CELL: #bevy_reflect_path::utility::GenericTypeNameCell = #bevy_reflect_path::utility::GenericTypeNameCell::new();
+            static CELL: #bevy_reflect_path::utility::GenericTypePathCell = #bevy_reflect_path::utility::GenericTypePathCell::new();
             CELL.get_or_insert::<Self, _>(|| {
                 format!(concat!("{}<", #brackets, ">"), BASE_NAME, #values)
             })

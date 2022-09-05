@@ -1,4 +1,4 @@
-use crate::utility::GenericTypeNameCell;
+use crate::utility::GenericTypePathCell;
 
 /// Provides the path of the type as a string.
 ///
@@ -25,16 +25,16 @@ use crate::utility::GenericTypeNameCell;
 /// ```
 ///
 /// If your type is generic you must use
-/// [`GenericTypeNameCell`][crate::utility::GenericTypeNameCell].
+/// [`GenericTypePathCell`][crate::utility::GenericTypePathCell].
 ///
 /// ```ignore
-/// bevy_reflect::{TypePath, utility::GenericTypeNameCell};
+/// bevy_reflect::{TypePath, utility::GenericTypePathCell};
 ///
 /// struct MyType<T>(T);
 ///
 /// impl<T: TypePath> TypePath for MyType<T> {
 ///     fn name() -> &'static str {
-///         static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
+///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
 ///             format!(concat!(module_path!(), "::MyType<{}>"), T::name())
 ///         })
@@ -63,7 +63,7 @@ macro_rules! impl_type_name_tuple {
         impl<$($t: TypePath),*> TypePath for ($($t,)*) {
             #[allow(non_snake_case)]
             fn type_path() -> &'static str {
-                static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     $(let $t = <$t as TypePath>::type_path();)*
                     format!(

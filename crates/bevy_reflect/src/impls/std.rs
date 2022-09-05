@@ -7,7 +7,7 @@ use crate::{
     VariantInfo, VariantType,
 };
 
-use crate::utility::{GenericTypeInfoCell, GenericTypeNameCell, NonGenericTypeInfoCell};
+use crate::utility::{GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value, impl_type_path};
 use bevy_utils::{Duration, HashMap, HashSet, Instant};
 use std::{
@@ -111,7 +111,7 @@ impl_type_path!(Option<T: TypePath>);
 // so array is manually implemented.
 impl<T: TypePath, const N: usize> TypePath for [T; N] {
     fn type_path() -> &'static str {
-        static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
+        static CELL: GenericTypePathCell = GenericTypePathCell::new();
         CELL.get_or_insert::<Self, _>(|| format!("[{}; {N}]", T::type_path()))
     }
 }

@@ -169,17 +169,17 @@ pub type GenericTypeInfoCell = GenericDataCell<TypeInfo>;
 ///
 /// ```
 /// # use bevy_reflect::TypePath;
-/// use bevy_reflect::utility::GenericTypeNameCell;
+/// use bevy_reflect::utility::GenericTypePathCell;
 ///
 /// struct Foo<T>(T);
 ///
 /// impl<T: TypePath> TypePath for Foo<T> {
 ///     fn name() -> &'static str {
-///         static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
+///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
 ///             format!(concat!(module_path!(), "::Foo<{}>"), T::name())
 ///         })
 ///     }
 /// }
 /// ```
-pub type GenericTypeNameCell = GenericDataCell<String>;
+pub type GenericTypePathCell = GenericDataCell<String>;
