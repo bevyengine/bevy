@@ -21,6 +21,22 @@ use crate::utility::GenericTypePathCell;
 ///     fn type_path() -> &'static str {
 ///         concat!(module_path!(), "::", "MyType")
 ///     }
+///
+///     fn short_type_name_base() -> &'static str {
+///         "MyType"
+///     }
+///
+///     fn short_type_name() -> &'static str {
+///         "MyType"
+///     }
+///
+///     fn module_path() -> &'static str {
+///         module_path!()
+///     }
+///
+///     fn crate_name() -> &'static str {
+///         "my_crate"
+///     }
 /// }
 /// ```
 ///

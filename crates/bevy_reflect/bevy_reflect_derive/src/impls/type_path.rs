@@ -48,7 +48,7 @@ pub(crate) fn impl_type_path(reflect_meta: &ReflectMeta) -> proc_macro2::TokenSt
                     quote!(<#ty as #bevy_reflect_path::TypePath>::type_path())
                 }
                 syn::GenericParam::Lifetime(p) => {
-                    let name = format!("'{}", p.lifetime.ident.to_string());
+                    let name = format!("'{}", p.lifetime.ident);
                     quote!(#name)
                 }
                 syn::GenericParam::Const(p) => {

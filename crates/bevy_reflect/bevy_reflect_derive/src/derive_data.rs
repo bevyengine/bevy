@@ -366,14 +366,11 @@ impl TypePathOptions {
                     } else {
                         Err(syn::Error::new(
                             lit_str.span(),
-                            format!("Expected a valid module path"),
+                            "Expected a valid module path",
                         ))
                     }
                 }
-                other => Err(syn::Error::new(
-                    other.span(),
-                    format!("Expected a str literal"),
-                )),
+                other => Err(syn::Error::new(other.span(), "Expected a str literal")),
             }
         }
 
@@ -391,14 +388,11 @@ impl TypePathOptions {
                     } else {
                         Err(syn::Error::new(
                             lit_str.span(),
-                            format!("Expected a valid type ident"),
+                            "Expected a valid type ident",
                         ))
                     }
                 }
-                other => Err(syn::Error::new(
-                    other.span(),
-                    format!("Expected a str literal"),
-                )),
+                other => Err(syn::Error::new(other.span(), "Expected a str literal")),
             }
         }
 

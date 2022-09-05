@@ -94,8 +94,12 @@ impl<Data> GenericDataCell<Data> {
 ///     })
 ///   }
 /// }
-/// # impl TypePath for Foo {
-/// #   fn name() -> &'static str { "Foo" }
+/// # impl TypePath for MyStruct {
+/// #   fn type_path() -> &'static str { todo!() }
+/// #   fn short_type_name_base() -> &'static str { todo!() }
+/// #   fn short_type_name() -> &'static str { todo!() }
+/// #   fn module_path() -> &'static str { todo!() }
+/// #   fn crate_name() -> &'static str { todo!() }
 /// # }
 /// #
 /// # impl Reflect for Foo {

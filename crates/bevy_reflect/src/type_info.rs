@@ -48,7 +48,11 @@ use std::any::{Any, TypeId};
 /// }
 ///
 /// # impl TypePath for MyStruct {
-/// #   fn name() -> &'static str { "MyStruct" }
+/// #   fn type_path() -> &'static str { todo!() }
+/// #   fn short_type_name_base() -> &'static str { todo!() }
+/// #   fn short_type_name() -> &'static str { todo!() }
+/// #   fn module_path() -> &'static str { todo!() }
+/// #   fn crate_name() -> &'static str { todo!() }
 /// # }
 /// #
 /// # impl Reflect for MyStruct {
