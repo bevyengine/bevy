@@ -176,7 +176,7 @@ pub type GenericTypeInfoCell = GenericDataCell<TypeInfo>;
 /// ## Example
 ///
 /// ```
-/// bevy_reflect::{TypePath, utility::GenericTypePathCell};
+/// use bevy_reflect::{TypePath, utility::GenericTypePathCell};
 ///
 /// struct MyType<T>(T);
 ///
@@ -196,11 +196,11 @@ pub type GenericTypeInfoCell = GenericDataCell<TypeInfo>;
 ///
 ///     fn short_type_name() -> &'static str {
 ///         const IDENT_POS: usize = module_path!().len() + 2;
-///         &<Self as #bevy_reflect_path::TypePath>::type_path()[IDENT_POS..]
+///         &<Self as TypePath>::type_path()[IDENT_POS..]
 ///     }
 ///
 ///     fn module_path() -> &'static str {
-///         &<Self as #bevy_reflect_path::TypePath>::type_path()[..module_path!().len()]
+///         &<Self as TypePath>::type_path()[..module_path!().len()]
 ///     }
 ///
 ///     fn crate_name() -> &'static str {
