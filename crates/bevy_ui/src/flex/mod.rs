@@ -255,7 +255,7 @@ pub fn flex_node_system(
     }
 
     // clean up removed nodes
-    flex_surface.remove_entities(removed_nodes.iter());
+    flex_surface.remove_entities(&removed_nodes);
 
     // update window children (for now assuming all Nodes live in the primary window)
     if let Some(primary_window) = windows.get_primary() {
