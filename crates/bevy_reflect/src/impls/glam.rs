@@ -7,7 +7,7 @@ use glam::*;
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::IVec2")]
+    #[type_path("glam::IVec2")]
     struct IVec2 {
         x: i32,
         y: i32,
@@ -15,7 +15,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::IVec3")]
+    #[type_path("glam::IVec3")]
     struct IVec3 {
         x: i32,
         y: i32,
@@ -24,7 +24,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::IVec4")]
+    #[type_path("glam::IVec4")]
     struct IVec4 {
         x: i32,
         y: i32,
@@ -35,7 +35,7 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::UVec2")]
+    #[type_path("glam::UVec2")]
     struct UVec2 {
         x: u32,
         y: u32,
@@ -43,7 +43,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::UVec3")]
+    #[type_path("glam::UVec3")]
     struct UVec3 {
         x: u32,
         y: u32,
@@ -52,7 +52,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::UVec4")]
+    #[type_path("glam::UVec4")]
     struct UVec4 {
         x: u32,
         y: u32,
@@ -63,7 +63,7 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Vec2")]
+    #[type_path("glam::Vec2")]
     struct Vec2 {
         x: f32,
         y: f32,
@@ -71,7 +71,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Vec3")]
+    #[type_path("glam::Vec3")]
     struct Vec3 {
         x: f32,
         y: f32,
@@ -80,7 +80,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Vec3A")]
+    #[type_path("glam::Vec3A")]
     struct Vec3A {
         x: f32,
         y: f32,
@@ -89,7 +89,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Vec4")]
+    #[type_path("glam::Vec4")]
     struct Vec4 {
         x: f32,
         y: f32,
@@ -100,7 +100,7 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Default)]
-    #[type_name("glam::BVec2")]
+    #[type_path("glam::BVec2")]
     struct BVec2 {
         x: bool,
         y: bool,
@@ -108,7 +108,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Default)]
-    #[type_name("glam::BVec3")]
+    #[type_path("glam::BVec3")]
     struct BVec3 {
         x: bool,
         y: bool,
@@ -117,7 +117,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Default)]
-    #[type_name("glam::BVec4")]
+    #[type_path("glam::BVec4")]
     struct BVec4 {
         x: bool,
         y: bool,
@@ -128,7 +128,7 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::DVec2")]
+    #[type_path("glam::DVec2")]
     struct DVec2 {
         x: f64,
         y: f64,
@@ -136,7 +136,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::DVec3")]
+    #[type_path("glam::DVec3")]
     struct DVec3 {
         x: f64,
         y: f64,
@@ -145,7 +145,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::DVec4")]
+    #[type_path("glam::DVec4")]
     struct DVec4 {
         x: f64,
         y: f64,
@@ -156,7 +156,7 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Mat2")]
+    #[type_path("glam::Mat2")]
     struct Mat2 {
         x_axis: Vec2,
         y_axis: Vec2,
@@ -164,7 +164,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Mat3")]
+    #[type_path("glam::Mat3")]
     struct Mat3 {
         x_axis: Vec3,
         y_axis: Vec3,
@@ -173,7 +173,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Mat3A")]
+    #[type_path("glam::Mat3A")]
     struct Mat3A {
         x_axis: Vec3A,
         y_axis: Vec3A,
@@ -182,7 +182,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Mat4")]
+    #[type_path("glam::Mat4")]
     struct Mat4 {
         x_axis: Vec4,
         y_axis: Vec4,
@@ -193,7 +193,7 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::DMat2")]
+    #[type_path("glam::DMat2")]
     struct DMat2 {
         x_axis: DVec2,
         y_axis: DVec2,
@@ -201,7 +201,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::DMat3")]
+    #[type_path("glam::DMat3")]
     struct DMat3 {
         x_axis: DVec3,
         y_axis: DVec3,
@@ -210,7 +210,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::DMat4")]
+    #[type_path("glam::DMat4")]
     struct DMat4 {
         x_axis: DVec4,
         y_axis: DVec4,
@@ -221,7 +221,7 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Affine2")]
+    #[type_path("glam::Affine2")]
     struct Affine2 {
         matrix2: Mat2,
         translation: Vec2,
@@ -229,7 +229,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::Affine3A")]
+    #[type_path("glam::Affine3A")]
     struct Affine3A {
         matrix3: Mat3A,
         translation: Vec3A,
@@ -238,7 +238,7 @@ impl_reflect_struct!(
 
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::DAffine2")]
+    #[type_path("glam::DAffine2")]
     struct DAffine2 {
         matrix2: DMat2,
         translation: DVec2,
@@ -246,7 +246,7 @@ impl_reflect_struct!(
 );
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
-    #[type_name("glam::DAffine3")]
+    #[type_path("glam::DAffine3")]
     struct DAffine3 {
         matrix3: DMat3,
         translation: DVec3,
@@ -277,13 +277,16 @@ impl_reflect_value!(@"glam::BVec4A" BVec4A(Debug, PartialEq, Default));
 mod tests {
     use glam::*;
 
-    use crate::TypeName;
+    use crate::TypePath;
 
     #[test]
     fn type_name_should_be_prefixed_with_glam() {
         macro_rules! assert_name {
             ($t:ty) => {
-                assert_eq!(<$t as TypeName>::name(), concat!("glam::", stringify!($t)))
+                assert_eq!(
+                    <$t as TypePath>::type_path(),
+                    concat!("glam::", stringify!($t))
+                )
             };
         }
 

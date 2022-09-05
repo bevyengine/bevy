@@ -1,24 +1,24 @@
 use crate::utility::GenericTypeNameCell;
 
-/// Provides the name of the type as a string.
+/// Provides the path of the type as a string.
 ///
 /// This is a stable alternative to [`std::any::type_name`] whose output isn't guarenteed
 /// and may change between versions of the compiler.
 ///
-/// This trait may be derived via [`#[derive(TypeName)]`][bevy_reflect_derive::TypeName].
+/// This trait may be derived via [`#[derive(TypePath)]`][bevy_reflect_derive::TypePath].
 ///
 /// ## Manual implementation
 ///
-/// If you need to manually implement [`TypeName`], it's recommended to follow
+/// If you need to manually implement [`TypePath`], it's recommended to follow
 /// the example below (unless specifying a custom name).
 ///
 /// ```ignore
-/// bevy_reflect::TypeName;
+/// bevy_reflect::TypePath;
 ///
 /// struct MyType;
 ///
-/// impl TypeName for MyType{
-///     fn name() -> &'static str {
+/// impl TypePath for MyType{
+///     fn type_path() -> &'static str {
 ///         concat!(module_path!(), "::", "MyType")
 ///     }
 /// }
@@ -28,11 +28,11 @@ use crate::utility::GenericTypeNameCell;
 /// [`GenericTypeNameCell`][crate::utility::GenericTypeNameCell].
 ///
 /// ```ignore
-/// bevy_reflect::{TypeName, utility::GenericTypeNameCell};
+/// bevy_reflect::{TypePath, utility::GenericTypeNameCell};
 ///
 /// struct MyType<T>(T);
 ///
-/// impl<T: TypeName> TypeName for MyType<T> {
+/// impl<T: TypePath> TypePath for MyType<T> {
 ///     fn name() -> &'static str {
 ///         static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
@@ -41,24 +41,31 @@ use crate::utility::GenericTypeNameCell;
 ///     }
 /// }
 /// ```
-pub trait TypeName: 'static {
-    /// Returns the name of the type.
+pub trait TypePath: 'static {
+    /// Returns the path of the type.
     ///
     /// This is a stable alternative to [`std::any::type_name`] whose output isn't guarenteed
     /// and may change between versions of the compiler.
-    fn name() -> &'static str;
+    fn type_path() -> &'static str;
+}
+
+/// Returns the [type path] of `T`.
+///
+/// [type path]: TypePath
+pub fn type_path<T: TypePath + ?Sized>() -> &'static str {
+    T::type_path()
 }
 
 macro_rules! impl_type_name_tuple {
     (
         $($t:tt),*
     ) => {
-        impl<$($t: TypeName),*> TypeName for ($($t,)*) {
+        impl<$($t: TypePath),*> TypePath for ($($t,)*) {
             #[allow(non_snake_case)]
-            fn name() -> &'static str {
+            fn type_path() -> &'static str {
                 static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
-                    $(let $t = <$t as TypeName>::name();)*
+                    $(let $t = <$t as TypePath>::type_path();)*
                     format!(
                         concat!("(", impl_type_name_tuple!(@bracket $($t),*), ")"),
                         $($t,)*
@@ -88,23 +95,23 @@ impl_type_name_tuple!(A, B, C, D, E, F, G, H, I, J, K, L);
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect, TypeName};
+    use crate::{self as bevy_reflect, TypePath};
 
     #[test]
     fn tuple_name() {
-        #[derive(TypeName)]
-        #[type_name("Foo")]
+        #[derive(TypePath)]
+        #[type_path("Foo")]
         struct Foo;
 
-        #[derive(TypeName)]
-        #[type_name("Goo")]
+        #[derive(TypePath)]
+        #[type_path("Goo")]
         struct Goo;
 
-        #[derive(TypeName)]
-        #[type_name("Hoo")]
+        #[derive(TypePath)]
+        #[type_path("Hoo")]
         struct Hoo;
 
-        let s = <(Foo, Goo, Hoo) as TypeName>::name();
+        let s = <(Foo, Goo, Hoo) as TypePath>::type_path();
         assert_eq!(s, "(Foo, Goo, Hoo)");
     }
 }

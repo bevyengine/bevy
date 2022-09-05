@@ -88,7 +88,7 @@ pub struct AssetServerInternal {
 /// use bevy_asset::{AssetServer, Handle};
 /// use bevy_ecs::prelude::{Commands, Res};
 ///
-/// # #[derive(Debug, bevy_reflect::TypeUuid, bevy_reflect::TypeName)]
+/// # #[derive(Debug, bevy_reflect::TypeUuid, bevy_reflect::TypePath)]
 /// # #[uuid = "00000000-0000-0000-0000-000000000000"]
 /// # struct Image;
 ///
@@ -575,7 +575,7 @@ impl AssetServer {
                     "Failed to find AssetLifecycle for label '{:?}', which has an asset type {} (UUID {:?}). \
                         Are you sure this asset type has been added to your app builder?",
                     label,
-                    asset_value.type_name(),
+                    asset_value.type_path(),
                     asset_value.type_uuid(),
                 );
             }
@@ -647,10 +647,10 @@ mod test {
     use crate::{loader::LoadedAsset, update_asset_storage_system};
     use bevy_app::App;
     use bevy_ecs::prelude::*;
-    use bevy_reflect::{TypeName, TypeUuid};
+    use bevy_reflect::{TypePath, TypeUuid};
     use bevy_utils::BoxedFuture;
 
-    #[derive(Debug, TypeUuid, TypeName)]
+    #[derive(Debug, TypeUuid, TypePath)]
     #[uuid = "a5189b72-0572-4290-a2e0-96f73a491c44"]
     struct PngAsset;
 

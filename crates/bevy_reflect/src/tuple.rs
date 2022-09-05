@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut,
-    ReflectRef, TypeInfo, TypeName, TypeRegistration, Typed, UnnamedField,
+    self as bevy_reflect, type_path, DynamicInfo, FromReflect, GetTypeRegistration, Reflect,
+    ReflectMut, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -131,7 +131,7 @@ impl GetTupleField for dyn Tuple {
 /// A container for compile-time tuple info.
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
-    type_name: &'static str,
+    type_path: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
 }
@@ -143,9 +143,9 @@ impl TupleInfo {
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
     ///
-    pub fn new<T: Reflect + TypeName>(fields: &[UnnamedField]) -> Self {
+    pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_name: T::name(),
+            type_path: type_path::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
         }
@@ -166,11 +166,11 @@ impl TupleInfo {
         self.fields.len()
     }
 
-    /// The [type name] of the tuple.
+    /// The [type path] of the tuple.
     ///
-    /// [type name]: TypeName
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// [type path]: TypePath
+    pub fn type_path(&self) -> &'static str {
+        self.type_path
     }
 
     /// The [`TypeId`] of the tuple.
@@ -185,21 +185,21 @@ impl TupleInfo {
 }
 
 /// A tuple which allows fields to be added at runtime.
-#[derive(Default, TypeName)]
+#[derive(Default, TypePath)]
 pub struct DynamicTuple {
     name: String,
     fields: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicTuple {
-    /// Returns the type name of the tuple.
+    /// Returns the type path of the tuple.
     ///
     /// The tuple's name is automatically generated from its element types.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Manually sets the type name of the tuple.
+    /// Manually sets the type path of the tuple.
     ///
     /// Note that the tuple name will be overwritten when elements are added.
     pub fn set_name(&mut self, name: String) {
@@ -226,7 +226,7 @@ impl DynamicTuple {
             if i > 0 {
                 name.push_str(", ");
             }
-            name.push_str(field.type_name());
+            name.push_str(field.type_path());
         }
         name.push(')');
     }
@@ -276,7 +276,7 @@ impl Tuple for DynamicTuple {
 
 impl Reflect for DynamicTuple {
     #[inline]
-    fn type_name(&self) -> &str {
+    fn type_path(&self) -> &str {
         &self.name
     }
 
@@ -428,7 +428,7 @@ pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> st
 
 macro_rules! impl_reflect_tuple {
     {$($index:tt : $name:tt),*} => {
-        impl<$($name: Reflect + TypeName),*> Tuple for ($($name,)*) {
+        impl<$($name: Reflect + TypePath),*> Tuple for ($($name,)*) {
             #[inline]
             fn field(&self, index: usize) -> Option<&dyn Reflect> {
                 match index {
@@ -480,10 +480,10 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + TypeName),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect + TypePath),*> Reflect for ($($name,)*) {
             #[inline]
-            fn type_name(&self) -> &str {
-                <Self as TypeName>::name()
+            fn type_path(&self) -> &str {
+                <Self as TypePath>::type_path()
             }
 
             fn get_type_info(&self) -> &'static TypeInfo {
@@ -536,7 +536,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Reflect + TypeName),*> Typed for ($($name,)*) {
+        impl <$($name: Reflect + TypePath),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
                 static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
@@ -549,13 +549,13 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + TypeName + Typed),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + TypePath + Typed),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 TypeRegistration::of::<($($name,)*)>()
             }
         }
 
-        impl<$($name: FromReflect + TypeName),*> FromReflect for ($($name,)*)
+        impl<$($name: FromReflect + TypePath),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
                 if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {

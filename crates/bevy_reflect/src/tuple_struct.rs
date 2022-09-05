@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, TypeName, Typed,
-    UnnamedField,
+    self as bevy_reflect, type_path, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo,
+    TypePath, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -52,7 +52,7 @@ pub trait TupleStruct: Reflect {
 /// A container for compile-time tuple struct info.
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
-    type_name: &'static str,
+    type_path: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
 }
@@ -64,9 +64,9 @@ impl TupleStructInfo {
     ///
     /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<T: Reflect + TypeName>(fields: &[UnnamedField]) -> Self {
+    pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_name: T::name(),
+            type_path: type_path::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
         }
@@ -87,11 +87,11 @@ impl TupleStructInfo {
         self.fields.len()
     }
 
-    /// The [type name] of the tuple struct.
+    /// The [type path] of the tuple struct.
     ///
-    /// [type name]: TypeName
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// [type path]: TypePath
+    pub fn type_path(&self) -> &'static str {
+        self.type_path
     }
 
     /// The [`TypeId`] of the tuple struct.
@@ -190,19 +190,19 @@ impl GetTupleStructField for dyn TupleStruct {
 }
 
 /// A tuple struct which allows fields to be added at runtime.
-#[derive(Default, TypeName)]
+#[derive(Default, TypePath)]
 pub struct DynamicTupleStruct {
     name: String,
     fields: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicTupleStruct {
-    /// Returns the type name of the tuple struct.
+    /// Returns the type path of the tuple struct.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Sets the type name of the tuple struct.
+    /// Sets the type path of the tuple struct.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
@@ -256,7 +256,7 @@ impl TupleStruct for DynamicTupleStruct {
 
 impl Reflect for DynamicTupleStruct {
     #[inline]
-    fn type_name(&self) -> &str {
+    fn type_path(&self) -> &str {
         &self.name
     }
 
@@ -402,7 +402,7 @@ pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
     f: &mut std::fmt::Formatter<'_>,
 ) -> std::fmt::Result {
-    let mut debug = f.debug_tuple(dyn_tuple_struct.type_name());
+    let mut debug = f.debug_tuple(dyn_tuple_struct.type_path());
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
     }

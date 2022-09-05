@@ -77,7 +77,7 @@ impl<Data> GenericDataCell<Data> {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, Typed, TypeInfo, TypeName};
+/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, Typed, TypeInfo, TypePath};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -94,12 +94,12 @@ impl<Data> GenericDataCell<Data> {
 ///     })
 ///   }
 /// }
-/// # impl TypeName for Foo {
+/// # impl TypePath for Foo {
 /// #   fn name() -> &'static str { "Foo" }
 /// # }
 /// #
 /// # impl Reflect for Foo {
-/// #   fn type_name(&self) -> &str { todo!() }
+/// #   fn type_path(&self) -> &str { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
@@ -124,12 +124,12 @@ pub type NonGenericTypeInfoCell = NonGenericDataCell<TypeInfo>;
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField, TypeName};
+/// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField, TypePath};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T: Reflect>(T);
 ///
-/// impl<T: Reflect + TypeName> Typed for Foo<T> {
+/// impl<T: Reflect + TypePath> Typed for Foo<T> {
 ///   fn type_info() -> &'static TypeInfo {
 ///     static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///     CELL.get_or_insert::<Self, _>(|| {
@@ -140,12 +140,12 @@ pub type NonGenericTypeInfoCell = NonGenericDataCell<TypeInfo>;
 ///   }
 /// }
 ///
-/// # impl<T: Reflect> TypeName for Foo<T> {
+/// # impl<T: Reflect> TypePath for Foo<T> {
 /// #   fn name() -> &'static str { todo!() }
 /// # }
 /// #
 /// # impl<T: Reflect> Reflect for Foo<T> {
-/// #   fn type_name(&self) -> &str { todo!() }
+/// #   fn type_path(&self) -> &str { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
@@ -163,17 +163,17 @@ pub type GenericTypeInfoCell = GenericDataCell<TypeInfo>;
 
 /// A container for [`String`] over generic types, allowing instances to be stored statically.
 ///
-/// Used when implementing [`TypeName`][crate::TypeName] for generic types to store the type name.
+/// Used when implementing [`TypePath`][crate::TypePath] for generic types to store the type path.
 ///
 /// ## Example
 ///
 /// ```
-/// # use bevy_reflect::TypeName;
+/// # use bevy_reflect::TypePath;
 /// use bevy_reflect::utility::GenericTypeNameCell;
 ///
 /// struct Foo<T>(T);
 ///
-/// impl<T: TypeName> TypeName for Foo<T> {
+/// impl<T: TypePath> TypePath for Foo<T> {
 ///     fn name() -> &'static str {
 ///         static CELL: GenericTypeNameCell = GenericTypeNameCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {

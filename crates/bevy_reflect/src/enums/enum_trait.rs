@@ -1,4 +1,4 @@
-use crate::{DynamicEnum, Reflect, TypeName, VariantInfo, VariantType};
+use crate::{type_path, DynamicEnum, Reflect, TypePath, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
@@ -124,14 +124,14 @@ pub trait Enum: Reflect {
     }
     /// Returns the full path to the current variant.
     fn variant_path(&self) -> String {
-        format!("{}::{}", self.type_name(), self.variant_name())
+        format!("{}::{}", self.type_path(), self.variant_name())
     }
 }
 
 /// A container for compile-time enum info, used by [`TypeInfo`](crate::TypeInfo).
 #[derive(Clone, Debug)]
 pub struct EnumInfo {
-    type_name: &'static str,
+    type_path: &'static str,
     type_id: TypeId,
     variants: Box<[VariantInfo]>,
     variant_indices: HashMap<Cow<'static, str>, usize>,
@@ -144,7 +144,7 @@ impl EnumInfo {
     ///
     /// * `variants`: The variants of this enum in the order they are defined
     ///
-    pub fn new<TEnum: Enum + TypeName>(variants: &[VariantInfo]) -> Self {
+    pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
         let variant_indices = variants
             .iter()
             .enumerate()
@@ -155,7 +155,7 @@ impl EnumInfo {
             .collect::<HashMap<_, _>>();
 
         Self {
-            type_name: TEnum::name(),
+            type_path: type_path::<TEnum>(),
             type_id: TypeId::of::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_indices,
@@ -183,7 +183,7 @@ impl EnumInfo {
     ///
     /// This does _not_ check if the given variant exists.
     pub fn variant_path(&self, name: &str) -> String {
-        format!("{}::{}", self.type_name(), name)
+        format!("{}::{}", self.type_path(), name)
     }
 
     /// Checks if a variant with the given name exists within this enum.
@@ -201,11 +201,11 @@ impl EnumInfo {
         self.variants.len()
     }
 
-    /// The [type name] of the enum.
+    /// The [type path] of the enum.
     ///
-    /// [type name]: crate::TypeName
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// [type path]: crate::TypePath
+    pub fn type_path(&self) -> &'static str {
+        self.type_path
     }
 
     /// The [`TypeId`] of the enum.

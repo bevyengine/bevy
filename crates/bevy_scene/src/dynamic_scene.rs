@@ -6,7 +6,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypeName, TypeRegistryArc, TypeUuid};
+use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
 use serde::Serialize;
 
 /// A collection of serializable dynamic entities, each with its own run-time defined set of components.
@@ -16,7 +16,7 @@ use serde::Serialize;
 /// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
-#[derive(Default, TypeUuid, TypeName)]
+#[derive(Default, TypeUuid, TypePath)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
     pub entities: Vec<DynamicEntity>,
@@ -99,14 +99,14 @@ impl DynamicScene {
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
                 let registration = type_registry
-                    .get_with_name(component.type_name())
+                    .get_with_name(component.type_path())
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        type_name: component.type_name().to_string(),
+                        type_name: component.type_path().to_string(),
                     })?;
                 let reflect_component =
                     registration.data::<ReflectComponent>().ok_or_else(|| {
                         SceneSpawnError::UnregisteredComponent {
-                            type_name: component.type_name().to_string(),
+                            type_name: component.type_path().to_string(),
                         }
                     })?;
 

@@ -1,4 +1,4 @@
-use crate::impls::{impl_type_name, impl_typed};
+use crate::impls::{impl_type_path, impl_typed};
 use crate::ReflectStruct;
 use proc_macro::TokenStream;
 use quote::quote;
@@ -64,7 +64,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let type_name_impl = impl_type_name(reflect_struct.meta());
+    let type_path_impl = impl_type_path(reflect_struct.meta());
 
     let get_type_registration_impl = reflect_struct.meta().get_type_registration();
     let (impl_generics, ty_generics, where_clause) =
@@ -75,7 +75,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
         #typed_impl
 
-        #type_name_impl
+        #type_path_impl
 
         impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_clause {
             fn field(&self, name: &str) -> Option<&dyn #bevy_reflect_path::Reflect> {
@@ -123,7 +123,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
                 let mut dynamic = #bevy_reflect_path::DynamicStruct::default();
-                dynamic.set_name(self.type_name().to_string());
+                dynamic.set_name(self.type_path().to_string());
                 #(dynamic.insert_boxed(#field_names, self.#field_idents.clone_value());)*
                 dynamic
             }
@@ -131,8 +131,8 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
         impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_clause {
             #[inline]
-            fn type_name(&self) -> &str {
-                <Self as #bevy_reflect_path::TypeName>::name()
+            fn type_path(&self) -> &str {
+                <Self as #bevy_reflect_path::TypePath>::type_path()
             }
 
             #[inline]

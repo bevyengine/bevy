@@ -1,6 +1,6 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, TypeName,
+    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, TypePath,
     Typed, ValueInfo,
 };
 use std::{
@@ -53,8 +53,8 @@ pub enum ReflectMut<'a> {
 /// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
 /// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
 pub trait Reflect: Any + Send + Sync {
-    /// Returns the [type name][crate::TypeName] of the underlying type.
-    fn type_name(&self) -> &str;
+    /// Returns the [type path][crate::TypePath] of the underlying type.
+    fn type_path(&self) -> &str;
 
     /// Returns the [`TypeInfo`] of the underlying type.
     ///
@@ -165,10 +165,10 @@ pub trait Reflect: Any + Send + Sync {
     /// Debug formatter for the value.
     ///
     /// Any value that is not an implementor of other `Reflect` subtraits
-    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_name)"`,
-    /// where `type_name` is the [type name] of the underlying type.
+    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_path)"`,
+    /// where `type_path` is the [type path] of the underlying type.
     ///
-    /// [type name]: Self::type_name
+    /// [type path]: Self::type_path
     fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.reflect_ref() {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
@@ -178,7 +178,7 @@ pub trait Reflect: Any + Send + Sync {
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
-            _ => write!(f, "Reflect({})", self.type_name()),
+            _ => write!(f, "Reflect({})", self.type_path()),
         }
     }
 
@@ -218,8 +218,8 @@ impl Typed for dyn Reflect {
     }
 }
 
-impl TypeName for dyn Reflect {
-    fn name() -> &'static str {
+impl TypePath for dyn Reflect {
+    fn type_path() -> &'static str {
         "dyn Reflect"
     }
 }
@@ -249,8 +249,8 @@ impl dyn Reflect {
     ///
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
-    pub fn represents<T: Reflect + TypeName>(&self) -> bool {
-        self.type_name() == T::name()
+    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+        self.type_path() == <T as TypePath>::type_path()
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`

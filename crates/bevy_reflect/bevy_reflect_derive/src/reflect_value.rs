@@ -53,7 +53,7 @@ impl Parse for ReflectValueDef {
     }
 }
 
-/// A [`ReflectValueDef`] that allow an optional custom type name in front.
+/// A [`ReflectValueDef`] that allow an optional custom type path in front.
 ///
 /// # Example
 ///
@@ -61,16 +61,16 @@ impl Parse for ReflectValueDef {
 /// impl_reflect_value!(@"my_lib::MyType" Foo<T1, T2> where T1: Bar (TraitA, TraitB));
 /// ```
 pub(crate) struct NamedReflectValueDef {
-    pub reflected_type_name: Option<String>,
+    pub reflected_type_path: Option<String>,
     pub def: ReflectValueDef,
 }
 
 impl NamedReflectValueDef {
-    /// Returns the string to use as the reflected type name.
+    /// Returns the string to use as the reflected type path.
     ///
-    /// Use `reflected_type_name` if avaible otherwise use the `type_name` ident.
-    pub fn get_reflected_type_name(&self) -> String {
-        self.reflected_type_name
+    /// Use `reflected_type_path` if avaible otherwise use the `type_name` ident.
+    pub fn get_reflected_type_path(&self) -> String {
+        self.reflected_type_path
             .clone()
             .unwrap_or_else(|| self.def.type_name.to_string())
     }
@@ -79,17 +79,17 @@ impl NamedReflectValueDef {
 impl Parse for NamedReflectValueDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
-        let mut reflected_type_name = None;
+        let mut reflected_type_path = None;
         if lookahead.peek(Token![@]) {
             let _at: Token![@] = input.parse()?;
             let name: LitStr = input.parse()?;
-            reflected_type_name = Some(name.value());
+            reflected_type_path = Some(name.value());
         }
 
         let def = input.parse()?;
 
         Ok(Self {
-            reflected_type_name,
+            reflected_type_path,
             def,
         })
     }

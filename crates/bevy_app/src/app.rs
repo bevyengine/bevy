@@ -923,8 +923,8 @@ impl App {
     /// See [`bevy_reflect::TypeRegistry::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type_data<
-        T: bevy_reflect::Reflect + bevy_reflect::TypeName + 'static,
-        D: bevy_reflect::TypeData + bevy_reflect::TypeName + bevy_reflect::FromType<T>,
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath + 'static,
+        D: bevy_reflect::TypeData + bevy_reflect::TypePath + bevy_reflect::FromType<T>,
     >(
         &mut self,
     ) -> &mut Self {

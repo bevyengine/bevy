@@ -1,7 +1,7 @@
 pub use bevy_reflect_derive::TypeUuid;
 pub use bevy_utils::Uuid;
 
-use crate::TypeName;
+use crate::TypePath;
 
 /// A trait for types with a statically associated UUID.
 pub trait TypeUuid {
@@ -11,23 +11,23 @@ pub trait TypeUuid {
 /// A trait for types with an associated UUID.
 pub trait TypeUuidDynamic {
     fn type_uuid(&self) -> Uuid;
-    fn type_name(&self) -> &'static str;
+    fn type_path(&self) -> &'static str;
 }
 
 impl<T> TypeUuidDynamic for T
 where
-    T: TypeUuid + TypeName,
+    T: TypeUuid + TypePath,
 {
     /// Returns the UUID associated with this value's type.
     fn type_uuid(&self) -> Uuid {
         Self::TYPE_UUID
     }
 
-    /// Returns the [type name] of this value's type.
+    /// Returns the [type path] of this value's type.
     ///
-    /// [type name]: crate::TypeName
-    fn type_name(&self) -> &'static str {
-        Self::name()
+    /// [type path]: crate::TypePath
+    fn type_path(&self) -> &'static str {
+        Self::type_path()
     }
 }
 

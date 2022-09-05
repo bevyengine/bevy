@@ -23,7 +23,7 @@ mod impls;
 mod reflect_value;
 mod registration;
 mod trait_reflection;
-mod type_name;
+mod type_path;
 mod type_uuid;
 mod utility;
 
@@ -33,13 +33,13 @@ use quote::quote;
 use reflect_value::{NamedReflectValueDef, ReflectValueDef};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
-use type_name::TypeNameDef;
+use type_path::TypePathDef;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
-pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
+pub(crate) static TYPE_PATH_ATTRIBUTE_NAME: &str = "type_path";
 
-#[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module, type_name))]
+#[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module, type_path))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -58,43 +58,43 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Implement `TypeName` on a type.
+/// Implement `TypePath` on a type.
 ///
 /// ## Type name convention
 ///
-/// The type name is the module path followed by the ident of the type.
-/// If the type is generic the type name of its generic parameters are included between `<` and `>`.
+/// The type path is the module path followed by the ident of the type.
+/// If the type is generic the type path of its generic parameters are included between `<` and `>`.
 ///
 /// See examples.
 ///
-/// ## Custom type name
+/// ## Custom type path
 ///
-/// It's possible to override the default behaviour and choose a custom type name by using
-/// the `type_name` attribute.
+/// It's possible to override the default behaviour and choose a custom type path by using
+/// the `type_path` attribute.
 ///
-/// If specifying a custom type name, it's recommended to prefix it with the name of your crate.
+/// If specifying a custom type path, it's recommended to prefix it with the name of your crate.
 ///
-/// It's highly discouraged to use an unprefixed type name that could collide with another type
-/// or a malformed type name (e.g. `BlAH@blah blah`).
+/// It's highly discouraged to use an unprefixed type path that could collide with another type
+/// or a malformed type path (e.g. `BlAH@blah blah`).
 ///
 /// ## Example
 ///
 /// ```ignore
-/// # bevy_reflect::TypeName;
+/// # bevy_reflect::TypePath;
 ///
 /// mod a {
 ///     pub mod b {
 ///         pub mod c {
-///             #[derive(TypeName)]
+///             #[derive(TypePath)]
 ///             pub struct ABC;
 ///         }
 ///
-///         #[derive(TypeName)]
-///         #[type_name("my_lib::AB")]
+///         #[derive(TypePath)]
+///         #[type_path("my_lib::AB")]
 ///         pub struct AB<T>(T);
 ///     }
 ///
-///     #[derive(TypeName)]
+///     #[derive(TypePath)]
 ///     pub struct A<const N: usize>(N);
 /// }
 ///
@@ -102,12 +102,12 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 /// # use a::b::AB;
 /// # use a::b::c::ABC;
 ///
-/// assert_eq!(ABC::name(), "a::b::c::ABC");
-/// assert_eq!(AB::<u32>::name(), "my_lib::AB<u32>");
-/// assert_eq!(A::<5>::name(), "a::A<5>");
+/// assert_eq!(ABC::type_path(), "a::b::c::ABC");
+/// assert_eq!(AB::<u32>::type_path(), "my_lib::AB<u32>");
+/// assert_eq!(A::<5>::type_path(), "a::A<5>");
 /// ```
-#[proc_macro_derive(TypeName, attributes(module, type_name))]
-pub fn derive_type_name(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(TypePath, attributes(module, type_path))]
+pub fn derive_type_path(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     let derive_data = match ReflectDerive::from_input(&ast) {
@@ -118,9 +118,9 @@ pub fn derive_type_name(input: TokenStream) -> TokenStream {
     match derive_data {
         ReflectDerive::TupleStruct(struct_data)
         | ReflectDerive::Struct(struct_data)
-        | ReflectDerive::UnitStruct(struct_data) => impls::impl_type_name(struct_data.meta()),
-        ReflectDerive::Enum(meta) => impls::impl_type_name(meta.meta()),
-        ReflectDerive::Value(meta) => impls::impl_type_name(&meta),
+        | ReflectDerive::UnitStruct(struct_data) => impls::impl_type_path(struct_data.meta()),
+        ReflectDerive::Enum(meta) => impls::impl_type_path(meta.meta()),
+        ReflectDerive::Value(meta) => impls::impl_type_path(&meta),
     }
     .into()
 }
@@ -166,13 +166,13 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as NamedReflectValueDef);
 
-    let reflected_type_name = def.get_reflected_type_name();
+    let reflected_type_path = def.get_reflected_type_path();
 
     impls::impl_value(&ReflectMeta::new(
         &def.def.type_name,
         &def.def.generics,
         def.def.traits.unwrap_or_default(),
-        Some(reflected_type_name),
+        Some(reflected_type_path),
     ))
 }
 
@@ -253,26 +253,26 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     ))
 }
 
-/// A replacement for `#[derive(TypeName)]` to be used with foreign types which
+/// A replacement for `#[derive(TypePath)]` to be used with foreign types which
 /// the definitions of cannot be altered.
 ///
-/// But unlike `#[derive(TypeName)]` that prefix the type name with the module path
-/// using the macro [`module_path`], by default `impl_type_name` only uses the ident of the type
-/// as the type name.
+/// But unlike `#[derive(TypePath)]` that prefix the type path with the module path
+/// using the macro [`module_path`], by default `impl_type_path` only uses the ident of the type
+/// as the type path.
 ///
 /// # Example
-/// Implementing `TypeName` for `Vec<T>`:
+/// Implementing `TypePath` for `Vec<T>`:
 /// ```ignore
-/// impl_type_name!(Vec<T: TypeName>);
+/// impl_type_path!(Vec<T: TypePath>);
 /// ```
 #[proc_macro]
-pub fn impl_type_name(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as TypeNameDef);
+pub fn impl_type_path(input: TokenStream) -> TokenStream {
+    let def = parse_macro_input!(input as TypePathDef);
     let meta = ReflectMeta::new(
         &def.type_name,
         &def.generics,
         Default::default(),
         Some(def.type_name.to_string()),
     );
-    TokenStream::from(impls::impl_type_name(&meta))
+    TokenStream::from(impls::impl_type_path(&meta))
 }

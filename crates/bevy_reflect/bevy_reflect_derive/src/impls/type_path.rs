@@ -2,7 +2,7 @@ use quote::quote;
 
 use crate::derive_data::ReflectMeta;
 
-pub(crate) fn impl_type_name(reflect_meta: &ReflectMeta) -> proc_macro2::TokenStream {
+pub(crate) fn impl_type_path(reflect_meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let generics = reflect_meta.generics();
     let type_name = reflect_meta.type_name();
     let bevy_reflect_path = reflect_meta.bevy_reflect_path();
@@ -10,7 +10,7 @@ pub(crate) fn impl_type_name(reflect_meta: &ReflectMeta) -> proc_macro2::TokenSt
     let is_generic = !generics.params.is_empty();
 
     let base_name = reflect_meta
-        .reflected_type_name()
+        .reflected_type_path()
         .map(|x| quote!(#x))
         .unwrap_or_else(|| {
             let type_name = type_name.to_string();
@@ -22,7 +22,7 @@ pub(crate) fn impl_type_name(reflect_meta: &ReflectMeta) -> proc_macro2::TokenSt
             let getters = generics.params.iter().map(|p| match p {
                 syn::GenericParam::Type(p) => {
                     let ty = &p.ident;
-                    quote!(<#ty as #bevy_reflect_path::TypeName>::name())
+                    quote!(<#ty as #bevy_reflect_path::TypePath>::type_path())
                 }
                 syn::GenericParam::Lifetime(p) => {
                     let name = &p.lifetime.ident.to_string();
@@ -57,8 +57,8 @@ pub(crate) fn impl_type_name(reflect_meta: &ReflectMeta) -> proc_macro2::TokenSt
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     quote! {
-        impl #impl_generics #bevy_reflect_path::TypeName for #type_name #ty_generics #where_clause {
-            fn name() -> &'static str {
+        impl #impl_generics #bevy_reflect_path::TypePath for #type_name #ty_generics #where_clause {
+            fn type_path() -> &'static str {
                 const BASE_NAME: &'static str = #base_name;
                 #get_type_name
             }

@@ -1,7 +1,7 @@
 use crate::{AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_SHADER_HANDLE};
 use bevy_asset::Handle;
 use bevy_math::Vec4;
-use bevy_reflect::{TypeName, TypeUuid};
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
     texture::Image,
@@ -12,7 +12,7 @@ use bevy_render::{
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
-#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypeName)]
+#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "7494888b-c082-457b-aacf-517228cc0c22"]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]

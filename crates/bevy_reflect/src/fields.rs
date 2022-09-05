@@ -1,4 +1,4 @@
-use crate::{Reflect, TypeName};
+use crate::{type_path, Reflect, TypePath};
 use std::any::{Any, TypeId};
 use std::borrow::Cow;
 
@@ -6,16 +6,16 @@ use std::borrow::Cow;
 #[derive(Clone, Debug)]
 pub struct NamedField {
     name: Cow<'static, str>,
-    type_name: &'static str,
+    type_path: &'static str,
     type_id: TypeId,
 }
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect + TypeName, TName: Into<Cow<'static, str>>>(name: TName) -> Self {
+    pub fn new<T: Reflect + TypePath, TName: Into<Cow<'static, str>>>(name: TName) -> Self {
         Self {
             name: name.into(),
-            type_name: T::name(),
+            type_path: type_path::<T>(),
             type_id: TypeId::of::<T>(),
         }
     }
@@ -25,11 +25,11 @@ impl NamedField {
         &self.name
     }
 
-    /// The [type name] of the field.
+    /// The [type path] of the field.
     ///
-    /// [type name]: TypeName
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// [type path]: TypePath
+    pub fn type_path(&self) -> &'static str {
+        self.type_path
     }
 
     /// The [`TypeId`] of the field.
@@ -47,15 +47,15 @@ impl NamedField {
 #[derive(Clone, Debug)]
 pub struct UnnamedField {
     index: usize,
-    type_name: &'static str,
+    type_path: &'static str,
     type_id: TypeId,
 }
 
 impl UnnamedField {
-    pub fn new<T: Reflect + TypeName>(index: usize) -> Self {
+    pub fn new<T: Reflect + TypePath>(index: usize) -> Self {
         Self {
             index,
-            type_name: T::name(),
+            type_path: type_path::<T>(),
             type_id: TypeId::of::<T>(),
         }
     }
@@ -65,11 +65,11 @@ impl UnnamedField {
         self.index
     }
 
-    /// The [type name] of the field.
+    /// The [type path] of the field.
     ///
-    /// [type name]: TypeName
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// [type path]: TypePath
+    pub fn type_path(&self) -> &'static str {
+        self.type_path
     }
 
     /// The [`TypeId`] of the field.

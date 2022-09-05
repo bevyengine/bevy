@@ -4,7 +4,7 @@ use quote::quote;
 use syn::token::Comma;
 
 use crate::{
-    utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
+    utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
 };
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -41,8 +41,8 @@ pub(crate) struct ReflectMeta<'a> {
     type_name: &'a Ident,
     /// The generics defined on this type.
     generics: &'a Generics,
-    /// Override the default type name for `TypeName`.
-    reflected_type_name: Option<String>,
+    /// Override the default type path for `TypePath`.
+    reflected_type_path: Option<String>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
 }
@@ -118,7 +118,7 @@ impl<'a> ReflectDerive<'a> {
         // Should indicate whether `#[reflect_value]` was used
         let mut force_reflect_value = false;
 
-        let mut reflected_type_name = None;
+        let mut reflected_type_path = None;
 
         for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
             let meta_list = if let Meta::List(meta_list) = attribute {
@@ -135,15 +135,15 @@ impl<'a> ReflectDerive<'a> {
                     force_reflect_value = true;
                     traits = ReflectTraits::from_nested_metas(&meta_list.nested);
                 }
-                Some(ident) if ident == TYPE_NAME_ATTRIBUTE_NAME => {
-                    let type_name = get_type_name_attribute(&meta_list.nested).ok_or_else(|| syn::Error::new(meta_list.span(), format!("the attribute `{TYPE_NAME_ATTRIBUTE_NAME}` requires a single string literal. For example: `#[{TYPE_NAME_ATTRIBUTE_NAME}(\"my_lib::foo\")]`")) )?;
-                    reflected_type_name = Some(type_name);
+                Some(ident) if ident == TYPE_PATH_ATTRIBUTE_NAME => {
+                    let type_path = get_type_path_attribute(&meta_list.nested).ok_or_else(|| syn::Error::new(meta_list.span(), format!("the attribute `{TYPE_PATH_ATTRIBUTE_NAME}` requires a single string literal. For example: `#[{TYPE_PATH_ATTRIBUTE_NAME}(\"my_lib::foo\")]`")) )?;
+                    reflected_type_path = Some(type_path);
                 }
                 _ => {}
             }
         }
 
-        let meta = ReflectMeta::new(&input.ident, &input.generics, traits, reflected_type_name);
+        let meta = ReflectMeta::new(&input.ident, &input.generics, traits, reflected_type_path);
 
         if force_reflect_value {
             return Ok(Self::Value(meta));
@@ -231,13 +231,13 @@ impl<'a> ReflectMeta<'a> {
         type_name: &'a Ident,
         generics: &'a Generics,
         traits: ReflectTraits,
-        reflected_type_name: Option<String>,
+        reflected_type_path: Option<String>,
     ) -> Self {
         Self {
             traits,
             type_name,
             generics,
-            reflected_type_name,
+            reflected_type_path,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
         }
     }
@@ -257,9 +257,9 @@ impl<'a> ReflectMeta<'a> {
         self.generics
     }
 
-    /// Override the default type name for `TypeName`.
-    pub fn reflected_type_name(&self) -> Option<&str> {
-        self.reflected_type_name.as_deref()
+    /// Override the default type path for `TypePath`.
+    pub fn reflected_type_path(&self) -> Option<&str> {
+        self.reflected_type_path.as_deref()
     }
 
     /// The cached `bevy_reflect` path.
@@ -338,8 +338,8 @@ impl<'a> ReflectEnum<'a> {
     }
 }
 
-/// Extracts the type name attribute or returns [`None`].
-fn get_type_name_attribute(nested_metas: &Punctuated<NestedMeta, Comma>) -> Option<String> {
+/// Extracts the type path attribute or returns [`None`].
+fn get_type_path_attribute(nested_metas: &Punctuated<NestedMeta, Comma>) -> Option<String> {
     // Having more than 1 element in nested_metas is invalid.
     if nested_metas.len() == 1 {
         match nested_metas.first() {

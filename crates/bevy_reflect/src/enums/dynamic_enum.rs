@@ -1,4 +1,4 @@
-use bevy_reflect_derive::TypeName;
+use bevy_reflect_derive::TypePath;
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
@@ -64,7 +64,7 @@ impl From<()> for DynamicVariant {
 ///
 /// // Create a DynamicEnum to represent the new value
 /// let mut dyn_enum = DynamicEnum::new(
-///   Reflect::type_name(&value),
+///   Reflect::type_path(&value),
 ///   "None",
 ///   DynamicVariant::Unit
 /// );
@@ -75,7 +75,7 @@ impl From<()> for DynamicVariant {
 /// // Tada!
 /// assert_eq!(None, value);
 /// ```
-#[derive(Default, TypeName)]
+#[derive(Default, TypePath)]
 pub struct DynamicEnum {
     name: String,
     variant_name: String,
@@ -87,7 +87,7 @@ impl DynamicEnum {
     ///
     /// # Arguments
     ///
-    /// * `name`: The type name of the enum
+    /// * `name`: The type path of the enum
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
     ///
@@ -103,12 +103,12 @@ impl DynamicEnum {
         }
     }
 
-    /// Returns the type name of the enum.
+    /// Returns the type path of the enum.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Sets the type name of the enum.
+    /// Sets the type path of the enum.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
@@ -132,7 +132,7 @@ impl DynamicEnum {
     pub fn from_ref<TEnum: Enum>(value: &TEnum) -> Self {
         match value.variant_type() {
             VariantType::Unit => DynamicEnum::new(
-                value.type_name(),
+                value.type_path(),
                 value.variant_name(),
                 DynamicVariant::Unit,
             ),
@@ -142,7 +142,7 @@ impl DynamicEnum {
                     data.insert_boxed(field.value().clone_value());
                 }
                 DynamicEnum::new(
-                    value.type_name(),
+                    value.type_path(),
                     value.variant_name(),
                     DynamicVariant::Tuple(data),
                 )
@@ -154,7 +154,7 @@ impl DynamicEnum {
                     data.insert_boxed(name, field.value().clone_value());
                 }
                 DynamicEnum::new(
-                    value.type_name(),
+                    value.type_path(),
                     value.variant_name(),
                     DynamicVariant::Struct(data),
                 )
@@ -247,7 +247,7 @@ impl Enum for DynamicEnum {
 
 impl Reflect for DynamicEnum {
     #[inline]
-    fn type_name(&self) -> &str {
+    fn type_path(&self) -> &str {
         &self.name
     }
 
@@ -327,7 +327,7 @@ impl Reflect for DynamicEnum {
                 self.set_variant(value.variant_name(), dyn_variant);
             }
         } else {
-            panic!("`{}` is not an enum", value.type_name());
+            panic!("`{}` is not an enum", value.type_path());
         }
     }
 

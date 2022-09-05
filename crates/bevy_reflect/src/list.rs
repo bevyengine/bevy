@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect,
-    ReflectMut, ReflectRef, TypeInfo, TypeName, Typed,
+    self as bevy_reflect, type_path, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect,
+    Reflect, ReflectMut, ReflectRef, TypeInfo, TypePath, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -21,7 +21,7 @@ pub trait List: Reflect + Array {
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
-            name: self.type_name().to_string(),
+            name: self.type_path().to_string(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
@@ -30,28 +30,28 @@ pub trait List: Reflect + Array {
 /// A container for compile-time list info.
 #[derive(Clone, Debug)]
 pub struct ListInfo {
-    type_name: &'static str,
+    type_path: &'static str,
     type_id: TypeId,
-    item_type_name: &'static str,
+    item_type_path: &'static str,
     item_type_id: TypeId,
 }
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List + TypeName, TItem: FromReflect + TypeName>() -> Self {
+    pub fn new<TList: List + TypePath, TItem: FromReflect + TypePath>() -> Self {
         Self {
-            type_name: TList::name(),
+            type_path: type_path::<TList>(),
             type_id: TypeId::of::<TList>(),
-            item_type_name: TItem::name(),
+            item_type_path: type_path::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
         }
     }
 
-    /// The [type name] of the list.
+    /// The [type path] of the list.
     ///
-    /// [type name]: TypeName
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// [type path]: TypePath
+    pub fn type_path(&self) -> &'static str {
+        self.type_path
     }
 
     /// The [`TypeId`] of the list.
@@ -64,11 +64,11 @@ impl ListInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The [type name] of the list item.
+    /// The [type path] of the list item.
     ///
-    /// [type name]: TypeName
-    pub fn item_type_name(&self) -> &'static str {
-        self.item_type_name
+    /// [type path]: TypePath
+    pub fn item_type_path(&self) -> &'static str {
+        self.item_type_path
     }
 
     /// The [`TypeId`] of the list item.
@@ -83,25 +83,25 @@ impl ListInfo {
 }
 
 /// A list of reflected values.
-#[derive(Default, TypeName)]
+#[derive(Default, TypePath)]
 pub struct DynamicList {
     name: String,
     values: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicList {
-    /// Returns the type name of the list.
+    /// Returns the type path of the list.
     ///
     /// The value returned by this method is the same value returned by
-    /// [`Reflect::type_name`].
+    /// [`Reflect::type_path`].
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Sets the type name of the list.
+    /// Sets the type path of the list.
     ///
     /// The value set by this method is the value returned by
-    /// [`Reflect::type_name`].
+    /// [`Reflect::type_path`].
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
@@ -176,7 +176,7 @@ impl List for DynamicList {
 
 impl Reflect for DynamicList {
     #[inline]
-    fn type_name(&self) -> &str {
+    fn type_path(&self) -> &str {
         &self.name
     }
 
