@@ -22,7 +22,7 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
 #[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
-impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
+impl<T: CameraProjection + Component + GetTypeRegistration + Sync> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
             .add_startup_system_to_stage(
