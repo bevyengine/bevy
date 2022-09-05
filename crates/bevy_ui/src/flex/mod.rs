@@ -5,7 +5,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     query::{Changed, Or, With, Without, WorldQuery},
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -176,6 +176,15 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Removes each entity from the internal map and then removes their associated node from taffy
+    pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        for entity in entities {
+            if let Some(node) = self.entity_to_taffy.remove(&entity) {
+                self.taffy.remove(node);
+            }
+        }
+    }
+
     pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, FlexError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy
@@ -213,6 +222,7 @@ pub fn flex_node_system(
     full_children_query: Query<&Children, With<Node>>,
     changed_children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform)>,
+    removed_nodes: RemovedComponents<Node>,
 ) {
     let flex_roots = get_flex_roots(&windows, &ui_scale, &camera_query, &root_node_query);
 
@@ -250,7 +260,8 @@ pub fn flex_node_system(
         }
     }
 
-    // TODO: handle removed nodes
+    // clean up removed nodes
+    flex_surface.remove_entities(&removed_nodes);
 
     // update root children (for now assuming all Nodes live in the primary window)
     flex_surface.update_root_children(root_node_query.iter().map(|(entity, _)| entity));
