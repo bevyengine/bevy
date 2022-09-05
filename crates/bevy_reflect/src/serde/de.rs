@@ -145,7 +145,11 @@ impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
         while let Some(key) = map.next_key::<String>()? {
             match key.as_str() {
                 type_fields::TYPE => {
-                    type_name = Some(map.next_value()?);
+                    let key = map.next_value::<String>()?;
+
+                    self.registry.warn_on_alias_deprecation(&key);
+
+                    type_name = Some(key);
                 }
                 type_fields::MAP => {
                     let _type_name = type_name
@@ -217,8 +221,11 @@ impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
                     let type_name = type_name
                         .take()
                         .ok_or_else(|| de::Error::missing_field(type_fields::TYPE))?;
-                    let registration =
-                        self.registry.get_with_name(&type_name).ok_or_else(|| {
+                    let registration = self
+                        .registry
+                        .get_with_name(&type_name)
+                        .or_else(|| self.registry.get_with_alias(&type_name))
+                        .ok_or_else(|| {
                             de::Error::custom(format_args!(
                                 "No registration found for {}",
                                 type_name

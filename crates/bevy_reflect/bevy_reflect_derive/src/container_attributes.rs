@@ -8,10 +8,10 @@
 use crate::utility;
 use proc_macro2::Ident;
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Meta, NestedMeta, Path};
+use syn::{Lit, LitStr, Meta, NestedMeta, Path};
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
@@ -22,6 +22,10 @@ const HASH_ATTR: &str = "Hash";
 // The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
 // but useful to know exist nonetheless
 pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
+
+// Other container attribute idents
+const ALIAS_ATTR: &str = "alias";
+const DEPRECATED_ALIAS_ATTR: &str = "deprecated_alias";
 
 /// A marker for trait implementations registered via the `Reflect` derive macro.
 #[derive(Clone, Default)]
@@ -103,11 +107,16 @@ pub(crate) struct ReflectTraits {
     hash: TraitImpl,
     partial_eq: TraitImpl,
     idents: Vec<Ident>,
+    aliases: Vec<LitStr>,
+    deprecated_aliases: Vec<LitStr>,
 }
 
 impl ReflectTraits {
     /// Create a new [`ReflectTraits`] instance from a set of nested metas.
-    pub fn from_nested_metas(nested_metas: &Punctuated<NestedMeta, Comma>) -> Self {
+    pub fn from_nested_metas(
+        nested_metas: &Punctuated<NestedMeta, Comma>,
+        is_generic: bool,
+    ) -> syn::Result<Self> {
         let mut traits = ReflectTraits::default();
         for nested_meta in nested_metas.iter() {
             match nested_meta {
@@ -151,11 +160,93 @@ impl ReflectTraits {
                         }
                     }
                 }
+                // Handles `#[reflect( alias = "Foo" )]`
+                NestedMeta::Meta(Meta::NameValue(pair)) => {
+                    let ident = pair
+                        .path
+                        .get_ident()
+                        .ok_or_else(|| syn::Error::new(pair.span(), "not a valid path"))?;
+
+                    // Closure that handles defining an alias on a generic type
+                    let try_handle_generic_alias = || -> syn::Result<()> {
+                        if is_generic {
+                            Err(syn::Error::new(ident.span(), "alias attributes cannot be used on generic types. Consider using `TypeRegistry::register_alias` instead"))
+                        } else {
+                            Ok(())
+                        }
+                    };
+
+                    let attr_name = ident.to_string();
+                    match (attr_name.as_str(), &pair.lit) {
+                        (ALIAS_ATTR, Lit::Str(alias)) => {
+                            try_handle_generic_alias()?;
+                            traits.aliases.push(alias.clone());
+                        }
+                        (DEPRECATED_ALIAS_ATTR, Lit::Str(alias)) => {
+                            try_handle_generic_alias()?;
+                            traits.deprecated_aliases.push(alias.clone());
+                        }
+                        (DEPRECATED_ALIAS_ATTR | ALIAS_ATTR, lit) => {
+                            try_handle_generic_alias()?;
+                            return Err(syn::Error::new(lit.span(), "expected a string literal"));
+                        }
+                        (_, _) => {
+                            return Err(syn::Error::new(
+                                ident.span(),
+                                format_args!(
+                                    "unknown attribute `{}`, expected one of {:?}",
+                                    attr_name,
+                                    [ALIAS_ATTR, DEPRECATED_ALIAS_ATTR]
+                                ),
+                            ));
+                        }
+                    }
+                }
                 _ => {}
             }
         }
 
-        traits
+        Ok(traits)
+    }
+
+    pub fn combine(&mut self, other: Self) {
+        if matches!(self.debug, TraitImpl::NotImplemented) {
+            self.debug = other.debug;
+        }
+        if matches!(self.hash, TraitImpl::NotImplemented) {
+            self.hash = other.hash;
+        }
+        if matches!(self.partial_eq, TraitImpl::NotImplemented) {
+            self.partial_eq = other.partial_eq;
+        }
+
+        for ident in other.idents {
+            if !self.idents.contains(&ident) {
+                self.idents.push(ident);
+            }
+        }
+
+        for alias in other.aliases {
+            let value = alias.value();
+            if self
+                .aliases
+                .iter()
+                .all(|other_alias| value != other_alias.value())
+            {
+                self.aliases.push(alias);
+            }
+        }
+
+        for alias in other.deprecated_aliases {
+            let value = alias.value();
+            if self
+                .deprecated_aliases
+                .iter()
+                .all(|other_alias| value != other_alias.value())
+            {
+                self.deprecated_aliases.push(alias);
+            }
+        }
     }
 
     /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
@@ -167,6 +258,14 @@ impl ReflectTraits {
     /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
     pub fn idents(&self) -> &[Ident] {
         &self.idents
+    }
+
+    pub fn aliases(&self) -> &[LitStr] {
+        &self.aliases
+    }
+
+    pub fn deprecated_aliases(&self) -> &[LitStr] {
+        &self.deprecated_aliases
     }
 
     /// Returns the implementation of `Reflect::reflect_hash` as a `TokenStream`.
@@ -236,12 +335,5 @@ impl ReflectTraits {
             }),
             TraitImpl::NotImplemented => None,
         }
-    }
-}
-
-impl Parse for ReflectTraits {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let result = Punctuated::<NestedMeta, Comma>::parse_terminated(input)?;
-        Ok(ReflectTraits::from_nested_metas(&result))
     }
 }

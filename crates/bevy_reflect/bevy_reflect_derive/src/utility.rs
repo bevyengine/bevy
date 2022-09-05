@@ -2,7 +2,7 @@
 
 use bevy_macro_utils::BevyManifest;
 use proc_macro2::{Ident, Span};
-use syn::{Member, Path};
+use syn::{Generics, Member, Path};
 
 /// Returns the correct path for `bevy_reflect`.
 pub(crate) fn get_bevy_reflect_path() -> Path {
@@ -94,5 +94,16 @@ impl<T> ResultSifter<T> {
         } else {
             Ok(self.items)
         }
+    }
+}
+
+/// Returns true if the given [`Generics`] contains generic information.
+///
+/// If `include_lifetimes` is false, this does not count lifetime arguments.
+pub(crate) fn is_generic(generics: &Generics, include_lifetimes: bool) -> bool {
+    if include_lifetimes {
+        generics.params.len() - generics.lifetimes().count() > 0
+    } else {
+        !generics.params.is_empty()
     }
 }

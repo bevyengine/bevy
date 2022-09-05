@@ -1,8 +1,9 @@
 use crate::container_attributes::ReflectTraits;
+use crate::utility;
 use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
-use syn::token::{Paren, Where};
-use syn::{parenthesized, Generics};
+use syn::token::{Comma, Paren, Where};
+use syn::{parenthesized, Generics, NestedMeta};
 
 /// A struct used to define a simple reflected value type (such as primitives).
 ///
@@ -28,6 +29,8 @@ impl Parse for ReflectValueDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let type_ident = input.parse::<Ident>()?;
         let generics = input.parse::<Generics>()?;
+        let is_generic = utility::is_generic(&generics, false);
+
         let mut lookahead = input.lookahead1();
         let mut where_clause = None;
         if lookahead.peek(Where) {
@@ -39,7 +42,8 @@ impl Parse for ReflectValueDef {
         if lookahead.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            traits = Some(content.parse::<ReflectTraits>()?);
+            let meta = content.parse_terminated::<NestedMeta, Comma>(NestedMeta::parse)?;
+            traits = Some(ReflectTraits::from_nested_metas(&meta, is_generic)?);
         }
 
         Ok(ReflectValueDef {

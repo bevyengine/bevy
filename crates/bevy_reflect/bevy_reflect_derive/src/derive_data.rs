@@ -110,6 +110,8 @@ impl<'a> ReflectDerive<'a> {
         // Should indicate whether `#[reflect_value]` was used
         let mut force_reflect_value = false;
 
+        let is_generic = utility::is_generic(&input.generics, false);
+
         for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
             let meta_list = if let Meta::List(meta_list) = attribute {
                 meta_list
@@ -119,10 +121,25 @@ impl<'a> ReflectDerive<'a> {
 
             if let Some(ident) = meta_list.path.get_ident() {
                 if ident == REFLECT_ATTRIBUTE_NAME {
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                    if force_reflect_value {
+                        force_reflect_value = false;
+                        traits = ReflectTraits::from_nested_metas(&meta_list.nested, is_generic)?;
+                    } else {
+                        traits.combine(ReflectTraits::from_nested_metas(
+                            &meta_list.nested,
+                            is_generic,
+                        )?);
+                    }
                 } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
-                    force_reflect_value = true;
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                    if !force_reflect_value {
+                        force_reflect_value = true;
+                        traits = ReflectTraits::from_nested_metas(&meta_list.nested, is_generic)?;
+                    } else {
+                        traits.combine(ReflectTraits::from_nested_metas(
+                            &meta_list.nested,
+                            is_generic,
+                        )?);
+                    }
                 }
             }
         }
@@ -242,12 +259,7 @@ impl<'a> ReflectMeta<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
-        crate::registration::impl_get_type_registration(
-            self.type_name,
-            &self.bevy_reflect_path,
-            self.traits.idents(),
-            self.generics,
-        )
+        crate::registration::impl_get_type_registration(self)
     }
 }
 
