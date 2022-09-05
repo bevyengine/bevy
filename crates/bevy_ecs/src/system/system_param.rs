@@ -780,6 +780,15 @@ impl<'a, T: Component> RemovedComponents<'a, T> {
     }
 }
 
+impl<'a, T: Component> IntoIterator for &'a RemovedComponents<'a, T> {
+    type Item = Entity;
+    type IntoIter = std::iter::Cloned<std::slice::Iter<'a, Entity>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 // SAFETY: Only reads World components
 unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T> {}
 
