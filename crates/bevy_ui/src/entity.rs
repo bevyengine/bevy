@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_ecs::{
     bundle::Bundle,
-    prelude::{Component, With},
+    prelude::{Component, Entity, With},
     query::QueryItem,
 };
 use bevy_render::{
@@ -212,3 +212,9 @@ impl ExtractComponent for UiCameraConfig {
         item.clone()
     }
 }
+
+/// Optional component that will set which camera entity this UI root should get rendered on.
+///
+/// When this component is absent from a UI root node, the UI will use the main window's entire surface.
+#[derive(Component)]
+pub struct UiRootCamera(pub Entity);

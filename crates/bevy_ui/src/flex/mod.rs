@@ -1,18 +1,19 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style, UiScale};
+use crate::{prelude::UiRootCamera, CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    query::{Changed, With, Without, WorldQuery},
+    query::{Changed, Or, With, Without, WorldQuery},
     system::{Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
-use bevy_math::Vec2;
+use bevy_math::{UVec2, Vec2};
+use bevy_render::camera::Camera;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
+use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
 use taffy::{number::Number, Taffy};
 
@@ -21,7 +22,7 @@ pub struct FlexSurface {
     /// Maps UI entities to taffy nodes.
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     /// Maps UI root entities to taffy root nodes.
-    /// 
+    ///
     /// The taffy root node is a special node that has only one child: the real root node
     /// present that is stored in `entity_to_taffy`. This means that two taffy nodes are
     /// maintained for each bevy_ui root node.
@@ -135,7 +136,7 @@ without UI components as a child of an entity with UI components, results may be
             .unwrap();
     }
 
-    pub fn update_root(&mut self, entity: &Entity, window: &Window) {
+    pub fn update_root(&mut self, entity: &Entity, physical_size: &UVec2) {
         let taffy = &mut self.taffy;
         let node = self.root_nodes.entry(*entity).or_insert_with(|| {
             taffy
@@ -148,8 +149,8 @@ without UI components as a child of an entity with UI components, results may be
                 *node,
                 taffy::style::Style {
                     size: taffy::geometry::Size {
-                        width: taffy::style::Dimension::Points(window.physical_width() as f32),
-                        height: taffy::style::Dimension::Points(window.physical_height() as f32),
+                        width: taffy::style::Dimension::Points(physical_size.x as f32),
+                        height: taffy::style::Dimension::Points(physical_size.y as f32),
                     },
                     ..Default::default()
                 },
@@ -161,7 +162,9 @@ without UI components as a child of an entity with UI components, results may be
         for entity in root_entities {
             let root_node = self.root_nodes.get(&entity).unwrap();
             let root_entity_node = self.entity_to_taffy.get(&entity).unwrap();
-            self.taffy.set_children(*root_node, &[*root_entity_node]).unwrap();
+            self.taffy
+                .set_children(*root_node, &[*root_entity_node])
+                .unwrap();
         }
     }
 
@@ -200,73 +203,170 @@ pub fn flex_node_system(
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
-    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
-    changed_size_query: Query<
-        (Entity, &Style, &CalculatedSize),
-        (With<Node>, Changed<CalculatedSize>),
+    camera_query: Query<&Camera>,
+    root_node_query: Query<(Entity, Option<&UiRootCamera>), (With<Node>, Without<Parent>)>,
+    changed_node_query: Query<
+        (Entity, &Style, Option<&CalculatedSize>),
+        (With<Node>, Or<(Changed<Style>, Changed<CalculatedSize>)>),
     >,
-    children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
+    full_children_query: Query<&Children, With<Node>>,
+    changed_children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
+    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform)>,
 ) {
+    let flex_roots = get_flex_roots(&windows, &ui_scale, &camera_query, &root_node_query);
+
     // update root nodes
-    for entity in &root_node_query {
-        // -- TODO: replace primary window with the actual root window here.
-        if let Some(primary_window) = windows.get_primary() {
-            flex_surface.update_root(&entity, primary_window);
-        }
+    for flex_root in &flex_roots {
+        let physical_size = flex_root.physical_rect.1 - flex_root.physical_rect.0;
+        flex_surface.update_root(&flex_root.entity, &physical_size);
     }
 
-    // assume one window for time being...
-    let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
-    let scale_factor = logical_to_physical_factor * ui_scale.scale;
+    // TODO: check individual roots for changed scaling factor instead of updating all of them.
+    let scale_factor_changed =
+        scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed();
 
-    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
-        update_changed(&mut *flex_surface, scale_factor, full_node_query);
+    if scale_factor_changed {
+        // update every single node because scaling factor changed.
+        for flex_root in &flex_roots {
+            update_changed_nodes_recursively(
+                &mut flex_surface,
+                flex_root.scaling_factor,
+                &full_node_query,
+                &full_children_query,
+                &flex_root.entity,
+            );
+        }
     } else {
-        update_changed(&mut *flex_surface, scale_factor, node_query);
-    }
-
-    fn update_changed<F: WorldQuery>(
-        flex_surface: &mut FlexSurface,
-        scaling_factor: f64,
-        query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
-    ) {
-        // update changed nodes
-        for (entity, style, calculated_size) in &query {
-            // TODO: remove node from old hierarchy if its root has changed
-            if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
-            } else {
-                flex_surface.upsert_node(entity, style, scaling_factor);
-            }
+        // update only the nodes that were changed.
+        for flex_root in &flex_roots {
+            update_changed_nodes_recursively(
+                &mut flex_surface,
+                flex_root.scaling_factor,
+                &changed_node_query,
+                &full_children_query,
+                &flex_root.entity,
+            );
         }
-    }
-
-    for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
     }
 
     // TODO: handle removed nodes
 
     // update root children (for now assuming all Nodes live in the primary window)
-    flex_surface.update_root_children(root_node_query.iter());
+    flex_surface.update_root_children(root_node_query.iter().map(|(entity, _)| entity));
 
     // update children
-    for (entity, children) in &children_query {
+    for (entity, children) in &changed_children_query {
         flex_surface.update_children(entity, children);
     }
 
     // compute layouts
     flex_surface.compute_root_layouts();
 
-    let physical_to_logical_factor = 1. / logical_to_physical_factor;
+    for flex_root in &flex_roots {
+        update_node_transforms_recursively(
+            &flex_surface,
+            &mut node_transform_query,
+            &full_children_query,
+            flex_root.scaling_factor,
+            &flex_root.physical_rect.0,
+            None,
+            &flex_root.entity,
+        );
+    }
+}
 
+/// Recursively checks UI nodes for changes and updates them with their new values.
+fn update_changed_nodes_recursively<F: WorldQuery>(
+    flex_surface: &mut FlexSurface,
+    scaling_factor: f64,
+    node_query: &Query<(Entity, &Style, Option<&CalculatedSize>), F>,
+    children_query: &Query<&Children, With<Node>>,
+    entity: &Entity,
+) {
+    // update this entity if it's part of the node_query
+    if let Ok((_, style, calculated_size)) = node_query.get(*entity) {
+        update_changed_node(flex_surface, scaling_factor, entity, style, calculated_size);
+    }
+
+    // call this function recursively for all of this node's children
+    if let Ok(children) = children_query.get(*entity) {
+        for child in children {
+            update_changed_nodes_recursively(
+                flex_surface,
+                scaling_factor,
+                node_query,
+                children_query,
+                child,
+            );
+        }
+    }
+}
+
+/// Updates the UI node in the flex surface with its new values.
+fn update_changed_node(
+    flex_surface: &mut FlexSurface,
+    scaling_factor: f64,
+    entity: &Entity,
+    style: &Style,
+    calculated_size: Option<&CalculatedSize>,
+) {
+    if let Some(calculated_size) = calculated_size {
+        flex_surface.upsert_leaf(*entity, style, *calculated_size, scaling_factor);
+    } else {
+        flex_surface.upsert_node(*entity, style, scaling_factor);
+    }
+}
+
+/// Recursively updates the transform of all UI nodes.
+fn update_node_transforms_recursively(
+    flex_surface: &FlexSurface,
+    node_transform_query: &mut Query<(Entity, &mut Node, &mut Transform)>,
+    children_query: &Query<&Children, With<Node>>,
+    scaling_factor: f64,
+    position_offset: &UVec2,
+    parent: Option<&Entity>,
+    entity: &Entity,
+) {
+    update_node_transform(
+        flex_surface,
+        node_transform_query,
+        scaling_factor,
+        position_offset,
+        parent,
+        entity,
+    );
+
+    // call this function recursively for all of this node's children
+    if let Ok(children) = children_query.get(*entity) {
+        for child in children {
+            update_node_transforms_recursively(
+                flex_surface,
+                node_transform_query,
+                children_query,
+                scaling_factor,
+                position_offset,
+                Some(entity),
+                child,
+            );
+        }
+    }
+}
+
+/// Recalculates the node transform and update it if it changed.
+fn update_node_transform(
+    flex_surface: &FlexSurface,
+    node_transform_query: &mut Query<(Entity, &mut Node, &mut Transform)>,
+    scaling_factor: f64,
+    position_offset: &UVec2,
+    parent: Option<&Entity>,
+    entity: &Entity,
+) {
+    let physical_to_logical_factor = 1. / scaling_factor;
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
-    for (entity, mut node, mut transform, parent) in &mut node_transform_query {
+    if let Ok((entity, mut node, mut transform)) = node_transform_query.get_mut(*entity) {
         let layout = flex_surface.get_layout(entity).unwrap();
         let new_size = Vec2::new(
             to_logical(layout.size.width),
@@ -277,10 +377,12 @@ pub fn flex_node_system(
             node.size = new_size;
         }
         let mut new_position = transform.translation;
-        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
-        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
+        new_position.x =
+            to_logical(layout.location.x + position_offset.x as f32 + layout.size.width / 2.0);
+        new_position.y =
+            to_logical(layout.location.y + position_offset.y as f32 + layout.size.height / 2.0);
         if let Some(parent) = parent {
-            if let Ok(parent_layout) = flex_surface.get_layout(**parent) {
+            if let Ok(parent_layout) = flex_surface.get_layout(*parent) {
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
@@ -290,4 +392,46 @@ pub fn flex_node_system(
             transform.translation = new_position;
         }
     }
+}
+
+struct FlexRoot {
+    entity: Entity,
+    scaling_factor: f64,
+    physical_rect: (UVec2, UVec2),
+}
+
+/// Returns the list of roots for all ui trees with their physical rect and scaling factor.
+///
+/// When [`UiRootCamera`] component exists for a given root node, information for rendering
+/// on the full primary window will be returned instead.
+fn get_flex_roots(
+    windows: &Windows,
+    ui_scale: &UiScale,
+    camera_query: &Query<&Camera>,
+    root_node_query: &Query<(Entity, Option<&UiRootCamera>), (With<Node>, Without<Parent>)>,
+) -> Vec<FlexRoot> {
+    root_node_query
+        .iter()
+        .map(|(entity, ui_root)| {
+            ui_root
+                .and_then(|ui_root| camera_query.get(ui_root.0).ok())
+                .map(|camera| FlexRoot {
+                    entity,
+                    scaling_factor: camera.target_scaling_factor().unwrap_or(1.0) * ui_scale.scale,
+                    // TODO: make sure this won't explode and it makes sense in system ordering.
+                    physical_rect: camera.physical_viewport_rect().unwrap(),
+                })
+                .or_else(|| {
+                    windows.get_primary().map(|window| FlexRoot {
+                        entity,
+                        scaling_factor: window.scale_factor() * ui_scale.scale,
+                        physical_rect: (
+                            UVec2::new(0, 0),
+                            UVec2::new(window.physical_width(), window.physical_height()),
+                        ),
+                    })
+                })
+                .unwrap()
+        })
+        .collect::<Vec<_>>()
 }
