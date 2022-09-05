@@ -27,7 +27,7 @@ use std::any::{Any, TypeId};
 ///   fn type_info() -> &'static TypeInfo {
 ///     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
 ///     CELL.get_or_set(|| {
-///       let fields = [NamedField::new::<i32, _>("bar")];
+///       let fields = [NamedField::new::<i32>("bar")];
 ///       let info = StructInfo::new::<Self>("Foo", &fields);
 ///       TypeInfo::Struct(info)
 ///     })
