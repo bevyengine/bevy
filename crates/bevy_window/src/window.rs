@@ -277,7 +277,7 @@ pub enum WindowCommand {
         monitor_selection: MonitorSelection,
         position: IVec2,
     },
-    /// Modifies the position of the window to be in the center of the current monitor
+    /// Sets the position of the window to be in the center of the selected monitor.
     Center(MonitorSelection),
     /// Set the window's [`WindowResizeConstraints`]
     SetResizeConstraints {
@@ -749,11 +749,15 @@ impl Window {
 pub enum WindowPosition {
     /// The position will be set by the window manager.
     Automatic,
-    /// Window will be centered on the selected monitor.
-    Centered,
-    /// The window's top-left corner will be placed at the specified position (in pixels).
+    /// Center the window on the monitor.
     ///
-    /// (0,0) represents top-left corner of the selected monitor.
+    /// The monitor to center the window on can be selected with the `monitor` field in `WindowDescriptor`.
+    Centered,
+    /// The window's top-left corner will be placed at the specified position in pixels.
+    ///
+    /// (0,0) represents top-left corner of the monitor.
+    ///
+    /// The monitor to position the window on can be selected with the `monitor` field in `WindowDescriptor`.
     At(Vec2),
 }
 
@@ -790,9 +794,11 @@ pub struct WindowDescriptor {
     pub height: f32,
     /// The position on the screen that the window will be placed at.
     ///
+    /// The monitor to place the window on can be selected with the `monitor` field.
+    ///
     /// Ignored if `mode` is set to something other than [`WindowMode::Windowed`]
     ///
-    /// `WindowPosition::Automatic` will be overridden with `WindowPosition::At(Vec2::ZERO)` if a specific `monitor` is selected.
+    /// `WindowPosition::Automatic` will be overridden with `WindowPosition::At(Vec2::ZERO)` if a specific monitor is selected.
     pub position: WindowPosition,
     /// The monitor to place the window on.
     pub monitor: MonitorSelection,
@@ -825,6 +831,8 @@ pub struct WindowDescriptor {
     /// Sets whether the window locks the cursor inside its borders when the window has focus.
     pub cursor_locked: bool,
     /// Sets the [`WindowMode`](crate::WindowMode).
+    ///
+    /// The monitor to go fullscreen on can be selected with the `monitor` field.
     pub mode: WindowMode,
     /// Sets whether the background of the window should be transparent.
     ///
