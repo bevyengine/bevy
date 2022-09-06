@@ -58,7 +58,7 @@ impl AssetLoader for AudioLoader {
 /// A type implementing this trait can be decoded as a rodio source
 pub trait Decodable: Send + Sync + 'static {
     /// The decoder that can decode the implementing type
-    type Decoder: rodio::Source + Send + Sync + Iterator<Item = Self::DecoderItem>;
+    type Decoder: rodio::Source + Send + Iterator<Item = Self::DecoderItem>;
     /// A single value given by the decoder
     type DecoderItem: rodio::Sample + Send + Sync;
 

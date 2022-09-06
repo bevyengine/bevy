@@ -70,6 +70,16 @@ pub struct ComputedCameraValues {
     target_info: Option<RenderTargetInfo>,
 }
 
+/// The defining component for camera entities, storing information about how and what to render
+/// through this camera.
+///
+/// The [`Camera`] component is added to an entity to define the properties of the viewpoint from
+/// which rendering occurs. It defines the position of the view to render, the projection method
+/// to transform the 3D objects into a 2D image, as well as the render target into which that image
+/// is produced.
+///
+/// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
+/// `Camera3dBundle`.
 #[derive(Component, Debug, Reflect, FromReflect, Clone)]
 #[reflect(Component)]
 pub struct Camera {
@@ -77,7 +87,7 @@ pub struct Camera {
     pub viewport: Option<Viewport>,
     /// Cameras with a lower priority will be rendered before cameras with a higher priority.
     pub priority: isize,
-    /// If this is set to true, this camera will be rendered to its specified [`RenderTarget`]. If false, this
+    /// If this is set to `true`, this camera will be rendered to its specified [`RenderTarget`]. If `false`, this
     /// camera will not be rendered.
     pub is_active: bool,
     /// Computed values for this camera, such as the projection matrix and the render target size.
@@ -305,6 +315,21 @@ impl RenderTarget {
     }
 }
 
+/// System in charge of updating a [`Camera`] when its window or projection changes.
+///
+/// The system detects window creation and resize events to update the camera projection if
+/// needed. It also queries any [`CameraProjection`] component associated with the same entity
+/// as the [`Camera`] one, to automatically update the camera projection matrix.
+///
+/// The system function is generic over the camera projection type, and only instances of
+/// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
+/// the app, as well as the runtime-selected [`Projection`]. The system runs during the
+/// [`CoreStage::PostUpdate`] stage.
+///
+/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
+/// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
+/// [`Projection`]: crate::camera::Projection
+/// [`CoreStage::PostUpdate`]: bevy_app::CoreStage::PostUpdate
 pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -317,9 +342,9 @@ pub fn camera_system<T: CameraProjection + Component>(
     )>,
 ) {
     let mut changed_window_ids = Vec::new();
-    // handle resize events. latest events are handled first because we only want to resize each
-    // window once
-    for event in window_resized_events.iter().rev() {
+
+    // Collect all unique window IDs of changed windows by inspecting created windows
+    for event in window_created_events.iter() {
         if changed_window_ids.contains(&event.id) {
             continue;
         }
@@ -327,9 +352,8 @@ pub fn camera_system<T: CameraProjection + Component>(
         changed_window_ids.push(event.id);
     }
 
-    // handle resize events. latest events are handled first because we only want to resize each
-    // window once
-    for event in window_created_events.iter().rev() {
+    // Collect all unique window IDs of changed windows by inspecting resized windows
+    for event in window_resized_events.iter() {
         if changed_window_ids.contains(&event.id) {
             continue;
         }
