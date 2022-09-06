@@ -436,7 +436,9 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     ) -> bool;
 }
 
-/// A helper trait for [`WorldQuery`] that works around Rust's lack of Generic Associated Types
+/// A helper trait for [`WorldQuery`] that works around Rust's lack of Generic Associated Types.
+///
+/// **Note**: Consider using the type aliases [`QueryItem`] and [`QueryFetch`] when using `Item` or `Fetch`.
 pub trait WorldQueryGats<'world> {
     type Item;
     type Fetch;
