@@ -128,6 +128,12 @@ impl<'w> EntityRef<'w> {
     }
 }
 
+impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
+    fn from(entity_mut: EntityMut<'w>) -> EntityRef<'w> {
+        EntityRef::new(entity_mut.world, entity_mut.entity, entity_mut.location)
+    }
+}
+
 /// A mutable reference to a particular [`Entity`] and all of its components
 pub struct EntityMut<'w> {
     world: &'w mut World,

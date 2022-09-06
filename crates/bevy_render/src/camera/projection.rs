@@ -38,6 +38,13 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
     }
 }
 
+/// Trait to control the projection matrix of a camera.
+///
+/// Components implementing this trait are automatically polled for changes, and used
+/// to recompute the camera projection matrix of the [`Camera`] component attached to
+/// the same entity as the component implementing this trait.
+///
+/// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);

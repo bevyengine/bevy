@@ -1,6 +1,6 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera, time::FixedTimestep};
+use bevy::{pbr::AmbientLight, prelude::*, time::FixedTimestep};
 use rand::{thread_rng, Rng};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
