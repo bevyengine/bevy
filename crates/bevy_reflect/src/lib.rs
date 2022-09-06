@@ -35,7 +35,7 @@ pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
+        reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
         ReflectSerialize, Struct, TupleStruct,
     };
 }
@@ -517,6 +517,29 @@ mod tests {
         let foo2: Box<dyn Reflect> = Box::new(foo.clone());
 
         assert_eq!(foo, *foo2.downcast::<Foo>().unwrap());
+    }
+
+    #[test]
+    fn should_drain_fields() {
+        let array_value: Box<dyn Array> = Box::new([123_i32, 321_i32]);
+        let fields = array_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let list_value: Box<dyn List> = Box::new(vec![123_i32, 321_i32]);
+        let fields = list_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let tuple_value: Box<dyn Tuple> = Box::new((123_i32, 321_i32));
+        let fields = tuple_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
+        let fields = map_value.drain();
+        assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());
     }
 
     #[test]

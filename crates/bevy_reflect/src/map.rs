@@ -42,6 +42,9 @@ pub trait Map: Reflect {
     /// Returns an iterator over the key-value pairs of the map.
     fn iter(&self) -> MapIter;
 
+    /// Drain the key-value pairs of this map to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>;
+
     /// Clones the map, producing a [`DynamicMap`].
     fn clone_dynamic(&self) -> DynamicMap;
 
@@ -225,6 +228,10 @@ impl Map for DynamicMap {
                 None
             }
         }
+    }
+
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+        self.values
     }
 }
 

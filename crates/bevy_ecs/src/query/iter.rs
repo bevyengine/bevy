@@ -214,6 +214,59 @@ where
 {
 }
 
+/// An iterator over `K`-sized combinations of query items without repetition.
+///
+/// In this context, a combination is an unordered subset of `K` elements.
+/// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`] (called `N`):
+/// - if `K = N`, only one combination exists,
+/// - if `K < N`, there are <sub>N</sub>C<sub>K</sub> combinations (see the [performance section] of `Query`),
+/// - if `K > N`, there are no combinations.
+///
+/// # Usage
+///
+/// This type is returned by calling [`Query::iter_combinations`] or [`Query::iter_combinations_mut`].
+///
+/// It implements [`Iterator`] only if it iterates over read-only query items ([learn more]).
+///
+/// In the case of mutable query items, it can be iterated by calling [`fetch_next`] in a `while let` loop.
+///
+/// # Examples
+///
+/// The following example shows how to traverse the iterator when the query items are read-only.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// fn some_system(query: Query<&ComponentA>) {
+///     for [a1, a2] in query.iter_combinations() {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// The following example shows how `fetch_next` should be called with a `while let` loop to traverse the iterator when the query items are mutable.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// fn some_system(mut query: Query<&mut ComponentA>) {
+///     let mut combinations = query.iter_combinations_mut();
+///     while let Some([a1, a2]) = combinations.fetch_next() {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// [`fetch_next`]: Self::fetch_next
+/// [learn more]: Self#impl-Iterator
+/// [performance section]: crate::system::Query#performance
+/// [`Query`]: crate::system::Query
+/// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
+/// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
 pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,

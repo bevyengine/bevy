@@ -110,15 +110,13 @@ impl Mesh {
         attribute: MeshVertexAttribute,
         values: impl Into<VertexAttributeValues>,
     ) {
-        let values: VertexAttributeValues = values.into();
-
+        let values = values.into();
         let values_format = VertexFormat::from(&values);
         if values_format != attribute.format {
-            error!(
-                "Invalid attribute format for {}. Given format is {:?} but expected {:?}",
+            panic!(
+                "Failed to insert attribute. Invalid attribute format for {}. Given format is {:?} but expected {:?}",
                 attribute.name, values_format, attribute.format
             );
-            panic!("Failed to insert attribute");
         }
 
         self.attributes
