@@ -55,14 +55,14 @@ impl FontAtlasSet {
         text_settings: &TextSettings,
     ) -> Result<GlyphAtlasInfo, TextError> {
         if !text_settings.allow_dynamic_font_size {
-            if self.font_atlases.len() >= text_settings.max_font_atlases {
+            if self.font_atlases.len() >= text_settings.max_font_atlases.get() {
                 return Err(TextError::ExceedMaxTextAtlases(
-                    text_settings.max_font_atlases,
+                    text_settings.max_font_atlases.get(),
                 ));
             }
         } else {
             // Clear last space in queue to make room for new font size
-            while self.queue.len() >= text_settings.max_font_atlases - 1 {
+            while self.queue.len() >= text_settings.max_font_atlases.get() - 1 {
                 if let Some(font_size_key) = self.queue.pop() {
                     self.font_atlases.remove(&font_size_key);
                 }

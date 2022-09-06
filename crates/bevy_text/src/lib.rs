@@ -32,17 +32,18 @@ use bevy_ecs::{entity::Entity, schedule::ParallelSystemDescriptorCoercion, syste
 use bevy_render::{RenderApp, RenderStage};
 use bevy_sprite::SpriteSystem;
 use bevy_window::ModifiesWindows;
+use std::num::NonZeroUsize;
 
 pub type DefaultTextPipeline = TextPipeline<Entity>;
 
 #[derive(Default)]
 pub struct TextPlugin;
 
-/// `TextPlugin` settings
+/// [`TextPlugin`] settings
 #[derive(Resource)]
 pub struct TextSettings {
-    /// Maximum number of font atlases supported in a FontAtlasSet
-    pub max_font_atlases: usize,
+    /// Maximum number of font atlases supported in a ['FontAtlasSet']
+    pub max_font_atlases: NonZeroUsize,
     /// Allows font size to be set dynamically exceeding the amount set in max_font_atlases.
     /// Note each font size has to be generated which can have a strong performance impact.
     pub allow_dynamic_font_size: bool,
@@ -51,7 +52,7 @@ pub struct TextSettings {
 impl Default for TextSettings {
     fn default() -> Self {
         Self {
-            max_font_atlases: 16,
+            max_font_atlases: NonZeroUsize::new(16).unwrap(),
             allow_dynamic_font_size: false,
         }
     }
@@ -62,6 +63,8 @@ impl Plugin for TextPlugin {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .register_type::<Text>()
+            .register_type::<TextSection>()
+            .register_type::<TextAlignment>()
             .register_type::<VerticalAlign>()
             .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
