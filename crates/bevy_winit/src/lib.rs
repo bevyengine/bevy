@@ -31,7 +31,7 @@ use bevy_window::{
 };
 
 use winit::{
-    dpi::{LogicalSize, PhysicalPosition},
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
@@ -149,7 +149,7 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
                     let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
                     window
-                        .set_cursor_position(winit::dpi::LogicalPosition::new(
+                        .set_cursor_position(LogicalPosition::new(
                             position.x,
                             inner_size.height - position.y,
                         ))
@@ -163,12 +163,26 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_minimized(minimized);
                 }
-                bevy_window::WindowCommand::SetPosition { position } => {
+                bevy_window::WindowCommand::SetPosition {
+                    monitor_selection,
+                    position,
+                } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_outer_position(PhysicalPosition {
-                        x: position[0],
-                        y: position[1],
-                    });
+
+                    use bevy_window::MonitorSelection::*;
+                    let maybe_monitor = match monitor_selection {
+                        Current => window.current_monitor(),
+                        Primary => window.primary_monitor(),
+                        Index(i) => window.available_monitors().nth(i),
+                    };
+                    if let Some(monitor) = maybe_monitor {
+                        let monitor_position = DVec2::from(<(_, _)>::from(monitor.position()));
+                        let position = monitor_position + position.as_dvec2();
+
+                        window.set_outer_position(LogicalPosition::new(position.x, position.y));
+                    } else {
+                        warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                    }
                 }
                 bevy_window::WindowCommand::Center(monitor_selection) => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -177,19 +191,20 @@ fn change_window(
                     let maybe_monitor = match monitor_selection {
                         Current => window.current_monitor(),
                         Primary => window.primary_monitor(),
-                        Number(n) => window.available_monitors().nth(n),
+                        Index(i) => window.available_monitors().nth(i),
                     };
 
                     if let Some(monitor) = maybe_monitor {
-                        let screen_size = monitor.size();
+                        let monitor_size = monitor.size();
+                        let monitor_position = monitor.position().cast::<f64>();
 
                         let window_size = window.outer_size();
 
                         window.set_outer_position(PhysicalPosition {
-                            x: screen_size.width.saturating_sub(window_size.width) as f64 / 2.
-                                + monitor.position().x as f64,
-                            y: screen_size.height.saturating_sub(window_size.height) as f64 / 2.
-                                + monitor.position().y as f64,
+                            x: monitor_size.width.saturating_sub(window_size.width) as f64 / 2.
+                                + monitor_position.x,
+                            y: monitor_size.height.saturating_sub(window_size.height) as f64 / 2.
+                                + monitor_position.y,
                         });
                     } else {
                         warn!("Couldn't get monitor selected with: {monitor_selection:?}");
@@ -578,12 +593,12 @@ pub fn winit_runner_with(mut app: App) {
                 }
             }
             event::Event::DeviceEvent {
-                event: DeviceEvent::MouseMotion { delta },
+                event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
                 let mut mouse_motion_events = app.world.resource_mut::<Events<MouseMotion>>();
                 mouse_motion_events.send(MouseMotion {
-                    delta: Vec2::new(delta.0 as f32, delta.1 as f32),
+                    delta: DVec2 { x, y }.as_vec2(),
                 });
             }
             event::Event::Suspended => {
