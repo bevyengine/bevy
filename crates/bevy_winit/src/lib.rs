@@ -48,9 +48,9 @@ impl Plugin for WinitPlugin {
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);
         let event_loop = EventLoop::new();
-        #[cfg(not(target_os = "android"))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
         let mut create_window_reader = WinitCreateWindowReader::default();
-        #[cfg(target_os = "android")]
+        #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
         let create_window_reader = WinitCreateWindowReader::default();
         // Note that we create a window here "early" because WASM/WebGL requires the window to exist prior to initializing
         // the renderer.
