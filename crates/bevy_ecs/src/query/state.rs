@@ -3,9 +3,7 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     prelude::FromWorld,
-    query::{
-        Access, Fetch, FetchState, FilteredAccess, QueryCombinationIter, QueryIter, WorldQuery,
-    },
+    query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, WorldQuery},
     storage::TableId,
     world::{World, WorldId},
 };
@@ -15,7 +13,7 @@ use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt};
 
-use super::{NopWorldQuery, QueryFetch, QueryItem, QueryManyIter, ROQueryItem};
+use super::{NopWorldQuery, QueryItem, QueryManyIter, ROQueryItem};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 #[repr(C)]
@@ -84,20 +82,17 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
-        let fetch_state = <Q::State as FetchState>::init(world);
-        let filter_state = <F::State as FetchState>::init(world);
+        let fetch_state = Q::init_state(world);
+        let filter_state = F::init_state(world);
 
         let mut component_access = FilteredAccess::default();
-        QueryFetch::<'static, Q>::update_component_access(&fetch_state, &mut component_access);
+        Q::update_component_access(&fetch_state, &mut component_access);
 
         // Use a temporary empty FilteredAccess for filters. This prevents them from conflicting with the
         // main Query's `fetch_state` access. Filters are allowed to conflict with the main query fetch
         // because they are evaluated *before* a specific reference is constructed.
         let mut filter_component_access = FilteredAccess::default();
-        QueryFetch::<'static, F>::update_component_access(
-            &filter_state,
-            &mut filter_component_access,
-        );
+        F::update_component_access(&filter_state, &mut filter_component_access);
 
         // Merge the temporary filter access with the main access. This ensures that filter access is
         // properly considered in a global "cross-query" context (both within systems and across systems).
@@ -160,19 +155,15 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
 
     /// Creates a new [`Archetype`].
     pub fn new_archetype(&mut self, archetype: &Archetype) {
-        if self
-            .fetch_state
-            .matches_component_set(&|id| archetype.contains(id))
-            && self
-                .filter_state
-                .matches_component_set(&|id| archetype.contains(id))
+        if Q::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
+            && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
         {
-            QueryFetch::<'static, Q>::update_archetype_component_access(
+            Q::update_archetype_component_access(
                 &self.fetch_state,
                 archetype,
                 &mut self.archetype_component_access,
             );
-            QueryFetch::<'static, F>::update_archetype_component_access(
+            F::update_archetype_component_access(
                 &self.filter_state,
                 archetype,
                 &mut self.archetype_component_access,
@@ -408,19 +399,23 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             return Err(QueryEntityError::QueryDoesNotMatch(entity));
         }
         let archetype = &world.archetypes[location.archetype_id];
-        let mut fetch =
-            <QueryFetch<Q> as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter = <QueryFetch<F> as Fetch>::init(
-            world,
-            &self.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
 
-        fetch.set_archetype(&self.fetch_state, archetype, &world.storages().tables);
-        filter.set_archetype(&self.filter_state, archetype, &world.storages().tables);
-        if filter.archetype_filter_fetch(location.index) {
-            Ok(fetch.archetype_fetch(location.index))
+        Q::set_archetype(
+            &mut fetch,
+            &self.fetch_state,
+            archetype,
+            &world.storages().tables,
+        );
+        F::set_archetype(
+            &mut filter,
+            &self.filter_state,
+            archetype,
+            &world.storages().tables,
+        );
+        if F::archetype_filter_fetch(&mut filter, location.index) {
+            Ok(Q::archetype_fetch(&mut fetch, location.index))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }
@@ -909,27 +904,21 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
-        let mut fetch =
-            <QueryFetch<Q> as Fetch>::init(world, &self.fetch_state, last_change_tick, change_tick);
-        let mut filter = <QueryFetch<F> as Fetch>::init(
-            world,
-            &self.filter_state,
-            last_change_tick,
-            change_tick,
-        );
+        let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
 
-        if <QueryFetch<'static, Q>>::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
+        if Q::IS_DENSE && F::IS_DENSE {
             let tables = &world.storages().tables;
             for table_id in &self.matched_table_ids {
                 let table = &tables[*table_id];
-                fetch.set_table(&self.fetch_state, table);
-                filter.set_table(&self.filter_state, table);
+                Q::set_table(&mut fetch, &self.fetch_state, table);
+                F::set_table(&mut filter, &self.filter_state, table);
 
                 for table_index in 0..table.len() {
-                    if !filter.table_filter_fetch(table_index) {
+                    if !F::table_filter_fetch(&mut filter, table_index) {
                         continue;
                     }
-                    let item = fetch.table_fetch(table_index);
+                    let item = Q::table_fetch(&mut fetch, table_index);
                     func(item);
                 }
             }
@@ -938,14 +927,14 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
             let tables = &world.storages().tables;
             for archetype_id in &self.matched_archetype_ids {
                 let archetype = &archetypes[*archetype_id];
-                fetch.set_archetype(&self.fetch_state, archetype, tables);
-                filter.set_archetype(&self.filter_state, archetype, tables);
+                Q::set_archetype(&mut fetch, &self.fetch_state, archetype, tables);
+                F::set_archetype(&mut filter, &self.filter_state, archetype, tables);
 
                 for archetype_index in 0..archetype.len() {
-                    if !filter.archetype_filter_fetch(archetype_index) {
+                    if !F::archetype_filter_fetch(&mut filter, archetype_index) {
                         continue;
                     }
-                    func(fetch.archetype_fetch(archetype_index));
+                    func(Q::archetype_fetch(&mut fetch, archetype_index));
                 }
             }
         }
@@ -979,7 +968,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
         ComputeTaskPool::get().scope(|scope| {
-            if <QueryFetch<'static, Q>>::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
+            if Q::IS_DENSE && F::IS_DENSE {
                 let tables = &world.storages().tables;
                 for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
@@ -988,13 +977,13 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                         let func = func.clone();
                         let len = batch_size.min(table.len() - offset);
                         let task = async move {
-                            let mut fetch = <QueryFetch<Q> as Fetch>::init(
+                            let mut fetch = Q::init_fetch(
                                 world,
                                 &self.fetch_state,
                                 last_change_tick,
                                 change_tick,
                             );
-                            let mut filter = <QueryFetch<F> as Fetch>::init(
+                            let mut filter = F::init_fetch(
                                 world,
                                 &self.filter_state,
                                 last_change_tick,
@@ -1002,13 +991,13 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             );
                             let tables = &world.storages().tables;
                             let table = &tables[*table_id];
-                            fetch.set_table(&self.fetch_state, table);
-                            filter.set_table(&self.filter_state, table);
+                            Q::set_table(&mut fetch, &self.fetch_state, table);
+                            F::set_table(&mut filter, &self.filter_state, table);
                             for table_index in offset..offset + len {
-                                if !filter.table_filter_fetch(table_index) {
+                                if !F::table_filter_fetch(&mut filter, table_index) {
                                     continue;
                                 }
-                                let item = fetch.table_fetch(table_index);
+                                let item = Q::table_fetch(&mut fetch, table_index);
                                 func(item);
                             }
                         };
@@ -1034,13 +1023,13 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                         let func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
                         let task = async move {
-                            let mut fetch = <QueryFetch<Q> as Fetch>::init(
+                            let mut fetch = Q::init_fetch(
                                 world,
                                 &self.fetch_state,
                                 last_change_tick,
                                 change_tick,
                             );
-                            let mut filter = <QueryFetch<F> as Fetch>::init(
+                            let mut filter = F::init_fetch(
                                 world,
                                 &self.filter_state,
                                 last_change_tick,
@@ -1048,14 +1037,14 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
                             );
                             let tables = &world.storages().tables;
                             let archetype = &world.archetypes[*archetype_id];
-                            fetch.set_archetype(&self.fetch_state, archetype, tables);
-                            filter.set_archetype(&self.filter_state, archetype, tables);
+                            Q::set_archetype(&mut fetch, &self.fetch_state, archetype, tables);
+                            F::set_archetype(&mut filter, &self.filter_state, archetype, tables);
 
                             for archetype_index in offset..offset + len {
-                                if !filter.archetype_filter_fetch(archetype_index) {
+                                if !F::archetype_filter_fetch(&mut filter, archetype_index) {
                                     continue;
                                 }
-                                func(fetch.archetype_fetch(archetype_index));
+                                func(Q::archetype_fetch(&mut fetch, archetype_index));
                             }
                         };
 

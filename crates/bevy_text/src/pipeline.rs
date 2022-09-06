@@ -1,6 +1,7 @@
 use ab_glyph::{PxScale, ScaleFont};
 use bevy_asset::{Assets, Handle, HandleId};
 use bevy_ecs::component::Component;
+use bevy_ecs::system::Resource;
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
@@ -13,7 +14,7 @@ use crate::{
     TextAlignment, TextSection,
 };
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct TextPipeline {
     brush: GlyphBrush,
     map_font_id: HashMap<HandleId, FontId>,

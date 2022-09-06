@@ -149,8 +149,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
-            ) -> Vec<#ecs_path::component::ComponentId> {
-                let mut component_ids = Vec::with_capacity(#field_len);
+            ) -> ::std::vec::Vec<#ecs_path::component::ComponentId> {
+                let mut component_ids = ::std::vec::Vec::with_capacity(#field_len);
                 #(#field_component_ids)*
                 component_ids
             }
@@ -494,6 +494,11 @@ pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_ecs")
+}
+
+#[proc_macro_derive(Resource)]
+pub fn derive_resource(input: TokenStream) -> TokenStream {
+    component::derive_resource(input)
 }
 
 #[proc_macro_derive(Component, attributes(component))]

@@ -1,12 +1,13 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_time::Time;
 
 /// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;
 
+#[derive(Resource)]
 pub struct FrameTimeDiagnosticsState {
     frame_count: u64,
 }
@@ -27,7 +28,7 @@ impl FrameTimeDiagnosticsPlugin {
         DiagnosticId::from_u128(73441630925388532774622109383099159699);
 
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
-        diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20).with_suffix("s"));
+        diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20).with_suffix("ms"));
         diagnostics.add(Diagnostic::new(Self::FPS, "fps", 20));
         diagnostics.add(Diagnostic::new(Self::FRAME_COUNT, "frame_count", 1));
     }
@@ -46,7 +47,7 @@ impl FrameTimeDiagnosticsPlugin {
             return;
         }
 
-        diagnostics.add_measurement(Self::FRAME_TIME, || time.delta_seconds_f64());
+        diagnostics.add_measurement(Self::FRAME_TIME, || time.delta_seconds_f64() * 1000.);
 
         diagnostics.add_measurement(Self::FPS, || 1.0 / time.delta_seconds_f64());
     }

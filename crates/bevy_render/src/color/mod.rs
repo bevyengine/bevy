@@ -379,6 +379,7 @@ impl Color {
     }
 
     /// Get alpha.
+    #[inline(always)]
     pub fn a(&self) -> f32 {
         match self {
             Color::Rgba { alpha, .. }
@@ -744,7 +745,7 @@ impl AddAssign<Color> for Color {
                 lightness,
                 alpha,
             } => {
-                let rhs = rhs.as_linear_rgba_f32();
+                let rhs = rhs.as_hsla_f32();
                 *hue += rhs[0];
                 *saturation += rhs[1];
                 *lightness += rhs[2];
@@ -793,7 +794,7 @@ impl Add<Color> for Color {
                 lightness,
                 alpha,
             } => {
-                let rhs = rhs.as_linear_rgba_f32();
+                let rhs = rhs.as_hsla_f32();
                 Color::Hsla {
                     hue: hue + rhs[0],
                     saturation: saturation + rhs[1],

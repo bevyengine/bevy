@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Size, Style, Val};
+use crate::{CalculatedSize, Size, Style, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -9,7 +9,7 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{Font, FontAtlasSet, Text, TextError, TextLayoutInfo, TextPipeline};
-use bevy_window::{WindowId, Windows};
+use bevy_window::Windows;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -44,6 +44,7 @@ pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
+    ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -58,7 +59,13 @@ pub fn text_system(
         )>,
     )>,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary());
+    // TODO: This should support window-independent scale settings.
+    // See https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = if let Some(window) = windows.get_primary() {
+        window.scale_factor() * ui_scale.scale
+    } else {
+        ui_scale.scale
+    };
 
     let inv_scale_factor = 1. / scale_factor;
 

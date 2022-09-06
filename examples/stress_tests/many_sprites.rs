@@ -9,9 +9,7 @@
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::Quat,
     prelude::*,
-    render::camera::Camera,
     window::PresentMode,
 };
 
@@ -21,6 +19,7 @@ const CAMERA_SPEED: f32 = 1000.0;
 
 const COLORS: [Color; 3] = [Color::BLUE, Color::WHITE, Color::RED];
 
+#[derive(Resource)]
 struct ColorTint(bool);
 
 fn main() {

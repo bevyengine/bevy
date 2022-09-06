@@ -1,8 +1,11 @@
+use bevy_ecs::system::Resource;
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
+#[reflect_value(PartialEq, Hash)]
 /// A unique ID for a [`Window`].
 pub struct WindowId(Uuid);
 
@@ -775,7 +778,7 @@ pub enum MonitorSelection {
 /// See [`examples/window/window_settings.rs`] for usage.
 ///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Debug, Clone)]
+#[derive(Resource, Debug, Clone)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     ///

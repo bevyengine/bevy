@@ -6,7 +6,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::{
     event::Events,
     schedule::SystemLabel,
-    system::{NonSendMut, Res, ResMut, SystemState},
+    system::{NonSendMut, Res, ResMut, Resource, SystemState},
 };
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;
@@ -52,6 +52,7 @@ pub struct DebugAssetServerPlugin;
 
 /// A collection that maps internal assets in a [`DebugAssetApp`]'s asset server to their mirrors in
 /// the main [`App`].
+#[derive(Resource)]
 pub struct HandleMap<T: Asset> {
     /// The collection of asset handles.
     pub handles: HashMap<Handle<T>, Handle<T>>,
