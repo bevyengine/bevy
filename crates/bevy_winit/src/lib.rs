@@ -18,7 +18,7 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
 };
-use bevy_math::{ivec2, DVec2, IVec2, UVec2, Vec2};
+use bevy_math::{ivec2, DVec2, UVec2, Vec2};
 use bevy_utils::{
     tracing::{error, info, trace, warn},
     Instant,
@@ -164,10 +164,25 @@ fn change_window(
                     window.set_minimized(minimized);
                 }
                 bevy_window::WindowCommand::SetPosition {
-                    position: IVec2 { x, y },
+                    monitor_selection,
+                    position,
                 } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_outer_position(PhysicalPosition { x, y });
+
+                    use bevy_window::MonitorSelection::*;
+                    let maybe_monitor = match monitor_selection {
+                        Current => window.current_monitor(),
+                        Primary => window.primary_monitor(),
+                        Index(i) => window.available_monitors().nth(i),
+                    };
+                    if let Some(monitor) = maybe_monitor {
+                        let monitor_position = DVec2::from(<(_, _)>::from(monitor.position()));
+                        let position = monitor_position + position.as_dvec2();
+
+                        window.set_outer_position(LogicalPosition::new(position.x, position.y));
+                    } else {
+                        warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                    }
                 }
                 bevy_window::WindowCommand::Center(monitor_selection) => {
                     let window = winit_windows.get_window(id).unwrap();
