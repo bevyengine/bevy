@@ -10,7 +10,11 @@ use crate::{
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
-use bevy_utils::{default, tracing::error, Entry, HashMap, HashSet};
+use bevy_utils::{
+    default,
+    tracing::{debug, error},
+    Entry, HashMap, HashSet,
+};
 use naga::valid::Capabilities;
 use std::{hash::Hash, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
