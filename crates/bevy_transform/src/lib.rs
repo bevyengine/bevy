@@ -46,6 +46,12 @@ pub struct TransformBundle {
 }
 
 impl TransformBundle {
+    /// An identity [`TransformBundle`] with no translation, rotation, and a scale of 1 on all axes.
+    pub const IDENTITY: Self = TransformBundle {
+        local: Transform::IDENTITY,
+        global: GlobalTransform::IDENTITY,
+    };
+
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
@@ -54,18 +60,7 @@ impl TransformBundle {
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {
             local: transform,
-            // Note: `..Default::default()` cannot be used here, because it isn't const
-            ..Self::identity()
-        }
-    }
-
-    /// Creates a new identity [`TransformBundle`], with no translation, rotation, and a scale of 1
-    /// on all axes.
-    #[inline]
-    pub const fn identity() -> Self {
-        TransformBundle {
-            local: Transform::identity(),
-            global: GlobalTransform::identity(),
+            ..Self::IDENTITY
         }
     }
 }

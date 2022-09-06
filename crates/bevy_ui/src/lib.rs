@@ -22,11 +22,14 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction};
+    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::{
+    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
+    system::Resource,
+};
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
@@ -47,10 +50,27 @@ pub enum UiSystem {
     Focus,
 }
 
+/// The current scale of the UI.
+///
+/// A multiplier to fixed-sized ui values.
+/// **Note:** This will only affect fixed ui values like [`Val::Px`]
+#[derive(Debug, Resource)]
+pub struct UiScale {
+    /// The scale to be applied.
+    pub scale: f64,
+}
+
+impl Default for UiScale {
+    fn default() -> Self {
+        Self { scale: 1.0 }
+    }
+}
+
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<FlexSurface>()
+            .init_resource::<UiScale>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()

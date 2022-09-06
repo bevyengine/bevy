@@ -3,6 +3,8 @@
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
 
+use std::f32::consts::PI;
+
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     prelude::*,
@@ -62,12 +64,12 @@ fn star(
     // These vertices are specified in 3D space.
     let mut v_pos = vec![[0.0, 0.0, 0.0]];
     for i in 0..10 {
-        // Angle of each vertex is 1/10 of TAU, plus PI/2 for positioning vertex 0
-        let a = std::f32::consts::FRAC_PI_2 - i as f32 * std::f32::consts::TAU / 10.0;
-        // Radius of internal vertices (2, 4, 6, 8, 10) is 100, it's 200 for external
+        // The angle between each vertex is 1/10 of a full rotation.
+        let a = i as f32 * PI / 5.0;
+        // The radius of inner vertices (even indices) is 100. For outer vertices (odd indices) it's 200.
         let r = (1 - i % 2) as f32 * 100.0 + 100.0;
-        // Add the vertex coordinates
-        v_pos.push([r * a.cos(), r * a.sin(), 0.0]);
+        // Add the vertex position.
+        v_pos.push([r * a.sin(), r * a.cos(), 0.0]);
     }
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);

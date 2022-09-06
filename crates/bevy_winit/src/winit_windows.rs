@@ -66,7 +66,7 @@ impl WinitWindows {
                         if let Some(monitor) = maybe_monitor {
                             let screen_size = monitor.size();
 
-                            let scale_factor = scale_factor_override.unwrap_or(1.0);
+                            let scale_factor = monitor.scale_factor();
 
                             // Logical to physical window size
                             let (width, height): (u32, u32) = LogicalSize::new(*width, *height)
@@ -264,9 +264,3 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
 
     modes.first().unwrap().clone()
 }
-
-// WARNING: this only works under the assumption that wasm runtime is single threaded
-#[cfg(target_arch = "wasm32")]
-unsafe impl Send for WinitWindows {}
-#[cfg(target_arch = "wasm32")]
-unsafe impl Sync for WinitWindows {}
