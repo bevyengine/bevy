@@ -10,7 +10,7 @@ fn main() {
 mod prune_test {
 
     use bevy::{
-        core_pipeline::core_3d::{AlphaMask3d, Opaque3d},
+        core_pipeline::core_3d::AlphaMask3d,
         pbr::queue_material_meshes,
         prelude::*,
         render::{
@@ -94,22 +94,18 @@ mod prune_test {
                             .iter()
                             .find(|ep| ep.name.as_str() == "fragment")
                             .unwrap();
-                        let vertex_entrypoint = vertex_module
+                        let _vertex_entrypoint = vertex_module
                             .entry_points
                             .iter()
                             .find(|ep| ep.name.as_str() == "vertex")
                             .unwrap();
 
-                        let mut frag_req = Pruner::default();
-                        let frag_inputs = frag_req.add_entrypoint(
-                            &fragment_module,
-                            frag_entrypoint,
-                            Default::default(),
-                            None,
-                        );
+                        let mut frag_req = Pruner::new(&fragment_module);
+                        let frag_inputs =
+                            frag_req.add_entrypoint(frag_entrypoint, Default::default(), None);
                         println!("{:#?}", frag_inputs);
 
-                        let rewritten_shader = frag_req.rewrite(&fragment_module);
+                        let rewritten_shader = frag_req.rewrite();
                         println!("{:#?}", rewritten_shader);
 
                         let info = naga::valid::Validator::new(

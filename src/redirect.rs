@@ -39,7 +39,7 @@ impl Redirector {
             .collect()
     }
 
-    pub fn set_group_bindings(&mut self, group: u32, bindings: HashMap<&String, u32>) {
+    pub fn set_group_bindings(&mut self, group: u32, bindings: &HashMap<&String, u32>) {
         for (_, var) in self.module.global_variables.iter_mut() {
             if let Some(ResourceBinding {
                 group: var_group,
@@ -164,7 +164,7 @@ impl Redirector {
             }
         }
 
-        for ep in self.module.entry_points.iter_mut() {
+        for ep in &mut self.module.entry_points {
             Self::redirect_fn(&mut ep.function, h_original, h_replacement);
         }
 
@@ -233,7 +233,7 @@ impl Redirector {
             });
 
             // remove things we added from requirements
-            for (_, reqs) in requirements.iter_mut() {
+            for (_, reqs) in &mut requirements {
                 reqs.retain(|req| !added.contains(req));
             }
 

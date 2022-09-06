@@ -25,3 +25,4 @@ serde_json = { version = "1", optional = true }
 # bevy = { git = "https://github.com/robtfm/bevy", branch="expose_processed_shaders"}
 wgpu = { version = "0.13", features=["naga"] }
 futures-lite = "1"
+tracing-subscriber = { version = "0.3", features = ["std", "fmt"] }

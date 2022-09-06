@@ -50,7 +50,7 @@ pub fn copy_type(t: &naga::Type) -> naga::Type {
                 stride: *stride,
             },
             naga::TypeInner::Struct { members, span } => naga::TypeInner::Struct {
-                members: members.to_vec(),
+                members: members.clone(),
                 span: *span,
             },
             naga::TypeInner::Image {
@@ -84,7 +84,7 @@ pub fn clone_const(c: &Constant) -> Constant {
 pub fn copy_func(f: &Function) -> Function {
     Function {
         name: f.name.clone(),
-        arguments: f.arguments.to_vec(),
+        arguments: f.arguments.clone(),
         result: f.result.clone(),
         local_variables: clone_arena(&f.local_variables, Clone::clone),
         expressions: clone_arena(&f.expressions, Clone::clone),
@@ -121,7 +121,7 @@ pub fn clone_module(module: &Module) -> Module {
             early_depth_test: ep.early_depth_test,
             workgroup_size: ep.workgroup_size,
             function: copy_func(&ep.function),
-        })
+        });
     }
 
     Module {

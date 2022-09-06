@@ -1,7 +1,7 @@
 Naga Organised Integration Library (`naga-oil`) is a crate for combining and manipulating shaders.
 
 - `compose` presents a modular shader composition framework
-- `purge` strips shaders down to required parts
+- `prune` strips shaders down to required parts
 
 and probably less useful externally:
 - `derive` allows importing of items from multiple shaders into a single shader
@@ -113,7 +113,7 @@ fn get_number() -> f32 {
 
 codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
 
-# purge
+# prune
 
 - strips dead code and bindings from shaders based on specified required output. intended to be used for building reduced depth and/or normal shaders from arbitrary vertex/fragment shaders.
 

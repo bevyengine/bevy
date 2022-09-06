@@ -4,73 +4,13 @@ use naga::{
     SwitchCase, Type, UniqueArena,
 };
 use std::collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque};
-use tracing::{debug, info};
+use tracing::{debug, trace};
 
 use crate::{derive::DerivedModule, util::serde_range};
+pub use naga::{Binding, BuiltIn};
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use naga::{
-        back::wgsl::WriterFlags,
-        valid::{Capabilities, ValidationFlags},
-    };
-
-    #[test]
-    fn it_works() {
-        let shader_src = include_str!("tests/test.wgsl");
-        let shader = naga::front::wgsl::parse_str(shader_src).unwrap();
-        println!("{:#?}", shader);
-
-        let info = naga::valid::Validator::new(ValidationFlags::all(), Capabilities::default())
-            .validate(&shader)
-            .unwrap();
-        let text =
-            naga::back::wgsl::write_string(&shader, &info, WriterFlags::EXPLICIT_TYPES).unwrap();
-        println!("\n\nbase wgsl:\n{}", text);
-
-        let mut modreq = Pruner::default();
-        let func = shader
-            .functions
-            .fetch_if(|f| f.name == Some("test".to_string()))
-            .unwrap();
-        let input_req = modreq.add_function(
-            &shader,
-            func,
-            Default::default(),
-            Some(PartReq::Part([(0, PartReq::All)].into())),
-        );
-
-        println!("\n\ninput_req:\n{:#?}", input_req);
-        println!("\n\nmodreq:\n{:#?}", modreq);
-
-        let rewritten_shader = modreq.rewrite(&shader);
-
-        println!("\n\nrewritten_shader:\n{:#?}", rewritten_shader);
-
-        let info = naga::valid::Validator::new(ValidationFlags::all(), Capabilities::default())
-            .validate(&rewritten_shader)
-            .unwrap();
-        let text =
-            naga::back::wgsl::write_string(&rewritten_shader, &info, WriterFlags::EXPLICIT_TYPES)
-                .unwrap();
-        println!("\n\nwgsl:\n{}", text);
-    }
-
-    #[test]
-    fn imports() {
-        let shader_src = include_str!("tests/import.wgsl");
-        let shader = naga::front::wgsl::parse_str(shader_src).unwrap();
-        println!("{:#?}", shader);
-
-        let info = naga::valid::Validator::new(ValidationFlags::all(), Capabilities::default())
-            .validate(&shader)
-            .unwrap();
-        let text =
-            naga::back::wgsl::write_string(&shader, &info, WriterFlags::EXPLICIT_TYPES).unwrap();
-        println!("{}", text);
-    }
-}
+mod test;
 
 #[derive(Debug, Clone)]
 struct FunctionReq {
@@ -118,7 +58,7 @@ impl FunctionReq {
         }
 
         let mut named_expressions = std::collections::HashMap::default();
-        for (h_expr, name) in func.named_expressions.iter() {
+        for (h_expr, name) in &func.named_expressions {
             if let Some(new_h) = expr_map.get(h_expr) {
                 named_expressions.insert(*new_h, name.clone());
             }
@@ -350,9 +290,6 @@ impl FunctionReq {
                 }
 
                 let expr_values: Vec<_> = exprs.iter().map(|h| h.index() as u32).collect();
-                let check_values: Vec<_> =
-                    (expr_values[0]..expr_values[expr_values.len() - 1] + 1).collect();
-                assert_eq!(expr_values, check_values);
 
                 let range = serde_range(&(expr_values[0]..expr_values[expr_values.len() - 1] + 1));
                 Some(Statement::Emit(range))
@@ -727,6 +664,92 @@ pub enum PartReq {
 }
 
 impl PartReq {
+    fn get_type_bindings(&self, module: &Module, ty: Handle<Type>) -> HashSet<naga::Binding> {
+        let ty = module.types.get_handle(ty).unwrap();
+
+        match &ty.inner {
+            naga::TypeInner::Struct { members, .. } => {
+                let mut res = HashSet::default();
+                for (i, member) in members.iter().enumerate() {
+                    if let Some(part) = self.get_subpart(i) {
+                        if !matches!(part, PartReq::Exist) {
+                            if let Some(binding) = &member.binding {
+                                res.insert(binding.clone());
+                            }
+
+                            res.extend(part.get_type_bindings(module, member.ty));
+                        }
+                    }
+                }
+                res
+            }
+            naga::TypeInner::Pointer { base, .. }
+            | naga::TypeInner::Array { base, .. }
+            | naga::TypeInner::BindingArray { base, .. } => self.get_type_bindings(module, *base),
+            _ => Default::default(),
+        }
+    }
+
+    fn from_type_bindings(
+        module: &Module,
+        required_bindings: &HashSet<naga::Binding>,
+        ty: Handle<Type>,
+    ) -> Option<Self> {
+        trace!("from_type_bindings");
+
+        let ty = module.types.get_handle(ty).unwrap();
+
+        debug!("type: {:?}, required: {:?}", ty, required_bindings);
+
+        match &ty.inner {
+            naga::TypeInner::Struct { members, .. } => {
+                let mut parts = BTreeMap::default();
+
+                for (i, member) in members.iter().enumerate() {
+                    if let Some(binding) = &member.binding {
+                        if required_bindings.contains(binding) {
+                            parts.insert(i, PartReq::All);
+                        }
+                    } else if let Some(part) =
+                        Self::from_type_bindings(module, required_bindings, member.ty)
+                    {
+                        parts.insert(i, part);
+                    }
+                }
+
+                if parts.is_empty() {
+                    return None;
+                }
+
+                Some(PartReq::Part(parts))
+            }
+            _ => None,
+        }
+    }
+}
+
+impl PartReq {
+    fn from_indexes(mut indexes: Vec<u32>) -> Self {
+        if indexes.is_empty() {
+            PartReq::All
+        } else {
+            let index = indexes.pop().unwrap();
+            PartReq::Part(
+                [(index as usize, Self::from_indexes(indexes))]
+                    .into_iter()
+                    .collect(),
+            )
+        }
+    }
+
+    fn get_subpart(&self, i: usize) -> Option<&PartReq> {
+        match self {
+            PartReq::All => Some(self),
+            PartReq::Part(parts) => parts.get(&i),
+            PartReq::Exist => None,
+        }
+    }
+
     fn contains(&self, other: &PartReq) -> bool {
         match (self, other) {
             (PartReq::All, _) => true,
@@ -736,10 +759,9 @@ impl PartReq {
 
             (PartReq::Part(current), PartReq::Part(new)) => {
                 return new.iter().all(|(index, other_subpart)| {
-                    current
-                        .get(index)
-                        .map(|current_subpart| current_subpart.contains(other_subpart))
-                        .unwrap_or(false)
+                    current.get(index).map_or(false, |current_subpart| {
+                        current_subpart.contains(other_subpart)
+                    })
                 });
             }
         }
@@ -755,7 +777,7 @@ impl PartReq {
 
                 for (index, other_subpart) in b.iter() {
                     if let Some(current_subpart) = merger.get_mut(index) {
-                        *current_subpart = current_subpart.add(other_subpart)
+                        *current_subpart = current_subpart.add(other_subpart);
                     } else {
                         merger.insert(*index, other_subpart.clone());
                     }
@@ -771,7 +793,6 @@ impl PartReq {
     ) -> (PartReq, Option<Vec<Handle<Type>>>) {
         let ty = types.get_handle(ty).unwrap();
         match &ty.inner {
-            naga::TypeInner::Scalar { .. } => (PartReq::All, None),
             naga::TypeInner::Vector { size, .. } => (PartReq::Part((0..*size as usize).map(|i| (i, PartReq::All)).collect()), None),
             naga::TypeInner::Matrix { columns, rows, .. } => {(
                 PartReq::Part((0..*columns as usize).map(|c| (c, PartReq::Part((0..*rows as usize).map(|r| (r, PartReq::All)).collect()))).collect()),
@@ -783,6 +804,7 @@ impl PartReq {
             )},
             _ => (PartReq::All, None)
             // todo: we can probably do better for some of these ...
+            // naga::TypeInner::Scalar { .. } => todo!(),
             // naga::TypeInner::Atomic { kind, width } => todo!(),
             // naga::TypeInner::Pointer { base, space } => todo!(),
             // naga::TypeInner::ValuePointer { size, kind, width, space } => todo!(),
@@ -844,12 +866,95 @@ pub struct RequiredContext {
 }
 
 impl RequiredContext {
+    pub fn globals_for_module(&self, module: &Module) {
+        for (global, req) in &self.globals {
+            let gv = module.global_variables.try_get(*global).unwrap();
+            println!("{}: {:?}", gv.name.as_ref().unwrap(), req);
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.globals.is_empty()
+            && self.locals.is_empty()
+            && self.args.iter().all(Option::is_none)
+            && self.retval.is_none()
+    }
+
+    /// map the required input context of the input module/function to create required output context for the output module/function.
+    /// typically input module/function will be a fragment shader, and output module/function will be a vertex shader.
+    pub fn input_to_bindings(
+        &self,
+        input_module: &Module,
+        input_function: &Function,
+    ) -> HashSet<Binding> {
+        let mut required_bindings: HashSet<naga::Binding> = HashSet::default();
+
+        for (arg_req, arg) in self.args.iter().zip(&input_function.arguments) {
+            if let Some(arg_req) = arg_req {
+                if matches!(arg_req, PartReq::Exist) {
+                    continue;
+                }
+
+                if let Some(binding) = &arg.binding {
+                    assert_eq!(arg_req, &PartReq::All);
+                    required_bindings.insert(binding.clone());
+                }
+
+                required_bindings.extend(arg_req.get_type_bindings(input_module, arg.ty));
+            }
+        }
+
+        required_bindings
+    }
+
+    pub fn output_from_bindings(
+        required_bindings: &HashSet<Binding>,
+        output_module: &Module,
+        output_function: &Function,
+    ) -> RequiredContext {
+        let retval = output_function.result.as_ref().and_then(|result| {
+            if let Some(binding) = &result.binding {
+                if required_bindings.contains(binding) {
+                    Some(PartReq::All)
+                } else {
+                    None
+                }
+            } else {
+                PartReq::from_type_bindings(output_module, required_bindings, result.ty)
+            }
+        });
+
+        RequiredContext {
+            retval,
+            ..Default::default()
+        }
+    }
+
+    pub fn add_binding(
+        &mut self,
+        required_binding: Binding,
+        output_module: &naga::Module,
+        output_function: &Function,
+    ) {
+        let required_bindings = HashSet::from([required_binding]);
+
+        let RequiredContext { retval, .. } =
+            Self::output_from_bindings(&required_bindings, output_module, output_function);
+
+        let final_retval = match (self.retval.take(), retval) {
+            (Some(existing), Some(new)) => Some(existing.add(&new)),
+            (Some(existing), None) => Some(existing),
+            (None, new) => new,
+        };
+
+        self.retval = final_retval;
+    }
+
     fn contains(&self, other: &RequiredContext) -> bool {
         if !other.globals.iter().all(|(gv, new_req)| {
             self.globals
                 .get(gv)
-                .map(|current_req| current_req.contains(new_req))
-                .unwrap_or(false)
+                .map_or(false, |current_req| current_req.contains(new_req))
         }) {
             return false;
         }
@@ -857,8 +962,7 @@ impl RequiredContext {
         if !other.locals.iter().all(|(lv, new_req)| {
             self.locals
                 .get(lv)
-                .map(|current_req| current_req.contains(new_req))
-                .unwrap_or(false)
+                .map_or(false, |current_req| current_req.contains(new_req))
         }) {
             return false;
         }
@@ -884,7 +988,7 @@ impl RequiredContext {
 
     fn merge(&self, other: &RequiredContext) -> RequiredContext {
         let mut globals = self.globals.clone();
-        for (gv, new_req) in other.globals.iter() {
+        for (gv, new_req) in &other.globals {
             if let Some(cur_req) = globals.get_mut(gv) {
                 *cur_req = cur_req.add(new_req);
             } else {
@@ -893,7 +997,7 @@ impl RequiredContext {
         }
 
         let mut locals = self.locals.clone();
-        for (lv, new_req) in other.locals.iter() {
+        for (lv, new_req) in &other.locals {
             if let Some(cur_req) = locals.get_mut(lv) {
                 *cur_req = cur_req.add(new_req);
             } else {
@@ -939,8 +1043,9 @@ impl RequiredContext {
     }
 }
 
-#[derive(Default, Debug)]
-pub struct Pruner {
+#[derive(Debug)]
+pub struct Pruner<'a> {
+    module: &'a Module,
     types: HashSet<Handle<Type>>,
     entry_points: HashMap<String, FunctionReq>,
     functions: HashMap<Handle<Function>, FunctionReq>,
@@ -960,7 +1065,18 @@ struct VarRefPart {
     part: PartReq,
 }
 
-impl Pruner {
+impl<'a> Pruner<'a> {
+    pub fn new(module: &'a Module) -> Self {
+        Self {
+            module,
+            types: Default::default(),
+            entry_points: Default::default(),
+            functions: Default::default(),
+            globals: Default::default(),
+            constants: Default::default(),
+        }
+    }
+
     // returns what subpath of the var ref is required
     fn store_required(&self, context: &RequiredContext, var_ref: &VarRefPart) -> Option<PartReq> {
         let var_parts_required = match var_ref.var_ref {
@@ -991,27 +1107,28 @@ impl Pruner {
         check_part(var_parts_required, &var_ref.part)
     }
 
-    fn resolve_var(function: &Function, h_expr: &Handle<Expression>) -> VarRefPart {
-        let expr = function.expressions.try_get(*h_expr).unwrap();
+    fn resolve_var(
+        function: &Function,
+        h_expr: Handle<Expression>,
+        mut indexes: Vec<u32>,
+    ) -> VarRefPart {
+        let expr = function.expressions.try_get(h_expr).unwrap();
         match expr {
             Expression::Access { base, .. } => {
                 // dynamic access force requires everything below it
-                let mut res = Self::resolve_var(function, base);
-                res.part = PartReq::All;
-                res
+                Self::resolve_var(function, *base, Vec::default())
             }
             Expression::AccessIndex { base, index } => {
-                let mut res = Self::resolve_var(function, base);
-                res.part = PartReq::Part([(*index as usize, res.part)].into_iter().collect());
-                res
+                indexes.push(*index);
+                Self::resolve_var(function, *base, indexes)
             }
             Expression::GlobalVariable(gv) => VarRefPart {
                 var_ref: VarRef::Global(*gv),
-                part: PartReq::All,
+                part: PartReq::from_indexes(indexes),
             },
             Expression::LocalVariable(lv) => VarRefPart {
                 var_ref: VarRef::Local(*lv),
-                part: PartReq::All,
+                part: PartReq::from_indexes(indexes),
             },
             _ => panic!("unexpected expr {:?} as var::pointer", expr),
         }
@@ -1019,39 +1136,37 @@ impl Pruner {
 
     fn add_expression(
         &mut self,
-        shader: &Module,
         function: &Function,
         func_req: &mut FunctionReq,
         context: &mut RequiredContext,
-        h_expr: &Handle<Expression>,
+        h_expr: Handle<Expression>,
         part: &PartReq,
     ) {
-        let expr = function.expressions.try_get(*h_expr).unwrap();
+        let expr = function.expressions.try_get(h_expr).unwrap();
 
-        info!(
+        debug!(
             "EXPR: adding {:?} of expr id {:?} - {:?}",
             part, h_expr, expr
         );
 
         match expr {
             Expression::AccessIndex { base, index } => self.add_expression(
-                shader,
                 function,
                 func_req,
                 context,
-                base,
-                &PartReq::Part([(*index as usize, PartReq::All)].into()),
+                *base,
+                &PartReq::Part([(*index as usize, part.clone())].into()),
             ),
             Expression::Access { base, index } => {
-                self.add_expression(shader, function, func_req, context, base, &PartReq::All);
-                self.add_expression(shader, function, func_req, context, index, &PartReq::All);
+                self.add_expression(function, func_req, context, *base, &PartReq::All);
+                self.add_expression(function, func_req, context, *index, &PartReq::All);
             }
             Expression::Constant(c) => {
                 self.constants.insert(*c);
                 assert!(part == &PartReq::All || part == &PartReq::Exist);
             }
             Expression::Splat { size: _size, value } => {
-                self.add_expression(shader, function, func_req, context, value, &PartReq::All);
+                self.add_expression(function, func_req, context, *value, &PartReq::All);
             }
             Expression::Swizzle {
                 size: _size,
@@ -1072,7 +1187,7 @@ impl Pruner {
                     }
                 };
 
-                self.add_expression(shader, function, func_req, context, vector, &swizzled_req);
+                self.add_expression(function, func_req, context, *vector, &swizzled_req);
             }
             Expression::Compose {
                 ty: _ty,
@@ -1080,22 +1195,13 @@ impl Pruner {
             } => match part {
                 PartReq::All => {
                     for component in components {
-                        self.add_expression(
-                            shader,
-                            function,
-                            func_req,
-                            context,
-                            component,
-                            &PartReq::All,
-                        )
+                        self.add_expression(function, func_req, context, *component, &PartReq::All);
                     }
                 }
                 PartReq::Part(parts) => {
                     for (index, subreq) in parts {
                         let component = components[*index];
-                        self.add_expression(
-                            shader, function, func_req, context, &component, subreq,
-                        );
+                        self.add_expression(function, func_req, context, component, subreq);
                     }
                 }
                 PartReq::Exist => (),
@@ -1113,7 +1219,7 @@ impl Pruner {
                 match entry {
                     Entry::Occupied(mut cur) => *cur.get_mut() = cur.get().add(part),
                     Entry::Vacant(_) => {
-                        let ty = shader.global_variables.try_get(*gv).unwrap().ty;
+                        let ty = self.module.global_variables.try_get(*gv).unwrap().ty;
                         self.types.insert(ty);
                         self.globals.insert(*gv, part.clone());
                         context.globals.insert(*gv, part.clone());
@@ -1136,7 +1242,7 @@ impl Pruner {
                 }
             }
             Expression::Load { pointer } => {
-                self.add_expression(shader, function, func_req, context, pointer, part);
+                self.add_expression(function, func_req, context, *pointer, part);
             }
             Expression::ImageSample {
                 image,
@@ -1148,33 +1254,24 @@ impl Pruner {
                 level,
                 depth_ref,
             } => {
-                self.add_expression(shader, function, func_req, context, image, &PartReq::All);
-                self.add_expression(shader, function, func_req, context, sampler, &PartReq::All);
-                self.add_expression(
-                    shader,
-                    function,
-                    func_req,
-                    context,
-                    coordinate,
-                    &PartReq::All,
-                );
-                array_index.map(|e| {
-                    self.add_expression(shader, function, func_req, context, &e, &PartReq::All)
-                });
+                self.add_expression(function, func_req, context, *image, &PartReq::All);
+                self.add_expression(function, func_req, context, *sampler, &PartReq::All);
+                self.add_expression(function, func_req, context, *coordinate, &PartReq::All);
+                array_index
+                    .map(|e| self.add_expression(function, func_req, context, e, &PartReq::All));
                 offset.map(|c| self.constants.insert(c));
                 match level {
                     naga::SampleLevel::Auto | naga::SampleLevel::Zero => (),
                     naga::SampleLevel::Exact(e) | naga::SampleLevel::Bias(e) => {
-                        self.add_expression(shader, function, func_req, context, e, &PartReq::All)
+                        self.add_expression(function, func_req, context, *e, &PartReq::All);
                     }
                     naga::SampleLevel::Gradient { x, y } => {
-                        self.add_expression(shader, function, func_req, context, x, &PartReq::All);
-                        self.add_expression(shader, function, func_req, context, y, &PartReq::All);
+                        self.add_expression(function, func_req, context, *x, &PartReq::All);
+                        self.add_expression(function, func_req, context, *y, &PartReq::All);
                     }
                 };
-                depth_ref.map(|e| {
-                    self.add_expression(shader, function, func_req, context, &e, &PartReq::All)
-                });
+                depth_ref
+                    .map(|e| self.add_expression(function, func_req, context, e, &PartReq::All));
             }
             Expression::ImageLoad {
                 image,
@@ -1183,66 +1280,47 @@ impl Pruner {
                 sample,
                 level,
             } => {
-                self.add_expression(shader, function, func_req, context, image, &PartReq::All);
-                self.add_expression(
-                    shader,
-                    function,
-                    func_req,
-                    context,
-                    coordinate,
-                    &PartReq::All,
-                );
-                array_index.map(|e| {
-                    self.add_expression(shader, function, func_req, context, &e, &PartReq::All)
-                });
-                sample.map(|e| {
-                    self.add_expression(shader, function, func_req, context, &e, &PartReq::All)
-                });
-                level.map(|e| {
-                    self.add_expression(shader, function, func_req, context, &e, &PartReq::All)
-                });
+                self.add_expression(function, func_req, context, *image, &PartReq::All);
+                self.add_expression(function, func_req, context, *coordinate, &PartReq::All);
+                array_index
+                    .map(|e| self.add_expression(function, func_req, context, e, &PartReq::All));
+                sample.map(|e| self.add_expression(function, func_req, context, e, &PartReq::All));
+                level.map(|e| self.add_expression(function, func_req, context, e, &PartReq::All));
             }
             Expression::ImageQuery { image, query } => {
-                self.add_expression(shader, function, func_req, context, image, &PartReq::All);
+                self.add_expression(function, func_req, context, *image, &PartReq::All);
                 if let ImageQuery::Size { level: Some(level) } = query {
-                    self.add_expression(shader, function, func_req, context, level, &PartReq::All);
+                    self.add_expression(function, func_req, context, *level, &PartReq::All);
                 }
             }
             Expression::Unary { op: _op, expr } => {
-                self.add_expression(shader, function, func_req, context, expr, part);
+                self.add_expression(function, func_req, context, *expr, part);
             }
             Expression::Binary {
                 op: _op,
                 left,
                 right,
             } => {
-                self.add_expression(shader, function, func_req, context, left, part);
-                self.add_expression(shader, function, func_req, context, right, part);
+                self.add_expression(function, func_req, context, *left, part);
+                self.add_expression(function, func_req, context, *right, part);
             }
             Expression::Select {
                 condition,
                 accept,
                 reject,
             } => {
-                self.add_expression(
-                    shader,
-                    function,
-                    func_req,
-                    context,
-                    condition,
-                    &PartReq::All,
-                );
-                self.add_expression(shader, function, func_req, context, accept, part);
-                self.add_expression(shader, function, func_req, context, reject, part);
+                self.add_expression(function, func_req, context, *condition, &PartReq::All);
+                self.add_expression(function, func_req, context, *accept, part);
+                self.add_expression(function, func_req, context, *reject, part);
             }
             Expression::Derivative { axis: _axis, expr } => {
-                self.add_expression(shader, function, func_req, context, expr, &PartReq::All);
+                self.add_expression(function, func_req, context, *expr, &PartReq::All);
             }
             Expression::Relational {
                 fun: _fun,
                 argument,
             } => {
-                self.add_expression(shader, function, func_req, context, argument, &PartReq::All);
+                self.add_expression(function, func_req, context, *argument, &PartReq::All);
             }
             Expression::Math {
                 fun: _fun,
@@ -1251,9 +1329,9 @@ impl Pruner {
                 arg2,
                 arg3,
             } => {
-                self.add_expression(shader, function, func_req, context, arg, &PartReq::All);
+                self.add_expression(function, func_req, context, *arg, &PartReq::All);
                 for arg in [arg1, arg2, arg3].into_iter().flatten() {
-                    self.add_expression(shader, function, func_req, context, arg, &PartReq::All);
+                    self.add_expression(function, func_req, context, *arg, &PartReq::All);
                 }
             }
             Expression::As {
@@ -1261,7 +1339,7 @@ impl Pruner {
                 kind: _kind,
                 convert: _convert,
             } => {
-                self.add_expression(shader, function, func_req, context, expr, part);
+                self.add_expression(function, func_req, context, *expr, part);
             }
             Expression::CallResult(_f) => {
                 // self.add_function(shader, *f, part);
@@ -1273,16 +1351,15 @@ impl Pruner {
             } => todo!(),
             Expression::ArrayLength(expr) => {
                 let part = PartReq::Exist;
-                self.add_expression(shader, function, func_req, context, expr, &part);
+                self.add_expression(function, func_req, context, *expr, &part);
             }
         }
 
-        func_req.exprs_required.insert(*h_expr, part.clone());
+        func_req.exprs_required.insert(h_expr, part.clone());
     }
 
     fn add_statement(
         &mut self,
-        shader: &Module,
         function: &Function,
         func_req: &mut FunctionReq,
         context: &mut RequiredContext,
@@ -1292,7 +1369,7 @@ impl Pruner {
     ) -> StatementReq {
         use StatementReq::*;
 
-        info!("STATEMENT: parsing {:?}", stmt);
+        debug!("STATEMENT: parsing {:?}", stmt);
 
         match stmt {
             Statement::Emit(rng) => {
@@ -1303,7 +1380,7 @@ impl Pruner {
                 Emit(reqs)
             }
             Statement::Block(b) => {
-                let block = self.add_block(shader, function, func_req, context, b, break_required);
+                let block = self.add_block(function, func_req, context, b, break_required);
                 *context = block.context.clone();
                 BlockStmt(block)
             }
@@ -1313,9 +1390,9 @@ impl Pruner {
                 reject,
             } => {
                 let accept_req =
-                    self.add_block(shader, function, func_req, context, accept, break_required);
+                    self.add_block(function, func_req, context, accept, break_required);
                 let reject_req =
-                    self.add_block(shader, function, func_req, context, reject, break_required);
+                    self.add_block(function, func_req, context, reject, break_required);
                 let condition_req = accept_req.is_required() || reject_req.is_required();
 
                 debug!(
@@ -1332,14 +1409,7 @@ impl Pruner {
 
                 if condition_req {
                     *context = accept_req.context.merge(&reject_req.context);
-                    self.add_expression(
-                        shader,
-                        function,
-                        func_req,
-                        context,
-                        condition,
-                        &PartReq::All,
-                    );
+                    self.add_expression(function, func_req, context, *condition, &PartReq::All);
                 }
 
                 If {
@@ -1354,22 +1424,14 @@ impl Pruner {
 
                 let mut input_context = context.clone();
                 for case in cases.iter().rev() {
-                    let case =
-                        self.add_block(shader, function, func_req, context, &case.body, false);
+                    let case = self.add_block(function, func_req, context, &case.body, false);
                     input_context = input_context.merge(&case.context);
                     any_req |= case.is_required();
                     reqs.push(case);
                 }
 
                 if any_req {
-                    self.add_expression(
-                        shader,
-                        function,
-                        func_req,
-                        context,
-                        selector,
-                        &PartReq::All,
-                    );
+                    self.add_expression(function, func_req, context, *selector, &PartReq::All);
                     *context = input_context;
                 }
 
@@ -1384,44 +1446,23 @@ impl Pruner {
                 break_if,
             } => {
                 debug!("loop first pass");
-                let mut body = self.add_block(shader, function, func_req, context, body_in, false);
-                let mut continuing =
-                    self.add_block(shader, function, func_req, context, cont_in, false);
+                let mut body = self.add_block(function, func_req, context, body_in, false);
+                let mut continuing = self.add_block(function, func_req, context, cont_in, false);
                 let loop_required = body.is_required() || continuing.is_required();
 
                 debug!("loop required? {}", loop_required);
                 if loop_required {
                     if let Some(break_if) = break_if {
-                        self.add_expression(
-                            shader,
-                            function,
-                            func_req,
-                            context,
-                            break_if,
-                            &PartReq::All,
-                        );
+                        self.add_expression(function, func_req, context, *break_if, &PartReq::All);
                     }
 
                     let working_context = body.context.merge(&continuing.context);
 
                     loop {
                         // rerun after adding break condition (else it may think the condition is not required in the blocks)
-                        body = self.add_block(
-                            shader,
-                            function,
-                            func_req,
-                            &working_context,
-                            body_in,
-                            true,
-                        );
-                        continuing = self.add_block(
-                            shader,
-                            function,
-                            func_req,
-                            &working_context,
-                            cont_in,
-                            true,
-                        );
+                        body = self.add_block(function, func_req, &working_context, body_in, true);
+                        continuing =
+                            self.add_block(function, func_req, &working_context, cont_in, true);
 
                         let new_context = body.context.merge(&continuing.context);
                         if working_context.contains(&new_context) {
@@ -1452,7 +1493,7 @@ impl Pruner {
                 if let Some(value) = value {
                     debug!("return part: {:?} of {:?}", part, value);
                     if let Some(part) = part.as_ref() {
-                        self.add_expression(shader, function, func_req, context, value, part);
+                        self.add_expression(function, func_req, context, *value, part);
                         return Return(true);
                     }
                 }
@@ -1462,7 +1503,7 @@ impl Pruner {
             Statement::Kill => Kill(),
             Statement::Barrier(_) => Barrier(),
             Statement::Store { pointer, value } => {
-                let var_ref = Self::resolve_var(function, pointer);
+                let var_ref = Self::resolve_var(function, *pointer, Vec::default());
                 let required = self.store_required(context, &var_ref);
 
                 debug!("store required from var: {:?}", required);
@@ -1472,21 +1513,14 @@ impl Pruner {
                         // we no longer care about what writes to this variable
                         debug!("context prior to removal: {:?}", context);
                         debug!("removing {:?} from {:?}", var_ref.part, var_ref.var_ref);
-                        context.remove(&var_ref.var_ref, &var_ref.part, shader, function);
+                        context.remove(&var_ref.var_ref, &var_ref.part, self.module, function);
                         debug!("context after to removal: {:?}", context);
 
                         // ensure the path to the variable exists
-                        self.add_expression(
-                            shader,
-                            function,
-                            func_req,
-                            context,
-                            pointer,
-                            &PartReq::Exist,
-                        );
+                        self.add_expression(function, func_req, context, *pointer, &PartReq::Exist);
 
                         // and the needed part of the stored value
-                        self.add_expression(shader, function, func_req, context, value, &part_req);
+                        self.add_expression(function, func_req, context, *value, &part_req);
 
                         Store(true)
                     }
@@ -1508,7 +1542,7 @@ impl Pruner {
                 }
 
                 let (func_required, input_context) =
-                    self.add_function(shader, *call_func, context.globals.clone(), req.clone());
+                    self.add_function(*call_func, context.globals.clone(), req.clone());
 
                 if func_required {
                     debug!(
@@ -1517,14 +1551,14 @@ impl Pruner {
                     );
                     for (arg, req) in arguments.iter().zip(input_context.args.iter()) {
                         if let Some(req) = req {
-                            self.add_expression(shader, function, func_req, context, arg, req);
+                            self.add_expression(function, func_req, context, *arg, req);
                         }
                     }
 
                     let mut result_required = false;
                     if let Some(result) = result {
                         if let Some(req) = req {
-                            self.add_expression(shader, function, func_req, context, result, &req);
+                            self.add_expression(function, func_req, context, *result, &req);
                             result_required = true;
                         }
                     }
@@ -1548,7 +1582,7 @@ impl Pruner {
                 array_index,
                 value,
             } => {
-                let var_ref = Self::resolve_var(function, image);
+                let var_ref = Self::resolve_var(function, *image, Vec::default());
                 let required = self.store_required(context, &var_ref);
 
                 debug!("imgstore required from var: {:?}", required);
@@ -1558,41 +1592,26 @@ impl Pruner {
                         // we no longer care about what writes to this variable
                         debug!("context prior to removal: {:?}", context);
                         debug!("removing {:?} from {:?}", var_ref.part, var_ref.var_ref);
-                        context.remove(&var_ref.var_ref, &var_ref.part, shader, function);
+                        context.remove(&var_ref.var_ref, &var_ref.part, self.module, function);
                         debug!("context after to removal: {:?}", context);
 
                         // ensure the path to the variable exists
-                        self.add_expression(
-                            shader,
-                            function,
-                            func_req,
-                            context,
-                            image,
-                            &PartReq::Exist,
-                        );
+                        self.add_expression(function, func_req, context, *image, &PartReq::Exist);
 
                         // all of the accessors
                         self.add_expression(
-                            shader,
                             function,
                             func_req,
                             context,
-                            coordinate,
+                            *coordinate,
                             &PartReq::All,
                         );
                         if let Some(ix) = array_index {
-                            self.add_expression(
-                                shader,
-                                function,
-                                func_req,
-                                context,
-                                ix,
-                                &PartReq::Exist,
-                            );
+                            self.add_expression(function, func_req, context, *ix, &PartReq::Exist);
                         }
 
                         // and the needed part of the stored value
-                        self.add_expression(shader, function, func_req, context, value, &part_req);
+                        self.add_expression(function, func_req, context, *value, &part_req);
 
                         ImageStore(true)
                     }
@@ -1604,14 +1623,13 @@ impl Pruner {
 
     fn add_block(
         &mut self,
-        shader: &Module,
         function: &Function,
         func_req: &mut FunctionReq,
         base_context: &RequiredContext,
         block: &Block,
         break_required: bool,
     ) -> BlockReq {
-        info!("BLOCK BEGIN");
+        trace!("BLOCK BEGIN");
         let mut blockreq = BlockReq {
             context: base_context.clone(),
             ..Default::default()
@@ -1620,7 +1638,6 @@ impl Pruner {
 
         for stmt in block.iter().rev() {
             let req = self.add_statement(
-                shader,
                 function,
                 func_req,
                 &mut blockreq.context,
@@ -1631,17 +1648,16 @@ impl Pruner {
             break_required |= req.required();
             blockreq.required_statements.push_front(req);
 
-            info!("context: {:?}", blockreq.context);
+            debug!("context: {:?}", blockreq.context);
         }
 
-        info!("BLOCK END");
+        trace!("BLOCK END");
         debug!("func_req.body: {:?}", func_req.body_required);
         blockreq
     }
 
     fn add_function_ref(
         &mut self,
-        shader: &Module,
         func: &Function,
         globals: HashMap<Handle<GlobalVariable>, PartReq>,
         retval: Option<PartReq>,
@@ -1653,8 +1669,8 @@ impl Pruner {
             args: vec![None; func.arguments.len()],
         };
 
-        info!("> func ref : {:?}", func.name);
-        info!("req context: {:?}", context);
+        debug!("> func ref : {:?}", func.name);
+        debug!("req context: {:?}", context);
 
         let mut func_req = FunctionReq {
             body_required: Default::default(),
@@ -1663,24 +1679,23 @@ impl Pruner {
 
         let block = &func.body;
 
-        let new_block = self.add_block(shader, func, &mut func_req, &context, block, false);
+        let new_block = self.add_block(func, &mut func_req, &context, block, false);
         func_req.body_required = new_block;
 
-        info!("< func ref : {:?}", func.name);
+        debug!("< func ref : {:?}", func.name);
         func_req
     }
 
     pub fn add_function(
         &mut self,
-        shader: &Module,
         function: Handle<Function>,
         globals: HashMap<Handle<GlobalVariable>, PartReq>,
         retval: Option<PartReq>,
     ) -> (bool, RequiredContext) {
-        info!("> function: {:?}", function);
+        debug!("> function: {:?}", function);
 
-        let func = shader.functions.try_get(function).unwrap();
-        let func_req = self.add_function_ref(shader, func, globals, retval);
+        let func = self.module.functions.try_get(function).unwrap();
+        let func_req = self.add_function_ref(func, globals, retval);
         let required = func_req.body_required.is_required();
         let context = func_req.body_required.context.clone();
 
@@ -1695,21 +1710,20 @@ impl Pruner {
         };
 
         // self.func_io_cache.insert((function, required_output.clone()), required_input.clone());
-        info!("< function: {:?}", function);
-        info!("req: {}, input context: {:?}", required, context);
+        debug!("< function: {:?}", function);
+        debug!("req: {}, input context: {:?}", required, context);
         (required, context)
     }
 
     pub fn add_entrypoint(
         &mut self,
-        shader: &Module,
         entrypoint: &EntryPoint,
         globals: HashMap<Handle<GlobalVariable>, PartReq>,
         retval: Option<PartReq>,
     ) -> RequiredContext {
-        let func_req = self.add_function_ref(shader, &entrypoint.function, globals, retval);
-        info!("< entry_point: {}", entrypoint.name);
-        info!("input context: {:?}", func_req.body_required.context);
+        let func_req = self.add_function_ref(&entrypoint.function, globals, retval);
+        debug!("< entry_point: {}", entrypoint.name);
+        debug!("input context: {:?}", func_req.body_required.context);
 
         let context = func_req.body_required.context.clone();
 
@@ -1726,27 +1740,27 @@ impl Pruner {
         context
     }
 
-    pub fn rewrite(&self, source: &Module) -> Module {
+    pub fn rewrite(&self) -> Module {
         let mut derived = DerivedModule::default();
-        derived.set_shader_source(source, 0);
+        derived.set_shader_source(self.module, 0);
 
-        for (h_f, f) in source.functions.iter() {
+        for (h_f, f) in self.module.functions.iter() {
             if let Some(req) = self.functions.get(&h_f) {
                 if req.body_required.is_required() {
-                    info!("rewrite {:?}", f.name);
+                    trace!("rewrite {:?}", f.name);
                     debug!("func req: {:#?}", req);
                     let new_f = req.prune(f);
                     derived.import_function(&new_f, Span::UNDEFINED);
-                    info!("map {:?} -> {:?}", h_f, derived.map_function_handle(&h_f));
+                    debug!("map {:?} -> {:?}", h_f, derived.map_function_handle(&h_f));
                 }
             }
         }
 
         let mut entry_points = Vec::new();
-        for ep in source.entry_points.iter() {
+        for ep in &self.module.entry_points {
             if let Some(req) = self.entry_points.get(&ep.name) {
-                info!("rewrite {}", ep.name);
-                info!("func req: {:#?}", req);
+                trace!("rewrite {}", ep.name);
+                debug!("func req: {:#?}", req);
 
                 let new_f = req.prune(&ep.function);
                 let mapped_f = derived.localize_function(&new_f);
@@ -1798,12 +1812,14 @@ impl Pruner {
                 .iter()
                 .map(|e| e.function.expressions.len())
                 .sum::<usize>();
-        let exprs_before = source
+        let exprs_before = self
+            .module
             .functions
             .iter()
             .map(|(_, f)| f.expressions.len())
             .sum::<usize>()
-            + source
+            + self
+                .module
                 .entry_points
                 .iter()
                 .map(|e| e.function.expressions.len())
@@ -1818,27 +1834,29 @@ impl Pruner {
                 .iter()
                 .map(|e| count_stmts(&e.function.body))
                 .sum::<usize>();
-        let stmts_before = source
+        let stmts_before = self
+            .module
             .functions
             .iter()
             .map(|(_, f)| count_stmts(&f.body))
             .sum::<usize>()
-            + source
+            + self
+                .module
                 .entry_points
                 .iter()
                 .map(|e| count_stmts(&e.function.body))
                 .sum::<usize>();
 
-        info!(
+        debug!(
             "[ty: {}/{}, const: {}/{}, globals: {}/{}, funcs: {}/{}, exprs: {}/{}, stmts: {}/{}]",
             pruned.types.len(),
-            source.types.len(),
+            self.module.types.len(),
             pruned.constants.len(),
-            source.constants.len(),
+            self.module.constants.len(),
             pruned.global_variables.len(),
-            source.global_variables.len(),
+            self.module.global_variables.len(),
             pruned.functions.len(),
-            source.functions.len(),
+            self.module.functions.len(),
             exprs_now,
             exprs_before,
             stmts_now,
