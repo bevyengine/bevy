@@ -125,7 +125,7 @@ impl Plugin for WindowPlugin {
                 if wd.is_added() {
                     warn!(
                         "The WindowDescriptor resource must be inserted before the WindowPlugin is added. \
-                        Make sure to insert WindowDescriptor before adding the DefaultPlugins.",
+                        Make sure to insert WindowDescriptor before adding the DefaultPlugins or the WindowPlugin.",
                     );
                 }
             }
