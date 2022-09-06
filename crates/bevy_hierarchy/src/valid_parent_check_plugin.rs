@@ -67,7 +67,7 @@ where
 }
 
 /// Print a warning for each `Entity` with a `T` component
-/// which parent hasn't a `T` component.
+/// whose parent doesn't have a `T` component.
 ///
 /// See [`check_hierarchy_component_has_valid_parent`] for details.
 pub struct ValidParentCheckPlugin<T: Component>(PhantomData<fn() -> T>);
