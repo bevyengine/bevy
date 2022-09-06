@@ -621,7 +621,6 @@ enum StatementReq {
     Barrier(),
     Store(bool),
     ImageStore(bool),
-    #[allow(dead_code)] // todo remove me when atomics are managed
     Atomic(bool),
     Call {
         call_required: bool,
@@ -1342,13 +1341,15 @@ impl<'a> Pruner<'a> {
                 self.add_expression(function, func_req, context, *expr, part);
             }
             Expression::CallResult(_f) => {
-                // self.add_function(shader, *f, part);
+                // nothing, handled by the statement
             }
             Expression::AtomicResult {
                 kind: _kind,
                 width: _width,
                 comparison: _comparison,
-            } => todo!(),
+            } => {
+                // nothing, handled by the statement
+            },
             Expression::ArrayLength(expr) => {
                 let part = PartReq::Exist;
                 self.add_expression(function, func_req, context, *expr, &part);
@@ -1527,7 +1528,28 @@ impl<'a> Pruner<'a> {
                     _ => Store(false),
                 }
             }
-            Statement::Atomic { .. } => unimplemented!(),
+            Statement::Atomic { pointer, fun: _fun, value, result } => {
+                let var_ref = Self::resolve_var(function, *pointer, Vec::default());
+                let required_store = self.store_required(context, &var_ref);
+                debug!("atomic store required: {:?}", required_store);
+
+                let required_load = func_req.exprs_required.get(result).cloned();
+                debug!("atomic load required: {:?}", required_load);
+
+                if required_load.is_some() || required_store.is_some() {
+                    // just pass it all through i guess ..?
+                    if let Some(required_load) = required_load {
+                        self.add_expression(function, func_req, context, *result, &required_load);
+                    }
+                    if let Some(required_store) = required_store {
+                        self.add_expression(function, func_req, context, *value, &required_store);
+                    }
+
+                    Atomic(true)
+                } else {
+                    Atomic(false)
+                }
+            },
             Statement::Call {
                 function: call_func,
                 arguments,
