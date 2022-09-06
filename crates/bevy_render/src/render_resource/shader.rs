@@ -139,21 +139,32 @@ impl<'a> From<&'a Shader> for naga_oil::compose::NagaModuleDescriptor<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Source {
     Wgsl(Cow<'static, str>),
     Glsl(Cow<'static, str>, naga::ShaderStage),
     SpirV(Cow<'static, [u8]>),
+    Naga(Box<naga::Module>),
     // TODO: consider the following
     // PrecompiledSpirVMacros(HashMap<HashSet<String>, Vec<u32>>)
-    // NagaModule(Module) ... Module impls Serialize/Deserialize
+}
+
+impl Clone for Source {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Wgsl(arg0) => Self::Wgsl(arg0.clone()),
+            Self::Glsl(arg0, arg1) => Self::Glsl(arg0.clone(), *arg1),
+            Self::SpirV(arg0) => Self::SpirV(arg0.clone()),
+            Self::Naga(arg0) => Self::Naga(Box::new(naga_oil::util::clone_module(arg0))),
+        }
+    }
 }
 
 impl Source {
     pub fn as_str(&self) -> &str {
         match self {
             Source::Wgsl(s) | Source::Glsl(s, _) => s,
-            Source::SpirV(_) => panic!("spirv not yet implemented"),
+            Source::SpirV(_) | Source::Naga(_) => panic!("spirv/naga not yet implemented"),
         }
     }
 }
@@ -163,7 +174,7 @@ impl From<&Source> for naga_oil::compose::ShaderLanguage {
         match value {
             Source::Wgsl(_) => naga_oil::compose::ShaderLanguage::Wgsl,
             Source::Glsl(_, _) => naga_oil::compose::ShaderLanguage::Glsl,
-            Source::SpirV(_) => panic!("spirv not yet implemented"),
+            Source::SpirV(_) | Source::Naga(_) => panic!("spirv/naga not yet implemented"),
         }
     }
 }
@@ -179,7 +190,7 @@ impl From<&Source> for naga_oil::compose::ShaderType {
             Source::Glsl(_, naga::ShaderStage::Compute) => {
                 panic!("glsl compute not yet implemented")
             }
-            Source::SpirV(_) => panic!("spirv not yet implemented"),
+            Source::SpirV(_) | Source::Naga(_) => panic!("spirv/naga not yet implemented"),
         }
     }
 }
@@ -282,7 +293,7 @@ impl ShaderImportProcessor {
         match &shader.source {
             Source::Wgsl(source) => self.get_imports_from_str(source),
             Source::Glsl(source, _stage) => self.get_imports_from_str(source),
-            Source::SpirV(_source) => ShaderImports::default(),
+            Source::SpirV(_) | Source::Naga(_) => ShaderImports::default(),
         }
     }
 

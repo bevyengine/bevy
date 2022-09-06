@@ -1,6 +1,12 @@
 use crate::{
-    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
-    SetMeshViewBindGroup,
+    depth_pipeline::{
+        unextract_derived_shaders, DepthPipeline, DepthPipelineBuilder, DepthPipelineError,
+        DerivedShaders,
+    },
+    AlphaMode, CubemapVisibleEntities, DrawMesh, ExtractedDirectionalLight, ExtractedPointLight,
+    LightEntity, MeshPipeline, MeshPipelineKey, MeshUniform, NotShadowCaster, RenderLightSystems,
+    SetMeshBindGroup, SetMeshViewBindGroup, SetShadowViewBindGroup, Shadow, ViewLightEntities,
+    With, Without,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -181,6 +187,17 @@ where
                     prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
                 )
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
+
+            render_app
+                .init_resource::<DerivedShaders<M>>()
+                .init_resource::<DepthPipeline<M>>()
+                .init_resource::<SpecializedMeshPipelines<DepthPipeline<M>>>()
+                .add_render_command::<Shadow, DrawMaterialDepth<M>>()
+                .add_system_to_stage(RenderStage::Extract, unextract_derived_shaders::<M>)
+                .add_system_to_stage(
+                    RenderStage::Queue,
+                    queue_material_shadows::<M>.label(RenderLightSystems::QueueShadows),
+                );
         }
     }
 }
@@ -287,9 +304,17 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
     }
 }
 
-type DrawMaterial<M> = (
+pub type DrawMaterial<M> = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
+    SetMaterialBindGroup<M, 1>,
+    SetMeshBindGroup<2>,
+    DrawMesh,
+);
+
+pub type DrawMaterialDepth<M> = (
+    SetItemPipeline,
+    SetShadowViewBindGroup<0>,
     SetMaterialBindGroup<M, 1>,
     SetMeshBindGroup<2>,
     DrawMesh,
@@ -413,6 +438,70 @@ pub fn queue_material_meshes<M: Material>(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn queue_material_shadows<M: Material>(
+    shadow_draw_functions: Res<DrawFunctions<Shadow>>,
+    casting_meshes: Query<(&Handle<Mesh>, &Handle<M>), Without<NotShadowCaster>>,
+    view_lights: Query<&ViewLightEntities>,
+    mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
+    point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
+    directional_light_entities: Query<&VisibleEntities, With<ExtractedDirectionalLight>>,
+    spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
+    mut depth_pipeline_builder: DepthPipelineBuilder<M>,
+) where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
+    for view_lights in &view_lights {
+        let draw_shadow_mesh = shadow_draw_functions
+            .read()
+            .get_id::<DrawMaterialDepth<M>>()
+            .unwrap();
+
+        for view_light_entity in view_lights.lights.iter().copied() {
+            let (light_entity, mut shadow_phase) =
+                view_light_shadow_phases.get_mut(view_light_entity).unwrap();
+            let visible_entities = match light_entity {
+                LightEntity::Directional { light_entity } => directional_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get directional light visible entities"),
+                LightEntity::Point {
+                    light_entity,
+                    face_index,
+                } => point_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get point light visible entities")
+                    .get(*face_index),
+                LightEntity::Spot { light_entity } => spot_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get spot light visible entities"),
+            };
+            // NOTE: Lights with shadow mapping disabled will have no visible entities
+            // so no meshes will be queued
+            for entity in visible_entities.iter().copied() {
+                if let Ok((mesh_handle, material_handle)) = casting_meshes.get(entity) {
+                    let pipeline_id = match depth_pipeline_builder
+                        .depth_pipeline_id(material_handle, mesh_handle)
+                    {
+                        Ok(id) => id,
+                        Err(DepthPipelineError::Retry) => continue,
+                        Err(err) => {
+                            error!("{}", err);
+                            continue;
+                        }
+                    };
+
+                    shadow_phase.add(Shadow {
+                        draw_function: draw_shadow_mesh,
+                        pipeline: pipeline_id,
+                        entity,
+                        distance: 0.0, // TODO: sort back-to-front
+                    });
                 }
             }
         }

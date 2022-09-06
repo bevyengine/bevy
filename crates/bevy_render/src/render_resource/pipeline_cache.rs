@@ -16,7 +16,7 @@ use std::{hash::Hash, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
 use wgpu::{
     util::make_spirv, BufferBindingType, Features, PipelineLayoutDescriptor, ShaderModule,
-    ShaderModuleDescriptor, VertexBufferLayout as RawVertexBufferLayout,
+    ShaderModuleDescriptor, ShaderSource, VertexBufferLayout as RawVertexBufferLayout,
 };
 
 enum PipelineDescriptor {
@@ -73,7 +73,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<String>, Arc<ShaderModule>>,
+    processed_shaders: HashMap<Vec<String>, (Option<naga::Module>, Arc<ShaderModule>)>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
     dependents: HashSet<Handle<Shader>>,
 }
@@ -154,6 +154,28 @@ impl ShaderCache {
         handle: &Handle<Shader>,
         shader_defs: &[String],
     ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
+        self.get_entry(render_device, pipeline, handle, shader_defs)
+            .map(|entry| entry.1)
+    }
+
+    fn get_shader_source(
+        &mut self,
+        render_device: &RenderDevice,
+        pipeline: CachedPipelineId,
+        handle: &Handle<Shader>,
+        shader_defs: &[String],
+    ) -> Result<Option<&naga::Module>, PipelineCacheError> {
+        self.get_entry(render_device, pipeline, handle, shader_defs)
+            .map(|entry| entry.0)
+    }
+
+    fn get_entry(
+        &mut self,
+        render_device: &RenderDevice,
+        pipeline: CachedPipelineId,
+        handle: &Handle<Shader>,
+        shader_defs: &[String],
+    ) -> Result<(Option<&naga::Module>, Arc<ShaderModule>), PipelineCacheError> {
         let shader = self
             .shaders
             .get(handle)
@@ -175,7 +197,8 @@ impl ShaderCache {
         data.pipelines.insert(pipeline);
 
         // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
-        let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
+        let (naga_module, shader_module) = match data.processed_shaders.entry(shader_defs.to_vec())
+        {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
@@ -197,6 +220,7 @@ impl ShaderCache {
 
                 let shader_source = match &shader.source {
                     Source::SpirV(data) => make_spirv(data),
+                    Source::Naga(naga) => ShaderSource::Naga(naga_oil::util::clone_module(naga)),
                     _ => {
                         for import in shader.imports() {
                             Self::add_import_to_composer(
@@ -216,6 +240,11 @@ impl ShaderCache {
 
                         wgpu::ShaderSource::Naga(naga)
                     }
+                };
+
+                let naga_module = match &shader_source {
+                    ShaderSource::Naga(module) => Some(naga_oil::util::clone_module(module)),
+                    _ => None,
                 };
 
                 let module_descriptor = ShaderModuleDescriptor {
@@ -239,11 +268,11 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(Arc::new(shader_module))
+                entry.insert((naga_module, Arc::new(shader_module)))
             }
         };
 
-        Ok(module.clone())
+        Ok((naga_module.as_ref(), shader_module.clone()))
     }
 
     fn clear(&mut self, handle: &Handle<Shader>) -> Vec<CachedPipelineId> {
@@ -440,6 +469,17 @@ impl PipelineCache {
         });
         self.waiting_pipelines.insert(id.0);
         id
+    }
+
+    pub fn get_shader_source(
+        &mut self,
+        render_device: &RenderDevice,
+        pipeline: CachedRenderPipelineId,
+        handle: &Handle<Shader>,
+        shader_defs: &[String],
+    ) -> Result<Option<&naga::Module>, PipelineCacheError> {
+        self.shader_cache
+            .get_shader_source(render_device, pipeline.0, handle, shader_defs)
     }
 
     fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {

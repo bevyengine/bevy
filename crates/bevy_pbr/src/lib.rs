@@ -48,8 +48,8 @@ use bevy_render::{
     extract_resource::ExtractResourcePlugin,
     prelude::Color,
     render_graph::RenderGraph,
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
-    render_resource::{Shader, SpecializedMeshPipelines},
+    render_phase::{sort_phase_system, DrawFunctions},
+    render_resource::Shader,
     view::VisibilitySystems,
     RenderApp, RenderStage,
 };
@@ -150,7 +150,6 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
-            .add_plugin(MaterialPlugin::<StandardMaterial>::default())
             .register_type::<AmbientLight>()
             .register_type::<DirectionalLightShadowMap>()
             .register_type::<PointLightShadowMap>()
@@ -213,17 +212,6 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(CoreStage::PostUpdate, update_shader_overrides);
 
-        app.world
-            .resource_mut::<Assets<StandardMaterial>>()
-            .set_untracked(
-                Handle::<StandardMaterial>::default(),
-                StandardMaterial {
-                    base_color: Color::rgb(1.0, 0.0, 0.5),
-                    unlit: true,
-                    ..Default::default()
-                },
-            );
-
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
@@ -253,20 +241,14 @@ impl Plugin for PbrPlugin {
                 // prepare_lights.
                 render::prepare_clusters.label(RenderLightSystems::PrepareClusters),
             )
-            .add_system_to_stage(
-                RenderStage::Queue,
-                render::queue_shadows.label(RenderLightSystems::QueueShadows),
-            )
             .add_system_to_stage(RenderStage::Queue, render::queue_shadow_view_bind_group)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Shadow>)
-            .init_resource::<ShadowPipeline>()
+            .init_resource::<ShadowPipeline>() // TODO: this is here because `queue_mesh_view_bind_groups` uses the samplers, clean this up
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()
-            .init_resource::<GlobalLightMeta>()
-            .init_resource::<SpecializedMeshPipelines<ShadowPipeline>>();
+            .init_resource::<GlobalLightMeta>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
-        render_app.add_render_command::<Shadow, DrawShadowMesh>();
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
@@ -286,5 +268,17 @@ impl Plugin for PbrPlugin {
                 ShadowPassNode::IN_VIEW,
             )
             .unwrap();
+
+        app.add_plugin(MaterialPlugin::<StandardMaterial>::default());
+        app.world
+            .resource_mut::<Assets<StandardMaterial>>()
+            .set_untracked(
+                Handle::<StandardMaterial>::default(),
+                StandardMaterial {
+                    base_color: Color::rgb(1.0, 0.0, 0.5),
+                    unlit: true,
+                    ..Default::default()
+                },
+            );
     }
 }
