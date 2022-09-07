@@ -63,6 +63,7 @@ pub fn keyboard_input_system(
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
 #[derive(Reflect, FromReflect, Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Hash, PartialEq)]
 #[repr(u32)]
 pub enum KeyCode {
     /// The `1` key over the letters.
@@ -424,5 +425,6 @@ pub enum KeyCode {
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
 #[derive(Reflect, FromReflect, Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
+#[reflect(Hash, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ScanCode(pub u32);
