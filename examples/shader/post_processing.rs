@@ -138,7 +138,7 @@ mod post_processing {
                         }
                     };
                     let image = images.get_mut(&fit_to_window.image).expect(
-                        "FitToScreenSize is referring to an Image, but this Image could not be found",
+                        "FitToWindowSize is referring to an Image, but this Image could not be found",
                     );
                     dbg!(format!("resize to {:?}", size));
                     image.resize(size);
