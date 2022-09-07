@@ -25,7 +25,7 @@ var directional_shadow_textures: texture_depth_2d_array;
 @group(0) @binding(5)
 var directional_shadow_textures_sampler: sampler_comparison;
 
-#ifeq AVAILABLE_STORAGE_BUFFER_BINDINGS 3
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
 @group(0) @binding(6)
 var<storage> point_lights: PointLights;
 @group(0) @binding(7)

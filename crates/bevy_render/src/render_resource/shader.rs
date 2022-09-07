@@ -383,11 +383,11 @@ impl Default for ShaderProcessor {
         Self {
             ifdef_regex: Regex::new(r"^\s*#\s*ifdef\s*([\w|\d|_]+)").unwrap(),
             ifndef_regex: Regex::new(r"^\s*#\s*ifndef\s*([\w|\d|_]+)").unwrap(),
-            ifeq_regex: Regex::new(r"^\s*#\s*ifeq\s*([\w|\d|_]+)\s*([\w|\d]+)").unwrap(),
-            ifneq_regex: Regex::new(r"^\s*#\s*ifneq\s*([\w|\d|_]+)\s*([\w|\d]+)").unwrap(),
+            ifeq_regex: Regex::new(r"^\s*#\s*if\s*([\w|\d|_]+)\s*==\s*([\w|\d]+)").unwrap(),
+            ifneq_regex: Regex::new(r"^\s*#\s*if\s*([\w|\d|_]+)\s*!=\s*([\w|\d]+)").unwrap(),
             else_regex: Regex::new(r"^\s*#\s*else").unwrap(),
             endif_regex: Regex::new(r"^\s*#\s*endif").unwrap(),
-            def_regex: Regex::new(r"#\s*def\s*([\w|\d|_]+)").unwrap(),
+            def_regex: Regex::new(r"#\s*([\w|\d|_]+)").unwrap(),
         }
     }
 }
@@ -1425,7 +1425,7 @@ struct View {
 @group(0) @binding(0)
 var<uniform> view: View;
 
-#ifeq TEXTURE 3
+#if TEXTURE == 3
 @group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
 #endif
@@ -1555,7 +1555,7 @@ struct View {
 @group(0) @binding(0)
 var<uniform> view: View;
 
-#ifeq TEXTURE true
+#if TEXTURE == true
 @group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
 #endif
@@ -1665,7 +1665,7 @@ struct View {
 @group(0) @binding(0)
 var<uniform> view: View;
 
-#ifneq TEXTURE false
+#if TEXTURE != false
 @group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
 #endif
@@ -1807,10 +1807,10 @@ fn vertex(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
-    var a: i32 = #def FIRST_VALUE;
-    var b: i32 = #def FIRST_VALUE * #def SECOND_VALUE;
-    var c: i32 = #def MISSING_VALUE;
-    var d: bool = #def BOOL_VALUE;
+    var a: i32 = #FIRST_VALUE;
+    var b: i32 = #FIRST_VALUE * #SECOND_VALUE;
+    var c: i32 = #MISSING_VALUE;
+    var d: bool = #BOOL_VALUE;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     return out;
 }
@@ -1839,7 +1839,7 @@ fn vertex(
     out.uv = vertex_uv;
     var a: i32 = 5;
     var b: i32 = 5 * 3;
-    var c: i32 = #def MISSING_VALUE;
+    var c: i32 = #MISSING_VALUE;
     var d: bool = true;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     return out;
