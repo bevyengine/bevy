@@ -36,7 +36,7 @@ fn setup(mut commands: Commands) {
             // spawn a node with no z-index.
             // this has the same result as using `ZIndex::Local(0)`.
             // this uses the default depth ordering which is based on where this node is in the hierarchy.
-            parent.spawn_bundle(ButtonBundle {
+            parent.spawn_bundle(NodeBundle {
                 color: Color::RED.into(),
                 style: Style {
                     position_type: PositionType::Absolute,
@@ -54,7 +54,7 @@ fn setup(mut commands: Commands) {
             // spawn a node with a positive local z-index of 2.
             // it will show above other nodes in the grey container.
             parent
-                .spawn_bundle(ButtonBundle {
+                .spawn_bundle(NodeBundle {
                     color: Color::BLUE.into(),
                     style: Style {
                         position_type: PositionType::Absolute,
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands) {
             // spawn a node with a negative local z-index.
             // it will show under all other nodes in the grey container.
             parent
-                .spawn_bundle(ButtonBundle {
+                .spawn_bundle(NodeBundle {
                     color: Color::GREEN.into(),
                     style: Style {
                         position_type: PositionType::Absolute,
@@ -93,8 +93,8 @@ fn setup(mut commands: Commands) {
             // it will show above all other nodes, because it's the highest global z-index in this example app.
             // by default, boxes all share the global z-index of 0 that the grey container is implicitly added to.
             parent
-                .spawn_bundle(ButtonBundle {
-                    color: Color::PINK.into(),
+                .spawn_bundle(NodeBundle {
+                    color: Color::PURPLE.into(),
                     style: Style {
                         position_type: PositionType::Absolute,
                         position: UiRect {
@@ -113,7 +113,7 @@ fn setup(mut commands: Commands) {
             // this will show under all other nodes, including its parent, because -1 is the lowest global z-index
             // in this example app.
             parent
-                .spawn_bundle(ButtonBundle {
+                .spawn_bundle(NodeBundle {
                     color: Color::YELLOW.into(),
                     style: Style {
                         position_type: PositionType::Absolute,
