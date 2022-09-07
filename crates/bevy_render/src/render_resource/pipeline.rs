@@ -7,6 +7,7 @@ use wgpu::{
     VertexAttribute, VertexFormat, VertexStepMode,
 };
 
+use super::ShaderDefVal;
 use crate::render_resource::resource_macros::*;
 
 /// A [`RenderPipeline`] identifier.
@@ -115,7 +116,7 @@ pub struct RenderPipelineDescriptor {
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
-    pub shader_defs: Vec<String>,
+    pub shader_defs: Vec<ShaderDefVal>,
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
@@ -167,7 +168,7 @@ impl VertexBufferLayout {
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
-    pub shader_defs: Vec<String>,
+    pub shader_defs: Vec<ShaderDefVal>,
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
@@ -182,7 +183,7 @@ pub struct ComputePipelineDescriptor {
     pub layout: Option<Vec<BindGroupLayout>>,
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
-    pub shader_defs: Vec<String>,
+    pub shader_defs: Vec<ShaderDefVal>,
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,

@@ -325,7 +325,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
-            shader_defs.push(String::from("SKINNED"));
+            shader_defs.push(String::from("SKINNED").into());
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
             bind_group_layout.push(self.skinned_mesh_layout.clone());

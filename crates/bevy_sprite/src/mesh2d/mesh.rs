@@ -366,12 +366,12 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         }
 
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
-            shader_defs.push(String::from("VERTEX_TANGENTS"));
+            shader_defs.push(String::from("VERTEX_TANGENTS").into());
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_COLOR) {
-            shader_defs.push(String::from("VERTEX_COLORS"));
+            shader_defs.push(String::from("VERTEX_COLORS").into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
