@@ -14,8 +14,9 @@ pub use rect::Rect;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        BVec2, BVec3, BVec4, EulerRot, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4, Quat, Rect, UVec2,
-        UVec3, UVec4, Vec2, Vec3, Vec4,
+        ivec2, ivec3, ivec4, mat2, mat3, mat4, quat, uvec2, uvec3, uvec4, vec2, vec3, vec4, BVec2,
+        BVec3, BVec4, EulerRot, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4, Quat, Rect, UVec2, UVec3,
+        UVec4, Vec2, Vec3, Vec4,
     };
 }
 
