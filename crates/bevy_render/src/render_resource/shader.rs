@@ -435,12 +435,12 @@ impl ShaderProcessor {
                         ShaderDefVal::Bool(_, def) => val
                             .as_str()
                             .parse()
-                            .map(|val| *def == val)
+                            .map(|val: bool| *def == val)
                             .unwrap_or_default(),
                         ShaderDefVal::Int(_, def) => val
                             .as_str()
                             .parse()
-                            .map(|val| *def == val)
+                            .map(|val: i32| *def == val)
                             .unwrap_or_default(),
                     };
                     scopes.push(*scopes.last().unwrap() && new_scope);
@@ -452,12 +452,16 @@ impl ShaderProcessor {
                 let val = cap.get(2).unwrap();
                 if let Some(def) = shader_defs_unique.get(def.as_str()) {
                     let new_scope = match def {
-                        ShaderDefVal::Bool(_, def) => {
-                            val.as_str().parse().map(|val| *def == val).unwrap_or(true)
-                        }
-                        ShaderDefVal::Int(_, def) => {
-                            val.as_str().parse().map(|val| *def == val).unwrap_or(true)
-                        }
+                        ShaderDefVal::Bool(_, def) => val
+                            .as_str()
+                            .parse()
+                            .map(|val: bool| *def == val)
+                            .unwrap_or(true),
+                        ShaderDefVal::Int(_, def) => val
+                            .as_str()
+                            .parse()
+                            .map(|val: i32| *def == val)
+                            .unwrap_or(true),
                     };
                     scopes.push(*scopes.last().unwrap() && !new_scope);
                 } else {
