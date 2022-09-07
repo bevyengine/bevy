@@ -102,7 +102,8 @@ mod post_processing {
         fn build(&self, app: &mut App) {
             app.add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
                 .add_system(setup_new_color_blindness_cameras)
-                .add_system(update_image_to_window_size);
+                .add_system(update_image_to_window_size)
+                .add_system(update_enable);
         }
     }
 
@@ -145,6 +146,22 @@ mod post_processing {
                     });
                 }
             }
+        }
+    }
+    fn update_enable(
+        time: Res<Time>,
+        cameras: Query<(&Handle<PostProcessingMaterial>, &PostProcessingCamera)>,
+        mut materials: ResMut<Assets<PostProcessingMaterial>>,
+    ) {
+        for (handle, camera) in &cameras {
+            let mut mat = materials.get_mut(handle).unwrap();
+
+            mat.offset_r = Vec2::new(-0.01f32 * time.seconds_since_startup().sin() as f32, 0f32);
+            mat.offset_g = Vec2::new(
+                0.01f32 * time.seconds_since_startup().sin() as f32,
+                0.01f32 * time.seconds_since_startup().cos() as f32,
+            );
+            mat.offset_b = Vec2::new(0f32, -0.01f32 * time.seconds_since_startup().cos() as f32);
         }
     }
 
@@ -202,7 +219,7 @@ mod post_processing {
 
             let image_handle = images.add(image);
 
-            // This specifies the layer used for the post processing camera, which will be attached to the post processing camera and 2d quad.
+            // This specifies the layer used for the post processing camera, which will be attached to the post processing camera and 2d fullscreen triangle.
             let post_processing_pass_layer =
                 RenderLayers::layer((RenderLayers::TOTAL_LAYERS - 1) as u8);
             let half_extents = Vec2::new(size.width as f32 / 2f32, size.height as f32 / 2f32);
@@ -231,6 +248,9 @@ mod post_processing {
             // This material has the texture that has been rendered.
             let material_handle = post_processing_materials.add(PostProcessingMaterial {
                 source_image: image_handle.clone(),
+                offset_r: Vec2::new(0.1f32, 0.1f32),
+                offset_g: Vec2::new(0.1f32, -0.1f32),
+                offset_b: Vec2::new(-0.1f32, -0.1f32),
             });
 
             commands
@@ -247,7 +267,7 @@ mod post_processing {
             }
             camera.target = RenderTarget::Image(image_handle);
 
-            // Post processing 2d quad, with material using the render texture done by the main camera, with a custom shader.
+            // Post processing 2d fullscreen triangle, with material using the render texture done by the main camera, with a custom shader.
             commands
                 .spawn_bundle(MaterialMesh2dBundle {
                     mesh: triangle_handle.into(),
@@ -286,6 +306,13 @@ mod post_processing {
         #[texture(0)]
         #[sampler(1)]
         source_image: Handle<Image>,
+
+        #[uniform(2)]
+        offset_r: Vec2,
+        #[uniform(3)]
+        offset_g: Vec2,
+        #[uniform(4)]
+        offset_b: Vec2,
     }
 
     impl Material2d for PostProcessingMaterial {
