@@ -9,14 +9,16 @@ use bevy::{
     reflect::TypeUuid,
     render::{
         camera::{Camera, RenderTarget},
+        mesh::Indices,
         render_resource::{
-            AsBindGroup, Extent3d, ShaderRef, TextureDescriptor, TextureDimension, TextureFormat,
-            TextureUsages,
+            AsBindGroup, Extent3d, PrimitiveTopology, ShaderRef, TextureDescriptor,
+            TextureDimension, TextureFormat, TextureUsages,
         },
         texture::BevyDefault,
         view::RenderLayers,
     },
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
+    window::{WindowId, WindowResized},
 };
 
 fn main() {
@@ -24,11 +26,18 @@ fn main() {
     app.add_plugins(DefaultPlugins)
         .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
         .add_startup_system(setup)
-        .add_system(main_camera_cube_rotator_system);
+        .add_system(main_camera_cube_rotator_system)
+        .add_system(update_image_to_window_size);
 
     app.run();
 }
 
+/// To support window resizing, this fits an image to a windows size.
+#[derive(Component)]
+struct FitToWindowSize {
+    image: Handle<Image>,
+    window_id: WindowId,
+}
 /// Marks the first camera cube (rendered to a texture.)
 #[derive(Component)]
 struct MainCube;
@@ -98,27 +107,50 @@ fn setup(
     });
 
     // Main camera, first to render
-    commands.spawn_bundle(Camera3dBundle {
-        camera_3d: Camera3d {
-            clear_color: ClearColorConfig::Custom(Color::WHITE),
+    commands
+        .spawn_bundle(Camera3dBundle {
+            camera_3d: Camera3d {
+                clear_color: ClearColorConfig::Custom(Color::WHITE),
+                ..default()
+            },
+            camera: Camera {
+                target: RenderTarget::Image(image_handle.clone()),
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
+                .looking_at(Vec3::default(), Vec3::Y),
             ..default()
-        },
-        camera: Camera {
-            target: RenderTarget::Image(image_handle.clone()),
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
-        ..default()
-    });
+        })
+        .insert(FitToWindowSize {
+            image: image_handle.clone(),
+            window_id: window.id(),
+        });
 
     // This specifies the layer used for the post processing camera, which will be attached to the post processing camera and 2d quad.
     let post_processing_pass_layer = RenderLayers::layer((RenderLayers::TOTAL_LAYERS - 1) as u8);
 
-    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-        size.width as f32,
-        size.height as f32,
-    ))));
+    let half_extents = Vec2::new(size.width as f32 / 2f32, size.height as f32 / 2f32);
+    let mut triangle_mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    // NOTE: positions are actually not used because the vertex shader maps UV and clip space.
+    triangle_mesh.insert_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        vec![
+            [-half_extents.x, -half_extents.y, 0.0],
+            [half_extents.x * 3f32, -half_extents.y, 0.0],
+            [-half_extents.x, half_extents.y * 3f32, 0.0],
+        ],
+    );
+    triangle_mesh.set_indices(Some(Indices::U32(vec![0, 1, 2])));
+    triangle_mesh.insert_attribute(
+        Mesh::ATTRIBUTE_NORMAL,
+        vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0], [0.0, 0.0, 1.0]],
+    );
+
+    triangle_mesh.insert_attribute(
+        Mesh::ATTRIBUTE_UV_0,
+        vec![[2.0, 0.0], [0.0, 2.0], [0.0, 0.0]],
+    );
+    let triangle_handle = meshes.add(triangle_mesh);
 
     // This material has the texture that has been rendered.
     let material_handle = post_processing_materials.add(PostProcessingMaterial {
@@ -128,7 +160,7 @@ fn setup(
     // Post processing 2d quad, with material using the render texture done by the main camera, with a custom shader.
     commands
         .spawn_bundle(MaterialMesh2dBundle {
-            mesh: quad_handle.into(),
+            mesh: triangle_handle.into(),
             material: material_handle,
             transform: Transform {
                 translation: Vec3::new(0.0, 0.0, 1.5),
@@ -163,7 +195,38 @@ fn main_camera_cube_rotator_system(
 }
 
 // Region below declares of the custom material handling post processing effect
-
+/// Update image size to fit window
+fn update_image_to_window_size(
+    windows: Res<Windows>,
+    mut image_events: EventWriter<AssetEvent<Image>>,
+    mut images: ResMut<Assets<Image>>,
+    mut resize_events: EventReader<WindowResized>,
+    fit_to_window_size: Query<&FitToWindowSize>,
+) {
+    for resize_event in resize_events.iter() {
+        for fit_to_window in fit_to_window_size.iter() {
+            if resize_event.id == fit_to_window.window_id {
+                let size = {
+                    let window = windows.get(fit_to_window.window_id).expect("ColorBlindnessCamera is rendering to a window, but this window could not be found");
+                    Extent3d {
+                        width: window.physical_width(),
+                        height: window.physical_height(),
+                        ..Default::default()
+                    }
+                };
+                let image = images.get_mut(&fit_to_window.image).expect(
+                    "FitToScreenSize is referring to an Image, but this Image could not be found",
+                );
+                dbg!(format!("resize to {:?}", size));
+                image.resize(size);
+                // Hack because of https://github.com/bevyengine/bevy/issues/5595
+                image_events.send(AssetEvent::Modified {
+                    handle: fit_to_window.image.clone(),
+                });
+            }
+        }
+    }
+}
 /// Our custom post processing material
 #[derive(AsBindGroup, TypeUuid, Clone)]
 #[uuid = "bc2f08eb-a0fb-43f1-a908-54871ea597d5"]
@@ -177,5 +240,8 @@ struct PostProcessingMaterial {
 impl Material2d for PostProcessingMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/custom_material_chromatic_aberration.wgsl".into()
+    }
+    fn vertex_shader() -> ShaderRef {
+        "shaders/screen_vertex.wgsl".into()
     }
 }
