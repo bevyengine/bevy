@@ -173,17 +173,16 @@ impl ShaderCache {
                     shader_defs.push(String::from("SIXTEEN_BYTE_ALIGNMENT").into());
                 }
 
-                // TODO: 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
-                // consider exposing this in shaders in a more generally useful way, such as:
-                // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
-                // /* use storage buffers here */
-                // # elif
-                // /* use uniforms here */
-                if !matches!(
+                // 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
+                // Using the value directly here to avoid the cyclic dependency
+                if matches!(
                     render_device.get_supported_read_only_binding_type(3),
                     BufferBindingType::Storage { .. }
                 ) {
-                    shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT").into());
+                    shader_defs.push(ShaderDefVal::Int(
+                        String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+                        3,
+                    ));
                 }
 
                 debug!(
