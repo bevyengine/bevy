@@ -1,4 +1,5 @@
 use bevy_ecs::system::Resource;
+use bevy_reflect::Reflect;
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
@@ -33,8 +34,9 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
-#[derive(Debug, Clone, Resource)]
-pub struct Input<T: Eq + Hash> {
+#[derive(Debug, Clone, Resource, Reflect)]
+#[reflect_value]
+pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
     /// A collection of every button that has just been pressed.
@@ -43,7 +45,7 @@ pub struct Input<T: Eq + Hash> {
     just_released: HashSet<T>,
 }
 
-impl<T: Eq + Hash> Default for Input<T> {
+impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
@@ -55,7 +57,7 @@ impl<T: Eq + Hash> Default for Input<T> {
 
 impl<T> Input<T>
 where
-    T: Copy + Eq + Hash,
+    T: Copy + Eq + Hash + Send + Sync + 'static,
 {
     /// Registers a press for the given `input`.
     pub fn press(&mut self, input: T) {
