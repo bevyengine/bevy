@@ -130,7 +130,7 @@ mod post_processing {
             for fit_to_window in fit_to_window_size.iter() {
                 if resize_event.id == fit_to_window.window_id {
                     let size = {
-                        let window = windows.get(fit_to_window.window_id).expect("ColorBlindnessCamera is rendering to a window, but this window could not be found");
+                        let window = windows.get(fit_to_window.window_id).expect("PostProcessingCamera is rendering to a window, but this window could not be found");
                         Extent3d {
                             width: window.physical_width(),
                             height: window.physical_height(),
