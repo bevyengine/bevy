@@ -180,8 +180,8 @@ impl AnimationPlayer {
     }
 
     /// Handle to the animation clip.
-    pub fn animation_clip(&self) -> &Option<Handle<AnimationClip>> {
-        &self.animation_clip
+    pub fn animation_clip(&self) -> Option<&Handle<AnimationClip>> {
+        self.animation_clip.as_ref()
     }
 }
 
@@ -196,11 +196,7 @@ pub fn animation_player(
     children: Query<&Children>,
 ) {
     for (entity, mut player) in &mut animation_players {
-        if let Some(animation_clip) = player
-            .animation_clip
-            .as_ref()
-            .and_then(|x| animations.get(x))
-        {
+        if let Some(animation_clip) = player.animation_clip().and_then(|x| animations.get(x)) {
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
             if player.paused && !player.is_changed() {
