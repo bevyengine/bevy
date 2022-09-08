@@ -259,7 +259,7 @@ mod post_processing {
 
             commands
                 .entity(entity)
-                // add the handle to the camera so we can access it and change the percentages
+                // add the handle to the camera so we can access it and change its properties
                 .insert(material_handle.clone())
                 // also disable show_ui so UI elements don't get rendered twice
                 .insert(UiCameraConfig { show_ui: false });
