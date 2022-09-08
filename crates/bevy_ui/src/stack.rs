@@ -102,3 +102,121 @@ fn fill_stack_recursively(result: &mut Vec<Entity>, stack: &mut StackingContext)
         fill_stack_recursively(result, &mut entry.stack);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::{
+        component::Component,
+        schedule::{Schedule, Stage, SystemStage},
+        system::{CommandQueue, Commands},
+        world::World,
+    };
+    use bevy_hierarchy::BuildChildren;
+
+    use crate::{Node, UiStack, ZIndex};
+
+    use super::ui_stack_system;
+
+    #[derive(Component, PartialEq, Debug, Clone)]
+    struct Label(&'static str);
+
+    fn node_with_zindex(name: &'static str, z_index: ZIndex) -> (Label, Node, ZIndex) {
+        (Label(name), Node::default(), z_index)
+    }
+
+    fn node_without_zindex(name: &'static str) -> (Label, Node) {
+        (Label(name), Node::default())
+    }
+
+    /// Tests the UI Stack system.
+    ///
+    /// This tests for siblings default ordering according to their insertion order, but it
+    /// can't test the same thing for UI roots. UI roots having no parents, they do not have
+    /// a stable ordering that we can test against. If we test it, it may pass now and start
+    /// failing randomly in the future because of some unrelated bevy_ecs change.
+    #[test]
+    fn test_ui_stack_system() {
+        let mut world = World::default();
+        world.init_resource::<UiStack>();
+
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        commands.spawn_bundle(node_with_zindex("0", ZIndex::Global(2)));
+
+        commands
+            .spawn_bundle(node_with_zindex("1", ZIndex::Local(1)))
+            .with_children(|parent| {
+                parent
+                    .spawn_bundle(node_without_zindex("1-0"))
+                    .with_children(|parent| {
+                        parent.spawn_bundle(node_without_zindex("1-0-0"));
+                        parent.spawn_bundle(node_without_zindex("1-0-1"));
+                        parent.spawn_bundle(node_with_zindex("1-0-2", ZIndex::Local(-1)));
+                    });
+                parent.spawn_bundle(node_without_zindex("1-1"));
+                parent
+                    .spawn_bundle(node_with_zindex("1-2", ZIndex::Global(-1)))
+                    .with_children(|parent| {
+                        parent.spawn_bundle(node_without_zindex("1-2-0"));
+                        parent.spawn_bundle(node_with_zindex("1-2-1", ZIndex::Global(-3)));
+                        parent
+                            .spawn_bundle(node_without_zindex("1-2-2"))
+                            .with_children(|_| ());
+                        parent.spawn_bundle(node_without_zindex("1-2-3"));
+                    });
+                parent.spawn_bundle(node_without_zindex("1-3"));
+            });
+
+        commands
+            .spawn_bundle(node_without_zindex("2"))
+            .with_children(|parent| {
+                parent
+                    .spawn_bundle(node_without_zindex("2-0"))
+                    .with_children(|_parent| ());
+                parent
+                    .spawn_bundle(node_without_zindex("2-1"))
+                    .with_children(|parent| {
+                        parent.spawn_bundle(node_without_zindex("2-1-0"));
+                    });
+            });
+
+        commands.spawn_bundle(node_with_zindex("3", ZIndex::Global(-2)));
+
+        queue.apply(&mut world);
+
+        let mut schedule = Schedule::default();
+        let mut update_stage = SystemStage::parallel();
+        update_stage.add_system(ui_stack_system);
+        schedule.add_stage("update", update_stage);
+        schedule.run(&mut world);
+
+        let mut query = world.query::<&Label>();
+        let ui_stack = world.resource::<UiStack>();
+        let actual_result = ui_stack
+            .uinodes
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+        let expected_result = vec![
+            (Label("1-2-1")), // ZIndex::Global(-3)
+            (Label("3")),     // ZIndex::Global(-2)
+            (Label("1-2")),   // ZIndex::Global(-1)
+            (Label("1-2-0")),
+            (Label("1-2-2")),
+            (Label("1-2-3")),
+            (Label("2")),
+            (Label("2-0")),
+            (Label("2-1")),
+            (Label("2-1-0")),
+            (Label("1")), // ZIndex::Local(1)
+            (Label("1-0")),
+            (Label("1-0-2")), // ZIndex::Local(-1)
+            (Label("1-0-0")),
+            (Label("1-0-1")),
+            (Label("1-1")),
+            (Label("1-3")),
+            (Label("0")), // ZIndex::Global(2)
+        ];
+        assert_eq!(actual_result, expected_result);
+    }
+}
