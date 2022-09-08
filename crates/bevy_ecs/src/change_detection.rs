@@ -324,7 +324,7 @@ impl<'a> DetectChanges for MutUntyped<'a> {
 
     #[inline]
     fn set_last_changed(&mut self, last_change_tick: u32) {
-        self.ticks.last_change_tick = last_change_tick
+        self.ticks.last_change_tick = last_change_tick;
     }
 
     #[inline]
