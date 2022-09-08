@@ -81,6 +81,7 @@ pub trait DetectChanges {
 
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
     ///
+    /// # Warning
     /// This is a risky operation, that can have unexpected consequences on any system relying on this code.
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
