@@ -45,9 +45,7 @@ impl Diagnostic {
     /// Add a new value as a [`DiagnosticMeasurement`]. Its timestamp will be [`Instant::now`].
     pub fn add_measurement(&mut self, value: f64) {
         let time = Instant::now();
-        if self.max_history_length > 1 {
-            if self.history.len() == self.max_history_length {
-                if let Some(removed_diagnostic) = self.history.pop_front() {
+        if self.max_history_length > 1 && self.history.len() == self.max_history_length && let Some(removed_diagnostic) = self.history.pop_front() {
                     self.sum -= removed_diagnostic.value;
                 }
             }
