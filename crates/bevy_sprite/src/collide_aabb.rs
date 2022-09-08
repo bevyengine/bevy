@@ -85,22 +85,22 @@ mod test {
         let res = collide_two_rectangles(
             (1., 1., 1., 1.),
             (1., 1., 1., 1.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Inside);
+        );
+        assert_eq!(res, Some(Collision::Inside));
         // B inside A
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (2., 2., 2., 2.),
             (2., 2., 1., 1.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Inside);
+        );
+        assert_eq!(res, Some(Collision::Inside));
         // A inside B
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (2., 2., 1., 1.),
             (2., 2., 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Inside);
+        );
+        assert_eq!(res, Some(Collision::Inside));
     }
 
     #[test]
@@ -110,29 +110,29 @@ mod test {
         let res = collide_two_rectangles(
             (3., 2., 2., 2.),
             (2., 2., 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Right);
+        );
+        assert_eq!(res, Some(Collision::Right));
         // Left of B
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (1., 2., 2., 2.),
             (2., 2., 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Left);
+        );
+        assert_eq!(res, Some(Collision::Left));
         // Top of B
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (2., 3., 2., 2.),
             (2., 2., 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Top);
+        );
+        assert_eq!(res, Some(Collision::Top));
         // Bottom of B
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (2., 1., 2., 2.),
             (2., 2., 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Bottom);
+        );
+        assert_eq!(res, Some(Collision::Bottom));
     }
 
     // In case the X-collision depth is equal to the Y-collision depth, always
@@ -144,29 +144,29 @@ mod test {
         let res = collide_two_rectangles(
             (1., 1., 2., 2.),
             (2., 2., 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Left);
+        );
+        assert_eq!(res, Some(Collision::Left));
         // Top-left collision
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (1., 3., 2., 2.),
             (2., 2., 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Left);
+        );
+        assert_eq!(res, Some(Collision::Left));
         // Bottom-right collision
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (3., 1., 2., 2.),
             (2., 2., 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Right);
+        );
+        assert_eq!(res, Some(Collision::Right));
         // Top-right collision
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (3., 3., 2., 2.),
             (2., 2., 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Right);
+        );
+        assert_eq!(res, Some(Collision::Right));
     }
 
     // If the collision intersection area stretches more along the Y-axis then
@@ -178,14 +178,14 @@ mod test {
         let res = collide_two_rectangles(
             (3., 3., 2., 2.),
             (2.5, 2.,2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Top);
+        );
+        assert_eq!(res, Some(Collision::Top));
         // Top-right collision
         #[rustfmt::skip]
         let res = collide_two_rectangles(
             (3., 3., 2., 2.),
             (2., 2.5, 2., 2.),
-        ).expect("Collision expected");
-        assert_eq!(res, Collision::Right);
+        );
+        assert_eq!(res, Some(Collision::Right));
     }
 }
