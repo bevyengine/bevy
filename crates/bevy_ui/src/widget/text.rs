@@ -3,12 +3,12 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
-    system::{Local, ParamSet, Query, Res, ResMut},
+    system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_text::{DefaultTextPipeline, Font, FontAtlasSet, Text, TextError};
+use bevy_text::{Font, FontAtlasSet, Text, TextError, TextLayoutInfo, TextPipeline};
 use bevy_window::Windows;
 
 #[derive(Debug, Default)]
@@ -38,6 +38,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
+    mut commands: Commands,
     mut queued_text: Local<QueuedText>,
     mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Image>>,
@@ -46,11 +47,16 @@ pub fn text_system(
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
-    mut text_pipeline: ResMut<DefaultTextPipeline>,
+    mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
         Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
         Query<Entity, (With<Text>, With<Style>)>,
-        Query<(&Text, &Style, &mut CalculatedSize)>,
+        Query<(
+            &Text,
+            &Style,
+            &mut CalculatedSize,
+            Option<&mut TextLayoutInfo>,
+        )>,
     )>,
 ) {
     // TODO: This should support window-independent scale settings.
@@ -85,7 +91,7 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
+        if let Ok((text, style, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
             let node_size = Vec2::new(
                 text_constraint(
                     style.min_size.width,
@@ -102,7 +108,6 @@ pub fn text_system(
             );
 
             match text_pipeline.queue_text(
-                entity,
                 &fonts,
                 &text.sections,
                 scale_factor,
@@ -120,14 +125,17 @@ pub fn text_system(
                 Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {}.", e);
                 }
-                Ok(()) => {
-                    let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
-                        "Failed to get glyphs from the pipeline that have just been computed",
-                    );
+                Ok(info) => {
                     calculated_size.size = Size {
-                        width: Val::Px(scale_value(text_layout_info.size.x, inv_scale_factor)),
-                        height: Val::Px(scale_value(text_layout_info.size.y, inv_scale_factor)),
+                        width: Val::Px(scale_value(info.size.x, inv_scale_factor)),
+                        height: Val::Px(scale_value(info.size.y, inv_scale_factor)),
                     };
+                    match text_layout_info {
+                        Some(mut t) => *t = info,
+                        None => {
+                            commands.entity(entity).insert(info);
+                        }
+                    }
                 }
             }
         }

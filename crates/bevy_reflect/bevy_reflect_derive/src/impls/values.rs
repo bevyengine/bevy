@@ -68,14 +68,14 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
             #[inline]
             fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
-                Box::new(self.clone())
+                Box::new(std::clone::Clone::clone(self))
             }
 
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
                 let value = value.as_any();
                 if let Some(value) = value.downcast_ref::<Self>() {
-                    *self = value.clone();
+                    *self = std::clone::Clone::clone(value);
                 } else {
                     panic!("Value is not {}.", std::any::type_name::<Self>());
                 }
