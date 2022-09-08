@@ -26,9 +26,11 @@ default-features = false
 # use the unknown ci feature for RPi
 [target.'cfg(all(target_os="linux",any(target_arch="aarch64",target_arch="arm")))'.dependencies.sysinfo]
 version = "0.26.2"
-features = ["unknown-ci"] # this features prevents linking to the C interface, which causes the build issues
+features = [
+    "unknown-ci",
+] # this features prevents linking to the C interface, which causes the build issues
 default-features = false
 
 # general case
-[target.'cfg(all(not(any(target_os="ios",target_os="macos")),not(all(target_os="linux",any(target_arch="aarch64",target_arch="arm")))))'.dependencies.sysinfo]
+[dependencies.sysinfo]
 version = "0.26.2"

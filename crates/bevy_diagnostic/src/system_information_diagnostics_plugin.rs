@@ -16,7 +16,7 @@ impl Default for SystemInfo {
     }
 }
 
-/// Adds a System Information Diagnostic, specifically "cpu_usage" (%) and "mem_usage" (%)
+/// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 #[derive(Default)]
 pub struct SystemInformationDiagnosticsPlugin;
 
