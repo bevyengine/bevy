@@ -133,7 +133,7 @@ mod tests {
     /// This tests for siblings default ordering according to their insertion order, but it
     /// can't test the same thing for UI roots. UI roots having no parents, they do not have
     /// a stable ordering that we can test against. If we test it, it may pass now and start
-    /// failing randomly in the future because of some unrelated bevy_ecs change.
+    /// failing randomly in the future because of some unrelated `bevy_ecs` change.
     #[test]
     fn test_ui_stack_system() {
         let mut world = World::default();
