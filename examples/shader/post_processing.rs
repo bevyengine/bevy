@@ -101,7 +101,7 @@ mod post_processing {
     impl Plugin for PostProcessingPlugin {
         fn build(&self, app: &mut App) {
             app.add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
-                .add_system(setup_new_color_blindness_cameras)
+                .add_system(setup_new_post_processing_cameras)
                 .add_system(update_image_to_window_size)
                 .add_system(update_material);
         }
@@ -140,7 +140,7 @@ mod post_processing {
                     let image = images.get_mut(&fit_to_window.image).expect(
                         "FitToWindowSize is referring to an Image, but this Image could not be found",
                     );
-                    dbg!(format!("resize to {:?}", size));
+                    info!("resize to {:?}", size);
                     image.resize(size);
                     // Hack because of https://github.com/bevyengine/bevy/issues/5595
                     image_events.send(AssetEvent::Modified {
@@ -169,8 +169,8 @@ mod post_processing {
         }
     }
 
-    /// sets up post processing for cameras that have had `ColorBlindnessCamera` added
-    fn setup_new_color_blindness_cameras(
+    /// sets up post processing for cameras that have had `PostProcessingCamera` added
+    fn setup_new_post_processing_cameras(
         mut commands: Commands,
         windows: Res<Windows>,
         mut meshes: ResMut<Assets<Mesh>>,
@@ -186,7 +186,7 @@ mod post_processing {
             // Get the size the camera is rendering to
             let size = match &camera.target {
                 RenderTarget::Window(window_id) => {
-                    let window = windows.get(*window_id).expect("ColorBlindnessCamera is rendering to a window, but this window could not be found");
+                    let window = windows.get(*window_id).expect("PostProcessingCamera is rendering to a window, but this window could not be found");
                     option_window_id = Some(*window_id);
                     Extent3d {
                         width: window.physical_width(),
@@ -196,7 +196,7 @@ mod post_processing {
                 }
                 RenderTarget::Image(handle) => {
                     let image = images.get(handle).expect(
-                    "ColorBlindnessCamera is rendering to an Image, but this Image could not be found",
+                    "PostProcessingCamera is rendering to an Image, but this Image could not be found",
                 );
                     image.texture_descriptor.size
                 }
