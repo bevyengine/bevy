@@ -99,7 +99,7 @@ pub struct AnimationPlayer {
     finished: bool,
     speed: f32,
     elapsed: f32,
-    animation_clip: Handle<AnimationClip>,
+    animation_clip: Option<Handle<AnimationClip>>,
 }
 
 impl Default for AnimationPlayer {
@@ -119,7 +119,7 @@ impl AnimationPlayer {
     /// Start playing an animation, resetting state of the player
     pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         *self = Self {
-            animation_clip: handle,
+            animation_clip: Some(handle),
             ..Default::default()
         };
         self
@@ -182,7 +182,7 @@ impl AnimationPlayer {
     /// Handle to the animation clip.
     ///
     /// Can be the default Handle, which usually represents no animation.
-    pub fn animation_clip(&self) -> &Handle<AnimationClip> {
+    pub fn animation_clip(&self) -> &Option<Handle<AnimationClip>> {
         &self.animation_clip
     }
 }
@@ -198,7 +198,11 @@ pub fn animation_player(
     children: Query<&Children>,
 ) {
     for (entity, mut player) in &mut animation_players {
-        if let Some(animation_clip) = animations.get(&player.animation_clip) {
+        if let Some(animation_clip) = player
+            .animation_clip
+            .as_ref()
+            .and_then(|x| animations.get(x))
+        {
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
             if player.paused && !player.is_changed() {
