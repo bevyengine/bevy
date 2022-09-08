@@ -154,10 +154,10 @@ mod post_processing {
 
     fn update_material(
         time: Res<Time>,
-        cameras: Query<(&Handle<PostProcessingMaterial>, &PostProcessingCamera)>,
+        cameras: Query<&Handle<PostProcessingMaterial>>,
         mut materials: ResMut<Assets<PostProcessingMaterial>>,
     ) {
-        for (handle, camera) in &cameras {
+        for handle in &cameras {
             let mut mat = materials.get_mut(handle).unwrap();
 
             mat.offset_r = Vec2::new(-0.01f32 * time.seconds_since_startup().sin() as f32, 0f32);
