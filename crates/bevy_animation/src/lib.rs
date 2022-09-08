@@ -96,6 +96,7 @@ impl AnimationClip {
 pub struct AnimationPlayer {
     paused: bool,
     repeat: bool,
+    finished: bool,
     speed: f32,
     elapsed: f32,
     animation_clip: Handle<AnimationClip>,
@@ -106,6 +107,7 @@ impl Default for AnimationPlayer {
         Self {
             paused: false,
             repeat: false,
+            finished: false,
             speed: 1.0,
             elapsed: 0.0,
             animation_clip: Default::default(),
@@ -150,6 +152,11 @@ impl AnimationPlayer {
         self.paused
     }
 
+    /// Is the animation finished
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+
     /// Speed of the animation playback
     pub fn speed(&self) -> f32 {
         self.speed
@@ -170,6 +177,13 @@ impl AnimationPlayer {
     pub fn set_elapsed(&mut self, elapsed: f32) -> &mut Self {
         self.elapsed = elapsed;
         self
+    }
+
+    /// Handle to the animation clip.
+    ///
+    /// Can be the default Handle, which usually represents no animation.
+    pub fn animation_clip(&self) -> &Handle<AnimationClip> {
+        &self.animation_clip
     }
 }
 
@@ -199,6 +213,8 @@ pub fn animation_player(
             }
             if elapsed < 0.0 {
                 elapsed += animation_clip.duration;
+            } else if elapsed > animation_clip.duration {
+                player.finished = true;
             }
             'entity: for (path, curves) in &animation_clip.curves {
                 // PERF: finding the target entity can be optimised
