@@ -103,7 +103,7 @@ mod post_processing {
             app.add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
                 .add_system(setup_new_color_blindness_cameras)
                 .add_system(update_image_to_window_size)
-                .add_system(update_enable);
+                .add_system(update_material);
         }
     }
 
@@ -111,6 +111,7 @@ mod post_processing {
     #[derive(Component)]
     struct FitToWindowSize {
         image: Handle<Image>,
+        material: Handle<PostProcessingMaterial>,
         window_id: WindowId,
     }
     #[derive(Component)]
@@ -121,6 +122,7 @@ mod post_processing {
         windows: Res<Windows>,
         mut image_events: EventWriter<AssetEvent<Image>>,
         mut images: ResMut<Assets<Image>>,
+        mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
         mut resize_events: EventReader<WindowResized>,
         fit_to_window_size: Query<&FitToWindowSize>,
     ) {
@@ -144,11 +146,13 @@ mod post_processing {
                     image_events.send(AssetEvent::Modified {
                         handle: fit_to_window.image.clone(),
                     });
+                    post_processing_materials.get_mut(&fit_to_window.material);
                 }
             }
         }
     }
-    fn update_enable(
+
+    fn update_material(
         time: Res<Time>,
         cameras: Query<(&Handle<PostProcessingMaterial>, &PostProcessingCamera)>,
         mut materials: ResMut<Assets<PostProcessingMaterial>>,
@@ -158,8 +162,8 @@ mod post_processing {
 
             mat.offset_r = Vec2::new(-0.01f32 * time.seconds_since_startup().sin() as f32, 0f32);
             mat.offset_g = Vec2::new(
-                0.01f32 * time.seconds_since_startup().sin() as f32,
-                0.01f32 * time.seconds_since_startup().cos() as f32,
+                0.02f32 * time.seconds_since_startup().sin() as f32,
+                0.02f32 * time.seconds_since_startup().cos() as f32,
             );
             mat.offset_b = Vec2::new(0f32, -0.01f32 * time.seconds_since_startup().cos() as f32);
         }
@@ -262,6 +266,7 @@ mod post_processing {
             if let Some(window_id) = option_window_id {
                 commands.entity(entity).insert(FitToWindowSize {
                     image: image_handle.clone(),
+                    material: material_handle.clone(),
                     window_id,
                 });
             }
