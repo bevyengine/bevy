@@ -130,7 +130,6 @@ macro_rules! change_detection_impl {
     };
 }
 
-
 macro_rules! impl_into_inner {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
