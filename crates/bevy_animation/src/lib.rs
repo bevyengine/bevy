@@ -180,8 +180,6 @@ impl AnimationPlayer {
     }
 
     /// Handle to the animation clip.
-    ///
-    /// Can be the default Handle, which usually represents no animation.
     pub fn animation_clip(&self) -> &Option<Handle<AnimationClip>> {
         &self.animation_clip
     }
