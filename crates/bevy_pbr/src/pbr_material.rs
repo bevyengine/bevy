@@ -159,9 +159,25 @@ pub struct StandardMaterial {
     /// How to apply the alpha channel of the `base_color_texture`.
     ///
     /// See [`AlphaMode`] for details. Defaults to [`AlphaMode::Opaque`].
+    #[doc(alias = "transparency")]
     pub alpha_mode: AlphaMode,
 
-    /// Re-arange depth of material, useful to avoid z-fighting.
+    /// Re-arrange render ordering.
+    ///
+    /// A material with a positive depth bias will render closer to the
+    /// camera while negative values cause the material to render behind
+    /// other objects. This is independent of the viewport.
+    ///
+    /// `depth_bias` only affects render ordering. This means that for opaque materials,
+    /// `depth_bias` will only have any effect if two materials are overlapping,
+    /// which only serves as a [z-fighting] resolver.
+    ///
+    /// `depth_bias` can however reorder [`AlphaMode::Blend`] materials.
+    /// This is useful if your transparent materials are not rendering
+    /// in the expected order.
+    ///
+    /// [z-fighting]: https://en.wikipedia.org/wiki/Z-fighting
+    #[doc(alias = "z-fighting")]
     pub depth_bias: f32,
 }
 
