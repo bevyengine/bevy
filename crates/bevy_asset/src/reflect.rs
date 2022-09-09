@@ -188,3 +188,70 @@ impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::any::TypeId;
+
+    use bevy_app::{App, AppTypeRegistry};
+    use bevy_reflect::{FromReflect, Reflect, ReflectMut, TypeUuid};
+
+    use crate::{AddAsset, AssetPlugin, HandleUntyped, ReflectAsset};
+
+    #[derive(Reflect, FromReflect, TypeUuid)]
+    #[uuid = "09191350-1238-4736-9a89-46f04bda6966"]
+    struct AssetType {
+        field: String,
+    }
+
+    #[test]
+    fn test() {
+        let mut app = App::new();
+        app.add_plugin(AssetPlugin)
+            .add_asset::<AssetType>()
+            .register_asset_reflect::<AssetType>();
+
+        let reflect_asset = {
+            let type_registry = app.world.resource::<AppTypeRegistry>();
+            let type_registry = type_registry.read();
+
+            type_registry
+                .get_type_data::<ReflectAsset>(TypeId::of::<AssetType>())
+                .unwrap()
+                .clone()
+        };
+
+        let value = AssetType {
+            field: "test".into(),
+        };
+
+        let handle = reflect_asset.add(&mut app.world, &value);
+        let strukt = match reflect_asset
+            .get_mut(&mut app.world, handle)
+            .unwrap()
+            .reflect_mut()
+        {
+            ReflectMut::Struct(s) => s,
+            _ => unreachable!(),
+        };
+        strukt
+            .field_mut("field")
+            .unwrap()
+            .apply(&String::from("edited"));
+
+        assert_eq!(reflect_asset.len(&app.world), 1);
+        let ids: Vec<_> = reflect_asset.ids(&app.world).collect();
+        assert_eq!(ids.len(), 1);
+
+        let fetched_handle = HandleUntyped::weak(ids[0]);
+        let asset = reflect_asset
+            .get(&app.world, fetched_handle.clone_weak())
+            .unwrap();
+        assert_eq!(asset.downcast_ref::<AssetType>().unwrap().field, "edited");
+
+        reflect_asset
+            .remove(&mut app.world, fetched_handle)
+            .unwrap();
+        assert_eq!(reflect_asset.len(&app.world), 0);
+    }
+}
