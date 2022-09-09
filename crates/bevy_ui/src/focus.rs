@@ -2,6 +2,7 @@ use crate::{entity::UiCameraConfig, CalculatedClip, Node, UiStack};
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
+    query::WorldQuery,
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
@@ -61,6 +62,19 @@ pub struct State {
     entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
+/// Main query for the focus system
+#[derive(WorldQuery)]
+#[world_query(mutable)]
+pub struct NodeQuery {
+    entity: Entity,
+    node: &'static Node,
+    global_transform: &'static GlobalTransform,
+    interaction: Option<&'static mut Interaction>,
+    focus_policy: Option<&'static FocusPolicy>,
+    calculated_clip: Option<&'static CalculatedClip>,
+    computed_visibility: Option<&'static ComputedVisibility>,
+}
+
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`ComputedVisibility`] are always treated as released.
@@ -71,15 +85,7 @@ pub fn ui_focus_system(
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
-    mut node_query: Query<(
-        Entity,
-        &Node,
-        &GlobalTransform,
-        Option<&mut Interaction>,
-        Option<&FocusPolicy>,
-        Option<&CalculatedClip>,
-        Option<&ComputedVisibility>,
-    )>,
+    mut node_query: Query<NodeQuery>,
 ) {
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
@@ -91,10 +97,8 @@ pub fn ui_focus_system(
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
-        for (_entity, _node, _global_transform, interaction, _focus_policy, _clip, _visibility) in
-            node_query.iter_mut()
-        {
-            if let Some(mut interaction) = interaction {
+        for node in node_query.iter_mut() {
+            if let Some(mut interaction) = node.interaction {
                 if *interaction == Interaction::Clicked {
                     *interaction = Interaction::None;
                 }
@@ -126,16 +130,15 @@ pub fn ui_focus_system(
     let moused_over_nodes = ui_stack
         .uinodes
         .iter()
+        // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
         .filter_map(|entity| {
-            if let Ok((entity, node, global_transform, interaction, _, clip, visibility)) =
-                node_query.get_mut(*entity)
-            {
+            if let Ok(node) = node_query.get_mut(*entity) {
                 // Nodes that are not rendered should not be interactable
-                if let Some(computed_visibility) = visibility {
+                if let Some(computed_visibility) = node.computed_visibility {
                     if !computed_visibility.is_visible() {
                         // Reset their interaction to None to avoid strange stuck state
-                        if let Some(mut interaction) = interaction {
+                        if let Some(mut interaction) = node.interaction {
                             // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
                             if *interaction != Interaction::None {
                                 *interaction = Interaction::None;
@@ -146,12 +149,12 @@ pub fn ui_focus_system(
                     }
                 }
 
-                let position = global_transform.translation();
+                let position = node.global_transform.translation();
                 let ui_position = position.truncate();
-                let extents = node.size / 2.0;
+                let extents = node.node.size / 2.0;
                 let mut min = ui_position - extents;
                 let mut max = ui_position + extents;
-                if let Some(clip) = clip {
+                if let Some(clip) = node.calculated_clip {
                     min = Vec2::max(min, clip.clip.min);
                     max = Vec2::min(max, clip.clip.max);
                 }
@@ -166,7 +169,7 @@ pub fn ui_focus_system(
 
                 if contains_cursor {
                     return Some(entity);
-                } else if let Some(mut interaction) = interaction {
+                } else if let Some(mut interaction) = node.interaction {
                     if *interaction == Interaction::Hovered
                         || (cursor_position.is_none() && *interaction != Interaction::None)
                     {
@@ -181,8 +184,8 @@ pub fn ui_focus_system(
 
     // set Clicked or Hovered on top nodes
     for entity in &moused_over_nodes {
-        if let Ok((_, _, _, interaction, focus_policy, _, _)) = node_query.get_mut(*entity) {
-            if let Some(mut interaction) = interaction {
+        if let Ok(node) = node_query.get_mut(**entity) {
+            if let Some(mut interaction) = node.interaction {
                 if mouse_clicked {
                     // only consider nodes with Interaction "clickable"
                     if *interaction != Interaction::Clicked {
@@ -190,7 +193,7 @@ pub fn ui_focus_system(
                         // if the mouse was simultaneously released, reset this Interaction in the next
                         // frame
                         if mouse_released {
-                            state.entities_to_reset.push(*entity);
+                            state.entities_to_reset.push(**entity);
                         }
                     }
                 } else if *interaction == Interaction::None {
@@ -198,7 +201,7 @@ pub fn ui_focus_system(
                 }
             }
 
-            match focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
+            match node.focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
                 FocusPolicy::Block => {
                     break;
                 }
@@ -208,10 +211,12 @@ pub fn ui_focus_system(
     }
     // reset lower nodes to None
     for entity in &moused_over_nodes {
-        if let Ok((_, _, _, Some(mut interaction), _, _, _)) = node_query.get_mut(*entity) {
-            // don't reset clicked nodes because they're handled separately
-            if *interaction != Interaction::Clicked && *interaction != Interaction::None {
-                *interaction = Interaction::None;
+        if let Ok(node) = node_query.get_mut(**entity) {
+            if let Some(mut interaction) = node.interaction {
+                // don't reset clicked nodes because they're handled separately
+                if *interaction != Interaction::Clicked && *interaction != Interaction::None {
+                    *interaction = Interaction::None;
+                }
             }
         }
     }

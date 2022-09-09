@@ -1447,7 +1447,7 @@ name = "z_index"
 path = "examples/ui/z_index.rs"
 
 [package.metadata.example.z_index]
-name = "UI Z-INDEX"
+name = "UI Z-Index"
 description = "Demonstrates z-index for UI"
 category = "UI (User Interface)"
 wasm = true
