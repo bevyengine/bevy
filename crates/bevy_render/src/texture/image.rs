@@ -15,7 +15,7 @@ use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{
@@ -101,8 +101,9 @@ impl ImageFormat {
     }
 }
 
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
+#[reflect_value]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
