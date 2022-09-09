@@ -3,7 +3,7 @@
 // prune
 // check if you can ImageStore to a function argument - pretty sure not
 // barriers - we currently don't make the containing scope required on encountering a barrier. this doesn't feel right since a nested barrier could be ignored?
-// atomics
+// *    atomics
 
 // compose
 // use more regexes..?
@@ -17,7 +17,7 @@
 // *    don't allow modules containing decoration
 
 // derive
-// better api for entry points
+// *    better api for entry points
 
 // redirect
 // stable output order where possible?
