@@ -5,10 +5,10 @@ use bevy_reflect::{FromReflect, FromType, Reflect, Uuid};
 
 use crate::{Asset, Assets, Handle, HandleId, HandleUntyped};
 
-/// A struct used to operate on reflected [`Asset`] of a type.
+/// A struct used to operate on reflected [`Asset`]s.
 ///
 /// A [`ReflectAsset`] for type `T` can be obtained via
-/// [`bevy_reflect::TypeRegistration::data`].
+/// [`bevy_reflect::TypeRegistration::data`] if it was registered using [`crate::AddAsset::register_asset_reflect`].
 #[derive(Clone)]
 pub struct ReflectAsset {
     type_uuid: Uuid,
@@ -25,7 +25,7 @@ pub struct ReflectAsset {
 }
 
 impl ReflectAsset {
-    /// The [`TypeUuid`] of the asset
+    /// The [`bevy_reflect::TypeUuid`] of the asset
     pub fn type_uuid(&self) -> Uuid {
         self.type_uuid
     }
@@ -152,7 +152,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
     }
 }
 
-/// A struct relating a `Handle<T>` back to the `T` asset type.
+/// Reflect type data struct relating a `Handle<T>` back to the `T` asset type.
 #[derive(Clone)]
 pub struct ReflectHandle {
     type_uuid: Uuid,
@@ -160,7 +160,7 @@ pub struct ReflectHandle {
     downcast_handle_untyped: fn(&dyn Any) -> Option<HandleUntyped>,
 }
 impl ReflectHandle {
-    /// The [`TypeUuid`] of the asset
+    /// The [`bevy_reflect::TypeUuid`] of the asset
     pub fn type_uuid(&self) -> Uuid {
         self.type_uuid
     }
