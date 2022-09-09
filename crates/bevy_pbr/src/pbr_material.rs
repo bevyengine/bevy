@@ -159,7 +159,6 @@ pub struct StandardMaterial {
     /// How to apply the alpha channel of the `base_color_texture`.
     ///
     /// See [`AlphaMode`] for details. Defaults to [`AlphaMode::Opaque`].
-    #[doc(alias = "transparency")]
     pub alpha_mode: AlphaMode,
 
     /// Re-arrange render ordering.
@@ -177,7 +176,6 @@ pub struct StandardMaterial {
     /// in the expected order.
     ///
     /// [z-fighting]: https://en.wikipedia.org/wiki/Z-fighting
-    #[doc(alias = "z-fighting")]
     pub depth_bias: f32,
 }
 
