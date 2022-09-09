@@ -17,7 +17,7 @@ use bevy_render::{
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
 pub struct StandardMaterial {
-    /// What color the surface of the material should be before lighting.
+    /// The color of the surface of the material before lighting.
     ///
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between. If used together with a base_color_texture, this is factored into the final
