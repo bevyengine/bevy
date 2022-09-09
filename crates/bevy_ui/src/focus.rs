@@ -168,21 +168,27 @@ pub fn ui_focus_system(
                 };
 
                 if contains_cursor {
-                    return Some(*entity);
-                } else if let Some(mut interaction) = node.interaction {
-                    if *interaction == Interaction::Hovered
-                        || (cursor_position.is_none() && *interaction != Interaction::None)
-                    {
-                        *interaction = Interaction::None;
+                    Some(*entity)
+                } else {
+                    if let Some(mut interaction) = node.interaction {
+                        if *interaction == Interaction::Hovered
+                            || (cursor_position.is_none() && *interaction != Interaction::None)
+                        {
+                            *interaction = Interaction::None;
+                        }
                     }
+                    None
                 }
+            } else {
+                None
             }
-            None
         })
         .collect::<Vec<Entity>>();
 
+    let mut moused_over_nodes = moused_over_nodes.into_iter();
+
     // set Clicked or Hovered on top nodes
-    let mut iter = node_query.iter_many_mut(&moused_over_nodes);
+    let mut iter = node_query.iter_many_mut(moused_over_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
@@ -208,7 +214,7 @@ pub fn ui_focus_system(
         }
     }
     // reset lower nodes to None
-    let mut iter = node_query.iter_many_mut(&moused_over_nodes);
+    let mut iter = node_query.iter_many_mut(moused_over_nodes);
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             // don't reset clicked nodes because they're handled separately
