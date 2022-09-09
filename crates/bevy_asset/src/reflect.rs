@@ -3,7 +3,7 @@ use std::any::{Any, TypeId};
 use bevy_ecs::world::World;
 use bevy_reflect::{FromReflect, FromType, Reflect, Uuid};
 
-use crate::{Asset, Assets, Handle, HandleUntyped};
+use crate::{Asset, Assets, Handle, HandleId, HandleUntyped};
 
 /// A struct used to operate on reflected [`Asset`] of a type.
 ///
@@ -19,6 +19,9 @@ pub struct ReflectAsset {
     get_unchecked_mut: unsafe fn(&World, HandleUntyped) -> Option<&mut dyn Reflect>,
     add: fn(&mut World, &dyn Reflect) -> HandleUntyped,
     set: fn(&mut World, HandleUntyped, &dyn Reflect) -> HandleUntyped,
+    len: fn(&World) -> usize,
+    ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = HandleId> + 'w>,
+    remove: fn(&mut World, HandleUntyped) -> Option<Box<dyn Reflect>>,
 }
 
 impl ReflectAsset {
@@ -78,6 +81,21 @@ impl ReflectAsset {
     ) -> HandleUntyped {
         (self.set)(world, handle, value)
     }
+
+    /// Equivalent of [`Assets::remove`]
+    pub fn remove(&self, world: &mut World, handle: HandleUntyped) -> Option<Box<dyn Reflect>> {
+        (self.remove)(world, handle)
+    }
+
+    /// Equivalent of [`Assets::len`]
+    pub fn len(&self, world: &World) -> usize {
+        (self.len)(world)
+    }
+
+    /// Equivalent of [`Assets::ids`]
+    pub fn ids<'w>(&self, world: &'w World) -> impl Iterator<Item = HandleId> + 'w {
+        (self.ids)(world)
+    }
 }
 
 impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
@@ -116,6 +134,19 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 let value: A = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::insert`");
                 assets.set(handle, value).into()
+            },
+            len: |world| {
+                let assets = world.resource::<Assets<A>>();
+                assets.len()
+            },
+            ids: |world| {
+                let assets = world.resource::<Assets<A>>();
+                Box::new(assets.ids())
+            },
+            remove: |world, handle| {
+                let mut assets = world.resource_mut::<Assets<A>>();
+                let value = assets.remove(handle);
+                value.map(|value| Box::new(value) as Box<dyn Reflect>)
             },
         }
     }
