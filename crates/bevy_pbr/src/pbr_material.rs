@@ -17,10 +17,16 @@ use bevy_render::{
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
 pub struct StandardMaterial {
+    /// What color the surface of the material should be before lighting.
+    ///
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between. If used together with a base_color_texture, this is factored into the final
     /// base color as `base_color * base_color_texture_value`
     pub base_color: Color,
+
+    /// The surface color as a texture.
+    ///
+    /// See [`StandardMaterial::base_color`] for details.
     #[texture(1)]
     #[sampler(2)]
     pub base_color_texture: Option<Handle<Image>>,
@@ -42,24 +48,53 @@ pub struct StandardMaterial {
     /// it just adds a value to the color seen on screen.
     pub emissive: Color,
 
+    /// Color the material "emits" to the camera, as a color texture.
+    ///
+    /// This multiplies the [`emissive`] to get the final emissive value.
+    /// Meaning that you should set [`emissive`] to [`Color::WHITE`]
+    /// if you want to use an emissive texture.
+    ///
+    /// [`emissive`]: StandardMaterial::emissive
     #[texture(3)]
     #[sampler(4)]
     pub emissive_texture: Option<Handle<Image>>,
-    /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
-    /// Defaults to minimum of 0.089
+
+    /// Linear perceptual roughness, clamped to `[0.089, 1.0]` in the shader.
+    ///
+    /// Defaults to minimum of `0.089`.
+    ///
+    /// Low values result in a "glossy" material with specular highlights,
+    /// while values close to `1` result in rough materials.
+    ///
     /// If used together with a roughness/metallic texture, this is factored into the final base
-    /// color as `roughness * roughness_texture_value`
+    /// color as `roughness * roughness_texture_value`.
     pub perceptual_roughness: f32,
-    /// From [0.0, 1.0], dielectric to pure metallic
+
+    /// How "metallic" the material feel, within `[0.0, 1.0]`,
+    /// going from dielectric to pure metallic.
+    ///
+    /// Defaults to `0.01`.
+    ///
+    /// The closer to `1` the value, the more the material will
+    /// reflect light like a metal such as steel or gold.
+    ///
     /// If used together with a roughness/metallic texture, this is factored into the final base
-    /// color as `metallic * metallic_texture_value`
+    /// color as `metallic * metallic_texture_value`.
     pub metallic: f32,
 
+    /// A texture representing both [`metallic`] and [`roughness`].
+    ///
+    /// The blue channel is the [`metallic`] and green is [`roughness`].
+    ///
+    /// [`metallic`]: StandardMaterial::metallic
+    /// [`roughness`]: StandardMaterial::perceptual_roughness
     #[texture(5)]
     #[sampler(6)]
     pub metallic_roughness_texture: Option<Handle<Image>>,
-    /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
-    /// defaults to 0.5 which is mapped to 4% reflectance in the shader
+
+    /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
+    ///
+    /// Defaults to `0.5` which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
 
     /// Used to fake the lighting of bumps and dents on a material.
@@ -67,7 +102,6 @@ pub struct StandardMaterial {
     /// A typical usage would be faking cobblestones on a flat plane mesh in 3D.
     ///
     /// # Notes
-    ///
     ///
     /// Normal mapping with `StandardMaterial` and the core bevy PBR shaders requires:
     /// - A normal map texture
@@ -105,15 +139,37 @@ pub struct StandardMaterial {
 
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
     /// within the PBR lighting shader.
-    /// Defaults to false.
+    ///
+    /// Defaults to `false`.
     /// This does not automatically configure backface culling, which can be done via
     /// `cull_mode`.
     pub double_sided: bool,
-    /// Whether to cull the "front", "back" or neither side of a mesh
-    /// defaults to `Face::Back`
+
+    /// Whether to cull the "front", "back" or neither side of a mesh.
+    ///
+    /// Defaults to `Face::Back`.
     pub cull_mode: Option<Face>,
+
+    /// Whether to shade this material.
+    ///
+    /// Normals, occlusion textures, roughness, metallic, reflectance and
+    /// emissive are ignored if this is set to `true`.
     pub unlit: bool,
+
+    /// How to interpret the alpha channel of the `base_color_texture`.
+    ///
+    /// By default, it's `Opaque`, therefore completely ignored.
+    /// Note that currently bevy handles poorly semi-transparent textures. You
+    /// are likely to encounter the following bugs:
+    ///
+    /// - When two `AlphaMode::Blend` materials occupy the same pixel, only one
+    ///   material's color will show.
+    /// - If a different mesh is both "in front" and "behind" a non-opaque material,
+    ///   bevy won't know which material to display in front, which might result in
+    ///   flickering.
     pub alpha_mode: AlphaMode,
+
+    /// Re-arange depth of material, useful to avoid z-fighting.
     pub depth_bias: f32,
 }
 
@@ -210,6 +266,7 @@ pub struct StandardMaterialUniform {
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
+    /// The shader flags.
     pub flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
     /// and any below means fully transparent.
