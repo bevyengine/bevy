@@ -150,7 +150,7 @@ pub struct StandardMaterial {
     /// Defaults to `Face::Back`.
     pub cull_mode: Option<Face>,
 
-    /// Whether to shade this material.
+    /// Whether to apply only the base colour to this material.
     ///
     /// Normals, occlusion textures, roughness, metallic, reflectance and
     /// emissive are ignored if this is set to `true`.
