@@ -50,7 +50,7 @@ pub struct StandardMaterial {
 
     /// Color the material "emits" to the camera, as a color texture.
     ///
-    /// This multiplies the [`emissive`] to get the final emissive value.
+    /// This color is multiplied by [`emissive`] to get the final emitted color.
     /// Meaning that you should set [`emissive`] to [`Color::WHITE`]
     /// if you want to use an emissive texture.
     ///
