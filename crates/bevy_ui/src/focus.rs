@@ -62,7 +62,7 @@ pub struct State {
     entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
-/// Main query for the focus system
+/// Main query for [`ui_focus_system`]
 #[derive(WorldQuery)]
 #[world_query(mutable)]
 pub struct NodeQuery {
@@ -206,7 +206,7 @@ pub fn ui_focus_system(
             }
         }
 
-        match node.focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
+        match node.focus_policy.unwrap_or(&FocusPolicy::Block) {
             FocusPolicy::Block => {
                 break;
             }
