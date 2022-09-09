@@ -168,7 +168,7 @@ pub fn ui_focus_system(
                 };
 
                 if contains_cursor {
-                    return Some(entity);
+                    return Some(*entity);
                 } else if let Some(mut interaction) = node.interaction {
                     if *interaction == Interaction::Hovered
                         || (cursor_position.is_none() && *interaction != Interaction::None)
@@ -176,47 +176,44 @@ pub fn ui_focus_system(
                         *interaction = Interaction::None;
                     }
                 }
-                return None;
             }
             None
         })
-        .collect::<Vec<_>>();
+        .collect::<Vec<Entity>>();
 
     // set Clicked or Hovered on top nodes
-    for entity in &moused_over_nodes {
-        if let Ok(node) = node_query.get_mut(**entity) {
-            if let Some(mut interaction) = node.interaction {
-                if mouse_clicked {
-                    // only consider nodes with Interaction "clickable"
-                    if *interaction != Interaction::Clicked {
-                        *interaction = Interaction::Clicked;
-                        // if the mouse was simultaneously released, reset this Interaction in the next
-                        // frame
-                        if mouse_released {
-                            state.entities_to_reset.push(**entity);
-                        }
+    let mut iter = node_query.iter_many_mut(&moused_over_nodes);
+    while let Some(node) = iter.fetch_next() {
+        if let Some(mut interaction) = node.interaction {
+            if mouse_clicked {
+                // only consider nodes with Interaction "clickable"
+                if *interaction != Interaction::Clicked {
+                    *interaction = Interaction::Clicked;
+                    // if the mouse was simultaneously released, reset this Interaction in the next
+                    // frame
+                    if mouse_released {
+                        state.entities_to_reset.push(node.entity);
                     }
-                } else if *interaction == Interaction::None {
-                    *interaction = Interaction::Hovered;
                 }
+            } else if *interaction == Interaction::None {
+                *interaction = Interaction::Hovered;
             }
+        }
 
-            match node.focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
-                FocusPolicy::Block => {
-                    break;
-                }
-                FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
+        match node.focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
+            FocusPolicy::Block => {
+                break;
             }
+            FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
         }
     }
     // reset lower nodes to None
-    for entity in &moused_over_nodes {
-        if let Ok(node) = node_query.get_mut(**entity) {
-            if let Some(mut interaction) = node.interaction {
-                // don't reset clicked nodes because they're handled separately
-                if *interaction != Interaction::Clicked && *interaction != Interaction::None {
-                    *interaction = Interaction::None;
-                }
+    let mut iter = node_query.iter_many_mut(&moused_over_nodes);
+    while let Some(node) = iter.fetch_next() {
+        if let Some(mut interaction) = node.interaction {
+            // don't reset clicked nodes because they're handled separately
+            if *interaction != Interaction::Clicked && *interaction != Interaction::None {
+                *interaction = Interaction::None;
             }
         }
     }
