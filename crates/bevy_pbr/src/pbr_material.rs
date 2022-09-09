@@ -24,9 +24,9 @@ pub struct StandardMaterial {
     /// base color as `base_color * base_color_texture_value`
     pub base_color: Color,
 
-    /// The surface color as a texture.
+    /// The [`base_color`] as a texture.
     ///
-    /// See [`StandardMaterial::base_color`] for details.
+    /// [`base_color`]: StandardMaterial::base_color
     #[texture(1)]
     #[sampler(2)]
     pub base_color_texture: Option<Handle<Image>>,
@@ -48,7 +48,7 @@ pub struct StandardMaterial {
     /// it just adds a value to the color seen on screen.
     pub emissive: Color,
 
-    /// Color the material "emits" to the camera, as a color texture.
+    /// The [`emissive`] as a texture.
     ///
     /// This color is multiplied by [`emissive`] to get the final emitted color.
     /// Meaning that you should set [`emissive`] to [`Color::WHITE`]
@@ -150,23 +150,15 @@ pub struct StandardMaterial {
     /// Defaults to `Face::Back`.
     pub cull_mode: Option<Face>,
 
-    /// Whether to apply only the base colour to this material.
+    /// Whether to apply only the base color to this material.
     ///
     /// Normals, occlusion textures, roughness, metallic, reflectance and
     /// emissive are ignored if this is set to `true`.
     pub unlit: bool,
 
-    /// How to interpret the alpha channel of the `base_color_texture`.
+    /// How to apply the alpha channel of the `base_color_texture`.
     ///
-    /// By default, it's `Opaque`, therefore completely ignored.
-    /// Note that currently bevy handles poorly semi-transparent textures. You
-    /// are likely to encounter the following bugs:
-    ///
-    /// - When two `AlphaMode::Blend` materials occupy the same pixel, only one
-    ///   material's color will show.
-    /// - If a different mesh is both "in front" and "behind" a non-opaque material,
-    ///   bevy won't know which material to display in front, which might result in
-    ///   flickering.
+    /// See [`AlphaMode`] for details. Defaults to [`AlphaMode::Opaque`].
     pub alpha_mode: AlphaMode,
 
     /// Re-arange depth of material, useful to avoid z-fighting.
@@ -231,6 +223,8 @@ impl From<Handle<Image>> for StandardMaterial {
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/pbr_types.wgsl!
 bitflags::bitflags! {
+    /// Bitflags info about the material a shader is currently rendering.
+    /// This is accessible in the shader in the [`StandardMaterialUniform`]
     #[repr(transparent)]
     pub struct StandardMaterialFlags: u32 {
         const BASE_COLOR_TEXTURE         = (1 << 0);
@@ -266,7 +260,7 @@ pub struct StandardMaterialUniform {
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
-    /// The shader flags.
+    /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
     pub flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
     /// and any below means fully transparent.
