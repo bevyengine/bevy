@@ -3,6 +3,7 @@ pub use crate::{
     app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, input::prelude::*,
     log::prelude::*, math::prelude::*, reflect::prelude::*, time::prelude::*,
     transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
+    TestPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};

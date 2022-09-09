@@ -96,3 +96,37 @@ impl PluginGroup for MinimalPlugins {
         group.add(bevy_app::ScheduleRunnerPlugin::default());
     }
 }
+
+/// Plugin group intended for use in tests, that will add the following plugins:
+/// * [`CorePlugin`](bevy_core::CorePlugin)
+/// * [`TimePlugin`](bevy_time::TimePlugin)
+/// * [`ScheduleRunnerPlugin`](bevy_app::ScheduleRunnerPlugin)
+/// * [`AssetPlugin`](bevy_asset::AssetPlugin)
+/// * [`ScenePlugin`](bevy_scene::ScenePlugin)
+/// * [`WindowPlugin`](bevy_window::WindowPlugin)
+/// * [`RenderPlugin`](bevy_render::RenderPlugin)
+/// * [`GilrsPlugin`](bevy_gilrs::GilrsPlugin)
+/// * [`TransformPlugin`](bevy_transform::TransformPlugin)
+/// * [`HierarchyPlugin`](bevy_hierarchy::HierarchyPlugin)
+/// * [`DiagnosticsPlugin`](bevy_diagnostic::DiagnosticsPlugin)
+/// * [`InputPlugin`](bevy_input::InputPlugin)
+///
+/// See also [`DefaultPlugins`] for a more complete set of plugins
+pub struct TestPlugins;
+
+impl PluginGroup for TestPlugins {
+    fn build(&mut self, group: &mut PluginGroupBuilder) {
+        group.add(bevy_core::CorePlugin::default());
+        group.add(bevy_time::TimePlugin::default());
+        group.add(bevy_app::ScheduleRunnerPlugin::default());
+        group.add(bevy_asset::AssetPlugin);
+        group.add(bevy_scene::ScenePlugin);
+        group.add(bevy_window::WindowPlugin);
+        group.add(bevy_render::RenderPlugin);
+        group.add(bevy_gilrs::GilrsPlugin);
+        group.add(bevy_transform::TransformPlugin);
+        group.add(bevy_hierarchy::HierarchyPlugin);
+        group.add(bevy_diagnostic::DiagnosticsPlugin);
+        group.add(bevy_input::InputPlugin);
+    }
+}

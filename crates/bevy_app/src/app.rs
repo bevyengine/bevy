@@ -815,7 +815,7 @@ impl App {
     /// [`Plugin`]s can be grouped into a set by using a [`PluginGroup`].
     ///
     /// There are built-in [`PluginGroup`]s that provide core engine functionality.
-    /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
+    /// The [`PluginGroup`]s available by default are `DefaultPlugins`, `MinimalPlugins`, and `TestPlugins`.
     ///
     /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
     /// before / after another plugin), see [`add_plugins_with`](Self::add_plugins_with).
