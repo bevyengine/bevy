@@ -46,7 +46,7 @@ pub trait DetectChanges {
     /// The type contained within this smart pointer
     ///
     /// For example, for `Res<T>` this would be `T`.
-    type Inner;
+    type Inner: ?Sized;
 
     /// Returns `true` if this value was added after the system last ran.
     fn is_added(&self) -> bool;
@@ -90,7 +90,7 @@ pub trait DetectChanges {
 
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),* $(: $traits)?> DetectChanges for $name<$($generics),*> {
+        impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             type Inner = $target;
 
             #[inline]
@@ -130,7 +130,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),* $(: $traits)?> Deref for $name<$($generics),*> {
+        impl<$($generics),*: ?Sized $(+ $traits)?> Deref for $name<$($generics),*> {
             type Target = $target;
 
             #[inline]
@@ -139,7 +139,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),* $(: $traits)?> DerefMut for $name<$($generics),*> {
+        impl<$($generics),* : ?Sized $(+ $traits)?> DerefMut for $name<$($generics),*> {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
@@ -165,7 +165,7 @@ macro_rules! change_detection_impl {
 
 macro_rules! impl_into_inner {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),* $(: $traits)?> $name<$($generics),*> {
+        impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
             /// contained value while marking `self` as "changed".
             #[inline]
@@ -179,12 +179,12 @@ macro_rules! impl_into_inner {
 
 macro_rules! impl_debug {
     ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
-        impl<$($generics),* $(: $traits)?> std::fmt::Debug for $name<$($generics),*>
+        impl<$($generics),* : ?Sized $(+ $traits)?> std::fmt::Debug for $name<$($generics),*>
             where T: std::fmt::Debug
         {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 f.debug_tuple(stringify!($name))
-                    .field(self.value)
+                    .field(&self.value)
                     .finish()
             }
         }
@@ -209,7 +209,7 @@ pub(crate) struct Ticks<'a> {
 /// Panics when used as a [`SystemParam`](crate::system::SystemParam) if the resource does not exist.
 ///
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
-pub struct ResMut<'a, T: Resource> {
+pub struct ResMut<'a, T: ?Sized + Resource> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
 }
@@ -241,7 +241,7 @@ impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
 /// Panics when used as a `SystemParameter` if the resource does not exist.
 ///
 /// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
-pub struct NonSendMut<'a, T: 'static> {
+pub struct NonSendMut<'a, T: ?Sized + 'static> {
     pub(crate) value: &'a mut T,
     pub(crate) ticks: Ticks<'a>,
 }
