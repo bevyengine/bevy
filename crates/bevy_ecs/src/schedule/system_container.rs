@@ -2,8 +2,8 @@ use crate::{
     component::ComponentId,
     query::Access,
     schedule::{
-        AmbiguitySetLabelId, ExclusiveSystemDescriptor, GraphNode, ParallelSystemDescriptor,
-        RunCriteriaLabelId, SystemLabelId,
+        ExclusiveSystemDescriptor, GraphNode, ParallelSystemDescriptor, RunCriteriaLabelId,
+        SystemLabelId,
     },
     system::{ExclusiveSystem, System},
 };
@@ -20,7 +20,6 @@ pub trait SystemContainer: GraphNode<Label = SystemLabelId> {
     #[doc(hidden)]
     fn set_run_criteria(&mut self, index: usize);
     fn run_criteria_label(&self) -> Option<&RunCriteriaLabelId>;
-    fn ambiguity_sets(&self) -> &[AmbiguitySetLabelId];
     fn component_access(&self) -> Option<&Access<ComponentId>>;
 }
 
@@ -32,7 +31,6 @@ pub(super) struct ExclusiveSystemContainer {
     labels: Vec<SystemLabelId>,
     before: Vec<SystemLabelId>,
     after: Vec<SystemLabelId>,
-    ambiguity_sets: Vec<AmbiguitySetLabelId>,
 }
 
 impl ExclusiveSystemContainer {
@@ -45,7 +43,6 @@ impl ExclusiveSystemContainer {
             labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
-            ambiguity_sets: descriptor.ambiguity_sets,
         }
     }
 
@@ -96,10 +93,6 @@ impl SystemContainer for ExclusiveSystemContainer {
         self.run_criteria_label.as_ref()
     }
 
-    fn ambiguity_sets(&self) -> &[AmbiguitySetLabelId] {
-        &self.ambiguity_sets
-    }
-
     fn component_access(&self) -> Option<&Access<ComponentId>> {
         None
     }
@@ -114,7 +107,6 @@ pub struct ParallelSystemContainer {
     labels: Vec<SystemLabelId>,
     before: Vec<SystemLabelId>,
     after: Vec<SystemLabelId>,
-    ambiguity_sets: Vec<AmbiguitySetLabelId>,
 }
 
 impl ParallelSystemContainer {
@@ -128,7 +120,6 @@ impl ParallelSystemContainer {
             labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
-            ambiguity_sets: descriptor.ambiguity_sets,
         }
     }
 
@@ -193,10 +184,6 @@ impl SystemContainer for ParallelSystemContainer {
 
     fn run_criteria_label(&self) -> Option<&RunCriteriaLabelId> {
         self.run_criteria_label.as_ref()
-    }
-
-    fn ambiguity_sets(&self) -> &[AmbiguitySetLabelId] {
-        &self.ambiguity_sets
     }
 
     fn component_access(&self) -> Option<&Access<ComponentId>> {
