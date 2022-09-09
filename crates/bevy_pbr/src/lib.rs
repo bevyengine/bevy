@@ -38,7 +38,7 @@ pub mod draw_3d_graph {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -129,6 +129,7 @@ impl Plugin for PbrPlugin {
             .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
             .register_type::<DirectionalLightShadowMap>()
             .register_type::<PointLightShadowMap>()
