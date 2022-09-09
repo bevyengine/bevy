@@ -24,3 +24,7 @@ var occlusion_sampler: sampler;
 var normal_map_texture: texture_2d<f32>;
 @group(1) @binding(10)
 var normal_map_sampler: sampler;
+@group(1) @binding(11)
+var depth_map_texture: texture_2d<f32>;
+@group(1) @binding(12)
+var depth_map_sampler: sampler;
