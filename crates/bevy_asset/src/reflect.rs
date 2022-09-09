@@ -88,6 +88,7 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::len`]
+    #[allow(clippy::len_without_is_empty)] // clippy expects the `is_empty` method to have the signature `(&self) -> bool`
     pub fn len(&self, world: &World) -> usize {
         (self.len)(world)
     }
