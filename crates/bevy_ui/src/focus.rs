@@ -127,7 +127,7 @@ pub fn ui_focus_system(
         .find_map(|window| window.cursor_position())
         .or_else(|| touches_input.first_pressed_position());
 
-    let moused_over_nodes = ui_stack
+    let mut moused_over_nodes = ui_stack
         .uinodes
         .iter()
         // reverse the iterator to traverse the tree from closest nodes to furthest
@@ -183,9 +183,8 @@ pub fn ui_focus_system(
                 None
             }
         })
-        .collect::<Vec<Entity>>();
-
-    let mut moused_over_nodes = moused_over_nodes.into_iter();
+        .collect::<Vec<Entity>>()
+        .into_iter();
 
     // set Clicked or Hovered on top nodes
     let mut iter = node_query.iter_many_mut(moused_over_nodes.by_ref());
