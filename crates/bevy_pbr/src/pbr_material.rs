@@ -70,7 +70,7 @@ pub struct StandardMaterial {
     /// color as `roughness * roughness_texture_value`.
     pub perceptual_roughness: f32,
 
-    /// How "metallic" the material feel, within `[0.0, 1.0]`,
+    /// How "metallic" the material appears, within `[0.0, 1.0]`,
     /// going from dielectric to pure metallic.
     ///
     /// Defaults to `0.01`.
