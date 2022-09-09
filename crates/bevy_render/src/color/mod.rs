@@ -405,7 +405,7 @@ impl Color {
     /// Converts a `Color` to variant `Color::RgbaLinear`
     pub fn as_rgba_linear(self: &Color) -> Color {
         let [red, green, blue, alpha] = self.as_linear_rgba_f32();
-        Color::Rgba {
+        Color::RgbaLinear {
             red,
             green,
             blue,
@@ -415,11 +415,11 @@ impl Color {
 
     /// Converts a `Color` to variant `Color::Hsla`
     pub fn as_hsla(self: &Color) -> Color {
-        let [red, green, blue, alpha] = self.as_hsla_f32();
-        Color::Rgba {
-            red,
-            green,
-            blue,
+        let [hue, saturation, lightness, alpha] = self.as_hsla_f32();
+        Color::Hsla {
+            hue,
+            saturation,
+            lightness,
             alpha,
         }
     }
