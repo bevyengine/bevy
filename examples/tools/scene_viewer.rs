@@ -79,7 +79,7 @@ struct SceneHandle {
     has_light: bool,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     let scene_path = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf".to_string());
@@ -206,7 +206,7 @@ fn keyboard_animation_control(
 }
 
 fn setup_scene_after_load(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,

@@ -459,7 +459,7 @@ fn clip_to_view(inverse_projection: Mat4, clip: Vec4) -> Vec4 {
 }
 
 pub fn add_clusters(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     cameras: Query<(Entity, Option<&ClusterConfig>), (With<Camera>, Without<Clusters>)>,
 ) {
     for (entity, config) in &cameras {
@@ -793,7 +793,7 @@ impl GlobalVisiblePointLights {
 // NOTE: Run this before update_point_light_frusta!
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn assign_lights_to_clusters(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut global_lights: ResMut<GlobalVisiblePointLights>,
     mut views: Query<(
         Entity,

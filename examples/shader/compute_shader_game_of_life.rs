@@ -34,7 +34,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup(mut commands: DeferredCommands, mut images: ResMut<Assets<Image>>) {
     let mut image = Image::new_fill(
         Extent3d {
             width: SIZE.0,
@@ -92,7 +92,7 @@ struct GameOfLifeImage(Handle<Image>);
 struct GameOfLifeImageBindGroup(BindGroup);
 
 fn queue_bind_group(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     pipeline: Res<GameOfLifePipeline>,
     gpu_images: Res<RenderAssets<Image>>,
     game_of_life_image: Res<GameOfLifeImage>,

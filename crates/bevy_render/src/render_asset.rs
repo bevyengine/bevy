@@ -131,7 +131,7 @@ impl<A: RenderAsset> Default for RenderAssets<A> {
 /// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".
 fn extract_render_asset<A: RenderAsset>(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut events: Extract<EventReader<AssetEvent<A>>>,
     assets: Extract<Res<Assets<A>>>,
 ) {

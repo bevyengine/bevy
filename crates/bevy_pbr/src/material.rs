@@ -13,7 +13,7 @@ use bevy_ecs::{
     schedule::ParallelSystemDescriptorCoercion,
     system::{
         lifetimeless::{Read, SQuery, SRes},
-        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
+        DeferredCommands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::FromWorld,
 };
@@ -84,7 +84,7 @@ use std::marker::PhantomData;
 /// }
 ///
 /// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+/// fn setup(mut commands: DeferredCommands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
 ///     commands.spawn_bundle(MaterialMeshBundle {
 ///         material: materials.add(CustomMaterial {
 ///             color: Color::RED,
@@ -464,7 +464,7 @@ impl<T: Material> Default for RenderMaterials<T> {
 /// This system extracts all created or modified assets of the corresponding [`Material`] type
 /// into the "render world".
 fn extract_materials<M: Material>(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut events: Extract<EventReader<AssetEvent<M>>>,
     assets: Extract<Res<Assets<M>>>,
 ) {

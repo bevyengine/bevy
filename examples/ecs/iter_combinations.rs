@@ -51,7 +51,7 @@ struct BodyBundle {
 }
 
 fn generate_bodies(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

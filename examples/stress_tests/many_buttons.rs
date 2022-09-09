@@ -49,7 +49,7 @@ impl FromWorld for UiFont {
     }
 }
 
-fn setup(mut commands: Commands, font: Res<UiFont>) {
+fn setup(mut commands: DeferredCommands, font: Res<UiFont>) {
     let count = ROW_COLUMN_COUNT;
     let count_f = count as f32;
     let as_rainbow = |i: usize| Color::hsl((i as f32 / count_f) * 360.0, 0.9, 0.8);

@@ -39,7 +39,7 @@ fn main() {
 }
 
 fn star(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     // We will add a new Mesh for the star being created
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -287,7 +287,7 @@ impl Plugin for ColoredMesh2dPlugin {
 
 /// Extract the [`ColoredMesh2d`] marker component into the render app
 pub fn extract_colored_mesh2d(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut previous_len: Local<usize>,
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.

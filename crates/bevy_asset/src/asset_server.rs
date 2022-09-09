@@ -86,13 +86,13 @@ pub struct AssetServerInternal {
 ///
 /// ```rust,no_run
 /// use bevy_asset::{AssetServer, Handle};
-/// use bevy_ecs::prelude::{Commands, Res};
+/// use bevy_ecs::prelude::{DeferredCommands, Res};
 ///
 /// # #[derive(Debug, bevy_reflect::TypeUuid)]
 /// # #[uuid = "00000000-0000-0000-0000-000000000000"]
 /// # struct Image;
 ///
-/// fn my_system(mut commands: Commands, asset_server: Res<AssetServer>)
+/// fn my_system(mut commands: DeferredCommands, asset_server: Res<AssetServer>)
 /// {
 ///     // Now you can do whatever you want with the asset server, such as loading an asset:
 ///     let asset_handle: Handle<Image> = asset_server.load("cool_picture.png");

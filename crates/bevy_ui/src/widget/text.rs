@@ -3,7 +3,7 @@ use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
-    system::{Commands, Local, ParamSet, Query, Res, ResMut},
+    system::{DeferredCommands, Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
@@ -38,7 +38,7 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut queued_text: Local<QueuedText>,
     mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Image>>,

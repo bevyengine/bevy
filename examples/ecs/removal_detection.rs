@@ -26,7 +26,7 @@ fn main() {
 #[derive(Component)]
 struct MyComponent;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
     commands
         .spawn_bundle(SpriteBundle {
@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn remove_component(
     time: Res<Time>,
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     query: Query<Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.

@@ -29,7 +29,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+fn setup(mut commands: DeferredCommands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn().insert_bundle((
         meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
         Transform::from_xyz(0.0, 0.0, 0.0),
@@ -142,7 +142,7 @@ pub struct InstanceBuffer {
 }
 
 fn prepare_instance_buffers(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     query: Query<(Entity, &InstanceMaterialData)>,
     render_device: Res<RenderDevice>,
 ) {

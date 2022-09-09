@@ -32,7 +32,7 @@ fn main() {
 
 // Startup system to setup the scene and spawn all relevant entities.
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

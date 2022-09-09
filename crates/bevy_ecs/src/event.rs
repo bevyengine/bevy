@@ -281,7 +281,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// # use bevy_ecs::{prelude::*, event::Events};
 ///
 /// # pub struct MyEvent;
-/// fn send_untyped(mut commands: Commands) {
+/// fn send_untyped(mut commands: DeferredCommands) {
 ///     // Send an event of a specific type without having to declare that
 ///     // type as a SystemParam.
 ///     //

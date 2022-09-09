@@ -24,7 +24,7 @@ struct StreamEvent(u32);
 #[derive(Resource, Deref)]
 struct LoadedFont(Handle<Font>);
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
 
     let (tx, rx) = bounded::<u32>(10);
@@ -53,7 +53,7 @@ fn read_stream(receiver: ResMut<StreamReceiver>, mut events: EventWriter<StreamE
 }
 
 fn spawn_text(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut reader: EventReader<StreamEvent>,
     loaded_font: Res<LoadedFont>,
 ) {
@@ -78,7 +78,7 @@ fn spawn_text(
 }
 
 fn move_text(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut texts: Query<(Entity, &mut Transform), With<Text>>,
     time: Res<Time>,
 ) {

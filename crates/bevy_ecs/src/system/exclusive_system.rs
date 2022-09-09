@@ -112,7 +112,7 @@ mod tests {
         entity::Entity,
         query::With,
         schedule::{Stage, SystemStage},
-        system::{Commands, IntoExclusiveSystem, Query, ResMut, Resource},
+        system::{DeferredCommands, IntoExclusiveSystem, Query, ResMut, Resource},
         world::World,
     };
 
@@ -127,7 +127,7 @@ mod tests {
         struct Counter(usize);
 
         fn removal(
-            mut commands: Commands,
+            mut commands: DeferredCommands,
             query: Query<Entity, With<Foo>>,
             mut counter: ResMut<Counter>,
         ) {
@@ -157,7 +157,7 @@ mod tests {
         #[derive(Resource, Default)]
         struct CountEntities(Vec<usize>);
 
-        fn spawn_entity(mut commands: crate::prelude::Commands) {
+        fn spawn_entity(mut commands: crate::prelude::DeferredCommands) {
             commands.spawn().insert(Foo(0.0));
         }
 

@@ -5,7 +5,7 @@ use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
     prelude::{Changed, Component, Without},
-    system::{Commands, Query},
+    system::{DeferredCommands, Query},
 };
 use bevy_render::prelude::{ComputedVisibility, Visibility};
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -47,7 +47,7 @@ pub struct DynamicSceneBundle {
 
 /// System that will spawn scenes from [`SceneBundle`].
 pub fn scene_spawner(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut scene_to_spawn: Query<
         (Entity, &Handle<Scene>, Option<&mut SceneInstance>),
         (Changed<Handle<Scene>>, Without<Handle<DynamicScene>>),

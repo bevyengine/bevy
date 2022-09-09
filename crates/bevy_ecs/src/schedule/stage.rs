@@ -1521,7 +1521,7 @@ mod tests {
             }
         }
 
-        fn spawn_entity(mut commands: crate::prelude::Commands) {
+        fn spawn_entity(mut commands: crate::prelude::DeferredCommands) {
             commands.spawn().insert(Foo);
         }
 
@@ -1563,7 +1563,7 @@ mod tests {
             }
         }
 
-        fn spawn_entity(mut commands: crate::prelude::Commands) {
+        fn spawn_entity(mut commands: crate::prelude::DeferredCommands) {
             commands.spawn().insert(Foo);
         }
 

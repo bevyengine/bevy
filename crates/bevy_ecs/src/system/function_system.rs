@@ -184,7 +184,7 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
-    /// by a [`Commands`](`super::Commands`) parameter to the given [`World`].
+    /// by a [`DeferredCommands`](`super::DeferredCommands`) parameter to the given [`World`].
     /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {

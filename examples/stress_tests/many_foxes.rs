@@ -71,7 +71,7 @@ struct Ring {
 }
 
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,

@@ -16,7 +16,7 @@ use super::Resource;
 
 /// A [`World`] mutation.
 ///
-/// Should be used with [`Commands::add`].
+/// Should be used with [`DeferredCommands::add`].
 ///
 /// # Usage
 ///
@@ -37,7 +37,7 @@ use super::Resource;
 ///     }
 /// }
 ///
-/// fn some_system(mut commands: Commands) {
+/// fn some_system(mut commands: DeferredCommands) {
 ///     commands.add(AddToCounter(42));
 /// }
 /// ```
@@ -57,13 +57,13 @@ pub trait Command: Send + Sync + 'static {
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied at the end of the current stage.
-/// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
+/// Add `mut commands: DeferredCommands` as a function argument to your system to get a copy of this struct that will be applied at the end of the current stage.
+/// `DeferredCommands` are almost always used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// fn my_system(mut commands: Commands) {
+/// fn my_system(mut commands: DeferredCommands) {
 ///    // ...
 /// }
 /// # bevy_ecs::system::assert_is_system(my_system);
@@ -73,14 +73,14 @@ pub trait Command: Send + Sync + 'static {
 ///
 /// Each built-in command is implemented as a separate method, e.g. [`spawn`](#method.spawn).
 /// In addition to the pre-defined command methods, you can add commands with any arbitrary
-/// behavior using [`Commands::add`](#method.add), which accepts any type implementing [`Command`].
+/// behavior using [`DeferredCommands::add`](#method.add), which accepts any type implementing [`Command`].
 ///
 /// Since closures and other functions implement this trait automatically, this allows one-shot,
 /// anonymous custom commands.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # fn foo(mut commands: Commands) {
+/// # fn foo(mut commands: DeferredCommands) {
 /// // NOTE: type inference fails here, so annotations are required on the closure.
 /// commands.add(|w: &mut World| {
 ///     // Mutate the world however you want...
@@ -88,13 +88,13 @@ pub trait Command: Send + Sync + 'static {
 /// });
 /// # }
 /// ```
-pub struct Commands<'w, 's> {
+pub struct DeferredCommands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,
 }
 
-impl<'w, 's> Commands<'w, 's> {
-    /// Create a new `Commands` from a queue and a world.
+impl<'w, 's> DeferredCommands<'w, 's> {
+    /// Create a new `DeferredCommands` from a queue and a world.
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
         Self {
             queue,
@@ -102,7 +102,7 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Create a new `Commands` from a queue and an [`Entities`] reference.
+    /// Create a new `DeferredCommands` from a queue and an [`Entities`] reference.
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
         Self { queue, entities }
     }
@@ -126,7 +126,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// #[derive(Component)]
     /// struct Agility(u32);
     ///
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(mut commands: DeferredCommands) {
     ///     // Create a new empty entity and retrieve its id.
     ///     let empty_entity = commands.spawn().id();
     ///
@@ -152,7 +152,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # Note
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor
-    /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
+    /// [`DeferredCommands::spawn`]. This method should generally only be used for sharing entities across
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
     pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
@@ -194,7 +194,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     b: Component2,
     /// }
     ///
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(mut commands: DeferredCommands) {
     ///     // Create a new entity with a component bundle.
     ///     commands.spawn_bundle(ExampleBundle {
     ///         a: Component1,
@@ -231,7 +231,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// #[derive(Component)]
     /// struct Agility(u32);
 
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(mut commands: DeferredCommands) {
     ///     // Create a new, empty entity
     ///     let entity = commands.spawn().id();
     ///
@@ -265,7 +265,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// #[derive(Component)]
     /// struct Label(&'static str);
 
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(mut commands: DeferredCommands) {
     ///     // Create a new, empty entity
     ///     let entity = commands.spawn().id();
     ///
@@ -303,7 +303,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # #[derive(Component)]
     /// # struct Score(u32);
     /// #
-    /// # fn system(mut commands: Commands) {
+    /// # fn system(mut commands: DeferredCommands) {
     /// commands.spawn_batch(vec![
     ///     (
     ///         Name("Alice".to_string()),
@@ -332,7 +332,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # Note
     ///
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`DeferredCommands::spawn_batch`].
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
@@ -367,7 +367,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// #     high_score: u32,
     /// # }
     /// #
-    /// # fn initialise_scoreboard(mut commands: Commands) {
+    /// # fn initialise_scoreboard(mut commands: DeferredCommands) {
     /// commands.init_resource::<Scoreboard>();
     /// # }
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
@@ -395,7 +395,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// #     high_score: u32,
     /// # }
     /// #
-    /// # fn system(mut commands: Commands) {
+    /// # fn system(mut commands: DeferredCommands) {
     /// commands.insert_resource(Scoreboard {
     ///     current_score: 0,
     ///     high_score: 0,
@@ -422,7 +422,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// #     high_score: u32,
     /// # }
     /// #
-    /// # fn system(mut commands: Commands) {
+    /// # fn system(mut commands: DeferredCommands) {
     /// commands.remove_resource::<Scoreboard>();
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -454,10 +454,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///     }
     /// }
     ///
-    /// fn add_three_to_counter_system(mut commands: Commands) {
+    /// fn add_three_to_counter_system(mut commands: DeferredCommands) {
     ///     commands.add(AddToCounter(3));
     /// }
-    /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
+    /// fn add_twenty_five_to_counter_system(mut commands: DeferredCommands) {
     ///     commands.add(|world: &mut World| {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         counter.0 += 25;
@@ -475,7 +475,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// A list of commands that will be run to modify an [entity](crate::entity).
 pub struct EntityCommands<'w, 's, 'a> {
     entity: Entity,
-    commands: &'a mut Commands<'w, 's>,
+    commands: &'a mut DeferredCommands<'w, 's>,
 }
 
 impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
@@ -486,7 +486,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// fn my_system(mut commands: Commands) {
+    /// fn my_system(mut commands: DeferredCommands) {
     ///     let entity_id = commands.spawn().id();
     /// }
     /// # bevy_ecs::system::assert_is_system(my_system);
@@ -520,7 +520,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// #     defense: Defense,
     /// # }
     /// #
-    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn add_combat_stats_system(mut commands: DeferredCommands, player: Res<PlayerEntity>) {
     ///     commands.entity(player.entity).insert_bundle(CombatBundle {
     ///         health: Health(100),
     ///         strength: Strength(40),
@@ -541,7 +541,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// # Example
     ///
-    /// `Self::insert` can be chained with [`Commands::spawn`].
+    /// `Self::insert` can be chained with [`DeferredCommands::spawn`].
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -551,7 +551,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # #[derive(Component)]
     /// # struct Component2;
     /// #
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(mut commands: DeferredCommands) {
     ///     // Create a new entity with `Component1` and `Component2`
     ///     commands.spawn()
     ///         .insert(Component1)
@@ -589,7 +589,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # #[derive(Bundle)]
     /// # struct CombatBundle { a: Dummy }; // dummy field, unit bundles are not permitted.
     /// #
-    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_combat_stats_system(mut commands: DeferredCommands, player: Res<PlayerEntity>) {
     ///     commands.entity(player.entity).remove_bundle::<CombatBundle>();
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
@@ -619,7 +619,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # #[derive(Component)]
     /// # struct Enemy;
     /// #
-    /// fn convert_enemy_system(mut commands: Commands, enemy: Res<TargetEnemy>) {
+    /// fn convert_enemy_system(mut commands: DeferredCommands, enemy: Res<TargetEnemy>) {
     ///     commands.entity(enemy.entity).remove::<Enemy>();
     /// }
     /// # bevy_ecs::system::assert_is_system(convert_enemy_system);
@@ -648,7 +648,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # struct CharacterToRemove { entity: Entity }
     /// #
     /// fn remove_character_system(
-    ///     mut commands: Commands,
+    ///     mut commands: DeferredCommands,
     ///     character_to_remove: Res<CharacterToRemove>
     /// )
     /// {
@@ -669,8 +669,8 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         });
     }
 
-    /// Returns the underlying [`Commands`].
-    pub fn commands(&mut self) -> &mut Commands<'w, 's> {
+    /// Returns the underlying [`DeferredCommands`].
+    pub fn commands(&mut self) -> &mut DeferredCommands<'w, 's> {
         self.commands
     }
 }
@@ -890,7 +890,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource},
+        system::{CommandQueue, DeferredCommands, Resource},
         world::World,
     };
     use std::sync::{
@@ -928,7 +928,7 @@ mod tests {
     fn commands() {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
-        let entity = Commands::new(&mut command_queue, &world)
+        let entity = DeferredCommands::new(&mut command_queue, &world)
             .spawn_bundle((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
@@ -941,7 +941,7 @@ mod tests {
         assert_eq!(results, vec![(1u32, 2u64)]);
         // test entity despawn
         {
-            let mut commands = Commands::new(&mut command_queue, &world);
+            let mut commands = DeferredCommands::new(&mut command_queue, &world);
             commands.entity(entity).despawn();
             commands.entity(entity).despawn(); // double despawn shouldn't panic
         }
@@ -955,7 +955,7 @@ mod tests {
 
         // test adding simple (FnOnce) commands
         {
-            let mut commands = Commands::new(&mut command_queue, &world);
+            let mut commands = DeferredCommands::new(&mut command_queue, &world);
 
             // set up a simple command using a closure that adds one additional entity
             commands.add(|world: &mut World| {
@@ -984,7 +984,7 @@ mod tests {
         let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
         let sparse_dropck = SparseDropCk(sparse_dropck);
 
-        let entity = Commands::new(&mut command_queue, &world)
+        let entity = DeferredCommands::new(&mut command_queue, &world)
             .spawn()
             .insert_bundle((W(1u32), W(2u64), dense_dropck, sparse_dropck))
             .id();
@@ -997,7 +997,7 @@ mod tests {
         assert_eq!(results_before, vec![(1u32, 2u64)]);
 
         // test component removal
-        Commands::new(&mut command_queue, &world)
+        DeferredCommands::new(&mut command_queue, &world)
             .entity(entity)
             .remove::<W<u32>>()
             .remove_bundle::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
@@ -1027,7 +1027,7 @@ mod tests {
         let mut world = World::default();
         let mut queue = CommandQueue::default();
         {
-            let mut commands = Commands::new(&mut queue, &world);
+            let mut commands = DeferredCommands::new(&mut queue, &world);
             commands.insert_resource(W(123i32));
             commands.insert_resource(W(456.0f64));
         }
@@ -1037,7 +1037,7 @@ mod tests {
         assert!(world.contains_resource::<W<f64>>());
 
         {
-            let mut commands = Commands::new(&mut queue, &world);
+            let mut commands = DeferredCommands::new(&mut queue, &world);
             // test resource removal
             commands.remove_resource::<W<i32>>();
         }

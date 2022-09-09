@@ -42,7 +42,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: DeferredCommands) {
     commands.spawn_bundle(Camera2dBundle::default());
 }
 
@@ -78,7 +78,7 @@ mod splash {
     #[derive(Resource, Deref, DerefMut)]
     struct SplashTimer(Timer);
 
-    fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    fn splash_setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
         let icon = asset_server.load("branding/icon.png");
         // Display the logo
         commands
@@ -137,7 +137,7 @@ mod game {
     struct GameTimer(Timer);
 
     fn game_setup(
-        mut commands: Commands,
+        mut commands: DeferredCommands,
         asset_server: Res<AssetServer>,
         display_quality: Res<DisplayQuality>,
         volume: Res<Volume>,
@@ -365,7 +365,7 @@ mod menu {
     fn setting_button<T: Resource + Component + PartialEq + Copy>(
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
         mut selected_query: Query<(Entity, &mut UiColor), With<SelectedOption>>,
-        mut commands: Commands,
+        mut commands: DeferredCommands,
         mut setting: ResMut<T>,
     ) {
         for (interaction, button_setting, entity) in &interaction_query {
@@ -383,7 +383,7 @@ mod menu {
         let _ = menu_state.set(MenuState::Main);
     }
 
-    fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    fn main_menu_setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
         // Common style for all buttons on the screen
         let button_style = Style {
@@ -502,7 +502,7 @@ mod menu {
             });
     }
 
-    fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    fn settings_menu_setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
         let button_style = Style {
             size: Size::new(Val::Px(200.0), Val::Px(65.0)),
             margin: UiRect::all(Val::Px(20.0)),
@@ -553,7 +553,7 @@ mod menu {
     }
 
     fn display_settings_menu_setup(
-        mut commands: Commands,
+        mut commands: DeferredCommands,
         asset_server: Res<AssetServer>,
         display_quality: Res<DisplayQuality>,
     ) {
@@ -640,7 +640,7 @@ mod menu {
     }
 
     fn sound_settings_menu_setup(
-        mut commands: Commands,
+        mut commands: DeferredCommands,
         asset_server: Res<AssetServer>,
         volume: Res<Volume>,
     ) {
@@ -747,7 +747,10 @@ mod menu {
 }
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
-fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
+fn despawn_screen<T: Component>(
+    to_despawn: Query<Entity, With<T>>,
+    mut commands: DeferredCommands,
+) {
     for entity in &to_despawn {
         commands.entity(entity).despawn_recursive();
     }

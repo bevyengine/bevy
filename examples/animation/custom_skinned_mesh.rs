@@ -33,7 +33,7 @@ struct AnimatedJoint;
 ///   and mark the second joint to be animated.
 /// It is similar to the scene defined in `models/SimpleSkin/SimpleSkin.gltf`
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,

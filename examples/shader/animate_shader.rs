@@ -37,7 +37,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+fn setup(mut commands: DeferredCommands, mut meshes: ResMut<Assets<Mesh>>) {
     // cube
     commands.spawn().insert_bundle((
         meshes.add(Mesh::from(shape::Cube { size: 1.0 })),

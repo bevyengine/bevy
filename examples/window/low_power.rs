@@ -137,7 +137,7 @@ pub(crate) mod test_setup {
 
     /// Set up a scene with a cube and some text
     pub fn setup(
-        mut commands: Commands,
+        mut commands: DeferredCommands,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
         mut event: EventWriter<RequestRedraw>,

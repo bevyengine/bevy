@@ -33,7 +33,7 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     assets: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {

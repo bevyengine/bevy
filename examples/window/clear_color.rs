@@ -13,7 +13,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: DeferredCommands) {
     commands.spawn_bundle(Camera2dBundle::default());
 }
 

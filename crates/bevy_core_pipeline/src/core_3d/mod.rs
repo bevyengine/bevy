@@ -208,7 +208,7 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 }
 
 pub fn extract_core_3d_camera_phases(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
 ) {
     for (entity, camera) in cameras_3d.iter() {
@@ -223,7 +223,7 @@ pub fn extract_core_3d_camera_phases(
 }
 
 pub fn prepare_core_3d_depth_textures(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,

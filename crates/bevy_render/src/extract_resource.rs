@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use bevy_app::{App, Plugin};
 #[cfg(debug_assertions)]
 use bevy_ecs::system::Local;
-use bevy_ecs::system::{Commands, Res, ResMut, Resource};
+use bevy_ecs::system::{DeferredCommands, Res, ResMut, Resource};
 pub use bevy_render_macros::ExtractResource;
 
 use crate::{Extract, RenderApp, RenderStage};
@@ -41,7 +41,7 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
 
 /// This system extracts the resource of the corresponding [`Resource`] type
 pub fn extract_resource<R: ExtractResource>(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     main_resource: Extract<Res<R::Source>>,
     target_resource: Option<ResMut<R>>,
     #[cfg(debug_assertions)] mut has_warned_on_remove: Local<bool>,
@@ -55,7 +55,7 @@ pub fn extract_resource<R: ExtractResource>(
         if !main_resource.is_added() && !*has_warned_on_remove {
             *has_warned_on_remove = true;
             bevy_log::warn!(
-                "Removing resource {} from render world not expected, adding using `Commands`.
+                "Removing resource {} from render world not expected, adding using `DeferredCommands`.
                 This may decrease performance",
                 std::any::type_name::<R>()
             );

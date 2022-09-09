@@ -15,7 +15,7 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     asset_server: Res<AssetServer>,
     mut create_window_events: EventWriter<CreateWindow>,
 ) {

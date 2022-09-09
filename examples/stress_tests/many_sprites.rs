@@ -41,7 +41,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<ColorTint>) {
+fn setup(mut commands: DeferredCommands, assets: Res<AssetServer>, color_tint: Res<ColorTint>) {
     warn!(include_str!("warning_string.txt"));
 
     let mut rng = rand::thread_rng();

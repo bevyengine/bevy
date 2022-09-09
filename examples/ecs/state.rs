@@ -35,11 +35,11 @@ const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: DeferredCommands) {
     commands.spawn_bundle(Camera2dBundle::default());
 }
 
-fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_menu(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     let button_entity = commands
         .spawn_bundle(ButtonBundle {
             style: Style {
@@ -92,11 +92,11 @@ fn menu(
     }
 }
 
-fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
+fn cleanup_menu(mut commands: DeferredCommands, menu_data: Res<MenuData>) {
     commands.entity(menu_data.button_entity).despawn_recursive();
 }
 
-fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_game(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
         ..default()

@@ -19,7 +19,7 @@ fn main() {
 struct MainCamera;
 
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut custom_materials: ResMut<Assets<CustomMaterial>>,

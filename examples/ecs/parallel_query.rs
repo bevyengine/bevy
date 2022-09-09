@@ -6,7 +6,7 @@ use rand::random;
 #[derive(Component, Deref)]
 struct Velocity(Vec2);
 
-fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn_system(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
     let texture = asset_server.load("branding/icon.png");
     for _ in 0..128 {

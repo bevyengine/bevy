@@ -61,7 +61,7 @@ struct Cubemap {
     image_handle: Handle<Image>,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     // directional 'sun' light
     commands.spawn_bundle(DirectionalLightBundle {
         directional_light: DirectionalLight {
@@ -139,7 +139,7 @@ fn cycle_cubemap_asset(
 }
 
 fn asset_loaded(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     asset_server: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,

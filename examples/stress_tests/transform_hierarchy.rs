@@ -256,7 +256,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
     translation.y = a.sin() * 32.0;
 }
 
-fn setup(mut commands: Commands, cfg: Res<Cfg>) {
+fn setup(mut commands: DeferredCommands, cfg: Res<Cfg>) {
     warn!(include_str!("warning_string.txt"));
 
     let mut cam = Camera2dBundle::default();
@@ -344,7 +344,7 @@ impl InsertResult {
 /// the parent map must be ordered (parent must exist before child)
 fn spawn_tree(
     parent_map: &[usize],
-    commands: &mut Commands,
+    commands: &mut DeferredCommands,
     update_filter: &UpdateFilter,
     root_transform: Transform,
 ) -> InsertResult {

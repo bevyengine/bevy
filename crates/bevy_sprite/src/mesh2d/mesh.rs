@@ -122,7 +122,7 @@ bitflags::bitflags! {
 }
 
 pub fn extract_mesh2d(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(Entity, &ComputedVisibility, &GlobalTransform, &Mesh2dHandle)>>,
 ) {
@@ -386,7 +386,7 @@ pub struct Mesh2dBindGroup {
 }
 
 pub fn queue_mesh2d_bind_group(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
     mesh2d_uniforms: Res<ComponentUniforms<Mesh2dUniform>>,
@@ -411,7 +411,7 @@ pub struct Mesh2dViewBindGroup {
 }
 
 pub fn queue_mesh2d_view_bind_groups(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,

@@ -9,7 +9,7 @@ use bevy_ecs::{
     schedule::ParallelSystemDescriptorCoercion,
     system::{
         lifetimeless::{Read, SQuery, SRes},
-        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
+        DeferredCommands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::FromWorld,
 };
@@ -87,7 +87,7 @@ use crate::{
 /// }
 ///
 /// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+/// fn setup(mut commands: DeferredCommands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
 ///     commands.spawn_bundle(MaterialMesh2dBundle {
 ///         material: materials.add(CustomMaterial {
 ///             color: Color::RED,
@@ -403,7 +403,7 @@ impl<T: Material2d> Default for RenderMaterials2d<T> {
 /// This system extracts all created or modified assets of the corresponding [`Material2d`] type
 /// into the "render world".
 fn extract_materials_2d<M: Material2d>(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut events: Extract<EventReader<AssetEvent<M>>>,
     assets: Extract<Res<Assets<M>>>,
 ) {

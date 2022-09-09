@@ -24,7 +24,7 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotator
 
 /// set up a simple scene with a "parent" cube and a "child" cube
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

@@ -230,7 +230,7 @@ const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 pub struct DefaultCameraView(pub Entity);
 
 pub fn extract_default_ui_camera_view<T: Component>(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
     for (entity, camera, camera_ui) in query.iter() {
@@ -374,7 +374,7 @@ pub struct UiBatch {
 }
 
 pub fn prepare_uinodes(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,

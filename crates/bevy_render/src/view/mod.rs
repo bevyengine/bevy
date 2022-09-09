@@ -142,7 +142,7 @@ pub struct ViewDepthTexture {
 }
 
 fn prepare_view_uniforms(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
@@ -178,7 +178,7 @@ fn prepare_view_uniforms(
 
 #[allow(clippy::too_many_arguments)]
 fn prepare_view_targets(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,

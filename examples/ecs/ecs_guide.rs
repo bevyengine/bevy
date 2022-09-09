@@ -143,7 +143,7 @@ fn game_over_system(
 // generally used to create the initial "state" of our game. The only thing that distinguishes a
 // "startup" system from a "normal" system is how it is registered:      Startup:
 // app.add_startup_system(startup_system)      Normal:  app.add_system(normal_system)
-fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
+fn startup_system(mut commands: DeferredCommands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
     commands.insert_resource(GameRules {
         max_rounds: 10,
@@ -178,7 +178,7 @@ fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
 // is not thread safe. Command buffers give us the ability to queue up changes to our World without
 // directly accessing it
 fn new_player_system(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
 ) {
@@ -286,7 +286,7 @@ fn main() {
         // splitting systems between stages, because it gives the scheduling algorithm more
         // opportunities to run systems in parallel.
         // Stages are still necessary, however: end of a stage is a hard sync point
-        // (meaning, no systems are running) where `Commands` issued by systems are processed.
+        // (meaning, no systems are running) where `DeferredCommands` issued by systems are processed.
         // This is required because commands can perform operations that are incompatible with
         // having systems in flight, such as spawning or deleting entities,
         // adding or removing resources, etc.

@@ -34,7 +34,7 @@ fn main() {
 struct MainCube;
 
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut windows: ResMut<Windows>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,

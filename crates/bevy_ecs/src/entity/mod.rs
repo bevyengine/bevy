@@ -13,16 +13,16 @@
 //!
 //! |Operation|Command|Method|
 //! |:---:|:---:|:---:|
-//! |Spawn a new entity|[`Commands::spawn`]|[`World::spawn`]|
-//! |Spawn an entity with components|[`Commands::spawn_bundle`]|---|
+//! |Spawn a new entity|[`DeferredCommands::spawn`]|[`World::spawn`]|
+//! |Spawn an entity with components|[`DeferredCommands::spawn_bundle`]|---|
 //! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
 //! |Insert a component to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
 //! |Insert multiple components to an entity|[`EntityCommands::insert_bundle`]|[`EntityMut::insert_bundle`]|
 //! |Remove a component from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
 //!
 //! [`World`]: crate::world::World
-//! [`Commands::spawn`]: crate::system::Commands::spawn
-//! [`Commands::spawn_bundle`]: crate::system::Commands::spawn_bundle
+//! [`DeferredCommands::spawn`]: crate::system::DeferredCommands::spawn
+//! [`DeferredCommands::spawn_bundle`]: crate::system::DeferredCommands::spawn_bundle
 //! [`EntityCommands::despawn`]: crate::system::EntityCommands::despawn
 //! [`EntityCommands::insert`]: crate::system::EntityCommands::insert
 //! [`EntityCommands::insert_bundle`]: crate::system::EntityCommands::insert_bundle
@@ -70,7 +70,7 @@ type IdCursor = isize;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// fn setup(mut commands: Commands) {
+/// fn setup(mut commands: DeferredCommands) {
 ///     // Calling `spawn` returns `EntityCommands`.
 ///     let entity = commands.spawn().id();
 /// }
@@ -92,7 +92,7 @@ type IdCursor = isize;
 /// # #[derive(Component)]
 /// # struct Expired;
 /// #
-/// fn dispose_expired_food(mut commands: Commands, query: Query<Entity, With<Expired>>) {
+/// fn dispose_expired_food(mut commands: DeferredCommands, query: Query<Entity, With<Expired>>) {
 ///     for food_entity in &query {
 ///         commands.entity(food_entity).despawn();
 ///     }
@@ -124,7 +124,7 @@ impl Entity {
     /// # Note
     ///
     /// Spawning a specific `entity` value is __rarely the right choice__. Most apps should favor
-    /// [`Commands::spawn`](crate::system::Commands::spawn). This method should generally
+    /// [`DeferredCommands::spawn`](crate::system::DeferredCommands::spawn). This method should generally
     /// only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
     ///

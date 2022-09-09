@@ -36,7 +36,7 @@ impl Default for Countdown {
     }
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: DeferredCommands) {
     // Add an entity to the world with a timer
     commands
         .spawn()

@@ -447,7 +447,7 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// fn my_startup_system(_commands: Commands) {
+    /// fn my_startup_system(_commands: DeferredCommands) {
     ///     println!("My startup system");
     /// }
     ///

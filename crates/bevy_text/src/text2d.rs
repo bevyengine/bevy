@@ -6,7 +6,7 @@ use bevy_ecs::{
     event::EventReader,
     query::Changed,
     reflect::ReflectComponent,
-    system::{Commands, Local, Query, Res, ResMut},
+    system::{DeferredCommands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
@@ -147,7 +147,7 @@ pub fn extract_text2d_sprite(
 /// This information is computed by the `TextPipeline` on insertion, then stored.
 #[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<HashSet<Entity>>,
     mut textures: ResMut<Assets<Image>>,

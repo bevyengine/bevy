@@ -13,7 +13,7 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     asset_server: Res<AssetServer>,
     audio: Res<Audio>,
     audio_sinks: Res<Assets<AudioSink>>,

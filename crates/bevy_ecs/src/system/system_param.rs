@@ -8,7 +8,7 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
-    system::{CommandQueue, Commands, Query, SystemMeta},
+    system::{CommandQueue, DeferredCommands, Query, SystemMeta},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Resource;
@@ -547,7 +547,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
     }
 }
 
-impl<'w, 's> SystemParam for Commands<'w, 's> {
+impl<'w, 's> SystemParam for DeferredCommands<'w, 's> {
     type Fetch = CommandQueue;
 }
 
@@ -566,7 +566,7 @@ unsafe impl SystemParamState for CommandQueue {
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
-    type Item = Commands<'w, 's>;
+    type Item = DeferredCommands<'w, 's>;
 
     #[inline]
     unsafe fn get_param(
@@ -575,7 +575,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
-        Commands::new(state, world)
+        DeferredCommands::new(state, world)
     }
 }
 
@@ -1459,7 +1459,7 @@ pub mod lifetimeless {
     pub type Write<T> = &'static mut T;
     pub type SRes<T> = super::Res<'static, T>;
     pub type SResMut<T> = super::ResMut<'static, T>;
-    pub type SCommands = crate::system::Commands<'static, 'static>;
+    pub type SCommands = crate::system::DeferredCommands<'static, 'static>;
 }
 
 /// A helper for using system parameters in generic contexts

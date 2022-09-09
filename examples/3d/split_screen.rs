@@ -19,7 +19,7 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,

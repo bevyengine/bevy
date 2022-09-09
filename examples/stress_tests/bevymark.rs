@@ -64,7 +64,7 @@ struct BirdScheduled {
 }
 
 fn scheduled_spawner(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     windows: Res<Windows>,
     mut scheduled: ResMut<BirdScheduled>,
     mut counter: ResMut<BevyCounter>,
@@ -91,7 +91,7 @@ struct BirdTexture(Handle<Image>);
 #[derive(Component)]
 struct StatsText;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
     let texture = asset_server.load("branding/icon.png");
@@ -153,7 +153,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn mouse_handler(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
     windows: Res<Windows>,
@@ -178,7 +178,7 @@ fn mouse_handler(
 }
 
 fn spawn_birds(
-    commands: &mut Commands,
+    commands: &mut DeferredCommands,
     windows: &Windows,
     counter: &mut BevyCounter,
     spawn_count: usize,

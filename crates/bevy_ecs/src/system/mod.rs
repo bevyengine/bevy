@@ -51,7 +51,7 @@
 //! - [`Query`]
 //! - [`Res`] and `Option<Res>`
 //! - [`ResMut`] and `Option<ResMut>`
-//! - [`Commands`]
+//! - [`DeferredCommands`]
 //! - [`Local`]
 //! - [`EventReader`](crate::event::EventReader)
 //! - [`EventWriter`](crate::event::EventWriter)
@@ -142,8 +142,8 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            Commands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query,
-            RemovedComponents, Res, ResMut, Resource, System, SystemState,
+            DeferredCommands, IntoExclusiveSystem, IntoSystem, Local, NonSend, NonSendMut,
+            ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -1170,7 +1170,7 @@ mod tests {
 
         run_system(
             &mut world,
-            move |mut commands_set: ParamSet<(Commands, Commands)>| {
+            move |mut commands_set: ParamSet<(DeferredCommands, DeferredCommands)>| {
                 commands_set.p0().entity(entity).insert(A);
                 commands_set.p1().entity(entity).insert(B);
             },

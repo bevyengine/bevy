@@ -73,7 +73,7 @@ const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
 const CONTRIBUTORS_LIST: &[&str] = &["Carter Anderson", "And Many More"];
 
-fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_contributor_selection(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     // Load contributors from the git history log or use default values from
     // the constant array. Contributors must be unique, so they are stored in a HashSet
     let contribs = contributors().unwrap_or_else(|_| {
@@ -133,7 +133,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
     commands.insert_resource(contributor_selection);
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
 
     commands.spawn().insert(ContributorDisplay).insert_bundle(

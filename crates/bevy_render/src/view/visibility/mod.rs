@@ -224,7 +224,7 @@ impl Plugin for VisibilityPlugin {
 }
 
 pub fn calculate_bounds(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     meshes: Res<Assets<Mesh>>,
     without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {

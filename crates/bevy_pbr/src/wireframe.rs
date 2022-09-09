@@ -51,7 +51,10 @@ impl Plugin for WireframePlugin {
     }
 }
 
-fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<Wireframe>>>) {
+fn extract_wireframes(
+    mut commands: DeferredCommands,
+    query: Extract<Query<Entity, With<Wireframe>>>,
+) {
     for entity in query.iter() {
         commands.get_or_spawn(entity).insert(Wireframe);
     }

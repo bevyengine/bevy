@@ -49,7 +49,7 @@ impl FromWorld for ComponentB {
     }
 }
 
-fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn load_scene_system(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     // "Spawning" a scene bundle creates a new entity and spawns new instances
     // of the given scene's entities as children of that entity.
     commands.spawn_bundle(DynamicSceneBundle {
@@ -103,7 +103,7 @@ fn save_scene_system(world: &mut World) {
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
-fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn infotext_system(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
     commands.spawn_bundle(
         TextBundle::from_section(

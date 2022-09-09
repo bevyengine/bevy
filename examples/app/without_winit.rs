@@ -10,6 +10,6 @@ fn main() {
         .run();
 }
 
-fn setup_system(mut commands: Commands) {
+fn setup_system(mut commands: DeferredCommands) {
     commands.spawn_bundle(Camera3dBundle::default());
 }

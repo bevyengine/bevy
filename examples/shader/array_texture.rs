@@ -22,7 +22,7 @@ struct LoadingTexture {
     handle: Handle<Image>,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     // Start loading the texture.
     commands.insert_resource(LoadingTexture {
         is_loaded: false,
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn create_array_texture(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     asset_server: Res<AssetServer>,
     mut loading_texture: ResMut<LoadingTexture>,
     mut images: ResMut<Assets<Image>>,

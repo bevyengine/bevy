@@ -15,7 +15,7 @@ use bevy_ecs::{
     event::EventReader,
     query::Added,
     reflect::ReflectComponent,
-    system::{Commands, ParamSet, Query, Res},
+    system::{DeferredCommands, ParamSet, Query, Res},
 };
 use bevy_math::{Mat4, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -403,7 +403,7 @@ pub struct ExtractedCamera {
 }
 
 pub fn extract_cameras(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     query: Extract<
         Query<(
             Entity,

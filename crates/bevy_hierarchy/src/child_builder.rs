@@ -6,7 +6,7 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     event::Events,
-    system::{Command, Commands, EntityCommands},
+    system::{Command, DeferredCommands, EntityCommands},
     world::{EntityMut, World},
 };
 use smallvec::SmallVec;
@@ -180,7 +180,7 @@ impl Command for RemoveChildren {
 
 /// Struct for building children onto an entity
 pub struct ChildBuilder<'w, 's, 'a> {
-    commands: &'a mut Commands<'w, 's>,
+    commands: &'a mut DeferredCommands<'w, 's>,
     push_children: PushChildren,
 }
 
@@ -235,7 +235,7 @@ pub trait BuildChildren {
     /// # #[derive(Component)]
     /// # struct MoreStuff;
     /// #
-    /// # fn foo(mut commands: Commands) {
+    /// # fn foo(mut commands: DeferredCommands) {
     ///     let mut parent_commands = commands.spawn();
     ///     let child_id = parent_commands.add_children(|parent| {
     ///         parent.spawn().id()
@@ -521,7 +521,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        system::{CommandQueue, Commands},
+        system::{CommandQueue, DeferredCommands},
         world::World,
     };
 
@@ -532,7 +532,7 @@ mod tests {
     fn build_children() {
         let mut world = World::default();
         let mut queue = CommandQueue::default();
-        let mut commands = Commands::new(&mut queue, &world);
+        let mut commands = DeferredCommands::new(&mut queue, &world);
 
         let parent = commands.spawn().insert(C(1)).id();
         let children = commands.entity(parent).add_children(|parent| {
@@ -564,7 +564,7 @@ mod tests {
 
         let mut queue = CommandQueue::default();
         {
-            let mut commands = Commands::new(&mut queue, &world);
+            let mut commands = DeferredCommands::new(&mut queue, &world);
             commands.entity(entities[0]).push_children(&entities[1..3]);
         }
         queue.apply(&mut world);
@@ -587,7 +587,7 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
 
         {
-            let mut commands = Commands::new(&mut queue, &world);
+            let mut commands = DeferredCommands::new(&mut queue, &world);
             commands.entity(parent).insert_children(1, &entities[3..]);
         }
         queue.apply(&mut world);
@@ -602,7 +602,7 @@ mod tests {
 
         let remove_children = [child1, child4];
         {
-            let mut commands = Commands::new(&mut queue, &world);
+            let mut commands = DeferredCommands::new(&mut queue, &world);
             commands.entity(parent).remove_children(&remove_children);
         }
         queue.apply(&mut world);

@@ -37,7 +37,7 @@ fn main() {
 
 // Startup system to setup the scene and spawn all relevant entities.
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
@@ -151,7 +151,7 @@ fn update_directional_input(mut direction: ResMut<Direction>, keyboard_input: Re
 
 // This system enables and disables the movement for each entity if their assigned key is pressed.
 fn toggle_movement(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     movable_entities: Query<(Entity, &Handle<StandardMaterial>, &ToggledBy), With<Move>>,
     static_entities: Query<(Entity, &Handle<StandardMaterial>, &ToggledBy), Without<Move>>,
     mut materials: ResMut<Assets<StandardMaterial>>,

@@ -101,7 +101,7 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
 /// This system prepares all components of the corresponding component type.
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
 fn prepare_uniform_components<C: Component>(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
@@ -181,7 +181,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 
 /// This system extracts all components of the corresponding [`ExtractComponent`] type.
 fn extract_components<C: ExtractComponent>(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut previous_len: Local<usize>,
     mut query: Extract<Query<(Entity, C::Query), C::Filter>>,
 ) {
@@ -195,7 +195,7 @@ fn extract_components<C: ExtractComponent>(
 
 /// This system extracts all visible components of the corresponding [`ExtractComponent`] type.
 fn extract_visible_components<C: ExtractComponent>(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut previous_len: Local<usize>,
     mut query: Extract<Query<(Entity, &ComputedVisibility, C::Query), C::Filter>>,
 ) {

@@ -45,7 +45,7 @@ fn touch_camera(
 
 /// set up a simple 3D scene
 fn setup_scene(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,

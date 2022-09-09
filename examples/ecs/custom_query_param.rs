@@ -111,7 +111,7 @@ struct QueryFilter<T: Component, P: Component> {
     _generic_tuple: (With<T>, With<P>),
 }
 
-fn spawn(mut commands: Commands) {
+fn spawn(mut commands: DeferredCommands) {
     commands
         .spawn()
         .insert(ComponentA)

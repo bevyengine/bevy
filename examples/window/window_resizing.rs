@@ -29,12 +29,12 @@ struct ResolutionSettings {
 }
 
 // Spawns the camera that draws UI
-fn setup_camera(mut cmd: Commands) {
+fn setup_camera(mut cmd: DeferredCommands) {
     cmd.spawn_bundle(Camera2dBundle::default());
 }
 
 // Spawns the UI
-fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
+fn setup_ui(mut cmd: DeferredCommands, asset_server: Res<AssetServer>) {
     // Node that fills entire background
     cmd.spawn_bundle(NodeBundle {
         style: Style {

@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
     let texture = asset_server.load("branding/icon.png");
 
@@ -59,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // A simple system to rotate the root entity, and rotate all its children separately
 fn rotate(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     time: Res<Time>,
     mut parents_query: Query<(Entity, &Children), With<Sprite>>,
     mut transform_query: Query<&mut Transform, With<Sprite>>,

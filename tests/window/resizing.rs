@@ -107,7 +107,7 @@ fn sync_dimensions(dim: Res<Dimensions>, mut windows: ResMut<Windows>) {
 
 /// A simple 3d scene, taken from the `3d_scene` example
 fn setup_3d(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -142,7 +142,7 @@ fn setup_3d(
 }
 
 /// A simple 2d scene, taken from the `rect` example
-fn setup_2d(mut commands: Commands) {
+fn setup_2d(mut commands: DeferredCommands) {
     commands.spawn_bundle(Camera2dBundle {
         camera: Camera {
             // render the 2d camera after the 3d camera

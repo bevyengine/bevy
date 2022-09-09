@@ -33,7 +33,7 @@ impl<'w, 's> PlayerCounter<'w, 's> {
 }
 
 /// Spawn some players to count
-fn spawn(mut commands: Commands) {
+fn spawn(mut commands: DeferredCommands) {
     commands.spawn().insert(Player);
     commands.spawn().insert(Player);
     commands.spawn().insert(Player);

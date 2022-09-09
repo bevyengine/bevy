@@ -351,7 +351,7 @@ pub struct ImageBindGroups {
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_sprites(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut view_entities: Local<FixedBitSet>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     render_device: Res<RenderDevice>,

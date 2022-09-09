@@ -49,7 +49,7 @@ fn main() {
         .run();
 }
 
-fn setup_system(mut commands: Commands) {
+fn setup_system(mut commands: DeferredCommands) {
     commands
         .spawn()
         .insert(PrinterTick(Timer::from_seconds(1.0, true)))
@@ -84,7 +84,7 @@ fn transition_to_in_game_system(
 
 // Type arguments on functions come after the function name, but before ordinary arguments.
 // Here, the `Component` trait is a trait bound on T, our generic type
-fn cleanup_system<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
+fn cleanup_system<T: Component>(mut commands: DeferredCommands, query: Query<Entity, With<T>>) {
     for e in &query {
         commands.entity(e).despawn_recursive();
     }

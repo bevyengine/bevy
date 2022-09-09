@@ -16,7 +16,7 @@ fn main() {
 #[derive(Component, Debug)]
 struct MyComponent(f64);
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: DeferredCommands) {
     commands.spawn().insert(MyComponent(0.));
     commands.spawn().insert(Transform::IDENTITY);
 }

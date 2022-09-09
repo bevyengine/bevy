@@ -173,7 +173,7 @@ struct Scoreboard {
 
 // Add the game's entities to our world
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
@@ -350,7 +350,7 @@ fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
 }
 
 fn check_for_collisions(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,

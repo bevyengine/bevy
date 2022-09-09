@@ -8,7 +8,7 @@ use crate::{
     system::{SystemParam, SystemParamFetch, SystemParamState},
 };
 
-use super::{CommandQueue, Commands};
+use super::{CommandQueue, DeferredCommands};
 
 #[doc(hidden)]
 #[derive(Default)]
@@ -17,7 +17,7 @@ pub struct ParallelCommandsState {
     thread_local_storage: ThreadLocal<Cell<CommandQueue>>,
 }
 
-/// An alternative to [`Commands`] that can be used in parallel contexts, such as those in [`Query::par_for_each`](crate::system::Query::par_for_each)
+/// An alternative to [`DeferredCommands`] that can be used in parallel contexts, such as those in [`Query::par_for_each`](crate::system::Query::par_for_each)
 ///
 /// Note: Because command application order will depend on how many threads are ran, non-commutative commands may result in non-deterministic results.
 ///
@@ -82,12 +82,12 @@ unsafe impl SystemParamState for ParallelCommandsState {
 }
 
 impl<'w, 's> ParallelCommands<'w, 's> {
-    pub fn command_scope<R>(&self, f: impl FnOnce(Commands) -> R) -> R {
+    pub fn command_scope<R>(&self, f: impl FnOnce(DeferredCommands) -> R) -> R {
         let store = &self.state.thread_local_storage;
         let command_queue_cell = store.get_or_default();
         let mut command_queue = command_queue_cell.take();
 
-        let r = f(Commands::new_from_entities(
+        let r = f(DeferredCommands::new_from_entities(
             &mut command_queue,
             self.entities,
         ));

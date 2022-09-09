@@ -49,7 +49,7 @@ struct RotateToPlayer {
 /// * `Z` axis goes from far to near (`+Z` points towards you, out of the screen)
 ///
 /// The origin is at the center of the screen.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>) {
     let ship_handle = asset_server.load("textures/simplespace/ship_C.png");
     let enemy_a_handle = asset_server.load("textures/simplespace/enemy_A.png");
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");

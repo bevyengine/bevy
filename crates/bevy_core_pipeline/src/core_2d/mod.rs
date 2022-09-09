@@ -122,7 +122,7 @@ impl BatchedPhaseItem for Transparent2d {
 }
 
 pub fn extract_core_2d_camera_phases(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
 ) {
     for (entity, camera) in cameras_2d.iter() {

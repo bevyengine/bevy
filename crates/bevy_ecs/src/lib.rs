@@ -39,7 +39,7 @@ pub mod prelude {
             SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            adapter as system_adapter, Commands, In, IntoChainSystem, IntoExclusiveSystem,
+            adapter as system_adapter, DeferredCommands, In, IntoChainSystem, IntoExclusiveSystem,
             IntoSystem, Local, NonSend, NonSendMut, ParallelCommands, ParamSet, Query,
             RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
         },

@@ -29,7 +29,7 @@ fn main() {
 
 /// set up a 3D scene to test shadow biases and perspective projections
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

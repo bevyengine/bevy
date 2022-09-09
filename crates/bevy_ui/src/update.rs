@@ -6,7 +6,7 @@ use super::Node;
 use bevy_ecs::{
     entity::Entity,
     query::{With, Without},
-    system::{Commands, Query},
+    system::{DeferredCommands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::Rect;
@@ -65,7 +65,7 @@ fn update_hierarchy(
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     mut node_query: Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     children_query: Query<&Children>,
@@ -82,7 +82,7 @@ pub fn update_clipping_system(
 }
 
 fn update_clipping(
-    commands: &mut Commands,
+    commands: &mut DeferredCommands,
     children_query: &Query<&Children>,
     node_query: &mut Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     entity: Entity,
@@ -125,7 +125,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         schedule::{Schedule, Stage, StageLabel, SystemStage},
-        system::{CommandQueue, Commands},
+        system::{CommandQueue, DeferredCommands},
         world::World,
     };
     use bevy_hierarchy::BuildChildren;
@@ -157,7 +157,7 @@ mod tests {
     fn test_ui_z_system() {
         let mut world = World::default();
         let mut queue = CommandQueue::default();
-        let mut commands = Commands::new(&mut queue, &world);
+        let mut commands = DeferredCommands::new(&mut queue, &world);
         commands.spawn_bundle(node_with_transform("0"));
 
         commands

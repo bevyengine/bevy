@@ -21,7 +21,7 @@ use std::{any::TypeId, collections::HashMap};
 /// is a very convenient shorthand when working with one-off collections of components. Note
 /// that both the unit type `()` and `(ComponentA, )` are valid bundles. The unit bundle is
 /// particularly useful for spawning multiple empty entities by using
-/// [`Commands::spawn_batch`](crate::system::Commands::spawn_batch).
+/// [`DeferredCommands::spawn_batch`](crate::system::DeferredCommands::spawn_batch).
 ///
 /// # Examples
 ///

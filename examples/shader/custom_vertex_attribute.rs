@@ -28,7 +28,7 @@ const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {

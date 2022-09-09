@@ -390,7 +390,7 @@ pub struct ExtractedClustersPointLights {
 }
 
 pub fn extract_clusters(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
 ) {
     for (entity, clusters) in views.iter() {
@@ -409,7 +409,7 @@ pub fn extract_clusters(
 
 #[allow(clippy::too_many_arguments)]
 pub fn extract_lights(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
     global_point_lights: Extract<Res<GlobalVisiblePointLights>>,
@@ -758,7 +758,7 @@ pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -1492,7 +1492,7 @@ impl ViewClusterBindings {
 }
 
 pub fn prepare_clusters(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,

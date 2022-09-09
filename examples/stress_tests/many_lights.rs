@@ -33,7 +33,7 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -179,7 +179,7 @@ fn print_visible_light_count(
 #[derive(Resource, Deref, DerefMut)]
 pub struct ExtractedTime(Time);
 
-fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
+fn extract_time(mut commands: DeferredCommands, time: Extract<Res<Time>>) {
     commands.insert_resource(ExtractedTime(time.clone()));
 }
 

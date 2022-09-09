@@ -126,7 +126,7 @@ bitflags::bitflags! {
 }
 
 pub fn extract_meshes(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut prev_caster_commands_len: Local<usize>,
     mut prev_not_caster_commands_len: Local<usize>,
     meshes_query: Extract<
@@ -218,7 +218,7 @@ impl SkinnedMeshJoints {
 }
 
 pub fn extract_skinned_meshes(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut previous_len: Local<usize>,
     mut previous_joint_len: Local<usize>,
     query: Extract<Query<(Entity, &ComputedVisibility, &SkinnedMesh)>>,
@@ -665,7 +665,7 @@ pub struct MeshBindGroup {
 }
 
 pub fn queue_mesh_bind_group(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
@@ -756,7 +756,7 @@ pub struct MeshViewBindGroup {
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_mesh_view_bind_groups(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
     shadow_pipeline: Res<ShadowPipeline>,

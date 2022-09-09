@@ -32,7 +32,7 @@ impl Default for State {
 }
 
 fn atlas_render_system(
-    mut commands: Commands,
+    mut commands: DeferredCommands,
     mut state: ResMut<State>,
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
@@ -78,7 +78,7 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
+fn setup(mut commands: DeferredCommands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
     commands.spawn_bundle(Camera2dBundle::default());

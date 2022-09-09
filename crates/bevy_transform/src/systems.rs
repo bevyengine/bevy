@@ -163,7 +163,7 @@ mod test {
 
         // Root entity
         let mut queue = CommandQueue::default();
-        let mut commands = Commands::new(&mut queue, &world);
+        let mut commands = DeferredCommands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
             .spawn_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
@@ -207,7 +207,7 @@ mod test {
         let mut children = Vec::new();
         let parent = {
             let mut command_queue = CommandQueue::default();
-            let mut commands = Commands::new(&mut command_queue, &world);
+            let mut commands = DeferredCommands::new(&mut command_queue, &world);
             let parent = commands
                 .spawn()
                 .insert(Transform::from_xyz(1.0, 0.0, 0.0))
@@ -244,7 +244,7 @@ mod test {
         // Parent `e1` to `e2`.
         {
             let mut command_queue = CommandQueue::default();
-            let mut commands = Commands::new(&mut command_queue, &world);
+            let mut commands = DeferredCommands::new(&mut command_queue, &world);
             commands.entity(children[1]).add_child(children[0]);
             command_queue.apply(&mut world);
             schedule.run(&mut world);
@@ -316,7 +316,7 @@ mod test {
         // check the `Children` structure is spawned
         assert_eq!(&**app.world.get::<Children>(parent).unwrap(), &[child]);
         assert_eq!(&**app.world.get::<Children>(child).unwrap(), &[grandchild]);
-        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
+        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `DeferredCommands` delay
         app.update();
 
         let mut state = app.world.query::<&GlobalTransform>();

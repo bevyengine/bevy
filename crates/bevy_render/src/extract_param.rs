@@ -33,7 +33,7 @@ use std::ops::{Deref, DerefMut};
 /// use bevy_render::Extract;
 /// # #[derive(Component)]
 /// # struct Cloud;
-/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<Entity, With<Cloud>>>) {
+/// fn extract_clouds(mut commands: DeferredCommands, clouds: Extract<Query<Entity, With<Cloud>>>) {
 ///     for cloud in clouds.iter() {
 ///         commands.get_or_spawn(cloud).insert(Cloud);
 ///     }
