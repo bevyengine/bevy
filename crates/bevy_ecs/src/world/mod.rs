@@ -1499,23 +1499,42 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        // SAFETY: unique world access
+        unsafe { self.get_resource_unchecked_mut_by_id(component_id) }
+    }
+
+    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// The returned pointer may be used to modify the resource, as long as the mutable borrow
+    /// of the [`World`] is still valid.
+    ///
+    /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Safety
+    /// This will allow aliased mutable access to the given resource type. The caller must ensure
+    /// that there is either only one mutable access or multiple immutable accesses at a time.
+    #[inline]
+    pub unsafe fn get_resource_unchecked_mut_by_id(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'_>> {
         let info = self.components.get_info(component_id)?;
         if !info.is_send_and_sync() {
             self.validate_non_send_access_untyped(info.name());
         }
 
-        let change_tick = self.change_tick();
-
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
-        // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
+        // SAFETY:
         // - index is in-bounds because the column is initialized and non-empty
-        // - no other reference to the ticks of the same row can exist at the same time
-        let ticks = unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+        // - no other reference to the ticks, because the caller promises it
+        let ticks = unsafe {
+            Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
+        };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
-            value: unsafe { ptr.assert_unique() },
+            value: ptr.assert_unique(),
             ticks,
         })
     }
@@ -1574,7 +1593,7 @@ impl World {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
         self.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above, world access is unique
         unsafe {
             get_mut_by_id(
                 self,
