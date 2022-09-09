@@ -189,6 +189,31 @@ impl<'w> EntityRef<'w> {
             )
         }
     }
+
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
+    /// which is only valid while the `'w` borrow of the lifetime is active.
+    ///
+    /// # Safety
+    ///
+    /// - The returned reference must never alias a mutable borrow of this component.
+    /// - The returned reference must not be used after this component is moved which
+    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
+    ///   operation on this world (non-exhaustive list).
+    #[inline]
+    pub unsafe fn get_unchecked_mut_by_id(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'w>> {
+        self.world.components().get_info(component_id)?;
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above, world access is promised by the caller
+        get_mut_by_id(self.world, self.entity, self.location, component_id)
+    }
 }
 
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
@@ -692,7 +717,7 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         self.world.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above, world access is unique
         unsafe { get_mut_by_id(self.world, self.entity, self.location, component_id) }
     }
 }
@@ -1064,21 +1089,26 @@ pub(crate) unsafe fn get_mut<T: Component>(
     })
 }
 
-// SAFETY: EntityLocation must be valid, component_id must be valid
+// SAFETY:
+// - EntityLocation must be valid, component_id must be valid
+// - world access to the component must be valid, either because the caller has a `&mut` world or it synchronizes access like systems do
 #[inline]
 pub(crate) unsafe fn get_mut_by_id(
-    world: &mut World,
+    world: &World,
     entity: Entity,
     location: EntityLocation,
     component_id: ComponentId,
 ) -> Option<MutUntyped> {
-    let change_tick = world.change_tick();
     let info = world.components.get_info_unchecked(component_id);
-    // SAFETY: world access is unique, entity location and component_id required to be valid
+    // SAFETY: world access promised by the caller, entity location and component_id required to be valid
     get_component_and_ticks(world, component_id, info.storage_type(), entity, location).map(
         |(value, ticks)| MutUntyped {
             value: value.assert_unique(),
-            ticks: Ticks::from_tick_cells(ticks, world.last_change_tick(), change_tick),
+            ticks: Ticks::from_tick_cells(
+                ticks,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            ),
         },
     )
 }
