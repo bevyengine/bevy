@@ -326,26 +326,17 @@ impl Color {
 
     /// Get red in sRGB colorspace.
     pub fn r(&self) -> f32 {
-        match self.as_rgba() {
-            Color::Rgba { red, .. } => red,
-            _ => unreachable!(),
-        }
+        self.as_rgba_f32()[0]
     }
 
     /// Get green in sRGB colorspace.
     pub fn g(&self) -> f32 {
-        match self.as_rgba() {
-            Color::Rgba { green, .. } => green,
-            _ => unreachable!(),
-        }
+        self.as_rgba_f32()[1]
     }
 
     /// Get blue in sRGB colorspace.
     pub fn b(&self) -> f32 {
-        match self.as_rgba() {
-            Color::Rgba { blue, .. } => blue,
-            _ => unreachable!(),
-        }
+        self.as_rgba_f32()[2]
     }
 
     /// Set red in sRGB colorspace.
@@ -402,107 +393,34 @@ impl Color {
 
     /// Converts a `Color` to variant `Color::Rgba`
     pub fn as_rgba(self: &Color) -> Color {
-        match self {
-            Color::Rgba { .. } => *self,
-            Color::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => Color::Rgba {
-                red: red.linear_to_nonlinear_srgb(),
-                green: green.linear_to_nonlinear_srgb(),
-                blue: blue.linear_to_nonlinear_srgb(),
-                alpha: *alpha,
-            },
-            Color::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
-                Color::Rgba {
-                    red,
-                    green,
-                    blue,
-                    alpha: *alpha,
-                }
-            }
+        let [red, green, blue, alpha] = self.as_rgba_f32();
+        Color::Rgba {
+            red,
+            green,
+            blue,
+            alpha,
         }
     }
 
     /// Converts a `Color` to variant `Color::RgbaLinear`
     pub fn as_rgba_linear(self: &Color) -> Color {
-        match self {
-            Color::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => Color::RgbaLinear {
-                red: red.nonlinear_to_linear_srgb(),
-                green: green.nonlinear_to_linear_srgb(),
-                blue: blue.nonlinear_to_linear_srgb(),
-                alpha: *alpha,
-            },
-            Color::RgbaLinear { .. } => *self,
-            Color::Hsla {
-                hue,
-                saturation,
-                lightness,
-                alpha,
-            } => {
-                let [red, green, blue] =
-                    HslRepresentation::hsl_to_nonlinear_srgb(*hue, *saturation, *lightness);
-                Color::RgbaLinear {
-                    red: red.nonlinear_to_linear_srgb(),
-                    green: green.nonlinear_to_linear_srgb(),
-                    blue: blue.nonlinear_to_linear_srgb(),
-                    alpha: *alpha,
-                }
-            }
+        let [red, green, blue, alpha] = self.as_linear_rgba_f32();
+        Color::Rgba {
+            red,
+            green,
+            blue,
+            alpha,
         }
     }
 
     /// Converts a `Color` to variant `Color::Hsla`
     pub fn as_hsla(self: &Color) -> Color {
-        match self {
-            Color::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (hue, saturation, lightness) =
-                    HslRepresentation::nonlinear_srgb_to_hsl([*red, *green, *blue]);
-                Color::Hsla {
-                    hue,
-                    saturation,
-                    lightness,
-                    alpha: *alpha,
-                }
-            }
-            Color::RgbaLinear {
-                red,
-                green,
-                blue,
-                alpha,
-            } => {
-                let (hue, saturation, lightness) = HslRepresentation::nonlinear_srgb_to_hsl([
-                    red.linear_to_nonlinear_srgb(),
-                    green.linear_to_nonlinear_srgb(),
-                    blue.linear_to_nonlinear_srgb(),
-                ]);
-                Color::Hsla {
-                    hue,
-                    saturation,
-                    lightness,
-                    alpha: *alpha,
-                }
-            }
-            Color::Hsla { .. } => *self,
+        let [red, green, blue, alpha] = self.as_hsla_f32();
+        Color::Rgba {
+            red,
+            green,
+            blue,
+            alpha,
         }
     }
 
