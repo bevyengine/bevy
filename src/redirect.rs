@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use naga::{Block, Expression, Function, Handle, Module, ResourceBinding, Statement};
+use naga::{Block, Expression, Function, Handle, Module, Statement};
 use thiserror::Error;
 
 use crate::derive::DerivedModule;
@@ -24,35 +24,6 @@ pub struct Redirector {
 impl Redirector {
     pub fn new(module: Module) -> Self {
         Self { module }
-    }
-
-    pub fn get_group_bindings(&self, group: u32) -> HashMap<&String, u32> {
-        self.module
-            .global_variables
-            .iter()
-            .filter_map(|(_, var)| {
-                var.binding.as_ref().and_then(|b| match b.group {
-                    g if g == group => Some((var.name.as_ref().unwrap(), b.binding)),
-                    _ => None,
-                })
-            })
-            .collect()
-    }
-
-    pub fn set_group_bindings(&mut self, group: u32, bindings: &HashMap<&String, u32>) {
-        for (_, var) in self.module.global_variables.iter_mut() {
-            if let Some(ResourceBinding {
-                group: var_group,
-                ref mut binding,
-            }) = var.binding
-            {
-                if var_group == group {
-                    if let Some(target_binding) = bindings.get(var.name.as_ref().unwrap()) {
-                        *binding = *target_binding;
-                    }
-                }
-            }
-        }
     }
 
     fn redirect_block(block: &mut Block, original: Handle<Function>, new: Handle<Function>) {

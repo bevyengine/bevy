@@ -1,6 +1,8 @@
 // polyfill clones
 
-use naga::{Arena, Constant, EntryPoint, Function, Module, Span, UniqueArena};
+use std::collections::HashMap;
+
+use naga::{Arena, Constant, EntryPoint, Function, Module, ResourceBinding, Span, UniqueArena};
 
 // these do not remap handles, only use if the arenas are not modified
 pub fn copy_type(t: &naga::Type) -> naga::Type {
@@ -130,5 +132,34 @@ pub fn clone_module(module: &Module) -> Module {
         global_variables: clone_arena(&module.global_variables, Clone::clone),
         functions: clone_arena(&module.functions, copy_func),
         entry_points,
+    }
+}
+
+pub fn get_group_bindings(module: &Module, group: u32) -> HashMap<&String, u32> {
+    module
+        .global_variables
+        .iter()
+        .filter_map(|(_, var)| {
+            var.binding.as_ref().and_then(|b| match b.group {
+                g if g == group => Some((var.name.as_ref().unwrap(), b.binding)),
+                _ => None,
+            })
+        })
+        .collect()
+}
+
+pub fn set_group_bindings(module: &mut Module, group: u32, bindings: &HashMap<&String, u32>) {
+    for (_, var) in module.global_variables.iter_mut() {
+        if let Some(ResourceBinding {
+            group: var_group,
+            ref mut binding,
+        }) = var.binding
+        {
+            if var_group == group {
+                if let Some(target_binding) = bindings.get(var.name.as_ref().unwrap()) {
+                    *binding = *target_binding;
+                }
+            }
+        }
     }
 }

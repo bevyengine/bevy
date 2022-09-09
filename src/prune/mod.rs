@@ -1349,7 +1349,7 @@ impl<'a> Pruner<'a> {
                 comparison: _comparison,
             } => {
                 // nothing, handled by the statement
-            },
+            }
             Expression::ArrayLength(expr) => {
                 let part = PartReq::Exist;
                 self.add_expression(function, func_req, context, *expr, &part);
@@ -1528,7 +1528,12 @@ impl<'a> Pruner<'a> {
                     _ => Store(false),
                 }
             }
-            Statement::Atomic { pointer, fun: _fun, value, result } => {
+            Statement::Atomic {
+                pointer,
+                fun: _fun,
+                value,
+                result,
+            } => {
                 let var_ref = Self::resolve_var(function, *pointer, Vec::default());
                 let required_store = self.store_required(context, &var_ref);
                 debug!("atomic store required: {:?}", required_store);
@@ -1549,7 +1554,7 @@ impl<'a> Pruner<'a> {
                 } else {
                     Atomic(false)
                 }
-            },
+            }
             Statement::Call {
                 function: call_func,
                 arguments,
