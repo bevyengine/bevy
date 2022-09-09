@@ -92,6 +92,11 @@ impl ReflectAsset {
         (self.len)(world)
     }
 
+    /// Equivalent of [`Assets::is_empty`]
+    pub fn is_empty(&self, world: &World) -> bool {
+        self.len(world) == 0
+    }
+
     /// Equivalent of [`Assets::ids`]
     pub fn ids<'w>(&self, world: &'w World) -> impl Iterator<Item = HandleId> + 'w {
         (self.ids)(world)
