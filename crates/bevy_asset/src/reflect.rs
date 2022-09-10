@@ -14,6 +14,7 @@ use crate::{Asset, Assets, Handle, HandleId, HandleUntyped};
 #[derive(Clone)]
 pub struct ReflectAsset {
     type_uuid: Uuid,
+    handle_type_id: TypeId,
     assets_resource_type_id: TypeId,
 
     get: fn(&World, HandleUntyped) -> Option<&dyn Reflect>,
@@ -30,6 +31,11 @@ impl ReflectAsset {
     /// The [`bevy_reflect::TypeUuid`] of the asset
     pub fn type_uuid(&self) -> Uuid {
         self.type_uuid
+    }
+
+    /// The [`TypeId`] of the [`Handle<T>`] for this asset
+    pub fn handle_type_id(&self) -> TypeId {
+        self.handle_type_id
     }
 
     /// The [`TypeId`] of the [`Assets`] resource
@@ -111,6 +117,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
     fn from_type() -> Self {
         ReflectAsset {
             type_uuid: A::TYPE_UUID,
+            handle_type_id: TypeId::of::<Handle<A>>(),
             assets_resource_type_id: TypeId::of::<Assets<A>>(),
             get: |world, handle| {
                 let assets = world.resource::<Assets<A>>();
