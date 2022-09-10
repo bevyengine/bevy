@@ -1,6 +1,5 @@
 //! A shader and a material that uses it using Bevy's Material API via manual implementation
-//! See shader_material example for a higher level implementation.
-//! See shader_material_low_level example for a lower level implementation.
+//! See `shader_material` example for a higher level implementation.
 
 use bevy::{
     prelude::*,
@@ -9,16 +8,14 @@ use bevy::{
         render_asset::RenderAssets,
         render_resource::{
             encase::UniformBuffer, AsBindGroup, AsBindGroupError, BindGroupDescriptor,
-            BindGroupEntry, BindGroupLayout, BufferInitDescriptor, BufferUsages,
-            OwnedBindingResource, PreparedBindGroup, ShaderRef,
+            BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+            BindingType, BufferBindingType, BufferInitDescriptor, BufferUsages,
+            OwnedBindingResource, PreparedBindGroup, SamplerBindingType, ShaderRef, ShaderStages,
+            ShaderType, TextureSampleType, TextureViewDimension,
         },
         renderer::RenderDevice,
         texture::FallbackImage,
     },
-};
-use bevy_internal::render::render_resource::{
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BufferBindingType,
-    SamplerBindingType, ShaderStages, ShaderType, TextureSampleType, TextureViewDimension,
 };
 
 fn main() {
