@@ -81,6 +81,43 @@ impl PluginGroup for DefaultPlugins {
     }
 }
 
+impl DefaultPlugins {
+    /// Usage: `DefaultPlugins::for_testing()`.
+    /// Like `DefaultPlugins`, but omits some plugins that are likely to be problematic during tests and on CI builds.
+    ///
+    /// * [`RenderPlugin`](bevy_render::RenderPlugin) - with feature `bevy_render`
+    /// * [`SpritePlugin`](bevy_sprite::SpritePlugin) - with feature `bevy_sprite`
+    /// * [`PbrPlugin`](bevy_pbr::PbrPlugin) - with feature `bevy_pbr`
+    /// * [`UiPlugin`](bevy_ui::UiPlugin) - with feature `bevy_ui`
+    /// * [`TextPlugin`](bevy_text::TextPlugin) - with feature `bevy_text`
+    /// * [`AudioPlugin`](bevy_audio::AudioPlugin) - with feature `bevy_audio`
+    /// * [`GltfPlugin`](bevy_gltf::GltfPlugin) - with feature `bevy_gltf`
+    /// * [`WinitPlugin`](bevy_winit::WinitPlugin) - with feature `bevy_winit`
+    ///
+    /// And adds:
+    ///
+    /// * [`ScheduleRunnerPlugin`](bevy_app::ScheduleRunnerPlugin)
+    ///
+    /// Leaving:
+    ///
+    /// * [`CorePlugin`](bevy_core::CorePlugin)
+    /// * [`TimePlugin`](bevy_time::TimePlugin)
+    /// * [`TransformPlugin`](bevy_transform::TransformPlugin)
+    /// * [`HierarchyPlugin`](bevy_hierarchy::HierarchyPlugin)
+    /// * [`DiagnosticsPlugin`](bevy_diagnostic::DiagnosticsPlugin)
+    /// * [`InputPlugin`](bevy_input::InputPlugin)
+    /// * [`WindowPlugin`](bevy_window::WindowPlugin)
+    /// * [`AssetPlugin`](bevy_asset::AssetPlugin)
+    /// * [`ScenePlugin`](bevy_scene::ScenePlugin)
+    /// * [`GilrsPlugin`](bevy_gilrs::GilrsPlugin) - with feature `bevy_gilrs`
+    /// * [`ScheduleRunnerPlugin`](bevy_app::ScheduleRunnerPlugin)
+    ///
+    /// You should probably not use this plugin except in automated tests.
+    pub fn for_testing() -> impl PluginGroup {
+        TestPlugins
+    }
+}
+
 /// Minimal plugin group that will add the following plugins:
 /// * [`CorePlugin`](bevy_core::CorePlugin)
 /// * [`TimePlugin`](bevy_time::TimePlugin)
@@ -97,36 +134,30 @@ impl PluginGroup for MinimalPlugins {
     }
 }
 
-/// Plugin group intended for use in tests, that will add the following plugins:
-/// * [`CorePlugin`](bevy_core::CorePlugin)
-/// * [`TimePlugin`](bevy_time::TimePlugin)
-/// * [`ScheduleRunnerPlugin`](bevy_app::ScheduleRunnerPlugin)
-/// * [`AssetPlugin`](bevy_asset::AssetPlugin)
-/// * [`ScenePlugin`](bevy_scene::ScenePlugin)
-/// * [`WindowPlugin`](bevy_window::WindowPlugin)
-/// * [`RenderPlugin`](bevy_render::RenderPlugin)
-/// * [`GilrsPlugin`](bevy_gilrs::GilrsPlugin)
-/// * [`TransformPlugin`](bevy_transform::TransformPlugin)
-/// * [`HierarchyPlugin`](bevy_hierarchy::HierarchyPlugin)
-/// * [`DiagnosticsPlugin`](bevy_diagnostic::DiagnosticsPlugin)
-/// * [`InputPlugin`](bevy_input::InputPlugin)
-///
-/// See also [`DefaultPlugins`] for a more complete set of plugins
-pub struct TestPlugins;
+/// Only accessible through `DefaultPlugins::for_testing()`.
+struct TestPlugins;
 
 impl PluginGroup for TestPlugins {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
         group.add(bevy_core::CorePlugin::default());
         group.add(bevy_time::TimePlugin::default());
         group.add(bevy_app::ScheduleRunnerPlugin::default());
-        group.add(bevy_asset::AssetPlugin);
-        group.add(bevy_scene::ScenePlugin);
         group.add(bevy_window::WindowPlugin);
-        group.add(bevy_render::RenderPlugin);
-        group.add(bevy_gilrs::GilrsPlugin);
         group.add(bevy_transform::TransformPlugin);
         group.add(bevy_hierarchy::HierarchyPlugin);
         group.add(bevy_diagnostic::DiagnosticsPlugin);
         group.add(bevy_input::InputPlugin);
+
+        #[cfg(feature = "bevy_asset")]
+        group.add(bevy_asset::AssetPlugin::default());
+
+        #[cfg(feature = "debug_asset_server")]
+        group.add(bevy_asset::debug_asset_server::DebugAssetServerPlugin::default());
+
+        #[cfg(feature = "bevy_scene")]
+        group.add(bevy_scene::ScenePlugin::default());
+
+        #[cfg(feature = "bevy_gilrs")]
+        group.add(bevy_gilrs::GilrsPlugin::default());
     }
 }

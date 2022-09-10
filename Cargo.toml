@@ -921,6 +921,16 @@ description = "Illustrates ticking `Timer` resources inside systems and handling
 category = "ECS (Entity Component System)"
 wasm = false
 
+[[example]]
+name = "automated_tests"
+path = "tests/automated_tests.rs"
+
+[package.metadata.example.automated_tests]
+name = "Automated Tests"
+description = "Illustrates how to test systems. Note that this example is in `tests/automated_tests.rs`."
+category = "ECS (Entity Component System)"
+wasm = false
+
 # Games
 [[example]]
 name = "alien_cake_addict"
