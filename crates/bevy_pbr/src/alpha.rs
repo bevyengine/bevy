@@ -2,7 +2,7 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 
-/// Alpha mode.
+/// Sets how a PBR material's base color alpha channel is used for transparency.
 #[derive(Component, Debug, Default, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Component, Default)]
 pub enum AlphaMode {

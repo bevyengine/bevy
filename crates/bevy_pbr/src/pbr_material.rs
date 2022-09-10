@@ -22,9 +22,21 @@ pub struct StandardMaterial {
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between. If used together with a `base_color_texture`, this is factored into the final
     /// base color as `base_color * base_color_texture_value`
+    ///
+    /// Defaults to [`Color::WHITE`].
     pub base_color: Color,
 
     /// The [`base_color`] as a texture.
+    ///
+    /// The actual base color is `base_color * base_color_texture_value`,
+    /// see [`base_color`] for details.
+    ///
+    /// You should set `base_color` to [`Color::WHITE`] (the default)
+    /// if you want the texture to show as-is.
+    ///
+    /// Setting `base_color` to something else than white will tint
+    /// the texture. For example, setting `base_color` to pure red will
+    /// tint the texture red.
     ///
     /// [`base_color`]: StandardMaterial::base_color
     #[texture(1)]
@@ -52,7 +64,7 @@ pub struct StandardMaterial {
     ///
     /// This color is multiplied by [`emissive`] to get the final emitted color.
     /// Meaning that you should set [`emissive`] to [`Color::WHITE`]
-    /// if you want to use an emissive texture.
+    /// if you want to use the full range of color of the emissive texture.
     ///
     /// [`emissive`]: StandardMaterial::emissive
     #[texture(3)]
@@ -84,7 +96,15 @@ pub struct StandardMaterial {
 
     /// A texture representing both [`metallic`] and [`roughness`].
     ///
-    /// The blue channel is the [`metallic`] and green is [`roughness`].
+    /// The [`metallic`] is taken from the blue channel,
+    /// while [`roughness`] from the green channel.
+    ///
+    /// Both channels are mixed with their respective scalar value,
+    /// [`metallic`] and [`roughness`].
+    /// The default values for [`metallic`] and [`roughness`]
+    /// will cancel the values of the texture,
+    /// they should be set to `1.0` for the texture to be fully used
+    /// in the final material.
     ///
     /// [`metallic`]: StandardMaterial::metallic
     /// [`roughness`]: StandardMaterial::perceptual_roughness
@@ -95,6 +115,7 @@ pub struct StandardMaterial {
     /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
     ///
     /// Defaults to `0.5` which is mapped to 4% reflectance in the shader
+    #[doc(alias = "specular_intensity")]
     pub reflectance: f32,
 
     /// Used to fake the lighting of bumps and dents on a material.
@@ -145,9 +166,9 @@ pub struct StandardMaterial {
     /// `cull_mode`.
     pub double_sided: bool,
 
-    /// Whether to cull the "front", "back" or neither side of a mesh.
+    /// Whether to cull the "front", "back" or neither side of a mesh if set to `None`.
     ///
-    /// Defaults to `Face::Back`.
+    /// Defaults to `Some(Face::Back)`.
     pub cull_mode: Option<Face>,
 
     /// Whether to apply only the base color to this material.
