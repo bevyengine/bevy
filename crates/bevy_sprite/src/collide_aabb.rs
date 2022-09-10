@@ -17,10 +17,10 @@ pub enum Collision {
 /// extracting the `translation` field from a `Transform` component
 /// * `a_size` and `b_size` are the dimensions (width and height) of the rectangles.
 ///
-/// The collision side is determined based on the position of the second rectangle "B":
-/// * `Left` means left of "B", `Top` means top of "B", ...
-/// * If the collision appears on multiple sides then the side which stretches the farthest is returned
-/// unless all sides are involved (`Inside`)
+/// The return value is the side of `B` that `A` has collided with. `Left` means that
+/// `A` collided with `B`'s left side. `Top` means that `A` collided with `B`'s top side.
+/// If the collision occurs on multiple sides, the side with the deepest penetration is returned.
+/// If all sides are involved, `Inside` is returned.
 pub fn collide(a_pos: Vec3, a_size: Vec2, b_pos: Vec3, b_size: Vec2) -> Option<Collision> {
     let a_min = a_pos.truncate() - a_size / 2.0;
     let a_max = a_pos.truncate() + a_size / 2.0;
