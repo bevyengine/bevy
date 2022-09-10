@@ -85,7 +85,6 @@ impl DefaultPlugins {
     /// Usage: `DefaultPlugins::for_testing()`.
     /// Like `DefaultPlugins`, but omits some plugins that are likely to be problematic during tests and on CI builds.
     ///
-    /// * [`RenderPlugin`](bevy_render::RenderPlugin) - with feature `bevy_render`
     /// * [`SpritePlugin`](bevy_sprite::SpritePlugin) - with feature `bevy_sprite`
     /// * [`PbrPlugin`](bevy_pbr::PbrPlugin) - with feature `bevy_pbr`
     /// * [`UiPlugin`](bevy_ui::UiPlugin) - with feature `bevy_ui`
@@ -109,6 +108,7 @@ impl DefaultPlugins {
     /// * [`WindowPlugin`](bevy_window::WindowPlugin)
     /// * [`AssetPlugin`](bevy_asset::AssetPlugin)
     /// * [`ScenePlugin`](bevy_scene::ScenePlugin)
+    /// * [`RenderPlugin`](bevy_render::RenderPlugin) - with feature `bevy_render`
     /// * [`GilrsPlugin`](bevy_gilrs::GilrsPlugin) - with feature `bevy_gilrs`
     /// * [`ScheduleRunnerPlugin`](bevy_app::ScheduleRunnerPlugin)
     ///
@@ -159,5 +159,8 @@ impl PluginGroup for TestPlugins {
 
         #[cfg(feature = "bevy_gilrs")]
         group.add(bevy_gilrs::GilrsPlugin::default());
+
+        #[cfg(feature = "bevy_render")]
+        group.add(bevy_render::RenderPlugin::default());
     }
 }
