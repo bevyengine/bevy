@@ -49,7 +49,7 @@ pub trait Command: Send + Sync + 'static {
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// only after each system in a [stage] have completed.
+/// only after each system in a [stage] has completed.
 ///
 /// The command queue of a system can also be manually applied
 /// by calling [`System::apply_buffers`].
