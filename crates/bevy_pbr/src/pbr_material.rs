@@ -20,7 +20,7 @@ pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
-    /// in between. If used together with a base_color_texture, this is factored into the final
+    /// in between. If used together with a `base_color_texture`, this is factored into the final
     /// base color as `base_color * base_color_texture_value`
     pub base_color: Color,
 
