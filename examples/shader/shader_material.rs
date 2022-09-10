@@ -1,4 +1,5 @@
-//! A shader and a material that uses it.
+//! A shader and a material that uses it using Bevy's high level API.
+//! See shader_material_low_level example for a lower level implementation.
 
 use bevy::{
     prelude::*,
@@ -55,7 +56,7 @@ impl Material for CustomMaterial {
 // This is the struct that will be passed to your shader
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
 #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[uniform(0)]
     color: Color,
     #[texture(1)]
