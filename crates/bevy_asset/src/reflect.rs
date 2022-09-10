@@ -5,10 +5,12 @@ use bevy_reflect::{FromReflect, FromType, Reflect, Uuid};
 
 use crate::{Asset, Assets, Handle, HandleId, HandleUntyped};
 
-/// A struct used to operate on reflected [`Asset`]s.
+/// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
 ///
-/// A [`ReflectAsset`] for type `T` can be obtained via
-/// [`bevy_reflect::TypeRegistration::data`] if it was registered using [`crate::AddAsset::register_asset_reflect`].
+/// This type provides similar methods to [`Assets<T>`] like `get`, `add` and `remove`, but can be used in situations where you don't know which asset type `T` you want
+/// until runtime.
+///
+/// [`ReflectAsset`] can be obtained via [`TypeRegistration::data`](bevy_reflect::TypeRegistration::data) if the asset was registered using [`register_asset_reflect`](crate::AddAsset::register_asset_reflect).
 #[derive(Clone)]
 pub struct ReflectAsset {
     type_uuid: Uuid,
@@ -49,8 +51,9 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get_mut`], but does not require a mutable reference to the world.
-    /// This is fine if you have ensure that you are the *only* one having access to the `Assets` resource
-    /// of the asset type. Furthermore, this does *not* allow you to have look up two distinct handles,
+    ///
+    /// Only use this method when you have ensured that you are the *only* one with access to the `Assets` resource of the asset type.
+    /// Furthermore, this does *not* allow you to have look up two distinct handles,
     /// you can only have at most one alive at the same time.
     ///
     /// # Safety
@@ -159,6 +162,30 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 }
 
 /// Reflect type data struct relating a `Handle<T>` back to the `T` asset type.
+///
+/// Say you want to look up the asset values of a list of handles when you have access to their `&dyn Reflect` form.
+/// Assets can be looked up in the world using [`ReflectAsset`], but how do you determine which [`ReflectAsset`] to use when
+/// only looking at the handle? [`ReflectHandle`] is stored in the type registry on each `Handle<T>` type, so you can use [`ReflectHandle::asset_type_id`] to look up
+/// the [`ReflectAsset`] type data on the corresponding `T` asset type:
+///
+///
+/// ```rust,no_run
+/// # use bevy_reflect::{TypeRegistry, prelude::*};
+/// # use bevy_ecs::prelude::*;
+/// use bevy_asset::{ReflectHandle, ReflectAsset};
+///
+/// # let world: &World = unimplemented!();
+/// # let type_registry: TypeRegistry = unimplemented!();
+/// let handles: Vec<&dyn Reflect> = unimplemented!();
+/// for handle in handles {
+///     let reflect_handle = type_registry.get_type_data::<ReflectHandle>(handle.type_id()).unwrap();
+///     let reflect_asset = type_registry.get_type_data::<ReflectAsset>(reflect_handle.asset_type_id()).unwrap();
+///
+///     let handle = reflect_handle.downcast_handle_untyped(handle.as_any()).unwrap();
+///     let value = reflect_asset.get(world, handle).unwrap();
+///     println!("{value:?}");
+/// }
+/// ```
 #[derive(Clone)]
 pub struct ReflectHandle {
     type_uuid: Uuid,

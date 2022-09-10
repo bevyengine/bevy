@@ -280,7 +280,10 @@ pub trait AddAsset {
     where
         T: Asset;
 
-    /// Registers [`ReflectAsset`] and [`ReflectHandle`] in the [`TypeRegistry]` so that the asset can be used in reflection contexts.
+    /// Registers the asset type `T` using `[App::register]`,
+    /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to `Handle<T>` in the type registry.
+    ///
+    /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
     fn register_asset_reflect<T>(&mut self) -> &mut Self
     where
         T: Asset + Reflect + FromReflect + GetTypeRegistration;
