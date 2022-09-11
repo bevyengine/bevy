@@ -238,8 +238,9 @@ pub fn extract_default_ui_camera_view<T: Component>(
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
-        if let (Some(logical_size), Some(physical_size)) = (
+        if let (Some(logical_size), Some((physical_origin, _)), Some(physical_size)) = (
             camera.logical_viewport_size(),
+            camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
             let mut projection = OrthographicProjection {
@@ -259,6 +260,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     ),
                     width: physical_size.x,
                     height: physical_size.y,
+                    origin_x: physical_origin.x,
+                    origin_y: physical_origin.y,
                 })
                 .id();
             commands.get_or_spawn(entity).insert_bundle((

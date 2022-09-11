@@ -10,6 +10,8 @@ struct View {
     world_position: vec3<f32>,
     width: f32,
     height: f32,
+    viewport_x: f32,
+    viewport_y: f32,
 };
 
 struct PointLight {

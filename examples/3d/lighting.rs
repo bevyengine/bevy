@@ -3,7 +3,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::Viewport};
 
 fn main() {
     App::new()
@@ -210,6 +210,14 @@ fn setup(
 
     // camera
     commands.spawn_bundle(Camera3dBundle {
+        camera: Camera {
+            viewport: Some(Viewport {
+                physical_position: UVec2::splat(500),
+                physical_size: UVec2::splat(500),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

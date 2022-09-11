@@ -418,7 +418,8 @@ pub fn extract_cameras(
         if !camera.is_active {
             continue;
         }
-        if let (Some(viewport_size), Some(target_size)) = (
+        if let (Some((viewport_origin, _)), Some(viewport_size), Some(target_size)) = (
+            camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
             camera.physical_target_size(),
         ) {
@@ -439,6 +440,8 @@ pub fn extract_cameras(
                     transform: *transform,
                     width: viewport_size.x,
                     height: viewport_size.y,
+                    origin_x: viewport_origin.x,
+                    origin_y: viewport_origin.y,
                 },
                 visible_entities.clone(),
             ));

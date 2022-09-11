@@ -83,6 +83,8 @@ pub struct ExtractedView {
     pub transform: GlobalTransform,
     pub width: u32,
     pub height: u32,
+    pub origin_x: u32,
+    pub origin_y: u32,
 }
 
 impl ExtractedView {
@@ -103,6 +105,8 @@ pub struct ViewUniform {
     world_position: Vec3,
     width: f32,
     height: f32,
+    origin_x: f32,
+    origin_y: f32,
 }
 
 #[derive(Resource, Default)]
@@ -165,6 +169,8 @@ fn prepare_view_uniforms(
                 world_position: camera.transform.translation(),
                 width: camera.width as f32,
                 height: camera.height as f32,
+                origin_x: camera.origin_x as f32,
+                origin_y: camera.origin_y as f32,
             }),
         };
 
