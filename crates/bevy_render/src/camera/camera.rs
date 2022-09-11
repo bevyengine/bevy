@@ -68,6 +68,8 @@ pub struct RenderTargetInfo {
 pub struct ComputedCameraValues {
     projection_matrix: Mat4,
     target_info: Option<RenderTargetInfo>,
+    // position and size of the `Viewport`
+    old_viewport: Option<(UVec2, UVec2)>,
 }
 
 /// The defining component for camera entities, storing information about how and what to render
@@ -450,8 +452,17 @@ pub fn camera_system<T: CameraProjection + Component>(
             .is_changed(&changed_window_ids, &changed_image_handles)
             || added_cameras.contains(&entity)
             || camera_projection.is_changed()
+            || camera.computed.old_viewport
+                != camera
+                    .viewport
+                    .as_ref()
+                    .map(|viewport| (viewport.physical_position, viewport.physical_size))
         {
             camera.computed.target_info = camera.target.get_render_target_info(&windows, &images);
+            camera.computed.old_viewport = camera
+                .viewport
+                .as_ref()
+                .map(|viewport| (viewport.physical_position, viewport.physical_size));
             if let Some(size) = camera.logical_viewport_size() {
                 camera_projection.update(size.x, size.y);
                 camera.computed.projection_matrix = camera_projection.get_projection_matrix();
