@@ -198,6 +198,7 @@ pub struct ReflectHandle {
     type_uuid: Uuid,
     asset_type_id: TypeId,
     downcast_handle_untyped: fn(&dyn Any) -> Option<HandleUntyped>,
+    typed: fn(HandleUntyped) -> Box<dyn Reflect>,
 }
 impl ReflectHandle {
     /// The [`bevy_reflect::TypeUuid`] of the asset
@@ -213,6 +214,12 @@ impl ReflectHandle {
     pub fn downcast_handle_untyped(&self, handle: &dyn Any) -> Option<HandleUntyped> {
         (self.downcast_handle_untyped)(handle)
     }
+
+    /// A way to go from a [`HandleUntyped`] to a `Handle<T>` in a `Box<dyn Reflect>`.
+    /// Equivalent of [`HandleUntyped::typed`].
+    pub fn typed(&self, handle: HandleUntyped) -> Box<dyn Reflect> {
+        (self.typed)(handle)
+    }
 }
 
 impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
@@ -225,6 +232,7 @@ impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
                     .downcast_ref::<Handle<A>>()
                     .map(|handle| handle.clone_untyped())
             },
+            typed: |handle: HandleUntyped| Box::new(handle.typed::<A>()),
         }
     }
 }
