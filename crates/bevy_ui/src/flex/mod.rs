@@ -228,8 +228,7 @@ pub fn flex_node_system(
 
     // update root nodes
     for flex_root in &flex_roots {
-        let physical_size = flex_root.physical_rect.1 - flex_root.physical_rect.0;
-        flex_surface.update_root(&flex_root.entity, &physical_size);
+        flex_surface.update_root(&flex_root.entity, &flex_root.physical_size);
     }
 
     // TODO: check individual roots for changed scaling factor instead of updating all of them.
@@ -280,7 +279,6 @@ pub fn flex_node_system(
             &mut node_transform_query,
             &full_children_query,
             flex_root.scaling_factor,
-            &flex_root.physical_rect.0,
             None,
             &flex_root.entity,
         );
@@ -335,7 +333,6 @@ fn update_node_transforms_recursively(
     node_transform_query: &mut Query<(Entity, &mut Node, &mut Transform)>,
     children_query: &Query<&Children, With<Node>>,
     scaling_factor: f64,
-    position_offset: &UVec2,
     parent: Option<&Entity>,
     entity: &Entity,
 ) {
@@ -343,7 +340,6 @@ fn update_node_transforms_recursively(
         flex_surface,
         node_transform_query,
         scaling_factor,
-        position_offset,
         parent,
         entity,
     );
@@ -356,7 +352,6 @@ fn update_node_transforms_recursively(
                 node_transform_query,
                 children_query,
                 scaling_factor,
-                position_offset,
                 Some(entity),
                 child,
             );
@@ -369,7 +364,6 @@ fn update_node_transform(
     flex_surface: &FlexSurface,
     node_transform_query: &mut Query<(Entity, &mut Node, &mut Transform)>,
     scaling_factor: f64,
-    position_offset: &UVec2,
     parent: Option<&Entity>,
     entity: &Entity,
 ) {
@@ -388,10 +382,8 @@ fn update_node_transform(
             node.size = new_size;
         }
         let mut new_position = transform.translation;
-        new_position.x =
-            to_logical(layout.location.x + position_offset.x as f32 + layout.size.width / 2.0);
-        new_position.y =
-            to_logical(layout.location.y + position_offset.y as f32 + layout.size.height / 2.0);
+        new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
+        new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
             if let Ok(parent_layout) = flex_surface.get_layout(*parent) {
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
@@ -408,7 +400,7 @@ fn update_node_transform(
 struct FlexRoot {
     entity: Entity,
     scaling_factor: f64,
-    physical_rect: (UVec2, UVec2),
+    physical_size: UVec2,
 }
 
 /// Returns the list of roots for all ui trees with their physical rect and scaling factor.
@@ -430,15 +422,15 @@ fn get_flex_roots(
                     entity,
                     scaling_factor: camera.target_scaling_factor().unwrap_or(1.0) * ui_scale.scale,
                     // TODO: make sure this won't explode and it makes sense in system ordering.
-                    physical_rect: camera.physical_viewport_rect().unwrap_or((UVec2::default(), UVec2::default())),
+                    physical_size: camera.physical_viewport_size().unwrap_or_default(),
                 })
                 .or_else(|| {
                     windows.get_primary().map(|window| FlexRoot {
                         entity,
                         scaling_factor: window.scale_factor() * ui_scale.scale,
-                        physical_rect: (
-                            UVec2::new(0, 0),
-                            UVec2::new(window.physical_width(), window.physical_height()),
+                        physical_size: UVec2::new(
+                            window.physical_width(),
+                            window.physical_height(),
                         ),
                     })
                 })
