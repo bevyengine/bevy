@@ -1,4 +1,6 @@
 //! This example illustrates loading scenes from files.
+use std::fs::File;
+use std::io::Write;
 
 use bevy::{prelude::*, utils::Duration};
 
@@ -49,12 +51,18 @@ impl FromWorld for ComponentB {
     }
 }
 
+// The initial scene file will be loaded below and not change when the scene is saved
+const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
+
+// The new, updated scene data will be saved here so that you can see the changes
+const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
+
 fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // "Spawning" a scene bundle creates a new entity and spawns new instances
     // of the given scene's entities as children of that entity.
     commands.spawn_bundle(DynamicSceneBundle {
         // Scenes are loaded just like any other asset.
-        scene: asset_server.load("scenes/load_scene_example.scn.ron"),
+        scene: asset_server.load(SCENE_FILE_PATH),
         ..default()
     });
 
@@ -98,7 +106,15 @@ fn save_scene_system(world: &mut World) {
     // Scenes can be serialized like this:
     info!("{}", scene.serialize_ron(type_registry).unwrap());
 
-    // TODO: save scene
+    // Write the scene RON data to file (leveraging From<io::Error> for ron::error::Error)
+    File::create(format!("assets/{}", NEW_SCENE_FILE_PATH))
+        .map_err(|err| err.into())
+        .and_then(|mut file| {
+            scene
+                .serialize_ron(type_registry)
+                .and_then(|data| file.write(data.as_bytes()).map_err(|err| err.into()))
+        })
+        .expect("Error while writing scene to file");
 }
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
