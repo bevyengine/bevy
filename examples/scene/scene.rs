@@ -111,7 +111,7 @@ fn save_scene_system(world: &mut World) {
 
     // Writing the scene to a new file. Using a task to avoid calling the filesystem APIs in a system
     // as they are blocking
-    // This can't work in WASM as there is not filesystem access
+    // This can't work in WASM as there is no filesystem access
     #[cfg(not(target_arch = "wasm32"))]
     IoTaskPool::get()
         .spawn(async move {
