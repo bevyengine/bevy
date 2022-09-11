@@ -113,7 +113,7 @@ fn save_scene_system(world: &mut World) {
     // as they are blocking
     IoTaskPool::get()
         .spawn(async move {
-            // Write the scene RON data to file (leveraging From<io::Error> for ron::error::Error)
+            // Write the scene RON data to file
             File::create(format!("assets/{}", NEW_SCENE_FILE_PATH))
                 .and_then(|mut file| {
                     file.write(serialized_scene.as_bytes())
