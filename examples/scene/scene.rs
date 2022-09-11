@@ -105,10 +105,12 @@ fn save_scene_system(world: &mut World) {
     // Write the scene RON data to file (leveraging From<io::Error> for ron::error::Error)
     File::create(format!("assets/{}", SCENE_FILE_PATH))
         .map_err(|err| err.into())
-        .and_then(|mut file| scene.serialize_ron(type_registry)
-                .and_then(|data| file.write(data.as_bytes())
-                    .map_err(|err| err.into()))
-        ).expect("Error while writing scene to file");
+        .and_then(|mut file| {
+            scene
+                .serialize_ron(type_registry)
+                .and_then(|data| file.write(data.as_bytes()).map_err(|err| err.into()))
+        })
+        .expect("Error while writing scene to file");
 }
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
