@@ -1,6 +1,6 @@
 use crate::{
     AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
-    SetMeshViewBindGroup,
+    SetMeshViewBindGroup, SharedBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -78,6 +78,8 @@ use std::marker::PhantomData;
 /// // All functions on `Material` have default impls. You only need to implement the
 /// // functions that are relevant for your material.
 /// impl Material for CustomMaterial {
+///     type SharedGroup = ();
+///
 ///     fn fragment_shader() -> ShaderRef {
 ///         "shaders/custom_material.wgsl".into()
 ///     }
@@ -109,6 +111,8 @@ use std::marker::PhantomData;
 /// var color_sampler: sampler;
 /// ```
 pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
+    type SharedGroup: AsBindGroup + Send + Sync + 'static;
+
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -168,9 +172,6 @@ where
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_render_command::<Transparent3d, DrawMaterial<M>>()
-                .add_render_command::<Opaque3d, DrawMaterial<M>>()
-                .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<MaterialPipeline<M>>()
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
@@ -179,8 +180,30 @@ where
                 .add_system_to_stage(
                     RenderStage::Prepare,
                     prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
-                )
-                .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
+                );
+
+            if render_app
+                .world
+                .contains_resource::<SharedBindGroup<M::SharedGroup>>()
+            {
+                render_app
+                    .add_render_command::<Transparent3d, DrawWithSharedGroup<M>>()
+                    .add_render_command::<Opaque3d, DrawWithSharedGroup<M>>()
+                    .add_render_command::<AlphaMask3d, DrawWithSharedGroup<M>>()
+                    .add_system_to_stage(
+                        RenderStage::Queue,
+                        queue_material_meshes::<M, DrawWithSharedGroup<M>>,
+                    );
+            } else {
+                render_app
+                    .add_render_command::<Transparent3d, DrawWithoutSharedGroup<M>>()
+                    .add_render_command::<Opaque3d, DrawWithoutSharedGroup<M>>()
+                    .add_render_command::<AlphaMask3d, DrawWithoutSharedGroup<M>>()
+                    .add_system_to_stage(
+                        RenderStage::Queue,
+                        queue_material_meshes::<M, DrawWithoutSharedGroup<M>>,
+                    );
+            }
         }
     }
 }
@@ -229,6 +252,7 @@ where
 pub struct MaterialPipeline<M: Material> {
     pub mesh_pipeline: MeshPipeline,
     pub material_layout: BindGroupLayout,
+    pub shared_layout: Option<BindGroupLayout>,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
     marker: PhantomData<M>,
@@ -259,6 +283,20 @@ where
         let descriptor_layout = descriptor.layout.as_mut().unwrap();
         descriptor_layout.insert(1, self.material_layout.clone());
 
+        if let Some(shared_layout) = &self.shared_layout {
+            descriptor
+                .vertex
+                .shader_defs
+                .push(String::from("SHARED_DATA"));
+            descriptor
+                .fragment
+                .as_mut()
+                .unwrap()
+                .shader_defs
+                .push(String::from("SHARED_DATA"));
+            descriptor_layout.insert(3, shared_layout.clone());
+        }
+
         M::specialize(self, &mut descriptor, layout, key)?;
         Ok(descriptor)
     }
@@ -268,10 +306,12 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
         let render_device = world.resource::<RenderDevice>();
+        let shared_group = world.get_resource::<SharedBindGroup<M::SharedGroup>>();
 
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             material_layout: M::bind_group_layout(render_device),
+            shared_layout: shared_group.map(|v| v.bind_group_layout.clone()),
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -287,11 +327,20 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
     }
 }
 
-type DrawMaterial<M> = (
+type DrawWithoutSharedGroup<M> = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMaterialBindGroup<M, 1>,
     SetMeshBindGroup<2>,
+    DrawMesh,
+);
+
+type DrawWithSharedGroup<M> = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetMaterialBindGroup<M, 1>,
+    SetMeshBindGroup<2>,
+    SetSharedBindGroup<<M as Material>::SharedGroup, 3>,
     DrawMesh,
 );
 
@@ -312,8 +361,29 @@ impl<M: Material, const I: usize> EntityRenderCommand for SetMaterialBindGroup<M
     }
 }
 
+pub struct SetSharedBindGroup<G: AsBindGroup, const I: usize>(PhantomData<G>);
+impl<G: AsBindGroup + Send + Sync + 'static, const I: usize> EntityRenderCommand
+    for SetSharedBindGroup<G, I>
+{
+    type Param = SRes<SharedBindGroup<G>>;
+    fn render<'w>(
+        _view: Entity,
+        _item: Entity,
+        param: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let shared_group = param.into_inner();
+        if let Some(bind_group) = &shared_group.bind_group {
+            pass.set_bind_group(I, bind_group, &[]);
+            RenderCommandResult::Success
+        } else {
+            RenderCommandResult::Failure
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
-pub fn queue_material_meshes<M: Material>(
+pub fn queue_material_meshes<M: Material, F: 'static>(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
@@ -337,18 +407,9 @@ pub fn queue_material_meshes<M: Material>(
     for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
         &mut views
     {
-        let draw_opaque_pbr = opaque_draw_functions
-            .read()
-            .get_id::<DrawMaterial<M>>()
-            .unwrap();
-        let draw_alpha_mask_pbr = alpha_mask_draw_functions
-            .read()
-            .get_id::<DrawMaterial<M>>()
-            .unwrap();
-        let draw_transparent_pbr = transparent_draw_functions
-            .read()
-            .get_id::<DrawMaterial<M>>()
-            .unwrap();
+        let draw_opaque_pbr = opaque_draw_functions.read().get_id::<F>().unwrap();
+        let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().get_id::<F>().unwrap();
+        let draw_transparent_pbr = transparent_draw_functions.read().get_id::<F>().unwrap();
 
         let rangefinder = view.rangefinder3d();
         let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);

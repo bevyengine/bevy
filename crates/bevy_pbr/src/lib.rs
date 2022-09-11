@@ -6,6 +6,7 @@ mod light;
 mod material;
 mod pbr_material;
 mod render;
+mod shared_group;
 
 pub use alpha::*;
 pub use bundle::*;
@@ -13,6 +14,7 @@ pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
 pub use render::*;
+pub use shared_group::*;
 
 use bevy_window::ModifiesWindows;
 

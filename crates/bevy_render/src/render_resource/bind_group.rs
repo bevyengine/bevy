@@ -10,7 +10,7 @@ use crate::{
 };
 use bevy_reflect::Uuid;
 use std::{ops::Deref, sync::Arc};
-use wgpu::BindingResource;
+use wgpu::{BindGroupDescriptor, BindGroupLayoutDescriptor, BindingResource};
 
 /// A [`BindGroup`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -253,6 +253,35 @@ pub trait AsBindGroup: Sized {
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
+}
+
+impl AsBindGroup for () {
+    type Data = ();
+
+    fn as_bind_group(
+        &self,
+        layout: &BindGroupLayout,
+        render_device: &RenderDevice,
+        _images: &RenderAssets<Image>,
+        _fallback_image: &FallbackImage,
+    ) -> Result<PreparedBindGroup<Self>, AsBindGroupError> {
+        Ok(PreparedBindGroup {
+            bindings: Vec::new(),
+            bind_group: render_device.create_bind_group(&BindGroupDescriptor {
+                label: None,
+                layout,
+                entries: &[],
+            }),
+            data: (),
+        })
+    }
+
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[],
+        })
+    }
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.

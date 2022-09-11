@@ -294,6 +294,8 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 }
 
 impl Material for StandardMaterial {
+    type SharedGroup = ();
+
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
