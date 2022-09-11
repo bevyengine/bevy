@@ -51,7 +51,11 @@ impl FromWorld for ComponentB {
     }
 }
 
+// The initial scene file will be loaded below and not change when the scene is saved
 const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
+
+// The new, updated scene data will be saved here so that you can see the changes
+const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
 
 fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // "Spawning" a scene bundle creates a new entity and spawns new instances
@@ -103,7 +107,7 @@ fn save_scene_system(world: &mut World) {
     info!("{}", scene.serialize_ron(type_registry).unwrap());
 
     // Write the scene RON data to file (leveraging From<io::Error> for ron::error::Error)
-    File::create(format!("assets/{}", SCENE_FILE_PATH))
+    File::create(format!("assets/{}", NEW_SCENE_FILE_PATH))
         .map_err(|err| err.into())
         .and_then(|mut file| {
             scene
