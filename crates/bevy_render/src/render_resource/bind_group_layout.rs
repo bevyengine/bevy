@@ -1,3 +1,4 @@
+use crate::render_resource::resource_macros::*;
 use bevy_reflect::Uuid;
 use std::{ops::Deref, sync::Arc};
 
@@ -7,7 +8,7 @@ pub struct BindGroupLayoutId(Uuid);
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,
-    value: Arc<wgpu::BindGroupLayout>,
+    value: render_resource_type!(wgpu::BindGroupLayout),
 }
 
 impl PartialEq for BindGroupLayout {
@@ -24,7 +25,7 @@ impl BindGroupLayout {
 
     #[inline]
     pub fn value(&self) -> &wgpu::BindGroupLayout {
-        &self.value
+        render_resource_ref!(self.value, wgpu::BindGroupLayout)
     }
 }
 
@@ -32,7 +33,7 @@ impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
         BindGroupLayout {
             id: BindGroupLayoutId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: render_resource_new!(value),
         }
     }
 }
@@ -42,6 +43,12 @@ impl Deref for BindGroupLayout {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.value
+        self.value()
+    }
+}
+
+impl Drop for BindGroupLayout {
+    fn drop(&mut self) {
+        render_resource_drop!(&mut self.value, wgpu::BindGroupLayout);
     }
 }

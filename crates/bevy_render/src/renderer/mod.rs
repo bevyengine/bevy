@@ -250,7 +250,6 @@ pub async fn initialize_renderer(
         )
         .await
         .unwrap();
-    let device = Arc::new(device);
     let queue = Arc::new(queue);
     (
         RenderDevice::from(device),

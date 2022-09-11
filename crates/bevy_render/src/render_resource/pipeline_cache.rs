@@ -24,6 +24,8 @@ use wgpu::{
     VertexBufferLayout as RawVertexBufferLayout,
 };
 
+use crate::render_resource::resource_macros::*;
+
 /// A descriptor for a [`Pipeline`].
 ///
 /// Used to store an heterogenous collection of render and compute pipeline descriptors together.
@@ -103,7 +105,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<String>, Arc<ShaderModule>>,
+    processed_shaders: HashMap<Vec<String>, render_resource_type!(ShaderModule)>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
     dependents: HashSet<Handle<Shader>>,
 }
@@ -124,7 +126,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
         shader_defs: &[String],
-    ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
+    ) -> Result<render_resource_type!(ShaderModule), PipelineCacheError> {
         let shader = self
             .shaders
             .get(handle)
@@ -201,7 +203,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(Arc::new(shader_module))
+                entry.insert(render_resource_new!(shader_module))
             }
         };
 
@@ -213,7 +215,9 @@ impl ShaderCache {
         let mut pipelines_to_queue = Vec::new();
         while let Some(handle) = shaders_to_clear.pop() {
             if let Some(data) = self.data.get_mut(&handle) {
-                data.processed_shaders.clear();
+                for (_, mut shader) in data.processed_shaders.drain() {
+                    render_resource_drop!(&mut shader, wgpu::ShaderModule);
+                }
                 pipelines_to_queue.extend(data.pipelines.iter().cloned());
                 shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
             }
@@ -273,7 +277,7 @@ impl ShaderCache {
 
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, wgpu::PipelineLayout>,
+    layouts: HashMap<Vec<BindGroupLayoutId>, render_resource_type!(wgpu::PipelineLayout)>,
 }
 
 impl LayoutCache {
@@ -283,16 +287,19 @@ impl LayoutCache {
         bind_group_layouts: &[BindGroupLayout],
     ) -> &wgpu::PipelineLayout {
         let key = bind_group_layouts.iter().map(|l| l.id()).collect();
-        self.layouts.entry(key).or_insert_with(|| {
+        let untyped = self.layouts.entry(key).or_insert_with(|| {
             let bind_group_layouts = bind_group_layouts
                 .iter()
                 .map(|l| l.value())
                 .collect::<Vec<_>>();
-            render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                bind_group_layouts: &bind_group_layouts,
-                ..default()
-            })
-        })
+            render_resource_new!(
+                render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                    bind_group_layouts: &bind_group_layouts,
+                    ..default()
+                })
+            )
+        });
+        render_resource_ref!(untyped, wgpu::PipelineLayout)
     }
 }
 
@@ -546,13 +553,13 @@ impl PipelineCache {
             vertex: RawVertexState {
                 buffers: &vertex_buffer_layouts,
                 entry_point: descriptor.vertex.entry_point.deref(),
-                module: &vertex_module,
+                module: render_resource_ref!(vertex_module, ShaderModule),
             },
             fragment: fragment_data
                 .as_ref()
                 .map(|(module, entry_point, targets)| RawFragmentState {
                     entry_point,
-                    module,
+                    module: render_resource_ref!(module, ShaderModule),
                     targets,
                 }),
         };
@@ -588,7 +595,7 @@ impl PipelineCache {
         let descriptor = RawComputePipelineDescriptor {
             label: descriptor.label.as_deref(),
             layout,
-            module: &compute_module,
+            module: render_resource_ref!(compute_module, ShaderModule),
             entry_point: descriptor.entry_point.as_ref(),
         };
 

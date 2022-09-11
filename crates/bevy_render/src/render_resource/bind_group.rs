@@ -12,6 +12,8 @@ use bevy_reflect::Uuid;
 use std::{ops::Deref, sync::Arc};
 use wgpu::BindingResource;
 
+use crate::render_resource::resource_macros::*;
+
 /// A [`BindGroup`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct BindGroupId(Uuid);
@@ -25,7 +27,7 @@ pub struct BindGroupId(Uuid);
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
-    value: Arc<wgpu::BindGroup>,
+    value: render_resource_type!(wgpu::BindGroup),
 }
 
 impl BindGroup {
@@ -40,7 +42,7 @@ impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
             id: BindGroupId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: render_resource_new!(value),
         }
     }
 }
@@ -50,7 +52,13 @@ impl Deref for BindGroup {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.value
+        render_resource_ref!(self.value, wgpu::BindGroup)
+    }
+}
+
+impl Drop for BindGroup {
+    fn drop(&mut self) {
+        render_resource_drop!(&mut self.value, wgpu::BindGroup);
     }
 }
 

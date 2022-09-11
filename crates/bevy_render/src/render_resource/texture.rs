@@ -1,6 +1,8 @@
 use bevy_utils::Uuid;
 use std::{ops::Deref, sync::Arc};
 
+use crate::render_resource::resource_macros::*;
+
 /// A [`Texture`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct TextureId(Uuid);
@@ -12,7 +14,7 @@ pub struct TextureId(Uuid);
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
-    value: Arc<wgpu::Texture>,
+    value: render_resource_type!(wgpu::Texture),
 }
 
 impl Texture {
@@ -24,7 +26,11 @@ impl Texture {
 
     /// Creates a view of this texture.
     pub fn create_view(&self, desc: &wgpu::TextureViewDescriptor) -> TextureView {
-        TextureView::from(self.value.create_view(desc))
+        TextureView::from(self.value().create_view(desc))
+    }
+
+    fn value(&self) -> &wgpu::Texture {
+        render_resource_ref!(self.value, wgpu::Texture)
     }
 }
 
@@ -32,7 +38,7 @@ impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
             id: TextureId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: render_resource_new!(value),
         }
     }
 }
@@ -42,7 +48,13 @@ impl Deref for Texture {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.value
+        self.value()
+    }
+}
+
+impl Drop for Texture {
+    fn drop(&mut self) {
+        render_resource_drop!(&mut self.value, wgpu::Texture);
     }
 }
 
@@ -55,15 +67,15 @@ pub struct TextureViewId(Uuid);
 #[derive(Clone, Debug)]
 pub enum TextureViewValue {
     /// The value is an actual wgpu [`TextureView`](wgpu::TextureView).
-    TextureView(Arc<wgpu::TextureView>),
+    TextureView(render_resource_type!(wgpu::TextureView)),
 
     /// The value is a wgpu [`SurfaceTexture`](wgpu::SurfaceTexture), but dereferences to
     /// a [`TextureView`](wgpu::TextureView).
     SurfaceTexture {
         // NOTE: The order of these fields is important because the view must be dropped before the
         // frame is dropped
-        view: Arc<wgpu::TextureView>,
-        texture: Arc<wgpu::SurfaceTexture>,
+        view: render_resource_type!(wgpu::TextureView),
+        texture: Option<render_resource_type!(wgpu::SurfaceTexture)>,
     },
 }
 
@@ -86,11 +98,15 @@ impl TextureView {
 
     /// Returns the [`SurfaceTexture`](wgpu::SurfaceTexture) of the texture view if it is of that type.
     #[inline]
-    pub fn take_surface_texture(self) -> Option<wgpu::SurfaceTexture> {
-        match self.value {
-            TextureViewValue::TextureView(_) => None,
-            TextureViewValue::SurfaceTexture { texture, .. } => Arc::try_unwrap(texture).ok(),
+    pub fn take_surface_texture(mut self) -> Option<wgpu::SurfaceTexture> {
+        if let TextureViewValue::SurfaceTexture { texture, .. } = &mut self.value {
+            let texture = texture.take();
+            if let Some(texture) = texture {
+                return render_resource_try_unwrap!(texture, wgpu::SurfaceTexture);
+            }
         }
+
+        None
     }
 }
 
@@ -98,15 +114,15 @@ impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
             id: TextureViewId(Uuid::new_v4()),
-            value: TextureViewValue::TextureView(Arc::new(value)),
+            value: TextureViewValue::TextureView(render_resource_new!(value)),
         }
     }
 }
 
 impl From<wgpu::SurfaceTexture> for TextureView {
     fn from(value: wgpu::SurfaceTexture) -> Self {
-        let texture = Arc::new(value);
-        let view = Arc::new(texture.texture.create_view(&Default::default()));
+        let view = render_resource_new!(value.texture.create_view(&Default::default()));
+        let texture = Some(render_resource_new!(value));
 
         TextureView {
             id: TextureViewId(Uuid::new_v4()),
@@ -121,8 +137,26 @@ impl Deref for TextureView {
     #[inline]
     fn deref(&self) -> &Self::Target {
         match &self.value {
-            TextureViewValue::TextureView(value) => value,
-            TextureViewValue::SurfaceTexture { view, .. } => view,
+            TextureViewValue::TextureView(value) => render_resource_ref!(value, wgpu::TextureView),
+            TextureViewValue::SurfaceTexture { view, .. } => {
+                render_resource_ref!(view, wgpu::TextureView)
+            }
+        }
+    }
+}
+
+impl Drop for TextureView {
+    fn drop(&mut self) {
+        match &mut self.value {
+            TextureViewValue::TextureView(value) => {
+                render_resource_drop!(value, wgpu::TextureView);
+            }
+            TextureViewValue::SurfaceTexture { texture, view } => {
+                if let Some(texture) = texture {
+                    render_resource_drop!(texture, wgpu::SurfaceTexture);
+                }
+                render_resource_drop!(view, wgpu::TextureView);
+            }
         }
     }
 }
@@ -139,7 +173,7 @@ pub struct SamplerId(Uuid);
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
-    value: Arc<wgpu::Sampler>,
+    value: render_resource_type!(wgpu::Sampler),
 }
 
 impl Sampler {
@@ -154,7 +188,7 @@ impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
             id: SamplerId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: render_resource_new!(value),
         }
     }
 }
@@ -164,6 +198,12 @@ impl Deref for Sampler {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.value
+        render_resource_ref!(self.value, wgpu::Sampler)
+    }
+}
+
+impl Drop for Sampler {
+    fn drop(&mut self) {
+        render_resource_drop!(&mut self.value, wgpu::Sampler);
     }
 }

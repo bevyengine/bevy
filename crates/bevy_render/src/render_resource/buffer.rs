@@ -4,13 +4,15 @@ use std::{
     sync::Arc,
 };
 
+use crate::render_resource::resource_macros::*;
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct BufferId(Uuid);
 
 #[derive(Clone, Debug)]
 pub struct Buffer {
     id: BufferId,
-    value: Arc<wgpu::Buffer>,
+    value: render_resource_type!(wgpu::Buffer),
 }
 
 impl Buffer {
@@ -28,13 +30,13 @@ impl Buffer {
                 Bound::Excluded(&bound) => bound + 1,
                 Bound::Unbounded => 0,
             },
-            value: self.value.slice(bounds),
+            value: render_resource_ref!(self.value, wgpu::Buffer).slice(bounds),
         }
     }
 
     #[inline]
     pub fn unmap(&self) {
-        self.value.unmap();
+        render_resource_ref!(self.value, wgpu::Buffer).unmap();
     }
 }
 
@@ -42,7 +44,7 @@ impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
             id: BufferId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: render_resource_new!(value),
         }
     }
 }
@@ -52,7 +54,13 @@ impl Deref for Buffer {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.value
+        render_resource_ref!(self.value, wgpu::Buffer)
+    }
+}
+
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        render_resource_drop!(&mut self.value, wgpu::Buffer);
     }
 }
 

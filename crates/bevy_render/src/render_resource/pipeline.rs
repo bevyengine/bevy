@@ -7,6 +7,8 @@ use wgpu::{
     VertexAttribute, VertexFormat, VertexStepMode,
 };
 
+use crate::render_resource::resource_macros::*;
+
 /// A [`RenderPipeline`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RenderPipelineId(Uuid);
@@ -18,7 +20,7 @@ pub struct RenderPipelineId(Uuid);
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
-    value: Arc<wgpu::RenderPipeline>,
+    value: render_resource_type!(wgpu::RenderPipeline),
 }
 
 impl RenderPipeline {
@@ -32,7 +34,7 @@ impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
             id: RenderPipelineId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: render_resource_new!(value),
         }
     }
 }
@@ -42,7 +44,13 @@ impl Deref for RenderPipeline {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.value
+        render_resource_ref!(self.value, wgpu::RenderPipeline)
+    }
+}
+
+impl Drop for RenderPipeline {
+    fn drop(&mut self) {
+        render_resource_drop!(&mut self.value, wgpu::RenderPipeline);
     }
 }
 
@@ -57,7 +65,7 @@ pub struct ComputePipelineId(Uuid);
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
-    value: Arc<wgpu::ComputePipeline>,
+    value: render_resource_type!(wgpu::ComputePipeline),
 }
 
 impl ComputePipeline {
@@ -72,7 +80,7 @@ impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
             id: ComputePipelineId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: render_resource_new!(value),
         }
     }
 }
@@ -82,7 +90,13 @@ impl Deref for ComputePipeline {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.value
+        render_resource_ref!(self.value, wgpu::ComputePipeline)
+    }
+}
+
+impl Drop for ComputePipeline {
+    fn drop(&mut self) {
+        render_resource_drop!(&mut self.value, wgpu::ComputePipeline);
     }
 }
 
