@@ -10,7 +10,7 @@ fn fragment(
     @builtin(position) position: vec4<f32>,
     #import bevy_pbr::mesh_vertex_output
 ) -> @location(0) vec4<f32> {
-    let uv = position.xy / vec2<f32>(view.width, view.height);
+    let uv = position.xy / vec2<f32>(view.zw);
     let color = textureSample(texture, texture_sampler, uv);
     return color;
 }

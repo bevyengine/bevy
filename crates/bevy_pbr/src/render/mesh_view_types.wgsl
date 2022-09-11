@@ -8,10 +8,8 @@ struct View {
     projection: mat4x4<f32>,
     inverse_projection: mat4x4<f32>,
     world_position: vec3<f32>,
-    width: f32,
-    height: f32,
-    viewport_x: f32,
-    viewport_y: f32,
+    // viewport(x_origin, y_origin, width, height)
+    viewport: vec4<f32>,
 };
 
 struct PointLight {
