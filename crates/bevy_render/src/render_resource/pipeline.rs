@@ -44,7 +44,7 @@ impl Deref for RenderPipeline {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        render_resource_ref!(self.value, wgpu::RenderPipeline)
+        render_resource_ref!(&self.value, wgpu::RenderPipeline)
     }
 }
 
@@ -90,7 +90,7 @@ impl Deref for ComputePipeline {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        render_resource_ref!(self.value, wgpu::ComputePipeline)
+        render_resource_ref!(&self.value, wgpu::ComputePipeline)
     }
 }
 

@@ -54,7 +54,7 @@ impl Deref for Buffer {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        render_resource_ref!(self.value, wgpu::Buffer)
+        render_resource_ref!(&self.value, wgpu::Buffer)
     }
 }
 

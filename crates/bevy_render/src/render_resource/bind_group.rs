@@ -52,7 +52,7 @@ impl Deref for BindGroup {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        render_resource_ref!(self.value, wgpu::BindGroup)
+        render_resource_ref!(&self.value, wgpu::BindGroup)
     }
 }
 

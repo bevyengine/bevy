@@ -27,7 +27,7 @@ impl From<wgpu::Device> for RenderDevice {
 impl RenderDevice {
     #[inline]
     fn device(&self) -> &wgpu::Device {
-        render_resource_ref!(self.device, wgpu::Device)
+        render_resource_ref!(&self.device, wgpu::Device)
     }
 
     /// List all [`Features`](wgpu::Features) that may be used with this device.

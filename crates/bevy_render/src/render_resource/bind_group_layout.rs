@@ -25,7 +25,7 @@ impl BindGroupLayout {
 
     #[inline]
     pub fn value(&self) -> &wgpu::BindGroupLayout {
-        render_resource_ref!(self.value, wgpu::BindGroupLayout)
+        render_resource_ref!(&self.value, wgpu::BindGroupLayout)
     }
 }
 

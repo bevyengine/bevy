@@ -9,7 +9,7 @@ macro_rules! render_resource_type {
 #[macro_export]
 macro_rules! render_resource_ref {
     ($value:expr, $wgpu_type:ty) => {
-        unsafe { &std::mem::transmute::<&Box<()>, &Box<$wgpu_type>>($value.as_ref()) }
+        unsafe { std::mem::transmute::<&Box<()>, &Box<$wgpu_type>>($value.as_ref()) }
     };
 }
 #[cfg(debug_assertions)]
@@ -54,7 +54,7 @@ macro_rules! render_resource_type {
 #[macro_export]
 macro_rules! render_resource_ref {
     ($value:expr, $wgpu_type:ty) => {
-        &$value
+        $value
     };
 }
 #[cfg(not(debug_assertions))]
@@ -67,7 +67,9 @@ macro_rules! render_resource_new {
 #[cfg(not(debug_assertions))]
 #[macro_export]
 macro_rules! render_resource_drop {
-    ($value:expr, $wgpu_type:ty) => {};
+    ($value:expr, $wgpu_type:ty) => {
+        let _ = $value;
+    };
 }
 #[cfg(not(debug_assertions))]
 #[macro_export]

@@ -553,13 +553,13 @@ impl PipelineCache {
             vertex: RawVertexState {
                 buffers: &vertex_buffer_layouts,
                 entry_point: descriptor.vertex.entry_point.deref(),
-                module: render_resource_ref!(vertex_module, ShaderModule),
+                module: render_resource_ref!(&vertex_module, ShaderModule),
             },
             fragment: fragment_data
                 .as_ref()
                 .map(|(module, entry_point, targets)| RawFragmentState {
                     entry_point,
-                    module: render_resource_ref!(module, ShaderModule),
+                    module: render_resource_ref!(&module, ShaderModule),
                     targets,
                 }),
         };
@@ -595,7 +595,7 @@ impl PipelineCache {
         let descriptor = RawComputePipelineDescriptor {
             label: descriptor.label.as_deref(),
             layout,
-            module: render_resource_ref!(compute_module, ShaderModule),
+            module: render_resource_ref!(&compute_module, ShaderModule),
             entry_point: descriptor.entry_point.as_ref(),
         };
 
