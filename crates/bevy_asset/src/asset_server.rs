@@ -80,11 +80,14 @@ pub struct AssetServerInternal {
 /// The asset server is the primary way of loading assets in bevy. It keeps track of the load state
 /// of the assets it manages and can even reload them from the filesystem with
 /// ```
+/// # use bevy_asset::*;
+/// # use bevy_app::*;
+/// # let mut app = App::new();
 /// // AssetServerSettings must be inserted before adding the AssetPlugin or DefaultPlugins.
 /// app.insert_resource(AssetServerSettings {
 ///     watch_for_changes: true,
-///     ..default()
-/// })
+///     ..Default::default()
+/// });
 /// ```
 ///
 /// The asset server is a _resource_, so in order to access it in a system you need a `Res`
