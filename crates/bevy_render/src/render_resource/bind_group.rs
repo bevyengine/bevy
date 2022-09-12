@@ -52,13 +52,15 @@ impl Deref for BindGroup {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        render_resource_ref!(&self.value, wgpu::BindGroup)
+        unsafe { render_resource_ref!(&self.value, wgpu::BindGroup) }
     }
 }
 
 impl Drop for BindGroup {
     fn drop(&mut self) {
-        render_resource_drop!(&mut self.value, wgpu::BindGroup);
+        unsafe {
+            render_resource_drop!(&mut self.value, wgpu::BindGroup);
+        }
     }
 }
 

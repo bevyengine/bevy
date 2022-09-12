@@ -27,13 +27,13 @@ impl Buffer {
                 Bound::Excluded(&bound) => bound + 1,
                 Bound::Unbounded => 0,
             },
-            value: render_resource_ref!(self.value, wgpu::Buffer).slice(bounds),
+            value: unsafe { render_resource_ref!(&self.value, wgpu::Buffer).slice(bounds) },
         }
     }
 
     #[inline]
     pub fn unmap(&self) {
-        render_resource_ref!(self.value, wgpu::Buffer).unmap();
+        unsafe { render_resource_ref!(&self.value, wgpu::Buffer).unmap() };
     }
 }
 
@@ -51,13 +51,15 @@ impl Deref for Buffer {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        render_resource_ref!(&self.value, wgpu::Buffer)
+        unsafe { render_resource_ref!(&self.value, wgpu::Buffer) }
     }
 }
 
 impl Drop for Buffer {
     fn drop(&mut self) {
-        render_resource_drop!(&mut self.value, wgpu::Buffer);
+        unsafe {
+            render_resource_drop!(&mut self.value, wgpu::Buffer);
+        }
     }
 }
 

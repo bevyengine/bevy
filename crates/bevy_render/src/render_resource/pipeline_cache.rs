@@ -216,7 +216,9 @@ impl ShaderCache {
         while let Some(handle) = shaders_to_clear.pop() {
             if let Some(data) = self.data.get_mut(&handle) {
                 for (_, mut shader) in data.processed_shaders.drain() {
-                    render_resource_drop!(&mut shader, wgpu::ShaderModule);
+                    unsafe {
+                        render_resource_drop!(&mut shader, wgpu::ShaderModule);
+                    }
                 }
                 pipelines_to_queue.extend(data.pipelines.iter().cloned());
                 shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
@@ -279,7 +281,9 @@ impl Drop for ShaderCache {
     fn drop(&mut self) {
         for (_, mut data) in self.data.drain() {
             for (_, mut render_resource) in data.processed_shaders.drain() {
-                render_resource_drop!(&mut render_resource, ShaderModule);
+                unsafe {
+                    render_resource_drop!(&mut render_resource, ShaderModule);
+                }
             }
         }
     }
@@ -309,14 +313,16 @@ impl LayoutCache {
                 })
             )
         });
-        render_resource_ref!(untyped, wgpu::PipelineLayout)
+        unsafe { render_resource_ref!(untyped, wgpu::PipelineLayout) }
     }
 }
 
 impl Drop for LayoutCache {
     fn drop(&mut self) {
         for (_, mut render_resource) in self.layouts.drain() {
-            render_resource_drop!(&mut render_resource, wgpu::PipelineLayout);
+            unsafe {
+                render_resource_drop!(&mut render_resource, wgpu::PipelineLayout);
+            }
         }
     }
 }
@@ -571,13 +577,13 @@ impl PipelineCache {
             vertex: RawVertexState {
                 buffers: &vertex_buffer_layouts,
                 entry_point: descriptor.vertex.entry_point.deref(),
-                module: render_resource_ref!(&vertex_module, ShaderModule),
+                module: unsafe { render_resource_ref!(&vertex_module, ShaderModule) },
             },
             fragment: fragment_data
                 .as_ref()
                 .map(|(module, entry_point, targets)| RawFragmentState {
                     entry_point,
-                    module: render_resource_ref!(&module, ShaderModule),
+                    module: unsafe { render_resource_ref!(module, ShaderModule) },
                     targets,
                 }),
         };
@@ -613,7 +619,7 @@ impl PipelineCache {
         let descriptor = RawComputePipelineDescriptor {
             label: descriptor.label.as_deref(),
             layout,
-            module: render_resource_ref!(&compute_module, ShaderModule),
+            module: unsafe { render_resource_ref!(&compute_module, ShaderModule) },
             entry_point: descriptor.entry_point.as_ref(),
         };
 

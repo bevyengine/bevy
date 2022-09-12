@@ -25,7 +25,7 @@ impl BindGroupLayout {
 
     #[inline]
     pub fn value(&self) -> &wgpu::BindGroupLayout {
-        render_resource_ref!(&self.value, wgpu::BindGroupLayout)
+        unsafe { render_resource_ref!(&self.value, wgpu::BindGroupLayout) }
     }
 }
 
@@ -49,6 +49,8 @@ impl Deref for BindGroupLayout {
 
 impl Drop for BindGroupLayout {
     fn drop(&mut self) {
-        render_resource_drop!(&mut self.value, wgpu::BindGroupLayout);
+        unsafe {
+            render_resource_drop!(&mut self.value, wgpu::BindGroupLayout);
+        }
     }
 }

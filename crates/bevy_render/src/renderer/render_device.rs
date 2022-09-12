@@ -26,7 +26,7 @@ impl From<wgpu::Device> for RenderDevice {
 impl RenderDevice {
     #[inline]
     fn device(&self) -> &wgpu::Device {
-        render_resource_ref!(&self.device, wgpu::Device)
+        unsafe { render_resource_ref!(&self.device, wgpu::Device) }
     }
 
     /// List all [`Features`](wgpu::Features) that may be used with this device.
@@ -207,6 +207,8 @@ impl RenderDevice {
 
 impl Drop for RenderDevice {
     fn drop(&mut self) {
-        render_resource_drop!(&mut self.device, wgpu::Device);
+        unsafe {
+            render_resource_drop!(&mut self.device, wgpu::Device);
+        }
     }
 }

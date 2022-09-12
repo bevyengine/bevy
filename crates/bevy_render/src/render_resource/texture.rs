@@ -30,7 +30,7 @@ impl Texture {
     }
 
     fn value(&self) -> &wgpu::Texture {
-        render_resource_ref!(&self.value, wgpu::Texture)
+        unsafe { render_resource_ref!(&self.value, wgpu::Texture) }
     }
 }
 
@@ -54,7 +54,9 @@ impl Deref for Texture {
 
 impl Drop for Texture {
     fn drop(&mut self) {
-        render_resource_drop!(&mut self.value, wgpu::Texture);
+        unsafe {
+            render_resource_drop!(&mut self.value, wgpu::Texture);
+        }
     }
 }
 
@@ -102,7 +104,7 @@ impl TextureView {
         if let TextureViewValue::SurfaceTexture { texture, .. } = &mut self.value {
             let texture = texture.take();
             if let Some(texture) = texture {
-                return render_resource_try_unwrap!(texture, wgpu::SurfaceTexture);
+                return unsafe { render_resource_try_unwrap!(texture, wgpu::SurfaceTexture) };
             }
         }
 
@@ -137,10 +139,12 @@ impl Deref for TextureView {
     #[inline]
     fn deref(&self) -> &Self::Target {
         match &self.value {
-            TextureViewValue::TextureView(value) => render_resource_ref!(value, wgpu::TextureView),
-            TextureViewValue::SurfaceTexture { view, .. } => {
+            TextureViewValue::TextureView(value) => unsafe {
+                render_resource_ref!(value, wgpu::TextureView)
+            },
+            TextureViewValue::SurfaceTexture { view, .. } => unsafe {
                 render_resource_ref!(view, wgpu::TextureView)
-            }
+            },
         }
     }
 }
@@ -148,14 +152,18 @@ impl Deref for TextureView {
 impl Drop for TextureView {
     fn drop(&mut self) {
         match &mut self.value {
-            TextureViewValue::TextureView(value) => {
+            TextureViewValue::TextureView(value) => unsafe {
                 render_resource_drop!(value, wgpu::TextureView);
-            }
+            },
             TextureViewValue::SurfaceTexture { texture, view } => {
                 if let Some(texture) = texture {
-                    render_resource_drop!(texture, wgpu::SurfaceTexture);
+                    unsafe {
+                        render_resource_drop!(texture, wgpu::SurfaceTexture);
+                    }
                 }
-                render_resource_drop!(view, wgpu::TextureView);
+                unsafe {
+                    render_resource_drop!(view, wgpu::TextureView);
+                }
             }
         }
     }
@@ -198,12 +206,14 @@ impl Deref for Sampler {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        render_resource_ref!(&self.value, wgpu::Sampler)
+        unsafe { render_resource_ref!(&self.value, wgpu::Sampler) }
     }
 }
 
 impl Drop for Sampler {
     fn drop(&mut self) {
-        render_resource_drop!(&mut self.value, wgpu::Sampler);
+        unsafe {
+            render_resource_drop!(&mut self.value, wgpu::Sampler);
+        }
     }
 }

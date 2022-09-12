@@ -44,13 +44,15 @@ impl Deref for RenderPipeline {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        render_resource_ref!(&self.value, wgpu::RenderPipeline)
+        unsafe { render_resource_ref!(&self.value, wgpu::RenderPipeline) }
     }
 }
 
 impl Drop for RenderPipeline {
     fn drop(&mut self) {
-        render_resource_drop!(&mut self.value, wgpu::RenderPipeline);
+        unsafe {
+            render_resource_drop!(&mut self.value, wgpu::RenderPipeline);
+        }
     }
 }
 
@@ -90,13 +92,15 @@ impl Deref for ComputePipeline {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        render_resource_ref!(&self.value, wgpu::ComputePipeline)
+        unsafe { render_resource_ref!(&self.value, wgpu::ComputePipeline) }
     }
 }
 
 impl Drop for ComputePipeline {
     fn drop(&mut self) {
-        render_resource_drop!(&mut self.value, wgpu::ComputePipeline);
+        unsafe {
+            render_resource_drop!(&mut self.value, wgpu::ComputePipeline);
+        }
     }
 }
 

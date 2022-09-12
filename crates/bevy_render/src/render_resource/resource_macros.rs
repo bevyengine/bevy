@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 #[cfg(debug_assertions)]
 #[derive(Clone, Debug)]
+#[allow(clippy::redundant_allocation)]
 pub struct BlackBox(Option<Arc<Box<()>>>);
 
 #[cfg(debug_assertions)]
@@ -11,6 +12,9 @@ impl BlackBox {
         unsafe { Self(Some(Arc::new(std::mem::transmute(Box::new(value))))) }
     }
 
+    /// # Safety
+    ///
+    /// Caller must ensure the contained value is of type T
     pub unsafe fn typed_ref<T>(&self) -> &T {
         let untyped_box = self
             .0
@@ -22,6 +26,9 @@ impl BlackBox {
         typed_box.as_ref()
     }
 
+    /// # Safety
+    ///
+    /// Caller must ensure the contained value is of type T
     pub unsafe fn try_unwrap<T>(mut self) -> Option<T> {
         let inner = self.0.take();
         if let Some(inner) = inner {
@@ -39,6 +46,10 @@ impl BlackBox {
             None
         }
     }
+
+    /// # Safety
+    ///
+    /// Caller must ensure the contained value is of type T
     pub unsafe fn drop_inner<T>(&mut self) {
         let inner = self.0.take();
         if let Some(inner) = inner {
@@ -51,7 +62,7 @@ impl BlackBox {
 impl Drop for BlackBox {
     fn drop(&mut self) {
         if let Some(inner) = &self.0 {
-            if Arc::strong_count(&inner) == 1 {
+            if Arc::strong_count(inner) == 1 {
                 panic!("undropped inner");
             }
         }
@@ -69,7 +80,7 @@ macro_rules! render_resource_type {
 #[macro_export]
 macro_rules! render_resource_ref {
     ($value:expr, $wgpu_type:ty) => {
-        unsafe { $value.typed_ref::<$wgpu_type>() }
+        $value.typed_ref::<$wgpu_type>()
     };
 }
 #[cfg(debug_assertions)]
@@ -83,16 +94,14 @@ macro_rules! render_resource_new {
 #[macro_export]
 macro_rules! render_resource_drop {
     ($value:expr, $wgpu_type:ty) => {
-        unsafe {
-            $value.drop_inner::<$wgpu_type>();
-        }
+        $value.drop_inner::<$wgpu_type>();
     };
 }
 #[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! render_resource_try_unwrap {
     ($value:expr, $wgpu_type:ty) => {{
-        unsafe { $value.try_unwrap::<$wgpu_type>() }
+        $value.try_unwrap::<$wgpu_type>()
     }};
 }
 
@@ -106,9 +115,11 @@ macro_rules! render_resource_type {
 #[cfg(not(debug_assertions))]
 #[macro_export]
 macro_rules! render_resource_ref {
-    ($value:expr, $wgpu_type:ty) => {
+    ($value:expr, $wgpu_type:ty) => {{
+        // remove unused unsafe warning
+        std::mem::transmute::<(), ()>(());
         $value
-    };
+    }};
 }
 #[cfg(not(debug_assertions))]
 #[macro_export]
@@ -120,16 +131,20 @@ macro_rules! render_resource_new {
 #[cfg(not(debug_assertions))]
 #[macro_export]
 macro_rules! render_resource_drop {
-    ($value:expr, $wgpu_type:ty) => {
+    ($value:expr, $wgpu_type:ty) => {{
+        // remove unused unsafe warning
+        std::mem::transmute::<(), ()>(());
         let _ = $value;
-    };
+    }};
 }
 #[cfg(not(debug_assertions))]
 #[macro_export]
 macro_rules! render_resource_try_unwrap {
-    ($value:expr, $wgpu_type:ty) => {
+    ($value:expr, $wgpu_type:ty) => {{
+        // remove unused unsafe warning
+        std::mem::transmute::<(), ()>(());
         std::sync::Arc::try_unwrap($value).ok()
-    };
+    }};
 }
 
 pub use render_resource_drop;
