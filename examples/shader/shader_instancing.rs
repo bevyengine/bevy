@@ -23,10 +23,6 @@ use bytemuck::{Pod, Zeroable};
 
 fn main() {
     App::new()
-        .insert_resource(AssetServerSettings {
-            watch_for_changes: true,
-            ..default()
-        })
         .add_plugins(DefaultPlugins)
         .add_plugin(CustomMaterialPlugin)
         .add_startup_system(setup)
