@@ -176,12 +176,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
-    pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+    pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
         self.add(GetOrSpawn { entity });
-        EntityCommands {
+        self.entities.contains(entity).then_some(EntityCommands {
             entity,
             commands: self,
-        }
+        })
     }
 
     /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s components,
