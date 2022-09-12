@@ -52,8 +52,6 @@ struct CustomMaterial {
 }
 
 impl Material for CustomMaterial {
-    type SharedGroup = TimeBindGroup;
-
     fn fragment_shader() -> ShaderRef {
         "shaders/animate_shader.wgsl".into()
     }
@@ -65,7 +63,7 @@ impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractResourcePlugin::<ExtractedTime>::default())
             .add_plugin(SharedBindGroupPlugin::<TimeBindGroup>::default())
-            .add_plugin(MaterialPlugin::<CustomMaterial>::default());
+            .add_plugin(MaterialPlugin::<CustomMaterial, TimeBindGroup>::default());
 
         app.sub_app_mut(RenderApp)
             .init_resource::<TimeBindGroup>()
