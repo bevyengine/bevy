@@ -10,7 +10,7 @@ use bevy_window::{
     CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows,
 };
 use std::ops::{Deref, DerefMut};
-use wgpu::TextureFormat;
+use wgpu::{Backends, TextureFormat};
 
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
@@ -220,32 +220,46 @@ pub fn prepare_windows(
             },
         };
 
-        // Do the initial surface configuration if it hasn't been configured yet. Or if size or
-        // present mode changed.
-        let frame = if window_surfaces.configured_windows.insert(window.id)
-            || window.size_changed
-            || window.present_mode_changed
-        {
-            render_device.configure_surface(&surface_data.surface, &surface_configuration);
-            surface_data
-                .surface
-                .get_current_texture()
-                .expect("Error configuring surface")
-        } else {
-            match surface_data.surface.get_current_texture() {
-                Ok(swap_chain_frame) => swap_chain_frame,
-                Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(&surface_data.surface, &surface_configuration);
-                    surface_data
-                        .surface
-                        .get_current_texture()
-                        .expect("Error reconfiguring surface")
-                }
-                err => err.expect("Failed to acquire next swap chain texture!"),
-            }
+        #[cfg(target_os = "linux")]
+        let is_amd = || {
+            render_instance
+                .enumerate_adapters(Backends::VULKAN)
+                .any(|adapter| adapter.get_info().name.starts_with("AMD"))
         };
 
-        window.swap_chain_texture = Some(TextureView::from(frame));
+        let not_already_configured = window_surfaces.configured_windows.insert(window.id);
+
+        if not_already_configured || window.size_changed || window.present_mode_changed {
+            let no_new_surface_message = "Error reconfiguring surface";
+            let surface = &surface_data.surface;
+            render_device.configure_surface(surface, &surface_configuration);
+            let frame = surface.get_current_texture().expect(no_new_surface_message);
+            window.swap_chain_texture = Some(TextureView::from(frame));
+        } else {
+            let surface = &surface_data.surface;
+            match surface.get_current_texture() {
+                Ok(frame) => {
+                    window.swap_chain_texture = Some(TextureView::from(frame));
+                }
+                Err(wgpu::SurfaceError::Outdated) => {
+                    render_device.configure_surface(surface, &surface_configuration);
+                    let frame = surface
+                        .get_current_texture()
+                        .expect("Error reconfiguring surface");
+                    window.swap_chain_texture = Some(TextureView::from(frame));
+                }
+                #[cfg(target_os = "linux")]
+                Err(wgpu::SurfaceError::Timeout) if is_amd() => {
+                    debug!(
+                        "Couldn't get swap chain texture. This is probably a quirk \
+                        of your Linux AMD GPU driver, so it can be safely ignored."
+                    );
+                }
+                Err(err) => {
+                    panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
+                }
+            }
+        };
         window.swap_chain_texture_format = Some(surface_data.format);
     }
 }
