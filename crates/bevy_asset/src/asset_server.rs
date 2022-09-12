@@ -169,13 +169,6 @@ impl AssetServer {
         loaders.push(Arc::new(loader));
     }
 
-    /// Enable watching of the filesystem for changes, if support is available, starting from after
-    /// the point of calling this function.
-    pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
-        self.asset_io().watch_for_changes()?;
-        Ok(())
-    }
-
     /// Gets a strong handle for an asset with the provided id.
     pub fn get_handle<T: Asset, I: Into<HandleId>>(&self, id: I) -> Handle<T> {
         let sender = self.server.asset_ref_counter.channel.sender.clone();

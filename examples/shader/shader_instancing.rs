@@ -23,6 +23,10 @@ use bytemuck::{Pod, Zeroable};
 
 fn main() {
     App::new()
+        .insert_resource(AssetServerSettings {
+            watch_for_changes: true,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(CustomMaterialPlugin)
         .add_startup_system(setup)
@@ -168,7 +172,6 @@ pub struct CustomPipeline {
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        asset_server.watch_for_changes().unwrap();
         let shader = asset_server.load("shaders/instancing.wgsl");
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
