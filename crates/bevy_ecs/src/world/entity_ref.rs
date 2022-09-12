@@ -11,6 +11,7 @@ use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::{any::TypeId, cell::UnsafeCell};
 
 /// A read-only reference to a particular [`Entity`] and all of its components
+#[derive(Copy, Clone)]
 pub struct EntityRef<'w> {
     world: &'w World,
     entity: Entity,
@@ -44,7 +45,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn world(&mut self) -> &World {
+    pub fn world(&self) -> &'w World {
         self.world
     }
 
@@ -497,7 +498,7 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
-    pub fn world(&mut self) -> &World {
+    pub fn world(&self) -> &World {
         self.world
     }
 
