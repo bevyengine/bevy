@@ -15,6 +15,7 @@ pub use bevy_ecs_macros::Resource;
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_param_set};
 use bevy_ptr::UnsafeCellDeref;
+use bevy_utils::synccell::SyncCell;
 use std::{
     borrow::Cow,
     fmt::Debug,
@@ -674,10 +675,10 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// // .add_system(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
-pub struct Local<'a, T: FromWorld + Send + Sync + 'static>(&'a mut T);
+pub struct Local<'a, T: FromWorld + Send + 'static>(&'a mut T);
 
 // SAFETY: Local only accesses internal state
-unsafe impl<T: Send + Sync + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
+unsafe impl<T: Send + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
 
 impl<'a, T: FromWorld + Send + Sync + 'static> Debug for Local<'a, T>
 where
@@ -706,20 +707,20 @@ impl<'a, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'a, T> {
 
 /// The [`SystemParamState`] of [`Local<T>`].
 #[doc(hidden)]
-pub struct LocalState<T: Send + Sync + 'static>(T);
+pub struct LocalState<T: Send + 'static>(SyncCell<T>);
 
-impl<'a, T: Send + Sync + 'static + FromWorld> SystemParam for Local<'a, T> {
+impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     type Fetch = LocalState<T>;
 }
 
 // SAFETY: only local state is accessed
-unsafe impl<T: FromWorld + Send + Sync + 'static> SystemParamState for LocalState<T> {
+unsafe impl<T: FromWorld + Send + 'static> SystemParamState for LocalState<T> {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
-        Self(T::from_world(world))
+        Self(SyncCell::new(T::from_world(world)))
     }
 }
 
-impl<'w, 's, T: Send + Sync + 'static + FromWorld> SystemParamFetch<'w, 's> for LocalState<T> {
+impl<'w, 's, T: FromWorld + Send + 'static> SystemParamFetch<'w, 's> for LocalState<T> {
     type Item = Local<'s, T>;
 
     #[inline]
@@ -729,7 +730,7 @@ impl<'w, 's, T: Send + Sync + 'static + FromWorld> SystemParamFetch<'w, 's> for 
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
-        Local(&mut state.0)
+        Local(state.0.get())
     }
 }
 
