@@ -323,7 +323,7 @@ impl<'w, 's> Commands<'w, 's> {
         })
     }
 
-    /// Pushes a [`Command`] to the queue for spawning entities with a particular [`Bundle`] type.
+    /// Pushes a [`Command`] to the queue for creating entities with a particular [`Bundle`] type.
     ///
     /// `bundles_iter` is a type that can be converted into a `Bundle` iterator
     /// (it can also be a collection).
@@ -369,7 +369,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
-    /// Pushes a [`Command`] to the queue for spawning entities, if needed,
+    /// Pushes a [`Command`] to the queue for creating entities, if needed,
     /// and for adding a bundle to each entity.
     ///
     /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
