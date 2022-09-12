@@ -343,6 +343,21 @@ impl Timer {
         1.0 - self.percent()
     }
 
+    /// Returns the remainig time in seconds
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_time::*;
+    /// use std::time::Duration;
+    /// let mut timer = Timer::from_seconds(2.0, false);
+    /// timer.tick(Duration::from_secs_f32(0.5));
+    /// assert_eq!(timer.remaining(), 1.5);
+    /// ```
+    #[inline]
+    pub fn remaining(&self) -> f32 {
+        self.duration().as_secs_f32() -self.elapsed().as_secs_f32()
+    }
+
     /// Returns the number of times a repeating timer
     /// finished during the last [`tick`](Timer<T>::tick) call.
     ///
