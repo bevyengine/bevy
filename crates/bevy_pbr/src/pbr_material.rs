@@ -120,8 +120,8 @@ pub struct StandardMaterial {
     /// specular highlight of the material, rather than the physical property
     /// "reflectance."
     ///
-    /// Set to `0.0`, no specular highlight is visible, when set to `1.0`, the
-    /// highlight is strongest.
+    /// Set to `0.0`, no specular highlight is visible, the highlight is strongest
+    /// when `reflectance` is set to `1.0`.
     ///
     /// Defaults to `0.5` which is mapped to 4% reflectance in the shader.
     #[doc(alias = "specular_intensity")]
