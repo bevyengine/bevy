@@ -81,10 +81,10 @@ pub struct AssetServerInternal {
 /// of the assets it manages and can even reload them from the filesystem with
 /// ```
 /// // AssetServerSettings must be inserted before adding the AssetPlugin or DefaultPlugins.
-///	app.insert_resource(AssetServerSettings {
+/// app.insert_resource(AssetServerSettings {
 ///     watch_for_changes: true,
 ///     ..default()
-///	})
+/// })
 /// ```
 ///
 /// The asset server is a _resource_, so in order to access it in a system you need a `Res`
