@@ -26,10 +26,10 @@ pub struct StandardMaterial {
     /// Defaults to [`Color::WHITE`].
     pub base_color: Color,
 
-    /// The [`base_color`] as a texture.
+    /// The texture component of the material's color before lighting,
+    /// the actual pre-lighting color is `base_color * this_texture`.
     ///
-    /// The actual base color is `base_color * base_color_texture_value`,
-    /// see [`base_color`] for details.
+    /// See [`base_color`] for details.
     ///
     /// You should set `base_color` to [`Color::WHITE`] (the default)
     /// if you want the texture to show as-is.
@@ -60,7 +60,8 @@ pub struct StandardMaterial {
     /// it just adds a value to the color seen on screen.
     pub emissive: Color,
 
-    /// The [`emissive`] as a texture.
+    /// The emissive map, multiplies pixels with [`emissive`]
+    /// to get the final "emitting" color of a surface.
     ///
     /// This color is multiplied by [`emissive`] to get the final emitted color.
     /// Meaning that you should set [`emissive`] to [`Color::WHITE`]
@@ -94,27 +95,35 @@ pub struct StandardMaterial {
     /// color as `metallic * metallic_texture_value`.
     pub metallic: f32,
 
-    /// A texture representing both [`metallic`] and [`roughness`].
+    /// Metallic and roughness maps, stored as a single texture.
     ///
-    /// The [`metallic`] is taken from the blue channel,
-    /// while [`roughness`] from the green channel.
+    /// The blue channel contains metallic values, and the green channel roughness values.
+    /// Other channels are unused.
     ///
-    /// Both channels are mixed with their respective scalar value,
-    /// [`metallic`] and [`roughness`].
-    /// The default values for [`metallic`] and [`roughness`]
-    /// will cancel the values of the texture,
-    /// they should be set to `1.0` for the texture to be fully used
-    /// in the final material.
+    /// Those values are multiplied by the scalar ones of the material; see [`metallic`] and
+    /// [`perceptual_roughness`] for details.
+    ///
+    /// Note that with the default values of [`metallic`] and [`perceptual_roughness`],
+    /// setting this texture has no effect. If you want to exclusively use the
+    /// `metallic_roughness_texture` values for your material, make sure to set [`metallic`]
+    /// and [`perceptual_roughness`] to `1.0`.
     ///
     /// [`metallic`]: StandardMaterial::metallic
-    /// [`roughness`]: StandardMaterial::perceptual_roughness
+    /// [`perceptual_roughness`]: StandardMaterial::perceptual_roughness
     #[texture(5)]
     #[sampler(6)]
     pub metallic_roughness_texture: Option<Handle<Image>>,
 
     /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
     ///
-    /// Defaults to `0.5` which is mapped to 4% reflectance in the shader
+    /// Please consider the value as a way to control the intensity of the
+    /// specular highlight of the material, rather than the physical property
+    /// "reflectance."
+    ///
+    /// Set to `0.0`, not specular highlight is visible, when set to `1.0`, the
+    /// highlight is strongest.
+    ///
+    /// Defaults to `0.5` which is mapped to 4% reflectance in the shader.
     #[doc(alias = "specular_intensity")]
     pub reflectance: f32,
 
