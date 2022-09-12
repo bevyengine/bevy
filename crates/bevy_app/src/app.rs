@@ -112,7 +112,7 @@ impl App {
 
     /// Creates a new [`App`] with some default structure,
     /// but allow picking the threading model using [`AppThreading`]
-    fn new_with_threading_option(threading: AppThreading) -> App {
+    pub fn new_with_threading_option(threading: AppThreading) -> App {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
