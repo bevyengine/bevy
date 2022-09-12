@@ -622,6 +622,7 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_app::AppThreading;
     /// #
     /// let app = App::empty().add_default_stages(AppThreading::Multi);
     /// ```
