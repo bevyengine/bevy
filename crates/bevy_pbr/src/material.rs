@@ -78,8 +78,6 @@ use std::marker::PhantomData;
 /// // All functions on `Material` have default impls. You only need to implement the
 /// // functions that are relevant for your material.
 /// impl Material for CustomMaterial {
-///     type SharedGroup = ();
-///
 ///     fn fragment_shader() -> ShaderRef {
 ///         "shaders/custom_material.wgsl".into()
 ///     }
@@ -111,8 +109,6 @@ use std::marker::PhantomData;
 /// var color_sampler: sampler;
 /// ```
 pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
-    type SharedGroup: AsBindGroup + Send + Sync + 'static;
-
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -155,15 +151,15 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
-pub struct MaterialPlugin<M: Material>(PhantomData<M>);
+pub struct MaterialPlugin<M: Material, G: AsBindGroup + 'static = ()>(PhantomData<fn() -> (M, G)>);
 
-impl<M: Material> Default for MaterialPlugin<M> {
+impl<M: Material, G: AsBindGroup + 'static> Default for MaterialPlugin<M, G> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<M: Material> Plugin for MaterialPlugin<M>
+impl<M: Material, G: AsBindGroup + Send + Sync + 'static> Plugin for MaterialPlugin<M, G>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -182,17 +178,19 @@ where
                     prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
                 );
 
-            if render_app
-                .world
-                .contains_resource::<SharedBindGroup<M::SharedGroup>>()
-            {
+            if let Some(shared_group) = render_app.world.get_resource_mut::<SharedBindGroup<G>>() {
                 render_app
-                    .add_render_command::<Transparent3d, DrawWithSharedGroup<M>>()
-                    .add_render_command::<Opaque3d, DrawWithSharedGroup<M>>()
-                    .add_render_command::<AlphaMask3d, DrawWithSharedGroup<M>>()
+                    .world
+                    .resource_mut::<MaterialPipeline<M>>()
+                    .shared_layout = Some(shared_group.bind_group_layout.clone());
+
+                render_app
+                    .add_render_command::<Transparent3d, DrawWithSharedGroup<M, G>>()
+                    .add_render_command::<Opaque3d, DrawWithSharedGroup<M, G>>()
+                    .add_render_command::<AlphaMask3d, DrawWithSharedGroup<M, G>>()
                     .add_system_to_stage(
                         RenderStage::Queue,
-                        queue_material_meshes::<M, DrawWithSharedGroup<M>>,
+                        queue_material_meshes::<M, DrawWithSharedGroup<M, G>>,
                     );
             } else {
                 render_app
@@ -306,12 +304,11 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
         let render_device = world.resource::<RenderDevice>();
-        let shared_group = world.get_resource::<SharedBindGroup<M::SharedGroup>>();
 
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             material_layout: M::bind_group_layout(render_device),
-            shared_layout: shared_group.map(|v| v.bind_group_layout.clone()),
+            shared_layout: None,
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -335,12 +332,12 @@ type DrawWithoutSharedGroup<M> = (
     DrawMesh,
 );
 
-type DrawWithSharedGroup<M> = (
+type DrawWithSharedGroup<M, G> = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMaterialBindGroup<M, 1>,
     SetMeshBindGroup<2>,
-    SetSharedBindGroup<<M as Material>::SharedGroup, 3>,
+    SetSharedBindGroup<G, 3>,
     DrawMesh,
 );
 
