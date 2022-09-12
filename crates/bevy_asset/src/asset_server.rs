@@ -83,7 +83,7 @@ pub struct AssetServerInternal {
 /// // AssetServerSettings must be inserted before adding the AssetPlugin or DefaultPlugins.
 ///	app.insert_resource(AssetServerSettings {
 ///     watch_for_changes: true,
-/// 	..default()
+///     ..default()
 ///	})
 /// ```
 ///
