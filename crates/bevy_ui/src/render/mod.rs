@@ -265,10 +265,13 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     ),
                 })
                 .id();
-            commands.get_or_spawn(entity).insert((
-                DefaultCameraView(default_camera_view),
-                RenderPhase::<TransparentUi>::default(),
-            ));
+            commands
+                .get_or_spawn(entity)
+                .expect("Entity not found.")
+                .insert_bundle((
+                    DefaultCameraView(default_camera_view),
+                    RenderPhase::<TransparentUi>::default(),
+                ));
         }
     }
 }

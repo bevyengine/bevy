@@ -213,11 +213,14 @@ pub fn extract_core_3d_camera_phases(
 ) {
     for (entity, camera) in &cameras_3d {
         if camera.is_active {
-            commands.get_or_spawn(entity).insert((
-                RenderPhase::<Opaque3d>::default(),
-                RenderPhase::<AlphaMask3d>::default(),
-                RenderPhase::<Transparent3d>::default(),
-            ));
+            commands
+                .get_or_spawn(entity)
+                .expect("Entity not found.")
+                .insert_bundle((
+                    RenderPhase::<Opaque3d>::default(),
+                    RenderPhase::<AlphaMask3d>::default(),
+                    RenderPhase::<Transparent3d>::default(),
+                ));
         }
     }
 }

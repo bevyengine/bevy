@@ -426,27 +426,30 @@ pub fn extract_cameras(
             if target_size.x == 0 || target_size.y == 0 {
                 continue;
             }
-            commands.get_or_spawn(entity).insert((
-                ExtractedCamera {
-                    target: camera.target.clone(),
-                    viewport: camera.viewport.clone(),
-                    physical_viewport_size: Some(viewport_size),
-                    physical_target_size: Some(target_size),
-                    render_graph: camera_render_graph.0.clone(),
-                    priority: camera.priority,
-                },
-                ExtractedView {
-                    projection: camera.projection_matrix(),
-                    transform: *transform,
-                    viewport: UVec4::new(
-                        viewport_origin.x,
-                        viewport_origin.y,
-                        viewport_size.x,
-                        viewport_size.y,
-                    ),
-                },
-                visible_entities.clone(),
-            ));
+            commands
+                .get_or_spawn(entity)
+                .expect("Entity not found.")
+                .insert_bundle((
+                    ExtractedCamera {
+                        target: camera.target.clone(),
+                        viewport: camera.viewport.clone(),
+                        physical_viewport_size: Some(viewport_size),
+                        physical_target_size: Some(target_size),
+                        render_graph: camera_render_graph.0.clone(),
+                        priority: camera.priority,
+                    },
+                    ExtractedView {
+                        projection: camera.projection_matrix(),
+                        transform: *transform,
+                        viewport: UVec4::new(
+                            viewport_origin.x,
+                            viewport_origin.y,
+                            viewport_size.x,
+                            viewport_size.y,
+                        ),
+                    },
+                    visible_entities.clone(),
+                ));
         }
     }
 }

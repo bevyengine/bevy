@@ -132,6 +132,7 @@ pub fn extract_core_2d_camera_phases(
         if camera.is_active {
             commands
                 .get_or_spawn(entity)
+                .expect("Entity not found.")
                 .insert(RenderPhase::<Transparent2d>::default());
         }
     }
