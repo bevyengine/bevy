@@ -28,12 +28,7 @@ impl Texture {
 
     /// Creates a view of this texture.
     pub fn create_view(&self, desc: &wgpu::TextureViewDescriptor) -> TextureView {
-        TextureView::from(self.value().create_view(desc))
-    }
-
-    #[inline]
-    fn value(&self) -> &wgpu::Texture {
-        &self.value
+        TextureView::from(self.value.create_view(desc))
     }
 }
 
@@ -51,7 +46,7 @@ impl Deref for Texture {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        self.value()
+        &self.value
     }
 }
 
@@ -99,11 +94,10 @@ impl TextureView {
     /// Returns the [`SurfaceTexture`](wgpu::SurfaceTexture) of the texture view if it is of that type.
     #[inline]
     pub fn take_surface_texture(self) -> Option<wgpu::SurfaceTexture> {
-        if let TextureViewValue::SurfaceTexture { texture, .. } = self.value {
-            return texture.try_unwrap();
+        match self.value {
+            TextureViewValue::TextureView(_) => None,
+            TextureViewValue::SurfaceTexture { texture, .. } => texture.try_unwrap(),
         }
-
-        None
     }
 }
 
