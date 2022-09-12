@@ -10,7 +10,7 @@ use bevy_window::{
     CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows,
 };
 use std::ops::{Deref, DerefMut};
-use wgpu::{Backends, TextureFormat};
+use wgpu::TextureFormat;
 
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
@@ -220,10 +220,16 @@ pub fn prepare_windows(
             },
         };
 
+        // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
+        // AMD drivers. This seems to be a quirk of the driver.
+        // We'd rather keep panicking when not on Linux AMD, because in those case,
+        // the `Timeout` is still probably the symptom of a degraded unrecoverable
+        // application state.
+        // see https://github.com/bevyengine/bevy/pull/5957
         #[cfg(target_os = "linux")]
         let is_amd = || {
             render_instance
-                .enumerate_adapters(Backends::VULKAN)
+                .enumerate_adapters(wgpu::Backends::VULKAN)
                 .any(|adapter| adapter.get_info().name.starts_with("AMD"))
         };
 
