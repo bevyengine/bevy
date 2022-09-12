@@ -343,7 +343,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         } else {
             fields.push(field.ident.as_ref().unwrap());
             field_types.push(&field.ty);
-            field_indices.push(Index::from(i));
+            let mut punct = Punctuated::<_, Token![.]>::new();
+            if field_attributes.len() > 16 {
+                punct.push_value(Index::from(0));
+                punct.push_punct(Default::default());
+            }
+            punct.push_value(Index::from(i));
+            field_indices.push(punct);
         }
     }
 
@@ -375,13 +381,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let fetch_struct_visibility = &ast.vis;
 
     // This exists so the macro doesn't depend on the built-in invocation of the system param tuple macro, which is capped at 16.
-    let tuple_independence_macro = {
+    let (independent_tuple_impl, fetchstate_type_param) = if field_types.len() > 16 {
         let list = (0..field_types.len())
             .map(|i| format!("T{i}"))
             .map(|s| syn::Ident::new(&s, Span::call_site()))
             .collect::<Punctuated<_, Token![,]>>();
 
-        quote! {
+        let independent_tuple_impl = quote! {
             #[doc(hidden)]
             #fetch_struct_visibility struct MyTuple<T>(T);
 
@@ -409,7 +415,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
                 #path::system::impl_system_param_tuple_base!(MyTuple, #list);
             };
-        }
+        };
+        let fetchstate_type_param = quote! {
+            MyTuple<(#(<#field_types as #path::system::SystemParam>::Fetch,)*)>
+        };
+        (independent_tuple_impl, fetchstate_type_param)
+    } else {
+        let fetchstate_type_param = quote! {
+            (#(<#field_types as #path::system::SystemParam>::Fetch,)*)
+        };
+        (quote! {}, fetchstate_type_param)
     };
 
     TokenStream::from(quote! {
@@ -417,10 +432,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // The struct can still be accessed via SystemParam::Fetch, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::Fetch
         const _: () = {
-            #tuple_independence_macro
+            #independent_tuple_impl
 
             impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type Fetch = FetchState <MyTuple<(#(<#field_types as #path::system::SystemParam>::Fetch,)*)>, #punctuated_generic_idents>;
+                type Fetch = FetchState <#fetchstate_type_param, #punctuated_generic_idents>;
             }
 
             #[doc(hidden)]
@@ -446,7 +461,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl #impl_generics #path::system::SystemParamFetch<'w, 's> for FetchState <MyTuple<(#(<#field_types as #path::system::SystemParam>::Fetch,)*)>, #punctuated_generic_idents> #where_clause {
+            impl #impl_generics #path::system::SystemParamFetch<'w, 's> for FetchState <#fetchstate_type_param, #punctuated_generic_idents> #where_clause {
                 type Item = #struct_name #ty_generics;
                 unsafe fn get_param(
                     state: &'s mut Self,
@@ -455,7 +470,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     change_tick: u32,
                 ) -> Self::Item {
                     #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.0.#field_indices, system_meta, world, change_tick),)*
+                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }
