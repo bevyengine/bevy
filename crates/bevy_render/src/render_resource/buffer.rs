@@ -1,8 +1,5 @@
 use bevy_utils::Uuid;
-use std::{
-    ops::{Bound, Deref, RangeBounds},
-    sync::Arc,
-};
+use std::ops::{Bound, Deref, RangeBounds};
 
 use crate::render_resource::resource_macros::*;
 

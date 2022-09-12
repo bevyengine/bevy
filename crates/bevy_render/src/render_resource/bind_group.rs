@@ -9,7 +9,7 @@ use crate::{
     texture::FallbackImage,
 };
 use bevy_reflect::Uuid;
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 use wgpu::BindingResource;
 
 use crate::render_resource::resource_macros::*;

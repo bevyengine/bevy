@@ -1,7 +1,7 @@
 use crate::render_resource::{BindGroupLayout, Shader};
 use bevy_asset::Handle;
 use bevy_reflect::Uuid;
-use std::{borrow::Cow, ops::Deref, sync::Arc};
+use std::{borrow::Cow, ops::Deref};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
     VertexAttribute, VertexFormat, VertexStepMode,

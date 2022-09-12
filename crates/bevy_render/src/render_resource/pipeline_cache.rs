@@ -17,7 +17,7 @@ use bevy_utils::{
     tracing::{debug, error},
     Entry, HashMap, HashSet,
 };
-use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
+use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{
     BufferBindingType, PipelineLayoutDescriptor, ShaderModule,
@@ -275,6 +275,16 @@ impl ShaderCache {
     }
 }
 
+impl Drop for ShaderCache {
+    fn drop(&mut self) {
+        for (_, mut data) in self.data.drain() {
+            for (_, mut render_resource) in data.processed_shaders.drain() {
+                render_resource_drop!(&mut render_resource, ShaderModule);
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 struct LayoutCache {
     layouts: HashMap<Vec<BindGroupLayoutId>, render_resource_type!(wgpu::PipelineLayout)>,
@@ -300,6 +310,14 @@ impl LayoutCache {
             )
         });
         render_resource_ref!(untyped, wgpu::PipelineLayout)
+    }
+}
+
+impl Drop for LayoutCache {
+    fn drop(&mut self) {
+        for (_, mut render_resource) in self.layouts.drain() {
+            render_resource_drop!(&mut render_resource, wgpu::PipelineLayout);
+        }
     }
 }
 

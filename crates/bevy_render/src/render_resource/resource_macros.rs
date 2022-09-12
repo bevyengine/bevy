@@ -1,45 +1,98 @@
 #[cfg(debug_assertions)]
+use std::sync::Arc;
+
+#[cfg(debug_assertions)]
+#[derive(Clone, Debug)]
+pub struct BlackBox(Option<Arc<Box<()>>>);
+
+#[cfg(debug_assertions)]
+impl BlackBox {
+    pub fn new<T>(value: T) -> Self {
+        unsafe { Self(Some(Arc::new(std::mem::transmute(Box::new(value))))) }
+    }
+
+    pub unsafe fn typed_ref<T>(&self) -> &T {
+        let untyped_box = self
+            .0
+            .as_ref()
+            .expect("BlackBox inner value has already been taken (via drop or try_unwrap")
+            .as_ref();
+
+        let typed_box = std::mem::transmute::<&Box<()>, &Box<T>>(untyped_box);
+        typed_box.as_ref()
+    }
+
+    pub unsafe fn try_unwrap<T>(mut self) -> Option<T> {
+        let inner = self.0.take();
+        if let Some(inner) = inner {
+            match Arc::try_unwrap(inner) {
+                Ok(untyped_box) => {
+                    let typed_box = std::mem::transmute::<Box<()>, Box<T>>(untyped_box);
+                    Some(*typed_box)
+                }
+                Err(inner) => {
+                    let _ = std::mem::transmute::<Arc<Box<()>>, Arc<Box<T>>>(inner);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
+    pub unsafe fn drop_inner<T>(&mut self) {
+        let inner = self.0.take();
+        if let Some(inner) = inner {
+            let _ = std::mem::transmute::<Arc<Box<()>>, Arc<Box<T>>>(inner);
+        }
+    }
+}
+
+#[cfg(debug_assertions)]
+impl Drop for BlackBox {
+    fn drop(&mut self) {
+        if let Some(inner) = &self.0 {
+            if Arc::strong_count(&inner) == 1 {
+                panic!("undropped inner");
+            }
+        }
+    }
+}
+
+#[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! render_resource_type {
     ($wgpu_type:ty) => {
-        Arc<Box<()>>
-    }
+        BlackBox
+    };
 }
 #[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! render_resource_ref {
     ($value:expr, $wgpu_type:ty) => {
-        unsafe { std::mem::transmute::<&Box<()>, &Box<$wgpu_type>>($value.as_ref()) }
+        unsafe { $value.typed_ref::<$wgpu_type>() }
     };
 }
 #[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! render_resource_new {
     ($value:expr) => {
-        Arc::new(unsafe { std::mem::transmute(Box::new($value)) })
+        BlackBox::new($value)
     };
 }
 #[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! render_resource_drop {
     ($value:expr, $wgpu_type:ty) => {
-        let _counter: Arc<Box<$wgpu_type>> = unsafe { std::mem::transmute(std::mem::take($value)) };
+        unsafe {
+            $value.drop_inner::<$wgpu_type>();
+        }
     };
 }
 #[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! render_resource_try_unwrap {
     ($value:expr, $wgpu_type:ty) => {{
-        match Arc::try_unwrap($value) {
-            Ok(boxed) => {
-                let typed_box: Box<$wgpu_type> = unsafe { std::mem::transmute(boxed) };
-                Some(*typed_box)
-            }
-            Err(arc) => {
-                let _ = unsafe { std::mem::transmute::<_, Arc<Box<$wgpu_type>>>(arc) };
-                None
-            }
-        }
+        unsafe { $value.try_unwrap::<$wgpu_type>() }
     }};
 }
 
@@ -47,7 +100,7 @@ macro_rules! render_resource_try_unwrap {
 #[macro_export]
 macro_rules! render_resource_type {
     ($wgpu_type:ty) => {
-        Arc<$wgpu_type>
+        std::sync::Arc<$wgpu_type>
     }
 }
 #[cfg(not(debug_assertions))]
@@ -61,7 +114,7 @@ macro_rules! render_resource_ref {
 #[macro_export]
 macro_rules! render_resource_new {
     ($value:expr) => {
-        Arc::new($value)
+        std::sync::Arc::new($value)
     };
 }
 #[cfg(not(debug_assertions))]
@@ -75,7 +128,7 @@ macro_rules! render_resource_drop {
 #[macro_export]
 macro_rules! render_resource_try_unwrap {
     ($value:expr, $wgpu_type:ty) => {
-        Arc::try_unwrap($value).ok()
+        std::sync::Arc::try_unwrap($value).ok()
     };
 }
 

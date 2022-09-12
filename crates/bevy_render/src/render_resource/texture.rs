@@ -1,5 +1,5 @@
 use bevy_utils::Uuid;
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 
 use crate::render_resource::resource_macros::*;
 

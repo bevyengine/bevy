@@ -1,6 +1,6 @@
 use crate::render_resource::resource_macros::*;
 use bevy_reflect::Uuid;
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct BindGroupLayoutId(Uuid);

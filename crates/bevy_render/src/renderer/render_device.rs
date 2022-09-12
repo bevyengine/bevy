@@ -3,7 +3,6 @@ use crate::render_resource::{
     RenderPipeline, Sampler, Texture,
 };
 use bevy_ecs::system::Resource;
-use std::sync::Arc;
 use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
 
 use super::RenderQueue;
