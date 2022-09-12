@@ -2,7 +2,7 @@
 use std::fs::File;
 use std::io::Write;
 
-use bevy::{prelude::*, utils::Duration};
+use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 
 fn main() {
     App::new()
@@ -104,17 +104,23 @@ fn save_scene_system(world: &mut World) {
     let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     // Scenes can be serialized like this:
-    info!("{}", scene.serialize_ron(type_registry).unwrap());
+    let serialized_scene = scene.serialize_ron(type_registry).unwrap();
 
-    // Write the scene RON data to file (leveraging From<io::Error> for ron::error::Error)
-    File::create(format!("assets/{}", NEW_SCENE_FILE_PATH))
-        .map_err(|err| err.into())
-        .and_then(|mut file| {
-            scene
-                .serialize_ron(type_registry)
-                .and_then(|data| file.write(data.as_bytes()).map_err(|err| err.into()))
+    // Showing the scene in the console
+    info!("{}", serialized_scene);
+
+    // Writing the scene to a new file. Using a task to avoid calling the filesystem APIs in a system
+    // as they are blocking
+    // This can't work in WASM as there is no filesystem access
+    #[cfg(not(target_arch = "wasm32"))]
+    IoTaskPool::get()
+        .spawn(async move {
+            // Write the scene RON data to file
+            File::create(format!("assets/{}", NEW_SCENE_FILE_PATH))
+                .and_then(|mut file| file.write(serialized_scene.as_bytes()))
+                .expect("Error while writing scene to file");
         })
-        .expect("Error while writing scene to file");
+        .detach();
 }
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
