@@ -1400,19 +1400,20 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemNameState {
     }
 }
 
-macro_rules! impl_system_param_tuple {
-    ($($param: ident),*) => {
-        impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
-            type Fetch = ($($param::Fetch,)*);
+#[macro_export]
+macro_rules! impl_system_param_tuple_base {
+    ($tuple:ident, $($param: ident),*) => {
+        impl<$($param: SystemParam),*> SystemParam for $tuple<($($param,)*)> {
+            type Fetch = $tuple<($($param::Fetch,)*)>;
         }
 
         // SAFETY: tuple consists only of ReadOnlySystemParamFetches
-        unsafe impl<$($param: ReadOnlySystemParamFetch),*> ReadOnlySystemParamFetch for ($($param,)*) {}
+        unsafe impl<$($param: ReadOnlySystemParamFetch),*> ReadOnlySystemParamFetch for $tuple<($($param,)*)> {}
 
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
-        impl<'w, 's, $($param: SystemParamFetch<'w, 's>),*> SystemParamFetch<'w, 's> for ($($param,)*) {
-            type Item = ($($param::Item,)*);
+        impl<'w, 's, $($param: SystemParamFetch<'w, 's>),*> SystemParamFetch<'w, 's> for $tuple<($($param,)*)> {
+            type Item = $tuple<($($param::Item,)*)>;
 
             #[inline]
             #[allow(clippy::unused_unit)]
@@ -1422,31 +1423,52 @@ macro_rules! impl_system_param_tuple {
                 world: &'w World,
                 change_tick: u32,
             ) -> Self::Item {
-
-                let ($($param,)*) = state;
-                ($($param::get_param($param, system_meta, world, change_tick),)*)
+                let ($($param,)*) = state.as_tuple_mut();
+                ($($param::get_param($param, system_meta, world, change_tick),)*).into()
             }
         }
 
         // SAFETY: implementors of each `SystemParamState` in the tuple have validated their impls
         #[allow(clippy::undocumented_unsafe_blocks)] // false positive by clippy
         #[allow(non_snake_case)]
-        unsafe impl<$($param: SystemParamState),*> SystemParamState for ($($param,)*) {
+        unsafe impl<$($param: SystemParamState),*> SystemParamState for $tuple<($($param,)*)> {
             #[inline]
             fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
-                (($($param::init(_world, _system_meta),)*))
+                (($($param::init(_world, _system_meta),)*)).into()
             }
 
             #[inline]
             fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
-                let ($($param,)*) = self;
+                let ($($param,)*) = self.as_tuple_mut();
                 $($param.new_archetype(_archetype, _system_meta);)*
             }
 
             #[inline]
             fn apply(&mut self, _world: &mut World) {
-                let ($($param,)*) = self;
+                let ($($param,)*) = self.as_tuple_mut();
                 $($param.apply(_world);)*
+            }
+        }
+    };
+}
+
+pub use impl_system_param_tuple_base;
+
+#[doc(hidden)]
+pub trait AsTuple {
+    type Tuple;
+    fn as_tuple_mut(&mut self) -> &mut Self::Tuple;
+}
+
+type Identity<T> = T;
+macro_rules! impl_system_param_tuple {
+    ($($param: ident),*) => {
+        impl_system_param_tuple_base!(Identity, $($param),*);
+
+        impl<$($param,)*> AsTuple for ($($param,)*) {
+            type Tuple = Self;
+            fn as_tuple_mut(&mut self) -> &mut Self {
+                self
             }
         }
     };
