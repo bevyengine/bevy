@@ -1,5 +1,6 @@
 //! A shader and a material that uses it using Bevy's Material API via manual implementation
 //! See `shader_material` example for a higher level implementation.
+//! This example assumes that you are already familiar with the Material api and bind groups.
 
 use bevy::{
     prelude::*,
@@ -67,6 +68,7 @@ impl Material for CustomMaterial {
 /// This is the struct that will be passed to your shader
 /// Specific order of declaration is not relevant, but "binding" identifier values are.
 /// Defined in `AsBindGroup` implementation, they should match their corresponding shader @binding value.
+/// In most cases, you would use the derive macro, this example is to showcase what happens inside that macro if you need a feature that is not yet supported by this macro.
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 struct CustomMaterial {
@@ -75,6 +77,7 @@ struct CustomMaterial {
     alpha_mode: AlphaMode,
 }
 
+/// The AsBindGroup trait is used by the Material pipeline to transform the data to be able to use it on the gpu.
 impl AsBindGroup for CustomMaterial {
     type Data = ();
     fn as_bind_group(
