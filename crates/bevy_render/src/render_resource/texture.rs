@@ -7,6 +7,8 @@ use crate::render_resource::resource_macros::*;
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct TextureId(Uuid);
 
+render_resource_wrapper!(ErasedTexture, wgpu::Texture);
+
 /// A GPU-accessible texture.
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
@@ -14,7 +16,7 @@ pub struct TextureId(Uuid);
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
-    value: render_resource_type!(wgpu::Texture),
+    value: ErasedTexture,
 }
 
 impl Texture {
@@ -29,8 +31,9 @@ impl Texture {
         TextureView::from(self.value().create_view(desc))
     }
 
+    #[inline]
     fn value(&self) -> &wgpu::Texture {
-        unsafe { render_resource_ref!(&self.value, wgpu::Texture) }
+        &self.value
     }
 }
 
@@ -38,7 +41,7 @@ impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
             id: TextureId(Uuid::new_v4()),
-            value: render_resource_new!(value),
+            value: ErasedTexture::new(value),
         }
     }
 }
@@ -52,32 +55,27 @@ impl Deref for Texture {
     }
 }
 
-impl Drop for Texture {
-    fn drop(&mut self) {
-        unsafe {
-            render_resource_drop!(&mut self.value, wgpu::Texture);
-        }
-    }
-}
-
 /// A [`TextureView`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct TextureViewId(Uuid);
+
+render_resource_wrapper!(ErasedTextureView, wgpu::TextureView);
+render_resource_wrapper!(ErasedSurfaceTexture, wgpu::SurfaceTexture);
 
 /// This type combines wgpu's [`TextureView`](wgpu::TextureView) and
 /// [`SurfaceTexture`](wgpu::SurfaceTexture) into the same interface.
 #[derive(Clone, Debug)]
 pub enum TextureViewValue {
     /// The value is an actual wgpu [`TextureView`](wgpu::TextureView).
-    TextureView(render_resource_type!(wgpu::TextureView)),
+    TextureView(ErasedTextureView),
 
     /// The value is a wgpu [`SurfaceTexture`](wgpu::SurfaceTexture), but dereferences to
     /// a [`TextureView`](wgpu::TextureView).
     SurfaceTexture {
         // NOTE: The order of these fields is important because the view must be dropped before the
         // frame is dropped
-        view: render_resource_type!(wgpu::TextureView),
-        texture: Option<render_resource_type!(wgpu::SurfaceTexture)>,
+        view: ErasedTextureView,
+        texture: ErasedSurfaceTexture,
     },
 }
 
@@ -100,12 +98,9 @@ impl TextureView {
 
     /// Returns the [`SurfaceTexture`](wgpu::SurfaceTexture) of the texture view if it is of that type.
     #[inline]
-    pub fn take_surface_texture(mut self) -> Option<wgpu::SurfaceTexture> {
-        if let TextureViewValue::SurfaceTexture { texture, .. } = &mut self.value {
-            let texture = texture.take();
-            if let Some(texture) = texture {
-                return unsafe { render_resource_try_unwrap!(texture, wgpu::SurfaceTexture) };
-            }
+    pub fn take_surface_texture(self) -> Option<wgpu::SurfaceTexture> {
+        if let TextureViewValue::SurfaceTexture { texture, .. } = self.value {
+            return texture.try_unwrap();
         }
 
         None
@@ -116,15 +111,15 @@ impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
             id: TextureViewId(Uuid::new_v4()),
-            value: TextureViewValue::TextureView(render_resource_new!(value)),
+            value: TextureViewValue::TextureView(ErasedTextureView::new(value)),
         }
     }
 }
 
 impl From<wgpu::SurfaceTexture> for TextureView {
     fn from(value: wgpu::SurfaceTexture) -> Self {
-        let view = render_resource_new!(value.texture.create_view(&Default::default()));
-        let texture = Some(render_resource_new!(value));
+        let view = ErasedTextureView::new(value.texture.create_view(&Default::default()));
+        let texture = ErasedSurfaceTexture::new(value);
 
         TextureView {
             id: TextureViewId(Uuid::new_v4()),
@@ -139,32 +134,8 @@ impl Deref for TextureView {
     #[inline]
     fn deref(&self) -> &Self::Target {
         match &self.value {
-            TextureViewValue::TextureView(value) => unsafe {
-                render_resource_ref!(value, wgpu::TextureView)
-            },
-            TextureViewValue::SurfaceTexture { view, .. } => unsafe {
-                render_resource_ref!(view, wgpu::TextureView)
-            },
-        }
-    }
-}
-
-impl Drop for TextureView {
-    fn drop(&mut self) {
-        match &mut self.value {
-            TextureViewValue::TextureView(value) => unsafe {
-                render_resource_drop!(value, wgpu::TextureView);
-            },
-            TextureViewValue::SurfaceTexture { texture, view } => {
-                if let Some(texture) = texture {
-                    unsafe {
-                        render_resource_drop!(texture, wgpu::SurfaceTexture);
-                    }
-                }
-                unsafe {
-                    render_resource_drop!(view, wgpu::TextureView);
-                }
-            }
+            TextureViewValue::TextureView(value) => value,
+            TextureViewValue::SurfaceTexture { view, .. } => view,
         }
     }
 }
@@ -172,6 +143,8 @@ impl Drop for TextureView {
 /// A [`Sampler`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct SamplerId(Uuid);
+
+render_resource_wrapper!(ErasedSampler, wgpu::Sampler);
 
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
@@ -181,7 +154,7 @@ pub struct SamplerId(Uuid);
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
-    value: render_resource_type!(wgpu::Sampler),
+    value: ErasedSampler,
 }
 
 impl Sampler {
@@ -196,7 +169,7 @@ impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
             id: SamplerId(Uuid::new_v4()),
-            value: render_resource_new!(value),
+            value: ErasedSampler::new(value),
         }
     }
 }
@@ -206,14 +179,6 @@ impl Deref for Sampler {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { render_resource_ref!(&self.value, wgpu::Sampler) }
-    }
-}
-
-impl Drop for Sampler {
-    fn drop(&mut self) {
-        unsafe {
-            render_resource_drop!(&mut self.value, wgpu::Sampler);
-        }
+        &self.value
     }
 }

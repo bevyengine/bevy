@@ -13,6 +13,7 @@ use std::ops::Deref;
 use wgpu::BindingResource;
 
 use crate::render_resource::resource_macros::*;
+render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 
 /// A [`BindGroup`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -27,7 +28,7 @@ pub struct BindGroupId(Uuid);
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
-    value: render_resource_type!(wgpu::BindGroup),
+    value: ErasedBindGroup,
 }
 
 impl BindGroup {
@@ -42,7 +43,7 @@ impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
             id: BindGroupId(Uuid::new_v4()),
-            value: render_resource_new!(value),
+            value: ErasedBindGroup::new(value),
         }
     }
 }
@@ -52,15 +53,7 @@ impl Deref for BindGroup {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { render_resource_ref!(&self.value, wgpu::BindGroup) }
-    }
-}
-
-impl Drop for BindGroup {
-    fn drop(&mut self) {
-        unsafe {
-            render_resource_drop!(&mut self.value, wgpu::BindGroup);
-        }
+        &self.value
     }
 }
 

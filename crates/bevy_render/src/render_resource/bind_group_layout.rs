@@ -5,10 +5,12 @@ use std::ops::Deref;
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct BindGroupLayoutId(Uuid);
 
+render_resource_wrapper!(ErasedBindGroupLayout, wgpu::BindGroupLayout);
+
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,
-    value: render_resource_type!(wgpu::BindGroupLayout),
+    value: ErasedBindGroupLayout,
 }
 
 impl PartialEq for BindGroupLayout {
@@ -25,7 +27,7 @@ impl BindGroupLayout {
 
     #[inline]
     pub fn value(&self) -> &wgpu::BindGroupLayout {
-        unsafe { render_resource_ref!(&self.value, wgpu::BindGroupLayout) }
+        &self.value
     }
 }
 
@@ -33,7 +35,7 @@ impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
         BindGroupLayout {
             id: BindGroupLayoutId(Uuid::new_v4()),
-            value: render_resource_new!(value),
+            value: ErasedBindGroupLayout::new(value),
         }
     }
 }
@@ -44,13 +46,5 @@ impl Deref for BindGroupLayout {
     #[inline]
     fn deref(&self) -> &Self::Target {
         self.value()
-    }
-}
-
-impl Drop for BindGroupLayout {
-    fn drop(&mut self) {
-        unsafe {
-            render_resource_drop!(&mut self.value, wgpu::BindGroupLayout);
-        }
     }
 }

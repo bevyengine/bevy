@@ -13,6 +13,8 @@ use crate::render_resource::resource_macros::*;
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RenderPipelineId(Uuid);
 
+render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
+
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
 /// May be converted from and dereferences to a wgpu [`RenderPipeline`](wgpu::RenderPipeline).
@@ -20,7 +22,7 @@ pub struct RenderPipelineId(Uuid);
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
-    value: render_resource_type!(wgpu::RenderPipeline),
+    value: ErasedRenderPipeline,
 }
 
 impl RenderPipeline {
@@ -34,7 +36,7 @@ impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
             id: RenderPipelineId(Uuid::new_v4()),
-            value: render_resource_new!(value),
+            value: ErasedRenderPipeline::new(value),
         }
     }
 }
@@ -44,21 +46,15 @@ impl Deref for RenderPipeline {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { render_resource_ref!(&self.value, wgpu::RenderPipeline) }
-    }
-}
-
-impl Drop for RenderPipeline {
-    fn drop(&mut self) {
-        unsafe {
-            render_resource_drop!(&mut self.value, wgpu::RenderPipeline);
-        }
+        &self.value
     }
 }
 
 /// A [`ComputePipeline`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ComputePipelineId(Uuid);
+
+render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
@@ -67,7 +63,7 @@ pub struct ComputePipelineId(Uuid);
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
-    value: render_resource_type!(wgpu::ComputePipeline),
+    value: ErasedComputePipeline,
 }
 
 impl ComputePipeline {
@@ -82,7 +78,7 @@ impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
             id: ComputePipelineId(Uuid::new_v4()),
-            value: render_resource_new!(value),
+            value: ErasedComputePipeline::new(value),
         }
     }
 }
@@ -92,15 +88,7 @@ impl Deref for ComputePipeline {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { render_resource_ref!(&self.value, wgpu::ComputePipeline) }
-    }
-}
-
-impl Drop for ComputePipeline {
-    fn drop(&mut self) {
-        unsafe {
-            render_resource_drop!(&mut self.value, wgpu::ComputePipeline);
-        }
+        &self.value
     }
 }
 

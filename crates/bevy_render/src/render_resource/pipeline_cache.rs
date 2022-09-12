@@ -20,11 +20,13 @@ use bevy_utils::{
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{
-    BufferBindingType, PipelineLayoutDescriptor, ShaderModule,
-    VertexBufferLayout as RawVertexBufferLayout,
+    BufferBindingType, PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout,
 };
 
 use crate::render_resource::resource_macros::*;
+
+render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
+render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -105,7 +107,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<String>, render_resource_type!(ShaderModule)>,
+    processed_shaders: HashMap<Vec<String>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
     dependents: HashSet<Handle<Shader>>,
 }
@@ -126,7 +128,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
         shader_defs: &[String],
-    ) -> Result<render_resource_type!(ShaderModule), PipelineCacheError> {
+    ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
             .get(handle)
@@ -203,7 +205,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(render_resource_new!(shader_module))
+                entry.insert(ErasedShaderModule::new(shader_module))
             }
         };
 
@@ -215,11 +217,7 @@ impl ShaderCache {
         let mut pipelines_to_queue = Vec::new();
         while let Some(handle) = shaders_to_clear.pop() {
             if let Some(data) = self.data.get_mut(&handle) {
-                for (_, mut shader) in data.processed_shaders.drain() {
-                    unsafe {
-                        render_resource_drop!(&mut shader, wgpu::ShaderModule);
-                    }
-                }
+                data.processed_shaders.clear();
                 pipelines_to_queue.extend(data.pipelines.iter().cloned());
                 shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
             }
@@ -277,21 +275,9 @@ impl ShaderCache {
     }
 }
 
-impl Drop for ShaderCache {
-    fn drop(&mut self) {
-        for (_, mut data) in self.data.drain() {
-            for (_, mut render_resource) in data.processed_shaders.drain() {
-                unsafe {
-                    render_resource_drop!(&mut render_resource, ShaderModule);
-                }
-            }
-        }
-    }
-}
-
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, render_resource_type!(wgpu::PipelineLayout)>,
+    layouts: HashMap<Vec<BindGroupLayoutId>, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -301,29 +287,18 @@ impl LayoutCache {
         bind_group_layouts: &[BindGroupLayout],
     ) -> &wgpu::PipelineLayout {
         let key = bind_group_layouts.iter().map(|l| l.id()).collect();
-        let untyped = self.layouts.entry(key).or_insert_with(|| {
+        self.layouts.entry(key).or_insert_with(|| {
             let bind_group_layouts = bind_group_layouts
                 .iter()
                 .map(|l| l.value())
                 .collect::<Vec<_>>();
-            render_resource_new!(
-                render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                &PipelineLayoutDescriptor {
                     bind_group_layouts: &bind_group_layouts,
                     ..default()
-                })
-            )
-        });
-        unsafe { render_resource_ref!(untyped, wgpu::PipelineLayout) }
-    }
-}
-
-impl Drop for LayoutCache {
-    fn drop(&mut self) {
-        for (_, mut render_resource) in self.layouts.drain() {
-            unsafe {
-                render_resource_drop!(&mut render_resource, wgpu::PipelineLayout);
-            }
-        }
+                },
+            ))
+        })
     }
 }
 
@@ -577,13 +552,13 @@ impl PipelineCache {
             vertex: RawVertexState {
                 buffers: &vertex_buffer_layouts,
                 entry_point: descriptor.vertex.entry_point.deref(),
-                module: unsafe { render_resource_ref!(&vertex_module, ShaderModule) },
+                module: &vertex_module,
             },
             fragment: fragment_data
                 .as_ref()
                 .map(|(module, entry_point, targets)| RawFragmentState {
                     entry_point,
-                    module: unsafe { render_resource_ref!(module, ShaderModule) },
+                    module,
                     targets,
                 }),
         };
@@ -619,7 +594,7 @@ impl PipelineCache {
         let descriptor = RawComputePipelineDescriptor {
             label: descriptor.label.as_deref(),
             layout,
-            module: unsafe { render_resource_ref!(&compute_module, ShaderModule) },
+            module: &compute_module,
             entry_point: descriptor.entry_point.as_ref(),
         };
 

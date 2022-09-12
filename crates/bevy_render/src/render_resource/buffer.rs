@@ -6,10 +6,12 @@ use crate::render_resource::resource_macros::*;
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct BufferId(Uuid);
 
+render_resource_wrapper!(ErasedBuffer, wgpu::Buffer);
+
 #[derive(Clone, Debug)]
 pub struct Buffer {
     id: BufferId,
-    value: render_resource_type!(wgpu::Buffer),
+    value: ErasedBuffer,
 }
 
 impl Buffer {
@@ -27,13 +29,13 @@ impl Buffer {
                 Bound::Excluded(&bound) => bound + 1,
                 Bound::Unbounded => 0,
             },
-            value: unsafe { render_resource_ref!(&self.value, wgpu::Buffer).slice(bounds) },
+            value: self.value.slice(bounds),
         }
     }
 
     #[inline]
     pub fn unmap(&self) {
-        unsafe { render_resource_ref!(&self.value, wgpu::Buffer).unmap() };
+        self.value.unmap();
     }
 }
 
@@ -41,7 +43,7 @@ impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
             id: BufferId(Uuid::new_v4()),
-            value: render_resource_new!(value),
+            value: ErasedBuffer::new(value),
         }
     }
 }
@@ -51,15 +53,7 @@ impl Deref for Buffer {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { render_resource_ref!(&self.value, wgpu::Buffer) }
-    }
-}
-
-impl Drop for Buffer {
-    fn drop(&mut self) {
-        unsafe {
-            render_resource_drop!(&mut self.value, wgpu::Buffer);
-        }
+        &self.value
     }
 }
 
