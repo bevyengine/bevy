@@ -120,7 +120,7 @@ pub struct StandardMaterial {
     /// specular highlight of the material, rather than the physical property
     /// "reflectance."
     ///
-    /// Set to `0.0`, not specular highlight is visible, when set to `1.0`, the
+    /// Set to `0.0`, no specular highlight is visible, when set to `1.0`, the
     /// highlight is strongest.
     ///
     /// Defaults to `0.5` which is mapped to 4% reflectance in the shader.
