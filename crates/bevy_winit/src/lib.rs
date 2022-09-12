@@ -144,7 +144,7 @@ fn change_window(
                         .set_cursor_grab(if locked {
                             CursorGrabMode::Locked
                         } else {
-                            CursorGrabMode::Locked
+                            CursorGrabMode::None
                         })
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
