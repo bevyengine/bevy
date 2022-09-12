@@ -62,6 +62,8 @@ pub struct CustomMaterial {
 /// You only need to implement functions for features that need non-default behavior. See the Material api docs for details!
 /// When using the GLSL shading language for your shader, the specialize method must be overriden.
 impl Material for CustomMaterial {
+    type SharedGroup = ();
+
     fn vertex_shader() -> ShaderRef {
         "shaders/custom_material.vert".into()
     }

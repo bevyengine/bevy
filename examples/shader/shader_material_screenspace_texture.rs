@@ -74,6 +74,8 @@ pub struct CustomMaterial {
 }
 
 impl Material for CustomMaterial {
+    type SharedGroup = ();
+
     fn fragment_shader() -> ShaderRef {
         "shaders/custom_material_screenspace_texture.wgsl".into()
     }

@@ -202,6 +202,8 @@ struct CubemapMaterial {
 }
 
 impl Material for CubemapMaterial {
+    type SharedGroup = ();
+
     fn fragment_shader() -> ShaderRef {
         "shaders/cubemap_unlit.wgsl".into()
     }
