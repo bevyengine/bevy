@@ -182,8 +182,8 @@ pub struct StandardMaterial {
 
     /// Whether to apply only the base color to this material.
     ///
-    /// Normals, occlusion textures, roughness, metallic, reflectance and
-    /// emissive are ignored if this is set to `true`.
+    /// Normals, occlusion textures, roughness, metallic, reflectance, emissive,
+    /// shadows, alpha mode and ambient light are ignored if this is set to `true`.
     pub unlit: bool,
 
     /// How to apply the alpha channel of the `base_color_texture`.
