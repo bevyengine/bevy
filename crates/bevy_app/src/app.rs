@@ -76,22 +76,18 @@ struct SubApp {
     runner: Box<dyn Fn(&mut World, &mut App)>,
 }
 
+/// Sets the app threading model
+#[derive(Copy, Clone)]
+pub enum AppThreading {
+    /// run app single threaded
+    Single,
+    /// run app multi threaded
+    Multi,
+}
+
 impl Default for App {
     fn default() -> Self {
-        let mut app = App::empty();
-        #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<AppTypeRegistry>();
-
-        app.add_default_stages()
-            .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
-
-        #[cfg(feature = "bevy_ci_testing")]
-        {
-            crate::ci_testing::setup_app(&mut app);
-        }
-
-        app
+        App::new_with_threading_option(AppThreading::Multi)
     }
 }
 
@@ -114,6 +110,24 @@ impl App {
         }
     }
 
+    /// Creates a new [`App`] with some default structure,
+    /// but allow picking the threading model using [`AppThreading`]
+    fn new_with_threading_option(threading: AppThreading) -> App {
+        let mut app = App::empty();
+        #[cfg(feature = "bevy_reflect")]
+        app.init_resource::<AppTypeRegistry>();
+
+        app.add_default_stages(threading)
+            .add_event::<AppExit>()
+            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
+
+        #[cfg(feature = "bevy_ci_testing")]
+        {
+            crate::ci_testing::setup_app(&mut app);
+        }
+
+        app
+    }
     /// Advances the execution of the [`Schedule`] by one cycle.
     ///
     /// This method also updates sub apps.
@@ -581,6 +595,8 @@ impl App {
     /// done by default by calling `App::default`, which is in turn called by
     /// [`App::new`].
     ///
+    /// Use [`AppThreading`] to specify the threading model to be used by the default stages.
+    ///
     /// # The stages
     ///
     /// All the added stages, with the exception of the startup stage, run every time the
@@ -607,22 +623,29 @@ impl App {
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
-    /// let app = App::empty().add_default_stages();
+    /// let app = App::empty().add_default_stages(AppThreading::Multi);
     /// ```
-    pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_stage(CoreStage::First, SystemStage::parallel())
+    pub fn add_default_stages(&mut self, threading: AppThreading) -> &mut Self {
+        self.add_stage(CoreStage::First, SystemStage::single_threaded())
             .add_stage(
                 StartupSchedule,
                 Schedule::default()
                     .with_run_criteria(ShouldRun::once)
-                    .with_stage(StartupStage::PreStartup, SystemStage::parallel())
-                    .with_stage(StartupStage::Startup, SystemStage::parallel())
-                    .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
+                    .with_stage(StartupStage::PreStartup, Self::get_stage(threading))
+                    .with_stage(StartupStage::Startup, Self::get_stage(threading))
+                    .with_stage(StartupStage::PostStartup, Self::get_stage(threading)),
             )
-            .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Update, SystemStage::parallel())
-            .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Last, SystemStage::parallel())
+            .add_stage(CoreStage::PreUpdate, Self::get_stage(threading))
+            .add_stage(CoreStage::Update, Self::get_stage(threading))
+            .add_stage(CoreStage::PostUpdate, Self::get_stage(threading))
+            .add_stage(CoreStage::Last, Self::get_stage(threading))
+    }
+
+    fn get_stage(threading: AppThreading) -> SystemStage {
+        match threading {
+            AppThreading::Multi => SystemStage::parallel(),
+            AppThreading::Single => SystemStage::single_threaded(),
+        }
     }
 
     /// Setup the application to manage events of type `T`.
