@@ -123,7 +123,7 @@ impl<'w, 's> Commands<'w, 's> {
         Self { queue, entities }
     }
 
-    /// Pushes a [`Command`] for creating a new empty [`Entity`],
+    /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
     /// and returns its corresponding [`EntityCommands`].
     ///
     /// See [`World::spawn`] for more details.
@@ -166,7 +166,7 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] for creating a new [`Entity`] if the given one does not exists,
+    /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
     /// and returns its corresponding [`EntityCommands`].
     ///
     /// See [`World::get_or_spawn`] for more details.
@@ -185,7 +185,7 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] for creating a new entity with the given [`Bundle`]'s components,
+    /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s components,
     /// and returns its corresponding [`EntityCommands`].
     ///
     /// # Example
@@ -323,7 +323,7 @@ impl<'w, 's> Commands<'w, 's> {
         })
     }
 
-    /// Pushes a [`Command`] for spawning entities with a particular [`Bundle`] type.
+    /// Pushes a [`Command`] to the queue for spawning entities with a particular [`Bundle`] type.
     ///
     /// `bundles_iter` is a type that can be converted into a `Bundle` iterator
     /// (it can also be a collection).
@@ -369,7 +369,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(SpawnBatch { bundles_iter });
     }
 
-    /// Pushes a [`Command`] for spawning entities, if needed,
+    /// Pushes a [`Command`] to the queue for spawning entities, if needed,
     /// and for adding a bundle to each entity.
     ///
     /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
@@ -399,7 +399,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(InsertOrSpawnBatch { bundles_iter });
     }
 
-    /// Pushes a [`Command`] for inserting a [`Resource`] in the [`World`] with an inferred value.
+    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
     ///
     /// The inferred value is determined by the [`FromWorld`] trait of the resource.
     /// When the command is applied,
@@ -429,7 +429,7 @@ impl<'w, 's> Commands<'w, 's> {
         });
     }
 
-    /// Pushes a [`Command`] for inserting a [`Resource`] in the [`World`] with a specific value.
+    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
     ///
     /// This will overwrite any previous value of the same resource type.
     ///
@@ -458,7 +458,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue.push(InsertResource { resource });
     }
 
-    /// Pushes a [`Command`] for removing a [`Resource`] from the [`World`].
+    /// Pushes a [`Command`] to the queue for removing a [`Resource`] from the [`World`].
     ///
     /// See [`World::remove_resource`] for more details.
     ///
