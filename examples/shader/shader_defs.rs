@@ -56,8 +56,6 @@ fn setup(
 }
 
 impl Material for CustomMaterial {
-    type SharedGroup = ();
-
     fn fragment_shader() -> ShaderRef {
         "shaders/shader_defs.wgsl".into()
     }

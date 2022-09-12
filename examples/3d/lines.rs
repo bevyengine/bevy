@@ -70,8 +70,6 @@ struct LineMaterial {
 }
 
 impl Material for LineMaterial {
-    type SharedGroup = ();
-
     fn fragment_shader() -> ShaderRef {
         "shaders/line_material.wgsl".into()
     }

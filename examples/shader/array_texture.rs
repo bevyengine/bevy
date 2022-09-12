@@ -98,8 +98,6 @@ struct ArrayTextureMaterial {
 }
 
 impl Material for ArrayTextureMaterial {
-    type SharedGroup = ();
-
     fn fragment_shader() -> ShaderRef {
         "shaders/array_texture.wgsl".into()
     }

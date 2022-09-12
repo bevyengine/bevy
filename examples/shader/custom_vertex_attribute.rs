@@ -65,8 +65,6 @@ pub struct CustomMaterial {
 }
 
 impl Material for CustomMaterial {
-    type SharedGroup = ();
-
     fn vertex_shader() -> ShaderRef {
         "shaders/custom_vertex_attribute.wgsl".into()
     }
