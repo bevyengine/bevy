@@ -165,7 +165,7 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
+    /// Pushes a [`Command`] to the queue for creating the given [`Entity`] if it does not exist,
     /// and returns its corresponding [`EntityCommands`].
     ///
     /// Returns `None` if the entity does not exist.
