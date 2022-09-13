@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
+    camera::ExtractedCamera,
     render_graph::*,
     render_phase::*,
     render_resource::{
@@ -20,6 +21,7 @@ pub struct UiPassNode {
         (
             &'static RenderPhase<TransparentUi>,
             &'static ViewTarget,
+            &'static ExtractedCamera,
             Option<&'static UiCameraConfig>,
         ),
         With<ExtractedView>,
@@ -56,7 +58,7 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
 
-        let (transparent_phase, target, camera_ui) =
+        let (transparent_phase, target, camera, camera_ui) =
             if let Ok(result) = self.ui_view_query.get_manual(world, input_view_entity) {
                 result
             } else {
@@ -100,6 +102,9 @@ impl Node for UiPassNode {
 
         let mut draw_functions = draw_functions.write();
         let mut tracked_pass = TrackedRenderPass::new(render_pass);
+        if let Some(viewport) = camera.viewport.as_ref() {
+            tracked_pass.set_camera_viewport(viewport);
+        }
         for item in &transparent_phase.items {
             let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
             draw_function.draw(world, &mut tracked_pass, view_entity, item);
@@ -197,6 +202,8 @@ impl EntityRenderCommand for DrawUiNode {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let batch = query_batch.get(item).unwrap();
+
+        println!("Rendering batch for view {:?}", batch.view);
 
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
         pass.draw(batch.range.clone(), 0..1);

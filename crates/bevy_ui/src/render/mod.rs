@@ -2,10 +2,14 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_hierarchy::Parent;
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
+use crate::{
+    prelude::{UiCameraConfig, UiRootCamera},
+    CalculatedClip, Node, UiColor, UiImage,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -166,6 +170,7 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub camera_entity: Entity,
 }
 
 #[derive(Resource, Default)]
@@ -173,11 +178,24 @@ pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
 }
 
+// TODO: replace this with a `UiRoot` component or UiStack loop.
+fn get_uinode_root(entity: Entity, parent_query: &Extract<Query<&Parent, With<Node>>>) -> Entity {
+    let mut entity = entity;
+    loop {
+        if let Ok(parent) = parent_query.get(entity) {
+            entity = parent.get();
+        } else {
+            return entity;
+        }
+    }
+}
+
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     uinode_query: Extract<
         Query<(
+            Entity,
             &Node,
             &GlobalTransform,
             &UiColor,
@@ -186,9 +204,11 @@ pub fn extract_uinodes(
             Option<&CalculatedClip>,
         )>,
     >,
+    parent_query: Extract<Query<&Parent, With<Node>>>,
+    root_camera_query: Extract<Query<&UiRootCamera>>,
 ) {
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
+    for (entity, uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
@@ -201,6 +221,11 @@ pub fn extract_uinodes(
         if color.0.a() == 0.0 {
             continue;
         }
+        // TODO: Get a default camera. This will be done elsewhere and the camera should already be available.
+        let camera_entity = root_camera_query
+            .get(get_uinode_root(entity, &parent_query))
+            .unwrap()
+            .0;
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
             color: color.0,
@@ -211,6 +236,7 @@ pub fn extract_uinodes(
             image,
             atlas_size: None,
             clip: clip.map(|clip| clip.clip),
+            camera_entity,
         });
     }
 }
@@ -284,6 +310,8 @@ pub fn extract_text_uinodes(
             Option<&CalculatedClip>,
         )>,
     >,
+    parent_query: Extract<Query<&Parent, With<Node>>>,
+    root_camera_query: Extract<Query<&UiRootCamera>>,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     for (entity, uinode, global_transform, text, visibility, clip) in uinode_query.iter() {
@@ -322,7 +350,11 @@ pub fn extract_text_uinodes(
                     * Mat4::from_translation(
                         alignment_offset * scale_factor + text_glyph.position.extend(0.),
                     );
-
+                // TODO: Get a default camera. This will be done elsewhere and the camera should already be available.
+                let camera_entity = root_camera_query
+                    .get(get_uinode_root(entity, &parent_query))
+                    .unwrap()
+                    .0;
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     transform: extracted_transform,
                     color,
@@ -330,6 +362,7 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
+                    camera_entity,
                 });
             }
         }
@@ -373,6 +406,7 @@ pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
     pub z: f32,
+    pub view: Entity,
 }
 
 pub fn prepare_uinodes(
@@ -392,18 +426,23 @@ pub fn prepare_uinodes(
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_handle = Default::default();
+    let mut current_camera_entity = Entity::from_raw(0);
     let mut last_z = 0.0;
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
+        if current_batch_handle != extracted_uinode.image
+            || current_camera_entity != extracted_uinode.camera_entity
+        {
             if start != end {
                 commands.spawn_bundle((UiBatch {
                     range: start..end,
                     image: current_batch_handle,
+                    view: current_camera_entity,
                     z: last_z,
                 },));
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
+            current_camera_entity = extracted_uinode.camera_entity;
         }
 
         let uinode_rect = extracted_uinode.rect;
@@ -501,6 +540,7 @@ pub fn prepare_uinodes(
         commands.spawn_bundle((UiBatch {
             range: start..end,
             image: current_batch_handle,
+            view: current_camera_entity,
             z: last_z,
         },));
     }
@@ -525,7 +565,7 @@ pub fn queue_uinodes(
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
-    mut views: Query<&mut RenderPhase<TransparentUi>>,
+    mut views: Query<(Entity, &mut RenderPhase<TransparentUi>)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -549,8 +589,11 @@ pub fn queue_uinodes(
         }));
         let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
         let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
-        for mut transparent_phase in &mut views {
+        for (view_entity, mut transparent_phase) in &mut views {
             for (entity, batch) in &ui_batches {
+                if batch.view != view_entity {
+                    continue;
+                }
                 image_bind_groups
                     .values
                     .entry(batch.image.clone_weak())
