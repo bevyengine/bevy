@@ -58,7 +58,7 @@ impl Stopwatch {
     ///
     /// # See Also
     ///
-    /// [`elapsed_secs`](Stopwatch::elapsed) - if a `f32` value is desirable instead.
+    /// [`elapsed_secs`](Stopwatch::elapsed_secs) - if a `f32` value is desirable instead.
     /// [`elapsed_secs_f64`](Stopwatch::elapsed_secs_f64) - if a `f64` is desirable instead.
     #[inline]
     pub fn elapsed(&self) -> Duration {
