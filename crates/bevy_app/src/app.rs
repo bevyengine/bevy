@@ -76,20 +76,20 @@ struct SubApp {
     runner: Box<dyn Fn(&mut World, &mut App)>,
 }
 
-/// Sets the default stages to be single or multi threaded.
-pub enum AppThreading {
+/// Option for [`App::add_default_stages`] that sets the stages to be single or multi threaded.
+pub enum DefaultStagesThreading {
     /// run app single threaded
     Single,
     /// run app multi threaded
     Multi,
 }
 
-impl AppThreading {
-    /// Gets a new instance of [`SystemStage`] for the corresponding value of [`AppThreading`]
+impl DefaultStagesThreading {
+    /// Gets a new instance of [`SystemStage`] for the corresponding value of [`DefaultStagesThreading`]
     pub fn get_stage(&self) -> SystemStage {
         match self {
-            AppThreading::Multi => SystemStage::parallel(),
-            AppThreading::Single => SystemStage::single_threaded(),
+            DefaultStagesThreading::Multi => SystemStage::parallel(),
+            DefaultStagesThreading::Single => SystemStage::single_threaded(),
         }
     }
 }
@@ -121,15 +121,15 @@ impl App {
 
     /// Creates a new [`App`] with some default structure with all default stages set to use single threaded system executor.
     pub fn single_threaded() -> App {
-        App::new_with_threading_option(AppThreading::Single)
+        App::new_with_threading_option(DefaultStagesThreading::Single)
     }
 
     /// Creates a new [`App`] with some default structure with all default stages set to use multithreaded system executor.
     pub fn multi_threaded() -> App {
-        App::new_with_threading_option(AppThreading::Multi)
+        App::new_with_threading_option(DefaultStagesThreading::Multi)
     }
 
-    fn new_with_threading_option(threading: AppThreading) -> App {
+    fn new_with_threading_option(threading: DefaultStagesThreading) -> App {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
@@ -613,7 +613,7 @@ impl App {
     /// done by default by calling `App::default`, which is in turn called by
     /// [`App::new`].
     ///
-    /// Use [`AppThreading`] to specify the threading model to be used by the default stages.
+    /// Use [`DefaultStagesThreading`] to specify the threading model to be used by the default stages.
     ///
     /// # The stages
     ///
@@ -640,11 +640,11 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
-    /// # use bevy_app::AppThreading;
+    /// # use bevy_app::DefaultStagesThreading;
     /// #
-    /// let app = App::empty().add_default_stages(AppThreading::Multi);
+    /// let app = App::empty().add_default_stages(DefaultStagesThreading::Multi);
     /// ```
-    pub fn add_default_stages(&mut self, threading: AppThreading) -> &mut Self {
+    pub fn add_default_stages(&mut self, threading: DefaultStagesThreading) -> &mut Self {
         self.add_stage(CoreStage::First, threading.get_stage())
             .add_stage(
                 StartupSchedule,
