@@ -1,5 +1,5 @@
 //! A shader and a material that uses it using Bevy's high level API.
-//! See shader_material_low_level example for a lower level implementation.
+//! See `shader_material_manual.rs` example for a manual implementation.
 
 use bevy::{
     prelude::*,
