@@ -1049,4 +1049,59 @@ mod tests {
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
     }
+
+    #[test]
+    fn get_or_spawn() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let entity_0v0;
+        let entity_0v1;
+        let entity_1v1 = crate::entity::Entity {
+            generation: 1,
+            id: 1,
+        };
+
+        // spawn 0v0
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            entity_0v0 = commands.spawn().id();
+            assert!(entity_0v0.id() == 0 && entity_0v0.generation() == 0);
+        }
+        queue.apply(&mut world);
+
+        // despawn 0v0
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(entity_0v0).despawn();
+        }
+        queue.apply(&mut world);
+
+        // spawn 0v1
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            entity_0v1 = commands.spawn().id();
+            assert!(entity_0v1.id() == 0 && entity_0v1.generation() == 1);
+        }
+        queue.apply(&mut world);
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+
+            // get_or_spawn 0v0
+            assert!(commands.get_or_spawn(entity_0v0).is_none());
+
+            // get_or_spawn 0v1
+            let entity_commands = commands.get_or_spawn(entity_0v1);
+            assert_eq!(entity_commands.unwrap().entity, entity_0v1);
+
+            // get_or_spawn 1v1
+            let entity_commands = commands.get_or_spawn(entity_1v1);
+            assert_eq!(entity_commands.unwrap().entity, entity_1v1);
+        }
+        queue.apply(&mut world);
+
+        assert!(!world.entities().contains(entity_0v0));
+        assert!(world.entities().contains(entity_0v1));
+        assert!(world.entities().contains(entity_1v1));
+    }
 }
