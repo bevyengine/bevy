@@ -144,13 +144,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        /// SAFETY: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
-            ) -> Vec<#ecs_path::component::ComponentId> {
-                let mut component_ids = Vec::with_capacity(#field_len);
+            ) -> ::std::vec::Vec<#ecs_path::component::ComponentId> {
+                let mut component_ids = ::std::vec::Vec::with_capacity(#field_len);
                 #(#field_component_ids)*
                 component_ids
             }
@@ -192,7 +192,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
         let index = Index::from(i);
         param_fn_muts.push(quote! {
             pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
-                // SAFE: systems run without conflicts with other systems.
+                // SAFETY: systems run without conflicts with other systems.
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
@@ -213,13 +213,13 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type Fetch = ParamSetState<(#(#param::Fetch,)*)>;
             }
 
-            // SAFE: All parameters are constrained to ReadOnlyFetch, so World is only read
+            // SAFETY: All parameters are constrained to ReadOnlyFetch, so World is only read
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_fetch,)*)>
             where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
 
-            // SAFE: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+            // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamState for ParamSetState<(#(#param_fetch,)*)>
@@ -434,7 +434,11 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(ast)
 }
 
-#[proc_macro_derive(SystemLabel)]
+/// Generates an impl of the `SystemLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[system_label(ignore_fields)]`.
+#[proc_macro_derive(SystemLabel, attributes(system_label))]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
@@ -442,30 +446,27 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("SystemLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "system_label")
 }
 
-#[proc_macro_derive(StageLabel)]
+/// Generates an impl of the `StageLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[stage_label(ignore_fields)]`.
+#[proc_macro_derive(StageLabel, attributes(stage_label))]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "stage_label")
 }
 
-#[proc_macro_derive(AmbiguitySetLabel)]
-pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("AmbiguitySetLabel").into());
-    derive_label(input, &trait_path)
-}
-
-#[proc_macro_derive(RunCriteriaLabel)]
+/// Generates an impl of the `RunCriteriaLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[run_criteria_label(ignore_fields)]`.
+#[proc_macro_derive(RunCriteriaLabel, attributes(run_criteria_label))]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
@@ -473,11 +474,16 @@ pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "run_criteria_label")
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_ecs")
+}
+
+#[proc_macro_derive(Resource)]
+pub fn derive_resource(input: TokenStream) -> TokenStream {
+    component::derive_resource(input)
 }
 
 #[proc_macro_derive(Component, attributes(component))]

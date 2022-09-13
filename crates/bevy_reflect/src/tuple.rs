@@ -1,9 +1,8 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
+    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectRef, TypeInfo,
+    TypeRegistration, Typed, UnnamedField,
 };
-use serde::Deserialize;
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
@@ -40,6 +39,9 @@ pub trait Tuple: Reflect {
 
     /// Returns an iterator over the values of the tuple's fields.
     fn iter_fields(&self) -> TupleFieldIter;
+
+    /// Drain the fields of this tuple to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
@@ -255,6 +257,11 @@ impl Tuple for DynamicTuple {
     }
 
     #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.fields
+    }
+
+    #[inline]
     fn clone_dynamic(&self) -> DynamicTuple {
         DynamicTuple {
             name: self.name.clone(),
@@ -267,8 +274,7 @@ impl Tuple for DynamicTuple {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicTuple {
+impl Reflect for DynamicTuple {
     #[inline]
     fn type_name(&self) -> &str {
         self.name()
@@ -280,12 +286,17 @@ unsafe impl Reflect for DynamicTuple {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -365,6 +376,8 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 /// - `b` is a tuple;
 /// - `b` has the same number of elements as `a`;
 /// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     let b = if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
@@ -378,9 +391,9 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
     }
 
     for (a_field, b_field) in a.iter_fields().zip(b.iter_fields()) {
-        match a_field.reflect_partial_eq(b_field) {
-            Some(false) | None => return Some(false),
-            Some(true) => {}
+        let eq_result = a_field.reflect_partial_eq(b_field);
+        if let failed @ (Some(false) | None) = eq_result {
+            return failed;
         }
     }
 
@@ -447,6 +460,13 @@ macro_rules! impl_reflect_tuple {
             }
 
             #[inline]
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+                vec![
+                    $(Box::new(self.$index),)*
+                ]
+            }
+
+            #[inline]
             fn clone_dynamic(&self) -> DynamicTuple {
                 let mut dyn_tuple = DynamicTuple {
                     name: String::default(),
@@ -460,8 +480,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        // SAFE: any and any_mut both return self
-        unsafe impl<$($name: Reflect),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect),*> Reflect for ($($name,)*) {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
             }
@@ -470,11 +489,15 @@ macro_rules! impl_reflect_tuple {
                 <Self as Typed>::type_info()
             }
 
-            fn any(&self) -> &dyn Any {
+            fn into_any(self: Box<Self>) -> Box<dyn Any> {
                 self
             }
 
-            fn any_mut(&mut self) -> &mut dyn Any {
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+
+            fn as_any_mut(&mut self) -> &mut dyn Any {
                 self
             }
 
@@ -525,11 +548,9 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + Typed + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + Typed),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
-                let mut registration = TypeRegistration::of::<($($name,)*)>();
-                registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());
-                registration
+                TypeRegistration::of::<($($name,)*)>()
             }
         }
 

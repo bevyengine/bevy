@@ -10,14 +10,21 @@
 //! To start the demo using the spherical layout run
 //! `cargo run --example many_cubes --release sphere`
 
+use std::f64::consts::PI;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     prelude::*,
+    window::PresentMode,
 };
 
 fn main() {
     App::new()
+        .insert_resource(WindowDescriptor {
+            present_mode: PresentMode::AutoNoVsync,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -32,6 +39,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     const WIDTH: usize = 200;
     const HEIGHT: usize = 200;
     let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
@@ -135,7 +144,7 @@ const EPSILON: f64 = 0.36;
 
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
-        2.0 * std::f64::consts::PI * (i as f64 / golden_ratio),
+        PI * 2. * (i as f64 / golden_ratio),
         (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
     )
 }
@@ -149,8 +158,9 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 // System for rotating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.15));
-    camera_transform.rotate(Quat::from_rotation_x(time.delta_seconds() * 0.15));
+    let delta = time.delta_seconds() * 0.15;
+    camera_transform.rotate_z(delta);
+    camera_transform.rotate_x(delta);
 }
 
 // System for printing the number of meshes on every tick of the timer
@@ -165,7 +175,7 @@ fn print_mesh_count(
         info!(
             "Meshes: {} - Visible Meshes {}",
             sprites.iter().len(),
-            sprites.iter().filter(|(_, cv)| cv.is_visible).count(),
+            sprites.iter().filter(|(_, cv)| cv.is_visible()).count(),
         );
     }
 }

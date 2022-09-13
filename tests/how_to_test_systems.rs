@@ -8,6 +8,7 @@ struct Enemy {
 
 struct EnemyDied(u32);
 
+#[derive(Resource)]
 struct Score(u32);
 
 fn update_score(mut dead_enemies: EventReader<EnemyDied>, mut score: ResMut<Score>) {
@@ -21,7 +22,7 @@ fn despawn_dead_enemies(
     mut dead_enemies: EventWriter<EnemyDied>,
     enemies: Query<(Entity, &Enemy)>,
 ) {
-    for (entity, enemy) in enemies.iter() {
+    for (entity, enemy) in &enemies {
         if enemy.hit_points == 0 {
             commands.entity(entity).despawn_recursive();
             dead_enemies.send(EnemyDied(enemy.score_value));
@@ -30,7 +31,7 @@ fn despawn_dead_enemies(
 }
 
 fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
-    for mut enemy in enemies.iter_mut() {
+    for mut enemy in &mut enemies {
         enemy.hit_points -= 1;
     }
 }

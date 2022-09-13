@@ -1,7 +1,7 @@
 //! Renders an animated sprite by loading all animation frames from a single image (a sprite sheet)
 //! into a texture atlas, and changing the displayed image periodically.
 
-use bevy::{prelude::*, render::texture::ImageSettings};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -24,7 +24,7 @@ fn animate_sprite(
         &Handle<TextureAtlas>,
     )>,
 ) {
-    for (mut timer, mut sprite, texture_atlas_handle) in query.iter_mut() {
+    for (mut timer, mut sprite, texture_atlas_handle) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
             let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();

@@ -123,14 +123,14 @@ fn setup(
         let joint_0 = commands
             .spawn_bundle((
                 Transform::from_xyz(i as f32 * 1.5, 0.0, 0.0),
-                GlobalTransform::identity(),
+                GlobalTransform::IDENTITY,
             ))
             .id();
         let joint_1 = commands
             .spawn_bundle((
                 AnimatedJoint,
-                Transform::identity(),
-                GlobalTransform::identity(),
+                Transform::IDENTITY,
+                GlobalTransform::IDENTITY,
             ))
             .id();
 
@@ -163,10 +163,8 @@ fn setup(
 
 /// Animate the joint marked with [`AnimatedJoint`] component.
 fn joint_animation(time: Res<Time>, mut query: Query<&mut Transform, With<AnimatedJoint>>) {
-    for mut transform in query.iter_mut() {
-        transform.rotation = Quat::from_axis_angle(
-            Vec3::Z,
-            0.5 * PI * time.time_since_startup().as_secs_f32().sin(),
-        );
+    for mut transform in &mut query {
+        transform.rotation =
+            Quat::from_rotation_z(PI / 2. * time.time_since_startup().as_secs_f32().sin());
     }
 }

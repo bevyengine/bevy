@@ -15,7 +15,7 @@ enum GameState {
 }
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
-#[derive(Debug, Component, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 enum DisplayQuality {
     Low,
     Medium,
@@ -23,7 +23,7 @@ enum DisplayQuality {
 }
 
 // One of the two settings that can be set through the menu. It will be a resource in the app
-#[derive(Debug, Component, PartialEq, Eq, Clone, Copy)]
+#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
 
 fn main() {
@@ -75,7 +75,7 @@ mod splash {
     struct OnSplashScreen;
 
     // Newtype to use a `Timer` for this screen as a resource
-    #[derive(Deref, DerefMut)]
+    #[derive(Resource, Deref, DerefMut)]
     struct SplashTimer(Timer);
 
     fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -133,7 +133,7 @@ mod game {
     #[derive(Component)]
     struct OnGameScreen;
 
-    #[derive(Deref, DerefMut)]
+    #[derive(Resource, Deref, DerefMut)]
     struct GameTimer(Timer);
 
     fn game_setup(
@@ -165,58 +165,52 @@ mod game {
             .insert(OnGameScreen)
             .with_children(|parent| {
                 // Display two lines of text, the second one with the current settings
-                parent.spawn_bundle(TextBundle {
-                    style: Style {
-                        margin: UiRect::all(Val::Px(50.0)),
-                        ..default()
-                    },
-                    text: Text::with_section(
+                parent.spawn_bundle(
+                    TextBundle::from_section(
                         "Will be back to the menu shortly...",
                         TextStyle {
                             font: font.clone(),
                             font_size: 80.0,
                             color: TEXT_COLOR,
                         },
-                        Default::default(),
-                    ),
-                    ..default()
-                });
-                parent.spawn_bundle(TextBundle {
-                    style: Style {
+                    )
+                    .with_style(Style {
                         margin: UiRect::all(Val::Px(50.0)),
                         ..default()
-                    },
-                    text: Text {
-                        sections: vec![
-                            TextSection {
-                                value: format!("quality: {:?}", *display_quality),
-                                style: TextStyle {
-                                    font: font.clone(),
-                                    font_size: 60.0,
-                                    color: Color::BLUE,
-                                },
+                    }),
+                );
+                parent.spawn_bundle(
+                    TextBundle::from_sections([
+                        TextSection::new(
+                            format!("quality: {:?}", *display_quality),
+                            TextStyle {
+                                font: font.clone(),
+                                font_size: 60.0,
+                                color: Color::BLUE,
                             },
-                            TextSection {
-                                value: " - ".to_string(),
-                                style: TextStyle {
-                                    font: font.clone(),
-                                    font_size: 60.0,
-                                    color: TEXT_COLOR,
-                                },
+                        ),
+                        TextSection::new(
+                            " - ",
+                            TextStyle {
+                                font: font.clone(),
+                                font_size: 60.0,
+                                color: TEXT_COLOR,
                             },
-                            TextSection {
-                                value: format!("volume: {:?}", *volume),
-                                style: TextStyle {
-                                    font: font.clone(),
-                                    font_size: 60.0,
-                                    color: Color::GREEN,
-                                },
+                        ),
+                        TextSection::new(
+                            format!("volume: {:?}", *volume),
+                            TextStyle {
+                                font: font.clone(),
+                                font_size: 60.0,
+                                color: Color::GREEN,
                             },
-                        ],
+                        ),
+                    ])
+                    .with_style(Style {
+                        margin: UiRect::all(Val::Px(50.0)),
                         ..default()
-                    },
-                    ..default()
-                });
+                    }),
+                );
             });
         // Spawn a 5 seconds timer to trigger going back to the menu
         commands.insert_resource(GameTimer(Timer::from_seconds(5.0, false)));
@@ -356,7 +350,7 @@ mod menu {
             (Changed<Interaction>, With<Button>),
         >,
     ) {
-        for (interaction, mut color, selected) in interaction_query.iter_mut() {
+        for (interaction, mut color, selected) in &mut interaction_query {
             *color = match (*interaction, selected) {
                 (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
@@ -368,13 +362,13 @@ mod menu {
 
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
-    fn setting_button<T: Component + PartialEq + Copy>(
+    fn setting_button<T: Resource + Component + PartialEq + Copy>(
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
         mut selected_query: Query<(Entity, &mut UiColor), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
-        for (interaction, button_setting, entity) in interaction_query.iter() {
+        for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Clicked && *setting != *button_setting {
                 let (previous_button, mut previous_color) = selected_query.single_mut();
                 *previous_color = NORMAL_BUTTON.into();
@@ -432,22 +426,20 @@ mod menu {
             .insert(OnMainMenuScreen)
             .with_children(|parent| {
                 // Display the game name
-                parent.spawn_bundle(TextBundle {
-                    style: Style {
-                        margin: UiRect::all(Val::Px(50.0)),
-                        ..default()
-                    },
-                    text: Text::with_section(
+                parent.spawn_bundle(
+                    TextBundle::from_section(
                         "Bevy Game Menu UI",
                         TextStyle {
                             font: font.clone(),
                             font_size: 80.0,
                             color: TEXT_COLOR,
                         },
-                        Default::default(),
-                    ),
-                    ..default()
-                });
+                    )
+                    .with_style(Style {
+                        margin: UiRect::all(Val::Px(50.0)),
+                        ..default()
+                    }),
+                );
 
                 // Display three buttons for each action available from the main menu:
                 // - new game
@@ -467,14 +459,10 @@ mod menu {
                             image: UiImage(icon),
                             ..default()
                         });
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "New Game",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section(
+                            "New Game",
+                            button_text_style.clone(),
+                        ));
                     });
                 parent
                     .spawn_bundle(ButtonBundle {
@@ -490,14 +478,10 @@ mod menu {
                             image: UiImage(icon),
                             ..default()
                         });
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Settings",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section(
+                            "Settings",
+                            button_text_style.clone(),
+                        ));
                     });
                 parent
                     .spawn_bundle(ButtonBundle {
@@ -513,10 +497,7 @@ mod menu {
                             image: UiImage(icon),
                             ..default()
                         });
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section("Quit", button_text_style, Default::default()),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section("Quit", button_text_style));
                     });
             });
     }
@@ -529,6 +510,7 @@ mod menu {
             align_items: AlignItems::Center,
             ..default()
         };
+
         let button_text_style = TextStyle {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 40.0,
@@ -548,55 +530,25 @@ mod menu {
             })
             .insert(OnSettingsMenuScreen)
             .with_children(|parent| {
-                // Display two buttons for the submenus
-                parent
-                    .spawn_bundle(ButtonBundle {
-                        style: button_style.clone(),
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::SettingsDisplay)
-                    .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Display",
+                for (action, text) in [
+                    (MenuButtonAction::SettingsDisplay, "Display"),
+                    (MenuButtonAction::SettingsSound, "Sound"),
+                    (MenuButtonAction::BackToMainMenu, "Back"),
+                ] {
+                    parent
+                        .spawn_bundle(ButtonBundle {
+                            style: button_style.clone(),
+                            color: NORMAL_BUTTON.into(),
+                            ..default()
+                        })
+                        .insert(action)
+                        .with_children(|parent| {
+                            parent.spawn_bundle(TextBundle::from_section(
+                                text,
                                 button_text_style.clone(),
-                                Default::default(),
-                            ),
-                            ..default()
+                            ));
                         });
-                    });
-                parent
-                    .spawn_bundle(ButtonBundle {
-                        style: button_style.clone(),
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::SettingsSound)
-                    .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Sound",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
-                            ..default()
-                        });
-                    });
-                // Display the back button to return to the main menu screen
-                parent
-                    .spawn_bundle(ButtonBundle {
-                        style: button_style,
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::BackToMainMenu)
-                    .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section("Back", button_text_style, Default::default()),
-                            ..default()
-                        });
-                    });
+                }
             });
     }
 
@@ -644,14 +596,10 @@ mod menu {
                     })
                     .with_children(|parent| {
                         // Display a label for the current setting
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Display Quality",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section(
+                            "Display Quality",
+                            button_text_style.clone(),
+                        ));
                         // Display a button for each possible value
                         for quality_setting in [
                             DisplayQuality::Low,
@@ -667,14 +615,10 @@ mod menu {
                                 ..default()
                             });
                             entity.insert(quality_setting).with_children(|parent| {
-                                parent.spawn_bundle(TextBundle {
-                                    text: Text::with_section(
-                                        format!("{:?}", quality_setting),
-                                        button_text_style.clone(),
-                                        Default::default(),
-                                    ),
-                                    ..default()
-                                });
+                                parent.spawn_bundle(TextBundle::from_section(
+                                    format!("{quality_setting:?}"),
+                                    button_text_style.clone(),
+                                ));
                             });
                             if *display_quality == quality_setting {
                                 entity.insert(SelectedOption);
@@ -690,10 +634,7 @@ mod menu {
                     })
                     .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section("Back", button_text_style, Default::default()),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section("Back", button_text_style));
                     });
             });
     }
@@ -739,14 +680,10 @@ mod menu {
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section(
-                                "Volume",
-                                button_text_style.clone(),
-                                Default::default(),
-                            ),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section(
+                            "Volume",
+                            button_text_style.clone(),
+                        ));
                         for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                             let mut entity = parent.spawn_bundle(ButtonBundle {
                                 style: Style {
@@ -770,10 +707,7 @@ mod menu {
                     })
                     .insert(MenuButtonAction::BackToSettings)
                     .with_children(|parent| {
-                        parent.spawn_bundle(TextBundle {
-                            text: Text::with_section("Back", button_text_style, Default::default()),
-                            ..default()
-                        });
+                        parent.spawn_bundle(TextBundle::from_section("Back", button_text_style));
                     });
             });
     }
@@ -787,7 +721,7 @@ mod menu {
         mut menu_state: ResMut<State<MenuState>>,
         mut game_state: ResMut<State<GameState>>,
     ) {
-        for (interaction, menu_button_action) in interaction_query.iter() {
+        for (interaction, menu_button_action) in &interaction_query {
             if *interaction == Interaction::Clicked {
                 match menu_button_action {
                     MenuButtonAction::Quit => app_exit_events.send(AppExit),
@@ -814,7 +748,7 @@ mod menu {
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
-    for entity in to_despawn.iter() {
+    for entity in &to_despawn {
         commands.entity(entity).despawn_recursive();
     }
 }

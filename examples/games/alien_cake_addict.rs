@@ -1,5 +1,7 @@
 //! Eat the cakes. Eat them all. An example 3D game.
 
+use std::f32::consts::PI;
+
 use bevy::{ecs::schedule::SystemSet, prelude::*, time::FixedTimestep};
 use rand::Rng;
 
@@ -56,7 +58,7 @@ struct Bonus {
     handle: Handle<Scene>,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct Game {
     board: Vec<Vec<Cell>>,
     player: Player,
@@ -137,7 +139,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                         game.board[game.player.j][game.player.i].height,
                         game.player.j as f32,
                     ),
-                    rotation: Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
+                    rotation: Quat::from_rotation_y(-PI / 2.),
                     ..default()
                 },
                 scene: asset_server.load("models/AlienCake/alien.glb#Scene0"),
@@ -150,17 +152,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.bonus.handle = asset_server.load("models/AlienCake/cakeBirthday.glb#Scene0");
 
     // scoreboard
-    commands.spawn_bundle(TextBundle {
-        text: Text::with_section(
+    commands.spawn_bundle(
+        TextBundle::from_section(
             "Score:",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 40.0,
                 color: Color::rgb(0.5, 0.5, 1.0),
             },
-            Default::default(),
-        ),
-        style: Style {
+        )
+        .with_style(Style {
             position_type: PositionType::Absolute,
             position: UiRect {
                 top: Val::Px(5.0),
@@ -168,14 +169,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 ..default()
             },
             ..default()
-        },
-        ..default()
-    });
+        }),
+    );
 }
 
 // remove all entities that are not a camera
 fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
-    for entity in entities.iter() {
+    for entity in &entities {
         commands.entity(entity).despawn_recursive();
     }
 }
@@ -196,21 +196,21 @@ fn move_player(
             if game.player.i < BOARD_SIZE_I - 1 {
                 game.player.i += 1;
             }
-            rotation = -std::f32::consts::FRAC_PI_2;
+            rotation = -PI / 2.;
             moved = true;
         }
         if keyboard_input.pressed(KeyCode::Down) {
             if game.player.i > 0 {
                 game.player.i -= 1;
             }
-            rotation = std::f32::consts::FRAC_PI_2;
+            rotation = PI / 2.;
             moved = true;
         }
         if keyboard_input.pressed(KeyCode::Right) {
             if game.player.j < BOARD_SIZE_J - 1 {
                 game.player.j += 1;
             }
-            rotation = std::f32::consts::PI;
+            rotation = PI;
             moved = true;
         }
         if keyboard_input.pressed(KeyCode::Left) {
@@ -348,7 +348,7 @@ fn spawn_bonus(
 fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform>) {
     if let Some(entity) = game.bonus.entity {
         if let Ok(mut cake_transform) = transforms.get_mut(entity) {
-            cake_transform.rotate(Quat::from_rotation_y(time.delta_seconds()));
+            cake_transform.rotate_y(time.delta_seconds());
             cake_transform.scale = Vec3::splat(
                 1.0 + (game.score as f32 / 10.0 * time.seconds_since_startup().sin() as f32).abs(),
             );
@@ -383,17 +383,13 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    format!("Cake eaten: {}", game.cake_eaten),
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 80.0,
-                        color: Color::rgb(0.5, 0.5, 1.0),
-                    },
-                    Default::default(),
-                ),
-                ..default()
-            });
+            parent.spawn_bundle(TextBundle::from_section(
+                format!("Cake eaten: {}", game.cake_eaten),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 80.0,
+                    color: Color::rgb(0.5, 0.5, 1.0),
+                },
+            ));
         });
 }

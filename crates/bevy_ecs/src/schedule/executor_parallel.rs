@@ -12,7 +12,7 @@ use event_listener::Event;
 use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
-use SchedulingEvent::*;
+use scheduling_event::*;
 
 struct SystemSchedulingMetadata {
     /// Used to signal the system's task to start the system.
@@ -84,7 +84,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         self.should_run.grow(systems.len());
 
         // Construct scheduling data for systems.
-        for container in systems.iter() {
+        for container in systems {
             let dependencies_total = container.dependencies().len();
             let system = container.system();
             self.system_metadata.push(SystemSchedulingMetadata {
@@ -108,7 +108,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         #[cfg(test)]
         if self.events_sender.is_none() {
             let (sender, receiver) = async_channel::unbounded::<SchedulingEvent>();
-            world.insert_resource(receiver);
+            world.insert_resource(SchedulingEvents(receiver));
             self.events_sender = Some(sender);
         }
 
@@ -214,6 +214,7 @@ impl ParallelExecutor {
             let mut run = move || {
                 #[cfg(feature = "trace")]
                 let _system_guard = system_span.enter();
+                // SAFETY: the executor prevents two systems with conflicting access from running simultaneously.
                 unsafe { system.run_unsafe((), world) };
             };
 
@@ -329,7 +330,7 @@ impl ParallelExecutor {
         }
         #[cfg(test)]
         if started_systems != 0 {
-            self.emit_event(StartedSystems(started_systems));
+            self.emit_event(SchedulingEvent::StartedSystems(started_systems));
         }
         // Remove now running systems from the queue.
         self.queued.difference_with(&self.running);
@@ -377,29 +378,43 @@ impl ParallelExecutor {
 }
 
 #[cfg(test)]
-#[derive(Debug, PartialEq, Eq)]
-enum SchedulingEvent {
-    StartedSystems(usize),
+mod scheduling_event {
+    use crate as bevy_ecs;
+    use crate::system::Resource;
+    use async_channel::Receiver;
+
+    #[derive(Debug, PartialEq, Eq)]
+    pub(super) enum SchedulingEvent {
+        StartedSystems(usize),
+    }
+
+    #[derive(Resource)]
+    pub(super) struct SchedulingEvents(pub(crate) Receiver<SchedulingEvent>);
 }
 
 #[cfg(test)]
+#[cfg(test)]
 mod tests {
-    use super::SchedulingEvent::{self, *};
     use crate::{
-        schedule::{SingleThreadedExecutor, Stage, SystemStage},
-        system::{NonSend, Query, Res, ResMut},
+        self as bevy_ecs,
+        component::Component,
+        schedule::{
+            executor_parallel::scheduling_event::*, SingleThreadedExecutor, Stage, SystemStage,
+        },
+        system::{NonSend, Query, Res, ResMut, Resource},
         world::World,
     };
-    use async_channel::Receiver;
 
-    use crate as bevy_ecs;
-    use crate::component::Component;
+    use SchedulingEvent::StartedSystems;
+
     #[derive(Component)]
     struct W<T>(T);
+    #[derive(Resource, Default)]
+    struct Counter(usize);
 
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
-        while let Ok(event) = world.resource::<Receiver<SchedulingEvent>>().try_recv() {
+        while let Ok(event) = world.resource::<SchedulingEvents>().0.try_recv() {
             events.push(event);
         }
         events
@@ -424,9 +439,9 @@ mod tests {
     #[test]
     fn resources() {
         let mut world = World::new();
-        world.insert_resource(0usize);
-        fn wants_mut(_: ResMut<usize>) {}
-        fn wants_ref(_: Res<usize>) {}
+        world.init_resource::<Counter>();
+        fn wants_mut(_: ResMut<Counter>) {}
+        fn wants_ref(_: Res<Counter>) {}
         let mut stage = SystemStage::parallel()
             .with_system(wants_mut)
             .with_system(wants_mut);

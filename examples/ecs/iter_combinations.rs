@@ -1,6 +1,6 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{pbr::AmbientLight, prelude::*, render::camera::Camera, time::FixedTimestep};
+use bevy::{pbr::AmbientLight, prelude::*, time::FixedTimestep};
 use rand::{thread_rng, Rng};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -152,7 +152,7 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
     while let Some([(Mass(m1), transform1, mut acc1), (Mass(m2), transform2, mut acc2)]) =
         iter.fetch_next()
     {
-        let delta = transform2.translation - transform1.translation;
+        let delta = transform2.translation() - transform1.translation();
         let distance_sq: f32 = delta.length_squared();
 
         let f = GRAVITY_CONSTANT / distance_sq;
@@ -164,7 +164,7 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
 
 fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
     let dt_sq = (DELTA_TIME * DELTA_TIME) as f32;
-    for (mut acceleration, mut transform, mut last_pos) in query.iter_mut() {
+    for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)
 

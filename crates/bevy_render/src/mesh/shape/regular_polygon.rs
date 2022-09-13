@@ -1,10 +1,10 @@
 use crate::mesh::{Indices, Mesh};
 use wgpu::PrimitiveTopology;
 
-/// A regular polygon in the xy plane
+/// A regular polygon in the `XY` plane
 #[derive(Debug, Copy, Clone)]
 pub struct RegularPolygon {
-    /// Inscribed radius in the xy plane.
+    /// Inscribed radius in the `XY` plane.
     pub radius: f32,
     /// Number of sides.
     pub sides: usize,
@@ -20,7 +20,7 @@ impl Default for RegularPolygon {
 }
 
 impl RegularPolygon {
-    /// Creates a regular polygon in the xy plane
+    /// Creates a regular polygon in the `XY` plane
     pub fn new(radius: f32, sides: usize) -> Self {
         Self { radius, sides }
     }
@@ -60,9 +60,9 @@ impl From<RegularPolygon> for Mesh {
     }
 }
 
-/// A circle in the xy plane
+/// A circle in the `XY` plane
 pub struct Circle {
-    /// Inscribed radius in the xy plane.
+    /// Inscribed radius in the `XY` plane.
     pub radius: f32,
     /// The number of vertices used.
     pub vertices: usize,
@@ -78,7 +78,7 @@ impl Default for Circle {
 }
 
 impl Circle {
-    /// Creates a circle in the xy plane
+    /// Creates a circle in the `XY` plane
     pub fn new(radius: f32) -> Self {
         Self {
             radius,

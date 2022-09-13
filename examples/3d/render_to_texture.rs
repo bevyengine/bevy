@@ -1,5 +1,7 @@
 //! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
 
+use std::f32::consts::PI;
+
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
@@ -104,7 +106,7 @@ fn setup(
                 ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-                .looking_at(Vec3::default(), Vec3::Y),
+                .looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })
         .insert(first_pass_layer);
@@ -125,35 +127,31 @@ fn setup(
         .spawn_bundle(PbrBundle {
             mesh: cube_handle,
             material: material_handle,
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1.5),
-                rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-                ..default()
-            },
+            transform: Transform::from_xyz(0.0, 0.0, 1.5)
+                .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
             ..default()
         })
         .insert(MainPassCube);
 
     // The main pass camera.
     commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
+        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 }
 
 /// Rotates the inner cube (first pass)
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<FirstPassCube>>) {
-    for mut transform in query.iter_mut() {
-        transform.rotation *= Quat::from_rotation_x(1.5 * time.delta_seconds());
-        transform.rotation *= Quat::from_rotation_z(1.3 * time.delta_seconds());
+    for mut transform in &mut query {
+        transform.rotate_x(1.5 * time.delta_seconds());
+        transform.rotate_z(1.3 * time.delta_seconds());
     }
 }
 
 /// Rotates the outer cube (main pass)
 fn cube_rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<MainPassCube>>) {
-    for mut transform in query.iter_mut() {
-        transform.rotation *= Quat::from_rotation_x(1.0 * time.delta_seconds());
-        transform.rotation *= Quat::from_rotation_y(0.7 * time.delta_seconds());
+    for mut transform in &mut query {
+        transform.rotate_x(1.0 * time.delta_seconds());
+        transform.rotate_y(0.7 * time.delta_seconds());
     }
 }
