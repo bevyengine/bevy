@@ -89,15 +89,6 @@ impl Stopwatch {
     /// Returns the elapsed time since the last [`reset`](Stopwatch::reset)
     /// of the stopwatch, in seconds, as f64.
     ///
-    /// # Examples
-    /// ```
-    /// # use bevy_time::*;
-    /// use std::time::Duration;
-    /// let mut stopwatch = Stopwatch::new();
-    /// stopwatch.tick(Duration::from_secs(1));
-    /// assert_eq!(stopwatch.elapsed_secs_f64(), 1.0);
-    /// ```
-    ///
     /// # See Also
     ///
     /// [`elapsed`](Stopwatch::elapsed) - if a `Duration` is desirable instead.
