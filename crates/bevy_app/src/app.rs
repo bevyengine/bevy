@@ -96,7 +96,7 @@ impl DefaultStagesThreading {
 
 impl Default for App {
     fn default() -> Self {
-        App::single_threaded()
+        App::multi_threaded()
     }
 }
 
