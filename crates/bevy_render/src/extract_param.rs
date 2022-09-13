@@ -35,7 +35,7 @@ use std::ops::{Deref, DerefMut};
 /// # struct Cloud;
 /// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<Entity, With<Cloud>>>) {
 ///     for cloud in &clouds {
-///         commands.get_or_spawn(cloud).insert(Cloud);
+///         commands.get_or_spawn(cloud).expect("Entity not found.").insert(Cloud);
 ///     }
 /// }
 /// ```
