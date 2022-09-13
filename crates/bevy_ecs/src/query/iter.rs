@@ -72,9 +72,9 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F> 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
 impl<'w, 's, Q: WorldQuery, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
 
-/// An [`Iterator`] over [`Query`](crate::system::Query) results of a list of [`Entity`]s.
+/// An [`Iterator`] over the query items generated from an iterator of [`Entity`]s.
 ///
-/// Items are returned in the order of the iterator of entities.
+/// Items are returned in the order of the provided iterator.
 /// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
