@@ -45,7 +45,7 @@ pub struct ExtractedWindow {
     pub physical_height: u32,
     pub present_mode: PresentMode,
     pub swap_chain_texture: Option<TextureView>,
-    pub size_changed: bool,
+    pub size_change_pending: bool,
 }
 
 #[derive(Default, Resource)]
@@ -77,26 +77,30 @@ fn extract_windows(
             window.physical_width().max(1),
             window.physical_height().max(1),
         );
+        let extracted_window = extracted_windows
+            .entry(window.id())
+            .and_modify(|extracted_window| {
+                // NOTE: Drop the swap chain frame here
+                extracted_window.swap_chain_texture = None;
+                if new_width != extracted_window.physical_width
+                    || new_height != extracted_window.physical_height
+                {
+                    extracted_window.physical_width = new_width;
+                    extracted_window.physical_height = new_height;
+                    extracted_window.size_change_pending = true;
+                }
+            })
+            .or_insert(ExtractedWindow {
+                id: window.id(),
+                handle: window.raw_window_handle(),
+                physical_width: new_width,
+                physical_height: new_height,
+                present_mode: window.present_mode(),
+                swap_chain_texture: None,
+                size_change_pending: true,
+            });
 
-        let mut extracted_window =
-            extracted_windows
-                .entry(window.id())
-                .or_insert(ExtractedWindow {
-                    id: window.id(),
-                    handle: window.raw_window_handle(),
-                    physical_width: new_width,
-                    physical_height: new_height,
-                    present_mode: window.present_mode(),
-                    swap_chain_texture: None,
-                    size_changed: false,
-                });
-
-        // NOTE: Drop the swap chain frame here
-        extracted_window.swap_chain_texture = None;
-        extracted_window.size_changed = new_width != extracted_window.physical_width
-            || new_height != extracted_window.physical_height;
-
-        if extracted_window.size_changed {
+        if extracted_window.size_change_pending {
             debug!(
                 "Window size changed from {}x{} to {}x{}",
                 extracted_window.physical_width,
@@ -104,8 +108,6 @@ fn extract_windows(
                 new_width,
                 new_height
             );
-            extracted_window.physical_width = new_width;
-            extracted_window.physical_height = new_height;
         }
     }
     for closed_window in closed.iter() {
@@ -175,8 +177,9 @@ pub fn prepare_windows(
         };
 
         // Do the initial surface configuration if it hasn't been configured yet
-        if window_surfaces.configured_windows.insert(window.id) || window.size_changed {
+        if window_surfaces.configured_windows.insert(window.id) || window.size_change_pending {
             render_device.configure_surface(surface, &swap_chain_descriptor);
+            window.size_change_pending = false;
         }
 
         let frame = match surface.get_current_texture() {
