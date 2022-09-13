@@ -85,6 +85,7 @@ pub enum AppThreading {
 }
 
 impl AppThreading {
+    /// Gets a new instance of [`SystemStage`] for the corresponding value of [`AppThreading`]
     pub fn get_stage(&self) -> SystemStage {
         match self {
             AppThreading::Multi => SystemStage::parallel(),
