@@ -74,6 +74,9 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q
 
 /// An [`Iterator`] over [`Query`](crate::system::Query) results of a list of [`Entity`]s.
 ///
+/// Items are returned in the order of the iterator of entities.
+/// Entities that don't match the query are skipped.
+///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
 pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator>
 where
