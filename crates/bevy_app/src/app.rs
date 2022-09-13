@@ -659,7 +659,6 @@ impl App {
             .add_stage(CoreStage::Last, threading.get_stage())
     }
 
-
     /// Setup the application to manage events of type `T`.
     ///
     /// This is done by adding a [`Resource`] of type [`Events::<T>`],
