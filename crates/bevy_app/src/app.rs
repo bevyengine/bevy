@@ -627,7 +627,7 @@ impl App {
     /// let app = App::empty().add_default_stages(AppThreading::Multi);
     /// ```
     pub fn add_default_stages(&mut self, threading: AppThreading) -> &mut Self {
-        self.add_stage(CoreStage::First, SystemStage::single_threaded())
+        self.add_stage(CoreStage::First, Self::get_stage(threading))
             .add_stage(
                 StartupSchedule,
                 Schedule::default()
