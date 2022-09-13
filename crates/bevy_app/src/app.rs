@@ -76,8 +76,7 @@ struct SubApp {
     runner: Box<dyn Fn(&mut World, &mut App)>,
 }
 
-/// Sets the app threading model
-#[derive(Copy, Clone)]
+/// Sets the default stages to be single or multi threaded.
 pub enum AppThreading {
     /// run app single threaded
     Single,
@@ -85,9 +84,18 @@ pub enum AppThreading {
     Multi,
 }
 
+impl AppThreading {
+    pub fn get_stage(&self) -> SystemStage {
+        match self {
+            AppThreading::Multi => SystemStage::parallel(),
+            AppThreading::Single => SystemStage::single_threaded(),
+        }
+    }
+}
+
 impl Default for App {
     fn default() -> Self {
-        App::new_with_threading_option(AppThreading::Multi)
+        App::single_threaded()
     }
 }
 
@@ -110,9 +118,17 @@ impl App {
         }
     }
 
-    /// Creates a new [`App`] with some default structure,
-    /// but allow picking the threading model using [`AppThreading`]
-    pub fn new_with_threading_option(threading: AppThreading) -> App {
+    /// Creates a new [`App`] with some default structure with all default stages set to use single threaded system executor.
+    pub fn single_threaded() -> App {
+        App::new_with_threading_option(AppThreading::Single)
+    }
+
+    /// Creates a new [`App`] with some default structure with all default stages set to use multithreaded system executor.
+    pub fn multi_threaded() -> App {
+        App::new_with_threading_option(AppThreading::Multi)
+    }
+
+    fn new_with_threading_option(threading: AppThreading) -> App {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
@@ -128,6 +144,7 @@ impl App {
 
         app
     }
+
     /// Advances the execution of the [`Schedule`] by one cycle.
     ///
     /// This method also updates sub apps.
@@ -627,27 +644,21 @@ impl App {
     /// let app = App::empty().add_default_stages(AppThreading::Multi);
     /// ```
     pub fn add_default_stages(&mut self, threading: AppThreading) -> &mut Self {
-        self.add_stage(CoreStage::First, Self::get_stage(threading))
+        self.add_stage(CoreStage::First, threading.get_stage())
             .add_stage(
                 StartupSchedule,
                 Schedule::default()
                     .with_run_criteria(ShouldRun::once)
-                    .with_stage(StartupStage::PreStartup, Self::get_stage(threading))
-                    .with_stage(StartupStage::Startup, Self::get_stage(threading))
-                    .with_stage(StartupStage::PostStartup, Self::get_stage(threading)),
+                    .with_stage(StartupStage::PreStartup, threading.get_stage())
+                    .with_stage(StartupStage::Startup, threading.get_stage())
+                    .with_stage(StartupStage::PostStartup, threading.get_stage()),
             )
-            .add_stage(CoreStage::PreUpdate, Self::get_stage(threading))
-            .add_stage(CoreStage::Update, Self::get_stage(threading))
-            .add_stage(CoreStage::PostUpdate, Self::get_stage(threading))
-            .add_stage(CoreStage::Last, Self::get_stage(threading))
+            .add_stage(CoreStage::PreUpdate, threading.get_stage())
+            .add_stage(CoreStage::Update, threading.get_stage())
+            .add_stage(CoreStage::PostUpdate, threading.get_stage())
+            .add_stage(CoreStage::Last, threading.get_stage())
     }
 
-    fn get_stage(threading: AppThreading) -> SystemStage {
-        match threading {
-            AppThreading::Multi => SystemStage::parallel(),
-            AppThreading::Single => SystemStage::single_threaded(),
-        }
-    }
 
     /// Setup the application to manage events of type `T`.
     ///
