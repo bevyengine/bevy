@@ -37,6 +37,7 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "trace",
 ]
 
 # Force dynamic linking, which improves iterative compile times

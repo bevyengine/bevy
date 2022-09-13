@@ -1,6 +1,6 @@
 use bevy_ecs::world::World;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use bevy_utils::tracing::debug_span;
 use bevy_utils::HashMap;
 use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "trace")]
@@ -68,7 +68,7 @@ impl RenderGraphRunner {
         Self::run_graph(graph, None, &mut render_context, world, &[])?;
         {
             #[cfg(feature = "trace")]
-            let _span = info_span!("submit_graph_commands").entered();
+            let _span = debug_span!("submit_graph_commands").entered();
             queue.submit(vec![render_context.command_encoder.finish()]);
         }
         Ok(())
@@ -84,9 +84,9 @@ impl RenderGraphRunner {
         let mut node_outputs: HashMap<NodeId, SmallVec<[SlotValue; 4]>> = HashMap::default();
         #[cfg(feature = "trace")]
         let span = if let Some(name) = &graph_name {
-            info_span!("run_graph", name = name.deref())
+            debug_span!("run_graph", name = name.deref())
         } else {
-            info_span!("run_graph", name = "main_graph")
+            debug_span!("run_graph", name = "main_graph")
         };
         #[cfg(feature = "trace")]
         let _guard = span.enter();
@@ -183,7 +183,7 @@ impl RenderGraphRunner {
                 let mut context = RenderGraphContext::new(graph, node_state, &inputs, &mut outputs);
                 {
                     #[cfg(feature = "trace")]
-                    let _span = info_span!("node", name = node_state.type_name).entered();
+                    let _span = debug_span!("node", name = node_state.type_name).entered();
 
                     node_state.node.run(&mut context, render_context, world)?;
                 }

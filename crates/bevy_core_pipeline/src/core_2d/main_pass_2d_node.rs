@@ -12,7 +12,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
 };
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use bevy_utils::tracing::debug_span;
 
 pub struct MainPass2dNode {
     query: QueryState<
@@ -61,7 +61,7 @@ impl Node for MainPass2dNode {
             };
         {
             #[cfg(feature = "trace")]
-            let _main_pass_2d = info_span!("main_pass_2d").entered();
+            let _main_pass_2d = debug_span!("main_pass_2d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {
@@ -99,7 +99,7 @@ impl Node for MainPass2dNode {
         #[cfg(feature = "webgl")]
         if camera.viewport.is_some() {
             #[cfg(feature = "trace")]
-            let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
+            let _reset_viewport_pass_2d = debug_span!("reset_viewport_pass_2d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {
