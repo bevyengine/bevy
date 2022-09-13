@@ -59,6 +59,7 @@ impl Stopwatch {
     /// # See Also
     ///
     /// [`elapsed_secs`](Stopwatch::elapsed) - if a `f32` value is desirable instead.
+    /// [`elapsed_secs_f64`](Stopwatch::elapsed_secs_f64) - if a `f64` is desirable instead.
     #[inline]
     pub fn elapsed(&self) -> Duration {
         self.elapsed
@@ -79,9 +80,31 @@ impl Stopwatch {
     /// # See Also
     ///
     /// [`elapsed`](Stopwatch::elapsed) - if a `Duration` is desirable instead.
+    /// [`elapsed_secs_f64`](Stopwatch::elapsed_secs_f64) - if a `f64` is desirable instead.
     #[inline]
     pub fn elapsed_secs(&self) -> f32 {
         self.elapsed().as_secs_f32()
+    }
+
+    /// Returns the elapsed time since the last [`reset`](Stopwatch::reset)
+    /// of the stopwatch, in seconds, as f64.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_time::*;
+    /// use std::time::Duration;
+    /// let mut stopwatch = Stopwatch::new();
+    /// stopwatch.tick(Duration::from_secs(1));
+    /// assert_eq!(stopwatch.elapsed_secs_f64(), 1.0);
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// [`elapsed`](Stopwatch::elapsed) - if a `Duration` is desirable instead.
+    /// [`elapsed_secs`](Stopwatch::elapsed_secs) - if a `f32` is desirable instead.
+    #[inline]
+    pub fn elapsed_secs_f64(&self) -> f64 {
+        self.elapsed().as_secs_f64()
     }
 
     /// Sets the elapsed time of the stopwatch.
