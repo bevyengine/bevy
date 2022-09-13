@@ -277,7 +277,7 @@ impl ParallelExecutor {
         }
         #[cfg(test)]
         if started_systems != 0 {
-            self.emit_event(StartedSystems(started_systems));
+            self.emit_event(SchedulingEvent::StartedSystems(started_systems));
         }
     }
 
