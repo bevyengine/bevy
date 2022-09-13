@@ -180,10 +180,17 @@ impl<'w, 's> Commands<'w, 's> {
     /// by default).
     pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
         self.add(GetOrSpawn { entity });
-        self.entities.contains(entity).then_some(EntityCommands {
-            entity,
-            commands: self,
-        })
+        match self.entities.resolve_from_id(entity.id()) {
+            Some(resolved_entity) => (resolved_entity.generation() == entity.generation())
+                .then_some(EntityCommands {
+                    entity,
+                    commands: self,
+                }),
+            None => Some(EntityCommands {
+                entity,
+                commands: self,
+            }),
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s components,
