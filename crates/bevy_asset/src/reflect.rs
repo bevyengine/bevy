@@ -62,6 +62,21 @@ impl ReflectAsset {
     /// Only use this method when you have ensured that you are the *only* one with access to the [`Assets`] resource of the asset type.
     /// Furthermore, this does *not* allow you to have look up two distinct handles,
     /// you can only have at most one alive at the same time.
+    /// This means that this is *not allowed*:
+    /// ```rust,no_run
+    /// # use bevy_asset::{ReflectAsset, HandleUntyped};
+    /// # use bevy_ecs::prelude::World;
+    /// # let reflect_asset: ReflectAsset = unimplemented!();
+    /// # let world: World = unimplemented!();
+    /// # let handle_1: HandleUntyped = unimplemented!();
+    /// # let handle_2: HandleUntyped = unimplemented!();
+    /// let a = unsafe { reflect_asset.get_unchecked_mut(&world, handle_1).unwrap() };
+    /// let b = unsafe { reflect_asset.get_unchecked_mut(&world, handle_2).unwrap() };
+    /// // ^ not allowed, two mutable references through the same asset resource, even though the
+    /// // handles are distinct
+    ///
+    /// println!("a = {a:?}, b = {b:?}");
+    /// ```
     ///
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
@@ -254,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn test() {
+    fn test_reflect_asset_operations() {
         let mut app = App::new();
         app.add_plugin(AssetPlugin)
             .add_asset::<AssetType>()

@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{ResMut, Resource},
     world::FromWorld,
 };
-use bevy_reflect::{FromReflect, FromType, GetTypeRegistration, Reflect};
+use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
