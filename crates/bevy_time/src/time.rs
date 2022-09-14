@@ -137,7 +137,7 @@ impl Time {
     /// The time from the last wrap period to the last update in seconds.
     ///
     /// When used in shaders, the time is limited to `f32` which can introduce floating point precision issues
-    /// fairly quickly if the app is left open for a while. 
+    /// fairly quickly if the app is left open for a while.
     /// This will wrap the value to 0.0 on the update after the `Self::max_wrapping_period`.
     ///
     /// Defaults to wrapping every hour.
