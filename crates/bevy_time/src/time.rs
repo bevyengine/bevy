@@ -13,6 +13,10 @@ pub struct Time {
     seconds_since_startup: f64,
     time_since_startup: Duration,
     startup: Instant,
+    duration_since_last_wrapping_period: Duration,
+    /// The maximum period of time in seconds before seconds_since_last_wrapping_period wraps back to 0.0
+    pub max_wrapping_period: Duration,
+    last_wrapping_period: Instant,
 }
 
 impl Default for Time {
@@ -25,6 +29,9 @@ impl Default for Time {
             seconds_since_startup: 0.0,
             time_since_startup: Duration::from_secs(0),
             delta_seconds: 0.0,
+            duration_since_last_wrapping_period: Duration::from_secs(0),
+            max_wrapping_period: Duration::from_secs(60 * 60), // 1 hour
+            last_wrapping_period: Instant::now(),
         }
     }
 }
@@ -101,6 +108,11 @@ impl Time {
         self.time_since_startup = instant - self.startup;
         self.seconds_since_startup = self.time_since_startup.as_secs_f64();
         self.last_update = Some(instant);
+
+        self.duration_since_last_wrapping_period = instant - self.last_wrapping_period;
+        if self.duration_since_last_wrapping_period >= self.max_wrapping_period {
+            self.last_wrapping_period = instant;
+        }
     }
 
     /// The delta between the current tick and last tick as a [`Duration`]
@@ -125,6 +137,18 @@ impl Time {
     #[inline]
     pub fn seconds_since_startup(&self) -> f64 {
         self.seconds_since_startup
+    }
+
+    /// The time from the last wrap period to the last update in seconds
+    ///
+    /// When used in shaders, the time is limited to f32 which can introduce floating point precision issues
+    /// fairly quickly if the app is left open for a while. This will wrap the value to 0.0 as soon as it
+    /// reaches the wrapping period.
+    ///
+    /// Defaults to wrapping to 0.0 every hour
+    #[inline]
+    pub fn seconds_since_last_wrapping_period(&self) -> f32 {
+        self.duration_since_last_wrapping_period.as_secs_f32()
     }
 
     /// The [`Instant`] the app was started
@@ -159,6 +183,7 @@ mod tests {
         // Create a `Time` for testing
         let mut time = Time {
             startup: start_instant,
+            last_wrapping_period: start_instant,
             ..Default::default()
         };
 
@@ -170,6 +195,7 @@ mod tests {
         assert_eq!(time.seconds_since_startup(), 0.0);
         assert_eq!(time.time_since_startup(), Duration::from_secs(0));
         assert_eq!(time.delta_seconds(), 0.0);
+        assert_eq!(time.seconds_since_last_wrapping_period(), 0.0);
 
         // Update `time` and check results
         let first_update_instant = Instant::now();
@@ -188,7 +214,11 @@ mod tests {
             time.time_since_startup(),
             (first_update_instant - start_instant)
         );
-        assert_eq!(time.delta_seconds, 0.0);
+        assert_eq!(time.delta_seconds(), 0.0);
+        assert_float_eq(
+            time.seconds_since_last_wrapping_period(),
+            time.seconds_since_startup() as f32,
+        );
 
         // Update `time` again and check results
         let second_update_instant = Instant::now();
@@ -210,5 +240,37 @@ mod tests {
             (second_update_instant - start_instant)
         );
         assert_eq!(time.delta_seconds(), time.delta().as_secs_f32());
+        assert_float_eq(
+            time.seconds_since_last_wrapping_period(),
+            time.seconds_since_startup() as f32,
+        );
+    }
+
+    #[test]
+    fn update_wrapping() {
+        let start_instant = Instant::now();
+
+        let mut time = Time {
+            startup: start_instant,
+            last_wrapping_period: start_instant,
+            max_wrapping_period: Duration::from_secs(2),
+            ..Default::default()
+        };
+
+        assert_eq!(time.seconds_since_last_wrapping_period(), 0.0);
+
+        time.update_with_instant(start_instant + Duration::from_secs(1));
+        assert_float_eq(time.seconds_since_last_wrapping_period(), 1.0);
+
+        time.update_with_instant(start_instant + Duration::from_secs(2));
+        assert_float_eq(time.seconds_since_last_wrapping_period(), 2.0);
+
+        // wraps on next update
+        time.update_with_instant(start_instant + Duration::from_secs(3));
+        assert_float_eq(time.seconds_since_last_wrapping_period(), 1.0);
+    }
+
+    fn assert_float_eq(a: f32, b: f32) {
+        assert!((a - b) <= f32::EPSILON, "{a} != {b}");
     }
 }
