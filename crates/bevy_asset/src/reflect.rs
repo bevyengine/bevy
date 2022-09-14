@@ -38,7 +38,7 @@ impl ReflectAsset {
         self.handle_type_id
     }
 
-    /// The [`TypeId`] of the [`Assets`] resource
+    /// The [`TypeId`] of the [`Assets<T>`] resource
     pub fn assets_resource_type_id(&self) -> TypeId {
         self.assets_resource_type_id
     }
@@ -47,6 +47,7 @@ impl ReflectAsset {
     pub fn get<'w>(&self, world: &'w World, handle: HandleUntyped) -> Option<&'w dyn Reflect> {
         (self.get)(world, handle)
     }
+
     /// Equivalent of [`Assets::get_mut`]
     pub fn get_mut<'w>(
         &self,
@@ -58,7 +59,7 @@ impl ReflectAsset {
 
     /// Equivalent of [`Assets::get_mut`], but does not require a mutable reference to the world.
     ///
-    /// Only use this method when you have ensured that you are the *only* one with access to the `Assets` resource of the asset type.
+    /// Only use this method when you have ensured that you are the *only* one with access to the [`Assets`] resource of the asset type.
     /// Furthermore, this does *not* allow you to have look up two distinct handles,
     /// you can only have at most one alive at the same time.
     ///
@@ -142,13 +143,13 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             add: |world, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value: A = FromReflect::from_reflect(value)
-                    .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::insert`");
+                    .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::add`");
                 assets.add(value).into()
             },
             set: |world, handle, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value: A = FromReflect::from_reflect(value)
-                    .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::insert`");
+                    .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
                 assets.set(handle, value).into()
             },
             len: |world| {
@@ -168,7 +169,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
     }
 }
 
-/// Reflect type data struct relating a `Handle<T>` back to the `T` asset type.
+/// Reflect type data struct relating a [`Handle<T>`] back to the `T` asset type.
 ///
 /// Say you want to look up the asset values of a list of handles when you have access to their `&dyn Reflect` form.
 /// Assets can be looked up in the world using [`ReflectAsset`], but how do you determine which [`ReflectAsset`] to use when
@@ -210,12 +211,12 @@ impl ReflectHandle {
         self.asset_type_id
     }
 
-    /// A way to go from a `Handle<T>` in a `dyn Any` to a [`HandleUntyped`]
+    /// A way to go from a [`Handle<T>`] in a `dyn Any` to a [`HandleUntyped`]
     pub fn downcast_handle_untyped(&self, handle: &dyn Any) -> Option<HandleUntyped> {
         (self.downcast_handle_untyped)(handle)
     }
 
-    /// A way to go from a [`HandleUntyped`] to a `Handle<T>` in a `Box<dyn Reflect>`.
+    /// A way to go from a [`HandleUntyped`] to a [`Handle<T>`] in a `Box<dyn Reflect>`.
     /// Equivalent of [`HandleUntyped::typed`].
     pub fn typed(&self, handle: HandleUntyped) -> Box<dyn Reflect> {
         (self.typed)(handle)

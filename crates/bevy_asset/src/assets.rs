@@ -281,7 +281,7 @@ pub trait AddAsset {
         T: Asset;
 
     /// Registers the asset type `T` using `[App::register]`,
-    /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to `Handle<T>` in the type registry.
+    /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
     ///
     /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
     fn register_asset_reflect<T>(&mut self) -> &mut Self
@@ -351,14 +351,8 @@ impl AddAsset for App {
 
             type_registry.register::<T>();
             type_registry.register::<Handle<T>>();
-            type_registry
-                .get_mut(std::any::TypeId::of::<T>())
-                .unwrap()
-                .insert(<ReflectAsset as FromType<T>>::from_type());
-            type_registry
-                .get_mut(std::any::TypeId::of::<Handle<T>>())
-                .unwrap()
-                .insert(<ReflectHandle as FromType<Handle<T>>>::from_type());
+            type_registry.register_type_data::<T, ReflectAsset>();
+            type_registry.register_type_data::<Handle<T>, ReflectHandle>();
         }
 
         self
