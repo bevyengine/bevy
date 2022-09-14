@@ -396,7 +396,7 @@ pub fn extract_clusters(
     for (entity, clusters) in views.iter() {
         commands
             .get_or_spawn(entity)
-            .expect("Entity not found.")
+            .expect("Entity ID is already reserved.")
             .insert_bundle((
                 ExtractedClustersPointLights {
                     data: clusters.lights.clone(),
@@ -569,7 +569,7 @@ pub fn extract_lights(
         let render_visible_entities = visible_entities.clone();
         commands
             .get_or_spawn(entity)
-            .expect("Entity not found.")
+            .expect("Entity ID is already reserved.")
             .insert_bundle((
                 ExtractedDirectionalLight {
                     color: directional_light.color,
@@ -1571,7 +1571,7 @@ pub fn prepare_clusters(
 
         commands
             .get_or_spawn(entity)
-            .expect("Entity not found.")
+            .expect("Entity ID is already reserved.")
             .insert(view_clusters_bindings);
     }
 }

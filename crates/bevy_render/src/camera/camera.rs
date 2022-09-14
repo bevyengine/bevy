@@ -428,7 +428,7 @@ pub fn extract_cameras(
             }
             commands
                 .get_or_spawn(entity)
-                .expect("Entity not found.")
+                .expect("Entity ID is already reserved.")
                 .insert_bundle((
                     ExtractedCamera {
                         target: camera.target.clone(),

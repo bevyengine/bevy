@@ -55,7 +55,7 @@ fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<
     for entity in query.iter() {
         commands
             .get_or_spawn(entity)
-            .expect("Entity not found.")
+            .expect("Entity ID is already reserved.")
             .insert(Wireframe);
     }
 }

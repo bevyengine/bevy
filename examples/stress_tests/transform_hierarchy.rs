@@ -424,7 +424,7 @@ fn spawn_tree(
 
         commands
             .get_or_spawn(ents[parent_idx])
-            .expect("Entity not found.")
+            .expect("Entity ID is already reserved.")
             .add_child(child_entity);
 
         ents.push(child_entity);
