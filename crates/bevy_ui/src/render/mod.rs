@@ -24,7 +24,7 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
-use bevy_text::{DefaultTextPipeline, Text};
+use bevy_text::{Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
@@ -272,21 +272,21 @@ pub fn extract_default_ui_camera_view<T: Component>(
 pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    text_pipeline: Extract<Res<DefaultTextPipeline>>,
     windows: Extract<Res<Windows>>,
     uinode_query: Extract<
         Query<(
-            Entity,
             &Node,
             &GlobalTransform,
             &Text,
+            &TextLayoutInfo,
             &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
-    for (entity, uinode, global_transform, text, visibility, clip) in uinode_query.iter() {
+    for (uinode, global_transform, text, text_layout_info, visibility, clip) in uinode_query.iter()
+    {
         if !visibility.is_visible() {
             continue;
         }
@@ -294,44 +294,42 @@ pub fn extract_text_uinodes(
         if uinode.size == Vec2::ZERO {
             continue;
         }
-        if let Some(text_layout) = text_pipeline.get_glyphs(&entity) {
-            let text_glyphs = &text_layout.glyphs;
-            let alignment_offset = (uinode.size / -2.0).extend(0.0);
+        let text_glyphs = &text_layout_info.glyphs;
+        let alignment_offset = (uinode.size / -2.0).extend(0.0);
 
-            let mut color = Color::WHITE;
-            let mut current_section = usize::MAX;
-            for text_glyph in text_glyphs {
-                if text_glyph.section_index != current_section {
-                    color = text.sections[text_glyph.section_index]
-                        .style
-                        .color
-                        .as_rgba_linear();
-                    current_section = text_glyph.section_index;
-                }
-                let atlas = texture_atlases
-                    .get(&text_glyph.atlas_info.texture_atlas)
-                    .unwrap();
-                let texture = atlas.texture.clone_weak();
-                let index = text_glyph.atlas_info.glyph_index as usize;
-                let rect = atlas.textures[index];
-                let atlas_size = Some(atlas.size);
-
-                // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
-                let extracted_transform = global_transform.compute_matrix()
-                    * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
-                    * Mat4::from_translation(
-                        alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                    );
-
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    transform: extracted_transform,
-                    color,
-                    rect,
-                    image: texture,
-                    atlas_size,
-                    clip: clip.map(|clip| clip.clip),
-                });
+        let mut color = Color::WHITE;
+        let mut current_section = usize::MAX;
+        for text_glyph in text_glyphs {
+            if text_glyph.section_index != current_section {
+                color = text.sections[text_glyph.section_index]
+                    .style
+                    .color
+                    .as_rgba_linear();
+                current_section = text_glyph.section_index;
             }
+            let atlas = texture_atlases
+                .get(&text_glyph.atlas_info.texture_atlas)
+                .unwrap();
+            let texture = atlas.texture.clone_weak();
+            let index = text_glyph.atlas_info.glyph_index as usize;
+            let rect = atlas.textures[index];
+            let atlas_size = Some(atlas.size);
+
+            // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
+            let extracted_transform = global_transform.compute_matrix()
+                * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
+                * Mat4::from_translation(
+                    alignment_offset * scale_factor + text_glyph.position.extend(0.),
+                );
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                transform: extracted_transform,
+                color,
+                rect,
+                image: texture,
+                atlas_size,
+                clip: clip.map(|clip| clip.clip),
+            });
         }
     }
 }

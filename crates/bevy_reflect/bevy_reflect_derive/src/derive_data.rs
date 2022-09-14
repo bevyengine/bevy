@@ -120,24 +120,21 @@ impl<'a> ReflectDerive<'a> {
         let mut type_path_options = None;
 
         for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
-            let meta_list = if let Meta::List(meta_list) = attribute {
-                meta_list
-            } else {
-                continue;
-            };
-
-            match meta_list.path.get_ident() {
-                Some(ident) if ident == REFLECT_ATTRIBUTE_NAME => {
+            match attribute {
+                Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
                     traits = ReflectTraits::from_nested_metas(&meta_list.nested);
                 }
-                Some(ident) if ident == REFLECT_VALUE_ATTRIBUTE_NAME => {
+                Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     force_reflect_value = true;
                     traits = ReflectTraits::from_nested_metas(&meta_list.nested);
                 }
-                Some(ident) if ident == TYPE_PATH_ATTRIBUTE_NAME => {
+                Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
+                    force_reflect_value = true;
+                }
+                Meta::List(meta_list) if meta_list.path.is_ident(TYPE_PATH_ATTRIBUTE_NAME) => {
                     type_path_options = Some(TypePathOptions::parse_meta_list(meta_list)?);
                 }
-                _ => {}
+                _ => continue,
             }
         }
 
