@@ -349,48 +349,21 @@ pub(crate) struct TypePathOptions {
 
 impl TypePathOptions {
     fn parse_meta_list(meta_list: MetaList) -> Result<Self, syn::Error> {
-        fn parse_module_path(lit: Lit) -> Result<String, syn::Error> {
-            fn is_valid_module_path(_module_path: &str) -> bool {
-                // FIXME: what conditions here ?
-                true
-            }
-
+        fn expected_literal_string(lit: &Lit) -> Result<String, syn::Error> {
             match lit {
-                Lit::Str(lit_str) => {
-                    let path = lit_str.value();
-                    if is_valid_module_path(&path) {
-                        Ok(path)
-                    } else {
-                        Err(syn::Error::new(
-                            lit_str.span(),
-                            "Expected a valid module path",
-                        ))
-                    }
-                }
+                Lit::Str(lit_str) => Ok(lit_str.value()),
                 other => Err(syn::Error::new(other.span(), "Expected a str literal")),
             }
         }
 
-        fn parse_tpye_ident(lit: Lit) -> Result<String, syn::Error> {
-            fn is_valid_type_ident(_type_ident: &str) -> bool {
-                // FIXME: what conditions here ?
-                true
-            }
+        fn is_valid_module_path(_module_path: &str) -> bool {
+            // FIXME: what conditions here ?
+            true
+        }
 
-            match lit {
-                Lit::Str(lit_str) => {
-                    let type_ident = lit_str.value();
-                    if is_valid_type_ident(&type_ident) {
-                        Ok(type_ident)
-                    } else {
-                        Err(syn::Error::new(
-                            lit_str.span(),
-                            "Expected a valid type ident",
-                        ))
-                    }
-                }
-                other => Err(syn::Error::new(other.span(), "Expected a str literal")),
-            }
+        fn is_valid_type_ident(_type_ident: &str) -> bool {
+            // FIXME: what conditions here ?
+            true
         }
 
         let mut module_path = None;
@@ -398,17 +371,29 @@ impl TypePathOptions {
 
         for attribute in meta_list.nested {
             match attribute {
-                NestedMeta::Meta(Meta::NameValue(name_value)) => {
-                    if let Some(ident) = name_value.path.get_ident() {
-                        if ident == "path" {
-                            module_path = Some(parse_module_path(name_value.lit)?);
-                        } else if ident == "ident" {
-                            type_ident = Some(parse_tpye_ident(name_value.lit)?);
-                        }
+                NestedMeta::Meta(Meta::NameValue(name_value))
+                    if name_value.path.is_ident("path") =>
+                {
+                    let name = expected_literal_string(&name_value.lit)?;
+                    if is_valid_module_path(&name) {
+                        module_path = Some(name);
                     } else {
                         return Err(syn::Error::new(
-                            name_value.path.span(),
-                            format!("Unexpected entry for the `{TYPE_PATH_ATTRIBUTE_NAME}` attribute. Usage: #[{TYPE_PATH_ATTRIBUTE_NAME}(path = \"my_crate::my_module\", ident = \"MyType\")]"),
+                            name_value.lit.span(),
+                            "Expected a valid module path",
+                        ));
+                    }
+                }
+                NestedMeta::Meta(Meta::NameValue(name_value))
+                    if name_value.path.is_ident("ident") =>
+                {
+                    let name = expected_literal_string(&name_value.lit)?;
+                    if is_valid_type_ident(&name) {
+                        type_ident = Some(name);
+                    } else {
+                        return Err(syn::Error::new(
+                            name_value.lit.span(),
+                            "Expected a valid type ident",
                         ));
                     }
                 }
