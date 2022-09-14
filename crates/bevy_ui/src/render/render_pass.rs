@@ -203,8 +203,6 @@ impl EntityRenderCommand for DrawUiNode {
     ) -> RenderCommandResult {
         let batch = query_batch.get(item).unwrap();
 
-        println!("Rendering batch for view {:?}", batch.view);
-
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
         pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success
