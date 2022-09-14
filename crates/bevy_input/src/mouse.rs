@@ -1,6 +1,7 @@
 use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
 use bevy_math::Vec2;
+use bevy_reflect::TypePath;
 
 /// A mouse button input event.
 ///
@@ -28,7 +29,7 @@ pub struct MouseButtonInput {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`mouse_button_input_system`](crate::mouse::mouse_button_input_system).
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, TypePath)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum MouseButton {
     /// The left mouse button.

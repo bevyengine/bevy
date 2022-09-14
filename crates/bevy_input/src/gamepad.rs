@@ -1,6 +1,7 @@
 use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut, Resource};
+use bevy_reflect::TypePath;
 use bevy_utils::{tracing::info, HashMap, HashSet};
 
 /// A gamepad with an associated `ID`.
@@ -291,7 +292,7 @@ pub enum GamepadButtonType {
 /// ## Updating
 ///
 /// The resources are updated inside of the [`gamepad_event_system`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, TypePath)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadButton {
     /// The gamepad on which the button is located on.
