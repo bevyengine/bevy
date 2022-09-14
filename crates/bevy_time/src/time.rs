@@ -151,7 +151,7 @@ impl Time {
     ///
     /// If you intend to cast this to an `f32` value, note that this value is monotonically increasing,
     /// and that its precision as an `f32` will noticeably degrade over time (in a matter of hours).
-    /// If that precision loss is unacceptable, you should use [`Time::seconds_since_startup_f32_wrapped`], 
+    /// If that precision loss is unacceptable, you should use [`Time::seconds_since_startup_f32_wrapped`],
     /// which will return the time from startup modulo a wrapping period.
     #[inline]
     pub fn seconds_since_startup(&self) -> f64 {
