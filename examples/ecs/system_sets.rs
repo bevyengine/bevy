@@ -1,3 +1,26 @@
+//! Shows how systems with a similar purpose can be grouped into sets.
+//!
+//! ```none
+//! Physics                     (Criteria: App has run < 1.0 seconds)
+//!     \--> update_velocity        (via label PhysicsSystem::UpdateVelocity)
+//!     \--> movement               (via label PhysicsSystem::Movement)
+//! PostPhysics                 (Criteria: Resource `done` is false)
+//!     \--> collision || sfx
+//! Exit                        (Criteria: Resource `done` is true)
+//!     \--> exit
+//! ```
+//!
+//! The `Physics` label represents a [`SystemSet`] containing two systems.
+//! This set's criteria is to stop after a second has elapsed.
+//! The two systems (`update_velocity`, `movement`) run in a specified order.
+//!
+//! Another label `PostPhysics` uses run criteria to only run after `Physics` has finished.
+//! This set's criteria is to run only when _not done_, as specified via a resource.
+//! The two systems here (collision, sfx) are not specified to run in any order, and the actual
+//! ordering can then change between invocations.
+//!
+//! Lastly a system with run criteria  _done_ is used to exit the app.
+
 use bevy::{app::AppExit, ecs::schedule::ShouldRun, prelude::*};
 
 /// A [`SystemLabel`] can be applied as a label to systems and system sets,
@@ -13,32 +36,13 @@ struct Physics;
 struct PostPhysics;
 
 /// Resource used to stop our example.
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct Done(bool);
 
-/// This example realizes the following scheme:
-///
-/// ```none
-/// Physics                     (Criteria: App has run < 1.0 seconds)
-///     \--> update_velocity        (via label PhysicsSystem::UpdateVelocity)
-///     \--> movement               (via label PhysicsSystem::Movement)
-/// PostPhysics                 (Criteria: Resource `done` is false)
-///     \--> collision || sfx
-/// Exit                        (Criteria: Resource `done` is true)
-///     \--> exit
-/// ```
-///
-/// The `Physics` label represents a [`SystemSet`] containing two systems.
-/// This set's criteria is to stop after a second has elapsed.
-/// The two systems (`update_velocity`, `movement`) run in a specified order.
-///
-/// Another label `PostPhysics` uses run criteria to only run after `Physics` has finished.
-/// This set's criteria is to run only when _not done_, as specified via a resource.
-/// The two systems here (collision, sfx) are not specified to run in any order, and the actual
-/// ordering can then change between invocations.
-///
-/// Lastly a system with run criterion _done_ is used to exit the app.
 fn main() {
+    #[derive(RunCriteriaLabel)]
+    struct IsDone;
+
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Done>()
@@ -69,11 +73,7 @@ fn main() {
                 // This shows that we can modify existing run criteria results.
                 // Here we create a _not done_ criteria by piping the output of
                 // the `is_done` system and inverting the output.
-                // Notice a string literal also works as a label.
-                .with_run_criteria(RunCriteria::pipe(
-                    "is_done_label",
-                    IntoSystem::into_system(inverse),
-                ))
+                .with_run_criteria(RunCriteria::pipe(IsDone, inverse))
                 // `collision` and `sfx` are not ordered with respect to
                 // each other, and may run in any order
                 .with_system(collision)
@@ -82,7 +82,7 @@ fn main() {
         .add_system(
             exit.after(PostPhysics)
                 // Label the run criteria such that the `PostPhysics` set can reference it
-                .with_run_criteria(is_done.label("is_done_label")),
+                .with_run_criteria(is_done.label(IsDone)),
         )
         .run();
 }
@@ -106,11 +106,7 @@ fn run_for_a_second(time: Res<Time>, mut done: ResMut<Done>) -> ShouldRun {
 
 /// Another run criteria, simply using a resource.
 fn is_done(done: Res<Done>) -> ShouldRun {
-    if done.0 {
-        ShouldRun::Yes
-    } else {
-        ShouldRun::No
-    }
+    done.0.into()
 }
 
 /// Used with [`RunCritera::pipe`], inverts the result of the

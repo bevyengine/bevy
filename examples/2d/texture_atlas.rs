@@ -1,10 +1,12 @@
+//! In this example we generate a new texture atlas (sprite sheet) from a folder containing
+//! individual sprites.
+
 use bevy::{asset::LoadState, prelude::*};
 
-/// In this example we generate a new texture atlas (sprite sheet) from a folder containing
-/// individual sprites
 fn main() {
     App::new()
         .init_resource::<RpgSpriteHandles>()
+        .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
         .add_plugins(DefaultPlugins)
         .add_state(AppState::Setup)
         .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(load_textures))
@@ -19,7 +21,7 @@ enum AppState {
     Finished,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct RpgSpriteHandles {
     handles: Vec<HandleUntyped>,
 }
@@ -49,8 +51,9 @@ fn setup(
 ) {
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     for handle in &rpg_sprite_handles.handles {
-        let texture = textures.get(handle).unwrap();
-        texture_atlas_builder.add_texture(handle.clone_weak().typed::<Image>(), texture);
+        let handle = handle.typed_weak();
+        let texture = textures.get(&handle).expect("Textures folder contained a file which way matched by a loader which did not create an `Image` asset");
+        texture_atlas_builder.add_texture(handle, texture);
     }
 
     let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
@@ -60,7 +63,7 @@ fn setup(
     let atlas_handle = texture_atlases.add(texture_atlas);
 
     // set up a scene to display our texture atlas
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
     // draw a sprite from the atlas
     commands.spawn_bundle(SpriteSheetBundle {
         transform: Transform {

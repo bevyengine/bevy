@@ -1,3 +1,7 @@
+//! Demonstrates how shadow biases affect shadows in a 3d scene.
+
+use std::f32::consts::PI;
+
 use bevy::{input::mouse::MouseMotion, prelude::*};
 
 fn main() {
@@ -59,8 +63,6 @@ fn setup(
         ..default()
     });
 
-    let theta = std::f32::consts::FRAC_PI_4;
-    let light_transform = Mat4::from_euler(EulerRot::ZYX, 0.0, std::f32::consts::FRAC_PI_2, -theta);
     commands.spawn_bundle(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
@@ -78,13 +80,18 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_matrix(light_transform),
+        transform: Transform::from_rotation(Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            PI / 2.,
+            -PI / 4.,
+        )),
         ..default()
     });
 
     // camera
     commands
-        .spawn_bundle(PerspectiveCameraBundle {
+        .spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(-1.0, 1.0, 1.0)
                 .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
             ..default()
@@ -116,7 +123,7 @@ fn toggle_light(
     mut directional_lights: Query<&mut DirectionalLight>,
 ) {
     if input.just_pressed(KeyCode::L) {
-        for mut light in point_lights.iter_mut() {
+        for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
                 100000000.0
@@ -124,7 +131,7 @@ fn toggle_light(
                 0.0
             };
         }
-        for mut light in directional_lights.iter_mut() {
+        for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 println!("Using DirectionalLight");
                 100000.0
@@ -138,7 +145,7 @@ fn toggle_light(
 fn adjust_point_light_biases(input: Res<Input<KeyCode>>, mut query: Query<&mut PointLight>) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
-    for mut light in query.iter_mut() {
+    for mut light in &mut query {
         if input.just_pressed(KeyCode::Key1) {
             light.shadow_depth_bias -= depth_bias_step_size;
             println!("PointLight shadow_depth_bias: {}", light.shadow_depth_bias);
@@ -170,7 +177,7 @@ fn adjust_directional_light_biases(
 ) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
-    for mut light in query.iter_mut() {
+    for mut light in &mut query {
         if input.just_pressed(KeyCode::Key5) {
             light.shadow_depth_bias -= depth_bias_step_size;
             println!(
@@ -257,7 +264,7 @@ fn camera_controller(
         mouse_delta += mouse_event.delta;
     }
 
-    for (mut transform, mut options) in query.iter_mut() {
+    for (mut transform, mut options) in &mut query {
         if !options.enabled {
             continue;
         }
@@ -306,16 +313,10 @@ fn camera_controller(
 
         if mouse_delta != Vec2::ZERO {
             // Apply look update
-            let (pitch, yaw) = (
-                (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt).clamp(
-                    -0.99 * std::f32::consts::FRAC_PI_2,
-                    0.99 * std::f32::consts::FRAC_PI_2,
-                ),
-                options.yaw - mouse_delta.x * options.sensitivity * dt,
-            );
-            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, yaw, pitch);
-            options.pitch = pitch;
-            options.yaw = yaw;
+            options.pitch = (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt)
+                .clamp(-PI / 2., PI / 2.);
+            options.yaw -= mouse_delta.x * options.sensitivity * dt;
+            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
         }
     }
 }

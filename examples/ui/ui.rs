@@ -1,10 +1,11 @@
+//! This example illustrates the various features of Bevy UI.
+
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
     winit::WinitSettings,
 };
 
-/// This example illustrates the various features of Bevy UI.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -16,8 +17,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // ui camera
-    commands.spawn_bundle(UiCameraBundle::default());
+    // Camera
+    commands.spawn_bundle(Camera2dBundle::default());
 
     // root node
     commands
@@ -36,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn_bundle(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: Rect::all(Val::Px(2.0)),
+                        border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
                     color: Color::rgb(0.65, 0.65, 0.65).into(),
@@ -56,22 +57,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             // text
-                            parent.spawn_bundle(TextBundle {
-                                style: Style {
-                                    margin: Rect::all(Val::Px(5.0)),
-                                    ..default()
-                                },
-                                text: Text::with_section(
+                            parent.spawn_bundle(
+                                TextBundle::from_section(
                                     "Text Example",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 30.0,
                                         color: Color::WHITE,
                                     },
-                                    Default::default(),
-                                ),
-                                ..default()
-                            });
+                                )
+                                .with_style(Style {
+                                    margin: UiRect::all(Val::Px(5.0)),
+                                    ..default()
+                                }),
+                            );
                         });
                 });
             // right vertical fill
@@ -88,27 +87,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // Title
-                    parent.spawn_bundle(TextBundle {
-                        style: Style {
-                            size: Size::new(Val::Undefined, Val::Px(25.)),
-                            margin: Rect {
-                                left: Val::Auto,
-                                right: Val::Auto,
-                                ..default()
-                            },
-                            ..default()
-                        },
-                        text: Text::with_section(
+                    parent.spawn_bundle(
+                        TextBundle::from_section(
                             "Scrolling list",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 25.,
                                 color: Color::WHITE,
                             },
-                            Default::default(),
-                        ),
-                        ..default()
-                    });
+                        )
+                        .with_style(Style {
+                            size: Size::new(Val::Undefined, Val::Px(25.)),
+                            margin: UiRect {
+                                left: Val::Auto,
+                                right: Val::Auto,
+                                ..default()
+                            },
+                            ..default()
+                        }),
+                    );
                     // List with hidden overflow
                     parent
                         .spawn_bundle(NodeBundle {
@@ -129,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     style: Style {
                                         flex_direction: FlexDirection::ColumnReverse,
                                         flex_grow: 1.0,
-                                        max_size: Size::new(Val::Undefined, Val::Undefined),
+                                        max_size: Size::UNDEFINED,
                                         ..default()
                                     },
                                     color: Color::NONE.into(),
@@ -139,29 +136,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .with_children(|parent| {
                                     // List items
                                     for i in 0..30 {
-                                        parent.spawn_bundle(TextBundle {
-                                            style: Style {
-                                                flex_shrink: 0.,
-                                                size: Size::new(Val::Undefined, Val::Px(20.)),
-                                                margin: Rect {
-                                                    left: Val::Auto,
-                                                    right: Val::Auto,
-                                                    ..default()
-                                                },
-                                                ..default()
-                                            },
-                                            text: Text::with_section(
-                                                format!("Item {}", i),
+                                        parent.spawn_bundle(
+                                            TextBundle::from_section(
+                                                format!("Item {i}"),
                                                 TextStyle {
                                                     font: asset_server
                                                         .load("fonts/FiraSans-Bold.ttf"),
                                                     font_size: 20.,
                                                     color: Color::WHITE,
                                                 },
-                                                Default::default(),
-                                            ),
-                                            ..default()
-                                        });
+                                            )
+                                            .with_style(Style {
+                                                flex_shrink: 0.,
+                                                size: Size::new(Val::Undefined, Val::Px(20.)),
+                                                margin: UiRect {
+                                                    left: Val::Auto,
+                                                    right: Val::Auto,
+                                                    ..default()
+                                                },
+                                                ..default()
+                                            }),
+                                        );
                                     }
                                 });
                         });
@@ -172,12 +167,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Px(200.0)),
                         position_type: PositionType::Absolute,
-                        position: Rect {
+                        position: UiRect {
                             left: Val::Px(210.0),
                             bottom: Val::Px(10.0),
                             ..default()
                         },
-                        border: Rect::all(Val::Px(20.0)),
+                        border: UiRect::all(Val::Px(20.0)),
                         ..default()
                     },
                     color: Color::rgb(0.4, 0.4, 1.0).into(),
@@ -221,7 +216,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: Rect {
+                                    position: UiRect {
                                         left: Val::Px(20.0),
                                         bottom: Val::Px(20.0),
                                         ..default()
@@ -235,7 +230,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: Rect {
+                                    position: UiRect {
                                         left: Val::Px(40.0),
                                         bottom: Val::Px(40.0),
                                         ..default()
@@ -249,7 +244,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: Rect {
+                                    position: UiRect {
                                         left: Val::Px(60.0),
                                         bottom: Val::Px(60.0),
                                         ..default()
@@ -264,7 +259,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 style: Style {
                                     size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                     position_type: PositionType::Absolute,
-                                    position: Rect {
+                                    position: UiRect {
                                         left: Val::Px(80.0),
                                         bottom: Val::Px(80.0),
                                         ..default()
@@ -314,7 +309,7 @@ fn mouse_scroll(
     query_item: Query<&Node>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.iter() {
-        for (mut scrolling_list, mut style, children, uinode) in query_list.iter_mut() {
+        for (mut scrolling_list, mut style, children, uinode) in &mut query_list {
             let items_height: f32 = children
                 .iter()
                 .map(|entity| query_item.get(*entity).unwrap().size.y)

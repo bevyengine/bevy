@@ -1,11 +1,9 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::{std140::AsStd140, *},
-    renderer::RenderDevice,
-    texture::BevyDefault,
-    view::ViewUniform,
+    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
 };
 
+#[derive(Resource)]
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
@@ -13,8 +11,7 @@ pub struct UiPipeline {
 
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -23,7 +20,7 @@ impl FromWorld for UiPipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                    min_binding_size: Some(ViewUniform::min_size()),
                 },
                 count: None,
             }],
@@ -74,7 +71,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 // uv
                 VertexFormat::Float32x2,
                 // color
-                VertexFormat::Uint32,
+                VertexFormat::Float32x4,
             ],
         );
         let shader_defs = Vec::new();
@@ -90,11 +87,11 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
+                targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
             primitive: PrimitiveState {

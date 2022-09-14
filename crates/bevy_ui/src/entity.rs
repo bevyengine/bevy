@@ -4,12 +4,16 @@ use crate::{
     widget::{Button, ImageMode},
     CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
 };
-use bevy_ecs::{bundle::Bundle, prelude::Component};
-use bevy_render::{
-    camera::{Camera, DepthCalculation, OrthographicProjection, WindowOrigin},
-    view::{Visibility, VisibleEntities},
+use bevy_ecs::{
+    bundle::Bundle,
+    prelude::{Component, With},
+    query::QueryItem,
 };
-use bevy_text::Text;
+use bevy_render::{
+    camera::Camera, extract_component::ExtractComponent, prelude::ComputedVisibility,
+    view::Visibility,
+};
+use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -31,6 +35,8 @@ pub struct NodeBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 /// A UI node that is an image
@@ -56,6 +62,8 @@ pub struct ImageBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 /// A UI node that is text
@@ -77,6 +85,42 @@ pub struct TextBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
+}
+
+impl TextBundle {
+    /// Create a [`TextBundle`] from a single section.
+    ///
+    /// See [`Text::from_section`] for usage.
+    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+        Self {
+            text: Text::from_section(value, style),
+            ..Default::default()
+        }
+    }
+
+    /// Create a [`TextBundle`] from a list of sections.
+    ///
+    /// See [`Text::from_sections`] for usage.
+    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+        Self {
+            text: Text::from_sections(sections),
+            ..Default::default()
+        }
+    }
+
+    /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
+    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
+        self.text.alignment = alignment;
+        self
+    }
+
+    /// Returns this [`TextBundle`] with a new [`Style`].
+    pub const fn with_style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
 }
 
 impl Default for TextBundle {
@@ -90,6 +134,7 @@ impl Default for TextBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
+            computed_visibility: Default::default(),
         }
     }
 }
@@ -117,6 +162,8 @@ pub struct ButtonBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
 }
 
 impl Default for ButtonBundle {
@@ -132,48 +179,36 @@ impl Default for ButtonBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
+            computed_visibility: Default::default(),
         }
     }
 }
-#[derive(Component, Default)]
-pub struct CameraUi;
-
-/// The camera that is needed to see UI elements
-#[derive(Bundle, Debug)]
-pub struct UiCameraBundle<M: Component> {
-    /// The camera component
-    pub camera: Camera,
-    /// The orthographic projection settings
-    pub orthographic_projection: OrthographicProjection,
-    /// The transform of the camera
-    pub transform: Transform,
-    /// The global transform of the camera
-    pub global_transform: GlobalTransform,
-    /// Contains visible entities
-    // FIXME there is no frustrum culling for UI
-    pub visible_entities: VisibleEntities,
-    pub marker: M,
+/// Configuration for cameras related to UI.
+///
+/// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
+/// it will display the UI by default.
+///
+/// [`Camera`]: bevy_render::camera::Camera
+#[derive(Component, Clone)]
+pub struct UiCameraConfig {
+    /// Whether to output UI to this camera view.
+    ///
+    /// When a `Camera` doesn't have the [`UiCameraConfig`] component,
+    /// it will display the UI by default.
+    pub show_ui: bool,
 }
 
-impl Default for UiCameraBundle<CameraUi> {
+impl Default for UiCameraConfig {
     fn default() -> Self {
-        // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
-        // the camera's translation by far and use a right handed coordinate system
-        let far = 1000.0;
-        UiCameraBundle {
-            camera: Camera {
-                ..Default::default()
-            },
-            orthographic_projection: OrthographicProjection {
-                far,
-                window_origin: WindowOrigin::BottomLeft,
-                depth_calculation: DepthCalculation::ZDifference,
-                ..Default::default()
-            },
-            transform: Transform::from_xyz(0.0, 0.0, far - 0.1),
-            global_transform: Default::default(),
-            visible_entities: Default::default(),
-            marker: CameraUi,
-        }
+        Self { show_ui: true }
+    }
+}
+
+impl ExtractComponent for UiCameraConfig {
+    type Query = &'static Self;
+    type Filter = With<Camera>;
+
+    fn extract_component(item: QueryItem<Self::Query>) -> Self {
+        item.clone()
     }
 }

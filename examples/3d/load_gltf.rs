@@ -1,3 +1,7 @@
+//! Loads and renders a glTF file as a scene.
+
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 
 fn main() {
@@ -13,8 +17,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_scene(asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"));
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ..default()
     });
@@ -35,18 +38,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         ..default()
     });
+    commands.spawn_bundle(SceneBundle {
+        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+        ..default()
+    });
 }
 
 fn animate_light_direction(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         transform.rotation = Quat::from_euler(
             EulerRot::ZYX,
             0.0,
-            time.seconds_since_startup() as f32 * std::f32::consts::TAU / 10.0,
-            -std::f32::consts::FRAC_PI_4,
+            time.seconds_since_startup() as f32 * PI / 5.0,
+            -PI / 4.,
         );
     }
 }

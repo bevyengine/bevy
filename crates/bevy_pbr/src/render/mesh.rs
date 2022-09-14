@@ -1,31 +1,33 @@
 use crate::{
-    GlobalLightMeta, GpuLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
-    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
+    GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
+    ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::*, SystemParamItem},
+    system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Mat4, Size};
+use bevy_math::{Mat3A, Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, Mesh, MeshVertexBufferLayout,
     },
     render_asset::RenderAssets,
-    render_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, GpuImage, Image, TextureFormatPixelInfo},
+    texture::{
+        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+    },
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-use smallvec::SmallVec;
 use std::num::NonZeroU64;
 
 #[derive(Default)]
@@ -35,10 +37,18 @@ const MAX_JOINTS: usize = 256;
 const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
-pub const MESH_VIEW_BIND_GROUP_HANDLE: HandleUntyped =
+pub const MESH_VERTEX_OUTPUT: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2645551199423808407);
+pub const MESH_VIEW_TYPES_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8140454348013264787);
+pub const MESH_VIEW_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9076678235888822571);
-pub const MESH_STRUCT_HANDLE: HandleUntyped =
+pub const MESH_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2506024101911992377);
+pub const MESH_BINDINGS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16831548636314682308);
+pub const MESH_FUNCTIONS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6300874327833745635);
 pub const MESH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3252377289100772450);
 pub const SKINNING_HANDLE: HandleUntyped =
@@ -46,19 +56,38 @@ pub const SKINNING_HANDLE: HandleUntyped =
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        load_internal_asset!(
+            app,
+            MESH_VERTEX_OUTPUT,
+            "mesh_vertex_output.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_VIEW_TYPES_HANDLE,
+            "mesh_view_types.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_VIEW_BINDINGS_HANDLE,
+            "mesh_view_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(app, MESH_TYPES_HANDLE, "mesh_types.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            MESH_BINDINGS_HANDLE,
+            "mesh_bindings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESH_FUNCTIONS_HANDLE,
+            "mesh_functions.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            MESH_STRUCT_HANDLE,
-            "mesh_struct.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH_VIEW_BIND_GROUP_HANDLE,
-            "mesh_view_bind_group.wgsl",
-            Shader::from_wgsl
-        );
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
@@ -76,7 +105,7 @@ impl Plugin for MeshRenderPlugin {
     }
 }
 
-#[derive(Component, AsStd140, Clone)]
+#[derive(Component, ShaderType, Clone)]
 pub struct MeshUniform {
     pub transform: Mat4,
     pub inverse_transpose_model: Mat4,
@@ -88,6 +117,9 @@ bitflags::bitflags! {
     #[repr(transparent)]
     struct MeshFlags: u32 {
         const SHADOW_RECEIVER            = (1 << 0);
+        // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
+        // then the flag should be set, else it should not be set.
+        const SIGN_DETERMINANT_MODEL_3X3 = (1 << 31);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -95,82 +127,51 @@ bitflags::bitflags! {
 
 pub fn extract_meshes(
     mut commands: Commands,
-    mut previous_caster_len: Local<usize>,
-    mut previous_not_caster_len: Local<usize>,
-    caster_query: Query<
-        (
+    mut prev_caster_commands_len: Local<usize>,
+    mut prev_not_caster_commands_len: Local<usize>,
+    meshes_query: Extract<
+        Query<(
             Entity,
             &ComputedVisibility,
             &GlobalTransform,
             &Handle<Mesh>,
-            Option<&NotShadowReceiver>,
-        ),
-        Without<NotShadowCaster>,
-    >,
-    not_caster_query: Query<
-        (
-            Entity,
-            &ComputedVisibility,
-            &GlobalTransform,
-            &Handle<Mesh>,
-            Option<&NotShadowReceiver>,
-        ),
-        With<NotShadowCaster>,
+            Option<With<NotShadowReceiver>>,
+            Option<With<NotShadowCaster>>,
+        )>,
     >,
 ) {
-    let mut caster_values = Vec::with_capacity(*previous_caster_len);
-    for (entity, computed_visibility, transform, handle, not_receiver) in caster_query.iter() {
-        if !computed_visibility.is_visible {
-            continue;
-        }
-        let transform = transform.compute_matrix();
-        caster_values.push((
-            entity,
-            (
-                handle.clone_weak(),
-                MeshUniform {
-                    flags: if not_receiver.is_some() {
-                        MeshFlags::empty().bits
-                    } else {
-                        MeshFlags::SHADOW_RECEIVER.bits
-                    },
-                    transform,
-                    inverse_transpose_model: transform.inverse().transpose(),
-                },
-            ),
-        ));
-    }
-    *previous_caster_len = caster_values.len();
-    commands.insert_or_spawn_batch(caster_values);
+    let mut caster_commands = Vec::with_capacity(*prev_caster_commands_len);
+    let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
+    let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.is_visible());
 
-    let mut not_caster_values = Vec::with_capacity(*previous_not_caster_len);
-    for (entity, computed_visibility, transform, mesh, not_receiver) in not_caster_query.iter() {
-        if !computed_visibility.is_visible {
-            continue;
-        }
+    for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
         let transform = transform.compute_matrix();
-        not_caster_values.push((
-            entity,
-            (
-                mesh.clone_weak(),
-                MeshUniform {
-                    flags: if not_receiver.is_some() {
-                        MeshFlags::empty().bits
-                    } else {
-                        MeshFlags::SHADOW_RECEIVER.bits
-                    },
-                    transform,
-                    inverse_transpose_model: transform.inverse().transpose(),
-                },
-                NotShadowCaster,
-            ),
-        ));
+        let mut flags = if not_receiver.is_some() {
+            MeshFlags::empty()
+        } else {
+            MeshFlags::SHADOW_RECEIVER
+        };
+        if Mat3A::from_mat4(transform).determinant().is_sign_positive() {
+            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+        }
+        let uniform = MeshUniform {
+            flags: flags.bits,
+            transform,
+            inverse_transpose_model: transform.inverse().transpose(),
+        };
+        if not_caster.is_some() {
+            not_caster_commands.push((entity, (handle.clone_weak(), uniform, NotShadowCaster)));
+        } else {
+            caster_commands.push((entity, (handle.clone_weak(), uniform)));
+        }
     }
-    *previous_not_caster_len = not_caster_values.len();
-    commands.insert_or_spawn_batch(not_caster_values);
+    *prev_caster_commands_len = caster_commands.len();
+    *prev_not_caster_commands_len = not_caster_commands.len();
+    commands.insert_or_spawn_batch(caster_commands);
+    commands.insert_or_spawn_batch(not_caster_commands);
 }
 
-#[derive(Debug, Default)]
+#[derive(Resource, Debug, Default)]
 pub struct ExtractedJoints {
     pub buffer: Vec<Mat4>,
 }
@@ -191,15 +192,16 @@ impl SkinnedMeshJoints {
         let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
         let bindposes = inverse_bindposes.iter();
         let skin_joints = skin.joints.iter();
-        let mut temp =
-            SmallVec::<[Mat4; MAX_JOINTS]>::with_capacity(bindposes.len().min(MAX_JOINTS));
+        let start = buffer.len();
         for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(MAX_JOINTS) {
-            let joint_matrix = joints.get(*joint).ok()?.compute_matrix();
-            temp.push(joint_matrix * *inverse_bindpose);
+            if let Ok(joint) = joints.get(*joint) {
+                buffer.push(joint.affine() * *inverse_bindpose);
+            } else {
+                buffer.truncate(start);
+                return None;
+            }
         }
 
-        let start = buffer.len();
-        buffer.extend(temp);
         // Pad to 256 byte alignment
         while buffer.len() % 4 != 0 {
             buffer.push(Mat4::ZERO);
@@ -216,19 +218,19 @@ impl SkinnedMeshJoints {
 }
 
 pub fn extract_skinned_meshes(
-    query: Query<(Entity, &ComputedVisibility, &SkinnedMesh)>,
-    inverse_bindposes: Res<Assets<SkinnedMeshInverseBindposes>>,
-    joint_query: Query<&GlobalTransform>,
     mut commands: Commands,
     mut previous_len: Local<usize>,
     mut previous_joint_len: Local<usize>,
+    query: Extract<Query<(Entity, &ComputedVisibility, &SkinnedMesh)>>,
+    inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
+    joint_query: Extract<Query<&GlobalTransform>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     let mut joints = Vec::with_capacity(*previous_joint_len);
     let mut last_start = 0;
 
     for (entity, computed_visibility, skin) in query.iter() {
-        if !computed_visibility.is_visible {
+        if !computed_visibility.is_visible() {
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?
@@ -251,18 +253,27 @@ pub fn extract_skinned_meshes(
     commands.insert_or_spawn_batch(values);
 }
 
-#[derive(Clone)]
+#[derive(Resource, Clone)]
 pub struct MeshPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
     pub skinned_mesh_layout: BindGroupLayout,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
+    pub clustered_forward_buffer_binding_type: BufferBindingType,
 }
 
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let mut system_state: SystemState<(
+            Res<RenderDevice>,
+            Res<DefaultImageSampler>,
+            Res<RenderQueue>,
+        )> = SystemState::new(world);
+        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let clustered_forward_buffer_binding_type = render_device
+            .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -272,7 +283,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                        min_binding_size: Some(ViewUniform::min_size()),
                     },
                     count: None,
                 },
@@ -283,7 +294,7 @@ impl FromWorld for MeshPipeline {
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
-                        min_binding_size: BufferSize::new(GpuLights::std140_size_static() as u64),
+                        min_binding_size: Some(GpuLights::min_size()),
                     },
                     count: None,
                 },
@@ -334,11 +345,11 @@ impl FromWorld for MeshPipeline {
                     binding: 6,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
+                        ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        // NOTE: Static size for uniform buffers. GpuPointLight has a padded
-                        // size of 64 bytes, so 16384 / 64 = 256 point lights max
-                        min_binding_size: BufferSize::new(16384),
+                        min_binding_size: Some(GpuPointLights::min_size(
+                            clustered_forward_buffer_binding_type,
+                        )),
                     },
                     count: None,
                 },
@@ -347,10 +358,13 @@ impl FromWorld for MeshPipeline {
                     binding: 7,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
+                        ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        // NOTE: With 256 point lights max, indices need 8 bits so use u8
-                        min_binding_size: BufferSize::new(16384),
+                        min_binding_size: Some(
+                            ViewClusterBindings::min_size_cluster_light_index_lists(
+                                clustered_forward_buffer_binding_type,
+                            ),
+                        ),
                     },
                     count: None,
                 },
@@ -359,13 +373,13 @@ impl FromWorld for MeshPipeline {
                     binding: 8,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
+                        ty: clustered_forward_buffer_binding_type,
                         has_dynamic_offset: false,
-                        // NOTE: The offset needs to address 16384 indices, which needs 14 bits.
-                        // The count can be at most all 256 lights so 8 bits.
-                        // Pack the offset into the upper 24 bits and the count into the
-                        // lower 8 bits.
-                        min_binding_size: BufferSize::new(16384),
+                        min_binding_size: Some(
+                            ViewClusterBindings::min_size_cluster_offsets_and_counts(
+                                clustered_forward_buffer_binding_type,
+                            ),
+                        ),
                     },
                     count: None,
                 },
@@ -379,7 +393,7 @@ impl FromWorld for MeshPipeline {
             ty: BindingType::Buffer {
                 ty: BufferBindingType::Uniform,
                 has_dynamic_offset: true,
-                min_binding_size: BufferSize::new(MeshUniform::std140_size_static() as u64),
+                min_binding_size: Some(MeshUniform::min_size()),
             },
             count: None,
         };
@@ -416,10 +430,12 @@ impl FromWorld for MeshPipeline {
                 TextureFormat::bevy_default(),
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = render_device.create_sampler(&image.sampler_descriptor);
+            let sampler = match image.sampler_descriptor {
+                ImageSampler::Default => (**default_sampler).clone(),
+                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let render_queue = world.resource_mut::<RenderQueue>();
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -447,7 +463,7 @@ impl FromWorld for MeshPipeline {
                 texture_view,
                 texture_format: image.texture_descriptor.format,
                 sampler,
-                size: Size::new(
+                size: Vec2::new(
                     image.texture_descriptor.size.width as f32,
                     image.texture_descriptor.size.height as f32,
                 ),
@@ -457,6 +473,7 @@ impl FromWorld for MeshPipeline {
             view_layout,
             mesh_layout,
             skinned_mesh_layout,
+            clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
         }
     }
@@ -483,35 +500,36 @@ impl MeshPipeline {
 bitflags::bitflags! {
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
+    /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
         const TRANSPARENT_MAIN_PASS       = (1 << 0);
-        const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
 impl MeshPipelineKey {
-    const MSAA_MASK_BITS: u32 = 0b111111;
-    const MSAA_SHIFT_BITS: u32 = 32 - 6;
+    const MSAA_MASK_BITS: u32 = 0b111;
+    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
-        let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        MeshPipelineKey::from_bits(msaa_bits).unwrap()
+        let msaa_bits =
+            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        Self::from_bits(msaa_bits).unwrap()
     }
 
     pub fn msaa_samples(&self) -> u32 {
-        ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+        1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        MeshPipelineKey::from_bits(primitive_topology_bits).unwrap()
+        Self::from_bits(primitive_topology_bits).unwrap()
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -539,13 +557,22 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut vertex_attributes = vec![
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
-            Mesh::ATTRIBUTE_UV_0.at_shader_location(2),
         ];
 
         let mut shader_defs = Vec::new();
+        if layout.contains(Mesh::ATTRIBUTE_UV_0) {
+            shader_defs.push(String::from("VERTEX_UVS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push(String::from("VERTEX_TANGENTS"));
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
+        }
+
+        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push(String::from("VERTEX_COLORS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
         let mut bind_group_layout = vec![self.view_layout.clone()];
@@ -553,8 +580,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
             shader_defs.push(String::from("SKINNED"));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
-            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(5));
+            vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(6));
             bind_group_layout.push(self.skinned_mesh_layout.clone());
         } else {
             bind_group_layout.push(self.mesh_layout.clone());
@@ -578,9 +605,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_write_enabled = true;
         }
 
-        #[cfg(feature = "webgl")]
-        shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
-
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -592,11 +616,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
+                targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend,
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             layout: Some(bind_group_layout),
             primitive: PrimitiveState {
@@ -634,6 +658,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
     }
 }
 
+#[derive(Resource)]
 pub struct MeshBindGroup {
     pub normal: BindGroup,
     pub skinned: Option<BindGroup>,
@@ -659,7 +684,7 @@ pub fn queue_mesh_bind_group(
             skinned: None,
         };
 
-        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.uniform_buffer() {
+        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.buffer() {
             mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -683,9 +708,23 @@ pub fn queue_mesh_bind_group(
     }
 }
 
-#[derive(Default)]
+// NOTE: This is using BufferVec because it is using a trick to allow a fixed-size array
+// in a uniform buffer to be used like a variable-sized array by only writing the valid data
+// into the buffer, knowing the number of valid items starting from the dynamic offset, and
+// ignoring the rest, whether they're valid for other dynamic offsets or not. This trick may
+// be supported later in encase, and then we should make use of it.
+
+#[derive(Resource)]
 pub struct SkinnedMeshUniform {
-    pub buffer: UniformVec<Mat4>,
+    pub buffer: BufferVec<Mat4>,
+}
+
+impl Default for SkinnedMeshUniform {
+    fn default() -> Self {
+        Self {
+            buffer: BufferVec::new(BufferUsages::UNIFORM),
+        }
+    }
 }
 
 pub fn prepare_skinned_meshes(
@@ -702,7 +741,7 @@ pub fn prepare_skinned_meshes(
     skinned_mesh_uniform
         .buffer
         .reserve(extracted_joints.buffer.len(), &render_device);
-    for joint in extracted_joints.buffer.iter() {
+    for joint in &extracted_joints.buffer {
         skinned_mesh_uniform.buffer.push(*joint);
     }
     skinned_mesh_uniform
@@ -731,7 +770,7 @@ pub fn queue_mesh_view_bind_groups(
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings) in views.iter() {
+        for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
@@ -770,17 +809,11 @@ pub fn queue_mesh_view_bind_groups(
                     },
                     BindGroupEntry {
                         binding: 7,
-                        resource: view_cluster_bindings
-                            .cluster_light_index_lists
-                            .binding()
-                            .unwrap(),
+                        resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
                     },
                     BindGroupEntry {
                         binding: 8,
-                        resource: view_cluster_bindings
-                            .cluster_offsets_and_counts
-                            .binding()
-                            .unwrap(),
+                        resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),
@@ -891,7 +924,7 @@ mod tests {
     use super::MeshPipelineKey;
     #[test]
     fn mesh_key_msaa_samples() {
-        for i in 1..=64 {
+        for i in [1, 2, 4, 8, 16, 32, 64, 128] {
             assert_eq!(MeshPipelineKey::from_msaa_samples(i).msaa_samples(), i);
         }
     }

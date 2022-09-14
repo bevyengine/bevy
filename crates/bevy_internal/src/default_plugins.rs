@@ -3,6 +3,7 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 /// This plugin group will add all the default plugins:
 /// * [`LogPlugin`](bevy_log::LogPlugin)
 /// * [`CorePlugin`](bevy_core::CorePlugin)
+/// * [`TimePlugin`](bevy_time::TimePlugin)
 /// * [`TransformPlugin`](bevy_transform::TransformPlugin)
 /// * [`HierarchyPlugin`](bevy_hierarchy::HierarchyPlugin)
 /// * [`DiagnosticsPlugin`](bevy_diagnostic::DiagnosticsPlugin)
@@ -27,14 +28,20 @@ impl PluginGroup for DefaultPlugins {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
         group.add(bevy_log::LogPlugin::default());
         group.add(bevy_core::CorePlugin::default());
+        group.add(bevy_time::TimePlugin::default());
         group.add(bevy_transform::TransformPlugin::default());
         group.add(bevy_hierarchy::HierarchyPlugin::default());
         group.add(bevy_diagnostic::DiagnosticsPlugin::default());
         group.add(bevy_input::InputPlugin::default());
         group.add(bevy_window::WindowPlugin::default());
+
+        #[cfg(feature = "bevy_asset")]
         group.add(bevy_asset::AssetPlugin::default());
+
         #[cfg(feature = "debug_asset_server")]
         group.add(bevy_asset::debug_asset_server::DebugAssetServerPlugin::default());
+
+        #[cfg(feature = "bevy_scene")]
         group.add(bevy_scene::ScenePlugin::default());
 
         #[cfg(feature = "bevy_winit")]
@@ -76,6 +83,7 @@ impl PluginGroup for DefaultPlugins {
 
 /// Minimal plugin group that will add the following plugins:
 /// * [`CorePlugin`](bevy_core::CorePlugin)
+/// * [`TimePlugin`](bevy_time::TimePlugin)
 /// * [`ScheduleRunnerPlugin`](bevy_app::ScheduleRunnerPlugin)
 ///
 /// See also [`DefaultPlugins`] for a more complete set of plugins
@@ -84,6 +92,7 @@ pub struct MinimalPlugins;
 impl PluginGroup for MinimalPlugins {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
         group.add(bevy_core::CorePlugin::default());
+        group.add(bevy_time::TimePlugin::default());
         group.add(bevy_app::ScheduleRunnerPlugin::default());
     }
 }

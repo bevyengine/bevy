@@ -69,10 +69,13 @@ impl AssetLoader for ImageTextureLoader {
 
 impl FromWorld for ImageTextureLoader {
     fn from_world(world: &mut World) -> Self {
+        let supported_compressed_formats = match world.get_resource::<RenderDevice>() {
+            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+
+            None => CompressedImageFormats::all(),
+        };
         Self {
-            supported_compressed_formats: CompressedImageFormats::from_features(
-                world.resource::<RenderDevice>().features(),
-            ),
+            supported_compressed_formats,
         }
     }
 }

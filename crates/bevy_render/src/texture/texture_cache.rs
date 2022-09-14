@@ -2,7 +2,7 @@ use crate::{
     render_resource::{Texture, TextureView},
     renderer::RenderDevice,
 };
-use bevy_ecs::prelude::ResMut;
+use bevy_ecs::{prelude::ResMut, system::Resource};
 use bevy_utils::{Entry, HashMap};
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
 
@@ -18,6 +18,7 @@ struct CachedTextureMeta {
 /// A cached GPU [`Texture`] with corresponding [`TextureView`].
 /// This is useful for textures that are created repeatedly (each frame) in the rendering process
 /// to reduce the amount of GPU memory allocations.
+#[derive(Clone)]
 pub struct CachedTexture {
     pub texture: Texture,
     pub default_view: TextureView,
@@ -25,7 +26,7 @@ pub struct CachedTexture {
 
 /// This resource caches textures that are created repeatedly in the rendering process and
 /// are only required for one frame.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct TextureCache {
     textures: HashMap<wgpu::TextureDescriptor<'static>, Vec<CachedTextureMeta>>,
 }

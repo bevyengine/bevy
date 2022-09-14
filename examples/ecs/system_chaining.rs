@@ -1,3 +1,6 @@
+//! Illustrates how to make a single system from multiple functions running in sequence and sharing
+//! their inputs and outputs.
+
 use anyhow::Result;
 use bevy::prelude::*;
 
@@ -8,7 +11,7 @@ fn main() {
         .run();
 }
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct Message(String);
 
 // this system produces a Result<usize> output by trying to parse the Message resource

@@ -4,13 +4,16 @@ pub mod prelude {
 
 pub mod futures;
 pub mod label;
+mod short_names;
+pub use short_names::get_short_name;
+pub mod synccell;
 
 mod default;
-mod enum_variant_meta;
+mod float_ord;
 
 pub use ahash::AHasher;
 pub use default::default;
-pub use enum_variant_meta::*;
+pub use float_ord::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant};
 pub use tracing;
@@ -199,7 +202,7 @@ pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;
 pub trait PreHashMapExt<K, V> {
     /// Tries to get or insert the value for the given `key` using the pre-computed hash first.
     /// If the [`PreHashMap`] does not already contain the `key`, it will clone it and insert
-    /// the value returned by `func`.  
+    /// the value returned by `func`.
     fn get_or_insert_with<F: FnOnce() -> V>(&mut self, key: &Hashed<K>, func: F) -> &mut V;
 }
 

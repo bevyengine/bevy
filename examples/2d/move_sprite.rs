@@ -1,3 +1,5 @@
+//! Renders a 2D scene containing a single, moving sprite.
+
 use bevy::prelude::*;
 
 fn main() {
@@ -15,7 +17,7 @@ enum Direction {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands
         .spawn_bundle(SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
@@ -25,8 +27,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Direction::Up);
 }
 
+/// The sprite is animated by changing its translation depending on the time that has passed since
+/// the last frame.
 fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
-    for (mut logo, mut transform) in sprite_position.iter_mut() {
+    for (mut logo, mut transform) in &mut sprite_position {
         match *logo {
             Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
             Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),

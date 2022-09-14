@@ -10,9 +10,11 @@ pub use window::*;
 
 use crate::{
     camera::ExtractedCamera,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
+    rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
-    render_resource::{std140::AsStd140, DynamicUniformVec, Texture, TextureView},
+    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
@@ -20,18 +22,23 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3};
+use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::HashMap;
 
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Msaa>().add_plugin(VisibilityPlugin);
+        app.register_type::<Msaa>()
+            .init_resource::<Msaa>()
+            // NOTE: windows.is_changed() handles cases where a window was resized
+            .add_plugin(ExtractResourcePlugin::<Msaa>::default())
+            .add_plugin(VisibilityPlugin);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .add_system_to_stage(RenderStage::Extract, extract_msaa)
                 .add_system_to_stage(RenderStage::Prepare, prepare_view_uniforms)
                 .add_system_to_stage(
                     RenderStage::Prepare,
@@ -41,7 +48,6 @@ impl Plugin for ViewPlugin {
     }
 }
 
-#[derive(Clone)]
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
 /// # Example
@@ -52,6 +58,8 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa { samples: 4 })
 ///     .run();
 /// ```
+#[derive(Resource, Clone, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
     /// smoother edges.
@@ -69,37 +77,37 @@ impl Default for Msaa {
     }
 }
 
-pub fn extract_msaa(mut commands: Commands, msaa: Res<Msaa>) {
-    // NOTE: windows.is_changed() handles cases where a window was resized
-    commands.insert_resource(msaa.clone());
-}
-
 #[derive(Component)]
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
     pub width: u32,
     pub height: u32,
-    pub near: f32,
-    pub far: f32,
 }
 
-#[derive(Clone, AsStd140)]
+impl ExtractedView {
+    /// Creates a 3D rangefinder for a view
+    pub fn rangefinder3d(&self) -> ViewRangefinder3d {
+        ViewRangefinder3d::from_view_matrix(&self.transform.compute_matrix())
+    }
+}
+
+#[derive(Clone, ShaderType)]
 pub struct ViewUniform {
     view_proj: Mat4,
+    inverse_view_proj: Mat4,
     view: Mat4,
     inverse_view: Mat4,
     projection: Mat4,
+    inverse_projection: Mat4,
     world_position: Vec3,
-    near: f32,
-    far: f32,
     width: f32,
     height: f32,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ViewUniforms {
-    pub uniforms: DynamicUniformVec<ViewUniform>,
+    pub uniforms: DynamicUniformBuffer<ViewUniform>,
 }
 
 #[derive(Component)]
@@ -116,11 +124,7 @@ pub struct ViewTarget {
 impl ViewTarget {
     pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
         RenderPassColorAttachment {
-            view: if let Some(sampled_target) = &self.sampled_target {
-                sampled_target
-            } else {
-                &self.view
-            },
+            view: self.sampled_target.as_ref().unwrap_or(&self.view),
             resolve_target: if self.sampled_target.is_some() {
                 Some(&self.view)
             } else {
@@ -145,19 +149,20 @@ fn prepare_view_uniforms(
     views: Query<(Entity, &ExtractedView)>,
 ) {
     view_uniforms.uniforms.clear();
-    for (entity, camera) in views.iter() {
+    for (entity, camera) in &views {
         let projection = camera.projection;
+        let inverse_projection = projection.inverse();
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
                 view_proj: projection * inverse_view,
+                inverse_view_proj: view * inverse_projection,
                 view,
                 inverse_view,
                 projection,
-                world_position: camera.transform.translation,
-                near: camera.near,
-                far: camera.far,
+                inverse_projection,
+                world_position: camera.transform.translation(),
                 width: camera.width as f32,
                 height: camera.height as f32,
             }),
@@ -181,26 +186,31 @@ fn prepare_view_targets(
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera)>,
 ) {
-    for (entity, camera) in cameras.iter() {
-        if let Some(size) = camera.physical_size {
+    let mut sampled_textures = HashMap::default();
+    for (entity, camera) in &cameras {
+        if let Some(target_size) = camera.physical_target_size {
             if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
                 let sampled_target = if msaa.samples > 1 {
-                    let sampled_texture = texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("sampled_color_attachment_texture"),
-                            size: Extent3d {
-                                width: size.x,
-                                height: size.y,
-                                depth_or_array_layers: 1,
-                            },
-                            mip_level_count: 1,
-                            sample_count: msaa.samples,
-                            dimension: TextureDimension::D2,
-                            format: TextureFormat::bevy_default(),
-                            usage: TextureUsages::RENDER_ATTACHMENT,
-                        },
-                    );
+                    let sampled_texture = sampled_textures
+                        .entry(camera.target.clone())
+                        .or_insert_with(|| {
+                            texture_cache.get(
+                                &render_device,
+                                TextureDescriptor {
+                                    label: Some("sampled_color_attachment_texture"),
+                                    size: Extent3d {
+                                        width: target_size.x,
+                                        height: target_size.y,
+                                        depth_or_array_layers: 1,
+                                    },
+                                    mip_level_count: 1,
+                                    sample_count: msaa.samples,
+                                    dimension: TextureDimension::D2,
+                                    format: TextureFormat::bevy_default(),
+                                    usage: TextureUsages::RENDER_ATTACHMENT,
+                                },
+                            )
+                        });
                     Some(sampled_texture.default_view.clone())
                 } else {
                     None

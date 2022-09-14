@@ -1,6 +1,7 @@
+//! This example creates a custom [`SystemParam`] struct that counts the number of players.
+
 use bevy::{ecs::system::SystemParam, prelude::*};
 
-/// This example creates a [`SystemParam`] struct that counts the number of players
 fn main() {
     App::new()
         .insert_resource(PlayerCount(0))
@@ -11,7 +12,8 @@ fn main() {
 
 #[derive(Component)]
 pub struct Player;
-#[derive(Component)]
+
+#[derive(Resource)]
 pub struct PlayerCount(usize);
 
 /// The [`SystemParam`] struct can contain any types that can also be included in a
