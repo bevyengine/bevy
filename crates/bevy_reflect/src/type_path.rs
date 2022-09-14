@@ -140,7 +140,7 @@ macro_rules! impl_type_name_tuple {
 
             fn module_path() -> &'static str {
                 // FIXME: how to handle tuple ?
-                Self::type_path()
+                ""
             }
 
             fn crate_name() -> &'static str {
