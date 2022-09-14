@@ -47,15 +47,28 @@ fn setup(
     });
 
     // Left Camera
-    commands
+    // BUG: UI viewports seem to clear or prevent each other from drawing so this doesn't render at all.
+    // Changing this to 2 will still display it but then the right UI will not display anymore!
+    let left_camera = commands
         .spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(0.0, 200.0, -100.0).looking_at(Vec3::ZERO, Vec3::Y),
+            camera: Camera {
+                // Renders the left camera before the right camera, which has a priority of one.
+                priority: 0,
+                ..default()
+            },
+            camera_3d: Camera3d {
+                // To allow testing priority change, don't clear at all.
+                clear_color: ClearColorConfig::None,
+                ..default()
+            },
             ..default()
         })
-        .insert(LeftCamera);
+        .insert(LeftCamera)
+        .id();
 
     // Right Camera
-    commands
+    let right_camera = commands
         .spawn_bundle(Camera3dBundle {
             transform: Transform::from_xyz(100.0, 100., 150.0).looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera {
@@ -70,7 +83,31 @@ fn setup(
             },
             ..default()
         })
-        .insert(RightCamera);
+        .insert(RightCamera)
+        .id();
+
+    // Text to be rendered on the left camera
+    commands.spawn_bundle(TextBundle::from_section(
+        "Left camera",
+        TextStyle {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 40.0,
+            color: Color::BLUE,
+        },
+    ))
+    .insert(UiRootCamera(left_camera));
+
+    // Text to be rendered on the right camera
+    commands.spawn_bundle(
+        TextBundle::from_section(
+        "Right camera",
+        TextStyle {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 40.0,
+            color: Color::GREEN,
+        },
+    ))
+    .insert(UiRootCamera(right_camera));
 }
 
 #[derive(Component)]
