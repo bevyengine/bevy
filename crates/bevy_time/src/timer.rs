@@ -357,7 +357,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn remaining_secs(&self) -> f32 {
-        self.duration().as_secs_f32() - self.elapsed().as_secs_f32()
+        self.remaining().as_secs_f32()
     }
 
     /// Returns the remaining time using Duration
