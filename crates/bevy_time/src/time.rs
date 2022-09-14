@@ -13,7 +13,8 @@ pub struct Time {
     seconds_since_startup: f64,
     time_since_startup: Duration,
     startup: Instant,
-    /// The maximum duration before `Self::seconds_since_last_wrapping_period()` wraps back to 0.0
+    /// The maximum duration before `Self::seconds_since_last_wrapping_period()` wraps back to 0.0.
+    /// Defaults to one hour.
     pub max_wrapping_period: Duration,
 }
 
