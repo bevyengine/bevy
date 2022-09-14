@@ -126,6 +126,9 @@ impl Time {
     }
 
     /// The time from startup to the last update in seconds
+    ///
+    /// If you need an f32 value, it is highly recommended to use [`Time::seconds_since_startup_f32_wrapped`]
+    /// instead of casting it. Casting to an f32 can cause floating point precision issues pretty fast.
     #[inline]
     pub fn seconds_since_startup(&self) -> f64 {
         self.seconds_since_startup
@@ -139,7 +142,7 @@ impl Time {
     ///
     /// Defaults to wrapping every hour
     #[inline]
-    pub fn seconds_since_last_wrapping_period(&self) -> f32 {
+    pub fn seconds_since_startup_f32_wrapped(&self) -> f32 {
         (self.seconds_since_startup % self.max_wrapping_period.as_secs_f64()) as f32
     }
 
@@ -186,7 +189,7 @@ mod tests {
         assert_eq!(time.seconds_since_startup(), 0.0);
         assert_eq!(time.time_since_startup(), Duration::from_secs(0));
         assert_eq!(time.delta_seconds(), 0.0);
-        assert_eq!(time.seconds_since_last_wrapping_period(), 0.0);
+        assert_eq!(time.seconds_since_startup_f32_wrapped(), 0.0);
 
         // Update `time` and check results
         let first_update_instant = Instant::now();
@@ -207,7 +210,7 @@ mod tests {
         );
         assert_eq!(time.delta_seconds(), 0.0);
         assert_float_eq(
-            time.seconds_since_last_wrapping_period(),
+            time.seconds_since_startup_f32_wrapped(),
             time.seconds_since_startup() as f32,
         );
 
@@ -232,7 +235,7 @@ mod tests {
         );
         assert_eq!(time.delta_seconds(), time.delta().as_secs_f32());
         assert_float_eq(
-            time.seconds_since_last_wrapping_period(),
+            time.seconds_since_startup_f32_wrapped(),
             time.seconds_since_startup() as f32,
         );
     }
@@ -247,17 +250,17 @@ mod tests {
             ..Default::default()
         };
 
-        assert_eq!(time.seconds_since_last_wrapping_period(), 0.0);
+        assert_eq!(time.seconds_since_startup_f32_wrapped(), 0.0);
 
         time.update_with_instant(start_instant + Duration::from_secs(1));
-        assert_float_eq(time.seconds_since_last_wrapping_period(), 1.0);
+        assert_float_eq(time.seconds_since_startup_f32_wrapped(), 1.0);
 
         time.update_with_instant(start_instant + Duration::from_secs(2));
-        assert_float_eq(time.seconds_since_last_wrapping_period(), 2.0);
+        assert_float_eq(time.seconds_since_startup_f32_wrapped(), 2.0);
 
         // wraps on next update
         time.update_with_instant(start_instant + Duration::from_secs(3));
-        assert_float_eq(time.seconds_since_last_wrapping_period(), 1.0);
+        assert_float_eq(time.seconds_since_startup_f32_wrapped(), 1.0);
     }
 
     fn assert_float_eq(a: f32, b: f32) {
