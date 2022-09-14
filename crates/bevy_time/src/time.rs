@@ -2,10 +2,19 @@ use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
 
+/// The duration after which the time will go wrap back to 0
 #[derive(Debug, Clone, Copy)]
 pub enum WrapDuration {
+    /// Will wrap after 1 hour or 3600 seconds
     Default,
+    /// Used to provide any duration to use as the period.
+    ///
+    /// It is highly recommended to not go above the maximum value of a day
     Custom(Duration),
+    /// Will wrap after 1 day or 86400 seconds.
+    ///
+    /// `f32`'s have about 6-7 significant numbers and a day is 86400 seconds,
+    /// add a few decimal places for millis and you will start to get precision errors.
     Max,
 }
 
