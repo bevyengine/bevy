@@ -6,15 +6,15 @@ use std::ops::Deref;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_core::Name;
+use bevy_core::{EntityPath, Name, NameLookup};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     prelude::Component,
+    query::QueryEntityError,
     reflect::ReflectComponent,
     schedule::ParallelSystemDescriptorCoercion,
     system::{Query, Res, SystemParam},
-    query::QueryEntityError,
 };
 use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
@@ -26,93 +26,8 @@ use bevy_utils::{tracing::warn, HashMap};
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, VariableCurve,
-    };
+    pub use crate::{AnimationClip, AnimationPlayer, AnimationPlugin, Keyframes, VariableCurve};
 }
-
-/// System param to enable entity lookup of an entity via EntityPath
-#[derive(SystemParam)]
-pub struct NameLookup<'w, 's> {
-    named: Query<'w, 's, (Entity, &'static Name)>,
-    children: Query<'w, 's, &'static Children>,
-}
-
-/// Errors when looking up an entity by name
-pub enum LookupError {
-    /// An entity could not be found, this either means the entity has been
-    /// despawned, or the entity doesn't have the required components
-    Query(QueryEntityError),
-    /// The root node does not have the corrent name
-    // TODO: add expected / found name
-    RootNotFound,
-    /// A child was not found
-    // TODO: add expected name
-    ChildNotFound,
-    /// The name does not uniquely identify an entity
-    // TODO: add name
-    NameNotUnique,
-}
-
-impl From<QueryEntityError> for LookupError {
-    fn from(q: QueryEntityError) -> Self {
-        Self::Query(q)
-    }
-}
-
-impl<'w, 's> NameLookup<'w, 's> {
-    /// Find an entity by entity path, may return an error if the root name isn't unique
-    pub fn lookup_any(&self, path: &EntityPath) -> Result<Entity, LookupError> {
-        let mut path = path.parts.iter();
-        let root_name = path.next().unwrap();
-        let mut root = None;
-        for (entity, name) in self.named.iter() {
-            if root_name == name {
-                if root.is_some() {
-                    return Err(LookupError::NameNotUnique);
-                }
-                root = Some(entity);
-            }
-        }
-        let mut current_node = root.ok_or(LookupError::RootNotFound)?;
-        for part in path {
-            current_node = self.find_child(current_node, part)?;
-        }
-        Ok(current_node)
-    }
-
-    /// Find an entity by the root & entity path
-    pub fn lookup(&self, root: Entity, path: &EntityPath) -> Result<Entity, LookupError> {
-        let mut path = path.parts.iter();
-        let (_, root_name) = self.named.get(root)?;
-        if root_name != path.next().unwrap() {
-            return Err(LookupError::RootNotFound);
-        }
-        let mut current_node = root;
-        for part in path {
-            current_node = self.find_child(current_node, part)?;
-        }
-        Ok(current_node)
-    }
-
-    /// Internal function to get the child of `current_node` that has the name `part`
-    fn find_child(&self, current_node: Entity, part: &Name) -> Result<Entity, LookupError> {
-        let children = self.children.get(current_node)?;
-        let mut ret = Err(LookupError::ChildNotFound);
-        for child in children {
-            if let Ok((_, name)) = self.named.get(*child) {
-                if name == part {
-                    if ret.is_ok() {
-                        return Err(LookupError::NameNotUnique);
-                    }
-                    ret = Ok(*child);
-                }
-            }
-        }
-        ret
-    }
-}
-
 
 /// List of keyframes for one of the attribute of a [`Transform`].
 #[derive(Clone, Debug)]
@@ -134,13 +49,6 @@ pub struct VariableCurve {
     pub keyframe_timestamps: Vec<f32>,
     /// List of the keyframes.
     pub keyframes: Keyframes,
-}
-
-/// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
-pub struct EntityPath {
-    /// Parts of the path
-    pub parts: Vec<Name>,
 }
 
 /// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
@@ -263,9 +171,8 @@ pub fn animation_player(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
     mut animation_players: Query<(Entity, &mut AnimationPlayer)>,
-    names: Query<&Name>,
     mut transforms: Query<&mut Transform>,
-    children: Query<&Children>,
+    lookup: NameLookup,
 ) {
     for (entity, mut player) in &mut animation_players {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
@@ -284,29 +191,15 @@ pub fn animation_player(
             if elapsed < 0.0 {
                 elapsed += animation_clip.duration;
             }
-            'entity: for (path, curves) in &animation_clip.curves {
+            for (path, curves) in &animation_clip.curves {
                 // PERF: finding the target entity can be optimised
-                let mut current_entity = entity;
-                // Ignore the first name, it is the root node which we already have
-                for part in path.parts.iter().skip(1) {
-                    let mut found = false;
-                    if let Ok(children) = children.get(current_entity) {
-                        for child in children.deref() {
-                            if let Ok(name) = names.get(*child) {
-                                if name == part {
-                                    // Found a children with the right name, continue to the next part
-                                    current_entity = *child;
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
+                let current_entity = match lookup.lookup(entity, path) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        warn!("Entity for path {path:?} was not found");
+                        continue;
                     }
-                    if !found {
-                        warn!("Entity not found for path {:?} on part {:?}", path, part);
-                        continue 'entity;
-                    }
-                }
+                };
                 if let Ok(mut transform) = transforms.get_mut(current_entity) {
                     for curve in curves {
                         // Some curves have only one keyframe used to set a transform
