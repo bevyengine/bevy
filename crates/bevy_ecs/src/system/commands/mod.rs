@@ -168,7 +168,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for creating the given [`Entity`] if it does not exist,
     /// and returns its corresponding [`EntityCommands`].
     ///
-    /// Returns `None` if the entity does not exist.
+    /// Returns `None` if there is already an entity with the same ID but with a different generation.
     ///
     /// See [`World::get_or_spawn`] for more details.
     ///
