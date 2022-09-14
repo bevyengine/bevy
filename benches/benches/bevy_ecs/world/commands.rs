@@ -238,7 +238,8 @@ pub fn get_or_spawn(criterion: &mut Criterion) {
             for i in 0..10_000 {
                 commands
                     .get_or_spawn(Entity::from_raw(i))
-                    .insert((Matrix::default(), Vec3::default()));
+                    .expect("Entity not found.")
+                    .insert_bundle((Matrix::default(), Vec3::default()));
             }
             command_queue.apply(&mut world);
         });
