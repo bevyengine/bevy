@@ -127,20 +127,20 @@ impl Time {
 
     /// The time from startup to the last update in seconds
     ///
-    /// If you need an f32 value, it is highly recommended to use [`Time::seconds_since_startup_f32_wrapped`]
-    /// instead of casting it. Casting to an f32 can cause floating point precision issues pretty fast.
+    /// If you need an `f32` value, it is highly recommended to use [`Time::seconds_since_startup_f32_wrapped`]
+    /// instead of casting it. Casting to an `f32` can cause floating point precision issues pretty fast.
     #[inline]
     pub fn seconds_since_startup(&self) -> f64 {
         self.seconds_since_startup
     }
 
-    /// The time from the last wrap period to the last update in seconds
+    /// The time from the last wrap period to the last update in seconds.
     ///
-    /// When used in shaders, the time is limited to f32 which can introduce floating point precision issues
-    /// fairly quickly if the app is left open for a while. This will wrap the value to 0.0 on the update after
-    /// the `Self::max_wrapping_period`
+    /// When used in shaders, the time is limited to `f32` which can introduce floating point precision issues
+    /// fairly quickly if the app is left open for a while. 
+    /// This will wrap the value to 0.0 on the update after the `Self::max_wrapping_period`.
     ///
-    /// Defaults to wrapping every hour
+    /// Defaults to wrapping every hour.
     #[inline]
     pub fn seconds_since_startup_f32_wrapped(&self) -> f32 {
         (self.seconds_since_startup % self.max_wrapping_period.as_secs_f64()) as f32
@@ -264,6 +264,6 @@ mod tests {
     }
 
     fn assert_float_eq(a: f32, b: f32) {
-        assert!((a - b) <= f32::EPSILON, "{a} != {b}");
+        assert!((a - b).abs() <= f32::EPSILON, "{a} != {b}");
     }
 }
