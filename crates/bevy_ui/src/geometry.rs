@@ -203,7 +203,7 @@ impl UiRect {
         UiRect {
             left: value,
             right: value,
-            ..default()
+            ..Default::default()
         }
     }
 
@@ -225,7 +225,7 @@ impl UiRect {
         UiRect {
             top: value,
             bottom: value,
-            ..default()
+            ..Default::default()
         }
     }
 
@@ -246,7 +246,7 @@ impl UiRect {
     pub fn left(value: Val) -> Self {
         UiRect {
             left: value,
-            ..default()
+            ..Default::default()
         }
     }
 
@@ -267,7 +267,7 @@ impl UiRect {
     pub fn right(value: Val) -> Self {
         UiRect {
             right: value,
-            ..default()
+            ..Default::default()
         }
     }
 
@@ -288,7 +288,7 @@ impl UiRect {
     pub fn top(value: Val) -> Self {
         UiRect {
             top: value,
-            ..default()
+            ..Default::default()
         }
     }
 
@@ -309,7 +309,7 @@ impl UiRect {
     pub fn bottom(value: Val) -> Self {
         UiRect {
             bottom: value,
-            ..default()
+            ..Default::default()
         }
     }
 }
