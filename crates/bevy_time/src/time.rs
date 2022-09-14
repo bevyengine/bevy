@@ -149,20 +149,22 @@ impl Time {
 
     /// The time from startup to the last update in seconds
     ///
-    /// If you need an `f32` value, it is highly recommended to use [`Time::seconds_since_startup_f32_wrapped`]
-    /// instead of casting it. Casting to an `f32` can cause floating point precision issues pretty fast.
+    /// If you intend to cast this to an `f32` value, note that this value is monotonically increasing,
+    /// and that its precision as an `f32` will noticeably degrade over time (in a matter of hours).
+    /// If that precision loss is unacceptable, you should use [`Time::seconds_since_startup_f32_wrapped`], 
+    /// which will return the time from startup modulo a wrapping period.
     #[inline]
     pub fn seconds_since_startup(&self) -> f64 {
         self.seconds_since_startup
     }
 
-    /// The time from the last wrap period to the last update in seconds.
+    /// The time from startup to the last update, modulo the given wrapping period, in seconds.
     ///
-    /// When used in shaders, the time is limited to `f32` which can introduce floating point precision issues
-    /// fairly quickly if the app is left open for a while.
-    /// This will wrap the value to 0.0 on the update after the `Self::max_wrapping_period`.
+    /// Time from startup is a monotonically increasing value and so its precision when read as an `f32`
+    /// will noticeably degrade over time, which causes issues for some uses, e.g. shaders.
+    /// This method avoids noticeable degradation by limiting the values to a much smaller range.
     ///
-    /// Defaults to wrapping every hour.
+    /// The default wrapping period is one hour.
     #[inline]
     pub fn seconds_since_startup_f32_wrapped(&self, duration: WrapDuration) -> f32 {
         let duration: Duration = duration.into();
