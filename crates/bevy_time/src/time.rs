@@ -13,10 +13,8 @@ pub struct Time {
     seconds_since_startup: f64,
     time_since_startup: Duration,
     startup: Instant,
-    duration_since_last_wrapping_period: Duration,
-    /// The maximum period of time in seconds before seconds_since_last_wrapping_period wraps back to 0.0
+    /// The maximum duration before `Self::seconds_since_last_wrapping_period()` wraps back to 0.0
     pub max_wrapping_period: Duration,
-    last_wrapping_period: Instant,
 }
 
 impl Default for Time {
@@ -29,9 +27,7 @@ impl Default for Time {
             seconds_since_startup: 0.0,
             time_since_startup: Duration::from_secs(0),
             delta_seconds: 0.0,
-            duration_since_last_wrapping_period: Duration::from_secs(0),
             max_wrapping_period: Duration::from_secs(60 * 60), // 1 hour
-            last_wrapping_period: Instant::now(),
         }
     }
 }
@@ -108,11 +104,6 @@ impl Time {
         self.time_since_startup = instant - self.startup;
         self.seconds_since_startup = self.time_since_startup.as_secs_f64();
         self.last_update = Some(instant);
-
-        self.duration_since_last_wrapping_period = instant - self.last_wrapping_period;
-        if self.duration_since_last_wrapping_period >= self.max_wrapping_period {
-            self.last_wrapping_period = instant;
-        }
     }
 
     /// The delta between the current tick and last tick as a [`Duration`]
@@ -142,13 +133,13 @@ impl Time {
     /// The time from the last wrap period to the last update in seconds
     ///
     /// When used in shaders, the time is limited to f32 which can introduce floating point precision issues
-    /// fairly quickly if the app is left open for a while. This will wrap the value to 0.0 as soon as it
-    /// reaches the wrapping period.
+    /// fairly quickly if the app is left open for a while. This will wrap the value to 0.0 on the update after
+    /// the `Self::max_wrapping_period`
     ///
-    /// Defaults to wrapping to 0.0 every hour
+    /// Defaults to wrapping every hour
     #[inline]
     pub fn seconds_since_last_wrapping_period(&self) -> f32 {
-        self.duration_since_last_wrapping_period.as_secs_f32()
+        (self.seconds_since_startup % self.max_wrapping_period.as_secs_f64()) as f32
     }
 
     /// The [`Instant`] the app was started
@@ -183,7 +174,6 @@ mod tests {
         // Create a `Time` for testing
         let mut time = Time {
             startup: start_instant,
-            last_wrapping_period: start_instant,
             ..Default::default()
         };
 
@@ -252,7 +242,6 @@ mod tests {
 
         let mut time = Time {
             startup: start_instant,
-            last_wrapping_period: start_instant,
             max_wrapping_period: Duration::from_secs(2),
             ..Default::default()
         };
