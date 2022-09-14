@@ -1,4 +1,4 @@
-mod converters;
+pub mod converters;
 #[cfg(target_arch = "wasm32")]
 mod web_resize;
 mod winit_config;
