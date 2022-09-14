@@ -1,6 +1,7 @@
 use crate::{Extract, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetEvent, Assets, Handle};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     system::{StaticSystemParam, SystemParam, SystemParamItem},
@@ -101,6 +102,7 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
 }
 
 /// Temporarily stores the extracted and removed assets of the current frame.
+#[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
     extracted: Vec<(Handle<A>, A::ExtractedAsset)>,
     removed: Vec<Handle<A>>,
@@ -117,7 +119,14 @@ impl<A: RenderAsset> Default for ExtractedAssets<A> {
 
 /// Stores all GPU representations ([`RenderAsset::PreparedAssets`](RenderAsset::PreparedAsset))
 /// of [`RenderAssets`](RenderAsset) as long as they exist.
-pub type RenderAssets<A> = HashMap<Handle<A>, <A as RenderAsset>::PreparedAsset>;
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderAssets<A: RenderAsset>(HashMap<Handle<A>, A::PreparedAsset>);
+
+impl<A: RenderAsset> Default for RenderAssets<A> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 
 /// This system extracts all crated or modified assets of the corresponding [`RenderAsset`] type
 /// into the "render world".
@@ -155,6 +164,7 @@ fn extract_render_asset<A: RenderAsset>(
 
 // TODO: consider storing inside system?
 /// All assets that should be prepared next frame.
+#[derive(Resource)]
 pub struct PrepareNextFrameAssets<A: RenderAsset> {
     assets: Vec<(Handle<A>, A::ExtractedAsset)>,
 }

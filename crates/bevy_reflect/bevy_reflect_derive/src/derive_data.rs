@@ -111,19 +111,18 @@ impl<'a> ReflectDerive<'a> {
         let mut force_reflect_value = false;
 
         for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
-            let meta_list = if let Meta::List(meta_list) = attribute {
-                meta_list
-            } else {
-                continue;
-            };
-
-            if let Some(ident) = meta_list.path.get_ident() {
-                if ident == REFLECT_ATTRIBUTE_NAME {
+            match attribute {
+                Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
                     traits = ReflectTraits::from_nested_metas(&meta_list.nested);
-                } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
+                }
+                Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     force_reflect_value = true;
                     traits = ReflectTraits::from_nested_metas(&meta_list.nested);
                 }
+                Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
+                    force_reflect_value = true;
+                }
+                _ => continue,
             }
         }
 

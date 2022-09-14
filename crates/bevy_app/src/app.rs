@@ -1,5 +1,6 @@
 use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::{Event, Events},
     prelude::{FromWorld, IntoExclusiveSystem},
@@ -21,6 +22,11 @@ bevy_utils::define_label!(
     /// A strongly-typed identifier for an [`AppLabel`].
     AppLabelId,
 );
+
+/// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
+#[cfg(feature = "bevy_reflect")]
+#[derive(Resource, Clone, Deref, DerefMut, Default)]
+pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -74,7 +80,7 @@ impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<bevy_reflect::TypeRegistryArc>();
+        app.init_resource::<AppTypeRegistry>();
 
         app.add_default_stages()
             .add_event::<AppExit>()
@@ -145,7 +151,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_stage("my_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
+    /// app.add_stage(MyStage, SystemStage::parallel());
     /// ```
     pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.schedule.add_stage(label, stage);
@@ -162,7 +170,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_stage_after(CoreStage::Update, "my_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
+    /// app.add_stage_after(CoreStage::Update, MyStage, SystemStage::parallel());
     /// ```
     pub fn add_stage_after<S: Stage>(
         &mut self,
@@ -184,7 +194,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_stage_before(CoreStage::Update, "my_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
+    /// app.add_stage_before(CoreStage::Update, MyStage, SystemStage::parallel());
     /// ```
     pub fn add_stage_before<S: Stage>(
         &mut self,
@@ -206,7 +218,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_startup_stage("my_startup_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStartupStage;
+    /// app.add_startup_stage(MyStartupStage, SystemStage::parallel());
     /// ```
     pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.schedule
@@ -228,9 +242,11 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
+    /// #[derive(StageLabel)]
+    /// struct MyStartupStage;
     /// app.add_startup_stage_after(
     ///     StartupStage::Startup,
-    ///     "my_startup_stage",
+    ///     MyStartupStage,
     ///     SystemStage::parallel()
     /// );
     /// ```
@@ -259,9 +275,11 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
+    /// #[derive(StageLabel)]
+    /// struct MyStartupStage;
     /// app.add_startup_stage_before(
     ///     StartupStage::Startup,
-    ///     "my_startup_stage",
+    ///     MyStartupStage,
     ///     SystemStage::parallel()
     /// );
     /// ```
@@ -376,7 +394,7 @@ impl App {
         use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "add systems to a startup stage using App::add_startup_system_to_stage"
+            "use `add_startup_system_to_stage` instead of `add_system_to_stage` to add a system to a StartupStage"
         );
         self.schedule.add_system_to_stage(stage_label, system);
         self
@@ -411,7 +429,7 @@ impl App {
         use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "add system sets to a startup stage using App::add_startup_system_set_to_stage"
+            "use `add_startup_system_set_to_stage` instead of `add_system_set_to_stage` to add system sets to a StartupStage"
         );
         self.schedule
             .add_system_set_to_stage(stage_label, system_set);
@@ -647,7 +665,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -660,15 +680,16 @@ impl App {
         self
     }
 
-    /// Inserts a non-send [`Resource`] to the app.
+    /// Inserts a non-send resource to the app.
     ///
     /// You usually want to use [`insert_resource`](Self::insert_resource),
-    /// but there are some special cases when a [`Resource`] cannot be sent across threads.
+    /// but there are some special cases when a resource cannot be sent across threads.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
     /// struct MyCounter {
     ///     counter: usize,
@@ -694,7 +715,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -873,7 +896,7 @@ impl App {
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {
-            let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
             registry.write().register::<T>();
         }
         self
@@ -906,7 +929,7 @@ impl App {
         &mut self,
     ) -> &mut Self {
         {
-            let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
             registry.write().register_type_data::<T, D>();
         }
         self

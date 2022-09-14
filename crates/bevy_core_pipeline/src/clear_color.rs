@@ -13,11 +13,11 @@ pub enum ClearColorConfig {
     None,
 }
 
-/// When used as a resource, sets the color that is used to clear the screen between frames.
+/// A [`Resource`] that stores the color that is used to clear the screen between frames.
 ///
-/// This color appears as the "background" color for simple apps, when
-/// there are portions of the screen with nothing rendered.
-#[derive(Component, Clone, Debug, Deref, DerefMut, ExtractResource, Reflect)]
+/// This color appears as the "background" color for simple apps,
+/// when there are portions of the screen with nothing rendered.
+#[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct ClearColor(pub Color);
 

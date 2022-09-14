@@ -3,7 +3,6 @@
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::system::{lifetimeless::*, SystemParamItem},
-    math::prelude::*,
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
@@ -16,7 +15,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
-        view::{ComputedVisibility, ExtractedView, Msaa, NoFrustumCulling, Visibility},
+        view::{ExtractedView, NoFrustumCulling},
         RenderApp, RenderStage,
     },
 };
@@ -160,6 +159,7 @@ fn prepare_instance_buffers(
     }
 }
 
+#[derive(Resource)]
 pub struct CustomPipeline {
     shader: Handle<Shader>,
     mesh_pipeline: MeshPipeline,

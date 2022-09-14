@@ -11,6 +11,7 @@ use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::{any::TypeId, cell::UnsafeCell};
 
 /// A read-only reference to a particular [`Entity`] and all of its components
+#[derive(Copy, Clone)]
 pub struct EntityRef<'w> {
     world: &'w World,
     entity: Entity,
@@ -44,7 +45,7 @@ impl<'w> EntityRef<'w> {
     }
 
     #[inline]
-    pub fn world(&mut self) -> &World {
+    pub fn world(&self) -> &'w World {
         self.world
     }
 
@@ -125,6 +126,12 @@ impl<'w> EntityRef<'w> {
         self.world.components().get_info(component_id)?;
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe { get_component(self.world, component_id, self.entity, self.location) }
+    }
+}
+
+impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
+    fn from(entity_mut: EntityMut<'w>) -> EntityRef<'w> {
+        EntityRef::new(entity_mut.world, entity_mut.entity, entity_mut.location)
     }
 }
 
@@ -491,16 +498,26 @@ impl<'w> EntityMut<'w> {
     }
 
     #[inline]
-    pub fn world(&mut self) -> &World {
+    pub fn world(&self) -> &World {
         self.world
     }
 
+    /// Returns this `EntityMut`'s world.
+    ///
+    /// See [`EntityMut::into_world_mut`] for a safe alternative.
+    ///
     /// # Safety
     /// Caller must not modify the world in a way that changes the current entity's location
     /// If the caller _does_ do something that could change the location, `self.update_location()`
-    /// must be called before using any other methods in [`EntityMut`]
+    /// must be called before using any other methods on this [`EntityMut`].
     #[inline]
     pub unsafe fn world_mut(&mut self) -> &mut World {
+        self.world
+    }
+
+    /// Return this `EntityMut`'s [`World`], consuming itself.
+    #[inline]
+    pub fn into_world_mut(self) -> &'w mut World {
         self.world
     }
 

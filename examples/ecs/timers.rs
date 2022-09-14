@@ -15,6 +15,7 @@ fn main() {
 #[derive(Component, Deref, DerefMut)]
 pub struct PrintOnCompletionTimer(Timer);
 
+#[derive(Resource)]
 pub struct Countdown {
     pub percent_trigger: Timer,
     pub main_timer: Timer,

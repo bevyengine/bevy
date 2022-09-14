@@ -1,6 +1,8 @@
 //! This example illustrates loading scenes from files.
+use std::fs::File;
+use std::io::Write;
 
-use bevy::{prelude::*, reflect::TypeRegistry, utils::Duration};
+use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 
 fn main() {
     App::new()
@@ -49,12 +51,18 @@ impl FromWorld for ComponentB {
     }
 }
 
+// The initial scene file will be loaded below and not change when the scene is saved
+const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
+
+// The new, updated scene data will be saved here so that you can see the changes
+const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
+
 fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // "Spawning" a scene bundle creates a new entity and spawns new instances
     // of the given scene's entities as children of that entity.
     commands.spawn_bundle(DynamicSceneBundle {
         // Scenes are loaded just like any other asset.
-        scene: asset_server.load("scenes/load_scene_example.scn.ron"),
+        scene: asset_server.load(SCENE_FILE_PATH),
         ..default()
     });
 
@@ -84,7 +92,7 @@ fn save_scene_system(world: &mut World) {
     scene_world.spawn().insert_bundle((
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
-        Transform::identity(),
+        Transform::IDENTITY,
     ));
     scene_world
         .spawn()
@@ -92,13 +100,27 @@ fn save_scene_system(world: &mut World) {
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
-    let type_registry = world.resource::<TypeRegistry>();
+    let type_registry = world.resource::<AppTypeRegistry>();
     let scene = DynamicScene::from_world(&scene_world, type_registry);
 
     // Scenes can be serialized like this:
-    info!("{}", scene.serialize_ron(type_registry).unwrap());
+    let serialized_scene = scene.serialize_ron(type_registry).unwrap();
 
-    // TODO: save scene
+    // Showing the scene in the console
+    info!("{}", serialized_scene);
+
+    // Writing the scene to a new file. Using a task to avoid calling the filesystem APIs in a system
+    // as they are blocking
+    // This can't work in WASM as there is no filesystem access
+    #[cfg(not(target_arch = "wasm32"))]
+    IoTaskPool::get()
+        .spawn(async move {
+            // Write the scene RON data to file
+            File::create(format!("assets/{}", NEW_SCENE_FILE_PATH))
+                .and_then(|mut file| file.write(serialized_scene.as_bytes()))
+                .expect("Error while writing scene to file");
+        })
+        .detach();
 }
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone

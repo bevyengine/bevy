@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use super::DepthCalculation;
 use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
@@ -39,10 +38,16 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
     }
 }
 
+/// Trait to control the projection matrix of a camera.
+///
+/// Components implementing this trait are automatically polled for changes, and used
+/// to recompute the camera projection matrix of the [`Camera`] component attached to
+/// the same entity as the component implementing this trait.
+///
+/// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
-    fn depth_calculation(&self) -> DepthCalculation;
     fn far(&self) -> f32;
 }
 
@@ -81,13 +86,6 @@ impl CameraProjection for Projection {
         }
     }
 
-    fn depth_calculation(&self) -> DepthCalculation {
-        match self {
-            Projection::Perspective(projection) => projection.depth_calculation(),
-            Projection::Orthographic(projection) => projection.depth_calculation(),
-        }
-    }
-
     fn far(&self) -> f32 {
         match self {
             Projection::Perspective(projection) => projection.far(),
@@ -118,10 +116,6 @@ impl CameraProjection for PerspectiveProjection {
 
     fn update(&mut self, width: f32, height: f32) {
         self.aspect_ratio = width / height;
-    }
-
-    fn depth_calculation(&self) -> DepthCalculation {
-        DepthCalculation::Distance
     }
 
     fn far(&self) -> f32 {
@@ -179,7 +173,6 @@ pub struct OrthographicProjection {
     pub window_origin: WindowOrigin,
     pub scaling_mode: ScalingMode,
     pub scale: f32,
-    pub depth_calculation: DepthCalculation,
 }
 
 impl CameraProjection for OrthographicProjection {
@@ -245,10 +238,6 @@ impl CameraProjection for OrthographicProjection {
         }
     }
 
-    fn depth_calculation(&self) -> DepthCalculation {
-        self.depth_calculation
-    }
-
     fn far(&self) -> f32 {
         self.far
     }
@@ -266,7 +255,6 @@ impl Default for OrthographicProjection {
             window_origin: WindowOrigin::Center,
             scaling_mode: ScalingMode::WindowSize,
             scale: 1.0,
-            depth_calculation: DepthCalculation::Distance,
         }
     }
 }

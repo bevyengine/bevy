@@ -1,6 +1,8 @@
 //! This example demonstrates the built-in 3d shapes in Bevy.
 //! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
 
+use std::f32::consts::PI;
+
 use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -48,15 +50,12 @@ fn setup(
             .spawn_bundle(PbrBundle {
                 mesh: shape,
                 material: debug_material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(
-                        -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
-                        2.0,
-                        0.0,
-                    ),
-                    rotation: Quat::from_rotation_x(-std::f32::consts::PI / 4.),
-                    ..default()
-                },
+                transform: Transform::from_xyz(
+                    -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
+                    2.0,
+                    0.0,
+                )
+                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
             })
             .insert(Shape);

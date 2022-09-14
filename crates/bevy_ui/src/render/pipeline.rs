@@ -3,6 +3,7 @@ use bevy_render::{
     render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
 };
 
+#[derive(Resource)]
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
