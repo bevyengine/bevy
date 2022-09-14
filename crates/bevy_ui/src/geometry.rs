@@ -184,6 +184,144 @@ impl UiRect {
             bottom: value,
         }
     }
+
+    /// Creates a new [`UiRect`] where `left` and `right` take the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::horizontal(Val::Px(10.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(10.0));
+    /// assert_eq!(ui_rect.right, Val::Px(10.0));
+    /// assert_eq!(ui_rect.top, Val::Px(0.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.0));
+    /// ```
+    pub fn horizontal(value: Val) -> Self {
+        UiRect {
+            left: value,
+            right: value,
+            top: Val::Px(0.0),
+            bottom: Val::Px(0.0),
+        }
+    }
+
+    /// Creates a new [`UiRect`] where `top` and `bottom` take the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::vertical(Val::Px(10.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(0.0));
+    /// assert_eq!(ui_rect.right, Val::Px(0.0));
+    /// assert_eq!(ui_rect.top, Val::Px(10.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
+    /// ```
+    pub fn vertical(value: Val) -> Self {
+        UiRect {
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: value,
+            bottom: value,
+        }
+    }
+
+    /// Creates a new [`UiRect`] where `left` takes the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::left(Val::Px(10.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(10.0));
+    /// assert_eq!(ui_rect.right, Val::Px(0.0));
+    /// assert_eq!(ui_rect.top, Val::Px(0.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.0));
+    /// ```
+    pub fn left(value: Val) -> Self {
+        UiRect {
+            left: value,
+            right: Val::Px(0.0),
+            top: Val::Px(0.0),
+            bottom: Val::Px(0.0),
+        }
+    }
+
+    /// Creates a new [`UiRect`] where `right` takes the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::right(Val::Px(10.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(0.0));
+    /// assert_eq!(ui_rect.right, Val::Px(10.0));
+    /// assert_eq!(ui_rect.top, Val::Px(0.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.0));
+    /// ```
+    pub fn right(value: Val) -> Self {
+        UiRect {
+            left: Val::Px(0.0),
+            right: value,
+            top: Val::Px(0.0),
+            bottom: Val::Px(0.0),
+        }
+    }
+
+    /// Creates a new [`UiRect`] where `top` takes the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::top(Val::Px(10.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(0.0));
+    /// assert_eq!(ui_rect.right, Val::Px(0.0));
+    /// assert_eq!(ui_rect.top, Val::Px(10.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(0.0));
+    /// ```
+    pub fn top(value: Val) -> Self {
+        UiRect {
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: value,
+            bottom: Val::Px(0.0),
+        }
+    }
+
+    /// Creates a new [`UiRect`] where `bottom` takes the given value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = UiRect::bottom(Val::Px(10.0));
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(0.0));
+    /// assert_eq!(ui_rect.right, Val::Px(0.0));
+    /// assert_eq!(ui_rect.top, Val::Px(0.0));
+    /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
+    /// ```
+    pub fn bottom(value: Val) -> Self {
+        UiRect {
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: Val::Px(0.0),
+            bottom: value,
+        }
+    }
 }
 
 /// A 2-dimensional area defined by a width and height.
