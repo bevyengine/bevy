@@ -43,7 +43,7 @@ impl_reflect_value!(
     E: Clone + Reflect + TypePath > ()
 );
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + TypePath>());
-impl_reflect_value!(@"std" Range<T: Clone + Send + Sync + TypePath >());
+impl_reflect_value!(@"std" Range<T: Clone + Send + Sync + TypePath>());
 impl_reflect_value!(@"std" RangeInclusive<T: Clone + Send + Sync + TypePath>());
 impl_reflect_value!(@"std" RangeFrom<T: Clone + Send + Sync + TypePath>());
 impl_reflect_value!(@"std" RangeTo<T: Clone + Send + Sync + TypePath>());
