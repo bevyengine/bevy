@@ -3,4 +3,4 @@
 #import bevy_sprite::mesh2d_view_types
 
 @group(0) @binding(0)
-var<uniform> view: View;
+var<uniform> view: bevy_sprite::mesh2d_view_types::View;

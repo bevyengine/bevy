@@ -99,6 +99,16 @@ impl<S: SpecializedMeshPipeline> Default for SpecializedMeshPipelines<S> {
 }
 
 impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
+    pub fn get(
+        &self,
+        key: &S::Key,
+        layout: &MeshVertexBufferLayout,
+    ) -> Option<CachedRenderPipelineId> {
+        self.mesh_layout_cache
+            .get(layout)
+            .and_then(|map| map.get(key).copied())
+    }
+
     #[inline]
     pub fn specialize(
         &mut self,
@@ -117,9 +127,11 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                     .specialize(key.clone(), layout)
                     .map_err(|mut err| {
                         {
-                            let SpecializedMeshPipelineError::MissingVertexAttribute(err) =
-                                &mut err;
-                            err.pipeline_type = Some(std::any::type_name::<S>());
+                            if let SpecializedMeshPipelineError::MissingVertexAttribute(err) =
+                                &mut err
+                            {
+                                err.pipeline_type = Some(std::any::type_name::<S>());
+                            }
                         }
                         err
                     })?;
@@ -160,4 +172,6 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
 pub enum SpecializedMeshPipelineError {
     #[error(transparent)]
     MissingVertexAttribute(#[from] MissingVertexAttributeError),
+    #[error("{0}")]
+    Custom(String),
 }

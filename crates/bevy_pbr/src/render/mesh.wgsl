@@ -1,8 +1,7 @@
-#import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_bindings
-
-// NOTE: Bindings must come before functions that use them!
-#import bevy_pbr::mesh_functions
+#import bevy_pbr::mesh_functions as mesh_functions
+#import bevy_pbr::skinning
+#import bevy_pbr::mesh_vertex_output
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -22,45 +21,38 @@ struct Vertex {
 #endif
 };
 
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    #import bevy_pbr::mesh_vertex_output
-};
-
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
-    var out: VertexOutput;
+fn vertex(vertex: Vertex) -> bevy_pbr::mesh_vertex_output::MeshVertexOutput {
+    var out: bevy_pbr::mesh_vertex_output::MeshVertexOutput;
 #ifdef SKINNED
-    var model = skin_model(vertex.joint_indices, vertex.joint_weights);
-    out.world_normal = skin_normals(model, vertex.normal);
+    var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+    out.world_normal = bevy_pbr::skinning::skin_normals(model, vertex.normal);
 #else
-    var model = mesh.model;
-    out.world_normal = mesh_normal_local_to_world(vertex.normal);
+    var model = bevy_pbr::mesh_bindings::mesh.model;
+    out.world_normal = mesh_functions::mesh_normal_local_to_world(vertex.normal);
 #endif
-    out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+    out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
 #ifdef VERTEX_UVS
     out.uv = vertex.uv;
 #endif
 #ifdef VERTEX_TANGENTS
-    out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
+    out.world_tangent = mesh_functions::mesh_tangent_local_to_world(model, vertex.tangent);
 #endif
 #ifdef VERTEX_COLORS
     out.color = vertex.color;
 #endif
 
-    out.clip_position = mesh_position_world_to_clip(out.world_position);
+    out.clip_position = mesh_functions::mesh_position_world_to_clip(out.world_position);
     return out;
 }
 
-struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    #import bevy_pbr::mesh_vertex_output
-};
-
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+fn fragment(
+    @builtin(front_facing) is_front: bool,
+    mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
+) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
-    return in.color;
+    return mesh.color;
 #else
     return vec4<f32>(1.0, 0.0, 1.0, 1.0);
 #endif

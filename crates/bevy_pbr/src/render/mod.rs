@@ -1,3 +1,4 @@
+pub mod depth_pipeline;
 mod light;
 mod mesh;
 
