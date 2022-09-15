@@ -1,5 +1,7 @@
 //! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
 
+use std::f32::consts::PI;
+
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
@@ -89,8 +91,6 @@ fn setup(
         ..default()
     });
 
-    let theta = std::f32::consts::FRAC_PI_4;
-    let light_transform = Mat4::from_euler(EulerRot::ZYX, 0.0, std::f32::consts::FRAC_PI_2, -theta);
     commands.spawn_bundle(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
@@ -106,7 +106,12 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_matrix(light_transform),
+        transform: Transform::from_rotation(Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            PI / 2.,
+            -PI / 4.,
+        )),
         ..default()
     });
 

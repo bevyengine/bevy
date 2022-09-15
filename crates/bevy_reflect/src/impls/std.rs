@@ -18,7 +18,7 @@ use std::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
-    ops::Range,
+    ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
 };
 
 impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -40,7 +40,12 @@ impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Result<T: Clone + Reflect + 'static, E: Clone + Reflect + 'static>());
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
-impl_reflect_value!(Range<T: Clone +  Send + Sync + 'static>());
+impl_reflect_value!(Range<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeInclusive<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeFrom<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeTo<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + 'static>());
+impl_reflect_value!(RangeFull());
 impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Instant(Debug, Hash, PartialEq));
 impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -75,6 +80,11 @@ impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
 impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Range<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeInclusive<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeFrom<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeTo<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + 'static>);
+impl_from_reflect_value!(RangeFull);
 impl_from_reflect_value!(Duration);
 impl_from_reflect_value!(Instant);
 impl_from_reflect_value!(NonZeroI128);
@@ -113,6 +123,13 @@ impl<T: FromReflect> Array for Vec<T> {
             index: 0,
         }
     }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
+    }
 }
 
 impl<T: FromReflect> List for Vec<T> {
@@ -126,6 +143,10 @@ impl<T: FromReflect> List for Vec<T> {
             })
         });
         Vec::push(self, value);
+    }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
     }
 }
 
@@ -245,6 +266,17 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
             map: self,
             index: 0,
         }
+    }
+
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+        self.into_iter()
+            .map(|(key, value)| {
+                (
+                    Box::new(key) as Box<dyn Reflect>,
+                    Box::new(value) as Box<dyn Reflect>,
+                )
+            })
+            .collect()
     }
 
     fn clone_dynamic(&self) -> DynamicMap {
@@ -394,6 +426,13 @@ impl<T: Reflect, const N: usize> Array for [T; N] {
             array: self,
             index: 0,
         }
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
     }
 }
 

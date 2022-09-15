@@ -5,7 +5,6 @@ use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
 
-use super::image_texture_conversion::image_to_texture;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
@@ -342,13 +341,18 @@ impl Image {
         });
     }
 
-    /// Convert a texture from a format to another
-    /// Only a few formats are supported as input and output:
+    /// Convert a texture from a format to another. Only a few formats are
+    /// supported as input and output:
     /// - `TextureFormat::R8Unorm`
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
+    ///
+    /// To get [`Image`] as a [`image::DynamicImage`] see:
+    /// [`Image::try_into_dynamic`].
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::image_texture_conversion::texture_to_image(self)
+        self.clone()
+            .try_into_dynamic()
+            .ok()
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => {
                     Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
@@ -362,9 +366,7 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| {
-                super::image_texture_conversion::image_to_texture(dyn_img, is_srgb)
-            })
+            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb))
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -402,7 +404,7 @@ impl Image {
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Ok(image_to_texture(dyn_img, is_srgb))
+                Ok(Self::from_dynamic(dyn_img, is_srgb))
             }
         }
     }

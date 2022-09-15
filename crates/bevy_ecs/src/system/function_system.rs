@@ -406,6 +406,14 @@ where
         out
     }
 
+    fn get_last_change_tick(&self) -> u32 {
+        self.system_meta.last_change_tick
+    }
+
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.system_meta.last_change_tick = last_change_tick;
+    }
+
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);

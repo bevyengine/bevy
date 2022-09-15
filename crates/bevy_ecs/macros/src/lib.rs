@@ -149,8 +149,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
-            ) -> Vec<#ecs_path::component::ComponentId> {
-                let mut component_ids = Vec::with_capacity(#field_len);
+            ) -> ::std::vec::Vec<#ecs_path::component::ComponentId> {
+                let mut component_ids = ::std::vec::Vec::with_capacity(#field_len);
                 #(#field_component_ids)*
                 component_ids
             }
@@ -460,21 +460,6 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("StageLabel").into());
     derive_label(input, &trait_path, "stage_label")
-}
-
-/// Generates an impl of the `AmbiguitySetLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[ambiguity_set_label(ignore_fields)]`.
-#[proc_macro_derive(AmbiguitySetLabel, attributes(ambiguity_set_label))]
-pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("AmbiguitySetLabel").into());
-    derive_label(input, &trait_path, "ambiguity_set_label")
 }
 
 /// Generates an impl of the `RunCriteriaLabel` trait.
