@@ -15,22 +15,42 @@ pub(crate) static IGNORE_ALL_ATTR: &str = "ignore";
 pub(crate) static DEFAULT_ATTR: &str = "default";
 
 /// Stores data about if the field should be visible via the Reflect and serialization interfaces
+///
+/// Note the relationship between serialization and reflection is such that a member must be reflected in order to be serialized.
+/// In boolean logic this is described as: `is_serialized -> is_reflected`, this means we can reflect something without serializing it but not the other way round.
+/// The `is_reflected` predicate is provided as `self.is_active()`
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ReflectFieldIgnore {
+pub(crate) enum ReflectIgnoreBehaviour {
     /// Don't ignore, appear to all systems
     #[default]
     None,
     /// Ignore when serializing but not when reflecting
     IgnoreSerialization,
-    /// Ignore for all systems
+    /// Ignore both when serializing and reflecting
     IgnoreAlways,
+}
+
+impl ReflectIgnoreBehaviour {
+    /// Returns `true` if the ignoring behaviour implies member is included in the reflection API, and false otherwise.
+    pub fn is_active(self) -> bool {
+        match self {
+            ReflectIgnoreBehaviour::None => true,
+            ReflectIgnoreBehaviour::IgnoreSerialization => true,
+            ReflectIgnoreBehaviour::IgnoreAlways => false,
+        }
+    }
+
+    /// The exact logical opposite of `self.is_active()` returns true iff this member is not part of the reflection API whatsover (neither serialized nor reflected)
+    pub fn is_ignored(self) -> bool {
+        !self.is_active()
+    }
 }
 
 /// A container for attributes defined on a reflected type's field.
 #[derive(Default)]
 pub(crate) struct ReflectFieldAttr {
     /// Determines how this field should be ignored if at all.
-    pub ignore: ReflectFieldIgnore,
+    pub ignore: ReflectIgnoreBehaviour,
     /// Sets the default behavior of this field.
     pub default: DefaultBehavior,
 }
@@ -80,13 +100,13 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
 fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
     match meta {
         Meta::Path(path) if path.is_ident(IGNORE_SERIALIZATION_ATTR) => {
-            (args.ignore == ReflectFieldIgnore::None)
-                .then(|| args.ignore = ReflectFieldIgnore::IgnoreSerialization)
+            (args.ignore == ReflectIgnoreBehaviour::None)
+                .then(|| args.ignore = ReflectIgnoreBehaviour::IgnoreSerialization)
                 .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
         }
         Meta::Path(path) if path.is_ident(IGNORE_ALL_ATTR) => {
-            (args.ignore == ReflectFieldIgnore::None)
-                .then(|| args.ignore = ReflectFieldIgnore::IgnoreAlways)
+            (args.ignore == ReflectIgnoreBehaviour::None)
+                .then(|| args.ignore = ReflectIgnoreBehaviour::IgnoreAlways)
                 .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
         }
         Meta::Path(path) if path.is_ident(DEFAULT_ATTR) => {

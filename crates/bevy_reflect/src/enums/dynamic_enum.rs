@@ -7,6 +7,7 @@ use std::any::Any;
 use std::fmt::Formatter;
 
 /// A dynamic representation of an enum variant.
+#[derive(Debug)]
 pub enum DynamicVariant {
     Unit,
     Tuple(DynamicTuple),
@@ -72,7 +73,7 @@ impl From<()> for DynamicVariant {
 /// // Tada!
 /// assert_eq!(None, value);
 /// ```
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct DynamicEnum {
     name: String,
     variant_name: String,

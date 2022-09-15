@@ -161,7 +161,7 @@ impl<'a> Serialize for StructValueSerializer<'a> {
 
         for (index, value) in self.struct_value.iter_fields().enumerate() {
             if data
-                .map(|data| data.is_ignored_index(index))
+                .map(|data| data.is_ignored_field(index))
                 .unwrap_or(false)
             {
                 continue;
@@ -215,7 +215,7 @@ impl<'a> Serialize for TupleStructValueSerializer<'a> {
 
         for (index, value) in self.tuple_struct.iter_fields().enumerate() {
             if data
-                .map(|data| data.is_ignored_index(index))
+                .map(|data| data.is_ignored_field(index))
                 .unwrap_or(false)
             {
                 continue;

@@ -400,21 +400,31 @@ impl Clone for TypeRegistration {
     }
 }
 
-/// Contains data relevant to the serialization of a type into the scene.
-#[derive(Default, Debug, Clone)]
+/// Contains data relevant to the automatic reflect powered serialization of a type
+#[derive(Debug, Clone)]
 pub struct SerializationData {
     ignored_field_indices: HashSet<usize>,
 }
 
 impl SerializationData {
-    pub fn new<I: Iterator<Item = usize>>(ignored_field_indices: I) -> Self {
+    pub fn new<I: Iterator<Item = usize>>(ignored_iter: I) -> Self {
         Self {
-            ignored_field_indices: ignored_field_indices.collect(),
+            ignored_field_indices: ignored_iter.collect(),
         }
     }
-
     /// Returns true if the given index corresponds to a field meant to be ignored in serialization.
-    pub fn is_ignored_index(&self, index: usize) -> bool {
+    /// Indices start from 0 and ignored fields do not count as fields.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// for (idx,field) in my_struct.iter_fields().enumerate(){
+    ///     if serialization_data.is_ignored_field(idx){
+    ///        // serialize ...
+    ///     }
+    /// }
+    /// ```
+    pub fn is_ignored_field(&self, index: usize) -> bool {
         self.ignored_field_indices.contains(&index)
     }
 }

@@ -1,11 +1,15 @@
+use std::iter::empty;
+
 use crate::container_attributes::ReflectTraits;
-use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr, ReflectFieldIgnore};
+use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr, ReflectIgnoreBehaviour};
+use crate::utility::members_to_serialization_blacklist;
+use bit_set::BitSet;
 use quote::quote;
 
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Type, Variant};
+use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Variant};
 
 pub(crate) enum ReflectDerive<'a> {
     Struct(ReflectStruct<'a>),
@@ -37,6 +41,8 @@ pub(crate) struct ReflectMeta<'a> {
     generics: &'a Generics,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
+    /// A collection corresponding to `ignored` fields' indices during serialization.
+    serialization_blacklist: BitSet<u32>,
 }
 
 /// Struct data used by derive macros for `Reflect` and `FromReflect`.
@@ -92,6 +98,7 @@ pub(crate) struct EnumVariant<'a> {
     /// The fields within this variant.
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
+    #[allow(dead_code)]
     pub attrs: ReflectFieldAttr,
     /// The index of this variant within the enum.
     #[allow(dead_code)]
@@ -125,19 +132,25 @@ impl<'a> ReflectDerive<'a> {
                 _ => continue,
             }
         }
-
-        let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
-
         if force_reflect_value {
-            return Ok(Self::Value(meta));
+            return Ok(Self::Value(ReflectMeta::new(
+                &input.ident,
+                &input.generics,
+                traits,
+                empty(),
+            )));
         }
 
         return match &input.data {
             Data::Struct(data) => {
-                let reflect_struct = ReflectStruct {
-                    meta,
-                    fields: Self::collect_struct_fields(&data.fields)?,
-                };
+                let fields = Self::collect_struct_fields(&data.fields)?;
+                let meta = ReflectMeta::new(
+                    &input.ident,
+                    &input.generics,
+                    traits,
+                    fields.iter().map(|f| f.attrs.ignore),
+                );
+                let reflect_struct = ReflectStruct { meta, fields };
 
                 match data.fields {
                     Fields::Named(..) => Ok(Self::Struct(reflect_struct)),
@@ -146,10 +159,10 @@ impl<'a> ReflectDerive<'a> {
                 }
             }
             Data::Enum(data) => {
-                let reflect_enum = ReflectEnum {
-                    meta,
-                    variants: Self::collect_enum_variants(&data.variants)?,
-                };
+                let variants = Self::collect_enum_variants(&data.variants)?;
+                let meta = ReflectMeta::new(&input.ident, &input.generics, traits, empty());
+
+                let reflect_enum = ReflectEnum { meta, variants };
                 Ok(Self::Enum(reflect_enum))
             }
             Data::Union(..) => Err(syn::Error::new(
@@ -210,12 +223,18 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new(type_name: &'a Ident, generics: &'a Generics, traits: ReflectTraits) -> Self {
+    pub fn new<I: Iterator<Item = ReflectIgnoreBehaviour>>(
+        type_name: &'a Ident,
+        generics: &'a Generics,
+        traits: ReflectTraits,
+        member_meta_iter: I,
+    ) -> Self {
         Self {
             traits,
             type_name,
             generics,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
+            serialization_blacklist: members_to_serialization_blacklist(member_meta_iter),
         }
     }
 
@@ -241,25 +260,12 @@ impl<'a> ReflectMeta<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
-        let mut idxs = Vec::default();
-        self.fields.iter().fold(0, |next_idx, field| {
-            if field.attrs.ignore == ReflectFieldIgnore::IgnoreAlways {
-                idxs.push(next_idx);
-                next_idx
-            } else if field.attrs.ignore == ReflectFieldIgnore::IgnoreSerialization {
-                idxs.push(next_idx);
-                next_idx + 1
-            } else {
-                next_idx + 1
-            }
-        });
-
         crate::registration::impl_get_type_registration(
             self.type_name,
             &self.bevy_reflect_path,
             self.traits.idents(),
             self.generics,
-            &idxs,
+            &self.serialization_blacklist,
         )
     }
 }
@@ -285,19 +291,19 @@ impl<'a> ReflectStruct<'a> {
             .collect::<Vec<_>>()
     }
 
-    /// Get a collection of types which are exposed to either the scene serialization or reflection API
+    /// Get a collection of types which are exposed to either the serialization or reflection API
     pub fn active_types(&self) -> Vec<syn::Type> {
-        self.types_with(|field| field.attrs.ignore != ReflectFieldIgnore::IgnoreAlways)
+        self.types_with(|field| field.attrs.ignore.is_active())
     }
 
-    /// Get a collection of fields which are exposed to the reflection API
+    /// Get an iterator of fields which are exposed to the serialization or reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields_with(|field| field.attrs.ignore != ReflectFieldIgnore::IgnoreAlways)
+        self.fields_with(|field| field.attrs.ignore.is_active())
     }
 
-    /// Get a collection of fields which are ignored from the reflection API
+    /// Get an iterator of fields which are ignored by the reflection and serialization API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields_with(|field| field.attrs.ignore != ReflectFieldIgnore::None)
+        self.fields_with(|field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this struct.
@@ -311,17 +317,6 @@ impl<'a> ReflectEnum<'a> {
     /// Access the metadata associated with this enum definition.
     pub fn meta(&self) -> &ReflectMeta<'a> {
         &self.meta
-    }
-
-    /// Get an iterator over the active variants.
-    pub fn active_variants(&self) -> impl Iterator<Item = &EnumVariant<'a>> {
-        self.variants.iter().filter(|variant| !variant.attrs.ignore)
-    }
-
-    /// Get an iterator over the ignored variants.
-    #[allow(dead_code)]
-    pub fn ignored_variants(&self) -> impl Iterator<Item = &EnumVariant<'a>> {
-        self.variants.iter().filter(|variant| variant.attrs.ignore)
     }
 
     /// Returns the given ident as a qualified unit variant of this enum.
