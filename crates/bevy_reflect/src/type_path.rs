@@ -5,7 +5,7 @@ use crate::utility::GenericTypePathCell;
 /// This is a stable alternative to [`std::any::type_name`] whose output isn't guarenteed
 /// and may change between versions of the compiler.
 ///
-/// This trait may be derived via [`#[derive(TypePath)]`][bevy_reflect_derive::TypePath].
+/// This trait may be derived via [`#[derive(TypePath)]`].
 ///
 /// ## Manual implementation
 ///
@@ -17,7 +17,7 @@ use crate::utility::GenericTypePathCell;
 ///
 /// struct MyType;
 ///
-/// impl TypePath for MyType{
+/// impl TypePath for MyType {
 ///     fn type_path() -> &'static str {
 ///         concat!(module_path!(), "::", "MyType")
 ///     }
@@ -64,11 +64,11 @@ use crate::utility::GenericTypePathCell;
 ///
 ///     fn short_type_name() -> &'static str {
 ///         const IDENT_POS: usize = module_path!().len() + 2;
-///         &<Self as #bevy_reflect_path::TypePath>::type_path()[IDENT_POS..]
+///         &<Self as TypePath>::type_path()[IDENT_POS..]
 ///     }
 ///
 ///     fn module_path() -> &'static str {
-///         &<Self as #bevy_reflect_path::TypePath>::type_path()[..module_path!().len()]
+///         &<Self as TypePath>::type_path()[..module_path!().len()]
 ///     }
 ///
 ///     fn crate_name() -> &'static str {
@@ -100,7 +100,7 @@ pub trait TypePath: 'static {
 
     /// The crate name.
     ///
-    /// e.g. `"my_crate`
+    /// e.g. `my_crate`
     fn crate_name() -> &'static str;
 }
 
