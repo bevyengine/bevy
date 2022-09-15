@@ -1236,6 +1236,16 @@ description = "A shader that shows how to reuse the core bevy PBR shading functi
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "shader_material_shared_group"
+path = "examples/shader/shader_material_shared_group.rs"
+
+[package.metadata.example.shader_material_shared_group]
+name = "Material - Shared Bind Group"
+description = "Two custom materials that share a common bind group"
+category = "Shaders"
+wasm = true
+
 # Stress tests
 [[package.metadata.category]]
 name = "Stress Tests"
