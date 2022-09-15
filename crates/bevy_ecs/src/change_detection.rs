@@ -1,7 +1,6 @@
 //! Types that detect when their internal data mutate.
 
 use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
-#[cfg(feature = "bevy_reflect")]
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
