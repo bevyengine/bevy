@@ -34,8 +34,7 @@ impl ReflectIgnoreBehaviour {
     /// Returns `true` if the ignoring behaviour implies member is included in the reflection API, and false otherwise.
     pub fn is_active(self) -> bool {
         match self {
-            ReflectIgnoreBehaviour::None => true,
-            ReflectIgnoreBehaviour::IgnoreSerialization => true,
+            ReflectIgnoreBehaviour::None | ReflectIgnoreBehaviour::IgnoreSerialization => true,
             ReflectIgnoreBehaviour::IgnoreAlways => false,
         }
     }
