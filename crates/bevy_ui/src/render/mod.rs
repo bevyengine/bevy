@@ -9,7 +9,7 @@ use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection, WindowOrigin},
@@ -238,8 +238,9 @@ pub fn extract_default_ui_camera_view<T: Component>(
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
-        if let (Some(logical_size), Some(physical_size)) = (
+        if let (Some(logical_size), Some((physical_origin, _)), Some(physical_size)) = (
             camera.logical_viewport_size(),
+            camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
             let mut projection = OrthographicProjection {
@@ -257,8 +258,12 @@ pub fn extract_default_ui_camera_view<T: Component>(
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
-                    width: physical_size.x,
-                    height: physical_size.y,
+                    viewport: UVec4::new(
+                        physical_origin.x,
+                        physical_origin.y,
+                        physical_size.x,
+                        physical_size.y,
+                    ),
                 })
                 .id();
             commands.get_or_spawn(entity).insert_bundle((
