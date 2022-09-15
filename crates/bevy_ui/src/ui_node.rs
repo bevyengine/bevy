@@ -15,8 +15,9 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
-    /// The size of the node as width and height in pixels
-    pub size: Vec2,
+    /// The size of the node as width and height in pixels <br>
+    /// This Field should only read by the user
+    pub calculated_size: Vec2,
 }
 
 /// An enum that describes possible types of value in flexbox layout options

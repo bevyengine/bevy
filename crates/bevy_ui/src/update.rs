@@ -108,7 +108,7 @@ fn update_clipping(
         Overflow::Visible => clip,
         Overflow::Hidden => {
             let node_center = global_transform.translation().truncate();
-            let node_rect = Rect::from_center_size(node_center, node.size);
+            let node_rect = Rect::from_center_size(node_center, node.calculated_size);
             Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
         }
     };
