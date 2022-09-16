@@ -18,7 +18,13 @@ pub struct Node {
     /// The size of the node as width and height in pixels
     ///
     /// This Field should only read by the user
-    pub calculated_size: Vec2,
+    pub(crate) calculated_size: Vec2,
+}
+
+impl Node {
+    pub fn calculated_size(&self) -> &Vec2 {
+        &self.calculated_size
+    }
 }
 
 /// An enum that describes possible types of value in flexbox layout options
