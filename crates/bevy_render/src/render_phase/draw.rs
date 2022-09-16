@@ -63,7 +63,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 }
 
 // TODO: make this generic?
-/// /// A [`Draw`] function identifier.
+/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DrawFunctionId(usize);
 
