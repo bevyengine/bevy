@@ -32,8 +32,12 @@ use std::ops::Mul;
 #[reflect(Component, Default, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
+    /// 
+    /// Example: [translations](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/translation.rs)
     pub translation: Vec3,
     /// Rotation of the entity.
+    /// 
+    /// Example: [3d_rotation](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs)
     pub rotation: Quat,
     /// Scale of the entity.
     /// 
@@ -53,7 +57,6 @@ impl Transform {
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
     /// 
-    /// Example: [translations](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/translation.rs)
     #[inline]
     pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Self::from_translation(Vec3::new(x, y, z))
