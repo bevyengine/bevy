@@ -15,7 +15,8 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
-    /// The size of the node as width and height in pixels <br>
+    /// The size of the node as width and height in pixels
+    /// 
     /// This Field should only read by the user
     pub calculated_size: Vec2,
 }
