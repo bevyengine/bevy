@@ -135,7 +135,7 @@ fn change_window(
                 }
                 bevy_window::WindowCommand::SetCursorIcon { icon } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_cursor_icon(converters::convert_cursor_icon(icon));
+                    window.set_cursor_icon(icon.into());
                 }
                 bevy_window::WindowCommand::SetCursorLockMode { locked } => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -427,7 +427,7 @@ pub fn winit_runner_with(mut app: App) {
                     WindowEvent::KeyboardInput { ref input, .. } => {
                         let mut keyboard_input_events =
                             world.resource_mut::<Events<KeyboardInput>>();
-                        keyboard_input_events.send(converters::convert_keyboard_input(input));
+                        keyboard_input_events.send(input.into());
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let mut cursor_moved_events = world.resource_mut::<Events<CursorMoved>>();
@@ -460,8 +460,8 @@ pub fn winit_runner_with(mut app: App) {
                         let mut mouse_button_input_events =
                             world.resource_mut::<Events<MouseButtonInput>>();
                         mouse_button_input_events.send(MouseButtonInput {
-                            button: converters::convert_mouse_button(button),
-                            state: converters::convert_element_state(state),
+                            button: button.into(),
+                            state: state.into(),
                         });
                     }
                     WindowEvent::MouseWheel { delta, .. } => match delta {

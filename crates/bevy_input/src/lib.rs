@@ -100,3 +100,12 @@ impl ButtonState {
         matches!(self, ButtonState::Pressed)
     }
 }
+
+impl From<winit::event::ElementState> for ButtonState {
+    fn from(element_state: winit::event::ElementState) -> Self {
+        match element_state {
+            winit::event::ElementState::Pressed => ButtonState::Pressed,
+            winit::event::ElementState::Released => ButtonState::Released,
+        }
+    }
+}

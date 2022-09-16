@@ -41,6 +41,17 @@ pub enum MouseButton {
     Other(u16),
 }
 
+impl From<winit::event::MouseButton> for MouseButton {
+    fn from(mouse_button: winit::event::MouseButton) -> Self {
+        match mouse_button {
+            winit::event::MouseButton::Left => MouseButton::Left,
+            winit::event::MouseButton::Right => MouseButton::Right,
+            winit::event::MouseButton::Middle => MouseButton::Middle,
+            winit::event::MouseButton::Other(val) => MouseButton::Other(val),
+        }
+    }
+}
+
 /// An event reporting the change in physical position of a pointing device.
 ///
 /// This represents raw, unfiltered physical motion.
