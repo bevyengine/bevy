@@ -33,15 +33,15 @@ use std::ops::Mul;
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
-    /// Example: [translations](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/translation.rs)
+    /// Example: [`translations`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/translation.rs)
     pub translation: Vec3,
     /// Rotation of the entity.
     ///
-    /// Example: [3d_rotation](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs)
+    /// Example: [`3d_rotation`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs)
     pub rotation: Quat,
     /// Scale of the entity.
     ///
-    /// Example: [scale](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/scale.rs)
+    /// Example: [`scale`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/scale.rs)
     pub scale: Vec3,
 }
 
@@ -211,7 +211,7 @@ impl Transform {
     ///
     /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
     ///
-    /// Example: [3d_rotation](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs)
+    /// Example: [`3d_rotation`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs)
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation = rotation * self.rotation;
