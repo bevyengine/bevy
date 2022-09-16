@@ -77,7 +77,7 @@ struct CustomMaterial {
     alpha_mode: AlphaMode,
 }
 
-/// The AsBindGroup trait is used by the Material pipeline to transform the data to be able to use it on the gpu.
+/// The `AsBindGroup` trait is used by the Material pipeline to transform the data to be able to use it on the gpu.
 impl AsBindGroup for CustomMaterial {
     type Data = ();
     fn as_bind_group(
