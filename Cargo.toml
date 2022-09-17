@@ -1119,6 +1119,11 @@ wasm = false
 name = "scene"
 path = "examples/scene/scene.rs"
 
+# Scene Building
+[[example]]
+name = "scene_building"
+path = "examples/scene/scene_building.rs"
+
 [package.metadata.example.scene]
 name = "Scene"
 description = "Demonstrates loading from and saving scenes to files"

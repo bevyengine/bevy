@@ -2,8 +2,10 @@ use crate::{serde::SceneSerializer, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
-    entity::EntityMap,
+    entity::{Entity, EntityMap},
+    query::ReadOnlyWorldQuery,
     reflect::{ReflectComponent, ReflectMapEntities},
+    system::{Query, SystemState},
     world::World,
 };
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
@@ -35,6 +37,57 @@ impl DynamicScene {
     /// Create a new dynamic scene from a given scene.
     pub fn from_scene(scene: &Scene, type_registry: &TypeRegistryArc) -> Self {
         Self::from_world(&scene.world, type_registry)
+    }
+
+    /// Create a Dynamic Scene with specific entities.
+    ///
+    /// The generic parameter is used as a `Query` filter.
+    ///
+    /// The created scene will include only the entities that match the query
+    /// filter provided. All components that impl `Reflect` will be included.
+    pub fn from_query_filter<F>(world: &mut World) -> Self
+    where
+        F: ReadOnlyWorldQuery + 'static,
+    {
+        let mut ss = SystemState::<Query<Entity, F>>::new(world);
+
+        let type_registry = world
+            .get_resource::<AppTypeRegistry>()
+            .expect("The World provided for scene generation does not contain a TypeRegistry")
+            .read();
+
+        let q = ss.get(world);
+
+        let entities = q
+            .iter()
+            .map(|entity| {
+                let get_reflect_by_id = |id| {
+                    world
+                        .components()
+                        .get_info(id)
+                        .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                        .and_then(|reg| reg.data::<ReflectComponent>())
+                        .and_then(|rc| rc.reflect(world, entity))
+                        .map(|c| c.clone_value())
+                };
+
+                let components = world
+                    .entities()
+                    .get(entity)
+                    .and_then(|eloc| world.archetypes().get(eloc.archetype_id))
+                    .into_iter()
+                    .flat_map(|a| a.components())
+                    .filter_map(get_reflect_by_id)
+                    .collect();
+
+                DynamicEntity {
+                    entity: entity.id(),
+                    components,
+                }
+            })
+            .collect();
+
+        DynamicScene { entities }
     }
 
     /// Create a new dynamic scene from a given world.
