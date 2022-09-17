@@ -45,6 +45,17 @@ impl DynamicScene {
     ///
     /// The created scene will include only the entities that match the query
     /// filter provided. All components that impl `Reflect` will be included.
+    ///
+    /// # Example
+    ///
+    /// Here, the function is creating a scene with all the componentA's in the world, but none of the componentB's.
+    ///
+    /// ```
+    /// let my_scene = scene_from_query_filter::<(
+    ///   With<ComponentA>,
+    ///   Without<ComponentB>,
+    /// )>(&mut world);
+    /// ```
     pub fn from_query_filter<F>(world: &mut World) -> Self
     where
         F: ReadOnlyWorldQuery + 'static,
