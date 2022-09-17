@@ -50,7 +50,19 @@ impl DynamicScene {
     /// Here, the function is creating a scene with all the componentA's in the world, but none of the componentB's.
     ///
     /// ```
-    /// let my_scene = scene_from_query_filter::<(
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_scene::DynamicScene;
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentB;
+    ///
+    /// TODO how to add type registry to the world
+    /// let mut world = World::new();
+    ///
+    /// let my_scene = DynamicScene::from_query_filter::<(
     ///   With<ComponentA>,
     ///   Without<ComponentB>,
     /// )>(&mut world);
@@ -67,7 +79,7 @@ impl DynamicScene {
             .read();
 
         let entities = query
-            .iter(&world)
+            .iter(world)
             .map(|entity| {
                 let get_reflect_by_id = |id| {
                     world
