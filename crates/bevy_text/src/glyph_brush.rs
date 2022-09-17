@@ -73,15 +73,11 @@ impl GlyphBrush {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mut max_y = std::f32::MIN;
         let mut min_x = std::f32::MAX;
         for sg in &glyphs {
             let glyph = &sg.glyph;
-            let scaled_font = sections_data[sg.section_index].3;
-            max_y = max_y.max(glyph.position.y - scaled_font.descent());
             min_x = min_x.min(glyph.position.x);
         }
-        max_y = max_y.floor();
         min_x = min_x.floor();
 
         let mut positioned_glyphs = Vec::new();
@@ -119,7 +115,7 @@ impl GlyphBrush {
                 let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
                 let x = bounds.min.x + size.x / 2.0 - min_x;
-                let y = max_y - bounds.max.y + size.y / 2.0;
+                let y = bounds.max.y - size.y / 2.0;
                 let position = adjust.position(Vec2::new(x, y));
 
                 positioned_glyphs.push(PositionedGlyph {
