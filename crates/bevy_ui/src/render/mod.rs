@@ -12,7 +12,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, OrthographicProjection, WindowOrigin},
+    camera::Camera,
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -243,12 +243,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
-            let mut projection = OrthographicProjection {
-                far: UI_CAMERA_FAR,
-                window_origin: WindowOrigin::BottomLeft,
-                ..Default::default()
-            };
-            projection.update(logical_size.x, logical_size.y);
+            let projection_matrix =
+                Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
             let default_camera_view = commands
                 .spawn(ExtractedView {
                     projection: projection.get_projection_matrix(),

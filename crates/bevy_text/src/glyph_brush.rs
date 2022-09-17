@@ -1,4 +1,4 @@
-use ab_glyph::{Font as _, FontArc, Glyph, ScaleFont as _};
+use ab_glyph::{Font as _, FontArc, Glyph};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
