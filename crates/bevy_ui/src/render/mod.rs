@@ -464,24 +464,23 @@ pub fn prepare_uinodes(
             }
         }
 
-        // Clip UVs (Note: y is reversed in UV space)
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
         let uvs = [
             Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x,
-                uinode_rect.max.y - positions_diff[0].y,
-            ),
-            Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x,
-                uinode_rect.max.y - positions_diff[1].y,
+                uinode_rect.min.x + positions_diff[3].x,
+                uinode_rect.min.y - positions_diff[3].y,
             ),
             Vec2::new(
                 uinode_rect.max.x + positions_diff[2].x,
                 uinode_rect.min.y - positions_diff[2].y,
             ),
             Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x,
-                uinode_rect.min.y - positions_diff[3].y,
+                uinode_rect.max.x + positions_diff[1].x,
+                uinode_rect.max.y - positions_diff[1].y,
+            ),
+            Vec2::new(
+                uinode_rect.min.x + positions_diff[0].x,
+                uinode_rect.max.y - positions_diff[0].y,
             ),
         ]
         .map(|pos| pos / atlas_extent);
