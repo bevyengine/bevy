@@ -5,7 +5,6 @@ use bevy_ecs::{
     entity::{Entity, EntityMap},
     query::ReadOnlyWorldQuery,
     reflect::{ReflectComponent, ReflectMapEntities},
-    system::{Query, SystemState},
     world::World,
 };
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
@@ -60,17 +59,15 @@ impl DynamicScene {
     where
         F: ReadOnlyWorldQuery + 'static,
     {
-        let mut ss = SystemState::<Query<Entity, F>>::new(world);
+        let mut query = world.query::<Entity>();
 
         let type_registry = world
             .get_resource::<AppTypeRegistry>()
             .expect("The World provided for scene generation does not contain a TypeRegistry")
             .read();
 
-        let q = ss.get(world);
-
-        let entities = q
-            .iter()
+        let entities = query
+            .iter(&world)
             .map(|entity| {
                 let get_reflect_by_id = |id| {
                     world

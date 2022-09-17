@@ -23,9 +23,7 @@ fn create_scene(world: &mut World) {
 }
 
 #[derive(Component)]
-struct Player {
-    speed: f32,
-}
+struct Player;
 
 fn spawn_player(mut commands: Commands) {
     commands.spawn().insert_bundle(Camera2dBundle::default());
@@ -39,13 +37,11 @@ fn spawn_player(mut commands: Commands) {
             },
             ..Default::default()
         })
-        .insert(Player { speed: 300.0 });
+        .insert(Player);
 }
 
 #[derive(Component)]
-pub struct Enemy {
-    speed: f32,
-}
+pub struct Enemy;
 
 fn spawn_enemy(mut commands: Commands) {
     commands
@@ -59,5 +55,5 @@ fn spawn_enemy(mut commands: Commands) {
             transform: Transform::from_xyz(300.0, 0.0, 0.0),
             ..Default::default()
         })
-        .insert(Enemy { speed: 200.0 });
+        .insert(Enemy);
 }
