@@ -1,3 +1,4 @@
+//! This example illustrates creating a dyanmic scene from a query filter.
 use bevy::prelude::*;
 
 fn main() {
@@ -22,7 +23,6 @@ fn create_scene(world: &mut World) {
 }
 
 #[derive(Component)]
-#[allow(dead_code)]
 struct Player {
     speed: f32,
 }
@@ -43,9 +43,7 @@ fn spawn_player(mut commands: Commands) {
 }
 
 #[derive(Component)]
-#[allow(dead_code)]
 pub struct Enemy {
-    // Speed is always positive
     speed: f32,
 }
 
