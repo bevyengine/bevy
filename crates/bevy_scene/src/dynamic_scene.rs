@@ -86,12 +86,19 @@ impl DynamicScene {
                     world
                         .components()
                         .get_info(id)
-                        .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                        .and_then(|info| {
+                            type_registry.get(
+                                info.type_id()
+                                    .expect("Cannot find the type id for the component."),
+                            )
+                        })
                         .and_then(|reg| reg.data::<ReflectComponent>())
                         .and_then(|rc| rc.reflect(world, entity))
                         .map(|c| c.clone_value())
                 };
 
+                // Components contains all the reflectable components
+                // per entity that satisfies the query.
                 let components = world
                     .entities()
                     .get(entity)
