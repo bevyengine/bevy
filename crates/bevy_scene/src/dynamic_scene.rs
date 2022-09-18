@@ -89,20 +89,23 @@ impl DynamicScene {
         let mut scene = DynamicScene::default();
         let type_registry = type_registry.read();
 
-        // Extract all entities that are a descendent of root
+        // Extract all entities that are a descendant of root
         let mut entities_of_interest = list_all_descendants(world, root);
         entities_of_interest.push(root);
 
         for archetype in world.archetypes().iter() {
             let entities_offset = scene.entities.len();
 
-            // Create a new dynamic entity for each entity of the given archetype
-            // and insert it into the dynamic scene.
-            for entity in archetype
+            // List all entities in an archetype that are part of the descendants
+            let archetype_entities_of_interest = archetype
                 .entities()
                 .iter()
                 .filter(|entity| entities_of_interest.contains(entity))
-            {
+                .collect::<Vec<_>>();
+
+            // Create a new dynamic entity for each entity of the given archetype
+            // and insert it into the dynamic scene.
+            for entity in &archetype_entities_of_interest {
                 scene.entities.push(DynamicEntity {
                     entity: entity.id(),
                     components: Vec::new(),
@@ -117,13 +120,8 @@ impl DynamicScene {
                     .and_then(|info| type_registry.get(info.type_id().unwrap()))
                     .and_then(|registration| registration.data::<ReflectComponent>());
                 if let Some(reflect_component) = reflect_component {
-                    for (i, entity) in archetype
-                        .entities()
-                        .iter()
-                        .filter(|entity| entities_of_interest.contains(entity))
-                        .enumerate()
-                    {
-                        if let Some(component) = reflect_component.reflect(world, *entity) {
+                    for (i, entity) in archetype_entities_of_interest.iter().enumerate() {
+                        if let Some(component) = reflect_component.reflect(world, **entity) {
                             scene.entities[entities_offset + i]
                                 .components
                                 .push(component.clone_value());
