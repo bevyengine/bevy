@@ -290,15 +290,15 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Get an iterator over the fields satisfying the given predicate
-    fn fields_by<F: FnMut(&&StructField) -> bool>(
+    fn fields_by<F: FnMut(&StructField) -> bool>(
         &self,
-        predicate: F,
+        mut predicate: F,
     ) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields.iter().filter(predicate)
+        self.fields.iter().filter(move |e| predicate(e))
     }
 
     /// Get a collection of all field types satisfying the given predicate
-    fn types_by<F: FnMut(&&StructField) -> bool>(&self, predicate: F) -> Vec<syn::Type> {
+    fn types_by<F: FnMut(&StructField) -> bool>(&self, predicate: F) -> Vec<syn::Type> {
         self.fields_by(predicate)
             .map(|field| field.data.ty.clone())
             .collect::<Vec<_>>()
