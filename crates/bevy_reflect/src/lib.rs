@@ -93,7 +93,7 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_names, clippy::approx_constant)]
+#[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
@@ -188,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::disallowed_names)]
+    #[allow(clippy::disallowed_types)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
