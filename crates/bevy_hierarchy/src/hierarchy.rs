@@ -20,6 +20,22 @@ pub struct DespawnChildrenRecursive {
     pub entity: Entity,
 }
 
+/// List all descendants of a given entity
+pub fn list_all_descendants(world: &World, root: Entity) -> Vec<Entity> {
+    let mut entities_of_interest = Vec::new();
+    let mut entities_to_process = vec![root];
+    while let Some(entity) = entities_to_process.pop() {
+        if entity != root {
+            // root is not a descendant of itself
+            entities_of_interest.push(entity);
+        }
+        if let Some(children) = world.entity(entity).get::<Children>() {
+            entities_to_process.extend(children.iter());
+        }
+    }
+    entities_of_interest
+}
+
 /// Function for despawning an entity and all its children
 pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
     // first, make the entity's own parent forget about it

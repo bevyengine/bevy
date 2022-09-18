@@ -7,7 +7,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_hierarchy::Children;
+use bevy_hierarchy::list_all_descendants;
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
 use serde::Serialize;
 
@@ -80,7 +80,7 @@ impl DynamicScene {
 
     /// Create a new dynamic scene from a given [`World`] at a given [`Entity`].
     ///
-    /// All descendents entities from the given one will be extracted.
+    /// All descendants entities from the given one will be extracted.
     pub fn from_world_at_root(
         world: &World,
         root: Entity,
@@ -90,14 +90,8 @@ impl DynamicScene {
         let type_registry = type_registry.read();
 
         // Extract all entities that are a descendent of root
-        let mut entities_of_interest = Vec::new();
-        let mut entities_to_process = vec![root];
-        while let Some(entity) = entities_to_process.pop() {
-            entities_of_interest.push(entity);
-            if let Some(children) = world.entity(entity).get::<Children>() {
-                entities_to_process.extend(children.iter());
-            }
-        }
+        let mut entities_of_interest = list_all_descendants(world, root);
+        entities_of_interest.push(root);
 
         for archetype in world.archetypes().iter() {
             let entities_offset = scene.entities.len();
