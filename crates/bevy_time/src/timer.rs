@@ -292,7 +292,7 @@ impl Timer {
         self.stopwatch.paused()
     }
 
-    /// Resets the timer. the reset doesn't affect the `paused` state of the timer.
+    /// Resets the timer. The reset doesn't affect the `paused` state of the timer.
     ///
     /// See also [`Stopwatch::reset`](Stopwatch::reset).
     ///
