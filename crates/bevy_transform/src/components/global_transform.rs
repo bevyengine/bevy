@@ -3,7 +3,7 @@ use std::ops::Mul;
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 
 /// Describe the position of an entity relative to the reference frame.
 ///
@@ -25,7 +25,7 @@ use bevy_reflect::Reflect;
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Component, PartialEq)]
 pub struct GlobalTransform(Affine3A);
 
