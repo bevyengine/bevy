@@ -62,22 +62,20 @@ impl DynamicScene {
     ///
     /// let mut world = World::new();
     /// world.init_resource::<AppTypeRegistry>();
+    /// let type_registry = world.resource::<AppTypeRegistry>().clone();
     ///
-    /// let my_scene = DynamicScene::from_query_filter::<(
-    ///   With<ComponentA>,
-    ///   Without<ComponentB>,
-    /// )>(&mut world);
+    /// let my_scene = DynamicScene::from_query_filter::<(With<ComponentA>, Without<ComponentB>)>(
+    ///   &mut world,
+    ///   &type_registry,
+    /// );
     /// ```
-    pub fn from_query_filter<F>(world: &mut World) -> Self
+    pub fn from_query_filter<F>(world: &mut World, type_registry: &AppTypeRegistry) -> Self
     where
         F: ReadOnlyWorldQuery + 'static,
     {
         let mut query = world.query_filtered::<Entity, F>();
 
-        let type_registry = world
-            .get_resource::<AppTypeRegistry>()
-            .expect("The World provided for scene generation does not contain a TypeRegistry")
-            .read();
+        let type_registry = type_registry.read();
 
         let entities = query
             .iter(world)
@@ -243,12 +241,15 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<AppTypeRegistry>();
+        let type_registry = world.resource::<AppTypeRegistry>().clone();
 
         let _entity1 = world.spawn().insert(ComponentA);
         let _entity2 = world.spawn().insert(ComponentB);
 
-        let my_scene =
-            DynamicScene::from_query_filter::<(With<ComponentA>, Without<ComponentB>)>(&mut world);
+        let my_scene = DynamicScene::from_query_filter::<(With<ComponentA>, Without<ComponentB>)>(
+            &mut world,
+            &type_registry,
+        );
 
         assert_eq!(my_scene.entities.len(), 1);
     }
