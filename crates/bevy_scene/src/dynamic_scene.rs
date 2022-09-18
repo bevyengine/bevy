@@ -40,7 +40,7 @@ impl DynamicScene {
 
     /// Create a Dynamic Scene with specific entities.
     ///
-    /// The generic parameter is used as a `Query` filter.
+    /// The generic parameter is used as a [`Query`] filter.
     ///
     /// The created scene will include only the entities that match the query
     /// filter provided. All components that impl `Reflect` will be included.
@@ -72,7 +72,7 @@ impl DynamicScene {
     where
         F: ReadOnlyWorldQuery + 'static,
     {
-        let mut query = world.query::<Entity>();
+        let mut query = world.query_filtered::<Entity, F>();
 
         let type_registry = world
             .get_resource::<AppTypeRegistry>()
@@ -218,4 +218,31 @@ where
         .indentor("  ".to_string())
         .new_line("\n".to_string());
     ron::ser::to_string_pretty(&serialize, pretty_config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DynamicScene;
+    use bevy_app::AppTypeRegistry;
+    use bevy_ecs::prelude::*;
+
+    #[test]
+    fn from_query_filter_test() {
+        #[derive(Component)]
+        struct ComponentA;
+
+        #[derive(Component)]
+        struct ComponentB;
+
+        let mut world = World::new();
+        world.init_resource::<AppTypeRegistry>();
+
+        let _entity1 = world.spawn().insert(ComponentA);
+        let _entity2 = world.spawn().insert(ComponentB);
+
+        let my_scene =
+            DynamicScene::from_query_filter::<(With<ComponentA>, Without<ComponentB>)>(&mut world);
+
+        assert_eq!(my_scene.entities.len(), 1);
+    }
 }
