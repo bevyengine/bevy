@@ -40,7 +40,7 @@ impl DynamicScene {
 
     /// Create a Dynamic Scene with specific entities.
     ///
-    /// The generic parameter is used as a [`Query`] filter.
+    /// The generic parameter is used as a [`Query`](bevy_ecs::system::Query) filter.
     ///
     /// The created scene will include only the entities that match the query
     /// filter provided. All components that impl `Reflect` will be included.
