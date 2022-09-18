@@ -256,7 +256,7 @@ impl<'a> ReflectMeta<'a> {
             &self.bevy_reflect_path,
             self.traits.idents(),
             self.generics,
-            false,
+            None,
         )
     }
 }
@@ -270,6 +270,7 @@ impl<'a> ReflectStruct<'a> {
     /// Access the data about which fields should be ignored during serialization.
     ///
     /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_blacklist`](crate::utility::members_to_serialization_blacklist) function.
+    #[allow(dead_code)]
     pub fn serialization_blacklist(&self) -> &BitSet<u32> {
         &self.serialization_blacklist
     }
@@ -285,7 +286,7 @@ impl<'a> ReflectStruct<'a> {
             reflect_path,
             self.meta.traits().idents(),
             self.meta.generics(),
-            true,
+            Some(&self.serialization_blacklist),
         )
     }
 

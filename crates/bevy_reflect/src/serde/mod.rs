@@ -24,7 +24,7 @@ mod tests {
     use crate::{self as bevy_reflect, DynamicTupleStruct};
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
-        type_registry::{GetTypeRegistration, TypeRegistry},
+        type_registry::TypeRegistry,
         DynamicStruct, Reflect,
     };
     use serde::de::DeserializeSeed;
@@ -43,8 +43,7 @@ mod tests {
         }
 
         let mut registry = TypeRegistry::default();
-        let registration = TestStruct::get_type_registration();
-        registry.add_registration(registration);
+        registry.register::<TestStruct>();
 
         let test_struct = TestStruct {
             a: 3,
@@ -84,8 +83,7 @@ mod tests {
         );
 
         let mut registry = TypeRegistry::default();
-        let registration = TestStruct::get_type_registration();
-        registry.add_registration(registration);
+        registry.register::<TestStruct>();
 
         let test_struct = TestStruct(3, 4, 5, 6);
 
