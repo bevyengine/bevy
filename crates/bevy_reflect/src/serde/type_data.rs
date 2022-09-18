@@ -31,7 +31,7 @@ impl SerializationData {
         }
     }
     /// Returns true if the given index corresponds to a field meant to be ignored in serialization.
-    /// Indices start from 0 and ignored fields do not count as fields.
+    /// Indices start from 0 and ignored fields are skipped.
     ///
     /// # Example
     ///
