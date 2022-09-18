@@ -23,8 +23,8 @@ pub struct SerializationData {
 }
 
 impl SerializationData {
-    /// Creates a new SerializationData instance given:
-    /// - ignored_iter: the iterator of member indices to be ignored during serialization. Indices are assigned only to reflected members, those which are not reflected are skipped.
+    /// Creates a new `SerializationData` instance given:
+    /// - `ignored_iter`: the iterator of member indices to be ignored during serialization. Indices are assigned only to reflected members, those which are not reflected are skipped.
     pub fn new<I: Iterator<Item = usize>>(ignored_iter: I) -> Self {
         Self {
             ignored_field_indices: ignored_iter.collect(),
