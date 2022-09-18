@@ -52,6 +52,7 @@ impl DynamicScene {
     /// ```
     /// use bevy_ecs::prelude::*;
     /// use bevy_scene::DynamicScene;
+    /// use bevy_app::AppTypeRegistry;
     ///
     /// #[derive(Component)]
     /// struct ComponentA;
@@ -59,8 +60,8 @@ impl DynamicScene {
     /// #[derive(Component)]
     /// struct ComponentB;
     ///
-    /// TODO how to add type registry to the world
     /// let mut world = World::new();
+    /// world.init_resource::<AppTypeRegistry>();
     ///
     /// let my_scene = DynamicScene::from_query_filter::<(
     ///   With<ComponentA>,
