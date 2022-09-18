@@ -3,9 +3,11 @@ use anyhow::Result;
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
     entity::EntityMap,
+    prelude::Entity,
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
+use bevy_hierarchy::Children;
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
 use serde::Serialize;
 
@@ -63,6 +65,68 @@ impl DynamicScene {
                     .and_then(|registration| registration.data::<ReflectComponent>());
                 if let Some(reflect_component) = reflect_component {
                     for (i, entity) in archetype.entities().iter().enumerate() {
+                        if let Some(component) = reflect_component.reflect(world, *entity) {
+                            scene.entities[entities_offset + i]
+                                .components
+                                .push(component.clone_value());
+                        }
+                    }
+                }
+            }
+        }
+
+        scene
+    }
+
+    /// Create a new dynamic scene from a given world at a given root.
+    pub fn from_world_at_root(
+        world: &World,
+        root: Entity,
+        type_registry: &AppTypeRegistry,
+    ) -> Self {
+        let mut scene = DynamicScene::default();
+        let type_registry = type_registry.read();
+
+        // Extract all entities that are a descendent of root
+        let mut entities_of_interest = Vec::new();
+        let mut entities_to_process = vec![root];
+        while let Some(entity) = entities_to_process.pop() {
+            entities_of_interest.push(entity);
+            if let Some(children) = world.entity(entity).get::<Children>() {
+                entities_to_process.extend(children.iter());
+            }
+        }
+
+        for archetype in world.archetypes().iter() {
+            let entities_offset = scene.entities.len();
+
+            // Create a new dynamic entity for each entity of the given archetype
+            // and insert it into the dynamic scene.
+            for entity in archetype
+                .entities()
+                .iter()
+                .filter(|entity| entities_of_interest.contains(entity))
+            {
+                scene.entities.push(DynamicEntity {
+                    entity: entity.id(),
+                    components: Vec::new(),
+                });
+            }
+
+            // Add each reflection-powered component to the entity it belongs to.
+            for component_id in archetype.components() {
+                let reflect_component = world
+                    .components()
+                    .get_info(component_id)
+                    .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                    .and_then(|registration| registration.data::<ReflectComponent>());
+                if let Some(reflect_component) = reflect_component {
+                    for (i, entity) in archetype
+                        .entities()
+                        .iter()
+                        .filter(|entity| entities_of_interest.contains(entity))
+                        .enumerate()
+                    {
                         if let Some(component) = reflect_component.reflect(world, *entity) {
                             scene.entities[entities_offset + i]
                                 .components
