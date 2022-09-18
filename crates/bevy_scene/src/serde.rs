@@ -72,8 +72,10 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
     {
         let mut state = serializer.serialize_seq(Some(self.components.len()))?;
         for component in self.components {
-            state
-                .serialize_element(&ReflectSerializer::new(&**component, &self.registry.read()))?;
+            state.serialize_element(&ReflectSerializer::new(
+                &**component,
+                &*self.registry.read(),
+            ))?;
         }
         state.end()
     }
