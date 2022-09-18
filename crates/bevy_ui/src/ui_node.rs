@@ -16,14 +16,15 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 #[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in pixels
-    ///
-    /// This Field should only read by the user
+    /// automatically calculated by [`super::flex::flex_node_system`]
     pub(crate) calculated_size: Vec2,
 }
 
 impl Node {
-    pub fn calculated_size(&self) -> &Vec2 {
-        &self.calculated_size
+    /// The calculated node size as width and height in pixels
+    /// automatically calculated by [`super::flex::flex_node_system`]
+    pub fn size(&self) -> Vec2 {
+        self.calculated_size
     }
 }
 
