@@ -135,16 +135,21 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     ) -> Self::Item;
 }
 
-impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
+    for Query<'w, 's, Q, F>
+{
     type Fetch = QueryState<Q, F>;
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<Q: ReadOnlyWorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F> {}
+unsafe impl<Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> ReadOnlySystemParamFetch
+    for QueryState<Q, F>
+{
+}
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this QueryState conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState
+unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParamState
     for QueryState<Q, F>
 {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
@@ -174,7 +179,7 @@ unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState
     }
 }
 
-impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's>
+impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParamFetch<'w, 's>
     for QueryState<Q, F>
 {
     type Item = Query<'w, 's, Q, F>;
@@ -1595,7 +1600,7 @@ mod tests {
     use super::SystemParam;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        query::WorldQuery,
+        query::{ReadOnlyWorldQuery, WorldQuery},
         system::Query,
     };
 
@@ -1605,7 +1610,7 @@ mod tests {
         'w,
         's,
         Q: WorldQuery + Send + Sync + 'static,
-        F: WorldQuery + Send + Sync + 'static = (),
+        F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
     > {
         _query: Query<'w, 's, Q, F>,
     }

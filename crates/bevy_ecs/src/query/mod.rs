@@ -19,7 +19,7 @@ pub(crate) unsafe fn debug_checked_unreachable() -> ! {
 
 #[cfg(test)]
 mod tests {
-    use super::WorldQuery;
+    use super::{ReadOnlyWorldQuery, WorldQuery};
     use crate::prelude::{AnyOf, Entity, Or, QueryState, With, Without};
     use crate::query::{ArchetypeFilter, QueryCombinationIter, QueryFetch};
     use crate::system::{IntoSystem, Query, System, SystemState};
@@ -68,7 +68,7 @@ mod tests {
         fn assert_combination<Q, F, const K: usize>(world: &mut World, expected_size: usize)
         where
             Q: WorldQuery,
-            F: WorldQuery,
+            F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
             for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
             for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
@@ -81,7 +81,7 @@ mod tests {
         fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
         where
             Q: WorldQuery,
-            F: WorldQuery,
+            F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
             for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
             for<'w> QueryFetch<'w, F::ReadOnly>: Clone,

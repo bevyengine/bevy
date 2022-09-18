@@ -150,7 +150,7 @@ impl TaskPool {
             // before this function returns. However, rust has no way of knowing
             // this so we must convert to 'static here to appease the compiler as it is unable to
             // validate safety.
-            let executor: &async_executor::Executor = &*self.executor;
+            let executor: &async_executor::Executor = &self.executor;
             let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
             let local_executor: &'scope async_executor::LocalExecutor =
                 unsafe { mem::transmute(local_executor) };
@@ -287,7 +287,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 }
 
 #[cfg(test)]
-#[allow(clippy::blacklisted_name)]
+#[allow(clippy::disallowed_types)]
 mod tests {
     use super::*;
     use std::sync::{
