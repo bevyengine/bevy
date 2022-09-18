@@ -194,7 +194,7 @@ impl Timer {
     /// ```
     /// # use bevy_time::*;
     /// use std::time::Duration;
-    /// let mut timer = Timer::from_seconds(1timer.0, false);
+    /// let mut timer = Timer::from_seconds(1.0, false);
     /// let mut repeating = Timer::from_seconds(1.0, true);
     /// timer.tick(Duration::from_secs_f32(1.5));
     /// repeating.tick(Duration::from_secs_f32(1.5));
