@@ -64,9 +64,14 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let get_type_registration_impl = reflect_struct.meta().get_type_registration();
+    let get_type_registration_impl = reflect_struct.get_type_registration();
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
+
+    let serialization_blacklist = reflect_struct
+        .serialization_blacklist()
+        .iter()
+        .map(|v| v as usize);
 
     TokenStream::from(quote! {
         #get_type_registration_impl
@@ -196,6 +201,12 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             #partial_eq_fn
 
             #debug_fn
+        }
+
+        impl #impl_generics #bevy_reflect_path::serde::ReflectSerializableWithData for #struct_name #ty_generics #where_clause{
+            fn get_serialization_data() -> #bevy_reflect_path::serde::SerializationData {
+                #bevy_reflect_path::serde::SerializationData::new([#(#serialization_blacklist),*].into_iter())
+            }
         }
     })
 }

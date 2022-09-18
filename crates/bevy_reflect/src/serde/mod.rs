@@ -1,8 +1,10 @@
 mod de;
 mod ser;
+mod type_data;
 
 pub use de::*;
 pub use ser::*;
+pub use type_data::*;
 
 pub(crate) mod type_fields {
     pub const TYPE: &str = "type";

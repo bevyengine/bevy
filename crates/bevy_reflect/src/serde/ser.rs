@@ -8,6 +8,8 @@ use serde::{
     Serialize, Serializer,
 };
 
+use super::SerializationData;
+
 pub enum Serializable<'a> {
     Owned(Box<dyn erased_serde::Serialize + 'a>),
     Borrowed(&'a dyn erased_serde::Serialize),
@@ -154,13 +156,13 @@ impl<'a> Serialize for StructValueSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(self.struct_value.field_len()))?;
-        let data = self
+        let serialization_data = self
             .registry
             .get_with_name(self.struct_value.type_name())
-            .and_then(|registration| registration.serialization_data());
+            .and_then(|registration| registration.data::<SerializationData>());
 
         for (index, value) in self.struct_value.iter_fields().enumerate() {
-            if data
+            if serialization_data
                 .map(|data| data.is_ignored_field(index))
                 .unwrap_or(false)
             {
@@ -208,13 +210,13 @@ impl<'a> Serialize for TupleStructValueSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_seq(Some(self.tuple_struct.field_len()))?;
-        let data = self
+        let serialization_data = self
             .registry
             .get_with_name(self.tuple_struct.type_name())
-            .and_then(|registration| registration.serialization_data());
+            .and_then(|registration| registration.data::<SerializationData>());
 
         for (index, value) in self.tuple_struct.iter_fields().enumerate() {
-            if data
+            if serialization_data
                 .map(|data| data.is_ignored_field(index))
                 .unwrap_or(false)
             {

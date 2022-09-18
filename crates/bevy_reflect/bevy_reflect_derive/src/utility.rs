@@ -101,7 +101,7 @@ impl<T> ResultSifter<T> {
 
 /// Converts an iterator over ignore behaviour of members to a bitset of ignored members.
 ///
-/// Takes into account the fact that always ignored (non-reflected) members do not count as members.
+/// Takes into account the fact that always ignored (non-reflected) members are skipped.
 ///
 /// # Example
 /// ```rust,ignore
@@ -123,16 +123,16 @@ where
 {
     let mut bitset = BitSet::default();
 
-    member_iter.fold(0, |next_idx, member| {
-        if member == ReflectIgnoreBehaviour::IgnoreAlways {
+    member_iter.fold(0, |next_idx, member| match member {
+        ReflectIgnoreBehaviour::IgnoreAlways => {
             bitset.insert(next_idx);
             next_idx
-        } else if member == ReflectIgnoreBehaviour::IgnoreSerialization {
+        }
+        ReflectIgnoreBehaviour::IgnoreSerialization => {
             bitset.insert(next_idx);
             next_idx + 1
-        } else {
-            next_idx + 1
         }
+        ReflectIgnoreBehaviour::None => next_idx + 1,
     });
 
     bitset

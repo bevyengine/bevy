@@ -30,7 +30,6 @@ use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
-use std::iter::empty;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 
@@ -100,7 +99,6 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
-        empty(),
     ))
 }
 
@@ -177,6 +175,5 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
-        empty(),
     ))
 }

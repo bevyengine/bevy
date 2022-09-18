@@ -1,7 +1,5 @@
-use std::iter::empty;
-
 use crate::container_attributes::ReflectTraits;
-use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr, ReflectIgnoreBehaviour};
+use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::utility::members_to_serialization_blacklist;
 use bit_set::BitSet;
 use quote::quote;
@@ -41,8 +39,6 @@ pub(crate) struct ReflectMeta<'a> {
     generics: &'a Generics,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
-    /// A collection corresponding to `ignored` fields' indices during serialization.
-    serialization_blacklist: BitSet<u32>,
 }
 
 /// Struct data used by derive macros for `Reflect` and `FromReflect`.
@@ -60,6 +56,7 @@ pub(crate) struct ReflectMeta<'a> {
 /// ```
 pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
+    serialization_blacklist: BitSet<u32>,
     fields: Vec<StructField<'a>>,
 }
 
@@ -137,20 +134,20 @@ impl<'a> ReflectDerive<'a> {
                 &input.ident,
                 &input.generics,
                 traits,
-                empty(),
             )));
         }
 
         return match &input.data {
             Data::Struct(data) => {
                 let fields = Self::collect_struct_fields(&data.fields)?;
-                let meta = ReflectMeta::new(
-                    &input.ident,
-                    &input.generics,
-                    traits,
-                    fields.iter().map(|f| f.attrs.ignore),
-                );
-                let reflect_struct = ReflectStruct { meta, fields };
+                let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
+                let reflect_struct = ReflectStruct {
+                    meta,
+                    serialization_blacklist: members_to_serialization_blacklist(
+                        fields.iter().map(|v| v.attrs.ignore),
+                    ),
+                    fields,
+                };
 
                 match data.fields {
                     Fields::Named(..) => Ok(Self::Struct(reflect_struct)),
@@ -160,7 +157,7 @@ impl<'a> ReflectDerive<'a> {
             }
             Data::Enum(data) => {
                 let variants = Self::collect_enum_variants(&data.variants)?;
-                let meta = ReflectMeta::new(&input.ident, &input.generics, traits, empty());
+                let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
 
                 let reflect_enum = ReflectEnum { meta, variants };
                 Ok(Self::Enum(reflect_enum))
@@ -223,18 +220,12 @@ impl<'a> ReflectDerive<'a> {
 }
 
 impl<'a> ReflectMeta<'a> {
-    pub fn new<I: Iterator<Item = ReflectIgnoreBehaviour>>(
-        type_name: &'a Ident,
-        generics: &'a Generics,
-        traits: ReflectTraits,
-        member_meta_iter: I,
-    ) -> Self {
+    pub fn new(type_name: &'a Ident, generics: &'a Generics, traits: ReflectTraits) -> Self {
         Self {
             traits,
             type_name,
             generics,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
-            serialization_blacklist: members_to_serialization_blacklist(member_meta_iter),
         }
     }
 
@@ -265,7 +256,7 @@ impl<'a> ReflectMeta<'a> {
             &self.bevy_reflect_path,
             self.traits.idents(),
             self.generics,
-            &self.serialization_blacklist,
+            false,
         )
     }
 }
@@ -276,8 +267,30 @@ impl<'a> ReflectStruct<'a> {
         &self.meta
     }
 
+    /// Access the data about which fields should be ignored during serialization.
+    ///
+    /// The returned bitset is a collection of indices obtained from the [members_to_serialization_blacklist](crate::utility::members_to_serialization_blacklist) function.
+    pub fn serialization_blacklist(&self) -> &BitSet<u32> {
+        &self.serialization_blacklist
+    }
+
+    /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
+    ///
+    /// Returns a specific implementation for structs and this method should be preffered over the generic [get_type_registration](crate::ReflectMeta) method
+    pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
+        let reflect_path = self.meta.bevy_reflect_path();
+
+        crate::registration::impl_get_type_registration(
+            self.meta.type_name(),
+            reflect_path,
+            self.meta.traits().idents(),
+            self.meta.generics(),
+            true,
+        )
+    }
+
     /// Get an iterator over the fields satisfying the given predicate
-    fn fields_with<F: FnMut(&&StructField) -> bool>(
+    fn fields_by<F: FnMut(&&StructField) -> bool>(
         &self,
         predicate: F,
     ) -> impl Iterator<Item = &StructField<'a>> {
@@ -285,25 +298,25 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Get a collection of all field types satisfying the given predicate
-    fn types_with<F: FnMut(&&StructField) -> bool>(&self, predicate: F) -> Vec<syn::Type> {
-        self.fields_with(predicate)
+    fn types_by<F: FnMut(&&StructField) -> bool>(&self, predicate: F) -> Vec<syn::Type> {
+        self.fields_by(predicate)
             .map(|field| field.data.ty.clone())
             .collect::<Vec<_>>()
     }
 
-    /// Get a collection of types which are exposed to either the serialization or reflection API
+    /// Get a collection of types which are exposed to either the reflection API
     pub fn active_types(&self) -> Vec<syn::Type> {
-        self.types_with(|field| field.attrs.ignore.is_active())
+        self.types_by(|field| field.attrs.ignore.is_active())
     }
 
-    /// Get an iterator of fields which are exposed to the serialization or reflection API
+    /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields_with(|field| field.attrs.ignore.is_active())
+        self.fields_by(|field| field.attrs.ignore.is_active())
     }
 
     /// Get an iterator of fields which are ignored by the reflection and serialization API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields_with(|field| field.attrs.ignore.is_ignored())
+        self.fields_by(|field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this struct.
