@@ -296,7 +296,7 @@ impl<'a> ReflectStruct<'a> {
         self.types_with(|field| field.attrs.ignore.is_active())
     }
 
-    /// Get an iterator of fields which are exposed to the serialization or reflection API
+    /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields_with(|field| field.attrs.ignore.is_active())
     }
