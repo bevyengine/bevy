@@ -187,6 +187,8 @@ impl Stopwatch {
     }
 
     /// Resets the stopwatch.
+    /// 
+    /// It does not affect this stopwatch's paused state.
     ///
     /// # Examples
     /// ```
