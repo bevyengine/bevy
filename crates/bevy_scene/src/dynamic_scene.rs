@@ -78,7 +78,9 @@ impl DynamicScene {
         scene
     }
 
-    /// Create a new dynamic scene from a given world at a given root.
+    /// Create a new dynamic scene from a given [`World`] at a given [`Entity`].
+    ///
+    /// All descendents entities from the given one will be extracted.
     pub fn from_world_at_root(
         world: &World,
         root: Entity,
