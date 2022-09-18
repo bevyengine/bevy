@@ -186,7 +186,7 @@ impl Stopwatch {
         self.paused
     }
 
-    /// Resets the stopwatch. The reset doesn’t affect the paused state of the timer
+    /// Resets the stopwatch. The reset doesn’t affect the paused state of the stopwatch.
     ///
     /// # Examples
     /// ```
