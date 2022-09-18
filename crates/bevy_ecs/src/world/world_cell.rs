@@ -155,7 +155,7 @@ impl<'w, T> Deref for WorldBorrowMut<'w, T> {
 
 impl<'w, T> DerefMut for WorldBorrowMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut *self.value
+        &mut self.value
     }
 }
 
