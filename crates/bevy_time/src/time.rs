@@ -3,6 +3,7 @@ use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
 
 const SECONDS_PER_HOUR: u64 = 60 * 60;
+
 /// Tracks elapsed time since the last update and since the App has started
 #[derive(Resource, Reflect, FromReflect, Debug, Clone)]
 #[reflect(Resource)]
