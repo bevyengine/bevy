@@ -1,6 +1,6 @@
 //! General-purpose utility functions for internal usage within this crate.
 
-use crate::field_attributes::ReflectIgnoreBehaviour;
+use crate::field_attributes::ReflectIgnoreBehavior;
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
@@ -119,20 +119,20 @@ impl<T> ResultSifter<T> {
 ///
 pub(crate) fn members_to_serialization_blacklist<T>(member_iter: T) -> BitSet<u32>
 where
-    T: Iterator<Item = ReflectIgnoreBehaviour>,
+    T: Iterator<Item = ReflectIgnoreBehavior>,
 {
     let mut bitset = BitSet::default();
 
     member_iter.fold(0, |next_idx, member| match member {
-        ReflectIgnoreBehaviour::IgnoreAlways => {
+        ReflectIgnoreBehavior::IgnoreAlways => {
             bitset.insert(next_idx);
             next_idx
         }
-        ReflectIgnoreBehaviour::IgnoreSerialization => {
+        ReflectIgnoreBehavior::IgnoreSerialization => {
             bitset.insert(next_idx);
             next_idx + 1
         }
-        ReflectIgnoreBehaviour::None => next_idx + 1,
+        ReflectIgnoreBehavior::None => next_idx + 1,
     });
 
     bitset

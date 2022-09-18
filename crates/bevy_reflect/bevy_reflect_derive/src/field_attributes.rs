@@ -20,7 +20,7 @@ pub(crate) static DEFAULT_ATTR: &str = "default";
 /// In boolean logic this is described as: `is_serialized -> is_reflected`, this means we can reflect something without serializing it but not the other way round.
 /// The `is_reflected` predicate is provided as `self.is_active()`
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ReflectIgnoreBehaviour {
+pub(crate) enum ReflectIgnoreBehavior {
     /// Don't ignore, appear to all systems
     #[default]
     None,
@@ -30,12 +30,12 @@ pub(crate) enum ReflectIgnoreBehaviour {
     IgnoreAlways,
 }
 
-impl ReflectIgnoreBehaviour {
+impl ReflectIgnoreBehavior {
     /// Returns `true` if the ignoring behaviour implies member is included in the reflection API, and false otherwise.
     pub fn is_active(self) -> bool {
         match self {
-            ReflectIgnoreBehaviour::None | ReflectIgnoreBehaviour::IgnoreSerialization => true,
-            ReflectIgnoreBehaviour::IgnoreAlways => false,
+            ReflectIgnoreBehavior::None | ReflectIgnoreBehavior::IgnoreSerialization => true,
+            ReflectIgnoreBehavior::IgnoreAlways => false,
         }
     }
 
@@ -49,7 +49,7 @@ impl ReflectIgnoreBehaviour {
 #[derive(Default)]
 pub(crate) struct ReflectFieldAttr {
     /// Determines how this field should be ignored if at all.
-    pub ignore: ReflectIgnoreBehaviour,
+    pub ignore: ReflectIgnoreBehavior,
     /// Sets the default behavior of this field.
     pub default: DefaultBehavior,
 }
@@ -99,13 +99,13 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
 fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
     match meta {
         Meta::Path(path) if path.is_ident(IGNORE_SERIALIZATION_ATTR) => {
-            (args.ignore == ReflectIgnoreBehaviour::None)
-                .then(|| args.ignore = ReflectIgnoreBehaviour::IgnoreSerialization)
+            (args.ignore == ReflectIgnoreBehavior::None)
+                .then(|| args.ignore = ReflectIgnoreBehavior::IgnoreSerialization)
                 .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
         }
         Meta::Path(path) if path.is_ident(IGNORE_ALL_ATTR) => {
-            (args.ignore == ReflectIgnoreBehaviour::None)
-                .then(|| args.ignore = ReflectIgnoreBehaviour::IgnoreAlways)
+            (args.ignore == ReflectIgnoreBehavior::None)
+                .then(|| args.ignore = ReflectIgnoreBehavior::IgnoreAlways)
                 .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
         }
         Meta::Path(path) if path.is_ident(DEFAULT_ATTR) => {

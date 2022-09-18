@@ -269,14 +269,14 @@ impl<'a> ReflectStruct<'a> {
 
     /// Access the data about which fields should be ignored during serialization.
     ///
-    /// The returned bitset is a collection of indices obtained from the [members_to_serialization_blacklist](crate::utility::members_to_serialization_blacklist) function.
+    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_blacklist`](crate::utility::members_to_serialization_blacklist) function.
     pub fn serialization_blacklist(&self) -> &BitSet<u32> {
         &self.serialization_blacklist
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
-    /// Returns a specific implementation for structs and this method should be preffered over the generic [get_type_registration](crate::ReflectMeta) method
+    /// Returns a specific implementation for structs and this method should be preffered over the generic [`get_type_registration`](crate::ReflectMeta) method
     pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
         let reflect_path = self.meta.bevy_reflect_path();
 
