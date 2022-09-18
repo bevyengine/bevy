@@ -36,7 +36,7 @@ impl SerializationData {
     /// # Example
     ///
     /// ```rust,ignore
-    /// for (idx,field) in my_struct.iter_fields().enumerate(){
+    /// for (idx, field) in my_struct.iter_fields().enumerate(){
     ///     if serialization_data.is_ignored_field(idx){
     ///        // serialize ...
     ///     }
