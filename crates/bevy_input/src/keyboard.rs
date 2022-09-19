@@ -11,7 +11,7 @@ use bevy_reflect::{FromReflect, Reflect};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct KeyboardInput {
     /// The scan code of the key.
     pub scan_code: u32,
