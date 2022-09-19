@@ -117,7 +117,7 @@ impl<T> ResultSifter<T> {
 /// ```
 /// Would convert to the `0b01` bitset (i.e second field is NOT serialized)
 ///
-pub(crate) fn members_to_serialization_blacklist<T>(member_iter: T) -> BitSet<u32>
+pub(crate) fn members_to_serialization_denylist<T>(member_iter: T) -> BitSet<u32>
 where
     T: Iterator<Item = ReflectIgnoreBehavior>,
 {

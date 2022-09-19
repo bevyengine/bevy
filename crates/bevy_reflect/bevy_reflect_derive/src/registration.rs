@@ -11,13 +11,13 @@ pub(crate) fn impl_get_type_registration(
     bevy_reflect_path: &Path,
     registration_data: &[Ident],
     generics: &Generics,
-    serialization_blacklist: Option<&BitSet<u32>>,
+    serialization_denylist: Option<&BitSet<u32>>,
 ) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let serialization_data = serialization_blacklist.map(|blacklist| {
-        let blacklist = blacklist.into_iter().map(|v| v as usize);
+    let serialization_data = serialization_denylist.map(|denylist| {
+        let denylist = denylist.into_iter().map(|v| v as usize);
         quote! {
-            let ignored_indices = [#(#blacklist),*].into_iter();
+            let ignored_indices = [#(#denylist),*].into_iter();
             registration.insert::<#bevy_reflect_path::serde::SerializationData>(#bevy_reflect_path::serde::SerializationData::new(ignored_indices));
         }
     });

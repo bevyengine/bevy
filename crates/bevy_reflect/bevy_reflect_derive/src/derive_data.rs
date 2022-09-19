@@ -1,6 +1,6 @@
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
-use crate::utility::members_to_serialization_blacklist;
+use crate::utility::members_to_serialization_denylist;
 use bit_set::BitSet;
 use quote::quote;
 
@@ -56,7 +56,7 @@ pub(crate) struct ReflectMeta<'a> {
 /// ```
 pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
-    serialization_blacklist: BitSet<u32>,
+    serialization_denylist: BitSet<u32>,
     fields: Vec<StructField<'a>>,
 }
 
@@ -95,10 +95,8 @@ pub(crate) struct EnumVariant<'a> {
     /// The fields within this variant.
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
-    #[allow(dead_code)]
     pub attrs: ReflectFieldAttr,
     /// The index of this variant within the enum.
-    #[allow(dead_code)]
     pub index: usize,
 }
 
@@ -143,7 +141,7 @@ impl<'a> ReflectDerive<'a> {
                 let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
                 let reflect_struct = ReflectStruct {
                     meta,
-                    serialization_blacklist: members_to_serialization_blacklist(
+                    serialization_denylist: members_to_serialization_denylist(
                         fields.iter().map(|v| v.attrs.ignore),
                     ),
                     fields,
@@ -269,10 +267,9 @@ impl<'a> ReflectStruct<'a> {
 
     /// Access the data about which fields should be ignored during serialization.
     ///
-    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_blacklist`](crate::utility::members_to_serialization_blacklist) function.
-    #[allow(dead_code)]
-    pub fn serialization_blacklist(&self) -> &BitSet<u32> {
-        &self.serialization_blacklist
+    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`](crate::utility::members_to_serialization_denylist) function.
+    pub fn serialization_denylist(&self) -> &BitSet<u32> {
+        &self.serialization_denylist
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
@@ -286,42 +283,34 @@ impl<'a> ReflectStruct<'a> {
             reflect_path,
             self.meta.traits().idents(),
             self.meta.generics(),
-            Some(&self.serialization_blacklist),
+            Some(&self.serialization_denylist),
         )
-    }
-
-    /// Get an iterator over the fields satisfying the given predicate
-    fn fields_by<F: FnMut(&StructField) -> bool>(
-        &self,
-        mut predicate: F,
-    ) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields.iter().filter(move |e| predicate(e))
-    }
-
-    /// Get a collection of all field types satisfying the given predicate
-    fn types_by<F: FnMut(&StructField) -> bool>(&self, predicate: F) -> Vec<syn::Type> {
-        self.fields_by(predicate)
-            .map(|field| field.data.ty.clone())
-            .collect::<Vec<_>>()
     }
 
     /// Get a collection of types which are exposed to either the reflection API
     pub fn active_types(&self) -> Vec<syn::Type> {
-        self.types_by(|field| field.attrs.ignore.is_active())
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_active())
+            .map(|field| field.data.ty.clone())
+            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields_by(|field| field.attrs.ignore.is_active())
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_active())
     }
 
     /// Get an iterator of fields which are ignored by the reflection and serialization API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields_by(|field| field.attrs.ignore.is_ignored())
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this struct.
-    #[allow(dead_code)]
     pub fn fields(&self) -> &[StructField<'a>] {
         &self.fields
     }
@@ -342,7 +331,6 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// The complete set of variants in this enum.
-    #[allow(dead_code)]
     pub fn variants(&self) -> &[EnumVariant<'a>] {
         &self.variants
     }
