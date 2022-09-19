@@ -62,6 +62,8 @@ impl Plugin for TextPlugin {
             .add_asset::<FontAtlasSet>()
             .register_type::<Text>()
             .register_type::<TextSection>()
+            .register_type::<Vec<TextSection>>()
+            .register_type::<TextStyle>()
             .register_type::<TextAlignment>()
             .register_type::<VerticalAlign>()
             .register_type::<HorizontalAlign>()
