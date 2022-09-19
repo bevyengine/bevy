@@ -21,7 +21,7 @@ type IndexSet<T> = indexmap::IndexSet<T, FixedState>;
 /// For details on interning, see [the module level docs](self).
 ///
 /// To store multiple distinct types, or generic types, try [`AnyInterner`].
-pub struct Interner<T: Clone + Hash + Eq>(
+pub struct Interner<T: Clone + Hash + Eq + Send + Sync>(
     // The `IndexSet` is a hash set that preserves ordering as long as
     // you don't remove items (which we don't).
     // This allows us to have O(~1) hashing and map each entry to a stable index.
@@ -33,7 +33,7 @@ pub struct Interner<T: Clone + Hash + Eq>(
 /// Will hold a lock on the interner until this guard gets dropped.
 pub type InternGuard<'a, L> = parking_lot::MappedRwLockReadGuard<'a, L>;
 
-impl<T: Clone + Hash + Eq> Interner<T> {
+impl<T: Clone + Hash + Eq + Send + Sync> Interner<T> {
     pub const fn new() -> Self {
         Self(RwLock::new(IndexSet::with_hasher(FixedState)))
     }
