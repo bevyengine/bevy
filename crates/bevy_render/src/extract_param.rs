@@ -3,7 +3,7 @@ use bevy_ecs::{
     prelude::*,
     system::{
         ReadOnlySystemParamFetch, ResState, SystemMeta, SystemParam, SystemParamFetch,
-        SystemParamState, SystemState,
+        SystemParamItem, SystemParamState, SystemState,
     },
 };
 use std::ops::{Deref, DerefMut};
@@ -34,7 +34,7 @@ use std::ops::{Deref, DerefMut};
 /// # #[derive(Component)]
 /// # struct Cloud;
 /// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<Entity, With<Cloud>>>) {
-///     for cloud in clouds.iter() {
+///     for cloud in &clouds {
 ///         commands.get_or_spawn(cloud).insert(Cloud);
 ///     }
 /// }
