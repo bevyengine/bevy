@@ -113,14 +113,12 @@ where
                         let _ = spatial_sinks
                             .set(config.sink_handle, SpatialAudioSink { sink: Some(sink) });
                     }
-                } else {
-                    if let Some(sink) = self.play_source(audio_source, config.settings.repeat) {
-                        sink.set_speed(config.settings.speed);
-                        sink.set_volume(config.settings.volume);
+                } else if let Some(sink) = self.play_source(audio_source, config.settings.repeat) {
+                    sink.set_speed(config.settings.speed);
+                    sink.set_volume(config.settings.volume);
 
-                        // don't keep the strong handle. there is no way to return it to the user here as it is async
-                        let _ = sinks.set(config.sink_handle, AudioSink { sink: Some(sink) });
-                    }
+                    // don't keep the strong handle. there is no way to return it to the user here as it is async
+                    let _ = sinks.set(config.sink_handle, AudioSink { sink: Some(sink) });
                 }
             } else {
                 // audio source hasn't loaded yet. add it back to the queue

@@ -128,7 +128,7 @@ where
     /// transform, an ear on each side separated by `gap`. The audio emitter will placed at
     /// `emitter`.
     ///
-    /// bevy_audio is not using HRTF for spatial audio, but is transforming the sound to a mono
+    /// `bevy_audio` is not using HRTF for spatial audio, but is transforming the sound to a mono
     /// track, and then changing the level of each stereo channel according to the distance between
     /// the emitter and each ear.
     ///
@@ -194,7 +194,7 @@ where
     /// transform, an ear on each side separated by `gap`. The audio emitter is placed at
     /// `emitter`.
     ///
-    /// bevy_audio is not using HRTF for spatial audio, but is transforming the sound to a mono
+    /// `bevy_audio` is not using HRTF for spatial audio, but is transforming the sound to a mono
     /// track, and then changing the level of each stereo channel according to the distance between
     /// the emitter and each ear.
     ///
