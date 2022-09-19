@@ -130,7 +130,7 @@ impl LabelAttrs {
                 continue;
             }
 
-            // Parse the argument/s to the attribute.
+            // Parse the argument(s) to the attribute.
             attr.parse_args_with(|input: syn::parse::ParseStream| {
                 loop {
                     syn::custom_keyword!(intern);
