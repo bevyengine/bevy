@@ -290,7 +290,7 @@ impl<'a> ReflectStruct<'a> {
         )
     }
 
-    /// Get a collection of types which are exposed to either the reflection API
+    /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<syn::Type> {
         self.fields
             .iter()
@@ -306,7 +306,7 @@ impl<'a> ReflectStruct<'a> {
             .filter(move |field| field.attrs.ignore.is_active())
     }
 
-    /// Get an iterator of fields which are ignored by the reflection and serialization API
+    /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
         self.fields
             .iter()
