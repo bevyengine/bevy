@@ -5,7 +5,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::Interner;
+use crate::intern::Interner;
 
 pub trait DynEq: Any {
     fn as_any(&self) -> &dyn Any;

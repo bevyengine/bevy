@@ -350,6 +350,7 @@ fn derive_interned_label(
 
     let interner_type_path = {
         let mut path = manifest.get_path("bevy_utils");
+        path.segments.push(format_ident!("intern").into());
         // If the type is generic, we have to store all monomorphizations
         // in the same global due to Rust restrictions.
         if is_generic {
@@ -366,6 +367,7 @@ fn derive_interned_label(
     };
     let guard_type_path = {
         let mut path = manifest.get_path("bevy_utils");
+        path.segments.push(format_ident!("intern").into());
         path.segments.push(format_ident!("InternGuard").into());
         path
     };
