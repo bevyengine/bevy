@@ -44,6 +44,9 @@ fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
     if let Some(mut children) = parent.get_mut::<Children>() {
         children.0.retain(|x| *x != child);
+        if children.is_empty() {
+            parent.remove::<Children>();
+        }
     }
 }
 
@@ -74,10 +77,15 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     }
     push_events(world, events);
 
-    if let Some(mut parent_children) = world.get_mut::<Children>(parent) {
+    let mut parent = world.entity_mut(parent);
+    if let Some(mut parent_children) = parent.get_mut::<Children>() {
         parent_children
             .0
             .retain(|parent_child| !children.contains(parent_child));
+
+        if parent_children.is_empty() {
+            parent.remove::<Children>();
+        }
     }
 }
 
@@ -248,25 +256,24 @@ pub trait BuildChildren {
     /// Pushes children to the back of the builder's children
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
-    /// will have those children removed from its list. Removing all children from a parent does not cause
-    /// its [`Children`] component to be removed from the entity. It will simply be left in an empty state.
+    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// [`Children`] component to be removed from the entity.
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
-    /// will have those children removed from its list. Removing all children from a parent does not cause
-    /// its [`Children`] component to be removed from the entity. It will simply be left in an empty state.
+    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// [`Children`] component to be removed from the entity.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
     /// Removes the given children
     ///
-    /// Removing all children from a parent does not cause its [`Children`] component to be removed from the
-    /// entity. It will simply be left in an empty state.
+    /// Removing all children from a parent causes its [`Children`] component to be removed from the entity.
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Adds a single child
     ///
-    /// If the child was previously the child of another parent, that parent's [`Children`] component will
-    /// have that child removed from its list. Removing all children from a parent does not cause its
-    /// [`Children`] component to be removed from the entity. It will simply be left in an empty state.
+    /// If the children were previously children of another parent, that parent's [`Children`] component
+    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// [`Children`] component to be removed from the entity.
     fn add_child(&mut self, child: Entity) -> &mut Self;
 }
 
@@ -692,15 +699,15 @@ mod tests {
 
         // move only child from parent1 with `push_children`
         world.entity_mut(parent2).push_children(&[child]);
-        assert!(world.get::<Children>(parent1).unwrap().is_empty());
+        assert!(world.get::<Children>(parent1).is_none());
 
         // move only child from parent2 with `insert_children`
         world.entity_mut(parent1).insert_children(0, &[child]);
-        assert!(world.get::<Children>(parent2).unwrap().is_empty());
+        assert!(world.get::<Children>(parent2).is_none());
 
         // remove only child from parent1 with `remove_children`
         world.entity_mut(parent1).remove_children(&[child]);
-        assert!(world.get::<Children>(parent1).unwrap().is_empty());
+        assert!(world.get::<Children>(parent1).is_none());
     }
 
     /// Tests what happens when all children are removed form a parent using commands
@@ -734,7 +741,7 @@ mod tests {
             commands.entity(parent2).push_children(&[child]);
             queue.apply(&mut world);
         }
-        assert!(world.get::<Children>(parent1).unwrap().is_empty());
+        assert!(world.get::<Children>(parent1).is_none());
 
         // move only child from parent2 with `insert_children`
         {
@@ -742,7 +749,7 @@ mod tests {
             commands.entity(parent1).insert_children(0, &[child]);
             queue.apply(&mut world);
         }
-        assert!(world.get::<Children>(parent2).unwrap().is_empty());
+        assert!(world.get::<Children>(parent2).is_none());
 
         // move only child from parent1 with `add_child`
         {
@@ -750,7 +757,7 @@ mod tests {
             commands.entity(parent2).add_child(child);
             queue.apply(&mut world);
         }
-        assert!(world.get::<Children>(parent1).unwrap().is_empty());
+        assert!(world.get::<Children>(parent1).is_none());
 
         // remove only child from parent2 with `remove_children`
         {
@@ -758,7 +765,7 @@ mod tests {
             commands.entity(parent2).remove_children(&[child]);
             queue.apply(&mut world);
         }
-        assert!(world.get::<Children>(parent2).unwrap().is_empty());
+        assert!(world.get::<Children>(parent2).is_none());
     }
 
     #[test]
