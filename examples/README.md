@@ -182,6 +182,7 @@ Example | Description
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
+[Spatial Audio](../examples/audio/spatial_audio.rs) | Shows how to play spacial audio, and moving the emitter
 
 ## Diagnostics
 

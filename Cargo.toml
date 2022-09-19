@@ -814,6 +814,16 @@ description = "Shows how to create and register a custom audio source by impleme
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "spatial_audio"
+path = "examples/audio/spatial_audio.rs"
+
+[package.metadata.example.spatial_audio]
+name = "Spatial Audio"
+description = "Shows how to play spacial audio, and moving the emitter"
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
