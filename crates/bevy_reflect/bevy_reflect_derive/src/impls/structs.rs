@@ -64,7 +64,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let get_type_registration_impl = reflect_struct.meta().get_type_registration();
+    let get_type_registration_impl = reflect_struct.get_type_registration();
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
 

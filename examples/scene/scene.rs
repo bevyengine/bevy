@@ -30,14 +30,14 @@ struct ComponentA {
 }
 
 // Some components have fields that cannot (or should not) be written to scene files. These can be
-// ignored with the #[reflect(ignore)] attribute. This is also generally where the `FromWorld`
+// ignored with the #[reflect(skip_serializing)] attribute. This is also generally where the `FromWorld`
 // trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
 // when you construct your component.
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 struct ComponentB {
     pub value: String,
-    #[reflect(ignore)]
+    #[reflect(skip_serializing)]
     pub _time_since_startup: Duration,
 }
 
