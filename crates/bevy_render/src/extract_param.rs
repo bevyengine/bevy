@@ -118,3 +118,16 @@ where
         &mut self.item
     }
 }
+
+impl<'a, 'w, 's, P: SystemParam> IntoIterator for &'a Extract<'w, 's, P>
+where
+    P::Fetch: ReadOnlySystemParamFetch,
+    &'a SystemParamItem<'w, 's, P>: IntoIterator,
+{
+    type Item = <&'a SystemParamItem<'w, 's, P> as IntoIterator>::Item;
+    type IntoIter = <&'a SystemParamItem<'w, 's, P> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.item).into_iter()
+    }
+}
