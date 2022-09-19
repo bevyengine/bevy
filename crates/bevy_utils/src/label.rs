@@ -52,6 +52,7 @@ where
 #[doc(hidden)]
 pub struct VTable {
     // FIXME: When const TypeId stabilizes, inline the type instead of using a fn pointer for indirection.
+    // See https://github.com/rust-lang/rust/issues/77125
     pub ty: fn() -> ::std::any::TypeId,
     pub fmt: fn(u64, &mut ::std::fmt::Formatter) -> ::std::fmt::Result,
 }
