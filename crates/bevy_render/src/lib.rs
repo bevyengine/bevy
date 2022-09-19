@@ -18,6 +18,7 @@ mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
+use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
 
 pub mod prelude {
@@ -34,6 +35,7 @@ pub mod prelude {
 }
 
 pub use once_cell;
+use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
@@ -315,7 +317,8 @@ impl Plugin for RenderPlugin {
             });
         }
 
-        app.add_plugin(WindowRenderPlugin)
+        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
+            .add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
