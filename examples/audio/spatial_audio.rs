@@ -1,6 +1,5 @@
-//! This example illustrates how to load and play an audio file, and control how it's played.
-
-use bevy::{audio::SpatialAudioSink, prelude::*};
+//! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
+use bevy::prelude::*;
 
 fn main() {
     App::new()

@@ -32,6 +32,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         Audio, AudioOutput, AudioSink, AudioSinkExt, AudioSource, Decodable, PlaybackSettings,
+        SpatialAudioSink,
     };
 }
 
