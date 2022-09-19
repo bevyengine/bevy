@@ -95,8 +95,10 @@ pub(crate) struct EnumVariant<'a> {
     /// The fields within this variant.
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
+    #[allow(dead_code)]
     pub attrs: ReflectFieldAttr,
     /// The index of this variant within the enum.
+    #[allow(dead_code)]
     pub index: usize,
 }
 
@@ -268,6 +270,7 @@ impl<'a> ReflectStruct<'a> {
     /// Access the data about which fields should be ignored during serialization.
     ///
     /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`](crate::utility::members_to_serialization_denylist) function.
+    #[allow(dead_code)]
     pub fn serialization_denylist(&self) -> &BitSet<u32> {
         &self.serialization_denylist
     }
@@ -311,6 +314,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// The complete set of fields in this struct.
+    #[allow(dead_code)]
     pub fn fields(&self) -> &[StructField<'a>] {
         &self.fields
     }
