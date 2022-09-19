@@ -10,13 +10,21 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
     let struct_path = reflect_struct.meta().type_path();
+    let is_remote = reflect_struct.is_remote();
 
-    let field_idents = reflect_struct
+    let field_accessors = reflect_struct
         .active_fields()
         .map(|field| Member::Unnamed(Index::from(field.declaration_index)))
+        .map(|member| {
+            if is_remote {
+                quote!(0.#member)
+            } else {
+                quote!(#member)
+            }
+        })
         .collect::<Vec<_>>();
     let field_types = reflect_struct.active_types();
-    let field_count = field_idents.len();
+    let field_count = field_accessors.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
     let where_clause_options = reflect_struct.where_clause_options();
@@ -45,14 +53,14 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             .active_fields()
             .map(|field| ToTokens::to_token_stream(&field.doc));
         quote! {
-            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents).with_docs(#docs) ,)*
+            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_indices).with_docs(#docs) ,)*
         }
     };
 
     #[cfg(not(feature = "documentation"))]
     let field_generator = {
         quote! {
-            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents) ,)*
+            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_indices) ,)*
         }
     };
 
@@ -101,14 +109,14 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_path #ty_generics #where_reflect_clause {
             fn field(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                 match index {
-                    #(#field_indices => #fqoption::Some(&self.#field_idents),)*
+                    #(#field_indices => #fqoption::Some(&self.#field_accessors),)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_mut(&mut self, index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
                 match index {
-                    #(#field_indices => #fqoption::Some(&mut self.#field_idents),)*
+                    #(#field_indices => #fqoption::Some(&mut self.#field_accessors),)*
                     _ => #FQOption::None,
                 }
             }
@@ -124,7 +132,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTupleStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicTupleStruct = #FQDefault::default();
                 dynamic.set_represented_type(#bevy_reflect_path::Reflect::get_represented_type_info(self));
-                #(dynamic.insert_boxed(#bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
+                #(dynamic.insert_boxed(#bevy_reflect_path::Reflect::clone_value(&self.#field_accessors));)*
                 dynamic
             }
         }

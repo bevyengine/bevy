@@ -9,6 +9,26 @@ use syn::Fields;
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let enum_path = reflect_enum.meta().type_path();
+    let is_remote = reflect_enum.is_remote();
+
+    // For `match self` expressions where self is a reference
+    let match_this = if is_remote {
+        quote!(&self.0)
+    } else {
+        quote!(self)
+    };
+    // For `match self` expressions where self is a mutable reference
+    let match_this_mut = if is_remote {
+        quote!(&mut self.0)
+    } else {
+        quote!(self)
+    };
+    // For `*self` assignments
+    let deref_this = if is_remote {
+        quote!(self.0)
+    } else {
+        quote!(*self)
+    };
 
     let ref_name = Ident::new("__name_param", Span::call_site());
     let ref_index = Ident::new("__index_param", Span::call_site());
@@ -100,42 +120,42 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_path #ty_generics #where_reflect_clause {
             fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
-                 match self {
+                 match #match_this {
                     #(#enum_field,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
-                match self {
+                match #match_this {
                     #(#enum_field_at,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
-                 match self {
+                 match #match_this_mut {
                     #(#enum_field,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
-                match self {
+                match #match_this_mut {
                     #(#enum_field_at,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn index_of(&self, #ref_name: &str) -> #FQOption<usize> {
-                 match self {
+                 match #match_this {
                     #(#enum_index_of,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn name_at(&self, #ref_index: usize) -> #FQOption<&str> {
-                 match self {
+                 match #match_this {
                     #(#enum_name_at,)*
                     _ => #FQOption::None,
                 }
@@ -147,7 +167,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             #[inline]
             fn field_len(&self) -> usize {
-                 match self {
+                 match #match_this {
                     #(#enum_field_len,)*
                     _ => 0,
                 }
@@ -155,7 +175,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             #[inline]
             fn variant_name(&self) -> &str {
-                 match self {
+                 match #match_this {
                     #(#enum_variant_name,)*
                     _ => unreachable!(),
                 }
@@ -163,7 +183,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             #[inline]
             fn variant_index(&self) -> usize {
-                 match self {
+                 match #match_this {
                     #(#enum_variant_index,)*
                     _ => unreachable!(),
                 }
@@ -171,7 +191,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             #[inline]
             fn variant_type(&self) -> #bevy_reflect_path::VariantType {
-                 match self {
+                 match #match_this {
                     #(#enum_variant_type,)*
                     _ => unreachable!(),
                 }
@@ -252,7 +272,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                         // New variant -> perform a switch
                         match #bevy_reflect_path::Enum::variant_name(#ref_value) {
                             #(#variant_names => {
-                                *self = #variant_constructors
+                                #deref_this = #variant_constructors
                             })*
                             name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
                         }
