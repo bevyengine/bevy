@@ -1,4 +1,4 @@
-pub use bevy_ecs_macros::{AmbiguitySetLabel, RunCriteriaLabel, StageLabel, SystemLabel};
+pub use bevy_ecs_macros::{RunCriteriaLabel, StageLabel, SystemLabel};
 use bevy_utils::define_label;
 
 define_label!(
@@ -20,16 +20,6 @@ define_label!(
     IntoSystemLabel,
     /// Strongly-typed identifier for a [`SystemLabel`].
     SystemLabelId,
-);
-define_label!(
-    /// A strongly-typed class of labels used to identify sets of systems with intentionally ambiguous execution order.
-    AmbiguitySetLabel,
-    /// Types that can be converted into [`AmbiguitySetLabelId`], except for `AmbiguitySetLabelId` itself.
-    ///
-    /// Implementing this trait automatically implements [`AmbiguitySetLabel`] due to a blanket implementation.
-    IntoAmbiguitySetLabel,
-    /// Strongly-typed identifier for an [`AmbiguitySetLabel`].
-    AmbiguitySetLabelId,
 );
 define_label!(
     /// A strongly-typed class of labels used to identify [run criteria](crate::schedule::RunCriteria).

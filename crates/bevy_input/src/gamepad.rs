@@ -47,23 +47,23 @@ pub struct Gamepads {
 
 impl Gamepads {
     /// Returns `true` if the `gamepad` is connected.
-    pub fn contains(&self, gamepad: &Gamepad) -> bool {
-        self.gamepads.contains(gamepad)
+    pub fn contains(&self, gamepad: Gamepad) -> bool {
+        self.gamepads.contains(&gamepad)
     }
 
-    /// An iterator visiting all connected [`Gamepad`]s in arbitrary order.
-    pub fn iter(&self) -> impl Iterator<Item = &Gamepad> + '_ {
-        self.gamepads.iter()
+    /// Returns an iterator over registered [`Gamepad`]s in an arbitrary order.
+    pub fn iter(&self) -> impl Iterator<Item = Gamepad> + '_ {
+        self.gamepads.iter().copied()
     }
 
-    /// Registers the `gamepad` marking it as connected.
+    /// Registers the `gamepad`, marking it as connected.
     fn register(&mut self, gamepad: Gamepad) {
         self.gamepads.insert(gamepad);
     }
 
-    /// Deregisters the `gamepad` marking it as disconnected.
-    fn deregister(&mut self, gamepad: &Gamepad) {
-        self.gamepads.remove(gamepad);
+    /// Deregisters the `gamepad`, marking it as disconnected.
+    fn deregister(&mut self, gamepad: Gamepad) {
+        self.gamepads.remove(&gamepad);
     }
 }
 
@@ -154,7 +154,7 @@ impl GamepadEvent {
 ///     button_inputs: ResMut<Input<GamepadButton>>,
 /// ) {
 ///     let gamepad = gamepads.iter().next().unwrap();
-///     let gamepad_button= GamepadButton::new(*gamepad, GamepadButtonType::South);
+///     let gamepad_button= GamepadButton::new(gamepad, GamepadButtonType::South);
 ///
 ///     my_resource.0 = button_inputs.pressed(gamepad_button);
 /// }
@@ -673,7 +673,7 @@ pub fn gamepad_connection_system(
                 info!("{:?} Connected", event.gamepad);
             }
             GamepadEventType::Disconnected => {
-                gamepads.deregister(&event.gamepad);
+                gamepads.deregister(event.gamepad);
                 info!("{:?} Disconnected", event.gamepad);
             }
             _ => (),

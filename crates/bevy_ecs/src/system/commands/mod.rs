@@ -45,9 +45,14 @@ pub trait Command: Send + Sync + 'static {
     fn write(self, world: &mut World);
 }
 
-/// A queue of [commands](Command) that get executed at the end of the stage of the system that called them.
+/// A [`Command`] queue to perform impactful changes to the [`World`].
 ///
-/// Commands are executed one at a time in an exclusive fashion.
+/// Since each command requires exclusive access to the `World`,
+/// all queued commands are automatically applied in sequence
+/// only after each system in a [stage] has completed.
+///
+/// The command queue of a system can also be manually applied
+/// by calling [`System::apply_buffers`].
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -88,6 +93,9 @@ pub trait Command: Send + Sync + 'static {
 /// });
 /// # }
 /// ```
+///
+/// [stage]: crate::schedule::SystemStage
+/// [`System::apply_buffers`]: crate::system::System::apply_buffers
 pub struct Commands<'w, 's> {
     queue: &'s mut CommandQueue,
     entities: &'w Entities,

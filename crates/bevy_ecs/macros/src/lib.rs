@@ -476,27 +476,6 @@ pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     derive_label(input, &trait_path, "stage_label")
 }
 
-/// Generates an impl of the `AmbiguitySetLabel` trait.
-///
-/// For unit structs and enums with only unit variants, a cheap implementation can easily be created.
-///
-/// More complex types must be boxed and interned
-/// - opt in to this by annotating the entire item with `#[ambiguity_set_label(intern)]`.
-///
-/// Alternatively, you may force a struct or variant to behave as if
-/// it were fieldless with `#[ambiguity_set_label(ignore_fields)]`.
-/// This is especially useful for [`PhantomData`](core::marker::PhantomData) fields.
-#[proc_macro_derive(AmbiguitySetLabel, attributes(ambiguity_set_label))]
-pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("IntoAmbiguitySetLabel").into());
-    derive_label(input, &trait_path, "ambiguity_set_label")
-}
-
 /// Generates an impl of the `RunCriteriaLabel` trait.
 ///
 /// For unit structs and enums with only unit variants, a cheap implementation can easily be created.

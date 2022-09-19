@@ -4,11 +4,7 @@ use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 use bevy_utils::tracing::{trace, warn};
 use std::ops::{Deref, DerefMut};
-use std::{
-    fmt::{self},
-    hash::Hash,
-    marker::PhantomData,
-};
+use std::{fmt, hash::Hash, marker::PhantomData};
 
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
@@ -207,9 +203,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
     {
-        self.reader.iter_with_id(&self.events).map(|r @ (_, id)| {
+        self.reader.iter_with_id(&self.events).inspect(|(_, id)| {
             trace!("EventReader::iter() -> {}", id);
-            r
         })
     }
 
@@ -313,7 +308,7 @@ impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
         self.events.send(event);
     }
 
-    pub fn send_batch(&mut self, events: impl Iterator<Item = E>) {
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) {
         self.events.extend(events);
     }
 

@@ -14,13 +14,8 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_ecs_macros::Resource;
-use bevy_utils::{
-    tracing::{info, warn},
-    HashMap, HashSet,
-};
+use bevy_utils::{tracing::warn, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
-use fixedbitset::FixedBitSet;
-use std::fmt::Debug;
 
 use super::IntoSystemDescriptor;
 
@@ -67,16 +62,16 @@ pub struct SystemStage {
     /// Topologically sorted run criteria of systems.
     run_criteria: Vec<RunCriteriaContainer>,
     /// Topologically sorted exclusive systems that want to be run at the start of the stage.
-    exclusive_at_start: Vec<ExclusiveSystemContainer>,
+    pub(super) exclusive_at_start: Vec<ExclusiveSystemContainer>,
     /// Topologically sorted exclusive systems that want to be run after parallel systems but
     /// before the application of their command buffers.
-    exclusive_before_commands: Vec<ExclusiveSystemContainer>,
+    pub(super) exclusive_before_commands: Vec<ExclusiveSystemContainer>,
     /// Topologically sorted exclusive systems that want to be run at the end of the stage.
-    exclusive_at_end: Vec<ExclusiveSystemContainer>,
+    pub(super) exclusive_at_end: Vec<ExclusiveSystemContainer>,
     /// Topologically sorted parallel systems.
-    parallel: Vec<ParallelSystemContainer>,
+    pub(super) parallel: Vec<ParallelSystemContainer>,
     /// Determines if the stage was modified and needs to rebuild its graphs and orders.
-    systems_modified: bool,
+    pub(super) systems_modified: bool,
     /// Determines if the stage's executor was changed.
     executor_modified: bool,
     /// Newly inserted run criteria that will be initialized at the next opportunity.
@@ -453,7 +448,7 @@ impl SystemStage {
                 && self.uninitialized_before_commands.is_empty()
                 && self.uninitialized_at_end.is_empty()
         );
-        fn unwrap_dependency_cycle_error<Node: GraphNode, Output, Labels: Debug>(
+        fn unwrap_dependency_cycle_error<Node: GraphNode, Output, Labels: std::fmt::Debug>(
             result: Result<Output, DependencyGraphError<Labels>>,
             nodes: &[Node],
             nodes_description: &'static str,
@@ -503,75 +498,6 @@ impl SystemStage {
             &self.exclusive_at_end,
             "exclusive systems at end of stage",
         );
-    }
-
-    /// Logs execution order ambiguities between systems. System orders must be fresh.
-    fn report_ambiguities(&self, world: &World) {
-        debug_assert!(!self.systems_modified);
-        use std::fmt::Write;
-        fn write_display_names_of_pairs(
-            string: &mut String,
-            systems: &[impl SystemContainer],
-            mut ambiguities: Vec<(usize, usize, Vec<ComponentId>)>,
-            world: &World,
-        ) {
-            for (index_a, index_b, conflicts) in ambiguities.drain(..) {
-                writeln!(
-                    string,
-                    " -- {:?} and {:?}",
-                    systems[index_a].name(),
-                    systems[index_b].name()
-                )
-                .unwrap();
-                if !conflicts.is_empty() {
-                    let names = conflicts
-                        .iter()
-                        .map(|id| world.components().get_info(*id).unwrap().name())
-                        .collect::<Vec<_>>();
-                    writeln!(string, "    conflicts: {:?}", names).unwrap();
-                }
-            }
-        }
-        let parallel = find_ambiguities(&self.parallel);
-        let at_start = find_ambiguities(&self.exclusive_at_start);
-        let before_commands = find_ambiguities(&self.exclusive_before_commands);
-        let at_end = find_ambiguities(&self.exclusive_at_end);
-        if !(parallel.is_empty()
-            && at_start.is_empty()
-            && before_commands.is_empty()
-            && at_end.is_empty())
-        {
-            let mut string = "Execution order ambiguities detected, you might want to \
-                    add an explicit dependency relation between some of these systems:\n"
-                .to_owned();
-            if !parallel.is_empty() {
-                writeln!(string, " * Parallel systems:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.parallel, parallel, world);
-            }
-            if !at_start.is_empty() {
-                writeln!(string, " * Exclusive systems at start of stage:").unwrap();
-                write_display_names_of_pairs(
-                    &mut string,
-                    &self.exclusive_at_start,
-                    at_start,
-                    world,
-                );
-            }
-            if !before_commands.is_empty() {
-                writeln!(string, " * Exclusive systems before commands of stage:").unwrap();
-                write_display_names_of_pairs(
-                    &mut string,
-                    &self.exclusive_before_commands,
-                    before_commands,
-                    world,
-                );
-            }
-            if !at_end.is_empty() {
-                writeln!(string, " * Exclusive systems at end of stage:").unwrap();
-                write_display_names_of_pairs(&mut string, &self.exclusive_at_end, at_end, world);
-            }
-            info!("{}", string);
-        }
     }
 
     fn check_uses_resource(&self, resource_id: ComponentId, world: &World) {
@@ -707,82 +633,6 @@ fn process_systems(
         systems.push(temp[index].take().unwrap());
     }
     Ok(())
-}
-
-/// Returns vector containing all pairs of indices of systems with ambiguous execution order,
-/// along with specific components that have triggered the warning.
-/// Systems must be topologically sorted beforehand.
-fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
-    let mut ambiguity_set_labels = HashMap::default();
-    for set in systems.iter().flat_map(|c| c.ambiguity_sets()) {
-        let len = ambiguity_set_labels.len();
-        ambiguity_set_labels.entry(set).or_insert(len);
-    }
-    let mut all_ambiguity_sets = Vec::<FixedBitSet>::with_capacity(systems.len());
-    let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
-    let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
-    for (index, container) in systems.iter().enumerate() {
-        let mut ambiguity_sets = FixedBitSet::with_capacity(ambiguity_set_labels.len());
-        for set in container.ambiguity_sets() {
-            ambiguity_sets.insert(ambiguity_set_labels[set]);
-        }
-        all_ambiguity_sets.push(ambiguity_sets);
-        let mut dependencies = FixedBitSet::with_capacity(systems.len());
-        for &dependency in container.dependencies() {
-            dependencies.union_with(&all_dependencies[dependency]);
-            dependencies.insert(dependency);
-            all_dependants[dependency].insert(index);
-        }
-
-        all_dependants.push(FixedBitSet::with_capacity(systems.len()));
-        all_dependencies.push(dependencies);
-    }
-    for index in (0..systems.len()).rev() {
-        let mut dependants = FixedBitSet::with_capacity(systems.len());
-        for dependant in all_dependants[index].ones() {
-            dependants.union_with(&all_dependants[dependant]);
-            dependants.insert(dependant);
-        }
-        all_dependants[index] = dependants;
-    }
-    let mut all_relations = all_dependencies
-        .drain(..)
-        .zip(all_dependants.drain(..))
-        .enumerate()
-        .map(|(index, (dependencies, dependants))| {
-            let mut relations = FixedBitSet::with_capacity(systems.len());
-            relations.union_with(&dependencies);
-            relations.union_with(&dependants);
-            relations.insert(index);
-            relations
-        })
-        .collect::<Vec<FixedBitSet>>();
-    let mut ambiguities = Vec::new();
-    let full_bitset: FixedBitSet = (0..systems.len()).collect();
-    let mut processed = FixedBitSet::with_capacity(systems.len());
-    for (index_a, relations) in all_relations.drain(..).enumerate() {
-        // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
-        for index_b in full_bitset.difference(&relations)
-        // .take(index_a)
-        {
-            if !processed.contains(index_b)
-                && all_ambiguity_sets[index_a].is_disjoint(&all_ambiguity_sets[index_b])
-            {
-                let a_access = systems[index_a].component_access();
-                let b_access = systems[index_b].component_access();
-                if let (Some(a), Some(b)) = (a_access, b_access) {
-                    let conflicts = a.get_conflicts(b);
-                    if !conflicts.is_empty() {
-                        ambiguities.push((index_a, index_b, conflicts));
-                    }
-                } else {
-                    ambiguities.push((index_a, index_b, Vec::new()));
-                }
-            }
-        }
-        processed.insert(index_a);
-    }
-    ambiguities
 }
 
 impl Stage for SystemStage {
@@ -972,13 +822,13 @@ impl Stage for SystemStage {
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs_macros::{AmbiguitySetLabel, RunCriteriaLabel};
+    use bevy_ecs_macros::RunCriteriaLabel;
 
     use crate::{
         schedule::{
             ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, RunCriteria,
             RunCriteriaDescriptorCoercion, ShouldRun, SingleThreadedExecutor, Stage, SystemLabel,
-            SystemLabelId, SystemSet, SystemStage,
+            SystemSet, SystemStage,
         },
         system::{In, IntoExclusiveSystem, Local, Query, ResMut},
         world::World,
@@ -1605,392 +1455,6 @@ mod tests {
             .with_system(make_parallel(1).after(L0).before(L2))
             .with_system(make_parallel(2).label(L2).before(L0));
         stage.run(&mut world);
-    }
-
-    #[test]
-    fn ambiguity_detection() {
-        use super::{find_ambiguities, SystemContainer};
-
-        // these labels must all be the same type in order for
-        // `find_ambiguities_first_labels` to work
-        #[derive(SystemLabel)]
-        enum Labels {
-            A0,
-            A1,
-            A2,
-            A3,
-            A4,
-            A5,
-            A6,
-            A7,
-        }
-        use Labels::*;
-
-        #[derive(AmbiguitySetLabel)]
-        enum SetLabels {
-            SetA,
-            SetB,
-        }
-        use SetLabels::*;
-
-        fn find_ambiguities_first_labels(
-            systems: &[impl SystemContainer],
-        ) -> Vec<(SystemLabelId, SystemLabelId)> {
-            find_ambiguities(systems)
-                .drain(..)
-                .map(|(index_a, index_b, _conflicts)| {
-                    (
-                        *systems[index_a]
-                            .labels()
-                            .iter()
-                            .find(|a| a.type_id() == std::any::TypeId::of::<Labels>())
-                            .unwrap(),
-                        *systems[index_b]
-                            .labels()
-                            .iter()
-                            .find(|a| a.type_id() == std::any::TypeId::of::<Labels>())
-                            .unwrap(),
-                    )
-                })
-                .collect()
-        }
-
-        fn empty() {}
-        fn resource(_: ResMut<R>) {}
-        fn component(_: Query<&mut W<f32>>) {}
-
-        let mut world = World::new();
-
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.label(A0))
-            .with_system(empty.label(A1).after(A0))
-            .with_system(empty.label(A2))
-            .with_system(empty.label(A3).after(A2).before(A4))
-            .with_system(empty.label(A4));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel).len(), 0);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.label(A0))
-            .with_system(component.label(A1).after(A0))
-            .with_system(empty.label(A2))
-            .with_system(empty.label(A3).after(A2).before(A4))
-            .with_system(component.label(A4));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A1.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 1);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.label(A0))
-            .with_system(resource.label(A1).after(A0))
-            .with_system(empty.label(A2))
-            .with_system(empty.label(A3).after(A2).before(A4))
-            .with_system(resource.label(A4));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A1.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 1);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.label(A0))
-            .with_system(resource.label(A1).after(A0))
-            .with_system(empty.label(A2))
-            .with_system(empty.label(A3).after(A2).before(A4))
-            .with_system(component.label(A4));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.parallel).len(), 0);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(component.label(A0))
-            .with_system(resource.label(A1).after(A0))
-            .with_system(empty.label(A2))
-            .with_system(component.label(A3).after(A2).before(A4))
-            .with_system(resource.label(A4));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A0.as_label(), A3.as_label()))
-                || ambiguities.contains(&(A3.as_label(), A0.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A1.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 2);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(component.label(A0))
-            .with_system(resource.label(A1).after(A0).in_ambiguity_set(SetA))
-            .with_system(empty.label(A2))
-            .with_system(component.label(A3).after(A2).before(A4))
-            .with_system(resource.label(A4).in_ambiguity_set(SetA));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A0.as_label(), A3.as_label()))
-                || ambiguities.contains(&(A3.as_label(), A0.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 1);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(component.label(A0).before(A2))
-            .with_system(component.label(A1).before(A2))
-            .with_system(component.label(A2));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A0.as_label(), A1.as_label()))
-                || ambiguities.contains(&(A1.as_label(), A0.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 1);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(component.label(A0))
-            .with_system(component.label(A1).after(A0))
-            .with_system(component.label(A2).after(A0));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A2.as_label()))
-                || ambiguities.contains(&(A2.as_label(), A1.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 1);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(component.label(A0).before(A1).before(A2))
-            .with_system(component.label(A1))
-            .with_system(component.label(A2))
-            .with_system(component.label(A3).after(A1).after(A2));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A2.as_label()))
-                || ambiguities.contains(&(A2.as_label(), A1.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 1);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(component.label(A0).before(A1).before(A2))
-            .with_system(component.label(A1).in_ambiguity_set(SetA))
-            .with_system(component.label(A2).in_ambiguity_set(SetA))
-            .with_system(component.label(A3).after(A1).after(A2));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert_eq!(ambiguities.len(), 0);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(component.label(A0).before(A1).before(A2))
-            .with_system(component.label(A1).in_ambiguity_set(SetA))
-            .with_system(component.label(A2).in_ambiguity_set(SetB))
-            .with_system(component.label(A3).after(A1).after(A2));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A2.as_label()))
-                || ambiguities.contains(&(A2.as_label(), A1.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 1);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(
-                component
-                    .label(A0)
-                    .before(A1)
-                    .before(A2)
-                    .before(A3)
-                    .before(A4),
-            )
-            .with_system(component.label(A1))
-            .with_system(component.label(A2))
-            .with_system(component.label(A3))
-            .with_system(component.label(A4))
-            .with_system(component.label(A5).after(A1).after(A2).after(A3).after(A4));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A2.as_label()))
-                || ambiguities.contains(&(A2.as_label(), A1.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A3.as_label()))
-                || ambiguities.contains(&(A3.as_label(), A1.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A1.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A2.as_label(), A3.as_label()))
-                || ambiguities.contains(&(A3.as_label(), A2.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A2.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A2.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A3.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A3.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 6);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(
-                component
-                    .label(A0)
-                    .before(A1)
-                    .before(A2)
-                    .before(A3)
-                    .before(A4),
-            )
-            .with_system(component.label(A1).in_ambiguity_set(SetA))
-            .with_system(component.label(A2).in_ambiguity_set(SetA))
-            .with_system(component.label(A3).in_ambiguity_set(SetA))
-            .with_system(component.label(A4).in_ambiguity_set(SetA))
-            .with_system(component.label(A5).after(A1).after(A2).after(A3).after(A4));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert_eq!(ambiguities.len(), 0);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(
-                component
-                    .label(A0)
-                    .before(A1)
-                    .before(A2)
-                    .before(A3)
-                    .before(A4),
-            )
-            .with_system(component.label(A1).in_ambiguity_set(SetA))
-            .with_system(component.label(A2).in_ambiguity_set(SetA))
-            .with_system(
-                component
-                    .label(A3)
-                    .in_ambiguity_set(SetA)
-                    .in_ambiguity_set(SetB),
-            )
-            .with_system(component.label(A4).in_ambiguity_set(SetB))
-            .with_system(component.label(A5).after(A1).after(A2).after(A3).after(A4));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.parallel);
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A1.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A2.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A2.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 2);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label(A0))
-            .with_system(empty.exclusive_system().label(A1).after(A0))
-            .with_system(empty.exclusive_system().label(A2).after(A1))
-            .with_system(empty.exclusive_system().label(A3).after(A2))
-            .with_system(empty.exclusive_system().label(A4).after(A3))
-            .with_system(empty.exclusive_system().label(A5).after(A4))
-            .with_system(empty.exclusive_system().label(A6).after(A5))
-            .with_system(empty.exclusive_system().label(A7).after(A6));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        assert_eq!(find_ambiguities(&stage.exclusive_at_start).len(), 0);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label(A0).before(A1).before(A3))
-            .with_system(empty.exclusive_system().label(A1))
-            .with_system(empty.exclusive_system().label(A2).after(A1))
-            .with_system(empty.exclusive_system().label(A3))
-            .with_system(empty.exclusive_system().label(A4).after(A3).before(A5))
-            .with_system(empty.exclusive_system().label(A5))
-            .with_system(empty.exclusive_system().label(A6).after(A2).after(A5));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A3.as_label()))
-                || ambiguities.contains(&(A3.as_label(), A1.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A2.as_label(), A3.as_label()))
-                || ambiguities.contains(&(A3.as_label(), A2.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A1.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A2.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A2.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A5.as_label()))
-                || ambiguities.contains(&(A5.as_label(), A1.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A2.as_label(), A5.as_label()))
-                || ambiguities.contains(&(A5.as_label(), A2.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 6);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label(A0).before(A1).before(A3))
-            .with_system(empty.exclusive_system().label(A1).in_ambiguity_set(SetA))
-            .with_system(empty.exclusive_system().label(A2).after(A1))
-            .with_system(empty.exclusive_system().label(A3).in_ambiguity_set(SetA))
-            .with_system(empty.exclusive_system().label(A4).after(A3).before(A5))
-            .with_system(empty.exclusive_system().label(A5).in_ambiguity_set(SetA))
-            .with_system(empty.exclusive_system().label(A6).after(A2).after(A5));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
-        assert!(
-            ambiguities.contains(&(A2.as_label(), A3.as_label()))
-                || ambiguities.contains(&(A3.as_label(), A2.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A1.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A1.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A2.as_label(), A4.as_label()))
-                || ambiguities.contains(&(A4.as_label(), A2.as_label()))
-        );
-        assert!(
-            ambiguities.contains(&(A2.as_label(), A5.as_label()))
-                || ambiguities.contains(&(A5.as_label(), A2.as_label()))
-        );
-        assert_eq!(ambiguities.len(), 4);
-
-        let mut stage = SystemStage::parallel()
-            .with_system(empty.exclusive_system().label(A0).in_ambiguity_set(SetA))
-            .with_system(empty.exclusive_system().label(A1).in_ambiguity_set(SetA))
-            .with_system(empty.exclusive_system().label(A2).in_ambiguity_set(SetA))
-            .with_system(empty.exclusive_system().label(A3).in_ambiguity_set(SetA));
-        stage.initialize_systems(&mut world);
-        stage.rebuild_orders_and_dependencies();
-        let ambiguities = find_ambiguities_first_labels(&stage.exclusive_at_start);
-        assert_eq!(ambiguities.len(), 0);
     }
 
     #[test]

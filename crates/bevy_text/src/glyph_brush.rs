@@ -7,7 +7,7 @@ use glyph_brush_layout::{
     FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, SectionText, ToSectionText,
 };
 
-use crate::{error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment};
+use crate::{error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment, TextSettings};
 
 pub struct GlyphBrush {
     fonts: Vec<FontArc>,
@@ -43,6 +43,7 @@ impl GlyphBrush {
         Ok(section_glyphs)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn process_glyphs(
         &self,
         glyphs: Vec<SectionGlyph>,
@@ -51,6 +52,7 @@ impl GlyphBrush {
         fonts: &Assets<Font>,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
+        text_settings: &TextSettings,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
             return Ok(Vec::new());
@@ -104,7 +106,12 @@ impl GlyphBrush {
                     .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
                     .map(Ok)
                     .unwrap_or_else(|| {
-                        font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
+                        font_atlas_set.add_glyph_to_atlas(
+                            texture_atlases,
+                            textures,
+                            outlined_glyph,
+                            text_settings,
+                        )
                     })?;
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();

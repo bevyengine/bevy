@@ -269,7 +269,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
     let mut enum_variant_name = Vec::new();
     let mut enum_variant_type = Vec::new();
 
-    for variant in reflect_enum.active_variants() {
+    for variant in reflect_enum.variants() {
         let ident = &variant.data.ident;
         let name = ident.to_string();
         let unit = reflect_enum.get_unit(ident);
@@ -281,7 +281,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
             let mut constructor_argument = Vec::new();
             let mut reflect_idx = 0;
             for field in fields.iter() {
-                if field.attrs.ignore {
+                if field.attrs.ignore.is_ignored() {
                     // Ignored field
                     continue;
                 }

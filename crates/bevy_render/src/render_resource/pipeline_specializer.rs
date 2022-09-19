@@ -49,6 +49,7 @@ pub trait SpecializedComputePipeline {
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor;
 }
 
+#[derive(Resource)]
 pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
     cache: HashMap<S::Key, CachedComputePipelineId>,
 }

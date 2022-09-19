@@ -34,9 +34,9 @@ pub mod prelude {
         event::{EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
-            AmbiguitySetLabel, ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion,
-            RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage,
-            StageLabel, State, SystemLabel, SystemSet, SystemStage,
+            ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, RunCriteria,
+            RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage, StageLabel, State,
+            SystemLabel, SystemSet, SystemStage,
         },
         system::{
             adapter as system_adapter, Commands, In, IntoChainSystem, IntoExclusiveSystem,
@@ -57,7 +57,9 @@ mod tests {
         bundle::Bundle,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
+        query::{
+            Added, ChangeTrackers, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without,
+        },
         system::Resource,
         world::{Mut, World},
     };
@@ -902,7 +904,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
