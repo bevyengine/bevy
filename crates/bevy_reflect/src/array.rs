@@ -117,6 +117,7 @@ impl ArrayInfo {
 /// can be mutated— just that the _number_ of items cannot change.
 ///
 /// [`DynamicList`]: crate::DynamicList
+#[derive(Debug)]
 pub struct DynamicArray {
     pub(crate) name: String,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
