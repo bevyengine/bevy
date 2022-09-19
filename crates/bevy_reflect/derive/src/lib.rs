@@ -27,6 +27,7 @@ mod from_reflect;
 mod impls;
 mod reflect_value;
 mod registration;
+mod remote;
 mod serialization;
 mod trait_reflection;
 mod type_path;
@@ -509,6 +510,70 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
     trait_reflection::reflect_trait(&args, input)
+}
+
+/// Generates a wrapper type that can be used to "derive `Reflect`" for remote types.
+///
+/// This works by wrapping the remote type in a generated wrapper that has the `#[repr(transparent)]` attribute.
+/// This allows the two types to be safely transmuted back-and-forth.
+///
+/// # Defining the Wrapper
+///
+/// Before defining the wrapper type, please note that it is _required_ that all fields of the remote type are public.
+/// The generated code will, at times, need to access or mutate them,
+/// and we do not currently have a way to assign getters/setters to each field
+/// (but this may change in the future).
+///
+/// The wrapper definition should match the remote type 1-to-1.
+/// This includes the naming and ordering of the fields and variants.
+///
+/// Generics and lifetimes do _not_ need to have the same names, however, they _do_ need to follow the same order.
+/// Additionally, whether generics are inlined or placed in a where clause should not matter.
+///
+/// Lastly, all macros and doc-comments should be placed __below__ this attribute.
+/// If they are placed above, they will not be properly passed to the generated wrapper type.
+///
+/// # Example
+///
+/// Given a remote type, `RemoteType`:
+///
+/// ```
+/// #[derive(Default)]
+/// struct RemoteType<T>
+/// where
+///   T: Default + Clone,
+/// {
+///   pub foo: T,
+///   pub bar: usize
+/// }
+/// ```
+///
+/// We would define our wrapper type as such:
+///
+/// ```ignore
+/// use external_crate::RemoteType;
+///
+/// #[reflect_remote(RemoteType<T>)]
+/// #[derive(Default)]
+/// pub struct WrapperType<T: Default + Clone> {
+///   pub foo: T,
+///   pub bar: usize
+/// }
+/// ```
+///
+/// Apart from all the reflection trait implementations, this generates something like the following:
+///
+/// ```ignore
+/// use external_crate::RemoteType;
+///
+/// #[derive(Default)]
+/// #[repr(transparent)]
+/// pub struct Wrapper<T: Default + Clone>(RemoteType<T>);
+/// ```
+///
+#[proc_macro_attribute]
+pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
+    remote::reflect_remote(args, input)
 }
 
 /// A macro used to generate reflection trait implementations for the given type.

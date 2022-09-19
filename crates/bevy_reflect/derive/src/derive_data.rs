@@ -17,7 +17,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
     parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
-    PathSegment, Type, TypeParam, Variant,
+    PathSegment, Type, TypeParam, TypePath, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -70,6 +70,7 @@ pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
     serialization_data: Option<SerializationDataDef>,
     fields: Vec<StructField<'a>>,
+    remote_ty: Option<&'a TypePath>,
 }
 
 /// Enum data used by derive macros for `Reflect` and `FromReflect`.
@@ -88,6 +89,7 @@ pub(crate) struct ReflectStruct<'a> {
 pub(crate) struct ReflectEnum<'a> {
     meta: ReflectMeta<'a>,
     variants: Vec<EnumVariant<'a>>,
+    remote_ty: Option<&'a TypePath>,
 }
 
 /// Represents a field on a struct or tuple struct.
@@ -146,8 +148,12 @@ enum ReflectMode {
 /// How the macro was invoked.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ReflectImplSource {
+    /// Using `impl_reflect!`.
     ImplRemoteType,
+    /// Using `#[derive(...)]`.
     DeriveLocalType,
+    /// Using `#[reflect_remote]`.
+    RemoteReflect,
 }
 
 /// Which trait the macro explicitly implements.
@@ -173,7 +179,9 @@ impl fmt::Display for ReflectProvenance {
             (S::DeriveLocalType, T::Reflect) => "`#[derive(Reflect)]`",
             (S::DeriveLocalType, T::FromReflect) => "`#[derive(FromReflect)]`",
             (S::DeriveLocalType, T::TypePath) => "`#[derive(TypePath)]`",
-            (S::ImplRemoteType, T::FromReflect | T::TypePath) => unreachable!(),
+            (S::RemoteReflect, T::Reflect) => "`#[reflect_remote]`",
+            (S::RemoteReflect, T::FromReflect | T::TypePath)
+            | (S::ImplRemoteType, T::FromReflect | T::TypePath) => unreachable!(),
         };
         f.write_str(str)
     }
@@ -322,6 +330,7 @@ impl<'a> ReflectDerive<'a> {
                     meta,
                     serialization_data: SerializationDataDef::new(&fields)?,
                     fields,
+                    remote_ty: None,
                 };
 
                 match data.fields {
@@ -333,7 +342,11 @@ impl<'a> ReflectDerive<'a> {
             Data::Enum(data) => {
                 let variants = Self::collect_enum_variants(&data.variants)?;
 
-                let reflect_enum = ReflectEnum { meta, variants };
+                let reflect_enum = ReflectEnum {
+                    meta,
+                    variants,
+                    remote_ty: None,
+                };
                 Ok(Self::Enum(reflect_enum))
             }
             Data::Union(..) => Err(syn::Error::new(
@@ -341,6 +354,23 @@ impl<'a> ReflectDerive<'a> {
                 "reflection not supported for unions",
             )),
         };
+    }
+
+    /// Set the remote type for this derived type.
+    ///
+    /// # Panics
+    ///
+    /// Panics when called on [`ReflectDerive::Value`].
+    pub fn set_remote(&mut self, remote_ty: Option<&'a TypePath>) {
+        match self {
+            Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
+                data.remote_ty = remote_ty;
+            }
+            Self::Enum(data) => {
+                data.remote_ty = remote_ty;
+            }
+            _ => panic!("cannot create a reflected value type for a remote type"),
+        }
     }
 
     pub fn meta(&self) -> &ReflectMeta<'a> {
@@ -531,6 +561,17 @@ impl<'a> ReflectStruct<'a> {
         self.serialization_data.as_ref()
     }
 
+    /// Whether this reflected struct represents a remote type or not.
+    pub fn is_remote(&self) -> bool {
+        self.remote_ty.is_some()
+    }
+
+    #[allow(dead_code)]
+    /// Get the remote type path, if any.
+    pub fn remote_ty(&self) -> Option<&'a TypePath> {
+        self.remote_ty
+    }
+
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
     /// Returns a specific implementation for structs and this method should be preferred over the generic [`get_type_registration`](ReflectMeta) method
@@ -630,9 +671,26 @@ impl<'a> ReflectEnum<'a> {
         &self.meta
     }
 
+    /// Whether this reflected enum represents a remote type or not.
+    pub fn is_remote(&self) -> bool {
+        self.remote_ty.is_some()
+    }
+
+    #[allow(dead_code)]
+    /// Get the remote type path, if any.
+    pub fn remote_ty(&self) -> Option<&'a TypePath> {
+        self.remote_ty
+    }
+
     /// Returns the given ident as a qualified unit variant of this enum.
+    ///
+    /// This takes into account the remote type, if any.
     pub fn get_unit(&self, variant: &Ident) -> proc_macro2::TokenStream {
-        let name = self.meta.type_path();
+        let name = self
+            .remote_ty
+            .map(|path| path.to_token_stream())
+            .unwrap_or_else(|| self.meta.type_path().to_token_stream());
+
         quote! {
             #name::#variant
         }

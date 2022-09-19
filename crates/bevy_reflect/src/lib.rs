@@ -2476,6 +2476,37 @@ bevy_reflect::tests::Test {
         assert_impl_all!(TupleStruct: Reflect);
         assert_impl_all!(Enum: Reflect);
     }
+    
+    #[test]
+    fn should_reflect_remote_type() {
+        mod external_crate {
+            #[derive(Debug, Default)]
+            pub struct TheirType {
+                pub value: String,
+            }
+        }
+
+        #[reflect_remote(external_crate::TheirType)]
+        // TODO: Remove
+        #[reflect(from_reflect = false)]
+        #[derive(Debug, Default)]
+        #[reflect(Debug, Default)]
+        struct MyType {
+            pub value: String,
+        }
+
+        let mut patch = DynamicStruct::default();
+        patch.set_represented_type(Some(MyType::type_info()));
+        patch.insert("value", "Goodbye".to_string());
+
+        let mut data = MyType(external_crate::TheirType {
+            value: "Hello".to_string(),
+        });
+
+        assert_eq!("Hello", data.0.value);
+        data.apply(&patch);
+        assert_eq!("Goodbye", data.0.value);
+    }
 
     #[cfg(feature = "glam")]
     mod glam {
