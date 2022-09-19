@@ -1,3 +1,14 @@
+//! Provides types used to statically intern immutable values.
+//!
+//! Interning is a pattern used to save memory by deduplicating identical values,
+//! speed up code by shrinking the stack size of large types,
+//! and make comparisons for any type as fast as integers.
+//!
+//! Interned values must be stored in a global resource, which has two major consequences:
+//! * Creating and accessing interning values requires thread synchronization,
+//! while passing and comparing references is nearly free, no matter the wrapped type.
+//! * A type can only be interned if it is `Send + Sync`.
+
 use std::{any::TypeId, hash::Hash};
 
 use parking_lot::{RwLock, RwLockReadGuard};
@@ -7,6 +18,8 @@ use crate::{FixedState, StableHashMap};
 type IndexSet<T> = indexmap::IndexSet<T, FixedState>;
 
 /// A data structure used to intern a set of values of a specific type.
+/// For details on interning, see [the module level docs](self).
+///
 /// To store multiple distinct types, or generic types, try [`AnyInterner`].
 pub struct Interner<T: Clone + Hash + Eq>(
     // The `IndexSet` is a hash set that preserves ordering as long as
@@ -74,6 +87,7 @@ impl TypeMap {
 }
 
 /// Data structure used to intern a set of values of any given type.
+/// For details on interning, see [the module level docs](self).
 ///
 /// If you just need to store a single concrete type, [`Interner`] is more efficient.
 pub struct AnyInterner(
