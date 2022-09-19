@@ -136,6 +136,8 @@ where
     /// # use bevy_ecs::system::Res;
     /// # use bevy_asset::AssetServer;
     /// # use bevy_audio::Audio;
+    /// # use bevy_math::Vec3;
+    /// # use bevy_transform::prelude::Transform;
     /// fn play_spatial_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     ///     // Sound will be to the left and behind the listener
     ///     audio.play_spatial(
@@ -156,13 +158,20 @@ where
     /// # use bevy_ecs::system::Res;
     /// # use bevy_asset::{AssetServer, Assets};
     /// # use bevy_audio::{Audio, SpatialAudioSink};
+    /// # use bevy_math::Vec3;
+    /// # use bevy_transform::prelude::Transform;
     /// fn play_spatial_audio_system(
     ///     asset_server: Res<AssetServer>,
     ///     audio: Res<Audio>,
     ///     spatial_audio_sinks: Res<Assets<SpatialAudioSink>>,
     /// ) {
     ///     // This is a weak handle, and can't be used to control playback.
-    ///     let weak_handle = audio.play_spatial(asset_server.load("my_sound.ogg"));
+    ///     let weak_handle = audio.play_spatial(
+    ///         asset_server.load("my_sound.ogg"),
+    ///         Transform::IDENTITY,
+    ///         1.0,
+    ///         Vec3::new(-2.0, 0.0, 1.0),
+    ///     );
     ///     // This is now a strong handle, and can be used to control playback, or move the emitter.
     ///     let strong_handle = spatial_audio_sinks.get_handle(weak_handle);
     /// }
@@ -203,6 +212,8 @@ where
     /// # use bevy_asset::AssetServer;
     /// # use bevy_audio::Audio;
     /// # use bevy_audio::PlaybackSettings;
+    /// # use bevy_math::Vec3;
+    /// # use bevy_transform::prelude::Transform;
     /// fn play_spatial_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     ///     audio.play_spatial_with_settings(
     ///         asset_server.load("my_sound.ogg"),

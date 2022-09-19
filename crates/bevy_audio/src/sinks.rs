@@ -67,7 +67,7 @@ pub trait AudioSinkExt {
 /// ```
 /// # use bevy_ecs::system::{Local, Res};
 /// # use bevy_asset::{Assets, Handle};
-/// # use bevy_audio::AudioSink;
+/// # use bevy_audio::{AudioSink, AudioSinkExt};
 /// // Execution of this system should be controlled by a state or input,
 /// // otherwise it would just toggle between play and pause every frame.
 /// fn pause(
@@ -138,6 +138,7 @@ impl AudioSinkExt for AudioSink {
 /// # use bevy_ecs::system::{Local, Res};
 /// # use bevy_asset::{Assets, Handle};
 /// # use bevy_audio::SpatialAudioSink;
+/// # use bevy_math::Vec3;
 /// // Execution of this system should be controlled by a state or input,
 /// // otherwise it would just trigger every frame.
 /// fn pause(
