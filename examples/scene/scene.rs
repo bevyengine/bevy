@@ -6,6 +6,13 @@ use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 
 fn main() {
     App::new()
+        // This tells the AssetServer to watch for changes to assets.
+        // It enables our scenes to automatically reload in game when we modify their files.
+        // AssetServerSettings must be inserted before the DefaultPlugins are added.
+        .insert_resource(AssetServerSettings {
+            watch_for_changes: true,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
@@ -65,10 +72,6 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         scene: asset_server.load(SCENE_FILE_PATH),
         ..default()
     });
-
-    // This tells the AssetServer to watch for changes to assets.
-    // It enables our scenes to automatically reload in game when we modify their files
-    asset_server.watch_for_changes().unwrap();
 }
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in

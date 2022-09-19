@@ -29,7 +29,9 @@ mod path;
 /// The `bevy_asset` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
+    pub use crate::{
+        AddAsset, AssetEvent, AssetServer, AssetServerSettings, Assets, Handle, HandleUntyped,
+    };
 }
 
 pub use anyhow::Error;
