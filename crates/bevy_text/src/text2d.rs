@@ -23,7 +23,7 @@ use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
     Font, FontAtlasSet, HorizontalAlign, Text, TextError, TextLayoutInfo, TextPipeline,
-    VerticalAlign,
+    TextSettings, VerticalAlign,
 };
 
 /// The calculated size of text drawn in 2D scene.
@@ -153,6 +153,7 @@ pub fn update_text2d_layout(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
+    text_settings: Res<TextSettings>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
@@ -190,13 +191,15 @@ pub fn update_text2d_layout(
                 &mut *font_atlas_set_storage,
                 &mut *texture_atlases,
                 &mut *textures,
+                text_settings.as_ref(),
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
                     queue.insert(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_)) => {
+                Err(e @ TextError::FailedToAddGlyph(_))
+                | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
                     panic!("Fatal error when processing text: {}.", e);
                 }
                 Ok(info) => {

@@ -1,5 +1,7 @@
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
+use crate::utility::members_to_serialization_denylist;
+use bit_set::BitSet;
 use quote::quote;
 
 use crate::{
@@ -61,6 +63,7 @@ pub(crate) struct ReflectMeta<'a> {
 /// ```
 pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
+    serialization_denylist: BitSet<u32>,
     fields: Vec<StructField<'a>>,
 }
 
@@ -99,6 +102,7 @@ pub(crate) struct EnumVariant<'a> {
     /// The fields within this variant.
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
+    #[allow(dead_code)]
     pub attrs: ReflectFieldAttr,
     /// The index of this variant within the enum.
     #[allow(dead_code)]
@@ -137,23 +141,29 @@ impl<'a> ReflectDerive<'a> {
                 _ => continue,
             }
         }
-
-        let meta = ReflectMeta::new(
-            &input.ident,
-            &input.generics,
-            traits,
-            type_path_options.unwrap_or_default(),
-        );
-
         if force_reflect_value {
-            return Ok(Self::Value(meta));
+            return Ok(Self::Value(ReflectMeta::new(
+                &input.ident,
+                &input.generics,
+                traits,
+            )));
         }
 
         return match &input.data {
             Data::Struct(data) => {
+                let fields = Self::collect_struct_fields(&data.fields)?;
+                let meta = ReflectMeta::new(
+                    &input.ident,
+                    &input.generics,
+                    traits,
+                    type_path_options.unwrap_or_default(),
+                );
                 let reflect_struct = ReflectStruct {
                     meta,
-                    fields: Self::collect_struct_fields(&data.fields)?,
+                    serialization_denylist: members_to_serialization_denylist(
+                        fields.iter().map(|v| v.attrs.ignore),
+                    ),
+                    fields,
                 };
 
                 match data.fields {
@@ -163,10 +173,15 @@ impl<'a> ReflectDerive<'a> {
                 }
             }
             Data::Enum(data) => {
-                let reflect_enum = ReflectEnum {
-                    meta,
-                    variants: Self::collect_enum_variants(&data.variants)?,
-                };
+                let variants = Self::collect_enum_variants(&data.variants)?;
+                let meta = ReflectMeta::new(
+                    &input.ident,
+                    &input.generics,
+                    traits,
+                    type_path_options.unwrap_or_default(),
+                );
+
+                let reflect_enum = ReflectEnum { meta, variants };
                 Ok(Self::Enum(reflect_enum))
             }
             Data::Union(..) => Err(syn::Error::new(
@@ -274,6 +289,7 @@ impl<'a> ReflectMeta<'a> {
             &self.bevy_reflect_path,
             self.traits.idents(),
             self.generics,
+            None,
         )
     }
 }
@@ -284,19 +300,50 @@ impl<'a> ReflectStruct<'a> {
         &self.meta
     }
 
-    /// Get an iterator over the active fields.
+    /// Access the data about which fields should be ignored during serialization.
+    ///
+    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`](crate::utility::members_to_serialization_denylist) function.
+    #[allow(dead_code)]
+    pub fn serialization_denylist(&self) -> &BitSet<u32> {
+        &self.serialization_denylist
+    }
+
+    /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
+    ///
+    /// Returns a specific implementation for structs and this method should be preffered over the generic [`get_type_registration`](crate::ReflectMeta) method
+    pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
+        let reflect_path = self.meta.bevy_reflect_path();
+
+        crate::registration::impl_get_type_registration(
+            self.meta.type_name(),
+            reflect_path,
+            self.meta.traits().idents(),
+            self.meta.generics(),
+            Some(&self.serialization_denylist),
+        )
+    }
+
+    /// Get a collection of types which are exposed to the reflection API
+    pub fn active_types(&self) -> Vec<syn::Type> {
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_active())
+            .map(|field| field.data.ty.clone())
+            .collect::<Vec<_>>()
+    }
+
+    /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields.iter().filter(|field| !field.attrs.ignore)
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_active())
     }
 
-    /// Get an iterator over the ignored fields.
+    /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields.iter().filter(|field| field.attrs.ignore)
-    }
-
-    /// Get a collection of all active types.
-    pub fn active_types(&self) -> impl Iterator<Item = &Type> {
-        self.active_fields().map(|field| &field.data.ty)
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this struct.
@@ -312,17 +359,6 @@ impl<'a> ReflectEnum<'a> {
         &self.meta
     }
 
-    /// Get an iterator over the active variants.
-    pub fn active_variants(&self) -> impl Iterator<Item = &EnumVariant<'a>> {
-        self.variants.iter().filter(|variant| !variant.attrs.ignore)
-    }
-
-    /// Get an iterator over the ignored variants.
-    #[allow(dead_code)]
-    pub fn ignored_variants(&self) -> impl Iterator<Item = &EnumVariant<'a>> {
-        self.variants.iter().filter(|variant| variant.attrs.ignore)
-    }
-
     /// Returns the given ident as a qualified unit variant of this enum.
     pub fn get_unit(&self, variant: &Ident) -> proc_macro2::TokenStream {
         let name = self.meta.type_name;
@@ -332,7 +368,6 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// The complete set of variants in this enum.
-    #[allow(dead_code)]
     pub fn variants(&self) -> &[EnumVariant<'a>] {
         &self.variants
     }

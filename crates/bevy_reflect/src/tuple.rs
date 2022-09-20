@@ -185,7 +185,7 @@ impl TupleInfo {
 }
 
 /// A tuple which allows fields to be added at runtime.
-#[derive(Default, TypePath)]
+#[derive(Default, Debug, TypePath)]
 pub struct DynamicTuple {
     name: String,
     fields: Vec<Box<dyn Reflect>>,

@@ -5,7 +5,7 @@
 //! With no arguments it will load the `FieldHelmet` glTF model from the repository assets subdirectory.
 
 use bevy::{
-    asset::{AssetServerSettings, LoadState},
+    asset::LoadState,
     gltf::Gltf,
     input::mouse::MouseMotion,
     math::Vec3A,

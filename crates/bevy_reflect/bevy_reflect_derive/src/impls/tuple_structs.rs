@@ -8,7 +8,7 @@ use syn::{Index, Member};
 pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
     let struct_name = reflect_struct.meta().type_name();
-    let get_type_registration_impl = reflect_struct.meta().get_type_registration();
+    let get_type_registration_impl = reflect_struct.get_type_registration();
 
     let field_idents = reflect_struct
         .active_fields()

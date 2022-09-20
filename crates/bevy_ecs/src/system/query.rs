@@ -273,14 +273,14 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// [`Table`]: crate::storage::Table
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
-pub struct Query<'world, 'state, Q: WorldQuery, F: WorldQuery = ()> {
+pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     pub(crate) world: &'world World,
     pub(crate) state: &'state QueryState<Q, F>,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Creates a new query.
     ///
     /// # Safety
@@ -1380,7 +1380,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> IntoIterator for &'w Query<'_, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w Query<'_, 's, Q, F> {
     type Item = ROQueryItem<'w, Q>;
     type IntoIter = QueryIter<'w, 's, Q::ReadOnly, F::ReadOnly>;
 
@@ -1389,7 +1389,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> IntoIterator for &'w Query<'_, 's, Q,
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> IntoIterator for &'w mut Query<'_, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Query<'_, 's, Q, F> {
     type Item = QueryItem<'w, Q>;
     type IntoIter = QueryIter<'w, 's, Q, F>;
 
@@ -1434,7 +1434,7 @@ impl std::fmt::Display for QueryComponentError {
     }
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: WorldQuery> Query<'w, 's, Q, F> {
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Returns the query item for the given [`Entity`], with the actual "inner" world lifetime.
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is

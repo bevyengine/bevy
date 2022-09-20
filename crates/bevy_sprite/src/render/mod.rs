@@ -257,8 +257,7 @@ pub fn extract_sprites(
             entity,
             color: sprite.color,
             transform: *transform,
-            // Use the full texture
-            rect: None,
+            rect: sprite.rect,
             // Pass the custom size
             custom_size: sprite.custom_size,
             flip_x: sprite.flip_x,

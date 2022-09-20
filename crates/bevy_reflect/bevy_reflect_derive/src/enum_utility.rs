@@ -24,7 +24,7 @@ pub(crate) fn get_variant_constructors(
     let mut variant_names = Vec::with_capacity(variant_count);
     let mut variant_constructors = Vec::with_capacity(variant_count);
 
-    for variant in reflect_enum.active_variants() {
+    for variant in reflect_enum.variants() {
         let ident = &variant.data.ident;
         let name = ident.to_string();
         let variant_constructor = reflect_enum.get_unit(ident);
@@ -38,7 +38,7 @@ pub(crate) fn get_variant_constructors(
         let mut reflect_index: usize = 0;
         let constructor_fields = fields.iter().enumerate().map(|(declar_index, field)| {
             let field_ident = ident_or_index(field.data.ident.as_ref(), declar_index);
-            let field_value = if field.attrs.ignore {
+            let field_value = if field.attrs.ignore.is_ignored() {
                 quote! { Default::default() }
             } else {
                 let error_repr = field.data.ident.as_ref().map_or_else(

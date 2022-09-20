@@ -284,30 +284,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(dead_code)]
-    fn should_skip_ignored_variants() {
-        #[derive(Reflect, Debug, PartialEq)]
-        enum TestEnum {
-            A,
-            #[reflect(ignore)]
-            B,
-            C,
-        }
-
-        if let TypeInfo::Enum(info) = TestEnum::type_info() {
-            assert_eq!(
-                2,
-                info.variant_len(),
-                "expected one of the variants to be ignored"
-            );
-            assert_eq!("A", info.variant_at(0).unwrap().name());
-            assert_eq!("C", info.variant_at(1).unwrap().name());
-        } else {
-            panic!("expected `TypeInfo::Enum`");
-        }
-    }
-
-    #[test]
     fn should_skip_ignored_fields() {
         #[derive(Reflect, Debug, PartialEq)]
         enum TestEnum {
