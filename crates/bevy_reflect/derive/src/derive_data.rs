@@ -530,7 +530,7 @@ impl<'a> StructField<'a> {
             }
         };
 
-        let ty = &self.data.ty;
+        let ty = self.reflected_type();
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
         #[allow(unused_mut)] // Needs mutability for the feature gate
@@ -547,6 +547,14 @@ impl<'a> StructField<'a> {
         }
 
         info
+    }
+
+    /// Returns the reflected type of this field.
+    ///
+    /// Normally this is just the field's defined type.
+    /// However, this can be adjusted to use a different type, like for representing remote types.
+    pub fn reflected_type(&self) -> &Type {
+        self.attrs.remote.as_ref().unwrap_or(&self.data.ty)
     }
 }
 
@@ -590,7 +598,7 @@ impl<'a> ReflectStruct<'a> {
     /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<Type> {
         self.active_fields()
-            .map(|field| field.data.ty.clone())
+            .map(|field| field.reflected_type().clone())
             .collect()
     }
 
@@ -704,7 +712,7 @@ impl<'a> ReflectEnum<'a> {
     /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<Type> {
         self.active_fields()
-            .map(|field| field.data.ty.clone())
+            .map(|field| field.reflected_type().clone())
             .collect()
     }
 

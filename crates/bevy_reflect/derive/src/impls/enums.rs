@@ -38,7 +38,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     let EnumImpls {
         enum_field,
+        enum_field_mut,
         enum_field_at,
+        enum_field_at_mut,
         enum_index_of,
         enum_name_at,
         enum_field_len,
@@ -108,14 +110,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
             fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
                  match #match_this_mut {
-                    #(#enum_field,)*
+                    #(#enum_field_mut,)*
                     _ => #FQOption::None,
                 }
             }
 
             fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
                 match #match_this_mut {
-                    #(#enum_field_at,)*
+                    #(#enum_field_at_mut,)*
                     _ => #FQOption::None,
                 }
             }
@@ -263,7 +265,9 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
 struct EnumImpls {
     enum_field: Vec<proc_macro2::TokenStream>,
+    enum_field_mut: Vec<proc_macro2::TokenStream>,
     enum_field_at: Vec<proc_macro2::TokenStream>,
+    enum_field_at_mut: Vec<proc_macro2::TokenStream>,
     enum_index_of: Vec<proc_macro2::TokenStream>,
     enum_name_at: Vec<proc_macro2::TokenStream>,
     enum_field_len: Vec<proc_macro2::TokenStream>,
@@ -276,7 +280,9 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
 
     let mut enum_field = Vec::new();
+    let mut enum_field_mut = Vec::new();
     let mut enum_field_at = Vec::new();
+    let mut enum_field_at_mut = Vec::new();
     let mut enum_index_of = Vec::new();
     let mut enum_name_at = Vec::new();
     let mut enum_field_len = Vec::new();
@@ -324,6 +330,27 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
             field_len
         }
 
+        /// Process the field value to account for remote types.
+        ///
+        /// If the field is a remote type, then the value will be transmuted accordingly.
+        fn process_field_value(
+            ident: &Ident,
+            field: &StructField,
+            is_mutable: bool,
+        ) -> proc_macro2::TokenStream {
+            let ref_token = if is_mutable { quote!(&mut) } else { quote!(&) };
+            field
+                .attrs
+                .remote
+                .as_ref()
+                .map(|ty| {
+                    quote! {
+                        unsafe { ::core::mem::transmute::<#ref_token _, #ref_token #ty>(#ident) }
+                    }
+                })
+                .unwrap_or_else(|| quote!(#ident))
+        }
+
         match &variant.fields {
             EnumVariantFields::Unit => {
                 let field_len = process_fields(&[], |_| {});
@@ -339,8 +366,16 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                         .expect("reflection index should exist for active field");
 
                     let declare_field = syn::Index::from(field.declaration_index);
+
+                    let __value = Ident::new("__value", Span::call_site());
+                    let value_ref = process_field_value(&__value, field, false);
+                    let value_mut = process_field_value(&__value, field, true);
+
                     enum_field_at.push(quote! {
-                        #unit { #declare_field : value, .. } if #ref_index == #reflection_index => #FQOption::Some(value)
+                        #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #FQOption::Some(#value_ref)
+                    });
+                    enum_field_at_mut.push(quote! {
+                        #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #FQOption::Some(#value_mut)
                     });
                 });
 
@@ -356,11 +391,21 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                         .reflection_index
                         .expect("reflection index should exist for active field");
 
+                    let __value = Ident::new("__value", Span::call_site());
+                    let value_ref = process_field_value(&__value, field, false);
+                    let value_mut = process_field_value(&__value, field, true);
+
                     enum_field.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_name == #field_name => #FQOption::Some(#field_ident)
+                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQOption::Some(#value_ref)
+                    });
+                    enum_field_mut.push(quote! {
+                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQOption::Some(#value_mut)
                     });
                     enum_field_at.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_index == #reflection_index => #FQOption::Some(#field_ident)
+                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflection_index => #FQOption::Some(#value_ref)
+                    });
+                    enum_field_at_mut.push(quote! {
+                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflection_index => #FQOption::Some(#value_mut)
                     });
                     enum_index_of.push(quote! {
                         #unit{ .. } if #ref_name == #field_name => #FQOption::Some(#reflection_index)
@@ -379,7 +424,9 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
 
     EnumImpls {
         enum_field,
+        enum_field_mut,
         enum_field_at,
+        enum_field_at_mut,
         enum_index_of,
         enum_name_at,
         enum_field_len,
