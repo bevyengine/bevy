@@ -68,7 +68,7 @@ impl Gamepads {
 }
 
 /// The data contained in a [`GamepadEvent`] or [`GamepadEventRaw`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadEventType {
     /// A [`Gamepad`] has been connected.
@@ -101,7 +101,7 @@ pub enum GamepadEventType {
 /// [`Axis<GamepadAxis>`], and [`Axis<GamepadButton>`] resources won't be updated correctly.
 ///
 /// An example for gamepad input mocking can be seen in the documentation of the [`GamepadEventRaw`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEvent {
     /// The gamepad this event corresponds to.
@@ -204,7 +204,7 @@ impl GamepadEvent {
 /// #
 /// # bevy_ecs::system::assert_is_system(change_resource_on_gamepad_button_press);
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEventRaw {
     /// The gamepad this event corresponds to.
@@ -703,7 +703,7 @@ pub fn gamepad_event_system(
     for event in raw_events.iter() {
         match event.event_type {
             GamepadEventType::Connected => {
-                events.send(GamepadEvent::new(event.gamepad, event.event_type.clone()));
+                events.send(GamepadEvent::new(event.gamepad, event.event_type));
                 for button_type in &ALL_BUTTON_TYPES {
                     let gamepad_button = GamepadButton::new(event.gamepad, *button_type);
                     button_input.reset(gamepad_button);
@@ -714,7 +714,7 @@ pub fn gamepad_event_system(
                 }
             }
             GamepadEventType::Disconnected => {
-                events.send(GamepadEvent::new(event.gamepad, event.event_type.clone()));
+                events.send(GamepadEvent::new(event.gamepad, event.event_type));
                 for button_type in &ALL_BUTTON_TYPES {
                     let gamepad_button = GamepadButton::new(event.gamepad, *button_type);
                     button_input.reset(gamepad_button);
