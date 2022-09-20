@@ -284,7 +284,7 @@ impl<'w> EntityMut<'w> {
         value: OwningPtr<'_>,
     ) -> &mut Self {
         // SAFETY: the caller promisees that `value` is valid for the `component_id`
-        self.insert_bundle_by_ids(vec![component_id], vec![value])
+        self.insert_bundle_by_ids(vec![component_id], std::iter::once(value))
     }
 
     /// Inserts a bundle of components into the entity. Will replace the values if they already existed.
@@ -294,10 +294,10 @@ impl<'w> EntityMut<'w> {
     ///
     /// # Safety
     /// - each value of `components` must be valid for the [`ComponentId`] at the matching position in `component_ids` in this world
-    pub unsafe fn insert_bundle_by_ids(
+    pub unsafe fn insert_bundle_by_ids<'a, I: IntoIterator<Item = OwningPtr<'a>>>(
         &mut self,
         mut component_ids: Vec<ComponentId>,
-        components: Vec<OwningPtr<'_>>,
+        components: I,
     ) -> &mut Self {
         component_ids.sort();
 
@@ -309,16 +309,18 @@ impl<'w> EntityMut<'w> {
             });
         }
 
-        struct DynamicInsertBundle<'a> {
-            components: Vec<OwningPtr<'a>>,
+        struct DynamicInsertBundle<'a, I: Iterator<Item = OwningPtr<'a>>> {
+            components: I,
         }
-        impl DynamicBundle for DynamicInsertBundle<'_> {
+        impl<'a, I: Iterator<Item = OwningPtr<'a>>> DynamicBundle for DynamicInsertBundle<'a, I> {
             fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
-                self.components.into_iter().for_each(func);
+                self.components.for_each(func);
             }
         }
 
-        let bundle = DynamicInsertBundle { components };
+        let bundle = DynamicInsertBundle {
+            components: components.into_iter(),
+        };
 
         let change_tick = self.world.change_tick();
         // SAFETY: component_ids are all valid, because they are checked in this function
