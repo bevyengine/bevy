@@ -26,6 +26,7 @@ mod reflect_value;
 mod registration;
 mod remote;
 mod serialization;
+mod struct_utility;
 mod trait_reflection;
 mod type_path;
 mod utility;
