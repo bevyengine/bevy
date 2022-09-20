@@ -1448,7 +1448,7 @@ path = "examples/ui/z_index.rs"
 
 [package.metadata.example.z_index]
 name = "UI Z-Index"
-description = "Demonstrates z-index for UI"
+description = "Demonstrates how to control the relative depth (z-position) of UI elements"
 category = "UI (User Interface)"
 wasm = true
 
