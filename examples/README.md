@@ -182,8 +182,8 @@ Example | Description
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
-[Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spacial audio, and moving the emitter in 2D
-[Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spacial audio, and moving the emitter in 3D
+[Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
+[Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
 
 ## Diagnostics
 
