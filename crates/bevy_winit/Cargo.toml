@@ -22,12 +22,12 @@ bevy_window = { path = "../bevy_window", version = "0.9.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
 
 # other
-winit = { version = "0.26.0", default-features = false }
+winit = { version = "0.27.3", default-features = false }
 approx = { version = "0.5.0", default-features = false }
 raw-window-handle = "0.4.2"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = { version = "0.26.0", default-features = false }
+winit = { version = "0.27.3", default-features = false }
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
 crossbeam-channel = "0.5"
