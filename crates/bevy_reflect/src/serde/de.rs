@@ -296,6 +296,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     TupleStructVisitor {
                         tuple_struct_info,
                         registry: self.registry,
+                        registration: self.registration,
                     },
                 )?;
                 dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
@@ -402,6 +403,7 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
 struct TupleStructVisitor<'a> {
     tuple_struct_info: &'static TupleStructInfo,
     registry: &'a TypeRegistry,
+    registration: &'a TypeRegistration,
 }
 
 impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
@@ -441,9 +443,8 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
         }
 
         let ignored_len = self
-            .registry
-            .get(self.tuple_struct_info.type_id())
-            .and_then(|registration| registration.data::<SerializationData>())
+            .registration
+            .data::<SerializationData>()
             .map(|data| data.len())
             .unwrap_or(0);
         if tuple_struct.field_len() != self.tuple_struct_info.field_len() - ignored_len {
