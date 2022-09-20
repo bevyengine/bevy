@@ -84,6 +84,23 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     }
 }
 
+fn clear_children(parent: Entity, world: &mut World) {
+    if let Some(children) = world.entity(parent).get::<Children>() {
+        remove_children(parent, &children.0.clone(), world);
+    }
+}
+
+fn push_children(parent: Entity, mut children: SmallVec<[Entity; 8]>, world: &mut World) {
+    update_old_parents(world, parent, &children);
+    let mut parent = world.entity_mut(parent);
+    if let Some(mut parent_children) = parent.get_mut::<Children>() {
+        parent_children.0.retain(|child| !children.contains(child));
+        parent_children.0.append(&mut children);
+    } else {
+        parent.insert(Children(children));
+    }
+}
+
 /// Command that adds a child to an entity
 #[derive(Debug)]
 pub struct AddChild {
@@ -154,15 +171,8 @@ pub struct PushChildren {
 }
 
 impl Command for PushChildren {
-    fn write(mut self, world: &mut World) {
-        update_old_parents(world, self.parent, &self.children);
-        let mut parent = world.entity_mut(self.parent);
-        if let Some(mut children) = parent.get_mut::<Children>() {
-            children.0.retain(|child| !self.children.contains(child));
-            children.0.append(&mut self.children);
-        } else {
-            parent.insert(Children(self.children));
-        }
+    fn write(self, world: &mut World) {
+        push_children(self.parent, self.children, world);
     }
 }
 
@@ -175,6 +185,30 @@ pub struct RemoveChildren {
 impl Command for RemoveChildren {
     fn write(self, world: &mut World) {
         remove_children(self.parent, &self.children, world);
+    }
+}
+
+/// Command that clear all children from an entity.
+pub struct ClearChildren {
+    parent: Entity,
+}
+
+impl Command for ClearChildren {
+    fn write(self, world: &mut World) {
+        clear_children(self.parent, world);
+    }
+}
+
+/// Command that clear all children from an entity. And replace with the given children.
+pub struct ReplaceChildren {
+    parent: Entity,
+    children: SmallVec<[Entity; 8]>,
+}
+
+impl Command for ReplaceChildren {
+    fn write(self, world: &mut World) {
+        clear_children(self.parent, world);
+        push_children(self.parent, self.children, world);
     }
 }
 
@@ -256,6 +290,10 @@ pub trait BuildChildren {
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Adds a single child
     fn add_child(&mut self, child: Entity) -> &mut Self;
+    /// Clear children
+    fn clear_children(&mut self) -> &mut Self;
+    /// Replace children
+    fn replace_children(&mut self, children: &[Entity]) -> &mut Self;
 }
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
@@ -312,6 +350,21 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
         self.commands().add(AddChild { child, parent });
+        self
+    }
+
+    fn clear_children(&mut self) -> &mut Self {
+        let parent = self.id();
+        self.commands().add(ClearChildren { parent });
+        self
+    }
+
+    fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        self.commands().add(ReplaceChildren {
+            children: SmallVec::from(children),
+            parent,
+        });
         self
     }
 }
@@ -614,6 +667,91 @@ mod tests {
         );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child4).is_none());
+    }
+
+    #[test]
+    fn push_and_clear_children_commands() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .collect::<Vec<Entity>>();
+
+        let mut queue = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(entities[0]).push_children(&entities[1..3]);
+        }
+        queue.apply(&mut world);
+
+        let parent = entities[0];
+        let child1 = entities[1];
+        let child2 = entities[2];
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent).clear_children();
+        }
+        queue.apply(&mut world);
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert!(world.get::<Parent>(child1).is_none());
+        assert!(world.get::<Parent>(child2).is_none());
+    }
+
+    #[test]
+    fn push_and_replace_children_commands() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .collect::<Vec<Entity>>();
+
+        let mut queue = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(entities[0]).push_children(&entities[1..3]);
+        }
+        queue.apply(&mut world);
+
+        let parent = entities[0];
+        let child1 = entities[1];
+        let child2 = entities[2];
+        let child4 = entities[4];
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+
+        let replace_children = [child1, child4];
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent).replace_children(&replace_children);
+        }
+        queue.apply(&mut world);
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child4];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
+        assert!(world.get::<Parent>(child2).is_none());
     }
 
     #[test]
