@@ -64,7 +64,6 @@ use std::{any::TypeId, collections::HashMap};
 ///
 /// Every type which implements [`Component`] also implements `Bundle`, since
 /// [`Component`] types can be added to or removed from an entity.
-/// This implementation's set is
 ///
 /// Additionally, [Tuples](`tuple`) of bundles are also [`Bundle`] (with up to 15 bundles).
 /// These bundles contain the items of the 'inner' bundles.
