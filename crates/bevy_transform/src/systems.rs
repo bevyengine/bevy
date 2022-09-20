@@ -121,12 +121,12 @@ mod test {
         // Root entity
         world
             .spawn()
-            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
+            .insert(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
 
         let mut children = Vec::new();
         world
             .spawn()
-            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .insert(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
@@ -339,12 +339,9 @@ mod test {
             let mut grandchild = Entity::from_raw(0);
             let child = world
                 .spawn()
-                .insert_bundle(TransformBundle::IDENTITY)
+                .insert(TransformBundle::IDENTITY)
                 .with_children(|builder| {
-                    grandchild = builder
-                        .spawn()
-                        .insert_bundle(TransformBundle::IDENTITY)
-                        .id();
+                    grandchild = builder.spawn().insert(TransformBundle::IDENTITY).id();
                 })
                 .id();
             (child, grandchild)
@@ -358,7 +355,7 @@ mod test {
 
         app.world
             .spawn()
-            .insert_bundle(TransformBundle::IDENTITY)
+            .insert(TransformBundle::IDENTITY)
             .push_children(&[child]);
         std::mem::swap(
             &mut *app.world.get_mut::<Parent>(child).unwrap(),

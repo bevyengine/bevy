@@ -429,7 +429,7 @@ mod test {
         let root1 = app
             .world
             .spawn()
-            .insert_bundle((
+            .insert((
                 Visibility { is_visible: false },
                 ComputedVisibility::default(),
             ))
@@ -437,12 +437,12 @@ mod test {
         let root1_child1 = app
             .world
             .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .insert((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root1_child2 = app
             .world
             .spawn()
-            .insert_bundle((
+            .insert((
                 Visibility { is_visible: false },
                 ComputedVisibility::default(),
             ))
@@ -450,12 +450,12 @@ mod test {
         let root1_child1_grandchild1 = app
             .world
             .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .insert((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root1_child2_grandchild1 = app
             .world
             .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .insert((Visibility::default(), ComputedVisibility::default()))
             .id();
 
         app.world
@@ -471,17 +471,17 @@ mod test {
         let root2 = app
             .world
             .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .insert((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root2_child1 = app
             .world
             .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .insert((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root2_child2 = app
             .world
             .spawn()
-            .insert_bundle((
+            .insert((
                 Visibility { is_visible: false },
                 ComputedVisibility::default(),
             ))
@@ -489,12 +489,12 @@ mod test {
         let root2_child1_grandchild1 = app
             .world
             .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .insert((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root2_child2_grandchild1 = app
             .world
             .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .insert((Visibility::default(), ComputedVisibility::default()))
             .id();
 
         app.world

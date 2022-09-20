@@ -39,7 +39,7 @@ fn main() {
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     // cube
-    commands.spawn().insert_bundle((
+    commands.spawn_bundle((
         meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         Transform::from_xyz(0.0, 0.5, 0.0),
         GlobalTransform::default(),

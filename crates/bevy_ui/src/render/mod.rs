@@ -266,7 +266,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     ),
                 })
                 .id();
-            commands.get_or_spawn(entity).insert_bundle((
+            commands.get_or_spawn(entity).insert((
                 DefaultCameraView(default_camera_view),
                 RenderPhase::<TransparentUi>::default(),
             ));

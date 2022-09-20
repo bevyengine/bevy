@@ -116,13 +116,16 @@ fn setup(
     // Create the scene that will be animated
     // First entity is the planet
     commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            ..default()
-        })
-        // Add the Name component, and the animation player
-        .insert_bundle((planet, player))
+        .spawn_bundle((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
+                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                ..default()
+            },
+            // Add the Name component, and the animation player
+            planet,
+            player,
+        ))
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
             p.spawn_bundle(SpatialBundle::VISIBLE_IDENTITY)
@@ -130,14 +133,16 @@ fn setup(
                 .insert(orbit_controller)
                 .with_children(|p| {
                     // The satellite, placed at a distance of the planet
-                    p.spawn_bundle(PbrBundle {
-                        transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                        material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
-                        ..default()
-                    })
-                    // Add the Name component
-                    .insert(satellite);
+                    p.spawn_bundle((
+                        PbrBundle {
+                            transform: Transform::from_xyz(1.5, 0.0, 0.0),
+                            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                            material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
+                            ..default()
+                        },
+                        // Add the Name component
+                        satellite,
+                    ));
                 });
         });
 }

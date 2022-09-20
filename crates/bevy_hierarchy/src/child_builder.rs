@@ -331,8 +331,7 @@ impl<'w> WorldChildBuilder<'w> {
         let entity = self
             .world
             .spawn()
-            .insert_bundle(bundle)
-            .insert(Parent(parent_entity))
+            .insert((bundle, Parent(parent_entity)))
             .id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);

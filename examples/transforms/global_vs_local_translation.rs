@@ -50,43 +50,45 @@ fn setup(
     // This example focuses on translation only to clearly demonstrate the differences.
 
     // Spawn a basic cube to have an entity as reference.
-    let mut main_entity = commands.spawn();
-    main_entity
-        .insert_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::YELLOW.into()),
-            ..default()
-        })
-        .insert(ChangeGlobal)
-        .insert(Move)
-        .insert(ToggledBy(KeyCode::Key1));
-
-    // Spawn two entities as children above the original main entity.
-    // The red entity spawned here will be changed via its global transform
-    // where the green one will be changed via its local transform.
-    main_entity.with_children(|child_builder| {
-        // also see parenting example
-        child_builder
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(Color::RED.into()),
-                transform: Transform::from_translation(Vec3::Y - Vec3::Z),
+    commands
+        .spawn_bundle((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                material: materials.add(Color::YELLOW.into()),
                 ..default()
-            })
-            .insert(ChangeGlobal)
-            .insert(Move)
-            .insert(ToggledBy(KeyCode::Key2));
-        child_builder
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(Color::GREEN.into()),
-                transform: Transform::from_translation(Vec3::Y + Vec3::Z),
-                ..default()
-            })
-            .insert(ChangeLocal)
-            .insert(Move)
-            .insert(ToggledBy(KeyCode::Key3));
-    });
+            },
+            ChangeGlobal,
+            Move,
+            ToggledBy(KeyCode::Key1),
+        ))
+        // Spawn two entities as children above the original main entity.
+        // The red entity spawned here will be changed via its global transform
+        // where the green one will be changed via its local transform.
+        .with_children(|child_builder| {
+            // also see parenting example
+            child_builder.spawn_bundle((
+                PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                    material: materials.add(Color::RED.into()),
+                    transform: Transform::from_translation(Vec3::Y - Vec3::Z),
+                    ..default()
+                },
+                ChangeGlobal,
+                Move,
+                ToggledBy(KeyCode::Key2),
+            ));
+            child_builder.spawn_bundle((
+                PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                    material: materials.add(Color::GREEN.into()),
+                    transform: Transform::from_translation(Vec3::Y + Vec3::Z),
+                    ..default()
+                },
+                ChangeLocal,
+                Move,
+                ToggledBy(KeyCode::Key3),
+            ));
+        });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn_bundle(Camera3dBundle {

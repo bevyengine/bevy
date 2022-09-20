@@ -376,7 +376,7 @@ impl World {
     /// let mut world = World::new();
     /// let entity = world.spawn()
     ///     .insert(Position { x: 0.0, y: 0.0 }) // add a single component
-    ///     .insert_bundle((Num(1), Label("hello"))) // add a bundle of components
+    ///     .insert((Num(1), Label("hello"))) // add a bundle of components
     ///     .id();
     ///
     /// let position = world.entity(entity).get::<Position>().unwrap();
@@ -570,9 +570,9 @@ impl World {
     /// struct Label(&'static str);
     ///
     /// let mut world = World::new();
-    /// let a = world.spawn().insert_bundle((Order(2), Label("second"))).id();
-    /// let b = world.spawn().insert_bundle((Order(3), Label("third"))).id();
-    /// let c = world.spawn().insert_bundle((Order(1), Label("first"))).id();
+    /// let a = world.spawn().insert((Order(2), Label("second"))).id();
+    /// let b = world.spawn().insert((Order(3), Label("third"))).id();
+    /// let c = world.spawn().insert((Order(1), Label("first"))).id();
     /// let mut entities = world.query::<(Entity, &Order, &Label)>()
     ///     .iter(&world)
     ///     .collect::<Vec<_>>();
@@ -602,7 +602,7 @@ impl World {
     ///
     /// let mut world = World::new();
     /// let e1 = world.spawn().insert(A).id();
-    /// let e2 = world.spawn().insert_bundle((A, B)).id();
+    /// let e2 = world.spawn().insert((A, B)).id();
     ///
     /// let mut query = world.query_filtered::<Entity, With<B>>();
     /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
@@ -1782,13 +1782,13 @@ mod tests {
     #[test]
     fn inspect_entity_components() {
         let mut world = World::new();
-        let ent0 = world.spawn().insert_bundle((Foo, Bar, Baz)).id();
-        let ent1 = world.spawn().insert_bundle((Foo, Bar)).id();
-        let ent2 = world.spawn().insert_bundle((Bar, Baz)).id();
-        let ent3 = world.spawn().insert_bundle((Foo, Baz)).id();
-        let ent4 = world.spawn().insert_bundle((Foo,)).id();
-        let ent5 = world.spawn().insert_bundle((Bar,)).id();
-        let ent6 = world.spawn().insert_bundle((Baz,)).id();
+        let ent0 = world.spawn().insert((Foo, Bar, Baz)).id();
+        let ent1 = world.spawn().insert((Foo, Bar)).id();
+        let ent2 = world.spawn().insert((Bar, Baz)).id();
+        let ent3 = world.spawn().insert((Foo, Baz)).id();
+        let ent4 = world.spawn().insert(Foo).id();
+        let ent5 = world.spawn().insert(Bar).id();
+        let ent6 = world.spawn().insert(Baz).id();
 
         fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
             component_infos

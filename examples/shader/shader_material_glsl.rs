@@ -28,7 +28,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // cube
-    commands.spawn().insert_bundle(MaterialMeshBundle {
+    commands.spawn_bundle(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {

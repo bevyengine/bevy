@@ -90,7 +90,7 @@ fn handle_tasks(
     for (entity, mut task) in &mut transform_tasks {
         if let Some(transform) = future::block_on(future::poll_once(&mut task.0)) {
             // Add our new PbrBundle of components to our tagged entity
-            commands.entity(entity).insert_bundle(PbrBundle {
+            commands.entity(entity).insert(PbrBundle {
                 mesh: box_mesh_handle.clone(),
                 material: box_material_handle.clone(),
                 transform,
