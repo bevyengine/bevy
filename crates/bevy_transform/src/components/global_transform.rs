@@ -25,6 +25,12 @@ use bevy_reflect::Reflect;
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
+///
+/// # Examples
+///
+/// - [`global_vs_local_translation`]
+///
+/// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, PartialEq)]
 pub struct GlobalTransform(Affine3A);
