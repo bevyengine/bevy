@@ -2557,6 +2557,41 @@ bevy_reflect::tests::Test {
         assert_eq!("Goodbye", data.0.value);
     }
 
+    #[test]
+    fn should_reflect_nested_remote_type() {
+        mod external_crate {
+            pub struct TheirOuter {
+                pub inner: TheirInner,
+            }
+            pub struct TheirInner(pub usize);
+        }
+
+        #[reflect_remote(external_crate::TheirOuter)]
+        // TODO: Remove
+        #[reflect(from_reflect = false)]
+        struct MyOuter {
+            #[reflect(remote = "MyInner")]
+            pub inner: external_crate::TheirInner,
+        }
+
+        #[reflect_remote(external_crate::TheirInner)]
+        // TODO: Remove
+        #[reflect(from_reflect = false)]
+        struct MyInner(usize);
+
+        let mut patch = DynamicStruct::default();
+        patch.set_represented_type(Some(MyOuter::type_info()));
+        patch.insert("inner", MyInner(external_crate::TheirInner(321)));
+
+        let mut data = MyOuter(external_crate::TheirOuter {
+            inner: external_crate::TheirInner(123),
+        });
+
+        assert_eq!(123, data.0.inner.0);
+        data.apply(&patch);
+        assert_eq!(321, data.0.inner.0);
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
