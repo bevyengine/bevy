@@ -130,7 +130,7 @@ where
     ///
     /// `bevy_audio` is not using HRTF for spatial audio, but is transforming the sound to a mono
     /// track, and then changing the level of each stereo channel according to the distance between
-    /// the emitter and each ear.
+    /// the emitter and each ear by amplifying the difference between what the two ears hear.
     ///
     /// ```
     /// # use bevy_ecs::system::Res;
@@ -205,7 +205,7 @@ where
     ///
     /// `bevy_audio` is not using HRTF for spatial audio, but is transforming the sound to a mono
     /// track, and then changing the level of each stereo channel according to the distance between
-    /// the emitter and each ear.
+    /// the emitter and each ear by amplifying the difference between what the two ears hear.
     ///
     /// ```
     /// # use bevy_ecs::system::Res;
