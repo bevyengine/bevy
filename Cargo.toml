@@ -815,12 +815,22 @@ category = "Audio"
 wasm = true
 
 [[example]]
-name = "spatial_audio"
-path = "examples/audio/spatial_audio.rs"
+name = "spatial_audio_2d"
+path = "examples/audio/spatial_audio_2d.rs"
 
-[package.metadata.example.spatial_audio]
-name = "Spatial Audio"
-description = "Shows how to play spacial audio, and moving the emitter"
+[package.metadata.example.spatial_audio_2d]
+name = "Spatial Audio 2D"
+description = "Shows how to play spacial audio, and moving the emitter in 2D"
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "spatial_audio_3d"
+path = "examples/audio/spatial_audio_3d.rs"
+
+[package.metadata.example.spatial_audio_3d]
+name = "Spatial Audio 3D"
+description = "Shows how to play spacial audio, and moving the emitter in 3D"
 category = "Audio"
 wasm = true
 

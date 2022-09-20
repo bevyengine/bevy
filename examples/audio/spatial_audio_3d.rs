@@ -17,12 +17,14 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    let gap = 4.0;
+
     let music = asset_server.load("sounds/Windless Slopes.ogg");
     let handle = audio_sinks.get_handle(audio.play_spatial_with_settings(
         music,
         PlaybackSettings::LOOP,
         Transform::IDENTITY,
-        4.0,
+        gap,
         Vec3::ZERO,
     ));
     commands.insert_resource(AudioController(handle));
@@ -31,7 +33,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
         material: materials.add(Color::RED.into()),
-        transform: Transform::from_xyz(-2.0, 0.0, 0.0),
+        transform: Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
         ..default()
     });
 
@@ -39,7 +41,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
         material: materials.add(Color::GREEN.into()),
-        transform: Transform::from_xyz(2.0, 0.0, 0.0),
+        transform: Transform::from_xyz(gap / 2.0, 0.0, 0.0),
         ..default()
     });
 
