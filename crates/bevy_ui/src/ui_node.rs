@@ -423,7 +423,7 @@ pub struct CalculatedClip {
 /// (nodes that have no parent). Because of this, there is no difference between using
 /// [`ZIndex::Local(n)`] and [`ZIndex::Global(n)`] for root nodes.
 ///
-/// Not inserting this component on a node will give the same result as using [`ZIndex::Local(0)`].
+/// Nodes without this component will be treated as if they had a value of [`ZIndex::Local(0)`].
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
