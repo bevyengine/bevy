@@ -158,7 +158,7 @@ impl<'a> Serialize for StructValueSerializer<'a> {
         let mut state = serializer.serialize_map(Some(self.struct_value.field_len()))?;
         let serialization_data = self
             .registry
-            .get_with_name(self.struct_value.type_name())
+            .get_with_name(self.struct_value.type_path())
             .and_then(|registration| registration.data::<SerializationData>());
 
         for (index, value) in self.struct_value.iter_fields().enumerate() {
@@ -212,7 +212,7 @@ impl<'a> Serialize for TupleStructValueSerializer<'a> {
         let mut state = serializer.serialize_seq(Some(self.tuple_struct.field_len()))?;
         let serialization_data = self
             .registry
-            .get_with_name(self.tuple_struct.type_name())
+            .get_with_name(self.tuple_struct.type_path())
             .and_then(|registration| registration.data::<SerializationData>());
 
         for (index, value) in self.tuple_struct.iter_fields().enumerate() {

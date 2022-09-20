@@ -162,9 +162,9 @@ impl TypeRegistry {
     /// given name.
     ///
     /// If no type with the given name has been registered, returns `None`.
-    pub fn get_with_name(&self, type_name: &str) -> Option<&TypeRegistration> {
+    pub fn get_with_name(&self, type_path: &str) -> Option<&TypeRegistration> {
         self.full_name_to_id
-            .get(type_name)
+            .get(type_path)
             .and_then(|id| self.get(*id))
     }
 
@@ -172,9 +172,9 @@ impl TypeRegistry {
     /// the given name.
     ///
     /// If no type with the given name has been registered, returns `None`.
-    pub fn get_with_name_mut(&mut self, type_name: &str) -> Option<&mut TypeRegistration> {
+    pub fn get_with_name_mut(&mut self, type_path: &str) -> Option<&mut TypeRegistration> {
         self.full_name_to_id
-            .get(type_name)
+            .get(type_path)
             .cloned()
             .and_then(move |id| self.get_mut(id))
     }

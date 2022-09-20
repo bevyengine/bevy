@@ -11,7 +11,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
     Data, DeriveInput, Field, Fields, Generics, Ident, Lit, Meta, MetaList, NestedMeta, Path,
-    Token, Type, Variant,
+    Token, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -146,6 +146,7 @@ impl<'a> ReflectDerive<'a> {
                 &input.ident,
                 &input.generics,
                 traits,
+                type_path_options.unwrap_or_default(),
             )));
         }
 
