@@ -237,8 +237,8 @@ impl System for FixedTimestep {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::Instant;
     use bevy_ecs::prelude::*;
-    use bevy_utils::Instant;
     use std::ops::{Add, Mul};
     use std::time::Duration;
 

@@ -19,10 +19,8 @@ use bevy_input::{
     touch::TouchInput,
 };
 use bevy_math::{ivec2, DVec2, UVec2, Vec2};
-use bevy_utils::{
-    tracing::{error, info, trace, warn},
-    Instant,
-};
+use bevy_time::Instant;
+use bevy_utils::tracing::{error, info, trace, warn};
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
     ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,

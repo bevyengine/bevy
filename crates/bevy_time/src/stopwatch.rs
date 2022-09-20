@@ -1,6 +1,6 @@
+use crate::Duration;
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
-use bevy_utils::Duration;
 
 /// A Stopwatch is a struct that track elapsed time when started.
 ///
@@ -8,7 +8,6 @@ use bevy_utils::Duration;
 ///
 /// ```
 /// # use bevy_time::*;
-/// use std::time::Duration;
 /// let mut stopwatch = Stopwatch::new();
 /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
 ///

@@ -12,8 +12,8 @@ use crate::{
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
-use bevy_time::TimeSender;
-use bevy_utils::Instant;
+use bevy_time::Instant;
+use bevy_time_plugin::TimeSender;
 use std::sync::Arc;
 use wgpu::{AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
 

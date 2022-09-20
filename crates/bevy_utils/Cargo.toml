@@ -11,7 +11,6 @@ keywords = ["bevy"]
 [dependencies]
 ahash = "0.7.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-instant = { version = "0.1", features = ["wasm-bindgen"] }
 uuid = { version = "1.1", features = ["v4", "serde"] }
 hashbrown = { version = "0.12", features = ["serde"] }
 

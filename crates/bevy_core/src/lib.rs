@@ -16,7 +16,8 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
-use bevy_utils::{Duration, HashSet, Instant};
+use bevy_time::{Duration, Instant};
+use bevy_utils::HashSet;
 use std::borrow::Cow;
 use std::ops::Range;
 

@@ -1,8 +1,8 @@
 [package]
-name = "bevy_core"
+name = "bevy_time_plugin"
 version = "0.9.0-dev"
 edition = "2021"
-description = "Provides core functionality for Bevy Engine"
+description = "Provides a time plugin for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
@@ -11,13 +11,11 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0-dev", features = ["bevy_reflect"] }
+bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev", features = ["bevy_reflect"] }
-bevy_math = { path = "../bevy_math", version = "0.9.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.9.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.9.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
 
 # other
-bytemuck = "1.5"
+crossbeam-channel = "0.5.0"

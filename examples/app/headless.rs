@@ -6,7 +6,7 @@
 //! bevy = { version = "*", default-features = false }
 //! # replace "*" with the most recent version of bevy
 
-use bevy::{app::ScheduleRunnerSettings, prelude::*, utils::Duration};
+use bevy::{app::ScheduleRunnerSettings, prelude::*, time::Duration};
 
 fn main() {
     // this app runs once

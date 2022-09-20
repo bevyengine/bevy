@@ -5,7 +5,7 @@
 
 use bevy::{
     prelude::*,
-    utils::Duration,
+    time::Duration,
     window::{PresentMode, RequestRedraw},
     winit::WinitSettings,
 };

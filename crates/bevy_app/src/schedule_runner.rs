@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::Resource;
-use bevy_utils::{Duration, Instant};
+use bevy_time::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
 use std::{cell::RefCell, rc::Rc};

@@ -9,8 +9,8 @@ use crate::{
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
-use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
+use instant::{Duration, Instant};
 use std::{
     any::Any,
     borrow::Cow,
@@ -47,8 +47,6 @@ impl_reflect_value!(RangeFrom<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeTo<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeFull());
-impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(Instant(Debug, Hash, PartialEq));
 impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroIsize(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -61,6 +59,8 @@ impl_reflect_value!(NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Instant(Debug, Hash, PartialEq));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -86,8 +86,6 @@ impl_from_reflect_value!(RangeFrom<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(RangeTo<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(RangeFull);
-impl_from_reflect_value!(Duration);
-impl_from_reflect_value!(Instant);
 impl_from_reflect_value!(NonZeroI128);
 impl_from_reflect_value!(NonZeroU128);
 impl_from_reflect_value!(NonZeroIsize);
@@ -100,6 +98,8 @@ impl_from_reflect_value!(NonZeroI16);
 impl_from_reflect_value!(NonZeroU16);
 impl_from_reflect_value!(NonZeroU8);
 impl_from_reflect_value!(NonZeroI8);
+impl_from_reflect_value!(Duration);
+impl_from_reflect_value!(Instant);
 
 impl<T: FromReflect> Array for Vec<T> {
     #[inline]
@@ -886,24 +886,11 @@ impl FromReflect for Cow<'static, str> {
 #[cfg(test)]
 mod tests {
     use crate as bevy_reflect;
-    use crate::{
-        Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
-        VariantType,
-    };
+    use crate::{Enum, FromReflect, Reflect, TypeInfo, Typed, VariantInfo, VariantType};
+    use crate::{ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
-    use bevy_utils::{Duration, Instant};
+    use instant::{Duration, Instant};
     use std::f32::consts::{PI, TAU};
-
-    #[test]
-    fn can_serialize_duration() {
-        let mut type_registry = TypeRegistry::default();
-        type_registry.register::<Duration>();
-
-        let reflect_serialize = type_registry
-            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<Duration>())
-            .unwrap();
-        let _serializable = reflect_serialize.get_serializable(&Duration::ZERO);
-    }
 
     #[test]
     fn should_partial_eq_char() {
@@ -1084,6 +1071,17 @@ mod tests {
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         let forty_two: std::num::NonZeroUsize = crate::FromReflect::from_reflect(a).unwrap();
         assert_eq!(forty_two, std::num::NonZeroUsize::new(42).unwrap());
+    }
+
+    #[test]
+    fn can_serialize_duration() {
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<Duration>();
+
+        let reflect_serialize = type_registry
+            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<Duration>())
+            .unwrap();
+        let _serializable = reflect_serialize.get_serializable(&Duration::ZERO);
     }
 
     #[test]

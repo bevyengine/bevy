@@ -1,5 +1,5 @@
 use bevy_ecs::system::Resource;
-use bevy_utils::Duration;
+use bevy_time::Duration;
 
 /// A resource for configuring usage of the `rust_winit` library.
 #[derive(Debug, Resource)]

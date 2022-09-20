@@ -1,6 +1,6 @@
+use crate::{Duration, Instant};
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{FromReflect, Reflect};
-use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
 #[derive(Resource, Reflect, FromReflect, Debug, Clone)]
@@ -32,25 +32,25 @@ impl Default for Time {
 impl Time {
     /// Updates the internal time measurements.
     ///
-    /// Calling this method on the [`Time`] resource as part of your app will most likely result in
-    /// inaccurate timekeeping, as the resource is ordinarily managed by the
-    /// [`TimePlugin`](crate::TimePlugin).
+    // Calling this method on the [`Time`] resource as part of your app will most likely result in
+    // inaccurate timekeeping, as the resource is ordinarily managed by the
+    // [`TimePlugin`](crate::TimePlugin).
     pub fn update(&mut self) {
         self.update_with_instant(Instant::now());
     }
 
     /// Update time with a specified [`Instant`]
     ///
-    /// This method is provided for use in tests. Calling this method on the [`Time`] resource as
-    /// part of your app will most likely result in inaccurate timekeeping, as the resource is
-    /// ordinarily managed by the [`TimePlugin`](crate::TimePlugin).
+    // This method is provided for use in tests. Calling this method on the [`Time`] resource as
+    // part of your app will most likely result in inaccurate timekeeping, as the resource is
+    // ordinarily managed by the [`TimePlugin`](crate::TimePlugin).
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_time::prelude::*;
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_utils::Duration;
+    /// # use bevy_time::Duration;
     /// # fn main () {
     /// #     test_health_system();
     /// # }
@@ -150,7 +150,7 @@ impl Time {
 #[allow(clippy::float_cmp)]
 mod tests {
     use super::Time;
-    use bevy_utils::{Duration, Instant};
+    use crate::{Duration, Instant};
 
     #[test]
     fn update_test() {

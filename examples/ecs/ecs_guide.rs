@@ -29,7 +29,7 @@ use bevy::{
     ecs::schedule::ReportExecutionOrderAmbiguities,
     log::LogPlugin,
     prelude::*,
-    utils::Duration,
+    time::Duration,
 };
 use rand::random;
 

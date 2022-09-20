@@ -2,8 +2,7 @@ use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::{debug, info};
-use bevy_time::{Time, Timer};
-use bevy_utils::Duration;
+use bevy_time::{Duration, Time, Timer};
 
 /// An App Plugin that logs diagnostics to the console
 pub struct LogDiagnosticsPlugin {
