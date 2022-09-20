@@ -1,4 +1,4 @@
-//! Demonstrates how to use z-index
+//! Demonstrates how to use the z-index component on UI nodes to control their relative depth
 //!
 //! It uses colored boxes with different z-index values to demonstrate how it can affect the order of
 //! depth of nodes compared to their siblings, but also compared to the entire UI.
