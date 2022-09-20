@@ -533,12 +533,12 @@ mod tests {
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
 
-        let parent = commands.spawn().insert(C(1)).id();
+        let parent = commands.spawn_bundle(C(1)).id();
         let children = commands.entity(parent).add_children(|parent| {
             [
-                parent.spawn().insert(C(2)).id(),
-                parent.spawn().insert(C(3)).id(),
-                parent.spawn().insert(C(4)).id(),
+                parent.spawn_bundle(C(2)).id(),
+                parent.spawn_bundle(C(3)).id(),
+                parent.spawn_bundle(C(4)).id(),
             ]
         });
 
