@@ -3,43 +3,30 @@
     entity: 0,
     components: [
       {
-        "type": "bevy_transform::components::transform::Transform",
-        "struct": {
-          "translation": {
-            "type": "glam::f32::vec3::Vec3",
-            "value": (0.0, 0.0, 0.0),
-          },
-          "rotation": {
-            "type": "glam::f32::sse2::quat::Quat",
-            "value": (0.0, 0.0, 0.0, 1.0),
-          },
-          "scale": {
-            "type": "glam::f32::vec3::Vec3",
-            "value": (1.0, 1.0, 1.0),
-          },
-        },
+        "bevy_transform::components::transform::Transform": (
+          translation: (
+            x: 0.0,
+            y: 0.0,
+            z: 0.0
+          ),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (
+            x: 1.0,
+            y: 1.0,
+            z: 1.0
+          ),
+        ),
       },
       {
-        "type": "scene::ComponentB",
-        "struct": {
-          "value": {
-            "type": "alloc::string::String",
-            "value": "hello",
-          },
-        },
+        "scene::ComponentB": (
+          value: "hello",
+        ),
       },
       {
-        "type": "scene::ComponentA",
-        "struct": {
-          "x": {
-            "type": "f32",
-            "value": 1.0,
-          },
-          "y": {
-            "type": "f32",
-            "value": 2.0,
-          },
-        },
+        "scene::ComponentA": (
+          x: 1.0,
+          y: 2.0,
+        ),
       },
     ],
   ),
@@ -47,17 +34,10 @@
     entity: 1,
     components: [
       {
-        "type": "scene::ComponentA",
-        "struct": {
-          "x": {
-            "type": "f32",
-            "value": 3.0,
-          },
-          "y": {
-            "type": "f32",
-            "value": 4.0,
-          },
-        },
+        "scene::ComponentA": (
+          x: 3.0,
+          y: 4.0,
+        ),
       },
     ],
   ),

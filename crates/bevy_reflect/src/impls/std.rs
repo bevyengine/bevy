@@ -683,6 +683,13 @@ impl<T: FromReflect> Enum for Option<T> {
         }
     }
 
+    fn variant_index(&self) -> usize {
+        match self {
+            None => 0,
+            Some(..) => 1,
+        }
+    }
+
     #[inline]
     fn variant_type(&self) -> VariantType {
         match self {
@@ -845,12 +852,13 @@ impl<T: FromReflect> Typed for Option<T> {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| {
-            let none_variant = VariantInfo::Unit(UnitVariantInfo::new_static("None"));
-            let some_variant = VariantInfo::Tuple(TupleVariantInfo::new_static(
-                "Some",
-                &[UnnamedField::new::<T>(0)],
-            ));
-            TypeInfo::Enum(EnumInfo::new::<Self>(&[none_variant, some_variant]))
+            let none_variant = VariantInfo::Unit(UnitVariantInfo::new("None"));
+            let some_variant =
+                VariantInfo::Tuple(TupleVariantInfo::new("Some", &[UnnamedField::new::<T>(0)]));
+            TypeInfo::Enum(EnumInfo::new::<Self>(
+                "Option",
+                &[none_variant, some_variant],
+            ))
         })
     }
 }
