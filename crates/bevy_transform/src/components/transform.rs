@@ -27,21 +27,33 @@ use std::ops::Mul;
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
-/// Examples: [`transform`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs), [`global_vs_local_translation.rs`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs)
+/// # Examples
+///
+/// - [`transform`]
+/// - [`global_vs_local_translation`]
+///
+/// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
+/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[reflect(Component, Default, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
-    /// Example: [`translations`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/translation.rs)
+    /// See the [`translations`] example for usage.
+    ///
+    /// [`translations`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/translation.rs
     pub translation: Vec3,
     /// Rotation of the entity.
     ///
-    /// Example: [`3d_rotation`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs)
+    /// See the [`3d_rotation`] example for usage.
+    ///
+    /// [`3d_rotation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs
     pub rotation: Quat,
     /// Scale of the entity.
     ///
-    /// Example: [`scale`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/scale.rs)
+    /// See the [`scale`] example for usage.
+    ///
+    /// [`scale`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/scale.rs
     pub scale: Vec3,
 }
 
@@ -56,7 +68,6 @@ impl Transform {
     /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
-    ///
     #[inline]
     pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Self::from_translation(Vec3::new(x, y, z))
@@ -211,7 +222,11 @@ impl Transform {
     ///
     /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
     ///
-    /// Example: [`3d_rotation`](https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs)
+    /// # Examples
+    ///
+    /// - [`3d_rotation`]
+    ///
+    /// [`3d_rotation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation = rotation * self.rotation;
