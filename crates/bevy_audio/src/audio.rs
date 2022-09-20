@@ -296,7 +296,7 @@ impl PlaybackSettings {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) struct SpatialSettings {
     pub(crate) left_ear: [f32; 3],
     pub(crate) right_ear: [f32; 3],
