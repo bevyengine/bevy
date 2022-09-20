@@ -768,7 +768,7 @@ pub enum WindowPosition {
 }
 
 /// Defines which monitor to use.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum MonitorSelection {
     /// Uses current monitor of the window.

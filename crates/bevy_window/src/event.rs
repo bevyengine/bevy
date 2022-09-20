@@ -24,7 +24,7 @@ pub struct CreateWindow {
 
 /// An event that indicates the window should redraw, even if its control flow is set to `Wait` and
 /// there have been no window events.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct RequestRedraw;
 
@@ -32,7 +32,7 @@ pub struct RequestRedraw;
 ///
 /// To create a new window, send a [`CreateWindow`] event - this
 /// event will be sent in the handler for that event.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowCreated {
     pub id: WindowId,
@@ -49,7 +49,7 @@ pub struct WindowCreated {
 /// [`WindowPlugin`]: crate::WindowPlugin
 /// [`Window`]: crate::Window
 /// [closing]: crate::Window::close
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowCloseRequested {
     pub id: WindowId,
@@ -59,7 +59,7 @@ pub struct WindowCloseRequested {
 /// handler for [`Window::close`].
 ///
 /// [`Window::close`]: crate::Window::close
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowClosed {
     pub id: WindowId,
@@ -83,20 +83,20 @@ pub struct CursorMoved {
     pub position: Vec2,
 }
 /// An event that is sent whenever the user's cursor enters a window.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CursorEntered {
     pub id: WindowId,
 }
 /// An event that is sent whenever the user's cursor leaves a window.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CursorLeft {
     pub id: WindowId,
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ReceivedCharacter {
     pub id: WindowId,
@@ -104,7 +104,7 @@ pub struct ReceivedCharacter {
 }
 
 /// An event that indicates a window has received or lost focus.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WindowFocused {
     pub id: WindowId,
     pub focused: bool,
@@ -126,7 +126,7 @@ pub struct WindowBackendScaleFactorChanged {
 }
 
 /// Events related to files being dragged and dropped on a window.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum FileDragAndDrop {
     DroppedFile { id: WindowId, path_buf: PathBuf },
@@ -137,7 +137,7 @@ pub enum FileDragAndDrop {
 }
 
 /// An event that is sent when a window is repositioned in physical pixels.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowMoved {
     pub id: WindowId,
