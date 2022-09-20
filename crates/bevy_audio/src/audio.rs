@@ -252,7 +252,7 @@ where
 }
 
 /// Settings to control playback from the start.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct PlaybackSettings {
     /// Play in repeat
     pub repeat: bool,
