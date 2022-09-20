@@ -314,7 +314,7 @@ Example | Description
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/scaling.rs) | Illustrates how to scale the UI
-[UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
+[UI Z-Index](../examples/ui/z_index.rs) | Demonstrates z-index for UI
 
 ## Window
 
