@@ -1,7 +1,7 @@
 //! This example illustrates how to use [`States`] to control transitioning from a `Menu` state to
 //! an `InGame` state.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, ui_navigation::NavRequestSystem};
 
 fn main() {
     App::new()
@@ -9,7 +9,13 @@ fn main() {
         .add_state(AppState::Menu)
         .add_startup_system(setup)
         .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
-        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu))
+        .add_system_set(
+            SystemSet::on_update(AppState::Menu).with_system(hover_color.after(NavRequestSystem)),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::Menu)
+                .with_system(activate_button.after(NavRequestSystem)),
+        )
         .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
         .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game))
         .add_system_set(
@@ -33,7 +39,6 @@ struct MenuData {
 
 const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle::default());
@@ -55,6 +60,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
             color: NORMAL_BUTTON.into(),
             ..default()
         })
+        .insert(Hover::default())
         .with_children(|parent| {
             parent.spawn_bundle(TextBundle::from_section(
                 "Play",
@@ -69,26 +75,25 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(MenuData { button_entity });
 }
 
-fn menu(
+fn activate_button(
+    mut events: EventReader<NavEvent>,
     mut state: ResMut<State<AppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut UiColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+    data: Res<MenuData>,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Clicked => {
-                *color = PRESSED_BUTTON.into();
-                state.set(AppState::InGame).unwrap();
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
+    for event in events.iter() {
+        if event.is_activated(data.button_entity) {
+            state.set(AppState::InGame).unwrap();
         }
+    }
+}
+
+fn hover_color(mut interaction_query: Query<(&Hover, &mut UiColor), Changed<Hover>>) {
+    for (hover, mut color) in &mut interaction_query {
+        let updated_color = match hover {
+            Hover::Hovered => HOVERED_BUTTON,
+            Hover::None => NORMAL_BUTTON,
+        };
+        *color = updated_color.into();
     }
 }
 

@@ -161,6 +161,12 @@ pub mod ui {
     pub use bevy_ui::*;
 }
 
+#[cfg(feature = "bevy_ui_navigation")]
+pub mod ui_navigation {
+    //! Generic cursor navigation.
+    pub use bevy_ui_navigation::*;
+}
+
 #[cfg(feature = "bevy_winit")]
 pub mod winit {
     //! Window creation, configuration, and handling

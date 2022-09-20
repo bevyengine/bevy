@@ -9,20 +9,30 @@ mod render;
 mod ui_node;
 
 pub mod entity;
+pub mod navigation;
 pub mod update;
 pub mod widget;
 
 use bevy_render::extract_component::ExtractComponentPlugin;
+use bevy_ui_navigation::{NavRequestSystem, NavigationPlugin};
 pub use flex::*;
-pub use focus::*;
+pub use focus::{mouse_hover_system, FocusPolicy, Hover};
 pub use geometry::*;
+pub use navigation::NavigationInputMapping;
 pub use render::*;
 pub use ui_node::*;
 
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
+    pub use crate::{
+        entity::*,
+        focus::{FocusPolicy, Hover},
+        geometry::*,
+        ui_node::*,
+        widget::Button,
+        UiScale,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -35,11 +45,28 @@ use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
 use update::{ui_z_system, update_clipping_system};
 
+use crate::navigation::BevyUiNavigationStrategy;
 use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
-#[derive(Default)]
-pub struct UiPlugin;
+pub struct UiPlugin {
+    /// Whether to add a default configuration for UI navigation.
+    ///
+    /// When true (the default) a default implementation of menu navigation
+    /// is included, so that moving through the UI with mouse or gamepad
+    /// works without any more efforts.
+    ///
+    /// Set this to `false` if you want to create and add your own custom
+    /// navigation systems.
+    pub default_navigation: bool,
+}
+impl Default for UiPlugin {
+    fn default() -> Self {
+        UiPlugin {
+            default_navigation: true,
+        }
+    }
+}
 
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
@@ -48,7 +75,10 @@ pub enum UiSystem {
     Flex,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
+    /// After this label, the [`Hover`] component has been updated.
+    Hover,
 }
+pub type BevyUiNavigationPlugin<'w, 's> = NavigationPlugin<BevyUiNavigationStrategy<'w, 's>>;
 
 /// The current scale of the UI.
 ///
@@ -68,6 +98,15 @@ impl Default for UiScale {
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        // TODO: use feature flags here _in addition_ to config, probably?
+        if self.default_navigation {
+            app.add_plugin(BevyUiNavigationPlugin::new())
+                .init_resource::<NavigationInputMapping>()
+                .add_system(navigation::default_gamepad_input.before(NavRequestSystem))
+                .add_system(navigation::default_keyboard_input.before(NavRequestSystem))
+                .add_system(focus::ui_focus_system.before(NavRequestSystem));
+        }
+
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
@@ -80,7 +119,7 @@ impl Plugin for UiPlugin {
             .register_type::<FlexDirection>()
             .register_type::<FlexWrap>()
             .register_type::<FocusPolicy>()
-            .register_type::<Interaction>()
+            .register_type::<Hover>()
             .register_type::<JustifyContent>()
             .register_type::<Node>()
             // NOTE: used by Style::aspect_ratio
@@ -95,11 +134,11 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::ImageMode>()
+            // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                ui_focus_system.label(UiSystem::Focus).after(InputSystem),
+                mouse_hover_system.label(UiSystem::Hover),
             )
-            // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 widget::text_system

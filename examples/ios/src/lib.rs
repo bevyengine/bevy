@@ -122,24 +122,14 @@ fn setup_scene(
         });
 }
 
-fn button_handler(
-    mut interaction_query: Query<
-        (&Interaction, &mut UiColor),
-        (Changed<Interaction>, With<Button>),
-    >,
-) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Clicked => {
-                *color = Color::BLUE.into();
-            }
-            Interaction::Hovered => {
-                *color = Color::GRAY.into();
-            }
-            Interaction::None => {
-                *color = Color::WHITE.into();
-            }
-        }
+fn button_handler(mut interaction_query: Query<(&Focusable, &mut UiColor), Changed<Focusable>>) {
+    for (focus, mut color) in &mut interaction_query {
+        let new_color = match focus.state() {
+            FocusState::Focused => Color::BLUE,
+            FocusState::Active => Color::GRAY,
+            _ => Color::WHITE,
+        };
+        *color = new_color.into();
     }
 }
 
