@@ -22,9 +22,10 @@ fn main() {
 // Number of cubes to spawn across the x, y, and z axis
 const NUM_CUBES: u32 = 6;
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct BoxMeshHandle(Handle<Mesh>);
-#[derive(Deref)]
+
+#[derive(Resource, Deref)]
 struct BoxMaterialHandle(Handle<StandardMaterial>);
 
 /// Startup system which runs only once and generates our Box Mesh
@@ -86,7 +87,7 @@ fn handle_tasks(
     box_mesh_handle: Res<BoxMeshHandle>,
     box_material_handle: Res<BoxMaterialHandle>,
 ) {
-    for (entity, mut task) in transform_tasks.iter_mut() {
+    for (entity, mut task) in &mut transform_tasks {
         if let Some(transform) = future::block_on(future::poll_once(&mut task.0)) {
             // Add our new PbrBundle of components to our tagged entity
             commands.entity(entity).insert_bundle(PbrBundle {

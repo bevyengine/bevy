@@ -40,11 +40,20 @@ pub use self::serde::*;
 pub use map_entities::*;
 
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
-use std::{
-    convert::TryFrom,
-    fmt, mem,
-    sync::atomic::{AtomicI64, Ordering},
-};
+use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
+
+#[cfg(target_has_atomic = "64")]
+use std::sync::atomic::AtomicI64 as AtomicIdCursor;
+#[cfg(target_has_atomic = "64")]
+type IdCursor = i64;
+
+/// Most modern platforms support 64-bit atomics, but some less-common platforms
+/// do not. This fallback allows compilation using a 32-bit cursor instead, with
+/// the caveat that some conversions may fail (and panic) at runtime.
+#[cfg(not(target_has_atomic = "64"))]
+use std::sync::atomic::AtomicIsize as AtomicIdCursor;
+#[cfg(not(target_has_atomic = "64"))]
+type IdCursor = isize;
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
@@ -84,7 +93,7 @@ use std::{
 /// # struct Expired;
 /// #
 /// fn dispose_expired_food(mut commands: Commands, query: Query<Entity, With<Expired>>) {
-///     for food_entity in query.iter() {
+///     for food_entity in &query {
 ///         commands.entity(food_entity).despawn();
 ///     }
 /// }
@@ -157,7 +166,7 @@ impl Entity {
     ///     }
     /// }
     /// ```
-    pub fn from_raw(id: u32) -> Entity {
+    pub const fn from_raw(id: u32) -> Entity {
         Entity { id, generation: 0 }
     }
 
@@ -174,7 +183,7 @@ impl Entity {
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
-    pub fn from_bits(bits: u64) -> Self {
+    pub const fn from_bits(bits: u64) -> Self {
         Self {
             generation: (bits >> 32) as u32,
             id: bits as u32,
@@ -187,7 +196,7 @@ impl Entity {
     /// with both live and dead entities. Useful for compactly representing entities within a
     /// specific snapshot of the world, such as when serializing.
     #[inline]
-    pub fn id(self) -> u32 {
+    pub const fn id(self) -> u32 {
         self.id
     }
 
@@ -195,7 +204,7 @@ impl Entity {
     /// entity with a given id is despawned. This serves as a "count" of the number of times a
     /// given id has been reused (id, generation) pairs uniquely identify a given Entity.
     #[inline]
-    pub fn generation(self) -> u32 {
+    pub const fn generation(self) -> u32 {
         self.generation
     }
 }
@@ -291,7 +300,7 @@ pub struct Entities {
     ///
     /// Once `flush()` is done, `free_cursor` will equal `pending.len()`.
     pending: Vec<u32>,
-    free_cursor: AtomicI64,
+    free_cursor: AtomicIdCursor,
     /// Stores the number of free entities for [`len`](Entities::len)
     len: u32,
 }
@@ -304,8 +313,12 @@ impl Entities {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
         // negative, meaning they are all new IDs to allocate, or a mix of both.
-        let range_end = self.free_cursor.fetch_sub(count as i64, Ordering::Relaxed);
-        let range_start = range_end - count as i64;
+        let range_end = self
+            .free_cursor
+            // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
+            // and use AtomicIsize instead (see note on `IdCursor`).
+            .fetch_sub(IdCursor::try_from(count).unwrap(), Ordering::Relaxed);
+        let range_start = range_end - IdCursor::try_from(count).unwrap();
 
         let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
 
@@ -322,7 +335,7 @@ impl Entities {
             // In this example, we truncate the end to 0, leaving us with `-3..0`.
             // Then we negate these values to indicate how far beyond the end of `meta.end()`
             // to go, yielding `meta.len()+0 .. meta.len()+3`.
-            let base = self.meta.len() as i64;
+            let base = self.meta.len() as IdCursor;
 
             let new_id_end = u32::try_from(base - range_start).expect("too many entities");
 
@@ -359,7 +372,7 @@ impl Entities {
             // and farther beyond `meta.len()`.
             Entity {
                 generation: 0,
-                id: u32::try_from(self.meta.len() as i64 - n).expect("too many entities"),
+                id: u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
             }
         }
     }
@@ -377,7 +390,7 @@ impl Entities {
         self.verify_flushed();
         self.len += 1;
         if let Some(id) = self.pending.pop() {
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             Entity {
                 generation: self.meta[id as usize].generation,
@@ -399,14 +412,14 @@ impl Entities {
 
         let loc = if entity.id as usize >= self.meta.len() {
             self.pending.extend((self.meta.len() as u32)..entity.id);
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta.resize(entity.id as usize + 1, EntityMeta::EMPTY);
             self.len += 1;
             None
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.id) {
             self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.len += 1;
             None
@@ -430,14 +443,14 @@ impl Entities {
 
         let result = if entity.id as usize >= self.meta.len() {
             self.pending.extend((self.meta.len() as u32)..entity.id);
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta.resize(entity.id as usize + 1, EntityMeta::EMPTY);
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.id) {
             self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
@@ -472,7 +485,7 @@ impl Entities {
 
         self.pending.push(entity.id);
 
-        let new_free_cursor = self.pending.len() as i64;
+        let new_free_cursor = self.pending.len() as IdCursor;
         *self.free_cursor.get_mut() = new_free_cursor;
         self.len -= 1;
         Some(loc)
@@ -483,7 +496,9 @@ impl Entities {
         self.verify_flushed();
 
         let freelist_size = *self.free_cursor.get_mut();
-        let shortfall = additional as i64 - freelist_size;
+        // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
+        // and use AtomicIsize instead (see note on `IdCursor`).
+        let shortfall = IdCursor::try_from(additional).unwrap() - freelist_size;
         if shortfall > 0 {
             self.meta.reserve(shortfall as usize);
         }
@@ -540,7 +555,7 @@ impl Entities {
     }
 
     fn needs_flush(&mut self) -> bool {
-        *self.free_cursor.get_mut() != self.pending.len() as i64
+        *self.free_cursor.get_mut() != self.pending.len() as IdCursor
     }
 
     /// Allocates space for entities previously reserved with `reserve_entity` or
@@ -591,6 +606,8 @@ impl Entities {
     // Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return None
     // unless they are later populated with a valid archetype.
     pub fn flush_as_invalid(&mut self) {
+        // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
+        // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
         unsafe {
             self.flush(|_entity, location| {
                 location.archetype_id = ArchetypeId::INVALID;
@@ -658,6 +675,7 @@ mod tests {
     fn reserve_entity_len() {
         let mut e = Entities::default();
         e.reserve_entity();
+        // SAFETY: entity_location is left invalid
         unsafe { e.flush(|_, _| {}) };
         assert_eq!(e.len(), 1);
     }
@@ -669,6 +687,7 @@ mod tests {
         assert!(entities.contains(e));
         assert!(entities.get(e).is_none());
 
+        // SAFETY: entity_location is left invalid
         unsafe {
             entities.flush(|_entity, _location| {
                 // do nothing ... leaving entity location invalid
@@ -677,5 +696,22 @@ mod tests {
 
         assert!(entities.contains(e));
         assert!(entities.get(e).is_none());
+    }
+
+    #[test]
+    fn entity_const() {
+        const C1: Entity = Entity::from_raw(42);
+        assert_eq!(42, C1.id);
+        assert_eq!(0, C1.generation);
+
+        const C2: Entity = Entity::from_bits(0x0000_00ff_0000_00cc);
+        assert_eq!(0x0000_00cc, C2.id);
+        assert_eq!(0x0000_00ff, C2.generation);
+
+        const C3: u32 = Entity::from_raw(33).id();
+        assert_eq!(33, C3);
+
+        const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
+        assert_eq!(0x00dd_00ff, C4);
     }
 }

@@ -59,7 +59,7 @@ pub trait Struct: Reflect {
     /// Returns the number of fields in the struct.
     fn field_len(&self) -> usize;
 
-    /// Returns an iterator over the values of the struct's fields.
+    /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter;
 
     /// Clones the struct into a [`DynamicStruct`].
@@ -276,6 +276,11 @@ impl DynamicStruct {
             self.insert_boxed(name, Box::new(value));
         }
     }
+
+    /// Gets the index of the field with the given name.
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.field_indices.get(name).copied()
+    }
 }
 
 impl Struct for DynamicStruct {
@@ -337,8 +342,7 @@ impl Struct for DynamicStruct {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicStruct {
+impl Reflect for DynamicStruct {
     #[inline]
     fn type_name(&self) -> &str {
         &self.name
@@ -350,12 +354,17 @@ unsafe impl Reflect for DynamicStruct {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -433,6 +442,8 @@ impl Typed for DynamicStruct {
 /// - For each field in `a`, `b` contains a field with the same name and
 ///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
@@ -448,8 +459,9 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     for (i, value) in struct_value.iter_fields().enumerate() {
         let name = struct_value.name_at(i).unwrap();
         if let Some(field_value) = a.field(name) {
-            if let Some(false) | None = field_value.reflect_partial_eq(value) {
-                return Some(false);
+            let eq_result = field_value.reflect_partial_eq(value);
+            if let failed @ (Some(false) | None) = eq_result {
+                return failed;
             }
         } else {
             return Some(false);

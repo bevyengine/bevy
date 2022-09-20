@@ -14,8 +14,8 @@ use crate::Task;
 #[derive(Debug, Default, Clone)]
 #[must_use]
 pub struct TaskPoolBuilder {
-    /// If set, we'll set up the thread pool to use at most n threads. Otherwise use
-    /// the logical core count of the system
+    /// If set, we'll set up the thread pool to use at most `num_threads` threads.
+    /// Otherwise use the logical core count of the system
     num_threads: Option<usize>,
     /// If set, we'll use the given stack size rather than the system default
     stack_size: Option<usize>,
@@ -95,30 +95,19 @@ impl TaskPool {
 
         let executor = Arc::new(async_executor::Executor::new());
 
-        let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+        let num_threads = num_threads.unwrap_or_else(crate::available_parallelism);
 
         let threads = (0..num_threads)
             .map(|i| {
                 let ex = Arc::clone(&executor);
                 let shutdown_rx = shutdown_rx.clone();
 
-                // miri does not support setting thread names
-                // TODO: change back when https://github.com/rust-lang/miri/issues/1717 is fixed
-                #[cfg(not(miri))]
-                let mut thread_builder = {
-                    let thread_name = if let Some(thread_name) = thread_name {
-                        format!("{} ({})", thread_name, i)
-                    } else {
-                        format!("TaskPool ({})", i)
-                    };
-                    thread::Builder::new().name(thread_name)
+                let thread_name = if let Some(thread_name) = thread_name {
+                    format!("{} ({})", thread_name, i)
+                } else {
+                    format!("TaskPool ({})", i)
                 };
-                #[cfg(miri)]
-                let mut thread_builder = {
-                    let _ = i;
-                    let _ = thread_name;
-                    thread::Builder::new()
-                };
+                let mut thread_builder = thread::Builder::new().name(thread_name);
 
                 if let Some(stack_size) = stack_size {
                     thread_builder = thread_builder.stack_size(stack_size);
@@ -161,7 +150,7 @@ impl TaskPool {
             // before this function returns. However, rust has no way of knowing
             // this so we must convert to 'static here to appease the compiler as it is unable to
             // validate safety.
-            let executor: &async_executor::Executor = &*self.executor;
+            let executor: &async_executor::Executor = &self.executor;
             let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
             let local_executor: &'scope async_executor::LocalExecutor =
                 unsafe { mem::transmute(local_executor) };
@@ -298,7 +287,7 @@ impl<'scope, T: Send + 'scope> Scope<'scope, T> {
 }
 
 #[cfg(test)]
-#[allow(clippy::blacklisted_name)]
+#[allow(clippy::disallowed_types)]
 mod tests {
     use super::*;
     use std::sync::{

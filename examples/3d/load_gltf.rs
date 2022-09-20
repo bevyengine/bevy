@@ -1,5 +1,7 @@
 //! Loads and renders a glTF file as a scene.
 
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 
 fn main() {
@@ -46,12 +48,12 @@ fn animate_light_direction(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         transform.rotation = Quat::from_euler(
             EulerRot::ZYX,
             0.0,
-            time.seconds_since_startup() as f32 * std::f32::consts::TAU / 10.0,
-            -std::f32::consts::FRAC_PI_4,
+            time.seconds_since_startup() as f32 * PI / 5.0,
+            -PI / 4.,
         );
     }
 }

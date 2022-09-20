@@ -1,4 +1,6 @@
-use crate::{ArrayInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo};
+use crate::{
+    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
+};
 use std::any::{Any, TypeId};
 
 /// A static accessor to compile-time type information.
@@ -45,11 +47,12 @@ use std::any::{Any, TypeId};
 /// }
 ///
 /// #
-/// # unsafe impl Reflect for MyStruct {
+/// # impl Reflect for MyStruct {
 /// #   fn type_name(&self) -> &str { todo!() }
 /// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
-/// #   fn any(&self) -> &dyn Any { todo!() }
-/// #   fn any_mut(&mut self) -> &mut dyn Any { todo!() }
+/// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
+/// #   fn as_any(&self) -> &dyn Any { todo!() }
+/// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
@@ -98,6 +101,7 @@ pub enum TypeInfo {
     List(ListInfo),
     Array(ArrayInfo),
     Map(MapInfo),
+    Enum(EnumInfo),
     Value(ValueInfo),
     /// Type information for "dynamic" types whose metadata can't be known at compile-time.
     ///
@@ -115,6 +119,7 @@ impl TypeInfo {
             Self::List(info) => info.type_id(),
             Self::Array(info) => info.type_id(),
             Self::Map(info) => info.type_id(),
+            Self::Enum(info) => info.type_id(),
             Self::Value(info) => info.type_id(),
             Self::Dynamic(info) => info.type_id(),
         }
@@ -131,6 +136,7 @@ impl TypeInfo {
             Self::List(info) => info.type_name(),
             Self::Array(info) => info.type_name(),
             Self::Map(info) => info.type_name(),
+            Self::Enum(info) => info.type_name(),
             Self::Value(info) => info.type_name(),
             Self::Dynamic(info) => info.type_name(),
         }

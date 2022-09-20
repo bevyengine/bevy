@@ -15,6 +15,9 @@ pub trait List: Reflect + Array {
     /// Appends an element to the list.
     fn push(&mut self, value: Box<dyn Reflect>);
 
+    /// Removes the last element from the list (highest index in the array) and returns it, or [`None`] if it is empty.
+    fn pop(&mut self) -> Option<Box<dyn Reflect>>;
+
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
@@ -134,6 +137,10 @@ impl Array for DynamicList {
         }
     }
 
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.values
+    }
+
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.name.clone(),
@@ -151,6 +158,10 @@ impl List for DynamicList {
         DynamicList::push_box(self, value);
     }
 
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.values.pop()
+    }
+
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
             name: self.name.clone(),
@@ -163,8 +174,7 @@ impl List for DynamicList {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicList {
+impl Reflect for DynamicList {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()
@@ -176,12 +186,17 @@ unsafe impl Reflect for DynamicList {
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -289,6 +304,8 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 /// - `b` is a list;
 /// - `b` is the same length as `a`;
 /// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     let list = if let ReflectRef::List(list) = b.reflect_ref() {
@@ -302,8 +319,9 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
     }
 
     for (a_value, b_value) in a.iter().zip(list.iter()) {
-        if let Some(false) | None = a_value.reflect_partial_eq(b_value) {
-            return Some(false);
+        let eq_result = a_value.reflect_partial_eq(b_value);
+        if let failed @ (Some(false) | None) = eq_result {
+            return failed;
         }
     }
 

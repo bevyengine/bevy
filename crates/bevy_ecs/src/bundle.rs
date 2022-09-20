@@ -179,6 +179,10 @@ unsafe impl<C: Component> Bundle for C {
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
+        // SAFETY:
+        // - `Bundle::component_ids` calls `ids` for each component type in the
+        // bundle, in the exact order that `Bundle::get_components` is called.
+        // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
@@ -406,7 +410,7 @@ impl BundleInfo {
                 bundle_status.push(ComponentStatus::Mutated);
             } else {
                 bundle_status.push(ComponentStatus::Added);
-                // SAFE: component_id exists
+                // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id),
@@ -435,7 +439,7 @@ impl BundleInfo {
                     new_table_components.extend(current_archetype.table_components());
                     // sort to ignore order while hashing
                     new_table_components.sort();
-                    // SAFE: all component ids in `new_table_components` exist
+                    // SAFETY: all component ids in `new_table_components` exist
                     table_id = unsafe {
                         storages
                             .tables
@@ -573,7 +577,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     } else if new_archetype.id() == swapped_location.archetype_id {
                         new_archetype
                     } else {
-                        // SAFE: the only two borrowed archetypes are above and we just did collision checks
+                        // SAFETY: the only two borrowed archetypes are above and we just did collision checks
                         &mut *self
                             .archetypes_ptr
                             .add(swapped_location.archetype_id.index())
@@ -648,7 +652,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     #[inline]
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
         let entity = self.entities.alloc();
-        // SAFE: entity is allocated (but non-existent), `T` matches this BundleInfo's type
+        // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         self.spawn_non_existent(entity, bundle);
         entity
     }
@@ -681,14 +685,14 @@ impl Bundles {
             let mut component_ids = Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
-            // SAFE: T::component_id ensures info was created
+            // SAFETY: T::component_id ensures info was created
             let bundle_info = unsafe {
                 initialize_bundle(std::any::type_name::<T>(), component_ids, id, components)
             };
             bundle_infos.push(bundle_info);
             id
         });
-        // SAFE: index either exists, or was initialized
+        // SAFETY: index either exists, or was initialized
         unsafe { self.bundle_infos.get_unchecked(id.0) }
     }
 }
@@ -705,7 +709,7 @@ unsafe fn initialize_bundle(
     let mut storage_types = Vec::new();
 
     for &component_id in &component_ids {
-        // SAFE: component_id exists and is therefore valid
+        // SAFETY: component_id exists and is therefore valid
         let component_info = components.get_info_unchecked(component_id);
         storage_types.push(component_info.storage_type());
     }

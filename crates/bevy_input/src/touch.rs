@@ -1,5 +1,5 @@
 use bevy_ecs::event::EventReader;
-use bevy_ecs::system::ResMut;
+use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
 
@@ -201,7 +201,7 @@ impl From<&TouchInput> for Touch {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`touch_screen_input_system`](crate::touch::touch_screen_input_system).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Resource)]
 pub struct Touches {
     /// A collection of every [`Touch`] that is currently being pressed.
     pressed: HashMap<u64, Touch>,
@@ -310,7 +310,7 @@ impl Touches {
     /// Clears the `just_pressed`, `just_released`, and `just_cancelled` collections.
     ///
     /// This is not clearing the `pressed` collection, because it could incorrectly mark
-    /// a touch input as not pressed eventhough it is pressed. This could happen if the
+    /// a touch input as not pressed even though it is pressed. This could happen if the
     /// touch input is not moving for a single frame and would therefore be marked as
     /// not pressed, because this function is called on every single frame no matter
     /// if there was an event or not.
@@ -350,11 +350,11 @@ mod test {
 
         let touch_event = Touch {
             id: 4,
-            start_position: Vec2::new(0.0, 0.0),
+            start_position: Vec2::ZERO,
             start_force: None,
-            previous_position: Vec2::new(0.0, 0.0),
+            previous_position: Vec2::ZERO,
             previous_force: None,
-            position: Vec2::new(0.0, 0.0),
+            position: Vec2::ZERO,
             force: None,
         };
 
@@ -383,7 +383,7 @@ mod test {
 
         let touch_event = TouchInput {
             phase: TouchPhase::Started,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };
@@ -398,7 +398,7 @@ mod test {
 
         let moved_touch_event = TouchInput {
             phase: TouchPhase::Moved,
-            position: Vec2::new(5.0, 5.0),
+            position: Vec2::splat(5.0),
             force: None,
             id: touch_event.id,
         };
@@ -419,7 +419,7 @@ mod test {
 
         let cancel_touch_event = TouchInput {
             phase: TouchPhase::Cancelled,
-            position: Vec2::new(1.0, 1.0),
+            position: Vec2::ONE,
             force: None,
             id: touch_event.id,
         };
@@ -434,7 +434,7 @@ mod test {
 
         let end_touch_event = TouchInput {
             phase: TouchPhase::Ended,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };
@@ -456,7 +456,7 @@ mod test {
 
         let touch_event = TouchInput {
             phase: TouchPhase::Started,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };
@@ -478,7 +478,7 @@ mod test {
 
         let touch_event = TouchInput {
             phase: TouchPhase::Ended,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };
@@ -500,7 +500,7 @@ mod test {
 
         let touch_event = TouchInput {
             phase: TouchPhase::Cancelled,
-            position: Vec2::new(4.0, 4.0),
+            position: Vec2::splat(4.0),
             force: None,
             id: 4,
         };

@@ -7,7 +7,8 @@ use bevy_ecs::{
     all_tuples,
     entity::Entity,
     system::{
-        lifetimeless::SRes, ReadOnlySystemParamFetch, SystemParam, SystemParamItem, SystemState,
+        lifetimeless::SRes, ReadOnlySystemParamFetch, Resource, SystemParam, SystemParamItem,
+        SystemState,
     },
     world::World,
 };
@@ -17,7 +18,7 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
 
 /// A draw function which is used to draw a specific [`PhaseItem`].
 ///
-/// They are the the general form of drawing items, whereas [`RenderCommands`](RenderCommand)
+/// They are the general form of drawing items, whereas [`RenderCommands`](RenderCommand)
 /// are more modular.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
@@ -62,7 +63,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 }
 
 // TODO: make this generic?
-/// /// A [`Draw`] function identifier.
+/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DrawFunctionId(usize);
 
@@ -100,6 +101,7 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
 
 /// Stores all draw functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
 /// To access them the [`DrawFunctions::read`] and [`DrawFunctions::write`] methods are used.
+#[derive(Resource)]
 pub struct DrawFunctions<P: PhaseItem> {
     internal: RwLock<DrawFunctionsInternal<P>>,
 }

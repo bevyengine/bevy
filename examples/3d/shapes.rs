@@ -1,6 +1,8 @@
 //! This example demonstrates the built-in 3d shapes in Bevy.
 //! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
 
+use std::f32::consts::PI;
+
 use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -8,6 +10,7 @@ use bevy::{
 
 fn main() {
     App::new()
+        .insert_resource(ImageSettings::default_nearest())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(rotate)
@@ -47,14 +50,12 @@ fn setup(
             .spawn_bundle(PbrBundle {
                 mesh: shape,
                 material: debug_material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(
-                        -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
-                        2.0,
-                        0.0,
-                    ),
-                    ..default()
-                },
+                transform: Transform::from_xyz(
+                    -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
+                    2.0,
+                    0.0,
+                )
+                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
             })
             .insert(Shape);
@@ -85,9 +86,8 @@ fn setup(
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
-    for mut transform in query.iter_mut() {
-        transform.rotation = Quat::from_rotation_y(time.seconds_since_startup() as f32 / 2.)
-            * Quat::from_rotation_x(-std::f32::consts::PI / 4.);
+    for mut transform in &mut query {
+        transform.rotate_y(time.delta_seconds() / 2.);
     }
 }
 

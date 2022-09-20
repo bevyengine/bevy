@@ -1,11 +1,11 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style};
+use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    query::{Changed, With, Without, WorldQuery},
-    system::{Query, Res, ResMut},
+    query::{Changed, ReadOnlyWorldQuery, With, Without},
+    system::{Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -16,13 +16,14 @@ use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
 use taffy::{number::Number, Taffy};
 
+#[derive(Resource)]
 pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<WindowId, taffy::node::Node>,
     taffy: Taffy,
 }
 
-// SAFE: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
+// SAFETY: as long as MeasureFunc is Send + Sync. https://github.com/DioxusLabs/taffy/issues/146
 // TODO: remove allow on lint - https://github.com/bevyengine/bevy/issues/3666
 #[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for FlexSurface {}
@@ -112,7 +113,7 @@ impl FlexSurface {
 
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
         let mut taffy_children = Vec::with_capacity(children.len());
-        for child in children.iter() {
+        for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(child) {
                 taffy_children.push(*taffy_node);
             } else {
@@ -171,6 +172,15 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Removes each entity from the internal map and then removes their associated node from taffy
+    pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        for entity in entities {
+            if let Some(node) = self.entity_to_taffy.remove(&entity) {
+                self.taffy.remove(node);
+            }
+        }
+    }
+
     pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, FlexError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy
@@ -195,6 +205,7 @@ pub enum FlexError {
 #[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(
     windows: Res<Windows>,
+    ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
@@ -206,6 +217,7 @@ pub fn flex_node_system(
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+    removed_nodes: RemovedComponents<Node>,
 ) {
     // update window root nodes
     for window in windows.iter() {
@@ -214,24 +226,21 @@ pub fn flex_node_system(
 
     // assume one window for time being...
     let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
+    let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
-    if scale_factor_events.iter().next_back().is_some() {
-        update_changed(
-            &mut *flex_surface,
-            logical_to_physical_factor,
-            full_node_query,
-        );
+    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
+        update_changed(&mut *flex_surface, scale_factor, full_node_query);
     } else {
-        update_changed(&mut *flex_surface, logical_to_physical_factor, node_query);
+        update_changed(&mut *flex_surface, scale_factor, node_query);
     }
 
-    fn update_changed<F: WorldQuery>(
+    fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
         scaling_factor: f64,
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
     ) {
         // update changed nodes
-        for (entity, style, calculated_size) in query.iter() {
+        for (entity, style, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
                 flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
@@ -241,11 +250,12 @@ pub fn flex_node_system(
         }
     }
 
-    for (entity, style, calculated_size) in changed_size_query.iter() {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, logical_to_physical_factor);
+    for (entity, style, calculated_size) in &changed_size_query {
+        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
     }
 
-    // TODO: handle removed nodes
+    // clean up removed nodes
+    flex_surface.remove_entities(&removed_nodes);
 
     // update window children (for now assuming all Nodes live in the primary window)
     if let Some(primary_window) = windows.get_primary() {
@@ -253,7 +263,7 @@ pub fn flex_node_system(
     }
 
     // update children
-    for (entity, children) in children_query.iter() {
+    for (entity, children) in &children_query {
         flex_surface.update_children(entity, children);
     }
 
@@ -265,7 +275,7 @@ pub fn flex_node_system(
     let to_logical = |v| (physical_to_logical_factor * v as f64) as f32;
 
     // PERF: try doing this incrementally
-    for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
+    for (entity, mut node, mut transform, parent) in &mut node_transform_query {
         let layout = flex_surface.get_layout(entity).unwrap();
         let new_size = Vec2::new(
             to_logical(layout.size.width),
@@ -279,7 +289,7 @@ pub fn flex_node_system(
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);
         new_position.y = to_logical(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
-            if let Ok(parent_layout) = flex_surface.get_layout(parent.0) {
+            if let Ok(parent_layout) = flex_surface.get_layout(**parent) {
                 new_position.x -= to_logical(parent_layout.size.width / 2.0);
                 new_position.y -= to_logical(parent_layout.size.height / 2.0);
             }
