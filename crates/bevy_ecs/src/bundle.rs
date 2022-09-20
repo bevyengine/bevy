@@ -152,6 +152,10 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>));
 }
 
+// SAFETY:
+// - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
+// - `Bundle::get_components` is called exactly once for C.
+// - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(
         components: &mut Components,
