@@ -393,7 +393,7 @@ pub fn extract_clusters(
     mut commands: Commands,
     views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
 ) {
-    for (entity, clusters) in views.iter() {
+    for (entity, clusters) in &views {
         commands.get_or_spawn(entity).insert_bundle((
             ExtractedClustersPointLights {
                 data: clusters.lights.clone(),

@@ -233,7 +233,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
-    for (entity, camera, camera_ui) in query.iter() {
+    for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
