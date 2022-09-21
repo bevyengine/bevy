@@ -341,7 +341,7 @@ mod test {
                 .spawn()
                 .insert(TransformBundle::IDENTITY)
                 .with_children(|builder| {
-                    grandchild = builder.spawn().insert(TransformBundle::IDENTITY).id();
+                    grandchild = builder.spawn_bundle(TransformBundle::IDENTITY).id();
                 })
                 .id();
             (child, grandchild)
