@@ -9,8 +9,12 @@ pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
 
-use bevy_ecs::system::{Local, Res, ResMut};
-use bevy_utils::{tracing::warn, Instant};
+use bevy_ecs::system::ResMut;
+#[cfg(feature = "crossbeam-channel")]
+use bevy_ecs::system::{Local, Res};
+#[cfg(feature = "crossbeam-channel")]
+use bevy_utils::Instant;
+#[cfg(feature = "crossbeam-channel")]
 use crossbeam_channel::{Receiver, Sender};
 
 pub mod prelude {
@@ -19,10 +23,10 @@ pub mod prelude {
     pub use crate::{Time, Timer};
 }
 
-use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 
 /// Adds time functionality to Apps.
+#[cfg(feature = "bevy_app")]
 #[derive(Default)]
 pub struct TimePlugin;
 
@@ -31,8 +35,9 @@ pub struct TimePlugin;
 /// this.
 pub struct TimeSystem;
 
-impl Plugin for TimePlugin {
-    fn build(&self, app: &mut App) {
+#[cfg(feature = "bevy_app")]
+impl bevy_app::Plugin for TimePlugin {
+    fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<Time>()
             .init_resource::<FixedTimesteps>()
             .register_type::<Timer>()
@@ -41,7 +46,7 @@ impl Plugin for TimePlugin {
             // time system is added as an "exclusive system" to ensure it runs before other systems
             // in CoreStage::First
             .add_system_to_stage(
-                CoreStage::First,
+                bevy_app::CoreStage::First,
                 time_system.exclusive_system().at_start().label(TimeSystem),
             );
     }
@@ -49,12 +54,15 @@ impl Plugin for TimePlugin {
 
 /// Channel resource used to receive time from render world
 #[derive(Resource)]
+#[cfg(feature = "crossbeam-channel")]
 pub struct TimeReceiver(pub Receiver<Instant>);
 
 /// Channel resource used to send time from render world
 #[derive(Resource)]
+#[cfg(feature = "crossbeam-channel")]
 pub struct TimeSender(pub Sender<Instant>);
 
+#[cfg(feature = "crossbeam-channel")]
 /// Creates channels used for sending time between render world and app world
 pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
     // bound the channel to 2 since when pipelined the render phase can finish before
@@ -65,6 +73,7 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 
 /// The system used to update the [`Time`] used by app logic. If there is a render world the time is sent from
 /// there to this system through channels. Otherwise the time is updated in this system.
+#[cfg(feature = "crossbeam-channel")]
 fn time_system(
     mut time: ResMut<Time>,
     time_recv: Option<Res<TimeReceiver>>,
@@ -76,9 +85,13 @@ fn time_system(
             time.update_with_instant(new_time);
             *has_received_time = true;
         } else if *has_received_time {
-            warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
+            bevy_utils::tracing::warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
         }
     } else {
         time.update();
     }
+}
+#[cfg(not(feature = "crossbeam-channel"))]
+pub fn time_system(mut time: ResMut<Time>) {
+    time.update();
 }
