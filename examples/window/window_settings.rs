@@ -2,6 +2,7 @@
 //! the mouse pointer in various ways.
 
 use bevy::{prelude::*, window::PresentMode};
+use bevy_internal::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
 fn main() {
     App::new()
@@ -12,11 +13,45 @@ fn main() {
             present_mode: PresentMode::AutoVsync,
             ..default()
         })
+        .insert_resource(VSync(true))
         .add_plugins(DefaultPlugins)
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_system(change_title)
         .add_system(toggle_cursor)
+        .add_system(toggle_vsync)
         .add_system(cycle_cursor_icon)
         .run();
+}
+
+#[derive(Resource)]
+pub struct VSync(pub bool);
+
+/// This system toggles the vsync mode when pressing the button V.
+/// You'll see fps increase displayed in the console.
+fn toggle_vsync(
+    input: Res<Input<KeyCode>>,
+    mut vsync: ResMut<VSync>,
+    mut windows: ResMut<Windows>,
+) {
+    if input.just_pressed(KeyCode::V) {
+        vsync.0 = !vsync.0;
+        if vsync.0 {
+            windows
+                .get_primary_mut()
+                .unwrap()
+                .set_present_mode(PresentMode::AutoVsync);
+        } else {
+            windows
+                .get_primary_mut()
+                .unwrap()
+                .set_present_mode(PresentMode::AutoNoVsync);
+        }
+        info!(
+            "PRESENT_MODE: {:?}",
+            windows.get_primary().unwrap().present_mode()
+        );
+    }
 }
 
 /// This system will then change the title during execution
