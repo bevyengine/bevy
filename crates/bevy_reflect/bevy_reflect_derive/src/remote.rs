@@ -2,15 +2,18 @@ use crate::derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImp
 use crate::{from_reflect, impls, ReflectDerive, REFLECT_ATTRIBUTE_NAME};
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput, TypePath};
 
 /// Generates the remote wrapper type and implements all the necessary traits.
 pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
-    let remote_ty = match syn::parse::<TypePath>(args) {
+    let remote_args = match syn::parse::<RemoteArgs>(args) {
         Ok(path) => path,
         Err(err) => return err.to_compile_error().into(),
     };
+
+    let remote_ty = remote_args.remote_ty;
 
     let ast = parse_macro_input!(input as DeriveInput);
     let wrapper_definition = generate_remote_wrapper(&ast, &remote_ty);
@@ -95,5 +98,20 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
         #(#attrs)*
         #[repr(transparent)]
         #vis struct #ident #ty_generics (pub #remote_ty) #where_clause;
+    }
+}
+
+/// Metadata from the arguments defined in the `reflect_remote` attribute.
+///
+/// The syntax for the arguments is: `#[reflect_remote(REMOTE_TYPE_PATH)]`.
+struct RemoteArgs {
+    remote_ty: TypePath,
+}
+
+impl Parse for RemoteArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            remote_ty: input.parse()?,
+        })
     }
 }
