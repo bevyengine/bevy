@@ -277,8 +277,6 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
     ambiguities
 }
 
-// Systems and TestResource are used in tests
-#[allow(dead_code)]
 #[cfg(test)]
 mod tests {
     // Required to make the derive macro behave
