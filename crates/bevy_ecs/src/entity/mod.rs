@@ -13,20 +13,20 @@
 //!
 //! |Operation|Command|Method|
 //! |:---:|:---:|:---:|
-//! |Spawn a new entity|[`Commands::spawn`]|[`World::spawn`]|
-//! |Spawn an entity with components|[`Commands::spawn_bundle`]|---|
+//! |Spawn an entity with components|[`Commands::spawn`]|---|
+//! |Spawn an entity without components|[`Commands::spawn_empty`]|[`World::spawn_empty`]|
 //! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
 //! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
 //! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
 //!
 //! [`World`]: crate::world::World
 //! [`Commands::spawn`]: crate::system::Commands::spawn
-//! [`Commands::spawn_bundle`]: crate::system::Commands::spawn_bundle
+//! [`Commands::spawn_empty`]: crate::system::Commands::spawn_empty
 //! [`EntityCommands::despawn`]: crate::system::EntityCommands::despawn
 //! [`EntityCommands::insert`]: crate::system::EntityCommands::insert
 //! [`EntityCommands::remove`]: crate::system::EntityCommands::remove
 //! [`World::spawn`]: crate::world::World::spawn
-//! [`World::spawn_bundle`]: crate::world::World::spawn_bundle
+//! [`World::spawn_empty`]: crate::world::World::spawn_empty
 //! [`World::despawn`]: crate::world::World::despawn
 //! [`EntityMut::insert`]: crate::world::EntityMut::insert
 //! [`EntityMut::remove`]: crate::world::EntityMut::remove
@@ -70,7 +70,7 @@ type IdCursor = isize;
 /// # struct SomeComponent;
 /// fn setup(mut commands: Commands) {
 ///     // Calling `spawn` returns `EntityCommands`.
-///     let entity = commands.spawn_bundle(SomeComponent).id();
+///     let entity = commands.spawn(SomeComponent).id();
 /// }
 ///
 /// fn exclusive_system(world: &mut World) {

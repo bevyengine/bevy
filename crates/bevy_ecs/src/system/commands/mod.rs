@@ -205,16 +205,19 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     ///
     /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity with a single component.
+    ///     commands.spawn(Component1);
+    ///
     ///     // Create a new entity with a component bundle.
-    ///     commands.spawn_bundle(ExampleBundle {
+    ///     commands.spawn(ExampleBundle {
     ///         a: Component1,
     ///         b: Component2,
     ///     });
     ///
     ///     commands
     ///         // Create a new entity with two components using a "tuple bundle".
-    ///         .spawn_bundle((Component1, Component2))
-    ///         // spawn_bundle returns a builder, so you can insert more bundles like this:
+    ///         .spawn((Component1, Component2))
+    ///         // `spawn returns a builder, so you can insert more bundles like this:
     ///         .insert((Strength(1), Agility(2)))
     ///         // or insert single components like this:
     ///         .insert(Label("hello world"));
@@ -224,7 +227,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # See also
     ///
-    /// - [`spawn`](Self::spawn) to just spawn an entity without any component.
+    /// - [`spawn_empty`](Self::spawn_empty) to just spawn an entity without any component.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
     pub fn spawn<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
         let mut e = self.spawn_empty();
@@ -363,8 +366,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # See also
     ///
-    /// - [`spawn`](Self::spawn) to just spawn an entity without any component.
-    /// - [`spawn_bundle`](Self::spawn_bundle) to spawn an entity with a bundle.
+    /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
+    /// - [`spawn_empty`](Self::spawn_empty) to just spawn an entity without any component.
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,
