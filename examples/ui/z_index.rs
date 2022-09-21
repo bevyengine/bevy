@@ -13,9 +13,6 @@ fn main() {
         .run();
 }
 
-#[derive(Component)]
-struct ZIndexText;
-
 fn setup(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle::default());
 
