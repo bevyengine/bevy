@@ -87,7 +87,7 @@ pub fn insert_commands(criterion: &mut Criterion) {
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
         for _ in 0..entity_count {
-            entities.push(world.spawn().id());
+            entities.push(world.spawn_empty().id());
         }
 
         bencher.iter(|| {
@@ -106,7 +106,7 @@ pub fn insert_commands(criterion: &mut Criterion) {
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
         for _ in 0..entity_count {
-            entities.push(world.spawn().id());
+            entities.push(world.spawn_empty().id());
         }
 
         bencher.iter(|| {

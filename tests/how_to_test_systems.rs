@@ -63,8 +63,7 @@ fn did_hurt_enemy() {
     // Setup test entities
     let enemy_id = app
         .world
-        .spawn()
-        .insert(Enemy {
+        .spawn(Enemy {
             hit_points: 5,
             score_value: 3,
         })
@@ -96,8 +95,7 @@ fn did_despawn_enemy() {
     // Setup test entities
     let enemy_id = app
         .world
-        .spawn()
-        .insert(Enemy {
+        .spawn(Enemy {
             hit_points: 1,
             score_value: 1,
         })

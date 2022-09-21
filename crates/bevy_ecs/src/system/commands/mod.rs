@@ -725,7 +725,7 @@ where
     T: Bundle,
 {
     fn write(self, world: &mut World) {
-        world.spawn().insert(self.bundle);
+        world.spawn(self.bundle);
     }
 }
 
@@ -916,7 +916,7 @@ mod tests {
     struct W<T>(T);
 
     fn simple_command(world: &mut World) {
-        world.spawn().insert((W(0u32), W(42u64)));
+        world.spawn((W(0u32), W(42u64)));
     }
 
     #[test]
@@ -954,7 +954,7 @@ mod tests {
 
             // set up a simple command using a closure that adds one additional entity
             commands.add(|world: &mut World| {
-                world.spawn().insert((W(42u32), W(0u64)));
+                world.spawn((W(42u32), W(0u64)));
             });
 
             // set up a simple command using a function that adds one additional entity

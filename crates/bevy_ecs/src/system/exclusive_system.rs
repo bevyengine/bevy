@@ -138,14 +138,14 @@ mod tests {
         }
 
         let mut stage = SystemStage::parallel().with_system(removal);
-        world.spawn().insert(Foo(0.0f32));
+        world.spawn(Foo(0.0f32));
         world.insert_resource(Counter(0));
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 1);
 
         let mut stage = SystemStage::parallel().with_system(removal.exclusive_system());
-        world.spawn().insert(Foo(0.0f32));
+        world.spawn(Foo(0.0f32));
         world.insert_resource(Counter(0));
         stage.run(&mut world);
         stage.run(&mut world);

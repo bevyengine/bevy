@@ -243,7 +243,7 @@ pub trait BuildChildren {
     ///
     ///     parent_commands.insert(SomethingElse);
     ///     commands.entity(child_id).with_children(|parent| {
-    ///         parent.spawn().insert(MoreStuff);
+    ///         parent.spawn(MoreStuff);
     ///     });
     /// # }
     /// ```
@@ -328,11 +328,7 @@ impl<'w> WorldChildBuilder<'w> {
     /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
     pub fn spawn_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
-        let entity = self
-            .world
-            .spawn()
-            .insert((bundle, Parent(parent_entity)))
-            .id();
+        let entity = self.world.spawn((bundle, Parent(parent_entity))).id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
         if let Some(mut added) = self.world.get_resource_mut::<Events<HierarchyEvent>>() {
@@ -347,7 +343,7 @@ impl<'w> WorldChildBuilder<'w> {
     /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`WorldChildBuilder`] which adds the [`Parent`] component to it.
     pub fn spawn(&mut self) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
-        let entity = self.world.spawn().insert(Parent(parent_entity)).id();
+        let entity = self.world.spawn(Parent(parent_entity)).id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
         if let Some(mut added) = self.world.get_resource_mut::<Events<HierarchyEvent>>() {
@@ -661,7 +657,7 @@ mod tests {
     #[test]
     fn regression_push_children_same_archetype() {
         let mut world = World::new();
-        let child = world.spawn().id();
-        world.spawn().push_children(&[child]);
+        let child = world.spawn_empty().id();
+        world.spawn_empty().push_children(&[child]);
     }
 }

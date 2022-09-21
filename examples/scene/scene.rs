@@ -92,12 +92,12 @@ fn save_scene_system(world: &mut World) {
     let mut scene_world = World::new();
     let mut component_b = ComponentB::from_world(world);
     component_b.value = "hello".to_string();
-    scene_world.spawn().insert((
+    scene_world.spawn((
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
         Transform::IDENTITY,
     ));
-    scene_world.spawn().insert(ComponentA { x: 3.0, y: 4.0 });
+    scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.

@@ -66,15 +66,16 @@ type IdCursor = isize;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// #
+/// # #[derive(Component)]
+/// # struct SomeComponent;
 /// fn setup(mut commands: Commands) {
 ///     // Calling `spawn` returns `EntityCommands`.
-///     let entity = commands.spawn().id();
+///     let entity = commands.spawn_bundle(SomeComponent).id();
 /// }
 ///
 /// fn exclusive_system(world: &mut World) {
 ///     // Calling `spawn` returns `EntityMut`.
-///     let entity = world.spawn().id();
+///     let entity = world.spawn(SomeComponent).id();
 /// }
 /// #
 /// # bevy_ecs::system::assert_is_system(setup);
