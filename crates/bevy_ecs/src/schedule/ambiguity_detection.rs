@@ -101,7 +101,9 @@ impl SystemOrderAmbiguity {
 }
 
 impl SystemStage {
-    /// Logs execution order ambiguities between systems. System orders must be fresh.
+    /// Logs execution order ambiguities between systems.
+    ///
+    /// The output may be incorrect if this stage has not been initialized with `world`.
     pub fn report_ambiguities(&self, world: &World) {
         debug_assert!(!self.systems_modified);
         use std::fmt::Write;
@@ -143,7 +145,7 @@ impl SystemStage {
     /// - exclusive before commands
     /// - exclusive at end
     ///
-    /// This stage must have been initialized with `world`.
+    /// The result may be incorrect if this stage has not been initialized with `world`.
     fn ambiguities(&self, world: &World) -> Vec<SystemOrderAmbiguity> {
         let parallel = find_ambiguities(&self.parallel).into_iter().map(
             |(system_a_index, system_b_index, component_ids)| {
@@ -207,7 +209,8 @@ impl SystemStage {
     }
 
     /// Returns the number of system order ambiguities between systems in this stage.
-    /// This stage must have been initialized with `world`.
+    ///
+    /// The result may be incorrect if this stage has not been initialized with `world`.
     #[allow(dead_code)]
     fn n_ambiguities(&self, world: &World) -> usize {
         self.ambiguities(world).len()
