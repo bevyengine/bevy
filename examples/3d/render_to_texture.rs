@@ -77,7 +77,7 @@ fn setup(
 
     // The cube that will be rendered to the texture.
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh: cube_handle,
             material: cube_material_handle,
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
@@ -88,13 +88,13 @@ fn setup(
 
     // Light
     // NOTE: Currently lights are shared between passes - see https://github.com/bevyengine/bevy/issues/3462
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..default()
     });
 
     commands
-        .spawn_bundle(Camera3dBundle {
+        .spawn(Camera3dBundle {
             camera_3d: Camera3d {
                 clear_color: ClearColorConfig::Custom(Color::WHITE),
                 ..default()
@@ -124,7 +124,7 @@ fn setup(
 
     // Main pass cube, with material containing the rendered first pass texture.
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh: cube_handle,
             material: material_handle,
             transform: Transform::from_xyz(0.0, 0.0, 1.5)
@@ -134,7 +134,7 @@ fn setup(
         .insert(MainPassCube);
 
     // The main pass camera.
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

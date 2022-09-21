@@ -250,7 +250,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
             };
             projection.update(logical_size.x, logical_size.y);
             let default_camera_view = commands
-                .spawn_bundle(ExtractedView {
+                .spawn(ExtractedView {
                     projection: projection.get_projection_matrix(),
                     transform: GlobalTransform::from_xyz(
                         0.0,
@@ -398,7 +398,7 @@ pub fn prepare_uinodes(
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
-                commands.spawn_bundle((UiBatch {
+                commands.spawn((UiBatch {
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
@@ -500,11 +500,11 @@ pub fn prepare_uinodes(
 
     // if start != end, there is one last batch to process
     if start != end {
-        commands.spawn_bundle((UiBatch {
+        commands.spawn(UiBatch {
             range: start..end,
             image: current_batch_handle,
             z: last_z,
-        },));
+        });
     }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);

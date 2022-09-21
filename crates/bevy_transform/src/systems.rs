@@ -163,16 +163,16 @@ mod test {
         let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
                         .id(),
                 );
             });
@@ -205,12 +205,10 @@ mod test {
         let parent = {
             let mut command_queue = CommandQueue::default();
             let mut commands = Commands::new(&mut command_queue, &world);
-            let parent = commands
-                .spawn_bundle(Transform::from_xyz(1.0, 0.0, 0.0))
-                .id();
+            let parent = commands.spawn(Transform::from_xyz(1.0, 0.0, 0.0)).id();
             commands.entity(parent).with_children(|parent| {
-                children.push(parent.spawn_bundle(Transform::from_xyz(0.0, 2.0, 0.0)).id());
-                children.push(parent.spawn_bundle(Transform::from_xyz(0.0, 3.0, 0.0)).id());
+                children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.0)).id());
+                children.push(parent.spawn(Transform::from_xyz(0.0, 3.0, 0.0)).id());
             });
             command_queue.apply(&mut world);
             schedule.run(&mut world);

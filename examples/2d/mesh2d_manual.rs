@@ -97,7 +97,7 @@ fn star(
     star.set_indices(Some(Indices::U32(indices)));
 
     // We can now spawn the entities for the star and the camera
-    commands.spawn_bundle((
+    commands.spawn((
         // We use a marker component to identify the custom colored meshes
         ColoredMesh2d::default(),
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
@@ -110,7 +110,7 @@ fn star(
     ));
     commands
         // And use an orthographic projection
-        .spawn_bundle(Camera2dBundle::default());
+        .spawn(Camera2dBundle::default());
 }
 
 /// A marker component for colored 2d meshes

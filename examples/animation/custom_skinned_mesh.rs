@@ -39,7 +39,7 @@ fn setup(
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
     // Create a camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -121,13 +121,13 @@ fn setup(
     for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
-            .spawn_bundle((
+            .spawn((
                 Transform::from_xyz(i as f32 * 1.5, 0.0, 0.0),
                 GlobalTransform::IDENTITY,
             ))
             .id();
         let joint_1 = commands
-            .spawn_bundle((
+            .spawn((
                 AnimatedJoint,
                 Transform::IDENTITY,
                 GlobalTransform::IDENTITY,
@@ -142,7 +142,7 @@ fn setup(
 
         // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
         commands
-            .spawn_bundle(PbrBundle {
+            .spawn(PbrBundle {
                 mesh: mesh.clone(),
                 material: materials.add(
                     Color::rgb(

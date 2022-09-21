@@ -1522,7 +1522,7 @@ mod tests {
         }
 
         fn spawn_entity(mut commands: crate::prelude::Commands) {
-            commands.spawn_bundle(Foo);
+            commands.spawn(Foo);
         }
 
         fn count_entities(query: Query<&Foo>, mut res: ResMut<EntityCount>) {
@@ -1564,7 +1564,7 @@ mod tests {
         }
 
         fn spawn_entity(mut commands: crate::prelude::Commands) {
-            commands.spawn_bundle(Foo);
+            commands.spawn(Foo);
         }
 
         fn count_entities(query: Query<&Foo>, mut res: ResMut<EntityCount>) {

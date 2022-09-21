@@ -289,7 +289,7 @@ impl World {
             }
             AllocAtWithoutReplacement::DidNotExist => {
                 // SAFETY: entity was just allocated
-                Some(unsafe { self.spawn_at_internal(entity) })
+                Some(unsafe { self.spawn_at_empty_internal(entity) })
             }
             AllocAtWithoutReplacement::ExistsWithWrongGeneration => None,
         }
@@ -375,7 +375,7 @@ impl World {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
-        unsafe { self.spawn_at_internal(entity) }
+        unsafe { self.spawn_at_empty_internal(entity) }
     }
 
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityMut {
@@ -403,7 +403,7 @@ impl World {
 
     /// # Safety
     /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_internal(&mut self, entity: Entity) -> EntityMut {
+    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityMut {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);

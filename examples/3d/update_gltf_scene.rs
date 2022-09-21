@@ -15,18 +15,18 @@ fn main() {
 struct MovedScene;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..default()
     });
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(1.05, 0.9, 1.5)
             .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ..default()
     });
 
     // Spawn the scene as a child of this entity at the given transform
-    commands.spawn_bundle(SceneBundle {
+    commands.spawn(SceneBundle {
         transform: Transform::from_xyz(0.0, 0.0, -1.0),
         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
         ..default()
@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn a second scene, and add a tag component to be able to target it later
     commands
-        .spawn_bundle(SceneBundle {
+        .spawn(SceneBundle {
             scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
             ..default()
         })

@@ -17,9 +17,9 @@ enum Direction {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     commands
-        .spawn_bundle(SpriteBundle {
+        .spawn(SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
             transform: Transform::from_xyz(100., 0., 0.),
             ..default()

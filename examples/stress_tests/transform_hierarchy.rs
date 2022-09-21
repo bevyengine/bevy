@@ -369,7 +369,7 @@ fn spawn_tree(
     // insert root
     ents.push(
         commands
-            .spawn_bundle((root_transform, GlobalTransform::default()))
+            .spawn((root_transform, GlobalTransform::default()))
             .id(),
     );
 
@@ -397,7 +397,7 @@ fn spawn_tree(
 
         // insert child
         let child_entity = {
-            let mut cmd = commands.spawn();
+            let mut cmd = commands.spawn_empty();
 
             // check whether or not to update this node
             let update = (rng.gen::<f32>() <= update_filter.probability)

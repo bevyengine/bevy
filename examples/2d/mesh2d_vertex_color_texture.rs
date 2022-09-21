@@ -36,10 +36,10 @@ fn setup(
     let mesh_handle: Mesh2dHandle = meshes.add(mesh).into();
 
     // Spawn camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     // Spawn the quad with vertex colors
-    commands.spawn_bundle(MaterialMesh2dBundle {
+    commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone(),
         transform: Transform::from_translation(Vec3::new(-96., 0., 0.))
             .with_scale(Vec3::splat(128.)),
@@ -48,7 +48,7 @@ fn setup(
     });
 
     // Spawning the quad with vertex colors and a texture results in tinting
-    commands.spawn_bundle(MaterialMesh2dBundle {
+    commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle,
         transform: Transform::from_translation(Vec3::new(96., 0., 0.))
             .with_scale(Vec3::splat(128.)),

@@ -28,7 +28,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // ground plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
         material: materials.add(StandardMaterial {
             base_color: Color::GREEN,
@@ -45,7 +45,7 @@ fn setup(
         let y = rng.gen_range(-5.0..5.0);
         let z = rng.gen_range(-5.0..5.0);
         commands
-            .spawn_bundle(PbrBundle {
+            .spawn(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::BLUE,
@@ -69,7 +69,7 @@ fn setup(
             let z = z as f32 - 2.0;
             // red spot_light
             commands
-                .spawn_bundle(SpotLightBundle {
+                .spawn(SpotLightBundle {
                     transform: Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                     spot_light: SpotLight {
@@ -83,7 +83,7 @@ fn setup(
                     ..default()
                 })
                 .with_children(|builder| {
-                    builder.spawn_bundle(PbrBundle {
+                    builder.spawn(PbrBundle {
                         mesh: meshes.add(Mesh::from(shape::UVSphere {
                             radius: 0.05,
                             ..default()
@@ -96,7 +96,7 @@ fn setup(
                         ..default()
                     });
                     builder
-                        .spawn_bundle(PbrBundle {
+                        .spawn(PbrBundle {
                             transform: Transform::from_translation(Vec3::Z * -0.1),
                             mesh: meshes.add(Mesh::from(shape::UVSphere {
                                 radius: 0.1,
@@ -115,7 +115,7 @@ fn setup(
     }
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

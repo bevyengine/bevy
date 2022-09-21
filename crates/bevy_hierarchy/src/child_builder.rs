@@ -186,15 +186,24 @@ pub struct ChildBuilder<'w, 's, 'a> {
 
 impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
     /// Spawns an entity with the given bundle and inserts it into the children defined by the [`ChildBuilder`]
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `spawn` instead, which now accepts bundles, components, and tuples of bundles and components."
+    )]
     pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
-        let e = self.commands.spawn_bundle(bundle);
+        self.spawn(bundle)
+    }
+
+    /// Spawns an entity with the given bundle and inserts it into the children defined by the [`ChildBuilder`]
+    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
+        let e = self.commands.spawn(bundle);
         self.push_children.children.push(e.id());
         e
     }
 
     /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`ChildBuilder`] which adds the [`Parent`] component to it.
-    pub fn spawn(&mut self) -> EntityCommands<'w, 's, '_> {
-        let e = self.commands.spawn();
+    pub fn spawn_empty(&mut self) -> EntityCommands<'w, 's, '_> {
+        let e = self.commands.spawn_empty();
         self.push_children.children.push(e.id());
         e
     }
@@ -243,7 +252,7 @@ pub trait BuildChildren {
     ///
     ///     parent_commands.insert(SomethingElse);
     ///     commands.entity(child_id).with_children(|parent| {
-    ///         parent.spawn(MoreStuff);
+    ///         parent.spawn_bundle(MoreStuff);
     ///     });
     /// # }
     /// ```
@@ -529,12 +538,12 @@ mod tests {
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
 
-        let parent = commands.spawn_bundle(C(1)).id();
+        let parent = commands.spawn(C(1)).id();
         let children = commands.entity(parent).add_children(|parent| {
             [
-                parent.spawn_bundle(C(2)).id(),
-                parent.spawn_bundle(C(3)).id(),
-                parent.spawn_bundle(C(4)).id(),
+                parent.spawn(C(2)).id(),
+                parent.spawn(C(3)).id(),
+                parent.spawn(C(4)).id(),
             ]
         });
 
