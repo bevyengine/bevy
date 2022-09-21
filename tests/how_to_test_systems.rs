@@ -38,7 +38,7 @@ fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
 
 fn spawn_enemy(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        commands.spawn().insert(Enemy {
+        commands.spawn_bundle(Enemy {
             hit_points: 5,
             score_value: 3,
         });

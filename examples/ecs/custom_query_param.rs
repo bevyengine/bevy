@@ -112,12 +112,7 @@ struct QueryFilter<T: Component, P: Component> {
 }
 
 fn spawn(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(ComponentA)
-        .insert(ComponentB)
-        .insert(ComponentC)
-        .insert(ComponentD);
+    commands.spawn_bundle((ComponentA, ComponentB, ComponentC, ComponentD));
 }
 
 fn print_components_iter_mut(

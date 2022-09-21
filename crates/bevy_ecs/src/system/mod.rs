@@ -245,10 +245,10 @@ mod tests {
 
         let mut world = World::default();
         world.insert_resource(SystemRan::No);
-        world.spawn().insert_bundle((A,));
-        world.spawn().insert_bundle((A, B));
-        world.spawn().insert_bundle((A, C));
-        world.spawn().insert_bundle((A, D));
+        world.spawn().insert(A);
+        world.spawn().insert((A, B));
+        world.spawn().insert((A, C));
+        world.spawn().insert((A, D));
 
         run_system(&mut world, query_system);
 
@@ -276,7 +276,7 @@ mod tests {
 
         let mut world = World::default();
         world.insert_resource(SystemRan::No);
-        world.spawn().insert_bundle((A, B));
+        world.spawn().insert((A, B));
 
         run_system(&mut world, query_system);
 
@@ -654,7 +654,7 @@ mod tests {
     fn world_collections_system() {
         let mut world = World::default();
         world.insert_resource(SystemRan::No);
-        world.spawn().insert_bundle((W(42), W(true)));
+        world.spawn().insert((W(42), W(true)));
         fn sys(
             archetypes: &Archetypes,
             components: &Components,
@@ -893,7 +893,7 @@ mod tests {
             );
         }
 
-        world.spawn().insert_bundle((A(2), B(2)));
+        world.spawn().insert((A(2), B(2)));
         {
             let query = system_state.get(&world);
             assert_eq!(
@@ -1114,7 +1114,7 @@ mod tests {
         expected_ids.insert(
             world
                 .spawn()
-                .insert_bundle((A,))
+                .insert(A)
                 .archetype()
                 .get_archetype_component_id(a_id)
                 .unwrap(),
@@ -1122,15 +1122,15 @@ mod tests {
         expected_ids.insert(
             world
                 .spawn()
-                .insert_bundle((A, C))
+                .insert((A, C))
                 .archetype()
                 .get_archetype_component_id(a_id)
                 .unwrap(),
         );
 
         // add some entities with archetypes that should not match
-        world.spawn().insert_bundle((A, B));
-        world.spawn().insert_bundle((B, C));
+        world.spawn().insert((A, B));
+        world.spawn().insert((B, C));
 
         // update system and verify its accesses are correct
         system.update_archetype_component_access(&world);
@@ -1146,12 +1146,12 @@ mod tests {
         expected_ids.insert(
             world
                 .spawn()
-                .insert_bundle((A, D))
+                .insert((A, D))
                 .archetype()
                 .get_archetype_component_id(a_id)
                 .unwrap(),
         );
-        world.spawn().insert_bundle((A, B, D));
+        world.spawn().insert((A, B, D));
         system.update_archetype_component_access(&world);
         assert_eq!(
             system

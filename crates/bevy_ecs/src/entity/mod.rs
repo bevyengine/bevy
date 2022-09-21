@@ -16,22 +16,19 @@
 //! |Spawn a new entity|[`Commands::spawn`]|[`World::spawn`]|
 //! |Spawn an entity with components|[`Commands::spawn_bundle`]|---|
 //! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
-//! |Insert a component to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
-//! |Insert multiple components to an entity|[`EntityCommands::insert_bundle`]|[`EntityMut::insert_bundle`]|
-//! |Remove a component from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
+//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
+//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
 //!
 //! [`World`]: crate::world::World
 //! [`Commands::spawn`]: crate::system::Commands::spawn
 //! [`Commands::spawn_bundle`]: crate::system::Commands::spawn_bundle
 //! [`EntityCommands::despawn`]: crate::system::EntityCommands::despawn
 //! [`EntityCommands::insert`]: crate::system::EntityCommands::insert
-//! [`EntityCommands::insert_bundle`]: crate::system::EntityCommands::insert_bundle
 //! [`EntityCommands::remove`]: crate::system::EntityCommands::remove
 //! [`World::spawn`]: crate::world::World::spawn
 //! [`World::spawn_bundle`]: crate::world::World::spawn_bundle
 //! [`World::despawn`]: crate::world::World::despawn
 //! [`EntityMut::insert`]: crate::world::EntityMut::insert
-//! [`EntityMut::insert_bundle`]: crate::world::EntityMut::insert_bundle
 //! [`EntityMut::remove`]: crate::world::EntityMut::remove
 mod map_entities;
 mod serde;

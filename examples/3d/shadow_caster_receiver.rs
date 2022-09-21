@@ -61,14 +61,16 @@ fn setup(
         .insert(NotShadowCaster);
 
     // floating plane - initially not a shadow receiver and not a caster
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn_bundle((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
             material: materials.add(Color::GREEN.into()),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
-        })
-        .insert_bundle((NotShadowCaster, NotShadowReceiver));
+        },
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
 
     // lower ground plane - initially a shadow receiver
     commands.spawn_bundle(PbrBundle {

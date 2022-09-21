@@ -40,7 +40,7 @@ fn setup(
     );
 
     // cube
-    commands.spawn().insert_bundle(MaterialMeshBundle {
+    commands.spawn_bundle(MaterialMeshBundle {
         mesh: meshes.add(mesh),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {

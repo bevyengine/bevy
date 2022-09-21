@@ -213,7 +213,7 @@ fn exclusive_player_system(world: &mut World) {
     // Randomly add a new player
     if should_add_player {
         println!("Player {} has joined the game!", total_players + 1);
-        world.spawn().insert_bundle((
+        world.spawn().insert((
             Player {
                 name: format!("Player {}", total_players + 1),
             },
