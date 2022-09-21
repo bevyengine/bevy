@@ -9,14 +9,14 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["bevy_app", "bevy_reflect", "crossbeam-channel"]
+default = ["bevy_reflect", "crossbeam-channel"]
 
 [dependencies]
 # bevy
+bevy_app = { path = "../bevy_app", version = "0.9.0-dev"}
 bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev", features = ["bevy_reflect"] }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
 # bevy optional
-bevy_app = { path = "../bevy_app", version = "0.9.0-dev", optional = true }
 bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"], optional = true }
 
 # other

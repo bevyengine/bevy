@@ -1,5 +1,7 @@
-use crate::prelude::{Children, Parent};
-#[cfg(feature = "events")]
+use crate::{
+    prelude::{Children, Parent},
+    HierarchyEvent,
+};
 use bevy_ecs::event::Events;
 use bevy_ecs::{
     bundle::Bundle,
@@ -9,9 +11,8 @@ use bevy_ecs::{
 };
 use smallvec::SmallVec;
 
-#[cfg(feature = "events")]
-fn push_events(world: &mut World, events: SmallVec<[crate::HierarchyEvent; 8]>) {
-    if let Some(mut moved) = world.get_resource_mut::<Events<crate::HierarchyEvent>>() {
+fn push_events(world: &mut World, events: SmallVec<[HierarchyEvent; 8]>) {
+    if let Some(mut moved) = world.get_resource_mut::<Events<HierarchyEvent>>() {
         for evt in events {
             moved.send(evt);
         }
@@ -50,36 +51,30 @@ fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
 }
 
 fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
-    #[cfg(feature = "events")]
-    let mut moved: SmallVec<[crate::HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
+    let mut moved: SmallVec<[HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
     for child in children {
         if let Some(previous) = update_parent(world, *child, parent) {
             debug_assert!(parent != previous);
             remove_from_children(world, previous, *child);
-            #[cfg(feature = "events")]
-            moved.push(crate::HierarchyEvent::ChildMoved {
+            moved.push(HierarchyEvent::ChildMoved {
                 child: *child,
                 previous_parent: previous,
                 new_parent: parent,
             });
         }
     }
-    #[cfg(feature = "events")]
     push_events(world, moved);
 }
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
-    #[cfg(feature = "events")]
-    let mut events: SmallVec<[crate::HierarchyEvent; 8]> = SmallVec::new();
+    let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
     for child in children {
         world.entity_mut(*child).remove::<Parent>();
-        #[cfg(feature = "events")]
-        events.push(crate::HierarchyEvent::ChildRemoved {
+        events.push(HierarchyEvent::ChildRemoved {
             child: *child,
             parent,
         });
     }
-    #[cfg(feature = "events")]
     push_events(world, events);
     if let Some(mut parent_children) = world.get_mut::<Children>(parent) {
         parent_children
@@ -106,22 +101,18 @@ impl Command for AddChild {
             }
             remove_from_children(world, previous, self.child);
 
-            #[cfg(feature = "events")]
-            if let Some(mut events) = world.get_resource_mut::<Events<crate::HierarchyEvent>>() {
-                events.send(crate::HierarchyEvent::ChildMoved {
+            if let Some(mut events) = world.get_resource_mut::<Events<HierarchyEvent>>() {
+                events.send(HierarchyEvent::ChildMoved {
                     child: self.child,
                     previous_parent: previous,
                     new_parent: self.parent,
                 });
             }
-        } else {
-            #[cfg(feature = "events")]
-            if let Some(mut events) = world.get_resource_mut::<Events<crate::HierarchyEvent>>() {
-                events.send(crate::HierarchyEvent::ChildAdded {
-                    child: self.child,
-                    parent: self.parent,
-                });
-            }
+        } else if let Some(mut events) = world.get_resource_mut::<Events<HierarchyEvent>>() {
+            events.send(HierarchyEvent::ChildAdded {
+                child: self.child,
+                parent: self.parent,
+            });
         }
         let mut parent = world.entity_mut(self.parent);
         if let Some(mut children) = parent.get_mut::<Children>() {
@@ -345,12 +336,8 @@ impl<'w> WorldChildBuilder<'w> {
             .id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
-        #[cfg(feature = "events")]
-        if let Some(mut added) = self
-            .world
-            .get_resource_mut::<Events<crate::HierarchyEvent>>()
-        {
-            added.send(crate::HierarchyEvent::ChildAdded {
+        if let Some(mut added) = self.world.get_resource_mut::<Events<HierarchyEvent>>() {
+            added.send(HierarchyEvent::ChildAdded {
                 child: entity,
                 parent: parent_entity,
             });
@@ -364,12 +351,8 @@ impl<'w> WorldChildBuilder<'w> {
         let entity = self.world.spawn().insert(Parent(parent_entity)).id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
-        #[cfg(feature = "events")]
-        if let Some(mut added) = self
-            .world
-            .get_resource_mut::<Events<crate::HierarchyEvent>>()
-        {
-            added.send(crate::HierarchyEvent::ChildAdded {
+        if let Some(mut added) = self.world.get_resource_mut::<Events<HierarchyEvent>>() {
+            added.send(HierarchyEvent::ChildAdded {
                 child: entity,
                 parent: parent_entity,
             });
