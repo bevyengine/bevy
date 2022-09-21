@@ -88,8 +88,8 @@ impl<Data> GenericDataCell<Data> {
 ///   fn type_info() -> &'static TypeInfo {
 ///     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
 ///     CELL.get_or_set(|| {
-///       let fields = [NamedField::new::<i32, _>("bar")];
-///       let info = StructInfo::new::<Self>(&fields);
+///       let fields = [NamedField::new::<i32>("bar")];
+///       let info = StructInfo::new::<Self>("Foo", &fields);
 ///       TypeInfo::Struct(info)
 ///     })
 ///   }
@@ -138,7 +138,7 @@ pub type NonGenericTypeInfoCell = NonGenericDataCell<TypeInfo>;
 ///     static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///     CELL.get_or_insert::<Self, _>(|| {
 ///       let fields = [UnnamedField::new::<T>(0)];
-///       let info = TupleStructInfo::new::<Self>(&fields);
+///       let info = TupleStructInfo::new::<Self>("Foo", &fields);
 ///       TypeInfo::TupleStruct(info)
 ///     })
 ///   }

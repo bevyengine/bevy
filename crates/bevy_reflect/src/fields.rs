@@ -1,28 +1,27 @@
 use crate::{type_path, Reflect, TypePath};
 use std::any::{Any, TypeId};
-use std::borrow::Cow;
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
 pub struct NamedField {
-    name: Cow<'static, str>,
+    name: &'static str,
     type_path: &'static str,
     type_id: TypeId,
 }
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect + TypePath, TName: Into<Cow<'static, str>>>(name: TName) -> Self {
+    pub fn new<T: Reflect + TypePath>(name: &'static str) -> Self {
         Self {
-            name: name.into(),
+            name,
             type_path: type_path::<T>(),
             type_id: TypeId::of::<T>(),
         }
     }
 
     /// The name of the field.
-    pub fn name(&self) -> &Cow<'static, str> {
-        &self.name
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     /// The [type path] of the field.

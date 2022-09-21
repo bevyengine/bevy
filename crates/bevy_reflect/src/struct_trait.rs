@@ -72,10 +72,11 @@ pub trait Struct: Reflect {
 /// A container for compile-time struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
+    name: &'static str,
     type_path: &'static str,
     type_id: TypeId,
     fields: Box<[NamedField]>,
-    field_indices: HashMap<Cow<'static, str>, usize>,
+    field_indices: HashMap<&'static str, usize>,
 }
 
 impl StructInfo {
@@ -83,19 +84,18 @@ impl StructInfo {
     ///
     /// # Arguments
     ///
+    /// * `name`: The name of this struct (_without_ generics or lifetimes)
     /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
+    pub fn new<T: Reflect + TypePath>(name: &'static str, fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
-            .map(|(index, field)| {
-                let name = field.name().clone();
-                (name, index)
-            })
+            .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
 
         Self {
+            name,
             type_path: type_path::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
@@ -130,7 +130,16 @@ impl StructInfo {
         self.fields.len()
     }
 
-    /// The [type path] of the struct.
+    /// The name of the struct.
+    ///
+    /// This does _not_ include any generics or lifetimes.
+    ///
+    /// For example, `foo::bar::Baz<'a, T>` would simply be `Baz`.
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+
+    /// The [type name] of the struct.
     ///
     /// [type path]: TypePath
     pub fn type_path(&self) -> &'static str {

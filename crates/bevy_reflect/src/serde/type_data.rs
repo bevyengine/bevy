@@ -31,4 +31,14 @@ impl SerializationData {
     pub fn is_ignored_field(&self, index: usize) -> bool {
         self.ignored_field_indices.contains(&index)
     }
+
+    /// Returns the number of ignored fields.
+    pub fn len(&self) -> usize {
+        self.ignored_field_indices.len()
+    }
+
+    /// Returns true if there are no ignored fields.
+    pub fn is_empty(&self) -> bool {
+        self.ignored_field_indices.is_empty()
+    }
 }

@@ -9,7 +9,8 @@ use crate::{
 
 use crate::utility::{GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value, impl_type_path};
-use bevy_utils::{Duration, HashMap, HashSet, Instant};
+use bevy_utils::{Duration, Instant};
+use bevy_utils::{HashMap, HashSet};
 use std::{
     any::Any,
     borrow::Cow,
@@ -745,6 +746,13 @@ impl<T: FromReflect + TypePath> Enum for Option<T> {
         }
     }
 
+    fn variant_index(&self) -> usize {
+        match self {
+            None => 0,
+            Some(..) => 1,
+        }
+    }
+
     #[inline]
     fn variant_type(&self) -> VariantType {
         match self {
@@ -906,12 +914,13 @@ impl<T: FromReflect + TypePath> Typed for Option<T> {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| {
-            let none_variant = VariantInfo::Unit(UnitVariantInfo::new_static("None"));
-            let some_variant = VariantInfo::Tuple(TupleVariantInfo::new_static(
-                "Some",
-                &[UnnamedField::new::<T>(0)],
-            ));
-            TypeInfo::Enum(EnumInfo::new::<Self>(&[none_variant, some_variant]))
+            let none_variant = VariantInfo::Unit(UnitVariantInfo::new("None"));
+            let some_variant =
+                VariantInfo::Tuple(TupleVariantInfo::new("Some", &[UnnamedField::new::<T>(0)]));
+            TypeInfo::Enum(EnumInfo::new::<Self>(
+                "Option",
+                &[none_variant, some_variant],
+            ))
         })
     }
 }
@@ -951,18 +960,19 @@ mod tests {
         Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
         VariantType,
     };
-    use bevy_utils::{HashMap, Instant};
+    use bevy_utils::HashMap;
+    use bevy_utils::{Duration, Instant};
     use std::f32::consts::{PI, TAU};
 
     #[test]
     fn can_serialize_duration() {
         let mut type_registry = TypeRegistry::default();
-        type_registry.register::<std::time::Duration>();
+        type_registry.register::<Duration>();
 
         let reflect_serialize = type_registry
-            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<std::time::Duration>())
+            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<Duration>())
             .unwrap();
-        let _serializable = reflect_serialize.get_serializable(&std::time::Duration::ZERO);
+        let _serializable = reflect_serialize.get_serializable(&Duration::ZERO);
     }
 
     #[test]
