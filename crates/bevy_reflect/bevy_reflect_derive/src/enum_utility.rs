@@ -98,7 +98,7 @@ pub(crate) fn get_variant_constructors(
 
                 if field.attrs.remote.is_some() {
                     quote! {
-                        // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
+                        // SAFE: The wrapper type should be repr(transparent) over the remote type
                         unsafe {
                             ::core::mem::transmute(#resolve_from_reflect)
                         }
