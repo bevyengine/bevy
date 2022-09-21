@@ -3,7 +3,6 @@ pub mod gamepad;
 mod input;
 pub mod keyboard;
 pub mod mouse;
-pub mod system;
 pub mod touch;
 
 pub use axis::*;
@@ -17,7 +16,7 @@ pub mod prelude {
             Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,
             GamepadEventType, Gamepads,
         },
-        keyboard::KeyCode,
+        keyboard::{KeyCode, ScanCode},
         mouse::MouseButton,
         touch::{TouchInput, Touches},
         Axis, Input,
@@ -25,7 +24,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
+use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use prelude::Gamepads;
 use touch::{touch_screen_input_system, TouchInput, Touches};
@@ -48,6 +47,7 @@ impl Plugin for InputPlugin {
             // keyboard
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()
+            .init_resource::<Input<ScanCode>>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 keyboard_input_system.label(InputSystem),
@@ -75,7 +75,7 @@ impl Plugin for InputPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                gamepad_connection_system.label(InputSystem),
+                gamepad_connection_system.after(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()
@@ -90,13 +90,13 @@ impl Plugin for InputPlugin {
 /// The current "press" state of an element
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub enum ElementState {
+pub enum ButtonState {
     Pressed,
     Released,
 }
 
-impl ElementState {
+impl ButtonState {
     pub fn is_pressed(&self) -> bool {
-        matches!(self, ElementState::Pressed)
+        matches!(self, ButtonState::Pressed)
     }
 }

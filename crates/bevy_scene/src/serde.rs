@@ -1,7 +1,7 @@
-use crate::{DynamicScene, Entity};
+use crate::{DynamicEntity, DynamicScene};
 use anyhow::Result;
 use bevy_reflect::{
-    serde::{ReflectDeserializer, ReflectSerializer},
+    serde::{ReflectSerializer, UntypedReflectDeserializer},
     Reflect, TypeRegistry, TypeRegistryArc,
 };
 use serde::{
@@ -27,7 +27,7 @@ impl<'a> Serialize for SceneSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_seq(Some(self.scene.entities.len()))?;
-        for entity in self.scene.entities.iter() {
+        for entity in &self.scene.entities {
             state.serialize_element(&EntitySerializer {
                 entity,
                 registry: self.registry,
@@ -38,7 +38,7 @@ impl<'a> Serialize for SceneSerializer<'a> {
 }
 
 pub struct EntitySerializer<'a> {
-    pub entity: &'a Entity,
+    pub entity: &'a DynamicEntity,
     pub registry: &'a TypeRegistryArc,
 }
 
@@ -71,7 +71,7 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_seq(Some(self.components.len()))?;
-        for component in self.components.iter() {
+        for component in self.components {
             state.serialize_element(&ReflectSerializer::new(
                 &**component,
                 &*self.registry.read(),
@@ -105,7 +105,7 @@ struct SceneEntitySeqVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
-    type Value = Vec<Entity>;
+    type Value = Vec<DynamicEntity>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("list of entities")
@@ -131,7 +131,7 @@ pub struct SceneEntityDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
-    type Value = Entity;
+    type Value = DynamicEntity;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -163,7 +163,7 @@ struct SceneEntityVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
-    type Value = Entity;
+    type Value = DynamicEntity;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("entities")
@@ -202,7 +202,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
         let components = components
             .take()
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
-        Ok(Entity {
+        Ok(DynamicEntity {
             entity: *entity,
             components,
         })
@@ -242,7 +242,9 @@ impl<'a, 'de> Visitor<'de> for ComponentSeqVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let mut dynamic_properties = Vec::new();
-        while let Some(entity) = seq.next_element_seed(ReflectDeserializer::new(self.registry))? {
+        while let Some(entity) =
+            seq.next_element_seed(UntypedReflectDeserializer::new(self.registry))?
+        {
             dynamic_properties.push(entity);
         }
 

@@ -1,7 +1,8 @@
+//! Prints all mouse events to the console.
+
 use bevy::{
     input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     prelude::*,
-    window::CursorMoved,
 };
 
 fn main() {

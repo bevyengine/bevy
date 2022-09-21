@@ -24,7 +24,7 @@ fn main() {
                     std::thread::current().id(),
                     i
                 );
-            })
+            });
         }
     });
 

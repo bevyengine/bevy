@@ -1,41 +1,28 @@
-mod bytes;
-mod float_ord;
-mod label;
+#![warn(missing_docs)]
+//! This crate provides core functionality for Bevy Engine.
+
 mod name;
 mod task_pool_options;
-mod time;
 
-pub use bytes::*;
-pub use float_ord::*;
-pub use label::*;
+pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
-pub use task_pool_options::DefaultTaskPoolOptions;
-pub use time::*;
+pub use task_pool_options::*;
 
 pub mod prelude {
+    //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
+    pub use crate::{DefaultTaskPoolOptions, Name};
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    entity::Entity,
-    schedule::{ExclusiveSystemDescriptorCoercion, SystemLabel},
-    system::IntoExclusiveSystem,
-};
-use bevy_utils::HashSet;
+use bevy_ecs::entity::Entity;
+use bevy_utils::{Duration, HashSet, Instant};
+use std::borrow::Cow;
 use std::ops::Range;
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
 pub struct CorePlugin;
-
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
-pub enum CoreSystem {
-    /// Updates the elapsed time. Any system that interacts with [Time] component should run after
-    /// this.
-    Time,
-}
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
@@ -44,26 +31,9 @@ impl Plugin for CorePlugin {
             .get_resource::<DefaultTaskPoolOptions>()
             .cloned()
             .unwrap_or_default()
-            .create_default_pools(&mut app.world);
+            .create_default_pools();
 
-        app.init_resource::<Time>()
-            .init_resource::<EntityLabels>()
-            .init_resource::<FixedTimesteps>()
-            .register_type::<HashSet<String>>()
-            .register_type::<Option<String>>()
-            .register_type::<Entity>()
-            .register_type::<Name>()
-            .register_type::<Labels>()
-            .register_type::<Range<f32>>()
-            .register_type::<Timer>()
-            // time system is added as an "exclusive system" to ensure it runs before other systems
-            // in CoreStage::First
-            .add_system_to_stage(
-                CoreStage::First,
-                time_system.exclusive_system().label(CoreSystem::Time),
-            )
-            .add_startup_system_to_stage(StartupStage::PostStartup, entity_labels_system)
-            .add_system_to_stage(CoreStage::PostUpdate, entity_labels_system);
+        app.register_type::<Entity>().register_type::<Name>();
 
         register_rust_types(app);
         register_math_types(app);
@@ -71,23 +41,13 @@ impl Plugin for CorePlugin {
 }
 
 fn register_rust_types(app: &mut App) {
-    app.register_type::<bool>()
-        .register_type::<u8>()
-        .register_type::<u16>()
-        .register_type::<u32>()
-        .register_type::<u64>()
-        .register_type::<u128>()
-        .register_type::<usize>()
-        .register_type::<i8>()
-        .register_type::<i16>()
-        .register_type::<i32>()
-        .register_type::<i64>()
-        .register_type::<i128>()
-        .register_type::<isize>()
-        .register_type::<f32>()
-        .register_type::<f64>()
+    app.register_type::<Range<f32>>()
         .register_type::<String>()
-        .register_type::<Option<String>>();
+        .register_type::<HashSet<String>>()
+        .register_type::<Option<String>>()
+        .register_type::<Cow<'static, str>>()
+        .register_type::<Duration>()
+        .register_type::<Instant>();
 }
 
 fn register_math_types(app: &mut App) {
@@ -97,10 +57,29 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::UVec2>()
         .register_type::<bevy_math::UVec3>()
         .register_type::<bevy_math::UVec4>()
+        .register_type::<bevy_math::DVec2>()
+        .register_type::<bevy_math::DVec3>()
+        .register_type::<bevy_math::DVec4>()
+        .register_type::<bevy_math::BVec2>()
+        .register_type::<bevy_math::BVec3>()
+        .register_type::<bevy_math::BVec3A>()
+        .register_type::<bevy_math::BVec4>()
+        .register_type::<bevy_math::BVec4A>()
         .register_type::<bevy_math::Vec2>()
         .register_type::<bevy_math::Vec3>()
+        .register_type::<bevy_math::Vec3A>()
         .register_type::<bevy_math::Vec4>()
+        .register_type::<bevy_math::DAffine2>()
+        .register_type::<bevy_math::DAffine3>()
+        .register_type::<bevy_math::Affine2>()
+        .register_type::<bevy_math::Affine3A>()
+        .register_type::<bevy_math::DMat2>()
+        .register_type::<bevy_math::DMat3>()
+        .register_type::<bevy_math::DMat4>()
+        .register_type::<bevy_math::Mat2>()
         .register_type::<bevy_math::Mat3>()
+        .register_type::<bevy_math::Mat3A>()
         .register_type::<bevy_math::Mat4>()
+        .register_type::<bevy_math::DQuat>()
         .register_type::<bevy_math::Quat>();
 }

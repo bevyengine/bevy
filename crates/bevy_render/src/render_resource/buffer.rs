@@ -34,7 +34,7 @@ impl Buffer {
 
     #[inline]
     pub fn unmap(&self) {
-        self.value.unmap()
+        self.value.unmap();
     }
 }
 

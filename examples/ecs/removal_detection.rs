@@ -1,4 +1,4 @@
-// This example shows how you can know when a `Component` has been removed, so you can react to it.
+//! This example shows how you can know when a `Component` has been removed, so you can react to it.
 
 use bevy::prelude::*;
 
@@ -27,11 +27,11 @@ fn main() {
 struct MyComponent;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
     commands
         .spawn_bundle(SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
-            ..Default::default()
+            ..default()
         })
         .insert(MyComponent); // Add the `Component`.
 }

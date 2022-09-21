@@ -1,3 +1,5 @@
+//! Displays touch presses, releases, and cancels.
+
 use bevy::{input::touch::*, prelude::*};
 
 fn main() {
