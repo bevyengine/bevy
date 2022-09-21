@@ -262,7 +262,7 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
     let mut cam = Camera2dBundle::default();
 
     cam.transform.translation.z = 100.0;
-    commands.spawn_bundle(cam);
+    commands.spawn(cam);
 
     let result = match cfg.test_case {
         TestCase::Tree {

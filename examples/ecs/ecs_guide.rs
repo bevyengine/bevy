@@ -186,7 +186,7 @@ fn new_player_system(
     let add_new_player = random::<bool>();
     if add_new_player && game_state.total_players < game_rules.max_players {
         game_state.total_players += 1;
-        commands.spawn_bundle((
+        commands.spawn((
             Player {
                 name: format!("Player {}", game_state.total_players),
             },

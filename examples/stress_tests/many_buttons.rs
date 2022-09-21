@@ -53,9 +53,9 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
     let count = ROW_COLUMN_COUNT;
     let count_f = count as f32;
     let as_rainbow = |i: usize| Color::hsl((i as f32 / count_f) * 360.0, 0.9, 0.8);
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 ..default()
@@ -81,7 +81,7 @@ fn spawn_button(
 ) {
     let width = 90.0 / total;
     commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Percent(width), Val::Percent(width)),
 
@@ -98,7 +98,7 @@ fn spawn_button(
             ..default()
         })
         .with_children(|commands| {
-            commands.spawn_bundle(TextBundle::from_section(
+            commands.spawn(TextBundle::from_section(
                 format!("{i}, {j}"),
                 TextStyle {
                     font,

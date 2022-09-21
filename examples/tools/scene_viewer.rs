@@ -241,7 +241,7 @@ fn setup_scene_after_load(
         let mut projection = PerspectiveProjection::default();
         projection.far = projection.far.max(size * 10.0);
         commands
-            .spawn_bundle(Camera3dBundle {
+            .spawn(Camera3dBundle {
                 projection: projection.into(),
                 transform: Transform::from_translation(
                     Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
@@ -266,7 +266,7 @@ fn setup_scene_after_load(
             let max = aabb.max();
 
             info!("Spawning a directional light");
-            commands.spawn_bundle(DirectionalLightBundle {
+            commands.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadow_projection: OrthographicProjection {
                         left: min.x,

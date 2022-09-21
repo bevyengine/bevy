@@ -25,7 +25,7 @@ fn setup(
 ) {
     // Spawn a cube to rotate.
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_translation(Vec3::ZERO),
@@ -34,13 +34,13 @@ fn setup(
         .insert(Rotatable { speed: 0.3 });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
     // Add a light source so we can see clearly.
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_translation(Vec3::ONE * 3.0),
         ..default()
     });

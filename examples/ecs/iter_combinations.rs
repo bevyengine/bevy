@@ -76,7 +76,7 @@ fn generate_bodies(
             * rng.gen_range(0.2f32..1.0).powf(1. / 3.)
             * 15.;
 
-        commands.spawn_bundle(BodyBundle {
+        commands.spawn(BodyBundle {
             pbr: PbrBundle {
                 transform: Transform {
                     translation: position,
@@ -110,7 +110,7 @@ fn generate_bodies(
     // add bigger "star" body in the center
     let star_radius = 1.;
     commands
-        .spawn_bundle(BodyBundle {
+        .spawn(BodyBundle {
             pbr: PbrBundle {
                 transform: Transform::from_scale(Vec3::splat(star_radius)),
                 mesh: meshes.add(Mesh::from(shape::Icosphere {
@@ -129,7 +129,7 @@ fn generate_bodies(
         })
         .insert(Star)
         .with_children(|p| {
-            p.spawn_bundle(PointLightBundle {
+            p.spawn(PointLightBundle {
                 point_light: PointLight {
                     color: Color::WHITE,
                     intensity: 400.0,
@@ -140,7 +140,7 @@ fn generate_bodies(
                 ..default()
             });
         });
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

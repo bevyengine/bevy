@@ -22,7 +22,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
@@ -31,7 +31,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     };
 
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
                 position_type: PositionType::Absolute,
@@ -49,7 +49,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
         })
         .with_children(|parent| {
             parent
-                .spawn_bundle(NodeBundle {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(40.), Val::Px(40.)),
                         ..default()
@@ -58,9 +58,9 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn_bundle(TextBundle::from_section("Size!", text_style));
+                    parent.spawn(TextBundle::from_section("Size!", text_style));
                 });
-            parent.spawn_bundle(NodeBundle {
+            parent.spawn(NodeBundle {
                 style: Style {
                     size: Size::new(Val::Percent(15.), Val::Percent(15.)),
                     ..default()
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                 color: Color::BLUE.into(),
                 ..default()
             });
-            parent.spawn_bundle(ImageBundle {
+            parent.spawn(ImageBundle {
                 style: Style {
                     size: Size::new(Val::Px(30.0), Val::Px(30.0)),
                     ..default()

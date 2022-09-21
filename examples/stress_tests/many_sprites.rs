@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
     let sprite_handle = assets.load("branding/icon.png");
 
     // Spawns the camera
-    commands.spawn_bundle((
+    commands.spawn((
         Camera2dBundle::default(),
         Transform::from_xyz(0.0, 0.0, 1000.0),
     ));

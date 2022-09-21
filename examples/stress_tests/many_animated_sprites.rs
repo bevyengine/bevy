@@ -50,7 +50,7 @@ fn setup(
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // Spawns the camera
-    commands.spawn_bundle((
+    commands.spawn((
         Camera2dBundle::default(),
         Transform::from_xyz(0.0, 0.0, 1000.0),
     ));
@@ -66,7 +66,7 @@ fn setup(
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
             commands
-                .spawn_bundle(SpriteSheetBundle {
+                .spawn(SpriteSheetBundle {
                     texture_atlas: texture_atlas_handle.clone(),
                     transform: Transform {
                         translation,

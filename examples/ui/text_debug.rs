@@ -24,8 +24,8 @@ struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(
         TextBundle::from_section(
             "This is\ntext with\nline breaks\nin the top left",
             TextStyle {
@@ -45,7 +45,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         }),
     );
-    commands.spawn_bundle(TextBundle::from_section(
+    commands.spawn(TextBundle::from_section(
             "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
             TextStyle {
                 font: font.clone(),
@@ -70,7 +70,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
     );
     commands
-        .spawn_bundle(
+        .spawn(
             TextBundle::from_sections([
                 TextSection::new(
                     "This text changes in the bottom right",
@@ -127,7 +127,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
         )
         .insert(TextChanges);
-    commands.spawn_bundle(
+    commands.spawn(
         TextBundle::from_section(
             "This\ntext has\nline breaks and also a set width in the bottom left",
             TextStyle {

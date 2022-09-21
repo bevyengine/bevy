@@ -96,9 +96,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let texture = asset_server.load("branding/icon.png");
 
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     commands
-        .spawn_bundle(
+        .spawn(
             TextBundle::from_sections([
                 TextSection::new(
                     "Bird Count: ",
@@ -192,7 +192,7 @@ fn spawn_birds(
     for count in 0..spawn_count {
         let bird_z = (counter.count + count) as f32 * 0.00001;
         commands
-            .spawn_bundle(SpriteBundle {
+            .spawn(SpriteBundle {
                 texture: texture.clone(),
                 transform: Transform {
                     translation: Vec3::new(bird_x, bird_y, bird_z),

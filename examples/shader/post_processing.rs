@@ -78,7 +78,7 @@ fn setup(
 
     // The cube that will be rendered to the texture.
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh: cube_handle,
             material: cube_material_handle,
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
@@ -88,13 +88,13 @@ fn setup(
 
     // Light
     // NOTE: Currently lights are ignoring render layers - see https://github.com/bevyengine/bevy/issues/3462
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..default()
     });
 
     // Main camera, first to render
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         camera_3d: Camera3d {
             clear_color: ClearColorConfig::Custom(Color::WHITE),
             ..default()
@@ -123,7 +123,7 @@ fn setup(
 
     // Post processing 2d quad, with material using the render texture done by the main camera, with a custom shader.
     commands
-        .spawn_bundle(MaterialMesh2dBundle {
+        .spawn(MaterialMesh2dBundle {
             mesh: quad_handle.into(),
             material: material_handle,
             transform: Transform {
@@ -136,7 +136,7 @@ fn setup(
 
     // The post-processing pass camera.
     commands
-        .spawn_bundle(Camera2dBundle {
+        .spawn(Camera2dBundle {
             camera: Camera {
                 // renders after the first main camera which has default value: 0.
                 priority: 1,
