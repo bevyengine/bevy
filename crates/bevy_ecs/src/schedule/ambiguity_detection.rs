@@ -135,6 +135,13 @@ impl SystemStage {
         }
     }
 
+    /// Returns all execution order ambiguities between systems
+    ///
+    /// Returns 4 vectors of ambiguities for each stage, in the following order:
+    /// - parallel
+    /// - exclusive at start,
+    /// - exclusive before commands
+    /// - exclusive at end
     fn ambiguities(&self, world: &World) -> Vec<SystemOrderAmbiguity> {
         let parallel = find_ambiguities(&self.parallel).into_iter().map(
             |(system_a_index, system_b_index, component_ids)| {
