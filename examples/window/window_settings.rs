@@ -34,10 +34,7 @@ fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
         } else {
             PresentMode::AutoVsync
         });
-        info!(
-            "PRESENT_MODE: {:?}",
-            windows.get_primary().unwrap().present_mode()
-        );
+        info!("PRESENT_MODE: {:?}", window.present_mode());
     }
 }
 
