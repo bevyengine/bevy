@@ -342,7 +342,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             }
             TypeInfo::Enum(enum_info) => {
                 let type_path = enum_info.type_path();
-                let mut dynamic_enum = if type_path.starts_with("core::option::Option") {
+                let mut dynamic_enum = if type_path.starts_with("Option<") {
                     deserializer.deserialize_option(OptionVisitor {
                         enum_info,
                         registry: self.registry,

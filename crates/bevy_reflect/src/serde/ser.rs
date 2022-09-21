@@ -318,11 +318,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
 
         match variant_type {
             VariantType::Unit => {
-                if self
-                    .enum_value
-                    .type_path()
-                    .starts_with("core::option::Option")
-                {
+                if self.enum_value.type_path().starts_with("Option<") {
                     serializer.serialize_none()
                 } else {
                     serializer.serialize_unit_variant(enum_name, variant_index, variant_name)
@@ -356,11 +352,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
             }
             VariantType::Tuple if field_len == 1 => {
                 let field = self.enum_value.field_at(0).unwrap();
-                if self
-                    .enum_value
-                    .type_path()
-                    .starts_with("core::option::Option")
-                {
+                if self.enum_value.type_path().starts_with("Option<") {
                     serializer.serialize_some(&TypedReflectSerializer::new(field, self.registry))
                 } else {
                     serializer.serialize_newtype_variant(
