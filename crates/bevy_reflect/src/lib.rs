@@ -2650,6 +2650,36 @@ bevy_reflect::tests::Test {
         assert_eq!(321, data.0.inner.0);
     }
 
+    #[test]
+    fn should_take_remote_type() {
+        mod external_crate {
+            #[derive(Debug, Default, PartialEq, Eq)]
+            pub struct TheirType {
+                pub value: String,
+            }
+        }
+
+        // === Remote Wrapper === //
+        #[reflect_remote(external_crate::TheirType)]
+        #[derive(Debug, Default)]
+        #[reflect(Debug, Default)]
+        struct MyType {
+            pub value: String,
+        }
+
+        let input: Box<dyn Reflect> = Box::new(MyType(external_crate::TheirType {
+            value: "Hello".to_string(),
+        }));
+
+        let output: MyType = input.take().expect("data should be of type `MyType`");
+        assert_eq!(
+            external_crate::TheirType {
+                value: "Hello".to_string(),
+            },
+            output.0
+        );
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
