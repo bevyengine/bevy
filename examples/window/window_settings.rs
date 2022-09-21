@@ -13,7 +13,6 @@ fn main() {
             present_mode: PresentMode::AutoVsync,
             ..default()
         })
-        .insert_resource(VSync(true))
         .add_plugins(DefaultPlugins)
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
@@ -24,29 +23,17 @@ fn main() {
         .run();
 }
 
-#[derive(Resource)]
-pub struct VSync(pub bool);
-
 /// This system toggles the vsync mode when pressing the button V.
 /// You'll see fps increase displayed in the console.
-fn toggle_vsync(
-    input: Res<Input<KeyCode>>,
-    mut vsync: ResMut<VSync>,
-    mut windows: ResMut<Windows>,
-) {
+fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     if input.just_pressed(KeyCode::V) {
-        vsync.0 = !vsync.0;
-        if vsync.0 {
-            windows
-                .get_primary_mut()
-                .unwrap()
-                .set_present_mode(PresentMode::AutoVsync);
+        let window = windows.primary_mut();
+
+        window.set_present_mode(if matches!(window.present_mode(), PresentMode::AutoVsync) {
+            PresentMode::AutoNoVsync
         } else {
-            windows
-                .get_primary_mut()
-                .unwrap()
-                .set_present_mode(PresentMode::AutoNoVsync);
-        }
+            PresentMode::AutoVsync
+        });
         info!(
             "PRESENT_MODE: {:?}",
             windows.get_primary().unwrap().present_mode()
