@@ -7,7 +7,7 @@ use crate::world::World;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct SystemOrderAmbiguity {
-    pub segment: SystemStageSegment,
+    segment: SystemStageSegment,
     // Note: In order for comparisons to work correctly,
     // `system_names` and `conflicts` must be sorted at all times.
     system_names: [String; 2],
