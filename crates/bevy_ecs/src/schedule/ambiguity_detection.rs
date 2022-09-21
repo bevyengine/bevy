@@ -5,17 +5,17 @@ use crate::component::ComponentId;
 use crate::schedule::{SystemContainer, SystemStage};
 use crate::world::World;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SystemOrderAmbiguity {
+    pub segment: SystemStageSegment,
     // Note: In order for comparisons to work correctly,
     // `system_names` and `conflicts` must be sorted at all times.
     system_names: [String; 2],
     conflicts: Vec<String>,
-    pub segment: SystemStageSegment,
 }
 
 /// Which part of a [`SystemStage`] was a [`SystemOrderAmbiguity`] detected in?
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
 pub enum SystemStageSegment {
     Parallel,
     ExclusiveAtStart,
@@ -112,7 +112,6 @@ impl SystemStage {
                 .to_owned();
 
             let mut last_segment_kind = None;
-
             for SystemOrderAmbiguity {
                 system_names: [system_a, system_b],
                 conflicts,
@@ -189,11 +188,13 @@ impl SystemStage {
             },
         );
 
-        at_start
+        let mut ambiguities: Vec<_> = at_start
             .chain(parallel)
             .chain(before_commands)
             .chain(at_end)
-            .collect()
+            .collect();
+        ambiguities.sort();
+        ambiguities
     }
 }
 
