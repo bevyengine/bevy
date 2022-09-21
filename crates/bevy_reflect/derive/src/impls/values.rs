@@ -28,7 +28,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     );
 
     let type_path_impl = impl_type_path(meta);
-    let full_reflect_impl = impl_full_reflect(meta, &where_clause_options);
+    let full_reflect_impl = impl_full_reflect(meta, &where_clause_options, false);
     let common_methods = common_partial_reflect_methods(meta, || None, || None);
 
     #[cfg(not(feature = "functions"))]

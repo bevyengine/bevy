@@ -62,7 +62,11 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     );
 
     let type_path_impl = impl_type_path(reflect_enum.meta());
-    let full_reflect_impl = impl_full_reflect(reflect_enum.meta(), &where_clause_options);
+    let full_reflect_impl = impl_full_reflect(
+        reflect_enum.meta(),
+        &where_clause_options,
+        reflect_enum.is_remote_wrapper(),
+    );
     let common_methods = common_partial_reflect_methods(
         reflect_enum.meta(),
         || Some(quote!(#bevy_reflect_path::enum_partial_eq)),

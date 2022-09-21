@@ -410,12 +410,18 @@ where
 )]
 pub trait Reflect: PartialReflect + Any {
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
+    ///
+    /// For remote wrapper types, this will return the remote type instead.
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
     /// Returns the value as a [`&dyn Any`][std::any::Any].
+    ///
+    /// For remote wrapper types, this will return the remote type instead.
     fn as_any(&self) -> &dyn Any;
 
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
+    ///
+    /// For remote wrapper types, this will return the remote type instead.
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// Casts this type to a boxed, fully-reflected value.
@@ -450,7 +456,9 @@ impl dyn PartialReflect {
     ///
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns `Err(self)`.
-    pub fn try_downcast<T: Reflect>(
+    ///
+    /// For remote types, `T` should be the type itself rather than the wraper type.
+    pub fn try_downcast<T: Any>(
         self: Box<dyn PartialReflect>,
     ) -> Result<Box<T>, Box<dyn PartialReflect>> {
         self.try_into_reflect()?
@@ -462,9 +470,9 @@ impl dyn PartialReflect {
     ///
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns `Err(self)`.
-    pub fn try_take<T: Reflect>(
-        self: Box<dyn PartialReflect>,
-    ) -> Result<T, Box<dyn PartialReflect>> {
+    ///
+    /// For remote types, `T` should be the type itself rather than the wraper type.
+    pub fn try_take<T: Any>(self: Box<dyn PartialReflect>) -> Result<T, Box<dyn PartialReflect>> {
         self.try_downcast().map(|value| *value)
     }
 
@@ -472,7 +480,9 @@ impl dyn PartialReflect {
     ///
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns [`None`].
-    pub fn try_downcast_ref<T: Reflect>(&self) -> Option<&T> {
+    ///
+    /// For remote types, `T` should be the type itself rather than the wraper type.
+    pub fn try_downcast_ref<T: Any>(&self) -> Option<&T> {
         self.try_as_reflect()?.downcast_ref()
     }
 
@@ -480,7 +490,9 @@ impl dyn PartialReflect {
     ///
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns [`None`].
-    pub fn try_downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
+    ///
+    /// For remote types, `T` should be the type itself rather than the wraper type.
+    pub fn try_downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
         self.try_as_reflect_mut()?.downcast_mut()
     }
 }
@@ -508,7 +520,9 @@ impl dyn Reflect {
     /// Downcasts the value to type `T`, consuming the trait object.
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
-    pub fn downcast<T: Reflect>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
+    ///
+    /// For remote types, `T` should be the type itself rather than the wraper type.
+    pub fn downcast<T: Any>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
         if self.is::<T>() {
             Ok(self.into_any().downcast().unwrap())
         } else {
@@ -519,7 +533,9 @@ impl dyn Reflect {
     /// Downcasts the value to type `T`, unboxing and consuming the trait object.
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
-    pub fn take<T: Reflect>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
+    ///
+    /// For remote types, `T` should be the type itself rather than the wraper type.
+    pub fn take<T: Any>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
         self.downcast::<T>().map(|value| *value)
     }
 
@@ -532,25 +548,31 @@ impl dyn Reflect {
     /// to determine what type they represent. Represented types cannot be downcasted
     /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
     ///
+    /// For remote types, `T` should be the type itself rather than the wraper type.
+    ///
     /// [`FromReflect`]: crate::FromReflect
     #[inline]
-    pub fn is<T: Reflect>(&self) -> bool {
-        self.type_id() == TypeId::of::<T>()
+    pub fn is<T: Any>(&self) -> bool {
+        self.as_any().type_id() == TypeId::of::<T>()
     }
 
     /// Downcasts the value to type `T` by reference.
     ///
     /// If the underlying value is not of type `T`, returns `None`.
+    ///
+    /// For remote types, `T` should be the type itself rather than the wraper type.
     #[inline]
-    pub fn downcast_ref<T: Reflect>(&self) -> Option<&T> {
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
         self.as_any().downcast_ref::<T>()
     }
 
     /// Downcasts the value to type `T` by mutable reference.
     ///
     /// If the underlying value is not of type `T`, returns `None`.
+    ///
+    /// For remote types, `T` should be the type itself rather than the wraper type.
     #[inline]
-    pub fn downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
+    pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
         self.as_any_mut().downcast_mut::<T>()
     }
 }

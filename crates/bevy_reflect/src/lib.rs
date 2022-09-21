@@ -2476,7 +2476,7 @@ bevy_reflect::tests::Test {
         assert_impl_all!(TupleStruct: Reflect);
         assert_impl_all!(Enum: Reflect);
     }
-    
+
     #[test]
     fn should_reflect_remote_type() {
         mod external_crate {
@@ -2671,12 +2671,46 @@ bevy_reflect::tests::Test {
             value: "Hello".to_string(),
         }));
 
-        let output: MyType = input.take().expect("data should be of type `MyType`");
+        let output: external_crate::TheirType = input
+            .take()
+            .expect("should downcast to `external_crate::TheirType`");
         assert_eq!(
             external_crate::TheirType {
                 value: "Hello".to_string(),
             },
-            output.0
+            output
+        );
+    }
+
+    #[test]
+    fn should_try_take_remote_type() {
+        mod external_crate {
+            #[derive(Debug, Default, PartialEq, Eq)]
+            pub struct TheirType {
+                pub value: String,
+            }
+        }
+
+        // === Remote Wrapper === //
+        #[reflect_remote(external_crate::TheirType)]
+        #[derive(Debug, Default)]
+        #[reflect(Debug, Default)]
+        struct MyType {
+            pub value: String,
+        }
+
+        let input: Box<dyn PartialReflect> = Box::new(MyType(external_crate::TheirType {
+            value: "Hello".to_string(),
+        }));
+
+        let output: external_crate::TheirType = input
+            .try_take()
+            .expect("should downcast to `external_crate::TheirType`");
+        assert_eq!(
+            external_crate::TheirType {
+                value: "Hello".to_string(),
+            },
+            output
         );
     }
 

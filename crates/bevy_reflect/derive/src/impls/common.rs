@@ -7,6 +7,7 @@ use crate::{derive_data::ReflectMeta, utility::WhereClauseOptions};
 pub fn impl_full_reflect(
     meta: &ReflectMeta,
     where_clause_options: &WhereClauseOptions,
+    is_remote_wrapper: bool,
 ) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
@@ -14,8 +15,25 @@ pub fn impl_full_reflect(
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
-    quote! {
-        impl #impl_generics #bevy_reflect_path::Reflect for #type_path #ty_generics #where_reflect_clause {
+    let any_impls = if is_remote_wrapper {
+        quote! {
+            #[inline]
+            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
+                #FQBox::new(self.0)
+            }
+
+            #[inline]
+            fn as_any(&self) -> &dyn #FQAny {
+                &self.0
+            }
+
+            #[inline]
+            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
+                &mut self.0
+            }
+        }
+    } else {
+        quote! {
             #[inline]
             fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
                 self
@@ -30,6 +48,12 @@ pub fn impl_full_reflect(
             fn as_any_mut(&mut self) -> &mut dyn #FQAny {
                 self
             }
+        }
+    };
+
+    quote! {
+        impl #impl_generics #bevy_reflect_path::Reflect for #type_path #ty_generics #where_reflect_clause {
+            #any_impls
 
             #[inline]
             fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
