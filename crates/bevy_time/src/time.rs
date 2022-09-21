@@ -1,10 +1,14 @@
-use bevy_ecs::{reflect::ReflectResource, system::Resource};
-use bevy_reflect::{FromReflect, Reflect};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectResource;
+use bevy_ecs::system::Resource;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
 use bevy_utils::{Duration, Instant};
 
 /// Tracks elapsed time since the last update and since the App has started
-#[derive(Resource, Reflect, FromReflect, Debug, Clone)]
-#[reflect(Resource)]
+#[derive(Resource, Debug, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect, FromReflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Resource))]
 pub struct Time {
     delta: Duration,
     last_update: Option<Instant>,

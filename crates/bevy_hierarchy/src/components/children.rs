@@ -1,18 +1,21 @@
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     prelude::FromWorld,
-    reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::slice;
 use smallvec::SmallVec;
 use std::ops::Deref;
 
 /// Contains references to the child entities of this entity
-#[derive(Component, Debug, Reflect)]
-#[reflect(Component, MapEntities)]
+#[derive(Component, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, MapEntities))]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {

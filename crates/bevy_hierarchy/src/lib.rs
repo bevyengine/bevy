@@ -18,9 +18,9 @@ mod events;
 #[cfg(feature = "events")]
 pub use events::*;
 
-#[cfg(feature = "app")]
+#[cfg(feature = "bevy_app")]
 mod valid_parent_check_plugin;
-#[cfg(feature = "app")]
+#[cfg(feature = "bevy_app")]
 pub use valid_parent_check_plugin::*;
 
 #[doc(hidden)]
@@ -34,14 +34,14 @@ pub mod prelude {
 
 /// The base plugin for handling [`Parent`] and [`Children`] components
 #[derive(Default)]
-#[cfg(feature = "app")]
+#[cfg(feature = "bevy_app")]
 pub struct HierarchyPlugin;
 
-#[cfg(feature = "app")]
+#[cfg(feature = "bevy_app")]
 impl bevy_app::Plugin for HierarchyPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<Children>()
-            .register_type::<Parent>()
-            .add_event::<HierarchyEvent>();
+        #[cfg(feature = "bevy_reflect")]
+        app.register_type::<Children>().register_type::<Parent>();
+        app.add_event::<HierarchyEvent>();
     }
 }

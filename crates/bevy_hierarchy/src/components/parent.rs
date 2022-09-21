@@ -1,16 +1,19 @@
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
-    reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
 };
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use std::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.
-#[derive(Component, Debug, Eq, PartialEq, Reflect)]
-#[reflect(Component, MapEntities, PartialEq)]
+#[derive(Component, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, MapEntities, PartialEq))]
 pub struct Parent(pub(crate) Entity);
 
 impl Parent {

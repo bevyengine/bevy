@@ -9,17 +9,16 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["events", "app"]
+default = ["events", "bevy_app", "bevy_log", "bevy_core", "bevy_reflect", "bevy_ecs/bevy_reflect"]
 trace = []
 events = []
-app = ["bevy_app", "bevy_log", "bevy_core"]
 
 [dependencies]
 # bevy
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev", features = ["bevy_reflect"] }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"] }
 # bevy optional
+bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"], optional = true }
 bevy_app = { path = "../bevy_app", version = "0.9.0-dev", optional = true }
 bevy_core = { path = "../bevy_core", version = "0.9.0-dev", optional = true }
 bevy_log = { path = "../bevy_log", version = "0.9.0-dev", optional = true }

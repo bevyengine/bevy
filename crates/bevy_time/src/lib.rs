@@ -38,11 +38,12 @@ pub struct TimeSystem;
 #[cfg(feature = "bevy_app")]
 impl bevy_app::Plugin for TimePlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        #[cfg(feature = "bevy_reflect")]
+        app.register_type::<Timer>()
+            .register_type::<Time>()
+            .register_type::<Stopwatch>();
         app.init_resource::<Time>()
             .init_resource::<FixedTimesteps>()
-            .register_type::<Timer>()
-            .register_type::<Time>()
-            .register_type::<Stopwatch>()
             // time system is added as an "exclusive system" to ensure it runs before other systems
             // in CoreStage::First
             .add_system_to_stage(
