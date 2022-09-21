@@ -104,8 +104,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
         let entity = commands
-            .spawn()
-            .insert((
+            .spawn_bundle((
                 Contributor { name, hue },
                 Velocity {
                     translation: velocity,

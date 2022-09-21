@@ -369,9 +369,7 @@ fn spawn_tree(
     // insert root
     ents.push(
         commands
-            .spawn()
-            .insert(root_transform)
-            .insert(GlobalTransform::default())
+            .spawn_bundle((root_transform, GlobalTransform::default()))
             .id(),
     );
 

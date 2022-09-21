@@ -38,9 +38,7 @@ impl Default for Countdown {
 
 fn setup(mut commands: Commands) {
     // Add an entity to the world with a timer
-    commands
-        .spawn()
-        .insert(PrintOnCompletionTimer(Timer::from_seconds(5.0, false)));
+    commands.spawn_bundle(PrintOnCompletionTimer(Timer::from_seconds(5.0, false)));
 }
 
 /// This system ticks all the `Timer` components on entities within the scene
