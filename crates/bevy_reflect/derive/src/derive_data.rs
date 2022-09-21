@@ -575,7 +575,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Whether this reflected struct represents a remote type or not.
-    pub fn is_remote(&self) -> bool {
+    pub fn is_remote_wrapper(&self) -> bool {
         self.remote_ty.is_some()
     }
 
@@ -685,7 +685,7 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// Whether this reflected enum represents a remote type or not.
-    pub fn is_remote(&self) -> bool {
+    pub fn is_remote_wrapper(&self) -> bool {
         self.remote_ty.is_some()
     }
 

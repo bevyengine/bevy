@@ -9,7 +9,7 @@ use syn::Fields;
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let enum_path = reflect_enum.meta().type_path();
-    let is_remote = reflect_enum.is_remote();
+    let is_remote = reflect_enum.is_remote_wrapper();
 
     // For `match self` expressions where self is a reference
     let match_this = if is_remote {

@@ -52,7 +52,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         ..
     } = FromReflectVariantBuilder::new(reflect_enum).build(&ref_value);
 
-    let match_branches = if reflect_enum.is_remote() {
+    let match_branches = if reflect_enum.is_remote_wrapper() {
         quote! {
             #(#variant_names => #fqoption::Some(Self(#variant_constructors)),)*
         }
