@@ -160,12 +160,18 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
+    ///
+    /// For remote wrapper types, this will return the remote type instead.
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
     /// Returns the value as a [`&dyn Any`][std::any::Any].
+    ///
+    /// For remote wrapper types, this will return the remote type instead.
     fn as_any(&self) -> &dyn Any;
 
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
+    ///
+    /// For remote wrapper types, this will return the remote type instead.
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// Casts this type to a boxed reflected value.
@@ -345,7 +351,7 @@ impl dyn Reflect {
     /// Downcasts the value to type `T`, consuming the trait object.
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
-    pub fn downcast<T: Reflect>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
+    pub fn downcast<T: Any>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
         if self.is::<T>() {
             Ok(self.into_any().downcast().unwrap())
         } else {
@@ -356,7 +362,7 @@ impl dyn Reflect {
     /// Downcasts the value to type `T`, unboxing and consuming the trait object.
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
-    pub fn take<T: Reflect>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
+    pub fn take<T: Any>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
         self.downcast::<T>().map(|value| *value)
     }
 
@@ -365,9 +371,9 @@ impl dyn Reflect {
     ///
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
-    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+    pub fn represents<T: Any>(&self) -> bool {
         self.get_represented_type_info()
-            .map(|t| t.type_path() == T::type_path())
+            .map(|t| t.type_id() == TypeId::of::<T>())
             .unwrap_or(false)
     }
 
@@ -382,15 +388,15 @@ impl dyn Reflect {
     ///
     /// [`FromReflect`]: crate::FromReflect
     #[inline]
-    pub fn is<T: Reflect>(&self) -> bool {
-        self.type_id() == TypeId::of::<T>()
+    pub fn is<T: Any>(&self) -> bool {
+        self.as_any().type_id() == TypeId::of::<T>()
     }
 
     /// Downcasts the value to type `T` by reference.
     ///
     /// If the underlying value is not of type `T`, returns `None`.
     #[inline]
-    pub fn downcast_ref<T: Reflect>(&self) -> Option<&T> {
+    pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
         self.as_any().downcast_ref::<T>()
     }
 
@@ -398,7 +404,7 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `None`.
     #[inline]
-    pub fn downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
+    pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
         self.as_any_mut().downcast_mut::<T>()
     }
 }

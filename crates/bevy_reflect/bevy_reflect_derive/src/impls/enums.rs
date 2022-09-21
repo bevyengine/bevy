@@ -1,7 +1,7 @@
 use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
-use crate::impls::{impl_type_path, impl_typed};
-use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
+use crate::impls::{any::impl_reflect_any_methods, impl_type_path, impl_typed};
+use bevy_macro_utils::fq_std::{FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::Fields;
@@ -105,6 +105,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     );
 
     let type_path_impl = impl_type_path(reflect_enum.meta());
+    let any_impls = impl_reflect_any_methods(reflect_enum.is_remote_wrapper());
 
     let get_type_registration_impl = reflect_enum.get_type_registration(&where_clause_options);
 
@@ -210,20 +211,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
-            #[inline]
-            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
-                self
-            }
-
-            #[inline]
-            fn as_any(&self) -> &dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
-                self
-            }
+            #any_impls
 
             #[inline]
             fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {

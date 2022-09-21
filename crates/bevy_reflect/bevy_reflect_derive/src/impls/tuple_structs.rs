@@ -1,7 +1,7 @@
-use crate::impls::{impl_type_path, impl_typed};
+use crate::impls::{any::impl_reflect_any_methods, impl_type_path, impl_typed};
 use crate::struct_utility::FieldAccessors;
 use crate::ReflectStruct;
-use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
@@ -84,6 +84,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
     );
 
     let type_path_impl = impl_type_path(reflect_struct.meta());
+    let any_impls = impl_reflect_any_methods(reflect_struct.is_remote_wrapper());
 
     let (impl_generics, ty_generics, where_clause) = reflect_struct
         .meta()
@@ -137,20 +138,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
-            #[inline]
-            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
-                self
-            }
-
-            #[inline]
-            fn as_any(&self) -> &dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
-                self
-            }
+            #any_impls
 
             #[inline]
             fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {

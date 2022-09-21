@@ -2525,12 +2525,14 @@ bevy_reflect::tests::Test {
             value: "Hello".to_string(),
         }));
 
-        let output: MyType = input.take().expect("data should be of type `MyType`");
+        let output: external_crate::TheirType = input
+            .take()
+            .expect("should downcast to `external_crate::TheirType`");
         assert_eq!(
             external_crate::TheirType {
                 value: "Hello".to_string(),
             },
-            output.0
+            output
         );
     }
 
