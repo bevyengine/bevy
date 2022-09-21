@@ -6,7 +6,7 @@ use crate::schedule::{SystemContainer, SystemStage};
 use crate::world::World;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SystemOrderAmbiguity {
+struct SystemOrderAmbiguity {
     pub segment: SystemStageSegment,
     // Note: In order for comparisons to work correctly,
     // `system_names` and `conflicts` must be sorted at all times.
@@ -16,7 +16,7 @@ pub struct SystemOrderAmbiguity {
 
 /// Which part of a [`SystemStage`] was a [`SystemOrderAmbiguity`] detected in?
 #[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
-pub enum SystemStageSegment {
+enum SystemStageSegment {
     Parallel,
     ExclusiveAtStart,
     ExclusiveBeforeCommands,
@@ -144,7 +144,7 @@ impl SystemStage {
     /// - exclusive at end
     ///
     /// This stage must have been initialized with `world`.
-    pub fn ambiguities(&self, world: &World) -> Vec<SystemOrderAmbiguity> {
+    fn ambiguities(&self, world: &World) -> Vec<SystemOrderAmbiguity> {
         let parallel = find_ambiguities(&self.parallel).into_iter().map(
             |(system_a_index, system_b_index, component_ids)| {
                 SystemOrderAmbiguity::from_raw(
