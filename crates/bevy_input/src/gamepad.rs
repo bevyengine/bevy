@@ -2,6 +2,18 @@ use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::{tracing::info, HashMap, HashSet};
+use thiserror::Error;
+
+/// Errors that occur when setting settings for gamepad input
+#[derive(Error, Debug)]
+pub enum GamepadSettingsError {
+    #[error("{0}")]
+    InvalidAxisSetting(String),
+    #[error("{0}")]
+    InvalidButtonSetting(String),
+}
+
+type Result<T, E = GamepadSettingsError> = std::result::Result<T, E>;
 
 /// A gamepad with an associated `ID`.
 ///
@@ -495,8 +507,8 @@ pub struct ButtonSettings {
 impl Default for ButtonSettings {
     fn default() -> Self {
         ButtonSettings {
-            press: 0.75,
-            release: 0.65,
+            press_threshold: 0.75,
+            release_threshold: 0.65,
         }
     }
 }
@@ -506,55 +518,47 @@ impl ButtonSettings {
     ///
     /// A button is considered pressed if the `value` passed is greater than or equal to the `press` threshold.
     fn is_pressed(&self, value: f32) -> bool {
-        value >= self.press
+        value >= self.press_threshold
     }
 
     /// Returns `true` if the button is released.
     ///
     /// A button is considered released if the `value` passed is lower than or equal to the `release` threshold.
     fn is_released(&self, value: f32) -> bool {
-        value <= self.release
+        value <= self.release_threshold
     }
 }
 
 /// Settings for a [`GamepadAxis`].
 ///
-/// It is used inside of the [`GamepadSettings`] to define the sensitivity range and
-/// threshold for an axis.
+/// Values that are higher than `livezone_upperbound` will be rounded up to `1.0`.
+/// Values that are lower than `livezone_lowerbound` will be rounded down to `-1.0`.
+/// Values that are in-between `deadzone_lowerbound` and `deadzone_upperbound` will be rounded
+/// to `0.0`.
+/// Otherwise, values will not be rounded.
 ///
-/// ## Logic
-///
-/// - Values that are in-between `negative_low` and `positive_low` will be rounded to 0.0.
-/// - Values that are higher than or equal to `positive_high` will be rounded to 1.0.
-/// - Values that are lower than or equal to `negative_high` will be rounded to -1.0.
-/// - Otherwise, values will not be rounded.
-///
-/// The valid range is from -1.0 to 1.0, inclusive.
-///
-/// ## Updating
-///
-/// The current value of an axis is received through the [`GamepadEvent`]s or [`GamepadEventRaw`]s.
+/// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone)]
 pub struct AxisSettings {
-    /// The positive high value at which to apply rounding.
-    pub positive_high: f32,
-    /// The positive low value at which to apply rounding.
-    pub positive_low: f32,
-    /// The negative high value at which to apply rounding.
-    pub negative_high: f32,
-    /// The negative low value at which to apply rounding.
-    pub negative_low: f32,
-    /// The threshold defining the minimum difference between the old and new values to apply the changes.
-    pub threshold: f32,
+    /// Values that are higher than `livezone_upperbound` will be rounded up to `-1.0`.
+    livezone_upperbound: f32,
+    /// Positive values that are less than `deadzone_upperbound` will be rounded down to `0.0`.
+    deadzone_upperbound: f32,
+    /// Negative values that are greater than `deadzone_lowerbound` will be rounded up to `0.0`.
+    deadzone_lowerbound: f32,
+    /// Values that are lower than `livezone_lowerbound` will be rounded down to `-1.0`.
+    livezone_lowerbound: f32,
+    /// `threshold` defines the minimum difference between old and new values to apply the changes.
+    threshold: f32,
 }
 
 impl Default for AxisSettings {
     fn default() -> Self {
         AxisSettings {
-            positive_high: 0.95,
-            positive_low: 0.05,
-            negative_high: -0.95,
-            negative_low: -0.05,
+            livezone_upperbound: 0.95,
+            deadzone_upperbound: 0.05,
+            deadzone_lowerbound: -0.05,
+            livezone_lowerbound: -0.95,
             threshold: 0.01,
         }
     }
@@ -579,8 +583,179 @@ impl AxisSettings {
         } else if new_value <= self.negative_high {
             -1.0
         } else {
-            new_value
-        };
+            Err(GamepadSettingsError::InvalidAxisSetting(
+                "The conditions -1.0 <= livezone_lowerbound <= deadzone_lowerbound <= 0.0 <=\
+                 deadzone_upperbound <= livezone_upperbound <= 1.0 and \
+                 0.0 <= threshold <= 2.0 must hold true"
+                    .to_owned(),
+            ))
+        }
+    }
+
+    /// Get the value above which inputs will be rounded up to `1.0`
+    pub fn livezone_upperbound(&self) -> f32 {
+        self.livezone_upperbound
+    }
+
+    /// Try to set the value above which inputs will be rounded up to `1.0`
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is less than `deadzone_upperbound` or greater than `1.0`
+    pub fn try_set_livezone_upperbound(&mut self, value: f32) -> Result<()> {
+        if value < self.deadzone_upperbound || value > 1.0 {
+            Err(GamepadSettingsError::InvalidAxisSetting(
+                "livezone_upperbound must be greater than deadzone_upperbound and less than 1.0"
+                    .to_owned(),
+            ))
+        } else {
+            self.livezone_upperbound = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the value above which inputs will be rounded up to `1.0`. If the value is less
+    /// than `deadzone_upperbound` or greater than `1.0`, the value will not be changed.
+    ///
+    /// Returns the new value of `livezone_upperbound`.
+    pub fn set_livezone_upperbound(&mut self, value: f32) -> f32 {
+        self.try_set_livezone_upperbound(value).ok();
+        self.livezone_upperbound
+    }
+
+    /// Get the value below which positive inputs will be rounded down to `0.0`
+    pub fn deadzone_upperbound(&mut self) -> f32 {
+        self.deadzone_upperbound
+    }
+
+    /// Try to set the value below which positive inputs will be rounded down to `0.0`
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is negative or greater than `livezone_upperbound`
+    pub fn try_set_deadzone_upperbound(&mut self, value: f32) -> Result<()> {
+        if value < 0.0 || value > self.livezone_upperbound {
+            Err(GamepadSettingsError::InvalidAxisSetting(
+                "deadzone_upperbound must be positive and less than livezone_upperbound".to_owned(),
+            ))
+        } else {
+            self.deadzone_upperbound = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the value below which positive inputs will be rounded down to `0.0`. If the value
+    /// passed is negative or greater than `livezone_upperbound`, the value will not be changed.
+    ///
+    /// Returns the new value of `deadzone_upperbound`.
+    pub fn set_deadzone_upperbound(&mut self, value: f32) -> f32 {
+        self.try_set_deadzone_upperbound(value).ok();
+        self.deadzone_upperbound
+    }
+
+    /// Get the value above which negative inputs will be rounded up to `0.0`
+    pub fn deadzone_lowerbound(&self) -> f32 {
+        self.deadzone_lowerbound
+    }
+
+    /// Try to set the value above which negative inputs will be rounded up to `0.0`
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is positive or less than `livezone_lowerbound`
+    pub fn try_set_deadzone_lowerbound(&mut self, value: f32) -> Result<()> {
+        if value < self.livezone_lowerbound || value > 0.0 {
+            Err(GamepadSettingsError::InvalidAxisSetting(
+                "deadzone_lowerbound must be negative and greater than livezone_lowerbound"
+                    .to_owned(),
+            ))
+        } else {
+            self.deadzone_lowerbound = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the value above which negative inputs will be rounded up to `0.0`. If the value
+    /// passed is positive or less than `livezone_lowerbound`, the value will not be changed.
+    ///
+    /// Returns the new value of `deadzone_lowerbound`.
+    pub fn set_deadzone_lowerbound(&mut self, value: f32) -> f32 {
+        self.try_set_deadzone_lowerbound(value).ok();
+        self.deadzone_lowerbound
+    }
+
+    /// Get the value below which inputs will be rounded down to `-1.0`
+    pub fn livezone_lowerbound(&self) -> f32 {
+        self.livezone_lowerbound
+    }
+
+    /// Try to get the value below which inputs will be rounded down to `-1.0`
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is less than `-1.0` or greater than `deadzone_lowerbound`
+    pub fn try_set_livezone_lowerbound(&mut self, value: f32) -> Result<()> {
+        if value < -1.0 || value > self.deadzone_lowerbound {
+            Err(GamepadSettingsError::InvalidAxisSetting(
+                "livezone_lowerbound must be greater than -1.0 and less than deadzone_lowerbound"
+                    .to_owned(),
+            ))
+        } else {
+            self.livezone_lowerbound = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the value below which inputs will be rounded down to `-1.0`. If the value passed
+    /// is less than `-1.0` or greater than `deadzone_lowerbound`, the value will not be changed.
+    ///
+    /// Returns the new value of `livezone_lowerbound`.
+    pub fn set_livezone_lowerbound(&mut self, value: f32) -> f32 {
+        self.try_set_livezone_lowerbound(value).ok();
+        self.livezone_lowerbound
+    }
+
+    /// Get the minimum value by which input must change before the change is registered
+    pub fn threshold(&self) -> f32 {
+        self.threshold
+    }
+
+    /// Try to set the minimum value by which input must change before the change is registered
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is not within `[0.0, 2.0]`
+    pub fn try_set_threshold(&mut self, value: f32) -> Result<()> {
+        if !(0.0..=2.0).contains(&value) {
+            Err(GamepadSettingsError::InvalidAxisSetting(
+                "threshold must be between 0.0 and 2.0, inclusive".to_owned(),
+            ))
+        } else {
+            self.threshold = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the minimum value by which input must change before the changes will be applied.
+    /// If the value passed is not within `[0.0, 2.0]`, the value will not be changed.
+    ///
+    /// Returns the new value of threshold.
+    pub fn set_threshold(&mut self, value: f32) -> f32 {
+        self.try_set_threshold(value).ok();
+        self.threshold
+    }
+
+    fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
+        let new_value =
+            if new_value <= self.deadzone_upperbound && new_value >= self.deadzone_lowerbound {
+                0.0
+            } else if new_value >= self.livezone_upperbound {
+                1.0
+            } else if new_value <= self.livezone_lowerbound {
+                -1.0
+            } else {
+                new_value
+            };
 
         if let Some(old_value) = old_value {
             if (new_value - old_value).abs() <= self.threshold {
