@@ -39,10 +39,16 @@ fn update_position(
     for gamepad in gamepads.iter() {
         // We only use input from the left stick.
         let x = axes
-            .get(GamepadAxis(*gamepad, GamepadAxisType::LeftStickX))
+            .get(GamepadAxis {
+                gamepad,
+                axis_type: GamepadAxisType::LeftStickX,
+            })
             .unwrap();
         let y = axes
-            .get(GamepadAxis(*gamepad, GamepadAxisType::LeftStickY))
+            .get(GamepadAxis {
+                gamepad,
+                axis_type: GamepadAxisType::LeftStickY,
+            })
             .unwrap();
         transform.translation.x = x * WINDOW_SIZE / 2.0;
         transform.translation.y = y * WINDOW_SIZE / 2.0;
@@ -56,7 +62,7 @@ fn setup(
     gamepad_settings: Res<GamepadSettings>,
 ) {
     // Spawn camera
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
 
     // Spawn crosshair
     let texture = asset_server.load("textures/crosshair.png");
@@ -123,7 +129,7 @@ fn setup(
     };
     commands
         .spawn_bundle(Text2dBundle {
-            text: Text::with_section("( 0.000,  0.000)", text_style, text_alignment),
+            text: Text::from_section("( 0.000,  0.000)", text_style).with_alignment(text_alignment),
             transform: Transform::from_xyz(
                 livezone_lower_left_corner,
                 livezone_lower_left_corner,
