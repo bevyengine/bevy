@@ -9,6 +9,7 @@ mod reflect;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
+mod type_data;
 mod type_info;
 mod type_registry;
 mod type_uuid;
@@ -55,6 +56,7 @@ pub use reflect::*;
 pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
+pub use type_data::*;
 pub use type_info::*;
 pub use type_registry::*;
 pub use type_uuid::*;
@@ -1044,5 +1046,57 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             assert_eq!(v, vec3(4.0, 2.0, 1.0));
         }
+    }
+
+    #[test]
+    fn type_data_specialization() {
+        #[derive(Reflect, Debug)]
+        #[reflect(MyTrait)]
+        struct HasGenericTypeData;
+
+        #[derive(Reflect, Debug)]
+        #[reflect(MyTrait)]
+        struct HasSpecializedTypeData;
+
+        #[derive(Clone, Debug, PartialEq, Eq)]
+        enum ReflectMyTrait {
+            Generic,
+            Specialized,
+        }
+
+        impl<T> FromType<T> for ReflectMyTrait {
+            fn from_type() -> Self {
+                Self::Generic
+            }
+        }
+
+        impl SpecializedFromType<HasSpecializedTypeData> for ReflectMyTrait {
+            fn specialized_from_type() -> Self {
+                Self::Specialized
+            }
+        }
+
+        let type_registry = {
+            let mut type_registry = TypeRegistry::new();
+            type_registry.register::<HasGenericTypeData>();
+            type_registry.register::<HasSpecializedTypeData>();
+            type_registry
+        };
+
+        assert_eq!(
+            type_registry
+                .get_type_data::<ReflectMyTrait>(std::any::TypeId::of::<HasGenericTypeData>())
+                .expect("Generic type data is missing!"),
+            &ReflectMyTrait::Generic,
+            "Got specialized type data instead of generic type data."
+        );
+
+        assert_eq!(
+            type_registry
+                .get_type_data::<ReflectMyTrait>(std::any::TypeId::of::<HasSpecializedTypeData>())
+                .expect("Specialized type data is missing!"),
+            &ReflectMyTrait::Specialized,
+            "Got generic type data instead of specialized type data."
+        );
     }
 }

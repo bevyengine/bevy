@@ -26,10 +26,40 @@ pub(crate) fn impl_get_type_registration(
         #[allow(unused_mut)]
         impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_name #ty_generics #where_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
+                struct FromTypeCollector<S, T>(std::marker::PhantomData<S>, std::marker::PhantomData<T>);
+                impl<S, T: #bevy_reflect_path::FromType<S>> FromTypeCollector<S, T> {
+                    #[inline]
+                    fn new() -> Self {
+                        Self(std::marker::PhantomData, std::marker::PhantomData)
+                    }
+
+                    #[inline]
+                    fn collect(&self) -> T {
+                        T::from_type()
+                    }
+                }
+
+                trait CollectSpecialized {
+                    type Data;
+                    fn collect(self) -> Self::Data;
+                }
+
+                impl<S, T> CollectSpecialized for FromTypeCollector<S, T>
+                where
+                    T: #bevy_reflect_path::SpecializedFromType<S>,
+                {
+                    type Data = T;
+
+                    #[inline]
+                    fn collect(self) -> Self::Data {
+                        T::specialized_from_type()
+                    }
+                }
+
                 let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name #ty_generics>();
                 registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<#type_name #ty_generics>::from_type());
                 #serialization_data
-                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<#type_name #ty_generics>::from_type());)*
+                #(registration.insert::<#registration_data>(FromTypeCollector::<#type_name #ty_generics, #registration_data>::new().collect());)*
                 registration
             }
         }
