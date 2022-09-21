@@ -212,7 +212,7 @@ impl SystemStage {
     ///
     /// The result may be incorrect if this stage has not been initialized with `world`.
     #[allow(dead_code)]
-    fn n_ambiguities(&self, world: &World) -> usize {
+    fn ambiguity_count(&self, world: &World) -> usize {
         self.ambiguities(world).len()
     }
 }
@@ -333,7 +333,7 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 0);
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
     }
 
     #[test]
@@ -360,7 +360,7 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 0);
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
     }
 
     #[test]
@@ -380,7 +380,7 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 3);
+        assert_eq!(test_stage.ambiguity_count(&world), 3);
     }
 
     #[test]
@@ -393,7 +393,7 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 1);
+        assert_eq!(test_stage.ambiguity_count(&world), 1);
     }
 
     #[test]
@@ -408,7 +408,7 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 1);
+        assert_eq!(test_stage.ambiguity_count(&world), 1);
     }
 
     #[test]
@@ -423,7 +423,7 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 1);
+        assert_eq!(test_stage.ambiguity_count(&world), 1);
     }
 
     #[test]
@@ -439,7 +439,7 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 0);
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
     }
 
     #[test]
@@ -456,7 +456,7 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 3);
+        assert_eq!(test_stage.ambiguity_count(&world), 3);
     }
 
     #[test]
@@ -478,7 +478,7 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 3);
+        assert_eq!(test_stage.ambiguity_count(&world), 3);
     }
 
     // Tests for silencing and resolving ambiguities
@@ -496,6 +496,6 @@ mod tests {
 
         test_stage.run(&mut world);
 
-        assert_eq!(test_stage.n_ambiguities(&world), 0);
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
     }
 }
