@@ -93,6 +93,20 @@ impl WinitWindows {
         #[allow(unused_mut)]
         let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);
 
+        #[allow(unused_mut)]
+        let mut winit_window_builder = winit_window_builder.with_window_icon(
+            if let Some(window_icon) = &window_descriptor.icon {
+                winit::window::Icon::from_rgba(
+                    window_icon.rgba.clone(),
+                    window_icon.width,
+                    window_icon.height,
+                )
+                .ok()
+            } else {
+                None
+            },
+        );
+
         #[cfg(target_arch = "wasm32")]
         {
             use wasm_bindgen::JsCast;

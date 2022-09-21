@@ -1,12 +1,23 @@
 //! Illustrates how to change window settings and shows how to affect
 //! the mouse pointer in various ways.
 
-use bevy::{prelude::*, window::PresentMode};
+use bevy::{
+    prelude::*,
+    window::{PresentMode, WindowIcon},
+};
 
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "I am a window!".to_string(),
+            icon: Some(WindowIcon::new(
+                [
+                    255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+                ]
+                .to_vec(),
+                2,
+                2,
+            )),
             width: 500.,
             height: 300.,
             present_mode: PresentMode::AutoVsync,

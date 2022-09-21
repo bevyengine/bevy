@@ -151,6 +151,44 @@ impl WindowResizeConstraints {
     }
 }
 
+/// Mirror of [`Icon`](https://docs.rs/winit/latest/winit/index.html) from [`winit`](https://github.com/rust-windowing/winit).
+#[derive(Debug, Clone)]
+pub struct WindowIcon {
+    /// 32-bit-per-pixel RGBA image data.
+    pub rgba: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl WindowIcon {
+    /// Creates a new `WindowIcon` with possibly unequal width and height.
+    ///
+    /// `rgba` should be 32-bit-per-pixel RGBA image data.
+    #[must_use]
+    pub fn new(rgba: Vec<u8>, width: u32, height: u32) -> Self {
+        Self {
+            rgba,
+            width,
+            height,
+        }
+    }
+
+    /// Creates a new `WindowIcon` with equal width and height.
+    /// `rgba` should be 32-bit-per-pixel RGBA image data. Returns `None` if input is unable to be easily made into a square.
+    #[must_use]
+    pub fn new_square(rgba: Vec<u8>) -> Option<Self> {
+        if (rgba.len() as f32).sqrt().fract() == 0.0 {
+            None
+        } else {
+            Some(Self {
+                width: (rgba.len() / 8).try_into().unwrap(),
+                height: (rgba.len() / 8).try_into().unwrap(),
+                rgba,
+            })
+        }
+    }
+}
+
 /// An operating system window that can present content and receive user input.
 ///
 /// To create a window, use a [`EventWriter<CreateWindow>`](`crate::CreateWindow`).
@@ -694,12 +732,12 @@ impl Window {
         });
     }
     /// Close the operating system window corresponding to this [`Window`].
-    ///  
+    ///
     /// This will also lead to this [`Window`] being removed from the
     /// [`Windows`] resource.
     ///
     /// If the default [`WindowPlugin`] is used, when no windows are
-    /// open, the [app will exit](bevy_app::AppExit).  
+    /// open, the [app will exit](bevy_app::AppExit).
     /// To disable this behaviour, set `exit_on_all_closed` on the [`WindowPlugin`]
     /// to `false`
     ///
@@ -727,7 +765,7 @@ impl Window {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -821,6 +859,8 @@ pub struct WindowDescriptor {
     /// ## Platform-specific
     /// - Web: Unsupported.
     pub title: String,
+    /// Sets the `Icon` used by winit when creating the window.
+    pub icon: Option<WindowIcon>,
     /// Controls when a frame is presented to the screen.
     #[doc(alias = "vsync")]
     /// The window's [`PresentMode`].
@@ -854,7 +894,7 @@ pub struct WindowDescriptor {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -873,6 +913,7 @@ impl Default for WindowDescriptor {
     fn default() -> Self {
         WindowDescriptor {
             title: "app".to_string(),
+            icon: None,
             width: 1280.,
             height: 720.,
             position: WindowPosition::Automatic,
