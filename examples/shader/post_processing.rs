@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
-        camera::{Camera, RenderTarget},
+        camera::RenderTarget,
         render_resource::{
             AsBindGroup, Extent3d, ShaderRef, TextureDescriptor, TextureDimension, TextureFormat,
             TextureUsages,
@@ -20,13 +20,12 @@ use bevy::{
 };
 
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
+    App::new()
+        .add_plugins(DefaultPlugins)
         .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
         .add_startup_system(setup)
-        .add_system(main_camera_cube_rotator_system);
-
-    app.run();
+        .add_system(main_camera_cube_rotator_system)
+        .run();
 }
 
 /// Marks the first camera cube (rendered to a texture.)
@@ -40,11 +39,8 @@ fn setup(
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    asset_server: Res<AssetServer>,
 ) {
-    asset_server.watch_for_changes().unwrap();
-
-    let window = windows.get_primary_mut().unwrap();
+    let window = windows.primary_mut();
     let size = Extent3d {
         width: window.physical_width(),
         height: window.physical_height(),

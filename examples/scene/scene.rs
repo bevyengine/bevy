@@ -6,6 +6,13 @@ use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 
 fn main() {
     App::new()
+        // This tells the AssetServer to watch for changes to assets.
+        // It enables our scenes to automatically reload in game when we modify their files.
+        // AssetServerSettings must be inserted before the DefaultPlugins are added.
+        .insert_resource(AssetServerSettings {
+            watch_for_changes: true,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
@@ -30,14 +37,14 @@ struct ComponentA {
 }
 
 // Some components have fields that cannot (or should not) be written to scene files. These can be
-// ignored with the #[reflect(ignore)] attribute. This is also generally where the `FromWorld`
+// ignored with the #[reflect(skip_serializing)] attribute. This is also generally where the `FromWorld`
 // trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
 // when you construct your component.
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 struct ComponentB {
     pub value: String,
-    #[reflect(ignore)]
+    #[reflect(skip_serializing)]
     pub _time_since_startup: Duration,
 }
 
@@ -65,10 +72,6 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         scene: asset_server.load(SCENE_FILE_PATH),
         ..default()
     });
-
-    // This tells the AssetServer to watch for changes to assets.
-    // It enables our scenes to automatically reload in game when we modify their files
-    asset_server.watch_for_changes().unwrap();
 }
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in

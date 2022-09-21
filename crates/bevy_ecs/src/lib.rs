@@ -57,7 +57,9 @@ mod tests {
         bundle::Bundle,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, ChangeTrackers, Changed, FilteredAccess, With, Without, WorldQuery},
+        query::{
+            Added, ChangeTrackers, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without,
+        },
         system::Resource,
         world::{Mut, World},
     };
@@ -138,10 +140,14 @@ mod tests {
             x: TableStored,
             y: SparseStored,
         }
+        let mut ids = Vec::new();
+        <Foo as Bundle>::component_ids(&mut world.components, &mut world.storages, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(
-            <Foo as Bundle>::component_ids(&mut world.components, &mut world.storages),
-            vec![
+            ids,
+            &[
                 world.init_component::<TableStored>(),
                 world.init_component::<SparseStored>(),
             ]
@@ -182,14 +188,18 @@ mod tests {
         #[derive(Bundle, PartialEq, Debug)]
         struct Nested {
             a: A,
-            #[bundle]
             foo: Foo,
             b: B,
         }
 
+        let mut ids = Vec::new();
+        <Nested as Bundle>::component_ids(&mut world.components, &mut world.storages, &mut |id| {
+            ids.push(id);
+        });
+
         assert_eq!(
-            <Nested as Bundle>::component_ids(&mut world.components, &mut world.storages),
-            vec![
+            ids,
+            &[
                 world.init_component::<A>(),
                 world.init_component::<TableStored>(),
                 world.init_component::<SparseStored>(),
@@ -902,7 +912,7 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: WorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)

@@ -293,7 +293,7 @@ impl<'w> EntityMut<'w> {
         // SAFETY: bundle components are iterated in order, which guarantees that the component type
         // matches
         let result = unsafe {
-            T::from_components(storages, |storages| {
+            T::from_components(storages, &mut |storages| {
                 let component_id = bundle_components.next().unwrap();
                 // SAFETY: entity location is valid and table row is removed below
                 take_component(

@@ -79,7 +79,16 @@ pub struct AssetServerInternal {
 ///
 /// The asset server is the primary way of loading assets in bevy. It keeps track of the load state
 /// of the assets it manages and can even reload them from the filesystem with
-/// [`AssetServer::watch_for_changes`]!
+/// ```
+/// # use bevy_asset::*;
+/// # use bevy_app::*;
+/// # let mut app = App::new();
+/// // AssetServerSettings must be inserted before adding the AssetPlugin or DefaultPlugins.
+/// app.insert_resource(AssetServerSettings {
+///     watch_for_changes: true,
+///     ..Default::default()
+/// });
+/// ```
 ///
 /// The asset server is a _resource_, so in order to access it in a system you need a `Res`
 /// accessor, like this:
@@ -167,13 +176,6 @@ impl AssetServer {
                 .insert(extension.to_string(), loader_index);
         }
         loaders.push(Arc::new(loader));
-    }
-
-    /// Enable watching of the filesystem for changes, if support is available, starting from after
-    /// the point of calling this function.
-    pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
-        self.asset_io().watch_for_changes()?;
-        Ok(())
     }
 
     /// Gets a strong handle for an asset with the provided id.

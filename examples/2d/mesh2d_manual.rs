@@ -294,7 +294,7 @@ pub fn extract_colored_mesh2d(
     query: Extract<Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility) in query.iter() {
+    for (entity, computed_visibility) in &query {
         if !computed_visibility.is_visible() {
             continue;
         }

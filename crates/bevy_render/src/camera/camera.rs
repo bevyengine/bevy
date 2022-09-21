@@ -17,7 +17,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, ParamSet, Query, Res},
 };
-use bevy_math::{Mat4, UVec2, Vec2, Vec3};
+use bevy_math::{Mat4, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
@@ -418,7 +418,8 @@ pub fn extract_cameras(
         if !camera.is_active {
             continue;
         }
-        if let (Some(viewport_size), Some(target_size)) = (
+        if let (Some((viewport_origin, _)), Some(viewport_size), Some(target_size)) = (
+            camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
             camera.physical_target_size(),
         ) {
@@ -437,8 +438,12 @@ pub fn extract_cameras(
                 ExtractedView {
                     projection: camera.projection_matrix(),
                     transform: *transform,
-                    width: viewport_size.x,
-                    height: viewport_size.y,
+                    viewport: UVec4::new(
+                        viewport_origin.x,
+                        viewport_origin.y,
+                        viewport_size.x,
+                        viewport_size.y,
+                    ),
                 },
                 visible_entities.clone(),
             ));
