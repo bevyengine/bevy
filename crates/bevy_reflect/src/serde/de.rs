@@ -37,7 +37,7 @@ trait TupleLikeInfo {
 
 impl StructLikeInfo for StructInfo {
     fn get_name(&self) -> &str {
-        self.type_name()
+        self.type_path()
     }
 
     fn get_field(&self, name: &str) -> Option<&NamedField> {
@@ -65,7 +65,7 @@ impl StructLikeInfo for StructVariantInfo {
 
 impl TupleLikeInfo for TupleInfo {
     fn get_name(&self) -> &str {
-        self.type_name()
+        self.type_path()
     }
 
     fn get_field(&self, index: usize) -> Option<&UnnamedField> {
@@ -267,7 +267,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        let type_name = self.registration.type_name();
+        let type_path = self.registration.type_path();
 
         // Handle both Value case and types that have a custom `ReflectDeserialize`
         if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
@@ -286,7 +286,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registry: self.registry,
                     },
                 )?;
-                dynamic_struct.set_name(struct_info.type_name().to_string());
+                dynamic_struct.set_name(struct_info.type_path().to_string());
                 Ok(Box::new(dynamic_struct))
             }
             TypeInfo::TupleStruct(tuple_struct_info) => {
@@ -299,7 +299,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registration: self.registration,
                     },
                 )?;
-                dynamic_tuple_struct.set_name(tuple_struct_info.type_name().to_string());
+                dynamic_tuple_struct.set_name(tuple_struct_info.type_path().to_string());
                 Ok(Box::new(dynamic_tuple_struct))
             }
             TypeInfo::List(list_info) => {
@@ -307,7 +307,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     list_info,
                     registry: self.registry,
                 })?;
-                dynamic_list.set_name(list_info.type_name().to_string());
+                dynamic_list.set_name(list_info.type_path().to_string());
                 Ok(Box::new(dynamic_list))
             }
             TypeInfo::Array(array_info) => {
@@ -318,7 +318,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registry: self.registry,
                     },
                 )?;
-                dynamic_array.set_name(array_info.type_name().to_string());
+                dynamic_array.set_name(array_info.type_path().to_string());
                 Ok(Box::new(dynamic_array))
             }
             TypeInfo::Map(map_info) => {
@@ -326,7 +326,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     map_info,
                     registry: self.registry,
                 })?;
-                dynamic_map.set_name(map_info.type_name().to_string());
+                dynamic_map.set_name(map_info.type_path().to_string());
                 Ok(Box::new(dynamic_map))
             }
             TypeInfo::Tuple(tuple_info) => {
@@ -337,12 +337,12 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         registry: self.registry,
                     },
                 )?;
-                dynamic_tuple.set_name(tuple_info.type_name().to_string());
+                dynamic_tuple.set_name(tuple_info.type_path().to_string());
                 Ok(Box::new(dynamic_tuple))
             }
             TypeInfo::Enum(enum_info) => {
-                let type_name = enum_info.type_name();
-                let mut dynamic_enum = if type_name.starts_with("core::option::Option") {
+                let type_path = enum_info.type_path();
+                let mut dynamic_enum = if type_path.starts_with("core::option::Option") {
                     deserializer.deserialize_option(OptionVisitor {
                         enum_info,
                         registry: self.registry,
@@ -358,14 +358,14 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         },
                     )?
                 };
-                dynamic_enum.set_name(type_name.to_string());
+                dynamic_enum.set_name(type_path.to_string());
                 Ok(Box::new(dynamic_enum))
             }
             TypeInfo::Value(_) => {
                 // This case should already be handled
                 Err(de::Error::custom(format_args!(
                     "the TypeRegistration for {} doesn't have ReflectDeserialize",
-                    type_name
+                    type_path
                 )))
             }
             TypeInfo::Dynamic(_) => {
@@ -373,7 +373,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 // fields are and would rely on the deserializer to determine them (e.g. `i32` vs `i64`)
                 Err(de::Error::custom(format_args!(
                     "cannot deserialize arbitrary dynamic type {}",
-                    type_name
+                    type_path
                 )))
             }
         }
@@ -425,10 +425,10 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
                 de::Error::custom(format_args!(
                     "no field at index {} on tuple {}",
                     index,
-                    self.tuple_struct_info.type_name(),
+                    self.tuple_struct_info.type_path(),
                 ))
             })?;
-            get_registration(field.type_id(), field.type_name(), self.registry)
+            get_registration(field.type_id(), field.type_path(), self.registry)
         };
 
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
@@ -497,7 +497,7 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
         let mut vec = Vec::with_capacity(seq.size_hint().unwrap_or_default());
         let registration = get_registration(
             self.array_info.item_type_id(),
-            self.array_info.item_type_name(),
+            self.array_info.item_type_path(),
             self.registry,
         )?;
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
@@ -537,7 +537,7 @@ impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
         let mut list = DynamicList::default();
         let registration = get_registration(
             self.list_info.item_type_id(),
-            self.list_info.item_type_name(),
+            self.list_info.item_type_path(),
             self.registry,
         )?;
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
@@ -569,12 +569,12 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
         let mut dynamic_map = DynamicMap::default();
         let key_registration = get_registration(
             self.map_info.key_type_id(),
-            self.map_info.key_type_name(),
+            self.map_info.key_type_path(),
             self.registry,
         )?;
         let value_registration = get_registration(
             self.map_info.value_type_id(),
-            self.map_info.value_type_name(),
+            self.map_info.value_type_path(),
             self.registry,
         )?;
         while let Some(key) = map.next_key_seed(TypedReflectDeserializer {
@@ -633,7 +633,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
                 let field = tuple_info.field_at(0).unwrap();
                 let registration =
-                    get_registration(field.type_id(), field.type_name(), self.registry)?;
+                    get_registration(field.type_id(), field.type_path(), self.registry)?;
                 let value = variant.newtype_variant_seed(TypedReflectDeserializer {
                     registration,
                     registry: self.registry,
@@ -708,7 +708,7 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected option value of type ")?;
-        formatter.write_str(self.enum_info.type_name())
+        formatter.write_str(self.enum_info.type_path())
     }
 
     fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -720,7 +720,7 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
                 let field = tuple_info.field_at(0).unwrap();
                 let registration =
-                    get_registration(field.type_id(), field.type_name(), self.registry)?;
+                    get_registration(field.type_id(), field.type_path(), self.registry)?;
                 let de = TypedReflectDeserializer {
                     registration,
                     registry: self.registry,
@@ -767,7 +767,7 @@ where
                 ExpectedValues(fields.collect())
             ))
         })?;
-        let registration = get_registration(field.type_id(), field.type_name(), registry)?;
+        let registration = get_registration(field.type_id(), field.type_path(), registry)?;
         let value = map.next_value_seed(TypedReflectDeserializer {
             registration,
             registry,
@@ -794,7 +794,7 @@ where
         let field = info.get_field(index).ok_or_else(|| {
             Error::invalid_length(index, &info.get_field_len().to_string().as_str())
         })?;
-        get_registration(field.type_id(), field.type_name(), registry)
+        get_registration(field.type_id(), field.type_path(), registry)
     };
 
     while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
@@ -822,13 +822,13 @@ where
 
 fn get_registration<'a, E: Error>(
     type_id: TypeId,
-    type_name: &str,
+    type_path: &str,
     registry: &'a TypeRegistry,
 ) -> Result<&'a TypeRegistration, E> {
     let registration = registry.get(type_id).ok_or_else(|| {
         Error::custom(format_args!(
             "no registration found for type `{}`",
-            type_name
+            type_path
         ))
     })?;
     Ok(registration)
@@ -1064,7 +1064,7 @@ mod tests {
 
         // === Normal === //
         let input = r#"{
-            "bevy_reflect::serde::de::tests::should_deserialize_option::OptionTest": (
+            "bevy_reflect::serde::de::tests::OptionTest": (
                 none: None,
                 simple: Some("Hello world!"),
                 complex: Some((
@@ -1086,7 +1086,7 @@ mod tests {
         let input = r#"
         #![enable(implicit_some)]
         {
-            "bevy_reflect::serde::de::tests::should_deserialize_option::OptionTest": (
+            "bevy_reflect::serde::de::tests::OptionTest": (
                 none: None,
                 simple: "Hello world!",
                 complex: (
@@ -1123,7 +1123,7 @@ mod tests {
 
         // === Unit Variant === //
         let input = r#"{
-    "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum": Unit,
+    "bevy_reflect::serde::de::tests::MyEnum": Unit,
 }"#;
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
@@ -1134,7 +1134,7 @@ mod tests {
 
         // === NewType Variant === //
         let input = r#"{
-    "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum": NewType(123),
+    "bevy_reflect::serde::de::tests::MyEnum": NewType(123),
 }"#;
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
@@ -1145,7 +1145,7 @@ mod tests {
 
         // === Tuple Variant === //
         let input = r#"{
-    "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum": Tuple(1.23, 3.21),
+    "bevy_reflect::serde::de::tests::MyEnum": Tuple(1.23, 3.21),
 }"#;
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
@@ -1156,7 +1156,7 @@ mod tests {
 
         // === Struct Variant === //
         let input = r#"{
-    "bevy_reflect::serde::de::tests::enum_should_deserialize::MyEnum": Struct(
+    "bevy_reflect::serde::de::tests::MyEnum": Struct(
         value: "I <3 Enums",
     ),
 }"#;
