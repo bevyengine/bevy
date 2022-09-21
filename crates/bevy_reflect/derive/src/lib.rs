@@ -572,6 +572,22 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// pub struct Wrapper<T: Default + Clone>(RemoteType<T>);
 /// ```
 ///
+/// # `FromReflect`
+///
+/// Because of the way this code modifies the item it's defined on, it is not possible to implement `FromReflect`
+/// using a simple derive macro.
+/// Instead, you will need to opt-in to to it by adding `FromReflect`
+/// (just the identifier, no need to import or qualify the actual type)
+/// as the last item in the attribute's argument list:
+///
+/// ```ignore
+/// #[reflect_remote(foo::Foo, FromReflect)]
+/// struct FooWrapper;
+/// ```
+///
+/// This is the _only_ trait this works with. You cannot derive any other traits using this method.
+/// For those, use regular derive macros below this one.
+///
 #[proc_macro_attribute]
 pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
     remote::reflect_remote(args, input)

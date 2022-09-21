@@ -553,8 +553,13 @@ impl<'a> StructField<'a> {
     ///
     /// Normally this is just the field's defined type.
     /// However, this can be adjusted to use a different type, like for representing remote types.
+    /// In those cases, the returned value is the remote wrapper type.
     pub fn reflected_type(&self) -> &Type {
         self.attrs.remote.as_ref().unwrap_or(&self.data.ty)
+    }
+
+    pub fn attrs(&self) -> &FieldAttributes {
+        &self.attrs
     }
 }
 
@@ -736,7 +741,7 @@ impl<'a> ReflectEnum<'a> {
             self.meta(),
             where_clause_options,
             None,
-            Some(self.active_fields().map(|field| &field.data.ty)),
+            Some(self.active_fields().map(StructField::reflected_type)),
         )
     }
 

@@ -84,7 +84,7 @@ pub(crate) trait VariantBuilder: Sized {
         let alias = field.alias;
         let field_constructor = self.construct_field(field);
 
-        match &field.field.attrs.default {
+        let construction = match &field.field.attrs.default {
             DefaultBehavior::Func(path) => quote! {
                 if let #FQOption::Some(#alias) = #field_accessor {
                     #field_constructor
@@ -109,6 +109,17 @@ pub(crate) trait VariantBuilder: Sized {
                     #field_constructor
                 }}
             }
+        };
+
+        if field.field.attrs().remote.is_some() {
+            quote! {
+                // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
+                unsafe {
+                    ::core::mem::transmute(#construction)
+                }
+            }
+        } else {
+            construction
         }
     }
 
@@ -200,7 +211,7 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
 
     fn construct_field(&self, field: VariantField) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
-        let field_ty = &field.field.data.ty;
+        let field_ty = field.field.reflected_type();
         let alias = field.alias;
 
         quote! {
@@ -251,7 +262,7 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
     fn construct_field(&self, field: VariantField) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
         let alias = field.alias;
-        let field_ty = &field.field.data.ty;
+        let field_ty = field.field.reflected_type();
 
         quote! {
             <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)

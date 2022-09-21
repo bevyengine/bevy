@@ -2488,8 +2488,6 @@ bevy_reflect::tests::Test {
 
         // === Remote Wrapper === //
         #[reflect_remote(external_crate::TheirType)]
-        // TODO: Remove
-        #[reflect(from_reflect = false)]
         #[derive(Debug, Default)]
         #[reflect(Debug, Default)]
         struct MyType {
@@ -2510,7 +2508,6 @@ bevy_reflect::tests::Test {
 
         // === Struct Container === //
         #[derive(Reflect, Debug)]
-        // TODO: Remove
         #[reflect(from_reflect = false)]
         struct ContainerStruct {
             #[reflect(remote = "MyType")]
@@ -2538,8 +2535,6 @@ bevy_reflect::tests::Test {
 
         // === Tuple Struct Container === //
         #[derive(Reflect, Debug)]
-        // TODO: Remove
-        #[reflect(from_reflect = false)]
         struct ContainerTupleStruct(#[reflect(remote = "MyType")] external_crate::TheirType);
 
         let mut patch = DynamicTupleStruct::default();
@@ -2558,6 +2553,73 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_reflect_remote_enum() {
+        mod external_crate {
+            #[derive(Debug, PartialEq, Eq)]
+            pub enum TheirType {
+                Unit,
+                Tuple(usize),
+                Struct { value: String },
+            }
+        }
+
+        // === Remote Wrapper === //
+        #[reflect_remote(external_crate::TheirType)]
+        #[derive(Debug)]
+        #[reflect(Debug)]
+        enum MyType {
+            Unit,
+            Tuple(usize),
+            Struct { value: String },
+        }
+
+        let mut patch = DynamicEnum::from(MyType(external_crate::TheirType::Tuple(123)));
+
+        let mut data = MyType(external_crate::TheirType::Unit);
+
+        assert_eq!(external_crate::TheirType::Unit, data.0);
+        data.apply(&patch);
+        assert_eq!(external_crate::TheirType::Tuple(123), data.0);
+
+        patch = DynamicEnum::from(MyType(external_crate::TheirType::Struct {
+            value: "Hello world!".to_string(),
+        }));
+
+        data.apply(&patch);
+        assert_eq!(
+            external_crate::TheirType::Struct {
+                value: "Hello world!".to_string()
+            },
+            data.0
+        );
+
+        // === Enum Container === //
+        #[derive(Reflect, Debug, PartialEq)]
+        enum ContainerEnum {
+            Foo,
+            Bar {
+                #[reflect(remote = "MyType")]
+                their_type: external_crate::TheirType,
+            },
+        }
+
+        let patch = DynamicEnum::from(ContainerEnum::Bar {
+            their_type: external_crate::TheirType::Tuple(123),
+        });
+
+        let mut data = ContainerEnum::Foo;
+
+        assert_eq!(ContainerEnum::Foo, data);
+        data.apply(&patch);
+        assert_eq!(
+            ContainerEnum::Bar {
+                their_type: external_crate::TheirType::Tuple(123)
+            },
+            data
+        );
+    }
+
+    #[test]
     fn should_reflect_nested_remote_type() {
         mod external_crate {
             pub struct TheirOuter {
@@ -2567,16 +2629,12 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter)]
-        // TODO: Remove
-        #[reflect(from_reflect = false)]
         struct MyOuter {
             #[reflect(remote = "MyInner")]
             pub inner: external_crate::TheirInner,
         }
 
         #[reflect_remote(external_crate::TheirInner)]
-        // TODO: Remove
-        #[reflect(from_reflect = false)]
         struct MyInner(usize);
 
         let mut patch = DynamicStruct::default();
