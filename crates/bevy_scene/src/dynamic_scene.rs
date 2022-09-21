@@ -33,12 +33,12 @@ pub struct DynamicEntity {
 
 impl DynamicScene {
     /// Create a new dynamic scene from a given scene.
-    pub fn from_scene(scene: &Scene, type_registry: &TypeRegistryArc) -> Self {
+    pub fn from_scene(scene: &Scene, type_registry: &AppTypeRegistry) -> Self {
         Self::from_world(&scene.world, type_registry)
     }
 
     /// Create a new dynamic scene from a given world.
-    pub fn from_world(world: &World, type_registry: &TypeRegistryArc) -> Self {
+    pub fn from_world(world: &World, type_registry: &AppTypeRegistry) -> Self {
         let mut scene = DynamicScene::default();
         let type_registry = type_registry.read();
 
@@ -80,13 +80,13 @@ impl DynamicScene {
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
-    pub fn write_to_world(
+    pub fn write_to_world_with(
         &self,
         world: &mut World,
         entity_map: &mut EntityMap,
+        type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.resource::<AppTypeRegistry>().clone();
-        let type_registry = registry.read();
+        let type_registry = type_registry.read();
 
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`

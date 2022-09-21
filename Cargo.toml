@@ -455,11 +455,21 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "edit_gltf_scene"
+path = "examples/3d/edit_gltf_scene.rs"
+
+[package.metadata.example.edit_gltf_scene]
+name = "Edit a glTF Scene"
+description = "Edit a scene from a glTF file, before spawning it"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "update_gltf_scene"
 path = "examples/3d/update_gltf_scene.rs"
 
 [package.metadata.example.update_gltf_scene]
-name = "Update glTF Scene"
+name = "Update a glTF Scene"
 description = "Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene"
 category = "3D Rendering"
 wasm = true
