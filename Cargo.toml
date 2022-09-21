@@ -997,6 +997,12 @@ wasm = false
 name = "gamepad_stick_input"
 path = "examples/input/gamepad_stick_input.rs"
 
+[package.metadata.example.gamepad_stick_input]
+name = "Gamepad Stick Input"
+description = "Displays gamepad stick input graphically"
+category = "Input"
+wasm = false
+
 [[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
