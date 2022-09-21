@@ -417,7 +417,7 @@ fn spawn_tree(
             };
 
             // only insert the components necessary for the transform propagation
-            cmd.insert(transform).insert(GlobalTransform::default());
+            cmd.insert((transform, GlobalTransform::default()));
 
             cmd.id()
         };

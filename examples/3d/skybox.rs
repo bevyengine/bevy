@@ -75,12 +75,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let skybox_handle = asset_server.load(CUBEMAPS[0].0);
     // camera
-    commands
-        .spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
-        })
-        .insert(CameraController::default());
+        },
+        CameraController::default(),
+    ));
 
     // ambient light
     // NOTE: The ambient light is used to scale how bright the environment map is so with a bright

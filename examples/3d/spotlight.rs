@@ -44,8 +44,8 @@ fn setup(
         let x = rng.gen_range(-5.0..5.0);
         let y = rng.gen_range(-5.0..5.0);
         let z = rng.gen_range(-5.0..5.0);
-        commands
-            .spawn(PbrBundle {
+        commands.spawn((
+            PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                 material: materials.add(StandardMaterial {
                     base_color: Color::BLUE,
@@ -53,8 +53,9 @@ fn setup(
                 }),
                 transform: Transform::from_xyz(x, y, z),
                 ..default()
-            })
-            .insert(Movable);
+            },
+            Movable,
+        ));
     }
 
     // ambient light
@@ -95,8 +96,8 @@ fn setup(
                         }),
                         ..default()
                     });
-                    builder
-                        .spawn(PbrBundle {
+                    builder.spawn((
+                        PbrBundle {
                             transform: Transform::from_translation(Vec3::Z * -0.1),
                             mesh: meshes.add(Mesh::from(shape::UVSphere {
                                 radius: 0.1,
@@ -108,8 +109,9 @@ fn setup(
                                 ..default()
                             }),
                             ..default()
-                        })
-                        .insert(NotShadowCaster);
+                        },
+                        NotShadowCaster,
+                    ));
                 });
         }
     }

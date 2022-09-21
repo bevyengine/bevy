@@ -335,7 +335,7 @@ pub struct WorldChildBuilder<'w> {
 
 impl<'w> WorldChildBuilder<'w> {
     /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
-    pub fn spawn_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
+    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
         let entity = self.world.spawn((bundle, Parent(parent_entity))).id();
         push_child_unchecked(self.world, parent_entity, entity);
@@ -349,8 +349,17 @@ impl<'w> WorldChildBuilder<'w> {
         self.world.entity_mut(entity)
     }
 
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `spawn` instead, which now accepts bundles, components, and tuples of bundles and components."
+    )]
+    /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
+    pub fn spawn_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
+        self.spawn(bundle)
+    }
+
     /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`WorldChildBuilder`] which adds the [`Parent`] component to it.
-    pub fn spawn(&mut self) -> EntityMut<'_> {
+    pub fn spawn_empty(&mut self) -> EntityMut<'_> {
         let parent_entity = self.parent_entity();
         let entity = self.world.spawn(Parent(parent_entity)).id();
         push_child_unchecked(self.world, parent_entity, entity);

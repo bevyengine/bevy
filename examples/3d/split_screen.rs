@@ -47,16 +47,17 @@ fn setup(
     });
 
     // Left Camera
-    commands
-        .spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(0.0, 200.0, -100.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
-        })
-        .insert(LeftCamera);
+        },
+        LeftCamera,
+    ));
 
     // Right Camera
-    commands
-        .spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(100.0, 100., 150.0).looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera {
                 // Renders the right camera after the left camera, which has a default priority of 0
@@ -69,8 +70,9 @@ fn setup(
                 ..default()
             },
             ..default()
-        })
-        .insert(RightCamera);
+        },
+        RightCamera,
+    ));
 }
 
 #[derive(Component)]

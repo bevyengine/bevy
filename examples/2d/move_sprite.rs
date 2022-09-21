@@ -18,13 +18,14 @@ enum Direction {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    commands
-        .spawn(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
             transform: Transform::from_xyz(100., 0., 0.),
             ..default()
-        })
-        .insert(Direction::Up);
+        },
+        Direction::Up,
+    ));
 }
 
 /// The sprite is animated by changing its translation depending on the time that has passed since

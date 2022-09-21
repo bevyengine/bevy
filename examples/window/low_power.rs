@@ -143,13 +143,14 @@ pub(crate) mod test_setup {
         mut event: EventWriter<RequestRedraw>,
         asset_server: Res<AssetServer>,
     ) {
-        commands
-            .spawn(PbrBundle {
+        commands.spawn((
+            PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
                 ..default()
-            })
-            .insert(Rotator);
+            },
+            Rotator,
+        ));
         commands.spawn(PointLightBundle {
             point_light: PointLight {
                 intensity: 1500.0,
@@ -164,47 +165,46 @@ pub(crate) mod test_setup {
             ..default()
         });
         event.send(RequestRedraw);
-        commands
-            .spawn(
-                TextBundle::from_sections([
-                    TextSection::new(
-                        "Press spacebar to cycle modes\n",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 50.0,
-                            color: Color::WHITE,
-                        },
-                    ),
-                    TextSection::from_style(TextStyle {
+        commands.spawn((
+            TextBundle::from_sections([
+                TextSection::new(
+                    "Press spacebar to cycle modes\n",
+                    TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
-                        color: Color::GREEN,
-                    }),
-                    TextSection::new(
-                        "\nFrame: ",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 50.0,
-                            color: Color::YELLOW,
-                        },
-                    ),
-                    TextSection::from_style(TextStyle {
+                        color: Color::WHITE,
+                    },
+                ),
+                TextSection::from_style(TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 50.0,
+                    color: Color::GREEN,
+                }),
+                TextSection::new(
+                    "\nFrame: ",
+                    TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
                         color: Color::YELLOW,
-                    }),
-                ])
-                .with_style(Style {
-                    align_self: AlignSelf::FlexStart,
-                    position_type: PositionType::Absolute,
-                    position: UiRect {
-                        top: Val::Px(5.0),
-                        left: Val::Px(5.0),
-                        ..default()
                     },
-                    ..default()
+                ),
+                TextSection::from_style(TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 50.0,
+                    color: Color::YELLOW,
                 }),
-            )
-            .insert(ModeText);
+            ])
+            .with_style(Style {
+                align_self: AlignSelf::FlexStart,
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    top: Val::Px(5.0),
+                    left: Val::Px(5.0),
+                    ..default()
+                },
+                ..default()
+            }),
+            ModeText,
+        ));
     }
 }

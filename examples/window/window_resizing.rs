@@ -45,15 +45,17 @@ fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
     })
     .with_children(|root| {
         // Text where we display current resolution
-        root.spawn(TextBundle::from_section(
-            "Resolution",
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 50.0,
-                color: Color::BLACK,
-            },
-        ))
-        .insert(ResolutionText);
+        root.spawn((
+            TextBundle::from_section(
+                "Resolution",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: 50.0,
+                    color: Color::BLACK,
+                },
+            ),
+            ResolutionText,
+        ));
     });
 }
 

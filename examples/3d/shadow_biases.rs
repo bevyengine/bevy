@@ -90,13 +90,14 @@ fn setup(
     });
 
     // camera
-    commands
-        .spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(-1.0, 1.0, 1.0)
                 .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
             ..default()
-        })
-        .insert(CameraController::default());
+        },
+        CameraController::default(),
+    ));
 
     for z_i32 in -spawn_plane_depth as i32..=0 {
         commands.spawn(PbrBundle {

@@ -65,8 +65,8 @@ fn setup(
             let mut timer = Timer::from_seconds(0.1, true);
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
-            commands
-                .spawn(SpriteSheetBundle {
+            commands.spawn((
+                SpriteSheetBundle {
                     texture_atlas: texture_atlas_handle.clone(),
                     transform: Transform {
                         translation,
@@ -78,8 +78,9 @@ fn setup(
                         ..default()
                     },
                     ..default()
-                })
-                .insert(AnimationTimer(timer));
+                },
+                AnimationTimer(timer),
+            ));
         }
     }
 }

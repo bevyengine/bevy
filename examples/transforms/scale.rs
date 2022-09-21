@@ -42,14 +42,15 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn a cube to scale.
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_rotation(Quat::from_rotation_y(PI / 4.0)),
             ..default()
-        })
-        .insert(Scaling::new());
+        },
+        Scaling::new(),
+    ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn(Camera3dBundle {

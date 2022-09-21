@@ -128,21 +128,23 @@ fn setup(
         ))
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
-            p.spawn(SpatialBundle::VISIBLE_IDENTITY)
+            p.spawn((
+                SpatialBundle::VISIBLE_IDENTITY,
                 // Add the Name component
-                .insert(orbit_controller)
-                .with_children(|p| {
-                    // The satellite, placed at a distance of the planet
-                    p.spawn((
-                        PbrBundle {
-                            transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                            mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                            material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
-                            ..default()
-                        },
-                        // Add the Name component
-                        satellite,
-                    ));
-                });
+                orbit_controller,
+            ))
+            .with_children(|p| {
+                // The satellite, placed at a distance of the planet
+                p.spawn((
+                    PbrBundle {
+                        transform: Transform::from_xyz(1.5, 0.0, 0.0),
+                        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                        material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
+                        ..default()
+                    },
+                    // Add the Name component
+                    satellite,
+                ));
+            });
         });
 }

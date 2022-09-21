@@ -81,22 +81,25 @@ fn spawn_button(
 ) {
     let width = 90.0 / total;
     commands
-        .spawn(ButtonBundle {
-            style: Style {
-                size: Size::new(Val::Percent(width), Val::Percent(width)),
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    size: Size::new(Val::Percent(width), Val::Percent(width)),
 
-                position: UiRect {
-                    bottom: Val::Percent(100.0 / total * i as f32),
-                    left: Val::Percent(100.0 / total * j as f32),
+                    position: UiRect {
+                        bottom: Val::Percent(100.0 / total * i as f32),
+                        left: Val::Percent(100.0 / total * j as f32),
+                        ..default()
+                    },
+                    align_items: AlignItems::Center,
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
-                align_items: AlignItems::Center,
-                position_type: PositionType::Absolute,
+                color,
                 ..default()
             },
-            color,
-            ..default()
-        })
+            IdleColor(color),
+        ))
         .with_children(|commands| {
             commands.spawn(TextBundle::from_section(
                 format!("{i}, {j}"),
@@ -106,6 +109,5 @@ fn spawn_button(
                     color: Color::rgb(0.2, 0.2, 0.2),
                 },
             ));
-        })
-        .insert(IdleColor(color));
+        });
 }

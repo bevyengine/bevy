@@ -38,14 +38,15 @@ fn setup(
 ) {
     // Add a cube to visualize translation.
     let entity_spawn = Vec3::ZERO;
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_translation(entity_spawn),
             ..default()
-        })
-        .insert(Movable::new(entity_spawn));
+        },
+        Movable::new(entity_spawn),
+    ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn(Camera3dBundle {

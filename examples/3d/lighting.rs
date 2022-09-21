@@ -62,8 +62,8 @@ fn setup(
     });
 
     // cube
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(StandardMaterial {
                 base_color: Color::PINK,
@@ -71,11 +71,12 @@ fn setup(
             }),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
             ..default()
-        })
-        .insert(Movable);
+        },
+        Movable,
+    ));
     // sphere
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius: 0.5,
                 ..default()
@@ -86,8 +87,9 @@ fn setup(
             }),
             transform: Transform::from_xyz(1.5, 1.0, 1.5),
             ..default()
-        })
-        .insert(Movable);
+        },
+        Movable,
+    ));
 
     // ambient light
     commands.insert_resource(AmbientLight {

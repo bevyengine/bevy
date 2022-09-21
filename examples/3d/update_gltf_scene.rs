@@ -33,12 +33,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // Spawn a second scene, and add a tag component to be able to target it later
-    commands
-        .spawn(SceneBundle {
+    commands.spawn((
+        SceneBundle {
             scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
             ..default()
-        })
-        .insert(MovedScene);
+        },
+        MovedScene,
+    ));
 }
 
 // This system will move all entities that are descendants of MovedScene (which will be all entities spawned in the scene)

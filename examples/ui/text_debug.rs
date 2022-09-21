@@ -69,64 +69,63 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
     );
-    commands
-        .spawn(
-            TextBundle::from_sections([
-                TextSection::new(
-                    "This text changes in the bottom right",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::WHITE,
-                    },
-                ),
-                TextSection::new(
-                    "\nThis text changes in the bottom right - ",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::RED,
-                    },
-                ),
-                TextSection::from_style(TextStyle {
+    commands.spawn((
+        TextBundle::from_sections([
+            TextSection::new(
+                "This text changes in the bottom right",
+                TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    color: Color::ORANGE_RED,
-                }),
-                TextSection::new(
-                    " fps, ",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::YELLOW,
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: font.clone(),
-                    font_size: 30.0,
-                    color: Color::GREEN,
-                }),
-                TextSection::new(
-                    " ms/frame",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::BLUE,
-                    },
-                ),
-            ])
-            .with_style(Style {
-                align_self: AlignSelf::FlexEnd,
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    bottom: Val::Px(5.0),
-                    right: Val::Px(15.0),
-                    ..default()
+                    color: Color::WHITE,
                 },
-                ..default()
+            ),
+            TextSection::new(
+                "\nThis text changes in the bottom right - ",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::RED,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: font.clone(),
+                font_size: 30.0,
+                color: Color::ORANGE_RED,
             }),
-        )
-        .insert(TextChanges);
+            TextSection::new(
+                " fps, ",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::YELLOW,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: font.clone(),
+                font_size: 30.0,
+                color: Color::GREEN,
+            }),
+            TextSection::new(
+                " ms/frame",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::BLUE,
+                },
+            ),
+        ])
+        .with_style(Style {
+            align_self: AlignSelf::FlexEnd,
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                bottom: Val::Px(5.0),
+                right: Val::Px(15.0),
+                ..default()
+            },
+            ..default()
+        }),
+        TextChanges,
+    ));
     commands.spawn(
         TextBundle::from_section(
             "This\ntext has\nline breaks and also a set width in the bottom left",

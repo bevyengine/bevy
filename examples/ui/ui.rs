@@ -122,17 +122,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // Moving panel
                             parent
-                                .spawn(NodeBundle {
-                                    style: Style {
-                                        flex_direction: FlexDirection::ColumnReverse,
-                                        flex_grow: 1.0,
-                                        max_size: Size::UNDEFINED,
+                                .spawn((
+                                    NodeBundle {
+                                        style: Style {
+                                            flex_direction: FlexDirection::ColumnReverse,
+                                            flex_grow: 1.0,
+                                            max_size: Size::UNDEFINED,
+                                            ..default()
+                                        },
+                                        color: Color::NONE.into(),
                                         ..default()
                                     },
-                                    color: Color::NONE.into(),
-                                    ..default()
-                                })
-                                .insert(ScrollingList::default())
+                                    ScrollingList::default(),
+                                ))
                                 .with_children(|parent| {
                                     // List items
                                     for i in 0..30 {

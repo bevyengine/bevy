@@ -24,14 +24,15 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn a cube to rotate.
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
-        })
-        .insert(Rotatable { speed: 0.3 });
+        },
+        Rotatable { speed: 0.3 },
+    ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn(Camera3dBundle {

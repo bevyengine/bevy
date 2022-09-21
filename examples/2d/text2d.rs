@@ -35,27 +35,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
-    commands
-        .spawn(Text2dBundle {
+    commands.spawn((
+        Text2dBundle {
             text: Text::from_section("translation", text_style.clone())
                 .with_alignment(text_alignment),
             ..default()
-        })
-        .insert(AnimateTranslation);
+        },
+        AnimateTranslation,
+    ));
     // Demonstrate changing rotation
-    commands
-        .spawn(Text2dBundle {
+    commands.spawn((
+        Text2dBundle {
             text: Text::from_section("rotation", text_style.clone()).with_alignment(text_alignment),
             ..default()
-        })
-        .insert(AnimateRotation);
+        },
+        AnimateRotation,
+    ));
     // Demonstrate changing scale
-    commands
-        .spawn(Text2dBundle {
+    commands.spawn((
+        Text2dBundle {
             text: Text::from_section("scale", text_style.clone()).with_alignment(text_alignment),
             ..default()
-        })
-        .insert(AnimateScale);
+        },
+        AnimateScale,
+    ));
     // Demonstrate text wrapping
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);

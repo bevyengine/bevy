@@ -38,8 +38,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Add an object (sphere) for visualizing scaling.
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Icosphere {
                 radius: 3.0,
                 subdivisions: 32,
@@ -47,12 +47,13 @@ fn setup(
             material: materials.add(Color::YELLOW.into()),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
-        })
-        .insert(Center {
+        },
+        Center {
             max_size: 1.0,
             min_size: 0.1,
             scale_factor: 0.05,
-        });
+        },
+    ));
 
     // Add the cube to visualize rotation and translation.
     // This cube will circle around the center_sphere
@@ -61,18 +62,19 @@ fn setup(
     // and rotate it so it will be able to move around the sphere and not towards it.
     let cube_spawn =
         Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(PI / 2.));
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
             transform: cube_spawn,
             ..default()
-        })
-        .insert(CubeState {
+        },
+        CubeState {
             start_pos: cube_spawn.translation,
             move_speed: 2.0,
             turn_speed: 0.2,
-        });
+        },
+    ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
     commands.spawn(Camera3dBundle {

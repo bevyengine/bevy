@@ -81,8 +81,8 @@ mod splash {
     fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let icon = asset_server.load("branding/icon.png");
         // Display the logo
-        commands
-            .spawn(ImageBundle {
+        commands.spawn((
+            ImageBundle {
                 style: Style {
                     // This will center the logo
                     margin: UiRect::all(Val::Auto),
@@ -92,8 +92,9 @@ mod splash {
                 },
                 image: UiImage(icon),
                 ..default()
-            })
-            .insert(OnSplashScreen);
+            },
+            OnSplashScreen,
+        ));
         // Insert the timer as a resource
         commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, false)));
     }
@@ -146,23 +147,25 @@ mod game {
 
         commands
             // First create a `NodeBundle` for centering what we want to display
-            .spawn(NodeBundle {
-                style: Style {
-                    // This will center the current node
-                    margin: UiRect::all(Val::Auto),
-                    // This will display its children in a column, from top to bottom. Unlike
-                    // in Flexbox, Bevy origin is on bottom left, so the vertical axis is reversed
-                    flex_direction: FlexDirection::ColumnReverse,
-                    // `align_items` will align children on the cross axis. Here the main axis is
-                    // vertical (column), so the cross axis is horizontal. This will center the
-                    // children
-                    align_items: AlignItems::Center,
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        // This will center the current node
+                        margin: UiRect::all(Val::Auto),
+                        // This will display its children in a column, from top to bottom. Unlike
+                        // in Flexbox, Bevy origin is on bottom left, so the vertical axis is reversed
+                        flex_direction: FlexDirection::ColumnReverse,
+                        // `align_items` will align children on the cross axis. Here the main axis is
+                        // vertical (column), so the cross axis is horizontal. This will center the
+                        // children
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: Color::BLACK.into(),
                     ..default()
                 },
-                color: Color::BLACK.into(),
-                ..default()
-            })
-            .insert(OnGameScreen)
+                OnGameScreen,
+            ))
             .with_children(|parent| {
                 // Display two lines of text, the second one with the current settings
                 parent.spawn(
@@ -413,17 +416,19 @@ mod menu {
         };
 
         commands
-            .spawn(NodeBundle {
-                style: Style {
-                    margin: UiRect::all(Val::Auto),
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_items: AlignItems::Center,
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        margin: UiRect::all(Val::Auto),
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: Color::CRIMSON.into(),
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
-            })
-            .insert(OnMainMenuScreen)
+                OnMainMenuScreen,
+            ))
             .with_children(|parent| {
                 // Display the game name
                 parent.spawn(
@@ -446,12 +451,14 @@ mod menu {
                 // - settings
                 // - quit
                 parent
-                    .spawn(ButtonBundle {
-                        style: button_style.clone(),
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::Play)
+                    .spawn((
+                        ButtonBundle {
+                            style: button_style.clone(),
+                            color: NORMAL_BUTTON.into(),
+                            ..default()
+                        },
+                        MenuButtonAction::Play,
+                    ))
                     .with_children(|parent| {
                         let icon = asset_server.load("textures/Game Icons/right.png");
                         parent.spawn(ImageBundle {
@@ -465,12 +472,14 @@ mod menu {
                         ));
                     });
                 parent
-                    .spawn(ButtonBundle {
-                        style: button_style.clone(),
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::Settings)
+                    .spawn((
+                        ButtonBundle {
+                            style: button_style.clone(),
+                            color: NORMAL_BUTTON.into(),
+                            ..default()
+                        },
+                        MenuButtonAction::Settings,
+                    ))
                     .with_children(|parent| {
                         let icon = asset_server.load("textures/Game Icons/wrench.png");
                         parent.spawn(ImageBundle {
@@ -484,12 +493,14 @@ mod menu {
                         ));
                     });
                 parent
-                    .spawn(ButtonBundle {
-                        style: button_style,
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::Quit)
+                    .spawn((
+                        ButtonBundle {
+                            style: button_style,
+                            color: NORMAL_BUTTON.into(),
+                            ..default()
+                        },
+                        MenuButtonAction::Quit,
+                    ))
                     .with_children(|parent| {
                         let icon = asset_server.load("textures/Game Icons/exitRight.png");
                         parent.spawn(ImageBundle {
@@ -518,17 +529,19 @@ mod menu {
         };
 
         commands
-            .spawn(NodeBundle {
-                style: Style {
-                    margin: UiRect::all(Val::Auto),
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_items: AlignItems::Center,
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        margin: UiRect::all(Val::Auto),
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: Color::CRIMSON.into(),
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
-            })
-            .insert(OnSettingsMenuScreen)
+                OnSettingsMenuScreen,
+            ))
             .with_children(|parent| {
                 for (action, text) in [
                     (MenuButtonAction::SettingsDisplay, "Display"),
@@ -536,12 +549,14 @@ mod menu {
                     (MenuButtonAction::BackToMainMenu, "Back"),
                 ] {
                     parent
-                        .spawn(ButtonBundle {
-                            style: button_style.clone(),
-                            color: NORMAL_BUTTON.into(),
-                            ..default()
-                        })
-                        .insert(action)
+                        .spawn((
+                            ButtonBundle {
+                                style: button_style.clone(),
+                                color: NORMAL_BUTTON.into(),
+                                ..default()
+                            },
+                            action,
+                        ))
                         .with_children(|parent| {
                             parent.spawn(TextBundle::from_section(text, button_text_style.clone()));
                         });
@@ -568,17 +583,19 @@ mod menu {
         };
 
         commands
-            .spawn(NodeBundle {
-                style: Style {
-                    margin: UiRect::all(Val::Auto),
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_items: AlignItems::Center,
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        margin: UiRect::all(Val::Auto),
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: Color::CRIMSON.into(),
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
-            })
-            .insert(OnDisplaySettingsMenuScreen)
+                OnDisplaySettingsMenuScreen,
+            ))
             .with_children(|parent| {
                 // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
                 // use the default value, `FlexDirection::Row`, from left to right.
@@ -624,12 +641,14 @@ mod menu {
                     });
                 // Display the back button to return to the settings screen
                 parent
-                    .spawn(ButtonBundle {
-                        style: button_style,
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::BackToSettings)
+                    .spawn((
+                        ButtonBundle {
+                            style: button_style,
+                            color: NORMAL_BUTTON.into(),
+                            ..default()
+                        },
+                        MenuButtonAction::BackToSettings,
+                    ))
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section("Back", button_text_style));
                     });
@@ -655,17 +674,19 @@ mod menu {
         };
 
         commands
-            .spawn(NodeBundle {
-                style: Style {
-                    margin: UiRect::all(Val::Auto),
-                    flex_direction: FlexDirection::ColumnReverse,
-                    align_items: AlignItems::Center,
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        margin: UiRect::all(Val::Auto),
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    color: Color::CRIMSON.into(),
                     ..default()
                 },
-                color: Color::CRIMSON.into(),
-                ..default()
-            })
-            .insert(OnSoundSettingsMenuScreen)
+                OnSoundSettingsMenuScreen,
+            ))
             .with_children(|parent| {
                 parent
                     .spawn(NodeBundle {
@@ -697,12 +718,14 @@ mod menu {
                         }
                     });
                 parent
-                    .spawn(ButtonBundle {
-                        style: button_style,
-                        color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .insert(MenuButtonAction::BackToSettings)
+                    .spawn((
+                        ButtonBundle {
+                            style: button_style,
+                            color: NORMAL_BUTTON.into(),
+                            ..default()
+                        },
+                        MenuButtonAction::BackToSettings,
+                    ))
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section("Back", button_text_style));
                     });

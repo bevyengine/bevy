@@ -46,8 +46,8 @@ fn setup(
     let num_shapes = shapes.len();
 
     for (i, shape) in shapes.into_iter().enumerate() {
-        commands
-            .spawn(PbrBundle {
+        commands.spawn((
+            PbrBundle {
                 mesh: shape,
                 material: debug_material.clone(),
                 transform: Transform::from_xyz(
@@ -57,8 +57,9 @@ fn setup(
                 )
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
-            })
-            .insert(Shape);
+            },
+            Shape,
+        ));
     }
 
     commands.spawn(PointLightBundle {

@@ -127,12 +127,12 @@ mod test {
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
                         .id(),
                 );
             });
@@ -288,9 +288,9 @@ mod test {
             ))
             .with_children(|builder| {
                 child = builder
-                    .spawn_bundle(TransformBundle::IDENTITY)
+                    .spawn(TransformBundle::IDENTITY)
                     .with_children(|builder| {
-                        grandchild = builder.spawn_bundle(TransformBundle::IDENTITY).id();
+                        grandchild = builder.spawn(TransformBundle::IDENTITY).id();
                     })
                     .id();
             })
@@ -325,7 +325,7 @@ mod test {
             let child = world
                 .spawn(TransformBundle::IDENTITY)
                 .with_children(|builder| {
-                    grandchild = builder.spawn_bundle(TransformBundle::IDENTITY).id();
+                    grandchild = builder.spawn(TransformBundle::IDENTITY).id();
                 })
                 .id();
             (child, grandchild)

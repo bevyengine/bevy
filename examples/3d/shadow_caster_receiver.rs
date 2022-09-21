@@ -51,14 +51,15 @@ fn setup(
     });
 
     // sphere - initially not a caster
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: sphere_handle,
             material: materials.add(Color::BLUE.into()),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
             ..default()
-        })
-        .insert(NotShadowCaster);
+        },
+        NotShadowCaster,
+    ));
 
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((

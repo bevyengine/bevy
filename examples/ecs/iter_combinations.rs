@@ -110,24 +110,26 @@ fn generate_bodies(
     // add bigger "star" body in the center
     let star_radius = 1.;
     commands
-        .spawn(BodyBundle {
-            pbr: PbrBundle {
-                transform: Transform::from_scale(Vec3::splat(star_radius)),
-                mesh: meshes.add(Mesh::from(shape::Icosphere {
-                    radius: 1.0,
-                    subdivisions: 5,
-                })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::ORANGE_RED,
-                    emissive: (Color::ORANGE_RED * 2.),
+        .spawn((
+            BodyBundle {
+                pbr: PbrBundle {
+                    transform: Transform::from_scale(Vec3::splat(star_radius)),
+                    mesh: meshes.add(Mesh::from(shape::Icosphere {
+                        radius: 1.0,
+                        subdivisions: 5,
+                    })),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::ORANGE_RED,
+                        emissive: (Color::ORANGE_RED * 2.),
+                        ..default()
+                    }),
                     ..default()
-                }),
+                },
+                mass: Mass(500.0),
                 ..default()
             },
-            mass: Mass(500.0),
-            ..default()
-        })
-        .insert(Star)
+            Star,
+        ))
         .with_children(|p| {
             p.spawn(PointLightBundle {
                 point_light: PointLight {

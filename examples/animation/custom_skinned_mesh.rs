@@ -141,8 +141,8 @@ fn setup(
         let joint_entities = vec![joint_0, joint_1];
 
         // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
-        commands
-            .spawn(PbrBundle {
+        commands.spawn((
+            PbrBundle {
                 mesh: mesh.clone(),
                 material: materials.add(
                     Color::rgb(
@@ -153,11 +153,12 @@ fn setup(
                     .into(),
                 ),
                 ..default()
-            })
-            .insert(SkinnedMesh {
+            },
+            SkinnedMesh {
                 inverse_bindposes: inverse_bindposes.clone(),
                 joints: joint_entities,
-            });
+            },
+        ));
     }
 }
 
