@@ -211,7 +211,7 @@ impl SystemStage {
     /// Returns the number of system order ambiguities between systems in this stage.
     ///
     /// The result may be incorrect if this stage has not been initialized with `world`.
-    #[allow(dead_code)]
+    #[cfg(test)]
     fn ambiguity_count(&self, world: &World) -> usize {
         self.ambiguities(world).len()
     }
