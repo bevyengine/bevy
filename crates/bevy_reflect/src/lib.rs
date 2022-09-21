@@ -2622,20 +2622,20 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_nested_remote_type() {
         mod external_crate {
-            pub struct TheirOuter {
-                pub inner: TheirInner,
+            pub struct TheirOuter<T> {
+                pub inner: TheirInner<T>,
             }
-            pub struct TheirInner(pub usize);
+            pub struct TheirInner<T>(pub T);
         }
 
-        #[reflect_remote(external_crate::TheirOuter)]
-        struct MyOuter {
-            #[reflect(remote = "MyInner")]
-            pub inner: external_crate::TheirInner,
+        #[reflect_remote(external_crate::TheirOuter<T>)]
+        struct MyOuter<T: Reflect> {
+            #[reflect(remote = "MyInner<T>")]
+            pub inner: external_crate::TheirInner<T>,
         }
 
-        #[reflect_remote(external_crate::TheirInner)]
-        struct MyInner(usize);
+        #[reflect_remote(external_crate::TheirInner<T>)]
+        struct MyInner<T: Reflect>(pub T);
 
         let mut patch = DynamicStruct::default();
         patch.set_represented_type(Some(MyOuter::type_info()));
