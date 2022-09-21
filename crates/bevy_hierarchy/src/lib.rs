@@ -22,10 +22,9 @@ pub use valid_parent_check_plugin::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{child_builder::*, components::*, hierarchy::*};
-    #[doc(hidden)]
-    #[cfg(feature = "app")]
-    pub use crate::{HierarchyPlugin, ValidParentCheckPlugin};
+    pub use crate::{
+        child_builder::*, components::*, hierarchy::*, HierarchyPlugin, ValidParentCheckPlugin,
+    };
 }
 
 use bevy_app::prelude::*;

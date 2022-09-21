@@ -2,10 +2,10 @@ use crate::{
     prelude::{Children, Parent},
     HierarchyEvent,
 };
-use bevy_ecs::event::Events;
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
+    event::Events,
     system::{Command, Commands, EntityCommands},
     world::{EntityMut, World},
 };
@@ -76,6 +76,7 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
         });
     }
     push_events(world, events);
+
     if let Some(mut parent_children) = world.get_mut::<Children>(parent) {
         parent_children
             .0
@@ -100,7 +101,6 @@ impl Command for AddChild {
                 return;
             }
             remove_from_children(world, previous, self.child);
-
             if let Some(mut events) = world.get_resource_mut::<Events<HierarchyEvent>>() {
                 events.send(HierarchyEvent::ChildMoved {
                     child: self.child,

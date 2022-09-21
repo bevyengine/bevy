@@ -46,7 +46,7 @@ impl Plugin for TimePlugin {
             // time system is added as an "exclusive system" to ensure it runs before other systems
             // in CoreStage::First
             .add_system_to_stage(
-                bevy_app::CoreStage::First,
+                CoreStage::First,
                 time_system.exclusive_system().at_start().label(TimeSystem),
             );
     }
