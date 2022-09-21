@@ -516,7 +516,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Generates a wrapper type that can be used to "derive `Reflect`" for remote types.
 ///
 /// This works by wrapping the remote type in a generated wrapper that has the `#[repr(transparent)]` attribute.
-/// This allows the two types to be safely transmuted back-and-forth.
+/// This allows the two types to be safely [transmuted] back-and-forth.
 ///
 /// # Defining the Wrapper
 ///
@@ -572,6 +572,26 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// pub struct Wrapper<T: Default + Clone>(RemoteType<T>);
 /// ```
 ///
+/// # Usage as a Field
+///
+/// You can tell `Reflect` to use a remote type's wrapper internally on fields of a struct or enum.
+/// This allows the real type to be used as usual while `Reflect` handles everything internally.
+/// To do this, add the `#[reflect(remote = "...")]` attribute to your field:
+///
+/// ```ignore
+/// #[derive(Reflect)]
+/// struct SomeStruct {
+///   #[reflect(remote = "RemoteTypeWrapper")]
+///   data: RemoteType
+/// }
+/// ```
+///
+/// ## Safety
+///
+/// When using the `#[reflect(remote = "...")]` field attribute, be sure you are defining the correct wrapper type.
+/// Internally, this field will be unsafely [transmuted], and is only sound if using a wrapper generated for the remote type.
+/// This also means keeping your wrapper definitions up-to-date with the remote types.
+///
 /// # `FromReflect`
 ///
 /// Because of the way this code modifies the item it's defined on, it is not possible to implement `FromReflect`
@@ -588,6 +608,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// This is the _only_ trait this works with. You cannot derive any other traits using this method.
 /// For those, use regular derive macros below this one.
 ///
+/// [transmuted]: std::mem::transmute
 #[proc_macro_attribute]
 pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
     remote::reflect_remote(args, input)

@@ -113,7 +113,7 @@ pub(crate) trait VariantBuilder: Sized {
 
         if field.field.attrs().remote.is_some() {
             quote! {
-                // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
+                // SAFE: The wrapper type should be repr(transparent) over the remote type
                 unsafe {
                     ::core::mem::transmute(#construction)
                 }
