@@ -132,7 +132,12 @@ pub fn extract_core_2d_camera_phases(
         if camera.is_active {
             commands
                 .get_or_spawn(entity)
-                .expect("Entity ID is already reserved.")
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Entity {:?} already exists with a different generation.",
+                        entity
+                    )
+                })
                 .insert(RenderPhase::<Transparent2d>::default());
         }
     }

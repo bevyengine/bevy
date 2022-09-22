@@ -428,7 +428,12 @@ pub fn extract_cameras(
             }
             commands
                 .get_or_spawn(entity)
-                .expect("Entity ID is already reserved.")
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Entity {:?} already exists with a different generation.",
+                        entity
+                    )
+                })
                 .insert_bundle((
                     ExtractedCamera {
                         target: camera.target.clone(),

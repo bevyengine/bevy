@@ -396,7 +396,12 @@ pub fn extract_clusters(
     for (entity, clusters) in views.iter() {
         commands
             .get_or_spawn(entity)
-            .expect("Entity ID is already reserved.")
+            .unwrap_or_else(|| {
+                panic!(
+                    "Entity {:?} already exists with a different generation.",
+                    entity
+                )
+            })
             .insert_bundle((
                 ExtractedClustersPointLights {
                     data: clusters.lights.clone(),
@@ -569,7 +574,12 @@ pub fn extract_lights(
         let render_visible_entities = visible_entities.clone();
         commands
             .get_or_spawn(entity)
-            .expect("Entity ID is already reserved.")
+            .unwrap_or_else(|| {
+                panic!(
+                    "Entity {:?} already exists with a different generation.",
+                    entity
+                )
+            })
             .insert_bundle((
                 ExtractedDirectionalLight {
                     color: directional_light.color,
@@ -1571,7 +1581,12 @@ pub fn prepare_clusters(
 
         commands
             .get_or_spawn(entity)
-            .expect("Entity ID is already reserved.")
+            .unwrap_or_else(|| {
+                panic!(
+                    "Entity {:?} already exists with a different generation.",
+                    entity
+                )
+            })
             .insert(view_clusters_bindings);
     }
 }

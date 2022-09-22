@@ -215,7 +215,12 @@ pub fn extract_core_3d_camera_phases(
         if camera.is_active {
             commands
                 .get_or_spawn(entity)
-                .expect("Entity ID is already reserved.")
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Entity {:?} already exists with a different generation.",
+                        entity
+                    )
+                })
                 .insert_bundle((
                     RenderPhase::<Opaque3d>::default(),
                     RenderPhase::<AlphaMask3d>::default(),
