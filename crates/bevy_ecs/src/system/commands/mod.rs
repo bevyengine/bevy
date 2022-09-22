@@ -367,7 +367,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # See also
     ///
     /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
-    /// - [`spawn_empty`](Self::spawn_empty) to just spawn an entity without any component.
+    /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,
