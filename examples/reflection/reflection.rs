@@ -33,11 +33,11 @@ fn main() {
 /// To do this, you can either define a `#[reflect(default = "...")]` attribute on the ignored field, or
 /// opt-out of `FromReflect`'s auto-derive using the `#[reflect(from_reflect = false)]` attribute.
 #[derive(Reflect)]
-#[reflect(from_reflect = false)]
 pub struct Foo {
     a: usize,
     nested: Bar,
     #[reflect(ignore)]
+    #[reflect(default)]
     _ignored: NonReflectedValue,
 }
 
@@ -94,10 +94,13 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-    // Deserializing returns a Box<dyn Reflect> value. Generally, deserializing a value will return
-    // the "dynamic" variant of a type. For example, deserializing a struct will return the
-    // DynamicStruct type. "Value types" will be deserialized as themselves.
-    let _deserialized_struct = reflect_value.downcast_ref::<DynamicStruct>();
+    // Deserializing returns a `Box<dyn Reflect>` value. Generally, deserializing a value will
+    // attempt to return the "real" type by utilizing `FromReflect`.
+    // If you can't use `FromReflect`, then you can try using `UntypedReflectDeserializer::new_dynamic`,
+    // which will return the "dynamic" variant of a type.
+    // For example, deserializing a struct will return the `DynamicStruct` type.
+    // In either case, "value types" will always be deserialized as themselves.
+    let _deserialized_struct = reflect_value.downcast_ref::<Foo>();
 
     // Reflect has its own `partial_eq` implementation, named `reflect_partial_eq`. This behaves
     // like normal `partial_eq`, but it treats "dynamic" and "non-dynamic" types the same. The

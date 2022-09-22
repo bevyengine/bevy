@@ -8,11 +8,11 @@ pub use type_data::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect, DynamicTupleStruct};
     use crate::{
+        self as bevy_reflect,
         serde::{ReflectSerializer, UntypedReflectDeserializer},
         type_registry::TypeRegistry,
-        DynamicStruct, Reflect,
+        DynamicStruct, DynamicTupleStruct, Reflect,
     };
     use serde::de::DeserializeSeed;
 
@@ -23,8 +23,10 @@ mod tests {
         struct TestStruct {
             a: i32,
             #[reflect(ignore)]
+            #[reflect(default)]
             b: i32,
             #[reflect(skip_serializing)]
+            #[reflect(default)]
             c: i32,
             d: i32,
         }
@@ -43,19 +45,19 @@ mod tests {
         let serialized =
             ron::ser::to_string_pretty(&serializer, ron::ser::PrettyConfig::default()).unwrap();
 
-        let mut expected = DynamicStruct::default();
-        expected.insert("a", 3);
-        expected.insert("d", 6);
-
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let deserialized = value.take::<DynamicStruct>().unwrap();
+        let deserialized = value.take::<TestStruct>().unwrap();
 
-        assert!(
-            expected.reflect_partial_eq(&deserialized).unwrap(),
-            "Expected {expected:?} found {deserialized:?}"
-        );
+        let expected = TestStruct {
+            a: 3,
+            b: 0, // <- ignored
+            c: 0, // <- serialization skipped
+            d: 6,
+        };
+
+        assert_eq!(expected, deserialized);
     }
 
     #[test]
@@ -78,14 +80,14 @@ mod tests {
         let serialized =
             ron::ser::to_string_pretty(&serializer, ron::ser::PrettyConfig::default()).unwrap();
 
+        let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
+        let reflect_deserializer = UntypedReflectDeserializer::new_dynamic(&registry);
+        let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+        let deserialized = value.take::<DynamicTupleStruct>().unwrap();
+
         let mut expected = DynamicTupleStruct::default();
         expected.insert(3);
         expected.insert(6);
-
-        let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
-        let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let deserialized = value.take::<DynamicTupleStruct>().unwrap();
 
         assert!(
             expected.reflect_partial_eq(&deserialized).unwrap(),
