@@ -111,11 +111,15 @@ impl SystemStage {
     ///
     /// The result may be incorrect if this stage has not been initialized with `world`.
     #[cfg(test)]
-    fn ambiguity_count(&self, _world: &World) -> usize {
-        find_ambiguities(&self.parallel).len()
-            + find_ambiguities(&self.exclusive_at_start).len()
-            + find_ambiguities(&self.exclusive_before_commands).len()
-            + find_ambiguities(&self.exclusive_at_end).len()
+    fn ambiguity_count(&self, world: &World) -> usize {
+        fn binomial_coefficient(n: usize, k: usize) -> usize {
+            (0..k).fold(1, |x, i| x * (n - i) / (i + 1))
+        }
+
+        self.ambiguities(world)
+            .iter()
+            .map(|a| binomial_coefficient(a.system_names.len(), 2))
+            .sum()
     }
 }
 
