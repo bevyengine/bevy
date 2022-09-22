@@ -265,7 +265,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new, empty entity
-    ///     let entity = commands.spawn().id();
+    ///     let entity = commands.spawn_empty().id();
     ///
     ///     commands.entity(entity)
     ///         // adds a new component bundle to the entity
@@ -307,7 +307,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new, empty entity
-    ///     let entity = commands.spawn().id();
+    ///     let entity = commands.spawn_empty().id();
     ///
     ///     // Get the entity if it still exists, which it will in this case
     ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
@@ -545,7 +545,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// fn my_system(mut commands: Commands) {
-    ///     let entity_id = commands.spawn().id();
+    ///     let entity_id = commands.spawn_empty().id();
     /// }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```

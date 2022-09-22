@@ -245,9 +245,9 @@ pub trait BuildChildren {
     /// # struct MoreStuff;
     /// #
     /// # fn foo(mut commands: Commands) {
-    ///     let mut parent_commands = commands.spawn();
+    ///     let mut parent_commands = commands.spawn_empty();
     ///     let child_id = parent_commands.add_children(|parent| {
-    ///         parent.spawn().id()
+    ///         parent.spawn_empty().id()
     ///     });
     ///
     ///     parent_commands.insert(SomethingElse);
