@@ -19,24 +19,25 @@ impl SystemStage {
 						add an explicit dependency relation between some of these systems:\n"
                 .to_owned();
 
-            let mut last_segment_kind = None;
-            for SystemOrderAmbiguity {
-                segment,
-                conflicts,
-                system_names,
-                ..
-            } in &ambiguities
-            {
-                // If the ambiguity occurred in a different segment than the previous one, write a header for the segment.
-                if last_segment_kind != Some(segment) {
-                    writeln!(string, " * {}:", segment.desc()).unwrap();
-                    last_segment_kind = Some(segment);
+            for (i, ambiguity) in ambiguities.iter().enumerate() {
+                let SystemOrderAmbiguity {
+                    segment,
+                    conflicts,
+                    system_names,
+                    ..
+                } = ambiguity;
+
+                writeln!(string).unwrap();
+                writeln!(string, "({i}) Ambiguity - {}", segment.desc()).unwrap();
+
+                for name in system_names {
+                    writeln!(string, " * {name}").unwrap();
                 }
 
-                writeln!(string, " -- {system_names:?}").unwrap();
-
-                if !conflicts.is_empty() {
-                    writeln!(string, "    conflicts: {conflicts:?}").unwrap();
+                writeln!(string).unwrap();
+                writeln!(string, " Conflicts:").unwrap();
+                for conflict in conflicts {
+                    writeln!(string, " * {conflict}").unwrap();
                 }
             }
 
