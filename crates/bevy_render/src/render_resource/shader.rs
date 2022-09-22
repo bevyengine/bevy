@@ -376,6 +376,7 @@ pub struct ShaderProcessor {
     else_regex: Regex,
     endif_regex: Regex,
     def_regex: Regex,
+    def_regex_delimited: Regex,
 }
 
 impl Default for ShaderProcessor {
@@ -388,6 +389,7 @@ impl Default for ShaderProcessor {
             else_regex: Regex::new(r"^\s*#\s*else").unwrap(),
             endif_regex: Regex::new(r"^\s*#\s*endif").unwrap(),
             def_regex: Regex::new(r"#\s*([\w|\d|_]+)").unwrap(),
+            def_regex_delimited: Regex::new(r"#\s*\{([\w|\d|_]+)\}").unwrap(),
         }
     }
 }
@@ -523,6 +525,19 @@ impl ShaderProcessor {
                             };
                             line_with_defs =
                                 self.def_regex.replace(&line_with_defs, def).to_string();
+                        }
+                    }
+                    for capture in self.def_regex_delimited.captures_iter(line) {
+                        let def = capture.get(1).unwrap();
+                        if let Some(def) = shader_defs_unique.get(def.as_str()) {
+                            let def = match def {
+                                ShaderDefVal::Bool(_, def) => def.to_string(),
+                                ShaderDefVal::Int(_, def) => def.to_string(),
+                            };
+                            line_with_defs = self
+                                .def_regex_delimited
+                                .replace(&line_with_defs, def)
+                                .to_string();
                         }
                     }
                     final_string.push_str(&line_with_defs);
