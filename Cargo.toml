@@ -974,6 +974,16 @@ category = "Input"
 wasm = false
 
 [[example]]
+name = "gamepad_demo"
+path = "examples/input/gamepad_demo.rs"
+
+[package.metadata.example.gamepad_demo]
+name = "Gamepad Demo"
+description = "Shows a visualization of gamepad buttons, sticks, and triggers"
+category = "Input"
+wasm = false
+
+[[example]]
 name = "gamepad_input"
 path = "examples/input/gamepad_input.rs"
 
