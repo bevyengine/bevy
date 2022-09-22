@@ -325,7 +325,6 @@ mod tests {
 
         let mut test_stage = SystemStage::parallel();
         test_stage
-            .add_system(empty_system)
             // nonsendmut system deliberately conflicts with resmut system
             .add_system(resmut_system)
             .add_system(write_component_system)
@@ -372,7 +371,6 @@ mod tests {
 
         let mut test_stage = SystemStage::parallel();
         test_stage
-            .add_system(empty_system)
             .add_system(resmut_system)
             .add_system(write_component_system)
             .add_system(event_writer_system)
