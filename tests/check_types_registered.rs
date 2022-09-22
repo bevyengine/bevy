@@ -6,6 +6,42 @@ use bevy::{
 };
 
 #[test]
+fn check_components_resources_registered() {
+    let mut app = App::new();
+    app.add_plugins_with(DefaultPlugins, |g| g.disable::<bevy::winit::WinitPlugin>());
+
+    let type_registry = app.world.resource::<AppTypeRegistry>();
+    let type_registry = type_registry.read();
+
+    for registration in app
+        .world
+        .components()
+        .iter()
+        .filter_map(|info| info.type_id())
+        .filter_map(|type_id| type_registry.get(type_id))
+    {
+        if app
+            .world
+            .components()
+            .get_resource_id(registration.type_id())
+            .is_some()
+        {
+            assert!(
+                registration.data::<ReflectResource>().is_some(),
+                "resource {} has no `ReflectResource`",
+                registration.short_name()
+            );
+        } else {
+            assert!(
+                registration.data::<ReflectComponent>().is_some(),
+                "component {} has no `ReflectComponent`",
+                registration.short_name()
+            );
+        }
+    }
+}
+
+#[test]
 fn check_types_registered_recursive() {
     let mut app = App::new();
     app.add_plugins_with(DefaultPlugins, |g| g.disable::<bevy::winit::WinitPlugin>());
