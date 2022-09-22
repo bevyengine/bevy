@@ -203,7 +203,6 @@ impl AmbiguityInfo {
                 if intersection.count_ones(..) <= 1 {
                     continue;
                 }
-                debug_assert!(intersection.count_ones(..) > 1);
 
                 for i in intersection.ones() {
                     adj[i].difference_with(&intersection);
