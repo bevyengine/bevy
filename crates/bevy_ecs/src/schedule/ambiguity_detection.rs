@@ -1,17 +1,122 @@
 use bevy_utils::tracing::info;
+use bevy_utils::HashMap;
 use fixedbitset::FixedBitSet;
 
 use crate::component::ComponentId;
 use crate::schedule::{SystemContainer, SystemStage};
 use crate::world::World;
 
+impl SystemStage {
+    /// Logs execution order ambiguities between systems.
+    ///
+    /// The output may be incorrect if this stage has not been initialized with `world`.
+    pub fn report_ambiguities(&self, world: &World) {
+        debug_assert!(!self.systems_modified);
+        use std::fmt::Write;
+        let ambiguities = self.ambiguities(world);
+        if !ambiguities.is_empty() {
+            let mut string = "Execution order ambiguities detected, you might want to \
+						add an explicit dependency relation between some of these systems:\n"
+                .to_owned();
+
+            let mut last_segment_kind = None;
+            for SystemOrderAmbiguity {
+                segment,
+                conflicts,
+                system_names,
+                ..
+            } in &ambiguities
+            {
+                // If the ambiguity occurred in a different segment than the previous one, write a header for the segment.
+                if last_segment_kind != Some(segment) {
+                    writeln!(string, " * {}:", segment.desc()).unwrap();
+                    last_segment_kind = Some(segment);
+                }
+
+                writeln!(string, " -- {system_names:?}").unwrap();
+
+                if !conflicts.is_empty() {
+                    writeln!(string, "    conflicts: {conflicts:?}").unwrap();
+                }
+            }
+
+            info!("{}", string);
+        }
+    }
+
+    /// Returns all execution order ambiguities between systems.
+    ///
+    /// Returns 4 vectors of ambiguities for each stage, in the following order:
+    /// - parallel
+    /// - exclusive at start,
+    /// - exclusive before commands
+    /// - exclusive at end
+    ///
+    /// The result may be incorrect if this stage has not been initialized with `world`.
+    fn ambiguities(&self, world: &World) -> Vec<SystemOrderAmbiguity> {
+        fn foo<'a>(
+            segment: SystemStageSegment,
+            container: &'a [impl SystemContainer],
+            world: &'a World,
+        ) -> impl Iterator<Item = SystemOrderAmbiguity> + 'a {
+            let info = AmbiguityInfo::delineate(find_ambiguities(container));
+            info.into_iter().map(
+                move |AmbiguityInfo {
+                          conflicts, systems, ..
+                      }| {
+                    let conflicts = conflicts
+                        .iter()
+                        .map(|id| world.components().get_info(*id).unwrap().name().to_owned())
+                        .collect();
+                    let system_names = systems
+                        .iter()
+                        .map(|&SystemIndex(i)| container[i].name().to_string())
+                        .collect();
+                    SystemOrderAmbiguity {
+                        segment,
+                        conflicts,
+                        system_names,
+                    }
+                },
+            )
+        }
+
+        foo(SystemStageSegment::Parallel, &self.parallel, world)
+            .chain(foo(
+                SystemStageSegment::ExclusiveAtStart,
+                &self.exclusive_at_start,
+                world,
+            ))
+            .chain(foo(
+                SystemStageSegment::ExclusiveBeforeCommands,
+                &self.exclusive_before_commands,
+                world,
+            ))
+            .chain(foo(
+                SystemStageSegment::ExclusiveAtEnd,
+                &self.exclusive_at_end,
+                world,
+            ))
+            .collect()
+    }
+
+    /// Returns the number of system order ambiguities between systems in this stage.
+    ///
+    /// The result may be incorrect if this stage has not been initialized with `world`.
+    #[cfg(test)]
+    fn ambiguity_count(&self, _world: &World) -> usize {
+        find_ambiguities(&self.parallel).len()
+            + find_ambiguities(&self.exclusive_at_start).len()
+            + find_ambiguities(&self.exclusive_before_commands).len()
+            + find_ambiguities(&self.exclusive_at_end).len()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct SystemOrderAmbiguity {
     segment: SystemStageSegment,
-    // Note: In order for comparisons to work correctly,
-    // `system_names` and `conflicts` must be sorted at all times.
-    system_names: [String; 2],
     conflicts: Vec<String>,
+    system_names: Vec<String>,
 }
 
 /// Which part of a [`SystemStage`] was a [`SystemOrderAmbiguity`] detected in?
@@ -36,191 +141,92 @@ impl SystemStageSegment {
     }
 }
 
-impl SystemOrderAmbiguity {
-    fn from_raw(
-        system_a_index: usize,
-        system_b_index: usize,
-        component_ids: Vec<ComponentId>,
-        segment: SystemStageSegment,
-        stage: &SystemStage,
-        world: &World,
-    ) -> Self {
-        use crate::schedule::graph_utils::GraphNode;
-        use SystemStageSegment::*;
-
-        // TODO: blocked on https://github.com/bevyengine/bevy/pull/4166
-        // We can't grab the system container generically, because .parallel_systems()
-        // and the exclusive equivalent return a different type,
-        // and SystemContainer is not object-safe
-        let (system_a_name, system_b_name) = match segment {
-            Parallel => {
-                let system_container = stage.parallel_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-            ExclusiveAtStart => {
-                let system_container = stage.exclusive_at_start_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-            ExclusiveBeforeCommands => {
-                let system_container = stage.exclusive_before_commands_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-            ExclusiveAtEnd => {
-                let system_container = stage.exclusive_at_end_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-        };
-
-        let mut system_names = [system_a_name.to_string(), system_b_name.to_string()];
-        system_names.sort();
-
-        let mut conflicts: Vec<_> = component_ids
-            .iter()
-            .map(|id| world.components().get_info(*id).unwrap().name().to_owned())
-            .collect();
-        conflicts.sort();
-
-        Self {
-            system_names,
-            conflicts,
-            segment,
-        }
-    }
+/// A set of systems that are all reported to be ambiguous with one another.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct AmbiguityInfo {
+    // INVARIANT: `conflicts` is always sorted.
+    conflicts: Vec<ComponentId>,
+    systems: Vec<SystemIndex>,
 }
 
-impl SystemStage {
-    /// Logs execution order ambiguities between systems.
-    ///
-    /// The output may be incorrect if this stage has not been initialized with `world`.
-    pub fn report_ambiguities(&self, world: &World) {
-        debug_assert!(!self.systems_modified);
-        use std::fmt::Write;
-        let ambiguities = self.ambiguities(world);
-        if !ambiguities.is_empty() {
-            let mut string = "Execution order ambiguities detected, you might want to \
-						add an explicit dependency relation between some of these systems:\n"
-                .to_owned();
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct SystemIndex(usize);
 
-            let mut last_segment_kind = None;
-            for SystemOrderAmbiguity {
-                system_names: [system_a, system_b],
-                conflicts,
-                segment,
-            } in &ambiguities
-            {
-                // If the ambiguity occurred in a different segment than the previous one, write a header for the segment.
-                if last_segment_kind != Some(segment) {
-                    writeln!(string, " * {}:", segment.desc()).unwrap();
-                    last_segment_kind = Some(segment);
-                }
+impl AmbiguityInfo {
+    fn delineate(
+        pairs: impl IntoIterator<Item = (SystemIndex, SystemIndex, Vec<ComponentId>)>,
+    ) -> Vec<Self> {
+        // Stores the pairs of system indices associated with each set of conflicts.
+        let mut pairs_by_conflicts = HashMap::new();
+        for (system_a_index, system_b_index, mut conflicts) in pairs {
+            conflicts.sort();
+            pairs_by_conflicts
+                .entry(conflicts)
+                .or_insert_with(Vec::new)
+                .push([system_a_index, system_b_index]);
+        }
 
-                writeln!(string, " -- {:?} and {:?}", system_a, system_b).unwrap();
+        let mut ambiguity_sets = Vec::new();
+        for (conflicts, pairs) in pairs_by_conflicts {
+            // Find all unique systems that have the same conflicts.
+            // Note that this does *not* mean they all conflict with one another.
+            let mut in_set: Vec<_> = pairs.iter().copied().flatten().collect();
+            in_set.sort();
+            in_set.dedup();
 
-                if !conflicts.is_empty() {
-                    writeln!(string, "    conflicts: {conflicts:?}").unwrap();
-                }
+            // adjacency marix for the entries of `in_set`
+            let mut adj: Vec<FixedBitSet> = (0..in_set.len())
+                .map(|i| {
+                    let mut bitset = FixedBitSet::with_capacity(in_set.len());
+                    // enable the main diagonal
+                    bitset.set(i, true);
+                    bitset
+                })
+                .collect();
+            // the value `pairs` mapped as indices in `in_set`.
+            let mut pairs_as_indices = Vec::new();
+            for &[a, b] in &pairs {
+                let a_index = in_set.iter().position(|&i| i == a).unwrap();
+                let b_index = in_set.iter().position(|&i| i == b).unwrap();
+                pairs_as_indices.push([a_index, b_index]);
+                adj[a_index].set(b_index, true);
+                adj[b_index].set(a_index, true);
             }
 
-            info!("{}", string);
+            // Find decompose into "subgraphs" -- sets of systems that are all ambiguous with one another.
+            let mut subgraphs = Vec::new();
+            for [a_index, b_index] in pairs_as_indices {
+                let intersection: FixedBitSet = adj[a_index].intersection(&adj[b_index]).collect();
+                if intersection.count_ones(..) == 0 {
+                    continue;
+                }
+
+                for i in intersection.ones() {
+                    adj[i].difference_with(&intersection);
+                    // don't unset the main diagonal
+                    adj[i].set(i, true);
+                }
+
+                subgraphs.push(intersection);
+            }
+
+            for subgraph in subgraphs {
+                ambiguity_sets.push(AmbiguityInfo {
+                    conflicts: conflicts.clone(),
+                    systems: subgraph.ones().map(|i| in_set[i]).collect(),
+                });
+            }
         }
-    }
-
-    /// Returns all execution order ambiguities between systems.
-    ///
-    /// Returns 4 vectors of ambiguities for each stage, in the following order:
-    /// - parallel
-    /// - exclusive at start,
-    /// - exclusive before commands
-    /// - exclusive at end
-    ///
-    /// The result may be incorrect if this stage has not been initialized with `world`.
-    fn ambiguities(&self, world: &World) -> Vec<SystemOrderAmbiguity> {
-        let parallel = find_ambiguities(&self.parallel).into_iter().map(
-            |(system_a_index, system_b_index, component_ids)| {
-                SystemOrderAmbiguity::from_raw(
-                    system_a_index,
-                    system_b_index,
-                    component_ids.to_vec(),
-                    SystemStageSegment::Parallel,
-                    self,
-                    world,
-                )
-            },
-        );
-
-        let at_start = find_ambiguities(&self.exclusive_at_start).into_iter().map(
-            |(system_a_index, system_b_index, component_ids)| {
-                SystemOrderAmbiguity::from_raw(
-                    system_a_index,
-                    system_b_index,
-                    component_ids,
-                    SystemStageSegment::ExclusiveAtStart,
-                    self,
-                    world,
-                )
-            },
-        );
-
-        let before_commands = find_ambiguities(&self.exclusive_before_commands)
-            .into_iter()
-            .map(|(system_a_index, system_b_index, component_ids)| {
-                SystemOrderAmbiguity::from_raw(
-                    system_a_index,
-                    system_b_index,
-                    component_ids,
-                    SystemStageSegment::ExclusiveBeforeCommands,
-                    self,
-                    world,
-                )
-            });
-
-        let at_end = find_ambiguities(&self.exclusive_at_end).into_iter().map(
-            |(system_a_index, system_b_index, component_ids)| {
-                SystemOrderAmbiguity::from_raw(
-                    system_a_index,
-                    system_b_index,
-                    component_ids,
-                    SystemStageSegment::ExclusiveAtEnd,
-                    self,
-                    world,
-                )
-            },
-        );
-
-        let mut ambiguities: Vec<_> = at_start
-            .chain(parallel)
-            .chain(before_commands)
-            .chain(at_end)
-            .collect();
-        ambiguities.sort();
-        ambiguities
-    }
-
-    /// Returns the number of system order ambiguities between systems in this stage.
-    ///
-    /// The result may be incorrect if this stage has not been initialized with `world`.
-    #[cfg(test)]
-    fn ambiguity_count(&self, world: &World) -> usize {
-        self.ambiguities(world).len()
+        ambiguity_sets
     }
 }
 
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
+fn find_ambiguities(
+    systems: &[impl SystemContainer],
+) -> Vec<(SystemIndex, SystemIndex, Vec<ComponentId>)> {
     let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
     for (index, container) in systems.iter().enumerate() {
@@ -268,10 +274,10 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
                 if let (Some(a), Some(b)) = (a_access, b_access) {
                     let conflicts = a.get_conflicts(b);
                     if !conflicts.is_empty() {
-                        ambiguities.push((index_a, index_b, conflicts));
+                        ambiguities.push((SystemIndex(index_a), SystemIndex(index_b), conflicts));
                     }
                 } else {
-                    ambiguities.push((index_a, index_b, Vec::new()));
+                    ambiguities.push((SystemIndex(index_a), SystemIndex(index_b), Vec::new()));
                 }
             }
         }
