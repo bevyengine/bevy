@@ -195,13 +195,15 @@ impl AmbiguityInfo {
                 adj[b_index].set(a_index, true);
             }
 
-            // Find decompose into "subgraphs" -- sets of systems that are all ambiguous with one another.
+            // Find sets of systems that are all ambiguous with one another.
             let mut subgraphs = Vec::new();
             for [a_index, b_index] in pairs_as_indices {
                 let intersection: FixedBitSet = adj[a_index].intersection(&adj[b_index]).collect();
-                if intersection.count_ones(..) == 0 {
+                // If this pair has been included in another set, skip it.
+                if intersection.count_ones(..) <= 1 {
                     continue;
                 }
+                debug_assert!(intersection.count_ones(..) > 1);
 
                 for i in intersection.ones() {
                     adj[i].difference_with(&intersection);

@@ -2,7 +2,11 @@
 
 use std::f32::consts::PI;
 
-use bevy::{ecs::schedule::SystemSet, prelude::*, time::FixedTimestep};
+use bevy::{
+    ecs::schedule::{ReportExecutionOrderAmbiguities, SystemSet},
+    prelude::*,
+    time::FixedTimestep,
+};
 use rand::Rng;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -15,6 +19,7 @@ fn main() {
     App::new()
         .init_resource::<Game>()
         .add_plugins(DefaultPlugins)
+        .insert_resource(ReportExecutionOrderAmbiguities)
         .add_state(GameState::Playing)
         .add_startup_system(setup_cameras)
         .add_system_set(SystemSet::on_enter(GameState::Playing).with_system(setup))
