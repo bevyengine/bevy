@@ -547,7 +547,7 @@ impl Entities {
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then(|| Entity { generation: 0, id })
+            (idu < self.meta.len() + num_pending).then_some(Entity { generation: 0, id })
         }
     }
 
