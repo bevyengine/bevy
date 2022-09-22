@@ -68,7 +68,8 @@ impl TextureAtlas {
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// `tile_size` by `tile_size` grid-cell is one of the textures in the atlas
+    /// `tile_size` by `tile_size` grid-cell is one of the textures in the
+    /// atlas. Resulting `TextureAtlas` is indexed left to right, top to bottom.
     pub fn from_grid(
         texture: Handle<Image>,
         tile_size: Vec2,
@@ -81,7 +82,8 @@ impl TextureAtlas {
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
     /// `tile_size` by `tile_size` grid-cell is one of the textures in the
     /// atlas. Grid cells are separated by some `padding`, and the grid starts
-    /// at `offset` pixels from the top left corner.
+    /// at `offset` pixels from the top left corner. Resulting `TextureAtlas` is
+    /// indexed left to right, top to bottom.
     pub fn from_grid_with_padding(
         texture: Handle<Image>,
         tile_size: Vec2,

@@ -34,9 +34,9 @@ impl<'w, 's> PlayerCounter<'w, 's> {
 
 /// Spawn some players to count
 fn spawn(mut commands: Commands) {
-    commands.spawn().insert(Player);
-    commands.spawn().insert(Player);
-    commands.spawn().insert(Player);
+    commands.spawn_bundle(Player);
+    commands.spawn_bundle(Player);
+    commands.spawn_bundle(Player);
 }
 
 /// The [`SystemParam`] can be used directly in a system argument.

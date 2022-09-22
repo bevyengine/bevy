@@ -95,7 +95,7 @@ pub fn insert_commands(criterion: &mut Criterion) {
             for entity in &entities {
                 commands
                     .entity(*entity)
-                    .insert_bundle((Matrix::default(), Vec3::default()));
+                    .insert((Matrix::default(), Vec3::default()));
             }
             drop(commands);
             command_queue.apply(&mut world);
@@ -238,7 +238,7 @@ pub fn get_or_spawn(criterion: &mut Criterion) {
             for i in 0..10_000 {
                 commands
                     .get_or_spawn(Entity::from_raw(i))
-                    .insert_bundle((Matrix::default(), Vec3::default()));
+                    .insert((Matrix::default(), Vec3::default()));
             }
             command_queue.apply(&mut world);
         });

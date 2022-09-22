@@ -50,10 +50,10 @@ fn setup(
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // Spawns the camera
-    commands
-        .spawn()
-        .insert_bundle(Camera2dBundle::default())
-        .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
+    commands.spawn_bundle((
+        Camera2dBundle::default(),
+        Transform::from_xyz(0.0, 0.0, 1000.0),
+    ));
 
     // Builds and spawns the sprites
     for y in -half_y..half_y {

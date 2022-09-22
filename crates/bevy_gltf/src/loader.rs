@@ -466,7 +466,7 @@ async fn load_gltf<'a, 'b>(
 
         world
             .spawn()
-            .insert_bundle(SpatialBundle::VISIBLE_IDENTITY)
+            .insert(SpatialBundle::VISIBLE_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
@@ -748,7 +748,7 @@ fn load_node(
             }
         };
 
-        node.insert_bundle((
+        node.insert((
             projection,
             Camera {
                 is_active: !*active_camera_found,

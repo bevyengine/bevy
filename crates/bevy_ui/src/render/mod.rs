@@ -250,8 +250,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
             };
             projection.update(logical_size.x, logical_size.y);
             let default_camera_view = commands
-                .spawn()
-                .insert(ExtractedView {
+                .spawn_bundle(ExtractedView {
                     projection: projection.get_projection_matrix(),
                     transform: GlobalTransform::from_xyz(
                         0.0,
@@ -266,7 +265,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     ),
                 })
                 .id();
-            commands.get_or_spawn(entity).insert_bundle((
+            commands.get_or_spawn(entity).insert((
                 DefaultCameraView(default_camera_view),
                 RenderPhase::<TransparentUi>::default(),
             ));

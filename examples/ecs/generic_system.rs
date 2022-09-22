@@ -50,19 +50,17 @@ fn main() {
 }
 
 fn setup_system(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(PrinterTick(Timer::from_seconds(1.0, true)))
-        .insert(TextToPrint(
-            "I will print until you press space.".to_string(),
-        ))
-        .insert(MenuClose);
+    commands.spawn_bundle((
+        PrinterTick(Timer::from_seconds(1.0, true)),
+        TextToPrint("I will print until you press space.".to_string()),
+        MenuClose,
+    ));
 
-    commands
-        .spawn()
-        .insert(PrinterTick(Timer::from_seconds(1.0, true)))
-        .insert(TextToPrint("I will always print".to_string()))
-        .insert(LevelUnload);
+    commands.spawn_bundle((
+        PrinterTick(Timer::from_seconds(1.0, true)),
+        TextToPrint("I will always print".to_string()),
+        LevelUnload,
+    ));
 }
 
 fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextToPrint)>) {

@@ -158,7 +158,7 @@ mod tests {
         struct CountEntities(Vec<usize>);
 
         fn spawn_entity(mut commands: crate::prelude::Commands) {
-            commands.spawn().insert(Foo(0.0));
+            commands.spawn_bundle(Foo(0.0));
         }
 
         fn count_entities(query: Query<&Foo>, mut res: ResMut<CountEntities>) {
