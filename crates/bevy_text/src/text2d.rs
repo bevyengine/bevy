@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_render::{
     prelude::Color,
     texture::Image,
@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// The calculated size of text drawn in 2D scene.
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Default, Copy, Clone, Debug, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Text2dSize {
     pub size: Vec2,
@@ -40,7 +40,7 @@ pub struct Text2dSize {
 /// Note: only characters that are completely out of the bounds will be truncated, so this is not a
 /// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
 /// component is mainly useful for text wrapping only.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Text2dBounds {
     pub size: Vec2,

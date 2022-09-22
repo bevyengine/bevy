@@ -64,7 +64,7 @@ pub trait CameraProjection {
 }
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub enum Projection {
     Perspective(PerspectiveProjection),

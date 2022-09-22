@@ -63,7 +63,7 @@ impl ReflectComponentFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Component + Reflect + FromWorld>() -> Self {
+    pub fn new<T: Component + Reflect + FromReflect>() -> Self {
         <ReflectComponent as FromType<T>>::from_type().0
     }
 }
@@ -273,7 +273,7 @@ impl ReflectResourceFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Resource + Reflect + FromWorld>() -> Self {
+    pub fn new<T: Resource + Reflect + FromReflect>() -> Self {
         <ReflectResource as FromType<T>>::from_type().0
     }
 }

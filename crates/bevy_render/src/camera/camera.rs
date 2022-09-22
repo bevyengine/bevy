@@ -283,7 +283,7 @@ impl Camera {
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
-#[derive(Component, Deref, DerefMut, Reflect, Default)]
+#[derive(Component, Deref, DerefMut, Reflect, Default, FromReflect)]
 #[reflect(Component)]
 pub struct CameraRenderGraph(Cow<'static, str>);
 

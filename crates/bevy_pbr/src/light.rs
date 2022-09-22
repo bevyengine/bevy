@@ -38,7 +38,7 @@ use crate::{
 /// | 4000 | 300 |    | 75-100 | 40.5  |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct PointLight {
     pub color: Color,
@@ -73,7 +73,7 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Resource, Clone, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
 #[reflect(Resource)]
 pub struct PointLightShadowMap {
     pub size: usize,
@@ -89,7 +89,7 @@ impl Default for PointLightShadowMap {
 /// Behaves like a point light in a perfectly absorbant housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](bevy_transform::components::Transform::looking_at).
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct SpotLight {
     pub color: Color,
@@ -167,7 +167,7 @@ impl Default for SpotLight {
 /// | 32,000–100,000    | Direct sunlight                                |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
     pub color: Color,
@@ -208,7 +208,7 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Resource, Clone, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
 #[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
@@ -224,7 +224,7 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
+#[derive(Resource, Clone, Debug, ExtractResource, Reflect, FromReflect)]
 #[reflect(Resource)]
 pub struct AmbientLight {
     pub color: Color,
@@ -242,11 +242,11 @@ impl Default for AmbientLight {
 }
 
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
-#[derive(Component, Reflect, Default)]
+#[derive(Component, Reflect, Default, FromReflect)]
 #[reflect(Component, Default)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
-#[derive(Component, Reflect, Default)]
+#[derive(Component, Reflect, Default, FromReflect)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
 

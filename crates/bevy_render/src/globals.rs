@@ -7,7 +7,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_time::Time;
 
 pub struct GlobalsPlugin;
@@ -30,7 +30,7 @@ fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
 
 /// Contains global values useful when writing shaders.
 /// Currently only contains values related to time.
-#[derive(Default, Clone, Resource, ExtractResource, Reflect, ShaderType)]
+#[derive(Default, Clone, Resource, ExtractResource, Reflect, ShaderType, FromReflect)]
 #[reflect(Resource)]
 pub struct GlobalsUniform {
     /// The time since startup in seconds.

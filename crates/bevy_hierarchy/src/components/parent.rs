@@ -4,12 +4,12 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::{FromWorld, World},
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use std::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.
-#[derive(Component, Debug, Eq, PartialEq, Reflect)]
+#[derive(Component, Debug, Eq, PartialEq, Reflect, FromReflect)]
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub(crate) Entity);
 

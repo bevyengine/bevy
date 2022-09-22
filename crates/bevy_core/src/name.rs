@@ -1,6 +1,6 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::AHasher;
 use std::{
     borrow::Cow,
@@ -19,6 +19,18 @@ use std::{
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
     name: Cow<'static, str>,
+}
+
+impl FromReflect for Name {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        match reflect.reflect_ref() {
+            bevy_reflect::ReflectRef::Struct(strukt) => {
+                let name = Cow::from_reflect(strukt.field("name")?)?;
+                Some(Name::new(name))
+            }
+            _ => None,
+        }
+    }
 }
 
 impl Default for Name {

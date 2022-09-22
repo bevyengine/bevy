@@ -1,6 +1,6 @@
 use crate::{clear_color::ClearColorConfig, tonemapping::Tonemapping};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_render::{
     camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
     extract_component::ExtractComponent,
@@ -9,7 +9,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-#[derive(Component, Default, Reflect, Clone)]
+#[derive(Component, Default, Reflect, Clone, FromReflect)]
 #[reflect(Component)]
 pub struct Camera2d {
     pub clear_color: ClearColorConfig,
