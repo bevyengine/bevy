@@ -51,8 +51,10 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// The main derive macro used by `bevy_reflect` for deriving its `Reflect` trait.
 ///
 /// This macro can be used on all structs and enums (unions are not supported).
-/// It will automatically generate the implementations for `Reflect`, `Typed`, and `GetTypeRegistration`.
+/// It will automatically generate implementations for `Reflect`, `Typed`, `GetTypeRegistration`, and `FromReflect`.
 /// And, depending on the item's structure, will either implement `Struct`, `TupleStruct`, or `Enum`.
+///
+/// See the [`FromReflect`] derive macro for more information on how to customize the `FromReflect` implementation.
 ///
 /// # Container Attributes
 ///
@@ -142,14 +144,26 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
         Err(err) => return err.into_compile_error().into(),
     };
 
-    match derive_data {
-        ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => {
-            impls::impl_struct(&struct_data)
-        }
-        ReflectDerive::TupleStruct(struct_data) => impls::impl_tuple_struct(&struct_data),
-        ReflectDerive::Enum(meta) => impls::impl_enum(&meta),
-        ReflectDerive::Value(meta) => impls::impl_value(&meta),
-    }
+    let (reflect_impls, from_reflect_impl) = match derive_data {
+        ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
+            impls::impl_struct(&struct_data),
+            from_reflect::impl_struct(&struct_data),
+        ),
+        ReflectDerive::TupleStruct(struct_data) => (
+            impls::impl_tuple_struct(&struct_data),
+            from_reflect::impl_tuple_struct(&struct_data),
+        ),
+        ReflectDerive::Enum(enum_data) => (
+            impls::impl_enum(&enum_data),
+            from_reflect::impl_enum(&enum_data),
+        ),
+        ReflectDerive::Value(meta) => (impls::impl_value(&meta), from_reflect::impl_value(&meta)),
+    };
+
+    TokenStream::from(quote! {
+        #reflect_impls
+        #from_reflect_impl
+    })
 }
 
 /// Derives the `FromReflect` trait.
@@ -195,6 +209,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
         ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
         ReflectDerive::Value(meta) => from_reflect::impl_value(&meta),
     }
+    .into()
 }
 
 /// Derives the `TypePath` trait, providing a stable alternative to [`std::any::type_name`].
@@ -338,7 +353,13 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     #[cfg(feature = "documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
 
-    impls::impl_value(&meta)
+    let reflect_impls = impls::impl_value(&meta);
+    let from_reflect_impl = from_reflect::impl_value(&meta);
+
+    TokenStream::from(quote! {
+        #reflect_impls
+        #from_reflect_impl
+    })
 }
 
 /// A replacement for `#[derive(Reflect)]` to be used with foreign types which
@@ -392,9 +413,8 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
                     .into();
             }
 
-            let impl_struct: proc_macro2::TokenStream = impls::impl_struct(&struct_data).into();
-            let impl_from_struct: proc_macro2::TokenStream =
-                from_reflect::impl_struct(&struct_data).into();
+            let impl_struct = impls::impl_struct(&struct_data);
+            let impl_from_struct = from_reflect::impl_struct(&struct_data);
 
             TokenStream::from(quote! {
                 #impl_struct
@@ -428,6 +448,10 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 /// The only reason this macro exists is so that `bevy_reflect` can easily implement `FromReflect` on
 /// primitives and other Rust types internally.
 ///
+/// Please note that this macro will not work with any type that [derives `Reflect`] normally
+/// or makes use of the [`impl_reflect_value!`] macro, as those macros also implement `FromReflect`
+/// by default.
+///
 /// # Examples
 ///
 /// ```ignore
@@ -454,7 +478,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
         }
     };
 
-    from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()))
+    from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default())).into()
 }
 
 /// A replacement for [deriving `TypePath`] for use on foreign types.

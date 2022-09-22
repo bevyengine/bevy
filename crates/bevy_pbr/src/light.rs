@@ -40,7 +40,7 @@ use crate::{
 /// | 4000 | 300 |    | 75-100 | 40.5  |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
-#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, FromReflect)]
 pub struct PointLight {
     pub color: Color,
@@ -75,7 +75,7 @@ impl PointLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
-#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
+#[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, FromReflect)]
 pub struct PointLightShadowMap {
     pub size: usize,
@@ -91,7 +91,7 @@ impl Default for PointLightShadowMap {
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](bevy_transform::components::Transform::looking_at).
-#[derive(Component, Debug, Clone, Copy, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, FromReflect)]
 pub struct SpotLight {
     pub color: Color,
@@ -187,7 +187,7 @@ impl Default for SpotLight {
 /// App::new()
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
-#[derive(Component, Debug, Clone, Reflect, FromReflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, FromReflect)]
 pub struct DirectionalLight {
     pub color: Color,
@@ -218,7 +218,7 @@ impl DirectionalLight {
 }
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
-#[derive(Resource, Clone, Debug, Reflect, FromReflect)]
+#[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, FromReflect)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
@@ -243,7 +243,7 @@ impl Default for DirectionalLightShadowMap {
 ///   ..default()
 /// }.into();
 /// ```
-#[derive(Component, Clone, Debug, Reflect, FromReflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, FromReflect)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
@@ -380,14 +380,14 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
     }
 }
 
-#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, FromReflect)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
     pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
-#[derive(Clone, Debug, Default, Reflect, FromReflect)]
+#[derive(Clone, Debug, Default, Reflect)]
 #[reflect(FromReflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
@@ -581,7 +581,7 @@ fn calculate_cascade(
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect, FromReflect)]
+#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
 #[reflect(Resource, FromReflect)]
 pub struct AmbientLight {
     pub color: Color,
@@ -599,11 +599,11 @@ impl Default for AmbientLight {
 }
 
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
-#[derive(Component, Reflect, FromReflect, Default)]
+#[derive(Component, Reflect, Default)]
 #[reflect(Component, Default, FromReflect)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
-#[derive(Component, Reflect, FromReflect, Default)]
+#[derive(Component, Reflect, Default)]
 #[reflect(Component, Default, FromReflect)]
 pub struct NotShadowReceiver;
 
@@ -628,7 +628,7 @@ pub enum SimulationLightSystems {
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 pub enum ClusterFarZMode {
     /// Calculate the required maximum z-depth based on currently visible lights.
     /// Makes better use of available clusters, speeding up GPU lighting operations
@@ -640,7 +640,7 @@ pub enum ClusterFarZMode {
 }
 
 /// Configure the depth-slicing strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect)]
 #[reflect(Default, FromReflect)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
@@ -659,7 +659,7 @@ impl Default for ClusterZConfig {
 }
 
 /// Configuration of the clustering strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Component, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Component, Reflect)]
 #[reflect(Component, FromReflect)]
 pub enum ClusterConfig {
     /// Disable light cluster calculations for this view

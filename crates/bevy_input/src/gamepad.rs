@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::ReflectFromReflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::Duration;
 use bevy_utils::{tracing::info, HashMap};
 use thiserror::Error;
@@ -73,7 +73,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Note
 ///
 /// The `ID` of a gamepad is fixed until the gamepad disconnects or the app is restarted.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -93,7 +93,7 @@ impl Gamepad {
 }
 
 /// Metadata associated with a [`Gamepad`].
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -154,7 +154,7 @@ impl Gamepads {
 /// [`GamepadButtonChangedEvent`]. It is also used in the [`GamepadButton`]
 /// which in turn is used to create the [`Input<GamepadButton>`] or
 /// [`Axis<GamepadButton>`] `bevy` resources.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -219,7 +219,7 @@ pub enum GamepadButtonType {
 /// ## Updating
 ///
 /// The gamepad button resources are updated inside of the [`gamepad_button_event_system`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -261,7 +261,7 @@ impl GamepadButton {
 /// This is used to determine which axis has changed its value when receiving a
 /// [`GamepadAxisChangedEvent`]. It is also used in the [`GamepadAxis`]
 /// which in turn is used to create the [`Axis<GamepadAxis>`] `bevy` resource.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -297,7 +297,7 @@ pub enum GamepadAxisType {
 /// ## Updating
 ///
 /// The gamepad axes resources are updated inside of the [`gamepad_axis_event_system`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
 #[reflect(Debug, Hash, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -342,7 +342,7 @@ impl GamepadAxis {
 /// The [`GamepadSettings`] are used inside of `bevy_gilrs` to determine when raw gamepad events from `gilrs`,
 /// should register as a [`GamepadEvent`]. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding resource.
-#[derive(Resource, Default, Debug, Reflect, FromReflect)]
+#[derive(Resource, Default, Debug, Reflect)]
 #[reflect(Debug, Default, FromReflect)]
 pub struct GamepadSettings {
     /// The default button settings.
@@ -425,7 +425,7 @@ impl GamepadSettings {
 /// value is surpassed and released if the `release_threshold` value is undercut.
 ///
 /// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
-#[derive(Debug, Clone, Reflect, FromReflect)]
+#[derive(Debug, Clone, Reflect)]
 #[reflect(Debug, Default, FromReflect)]
 pub struct ButtonSettings {
     press_threshold: f32,
@@ -585,7 +585,7 @@ impl ButtonSettings {
 /// Otherwise, values will not be rounded.
 ///
 /// The valid range is `[-1.0, 1.0]`.
-#[derive(Debug, Clone, Reflect, FromReflect, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug, Default, FromReflect)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
@@ -917,7 +917,7 @@ impl AxisSettings {
 /// ## Updating
 ///
 /// The current value of a button is received through the [`GamepadButtonChangedEvent`].
-#[derive(Debug, Clone, Reflect, FromReflect)]
+#[derive(Debug, Clone, Reflect)]
 #[reflect(Debug, Default, FromReflect)]
 pub struct ButtonAxisSettings {
     /// The high value at which to apply rounding.
@@ -1026,7 +1026,7 @@ pub fn gamepad_connection_system(
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -1040,7 +1040,7 @@ pub enum GamepadConnection {
 
 /// A Gamepad connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
-#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -1071,7 +1071,7 @@ impl GamepadConnectionEvent {
     }
 }
 
-#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -1096,7 +1096,7 @@ impl GamepadAxisChangedEvent {
 
 /// Gamepad event for when the "value" (amount of pressure) on the button
 /// changes by an amount larger than the threshold defined in [`GamepadSettings`].
-#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -1159,7 +1159,7 @@ pub fn gamepad_button_event_system(
 /// This event type is used over the [`GamepadConnectionEvent`],
 /// [`GamepadButtonChangedEvent`] and [`GamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
-#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",

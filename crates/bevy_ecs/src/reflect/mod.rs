@@ -4,10 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
 use crate::{entity::Entity, system::Resource};
-use bevy_reflect::{
-    impl_from_reflect_value, impl_reflect_value, ReflectDeserialize, ReflectSerialize,
-    TypeRegistryArc,
-};
+use bevy_reflect::{impl_reflect_value, ReflectDeserialize, ReflectSerialize, TypeRegistryArc};
 
 mod component;
 mod map_entities;
@@ -39,4 +36,3 @@ impl DerefMut for AppTypeRegistry {
 }
 
 impl_reflect_value!((in bevy_ecs) Entity(Hash, PartialEq, Serialize, Deserialize));
-impl_from_reflect_value!(Entity);

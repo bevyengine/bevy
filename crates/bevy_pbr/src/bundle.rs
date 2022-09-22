@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_ecs::{bundle::Bundle, component::Component, prelude::Entity, reflect::ReflectComponent};
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{Reflect, ReflectFromReflect};
 use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
@@ -42,7 +42,7 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
     }
 }
 
-#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, FromReflect)]
 pub struct CubemapVisibleEntities {
     #[reflect(ignore)]
@@ -67,7 +67,7 @@ impl CubemapVisibleEntities {
     }
 }
 
-#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
+#[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, FromReflect)]
 pub struct CascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.

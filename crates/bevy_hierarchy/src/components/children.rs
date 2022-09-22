@@ -5,7 +5,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{Reflect, ReflectFromReflect};
 use core::slice;
 use smallvec::SmallVec;
 use std::ops::Deref;
@@ -16,7 +16,7 @@ use std::ops::Deref;
 ///
 /// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
 /// [`Query`]: bevy_ecs::system::Query
-#[derive(Component, Debug, Reflect, FromReflect)]
+#[derive(Component, Debug, Reflect)]
 #[reflect(Component, MapEntities, FromReflect)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 

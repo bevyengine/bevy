@@ -11,7 +11,7 @@ use crate::{
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectDeserialize, ReflectFromReflect,
+    std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectFromReflect,
     ReflectSerialize,
 };
 use bevy_utils::Uuid;
@@ -20,18 +20,7 @@ use serde::{Deserialize, Serialize};
 
 /// A unique, stable asset id.
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    Eq,
-    PartialEq,
-    Hash,
-    Ord,
-    PartialOrd,
-    Serialize,
-    Deserialize,
-    Reflect,
-    FromReflect,
+    Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, Reflect,
 )]
 #[reflect_value(Serialize, Deserialize, PartialEq, Hash)]
 pub enum HandleId {
@@ -103,7 +92,7 @@ impl HandleId {
 /// handle to the unloaded asset, but it will not be able to retrieve the image data, resulting in
 /// collisions no longer being detected for that entity.
 ///
-#[derive(Component, Reflect, FromReflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component, Default, FromReflect)]
 pub struct Handle<T>
 where

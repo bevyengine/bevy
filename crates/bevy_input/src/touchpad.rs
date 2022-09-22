@@ -1,5 +1,5 @@
 use bevy_ecs::event::Event;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect};
+use bevy_reflect::{Reflect, ReflectFromReflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -12,7 +12,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Platform-specific
 ///
 /// - Only available on **`macOS`**.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -29,7 +29,7 @@ pub struct TouchpadMagnify(pub f32);
 /// ## Platform-specific
 ///
 /// - Only available on **`macOS`**.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq, FromReflect)]
 #[cfg_attr(
     feature = "serialize",

@@ -40,6 +40,7 @@ pub struct Bar {
     b: usize,
 }
 
+#[derive(Default)]
 pub struct NonReflectedValue {
     _a: usize,
 }
