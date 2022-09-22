@@ -402,7 +402,7 @@ pub fn extract_clusters(
                     entity
                 )
             })
-            .insert_bundle((
+            .insert((
                 ExtractedClustersPointLights {
                     data: clusters.lights.clone(),
                 },
@@ -580,7 +580,7 @@ pub fn extract_lights(
                     entity
                 )
             })
-            .insert_bundle((
+            .insert((
                 ExtractedDirectionalLight {
                     color: directional_light.color,
                     illuminance: directional_light.illuminance,

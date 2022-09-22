@@ -434,7 +434,7 @@ pub fn extract_cameras(
                         entity
                     )
                 })
-                .insert_bundle((
+                .insert((
                     ExtractedCamera {
                         target: camera.target.clone(),
                         viewport: camera.viewport.clone(),

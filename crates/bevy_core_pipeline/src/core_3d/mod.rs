@@ -221,7 +221,7 @@ pub fn extract_core_3d_camera_phases(
                         entity
                     )
                 })
-                .insert_bundle((
+                .insert((
                     RenderPhase::<Opaque3d>::default(),
                     RenderPhase::<AlphaMask3d>::default(),
                     RenderPhase::<Transparent3d>::default(),
