@@ -6,14 +6,15 @@ use std::ops::Deref;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_core::Name;
+use bevy_core::{EntityPath, Name, NameLookup};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     prelude::Component,
+    query::QueryEntityError,
     reflect::ReflectComponent,
     schedule::ParallelSystemDescriptorCoercion,
-    system::{Query, Res},
+    system::{Query, Res, SystemParam},
 };
 use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
@@ -25,9 +26,7 @@ use bevy_utils::{tracing::warn, HashMap};
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, VariableCurve,
-    };
+    pub use crate::{AnimationClip, AnimationPlayer, AnimationPlugin, Keyframes, VariableCurve};
 }
 
 /// List of keyframes for one of the attribute of a [`Transform`].
@@ -50,13 +49,6 @@ pub struct VariableCurve {
     pub keyframe_timestamps: Vec<f32>,
     /// List of the keyframes.
     pub keyframes: Keyframes,
-}
-
-/// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
-pub struct EntityPath {
-    /// Parts of the path
-    pub parts: Vec<Name>,
 }
 
 /// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
@@ -179,9 +171,8 @@ pub fn animation_player(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
     mut animation_players: Query<(Entity, &mut AnimationPlayer)>,
-    names: Query<&Name>,
     mut transforms: Query<&mut Transform>,
-    children: Query<&Children>,
+    lookup: NameLookup,
 ) {
     for (entity, mut player) in &mut animation_players {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
@@ -200,29 +191,15 @@ pub fn animation_player(
             if elapsed < 0.0 {
                 elapsed += animation_clip.duration;
             }
-            'entity: for (path, curves) in &animation_clip.curves {
+            for (path, curves) in &animation_clip.curves {
                 // PERF: finding the target entity can be optimised
-                let mut current_entity = entity;
-                // Ignore the first name, it is the root node which we already have
-                for part in path.parts.iter().skip(1) {
-                    let mut found = false;
-                    if let Ok(children) = children.get(current_entity) {
-                        for child in children.deref() {
-                            if let Ok(name) = names.get(*child) {
-                                if name == part {
-                                    // Found a children with the right name, continue to the next part
-                                    current_entity = *child;
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
+                let current_entity = match lookup.lookup(entity, path) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        warn!("Entity for path {path:?} was not found");
+                        continue;
                     }
-                    if !found {
-                        warn!("Entity not found for path {:?} on part {:?}", path, part);
-                        continue 'entity;
-                    }
-                }
+                };
                 if let Ok(mut transform) = transforms.get_mut(current_entity) {
                     for curve in curves {
                         // Some curves have only one keyframe used to set a transform

@@ -204,7 +204,7 @@ async fn load_gltf<'a, 'b>(
                 if let Some((root_index, path)) = paths.get(&node.index()) {
                     animation_roots.insert(root_index);
                     animation_clip.add_curve_to_path(
-                        bevy_animation::EntityPath {
+                        bevy_core::EntityPath {
                             parts: path.clone(),
                         },
                         bevy_animation::VariableCurve {
