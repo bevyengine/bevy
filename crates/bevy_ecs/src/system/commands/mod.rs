@@ -152,6 +152,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
+    /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
     pub fn spawn_empty<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
         let entity = self.entities.reserve_entity();
         EntityCommands {

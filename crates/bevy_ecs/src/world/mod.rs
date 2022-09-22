@@ -399,7 +399,7 @@ impl World {
     ///
     /// #[derive(Component)]
     /// struct Name(&'static str);
-
+    ///
     /// #[derive(Bundle)]
     /// struct PhysicsBundle {
     ///     position: Position,
