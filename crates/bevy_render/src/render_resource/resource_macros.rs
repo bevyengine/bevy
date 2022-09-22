@@ -53,7 +53,7 @@ macro_rules! render_resource_wrapper {
                 let untyped_box = self
                     .0
                     .as_ref()
-                    .expect("BlackBox inner value has already been taken (via drop or try_unwrap")
+                    .expect("render_resource_wrapper inner value has already been taken (via drop or try_unwrap")
                     .as_ref();
 
                 let typed_box =
