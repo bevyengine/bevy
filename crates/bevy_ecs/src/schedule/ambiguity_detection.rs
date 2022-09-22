@@ -28,14 +28,19 @@ impl SystemStage {
                 } = ambiguity;
 
                 writeln!(string).unwrap();
-                writeln!(string, "({i}) Ambiguity - {}", segment.desc()).unwrap();
+                writeln!(
+                    string,
+                    "({i}) Ambiguous system ordering - {}",
+                    segment.desc()
+                )
+                .unwrap();
 
                 for name in system_names {
                     writeln!(string, " * {name}").unwrap();
                 }
 
                 writeln!(string).unwrap();
-                writeln!(string, " Conflicts:").unwrap();
+                writeln!(string, " Data access conflicts:").unwrap();
                 for conflict in conflicts {
                     writeln!(string, " * {conflict}").unwrap();
                 }
