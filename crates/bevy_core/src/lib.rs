@@ -33,7 +33,9 @@ impl Plugin for CorePlugin {
             .unwrap_or_default()
             .create_default_pools();
 
-        app.register_type::<Entity>().register_type::<Name>();
+        app.register_type::<Entity>()
+            .register_type::<Vec<Entity>>()
+            .register_type::<Name>();
 
         register_rust_types(app);
         register_math_types(app);
@@ -47,7 +49,8 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Option<String>>()
         .register_type::<Cow<'static, str>>()
         .register_type::<Duration>()
-        .register_type::<Instant>();
+        .register_type::<Instant>()
+        .register_type::<Option<Instant>>();
 }
 
 fn register_math_types(app: &mut App) {
@@ -81,5 +84,8 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Mat3A>()
         .register_type::<bevy_math::Mat4>()
         .register_type::<bevy_math::DQuat>()
-        .register_type::<bevy_math::Quat>();
+        .register_type::<bevy_math::Quat>()
+        .register_type::<bevy_math::Rect>()
+        .register_type::<Option<bevy_math::Rect>>()
+        .register_type::<Option<bevy_math::Vec2>>();
 }

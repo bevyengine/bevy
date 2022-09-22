@@ -17,6 +17,7 @@ mod events;
 pub use events::*;
 
 mod valid_parent_check_plugin;
+use smallvec::SmallVec;
 pub use valid_parent_check_plugin::*;
 
 #[doc(hidden)]
@@ -36,6 +37,7 @@ pub struct HierarchyPlugin;
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Children>()
+            .register_type::<SmallVec<[bevy_ecs::prelude::Entity; 8]>>()
             .register_type::<Parent>()
             .add_event::<HierarchyEvent>();
     }
