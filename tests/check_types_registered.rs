@@ -8,7 +8,7 @@ use bevy::{
 #[test]
 fn check_components_resources_registered() {
     let mut app = App::new();
-    app.add_plugins_with(DefaultPlugins, |g| g.disable::<bevy::winit::WinitPlugin>());
+    app.add_plugins_with(DefaultPlugins, |g| g.disable::<bevy::winit::WinitPlugin>().disable::<bevy::log::LogPlugin>());
 
     let type_registry = app.world.resource::<AppTypeRegistry>();
     let type_registry = type_registry.read();
@@ -44,7 +44,7 @@ fn check_components_resources_registered() {
 #[test]
 fn check_types_registered_recursive() {
     let mut app = App::new();
-    app.add_plugins_with(DefaultPlugins, |g| g.disable::<bevy::winit::WinitPlugin>());
+    app.add_plugins_with(DefaultPlugins, |g| g.disable::<bevy::winit::WinitPlugin>().disable::<bevy::log::LogPlugin>());
 
     let type_registry = app.world.resource::<AppTypeRegistry>();
     let type_registry = type_registry.read();
