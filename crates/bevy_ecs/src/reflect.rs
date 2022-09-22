@@ -5,11 +5,11 @@ use crate::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     system::Resource,
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_reflect::{
-    impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
-    ReflectSerialize,
+    impl_from_reflect_value, impl_reflect_value, FromReflect, FromType, Reflect,
+    ReflectDeserialize, ReflectSerialize,
 };
 
 /// A struct used to operate on reflected [`Component`] of a type.
@@ -170,12 +170,11 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
+impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
             insert: |world, entity, reflected_component| {
-                let mut component = C::from_world(world);
-                component.apply(reflected_component);
+                let component = C::from_reflect(reflected_component).unwrap();
                 world.entity_mut(entity).insert(component);
             },
             apply: |world, entity, reflected_component| {
@@ -186,8 +185,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 if let Some(mut component) = world.get_mut::<C>(entity) {
                     component.apply(reflected_component);
                 } else {
-                    let mut component = C::from_world(world);
-                    component.apply(reflected_component);
+                    let component = C::from_reflect(reflected_component).unwrap();
                     world.entity_mut(entity).insert(component);
                 }
             },
@@ -196,8 +194,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             },
             copy: |source_world, destination_world, source_entity, destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
-                let mut destination_component = C::from_world(destination_world);
-                destination_component.apply(source_component);
+                let destination_component = C::from_reflect(source_component).unwrap();
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);
@@ -356,12 +353,11 @@ impl ReflectResource {
     }
 }
 
-impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
+impl<C: Resource + Reflect + FromReflect> FromType<C> for ReflectResource {
     fn from_type() -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource| {
-                let mut resource = C::from_world(world);
-                resource.apply(reflected_resource);
+                let resource = C::from_reflect(reflected_resource).unwrap();
                 world.insert_resource(resource);
             },
             apply: |world, reflected_resource| {
@@ -372,8 +368,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
                 if let Some(mut resource) = world.get_resource_mut::<C>() {
                     resource.apply(reflected_resource);
                 } else {
-                    let mut resource = C::from_world(world);
-                    resource.apply(reflected_resource);
+                    let resource = C::from_reflect(reflected_resource).unwrap();
                     world.insert_resource(resource);
                 }
             },
@@ -393,8 +388,7 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
             },
             copy: |source_world, destination_world| {
                 let source_resource = source_world.resource::<C>();
-                let mut destination_resource = C::from_world(destination_world);
-                destination_resource.apply(source_resource);
+                let destination_resource = C::from_reflect(source_resource).unwrap();
                 destination_world.insert_resource(destination_resource);
             },
         })
