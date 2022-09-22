@@ -435,7 +435,7 @@ impl World {
     ///     // Calling id() will return the unique identifier for the spawned entity
     ///     .id();
     /// let position = world.entity(entity).get::<Position>().unwrap();
-    /// assert_eq!(position.x, 0.0);
+    /// assert_eq!(position.x, 2.0);
     /// ```
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityMut {
         self.flush();
