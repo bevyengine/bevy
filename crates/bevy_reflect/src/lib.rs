@@ -202,7 +202,8 @@
 //! And since the [`FromReflect::from_reflect`] method takes the data by reference,
 //! this can be used to effectively clone data (to an extent).
 //!
-//! It is automatically implemented when [deriving `Reflect`] on a type.
+//! It is automatically implemented when [deriving `Reflect`] on a type unless opted out of
+//! using `#[reflect(from_reflect = false)]` on the item.
 //!
 //! ```
 //! # use bevy_reflect::{Reflect, FromReflect};

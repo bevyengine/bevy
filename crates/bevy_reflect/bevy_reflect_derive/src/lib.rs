@@ -111,6 +111,13 @@ pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 /// If planning to serialize this type using the reflection serializers,
 /// then the `Serialize` and `Deserialize` traits will need to be implemented and registered as well.
 ///
+/// ## `#[reflect(from_reflect = false)]`
+///
+/// This attribute will opt-out of the default `FromReflect` implementation.
+///
+/// This is useful for when a type can't or shouldn't implement `FromReflect`,
+/// or if a manual implementation is desired.
+///
 /// # Field Attributes
 ///
 /// Along with the container attributes, this macro comes with some attributes that may be applied
@@ -147,17 +154,36 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let (reflect_impls, from_reflect_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
             impls::impl_struct(&struct_data),
-            from_reflect::impl_struct(&struct_data),
+            if struct_data.meta().from_reflect().should_auto_derive() {
+                Some(from_reflect::impl_struct(&struct_data))
+            } else {
+                None
+            },
         ),
         ReflectDerive::TupleStruct(struct_data) => (
             impls::impl_tuple_struct(&struct_data),
-            from_reflect::impl_tuple_struct(&struct_data),
+            if struct_data.meta().from_reflect().should_auto_derive() {
+                Some(from_reflect::impl_tuple_struct(&struct_data))
+            } else {
+                None
+            },
         ),
         ReflectDerive::Enum(enum_data) => (
             impls::impl_enum(&enum_data),
-            from_reflect::impl_enum(&enum_data),
+            if enum_data.meta().from_reflect().should_auto_derive() {
+                Some(from_reflect::impl_enum(&enum_data))
+            } else {
+                None
+            },
         ),
-        ReflectDerive::Value(meta) => (impls::impl_value(&meta), from_reflect::impl_value(&meta)),
+        ReflectDerive::Value(meta) => (
+            impls::impl_value(&meta),
+            if meta.from_reflect().should_auto_derive() {
+                Some(from_reflect::impl_value(&meta))
+            } else {
+                None
+            },
+        ),
     };
 
     TokenStream::from(quote! {
@@ -418,7 +444,6 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 
             TokenStream::from(quote! {
                 #impl_struct
-
                 #impl_from_struct
             })
         }

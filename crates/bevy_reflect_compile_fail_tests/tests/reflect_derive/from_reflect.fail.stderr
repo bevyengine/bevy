@@ -1,0 +1,11 @@
+error: `from_reflect` already set to false
+ --> tests/reflect_derive/from_reflect.fail.rs:6:26
+  |
+6 | #[reflect(from_reflect = true)]
+  |                          ^^^^
+
+error: `from_reflect` already set to true
+  --> tests/reflect_derive/from_reflect.fail.rs:14:26
+   |
+14 | #[reflect(from_reflect = false)]
+   |                          ^^^^^

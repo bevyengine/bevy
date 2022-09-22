@@ -1,4 +1,4 @@
-use crate::container_attributes::ReflectTraits;
+use crate::container_attributes::{FromReflectAttrs, ReflectTraits};
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
 use crate::type_path::parse_path_no_leading_colon;
@@ -374,6 +374,12 @@ impl<'a> ReflectMeta<'a> {
     /// The registered reflect traits on this struct.
     pub fn traits(&self) -> &ReflectTraits {
         &self.traits
+    }
+
+    /// The `FromReflect` attributes on this type.
+    #[allow(clippy::wrong_self_convention)]
+    pub fn from_reflect(&self) -> &FromReflectAttrs {
+        self.traits.from_reflect()
     }
 
     /// The name of this struct.

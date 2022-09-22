@@ -13,7 +13,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Meta, Path};
+use syn::{LitBool, Meta, Path};
 
 // The "special" trait idents that are used internally for reflection.
 // Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
@@ -24,6 +24,9 @@ const HASH_ATTR: &str = "Hash";
 // The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
 // but useful to know exist nonetheless
 pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
+
+// Attributes for `FromReflect` implementation
+const FROM_REFLECT_ATTR: &str = "from_reflect";
 
 // The error message to show when a trait/type is specified multiple times
 const CONFLICTING_TYPE_DATA_MESSAGE: &str = "conflicting type data registration";
@@ -59,6 +62,40 @@ impl TraitImpl {
                 Err(syn::Error::new(span, CONFLICTING_TYPE_DATA_MESSAGE))
             }
         }
+    }
+}
+
+/// A collection of attributes used for deriving `FromReflect`.
+#[derive(Clone, Default)]
+pub(crate) struct FromReflectAttrs {
+    auto_derive: Option<LitBool>,
+}
+
+impl FromReflectAttrs {
+    /// Returns true if `FromReflect` should be automatically derived as part of the `Reflect` derive.
+    pub fn should_auto_derive(&self) -> bool {
+        self.auto_derive
+            .as_ref()
+            .map(|lit| lit.value())
+            .unwrap_or(true)
+    }
+
+    /// Merges this [`FromReflectAttrs`] with another.
+    pub fn merge(&mut self, other: FromReflectAttrs) -> Result<(), syn::Error> {
+        if let Some(new) = other.auto_derive {
+            if let Some(existing) = &self.auto_derive {
+                if existing.value() != new.value() {
+                    return Err(syn::Error::new(
+                        new.span(),
+                        format!("`from_reflect` already set to {}", existing.value()),
+                    ));
+                }
+            } else {
+                self.auto_derive = Some(new);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -128,6 +165,7 @@ pub(crate) struct ReflectTraits {
     debug: TraitImpl,
     hash: TraitImpl,
     partial_eq: TraitImpl,
+    from_reflect: FromReflectAttrs,
     idents: Vec<Ident>,
 }
 
@@ -201,7 +239,24 @@ impl ReflectTraits {
                         Ok(())
                     })?;
                 }
-                _ => {}
+                Meta::NameValue(pair) => {
+                    if pair.path.is_ident(FROM_REFLECT_ATTR) {
+                        traits.from_reflect.auto_derive = match &pair.value {
+                            syn::Expr::Lit(syn::ExprLit {
+                                lit: syn::Lit::Bool(lit),
+                                ..
+                            }) => Some(lit.clone()),
+                            _ => {
+                                return Err(syn::Error::new(
+                                    pair.value.span(),
+                                    "Expected a boolean value",
+                                ))
+                            }
+                        };
+                    } else {
+                        return Err(syn::Error::new(pair.path.span(), "Unknown attribute"));
+                    }
+                }
             }
         }
 
@@ -217,6 +272,12 @@ impl ReflectTraits {
     /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
     pub fn idents(&self) -> &[Ident] {
         &self.idents
+    }
+
+    /// The `FromReflect` attributes on this type.
+    #[allow(clippy::wrong_self_convention)]
+    pub fn from_reflect(&self) -> &FromReflectAttrs {
+        &self.from_reflect
     }
 
     /// Returns the implementation of `Reflect::reflect_hash` as a `TokenStream`.
@@ -295,6 +356,7 @@ impl ReflectTraits {
         self.debug.merge(other.debug)?;
         self.hash.merge(other.hash)?;
         self.partial_eq.merge(other.partial_eq)?;
+        self.from_reflect.merge(other.from_reflect)?;
         for ident in other.idents {
             add_unique_ident(&mut self.idents, ident)?;
         }
