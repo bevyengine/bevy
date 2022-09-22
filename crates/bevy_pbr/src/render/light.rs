@@ -211,7 +211,7 @@ pub struct GpuLights {
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
-pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 #[derive(Resource)]
