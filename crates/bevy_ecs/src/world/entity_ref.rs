@@ -238,7 +238,15 @@ impl<'w> EntityMut<'w> {
             })
     }
 
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `insert` instead, which now accepts bundles, components, and tuples of bundles and components."
+    )]
     pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        self.insert(bundle)
+    }
+
+    pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let change_tick = self.world.change_tick();
         let bundle_info = self
             .world
@@ -260,8 +268,16 @@ impl<'w> EntityMut<'w> {
         self
     }
 
-    // TODO: move to BundleInfo
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `remove` instead, which now accepts bundles, components, and tuples of bundles and components."
+    )]
     pub fn remove_bundle<T: Bundle>(&mut self) -> Option<T> {
+        self.remove::<T>()
+    }
+
+    // TODO: move to BundleInfo
+    pub fn remove<T: Bundle>(&mut self) -> Option<T> {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -384,9 +400,17 @@ impl<'w> EntityMut<'w> {
         entities.meta[entity.id as usize].location = new_location;
     }
 
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `remove_intersection` instead, which now accepts bundles, components, and tuples of bundles and components."
+    )]
+    pub fn remove_bundle_intersection<T: Bundle>(&mut self) {
+        self.remove_intersection::<T>();
+    }
+
     // TODO: move to BundleInfo
     /// Remove any components in the bundle that the entity has.
-    pub fn remove_bundle_intersection<T: Bundle>(&mut self) {
+    pub fn remove_intersection<T: Bundle>(&mut self) {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -447,14 +471,6 @@ impl<'w> EntityMut<'w> {
                 new_archetype_id,
             );
         }
-    }
-
-    pub fn insert<T: Component>(&mut self, value: T) -> &mut Self {
-        self.insert_bundle((value,))
-    }
-
-    pub fn remove<T: Component>(&mut self) -> Option<T> {
-        self.remove_bundle::<(T,)>().map(|v| v.0)
     }
 
     pub fn despawn(self) {

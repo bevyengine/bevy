@@ -276,10 +276,10 @@ struct PlayerBundle {
 let mut world = World::new();
 
 // Spawn a new entity and insert the default PlayerBundle
-world.spawn().insert_bundle(PlayerBundle::default());
+world.spawn().insert(PlayerBundle::default());
 
 // Bundles play well with Rust's struct update syntax
-world.spawn().insert_bundle(PlayerBundle {
+world.spawn().insert(PlayerBundle {
     position: Position { x: 1.0, y: 1.0 },
     ..Default::default()
 });

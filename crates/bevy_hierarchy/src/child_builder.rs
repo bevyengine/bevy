@@ -331,8 +331,7 @@ impl<'w> WorldChildBuilder<'w> {
         let entity = self
             .world
             .spawn()
-            .insert_bundle(bundle)
-            .insert(Parent(parent_entity))
+            .insert((bundle, Parent(parent_entity)))
             .id();
         push_child_unchecked(self.world, parent_entity, entity);
         self.current_entity = Some(entity);
@@ -534,12 +533,12 @@ mod tests {
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
 
-        let parent = commands.spawn().insert(C(1)).id();
+        let parent = commands.spawn_bundle(C(1)).id();
         let children = commands.entity(parent).add_children(|parent| {
             [
-                parent.spawn().insert(C(2)).id(),
-                parent.spawn().insert(C(3)).id(),
-                parent.spawn().insert(C(4)).id(),
+                parent.spawn_bundle(C(2)).id(),
+                parent.spawn_bundle(C(3)).id(),
+                parent.spawn_bundle(C(4)).id(),
             ]
         });
 

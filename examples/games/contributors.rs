@@ -104,25 +104,24 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
         let entity = commands
-            .spawn()
-            .insert_bundle((
+            .spawn_bundle((
                 Contributor { name, hue },
                 Velocity {
                     translation: velocity,
                     rotation: -dir * 5.0,
                 },
-            ))
-            .insert_bundle(SpriteBundle {
-                sprite: Sprite {
-                    custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
-                    color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
-                    flip_x: flipped,
+                SpriteBundle {
+                    sprite: Sprite {
+                        custom_size: Some(Vec2::new(1.0, 1.0) * SPRITE_SIZE),
+                        color: Color::hsla(hue, SATURATION_DESELECTED, LIGHTNESS_DESELECTED, ALPHA),
+                        flip_x: flipped,
+                        ..default()
+                    },
+                    texture: texture_handle.clone(),
+                    transform,
                     ..default()
                 },
-                texture: texture_handle.clone(),
-                transform,
-                ..default()
-            })
+            ))
             .id();
 
         contributor_selection.order.push(entity);
@@ -136,7 +135,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn_bundle(Camera2dBundle::default());
 
-    commands.spawn().insert(ContributorDisplay).insert_bundle(
+    commands.spawn_bundle((
         TextBundle::from_sections([
             TextSection::new(
                 "Contributor showcase",
@@ -156,7 +155,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             align_self: AlignSelf::FlexEnd,
             ..default()
         }),
-    );
+        ContributorDisplay,
+    ));
 }
 
 /// Finds the next contributor to display and selects the entity

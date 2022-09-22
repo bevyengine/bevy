@@ -36,7 +36,7 @@ impl<'w> Benchmark<'w> {
         let mut world = World::new();
 
         for _ in 0..5 {
-            world.spawn().insert_bundle((
+            world.spawn().insert((
                 Data::<0>(1.0),
                 Data::<1>(1.0),
                 Data::<2>(1.0),

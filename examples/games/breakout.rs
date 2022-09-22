@@ -187,10 +187,8 @@ fn setup(
     // Paddle
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
 
-    commands
-        .spawn()
-        .insert(Paddle)
-        .insert_bundle(SpriteBundle {
+    commands.spawn_bundle((
+        SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(0.0, paddle_y, 0.0),
                 scale: PADDLE_SIZE,
@@ -201,20 +199,22 @@ fn setup(
                 ..default()
             },
             ..default()
-        })
-        .insert(Collider);
+        },
+        Paddle,
+        Collider,
+    ));
 
     // Ball
-    commands
-        .spawn()
-        .insert(Ball)
-        .insert_bundle(MaterialMesh2dBundle {
+    commands.spawn_bundle((
+        MaterialMesh2dBundle {
             mesh: meshes.add(shape::Circle::default().into()).into(),
             material: materials.add(ColorMaterial::from(BALL_COLOR)),
             transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
             ..default()
-        })
-        .insert(Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED));
+        },
+        Ball,
+        Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED),
+    ));
 
     // Scoreboard
     commands.spawn_bundle(
@@ -290,10 +290,8 @@ fn setup(
             );
 
             // brick
-            commands
-                .spawn()
-                .insert(Brick)
-                .insert_bundle(SpriteBundle {
+            commands.spawn_bundle((
+                SpriteBundle {
                     sprite: Sprite {
                         color: BRICK_COLOR,
                         ..default()
@@ -304,8 +302,10 @@ fn setup(
                         ..default()
                     },
                     ..default()
-                })
-                .insert(Collider);
+                },
+                Brick,
+                Collider,
+            ));
         }
     }
 }
