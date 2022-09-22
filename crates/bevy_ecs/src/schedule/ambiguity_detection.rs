@@ -69,10 +69,11 @@ impl SystemStage {
                         .iter()
                         .map(|id| world.components().get_info(*id).unwrap().name().to_owned())
                         .collect();
-                    let system_names = systems
+                    let mut system_names: Vec<_> = systems
                         .iter()
                         .map(|&SystemIndex(i)| container[i].name().to_string())
                         .collect();
+                    system_names.sort();
                     SystemOrderAmbiguity {
                         segment,
                         conflicts,
