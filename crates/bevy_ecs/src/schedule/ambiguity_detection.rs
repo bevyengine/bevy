@@ -60,7 +60,7 @@ impl SystemStage {
     ///
     /// The result may be incorrect if this stage has not been initialized with `world`.
     fn ambiguities(&self, world: &World) -> Vec<SystemOrderAmbiguity> {
-        fn foo<'a>(
+        fn find_ambiguities_in<'a>(
             segment: SystemStageSegment,
             container: &'a [impl SystemContainer],
             world: &'a World,
@@ -88,18 +88,18 @@ impl SystemStage {
             )
         }
 
-        foo(SystemStageSegment::Parallel, &self.parallel, world)
-            .chain(foo(
+        find_ambiguities_in(SystemStageSegment::Parallel, &self.parallel, world)
+            .chain(find_ambiguities_in(
                 SystemStageSegment::ExclusiveAtStart,
                 &self.exclusive_at_start,
                 world,
             ))
-            .chain(foo(
+            .chain(find_ambiguities_in(
                 SystemStageSegment::ExclusiveBeforeCommands,
                 &self.exclusive_before_commands,
                 world,
             ))
-            .chain(foo(
+            .chain(find_ambiguities_in(
                 SystemStageSegment::ExclusiveAtEnd,
                 &self.exclusive_at_end,
                 world,
