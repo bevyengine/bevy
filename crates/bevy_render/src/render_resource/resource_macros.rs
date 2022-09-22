@@ -1,3 +1,9 @@
+// structs containing wgpu types take a long time to compile. this is particularly bad for generic
+// structs containing wgpu structs. we avoid that in debug builds (and for cargo check and rust analyzer)
+// by boxing and type-erasing with the `render_resource_wrapper` macro.
+// analysis from https://github.com/bevyengine/bevy/pull/5950#issuecomment-1243473071 indicates this is
+// due to `evaluate_obligations`. we should check if this can be removed after a fix lands for
+// https://github.com/rust-lang/rust/issues/99188 (and after other `evaluate_obligations`-related changes).
 #[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! render_resource_wrapper {
