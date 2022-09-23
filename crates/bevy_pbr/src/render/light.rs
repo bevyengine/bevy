@@ -830,9 +830,9 @@ pub fn prepare_lights(
 
     // We can not support all shadow maps on this platform, thus all of them are skipped.
     if directional_shadow_maps_count + spot_light_shadow_maps_count > max_texture_array_layers {
+        error!("The amount of shadow casting directional and spot lights of {} is exceeding the supported limit of {} on this platform.", directional_shadow_maps_count + spot_light_shadow_maps_count, max_texture_array_layers);
         directional_shadow_maps_count = 0;
         spot_light_shadow_maps_count = 0;
-        error!("The amount of shadow casting directional and spot lights of {} is exceeding the supported limit of {} on this platform.", directional_shadow_maps_count + spot_light_shadow_maps_count, max_texture_array_layers);
     }
 
     // Sort lights by
