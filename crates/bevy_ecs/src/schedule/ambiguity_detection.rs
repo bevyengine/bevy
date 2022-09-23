@@ -6,6 +6,35 @@ use crate::component::ComponentId;
 use crate::schedule::{SystemContainer, SystemStage};
 use crate::world::World;
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct SystemOrderAmbiguity {
+    segment: SystemStageSegment,
+    conflicts: Vec<String>,
+    system_names: Vec<String>,
+}
+
+/// Which part of a [`SystemStage`] was a [`SystemOrderAmbiguity`] detected in?
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
+enum SystemStageSegment {
+    Parallel,
+    ExclusiveAtStart,
+    ExclusiveBeforeCommands,
+    ExclusiveAtEnd,
+}
+
+impl SystemStageSegment {
+    pub fn desc(&self) -> &'static str {
+        match self {
+            SystemStageSegment::Parallel => "Parallel systems",
+            SystemStageSegment::ExclusiveAtStart => "Exclusive systems at start of stage",
+            SystemStageSegment::ExclusiveBeforeCommands => {
+                "Exclusive systems before commands of stage"
+            }
+            SystemStageSegment::ExclusiveAtEnd => "Exclusive systems at end of stage",
+        }
+    }
+}
+
 impl SystemStage {
     /// Logs execution order ambiguities between systems.
     ///
@@ -120,35 +149,6 @@ impl SystemStage {
             .iter()
             .map(|a| binomial_coefficient(a.system_names.len(), 2))
             .sum()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct SystemOrderAmbiguity {
-    segment: SystemStageSegment,
-    conflicts: Vec<String>,
-    system_names: Vec<String>,
-}
-
-/// Which part of a [`SystemStage`] was a [`SystemOrderAmbiguity`] detected in?
-#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
-enum SystemStageSegment {
-    Parallel,
-    ExclusiveAtStart,
-    ExclusiveBeforeCommands,
-    ExclusiveAtEnd,
-}
-
-impl SystemStageSegment {
-    pub fn desc(&self) -> &'static str {
-        match self {
-            SystemStageSegment::Parallel => "Parallel systems",
-            SystemStageSegment::ExclusiveAtStart => "Exclusive systems at start of stage",
-            SystemStageSegment::ExclusiveBeforeCommands => {
-                "Exclusive systems before commands of stage"
-            }
-            SystemStageSegment::ExclusiveAtEnd => "Exclusive systems at end of stage",
-        }
     }
 }
 
