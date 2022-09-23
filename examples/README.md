@@ -219,7 +219,6 @@ Example | Description
 Example | Description
 --- | ---
 [Char Input Events](../examples/input/char_input_events.rs) | Prints out all chars as they are inputted
-[Gamepad Demo](../examples/input/gamepad_demo.rs) | Shows a visualization of gamepad buttons, sticks, and triggers
 [Gamepad Input](../examples/input/gamepad_input.rs) | Shows handling of gamepad input, connections, and disconnections
 [Gamepad Input Events](../examples/input/gamepad_input_events.rs) | Iterates and prints gamepad input and connection events
 [Keyboard Input](../examples/input/keyboard_input.rs) | Demonstrates handling a key press/release
@@ -292,6 +291,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Gamepad Viewer](../examples/input/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers
 [Scene Viewer](../examples/tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
 
 ## Transforms

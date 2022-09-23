@@ -974,16 +974,6 @@ category = "Input"
 wasm = false
 
 [[example]]
-name = "gamepad_demo"
-path = "examples/input/gamepad_demo.rs"
-
-[package.metadata.example.gamepad_demo]
-name = "Gamepad Demo"
-description = "Shows a visualization of gamepad buttons, sticks, and triggers"
-category = "Input"
-wasm = false
-
-[[example]]
 name = "gamepad_input"
 path = "examples/input/gamepad_input.rs"
 
@@ -1349,6 +1339,16 @@ name = "Scene Viewer"
 description = "A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory"
 category = "Tools"
 wasm = true
+
+[[example]]
+name = "gamepad_viewer"
+path = "examples/input/gamepad_viewer.rs"
+
+[package.metadata.example.gamepad_viewer]
+name = "Gamepad Viewer"
+description = "Shows a visualization of gamepad buttons, sticks, and triggers"
+category = "Tools"
+wasm = false
 
 # Transforms
 [[example]]
