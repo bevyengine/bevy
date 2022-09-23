@@ -1,5 +1,5 @@
-use bevy_window::WindowId;
 use bevy_math::Vec2;
+use bevy_window::WindowId;
 
 /// An event reporting that the mouse cursor has moved on a window.
 ///

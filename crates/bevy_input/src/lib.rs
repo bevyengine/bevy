@@ -1,10 +1,10 @@
 mod axis;
+pub mod cursor;
 pub mod gamepad;
 mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod touch;
-pub mod cursor;
 
 pub use axis::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
@@ -25,11 +25,11 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use cursor::CursorMoved;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use prelude::Gamepads;
 use touch::{touch_screen_input_system, TouchInput, Touches};
-use cursor::CursorMoved;
 
 use gamepad::{
     gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,

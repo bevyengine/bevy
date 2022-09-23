@@ -14,10 +14,10 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_input::{
+    cursor::CursorMoved,
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
-    cursor::CursorMoved
 };
 use bevy_math::{ivec2, DVec2, UVec2, Vec2};
 use bevy_utils::{
@@ -25,10 +25,9 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, FileDragAndDrop, ModifiesWindows,
-    ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
-    WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
-    WindowScaleFactorChanged, Windows,
+    CreateWindow, CursorEntered, CursorLeft, FileDragAndDrop, ModifiesWindows, ReceivedCharacter,
+    RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed,
+    WindowCreated, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 
 use winit::{
