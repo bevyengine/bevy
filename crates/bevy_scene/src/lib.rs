@@ -38,3 +38,8 @@ impl Plugin for ScenePlugin {
             .add_system_to_stage(CoreStage::PreUpdate, scene_spawner);
     }
 }
+
+#[cfg(not(feature = "serialize"))]
+impl Plugin for ScenePlugin {
+    fn build(&self, _: &mut App) {}
+}
