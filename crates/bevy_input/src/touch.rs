@@ -145,7 +145,7 @@ impl Touch {
         self.id
     }
 
-    /// Returns the `window_id` of the touch
+    /// Returns the `window_id` of the touch.
     #[inline]
     pub fn window_id(&self) -> WindowId {
         self.window_id
