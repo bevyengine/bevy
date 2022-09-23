@@ -9,7 +9,7 @@ use bevy_window::WindowId;
 /// Not to be confused with the [`MouseMotion`] event from `bevy_input`.
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
-/// [`MouseMotion`]: bevy_input::mouse::MouseMotion
+/// [`MouseMotion`]: super::mouse::MouseMotion
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CursorMoved {
