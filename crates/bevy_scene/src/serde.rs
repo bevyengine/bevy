@@ -1,9 +1,11 @@
 use crate::{DynamicEntity, DynamicScene};
+use bevy_reflect::{Reflect, TypeRegistry, TypeRegistryArc};
+
+#[cfg(feature = "serialize")]
 use anyhow::Result;
-use bevy_reflect::{
-    serde::{ReflectDeserializer, ReflectSerializer},
-    Reflect, TypeRegistry, TypeRegistryArc,
-};
+#[cfg(feature = "serialize")]
+use bevy_reflect::serde::{ReflectDeserializer, ReflectSerializer};
+#[cfg(feature = "serialize")]
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
     ser::{SerializeSeq, SerializeStruct},
@@ -21,6 +23,7 @@ impl<'a> SceneSerializer<'a> {
     }
 }
 
+#[cfg(feature = "serialize")]
 impl<'a> Serialize for SceneSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -42,6 +45,7 @@ pub struct EntitySerializer<'a> {
     pub registry: &'a TypeRegistryArc,
 }
 
+#[cfg(feature = "serialize")]
 impl<'a> Serialize for EntitySerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -65,6 +69,7 @@ pub struct ComponentsSerializer<'a> {
     pub registry: &'a TypeRegistryArc,
 }
 
+#[cfg(feature = "serialize")]
 impl<'a> Serialize for ComponentsSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -85,6 +90,7 @@ pub struct SceneDeserializer<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
+#[cfg(feature = "serialize")]
 impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     type Value = DynamicScene;
 
@@ -104,6 +110,7 @@ struct SceneEntitySeqVisitor<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
+#[cfg(feature = "serialize")]
 impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
     type Value = Vec<DynamicEntity>;
 
@@ -130,6 +137,7 @@ pub struct SceneEntityDeserializer<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
+#[cfg(feature = "serialize")]
 impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
     type Value = DynamicEntity;
 
@@ -147,8 +155,11 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(field_identifier, rename_all = "lowercase")]
+#[cfg_attr(feature = "serialize", derive(Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    serde(field_identifier, rename_all = "lowercase")
+)]
 enum EntityField {
     Entity,
     Components,
@@ -162,6 +173,7 @@ struct SceneEntityVisitor<'a> {
     pub registry: &'a TypeRegistry,
 }
 
+#[cfg(feature = "serialize")]
 impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     type Value = DynamicEntity;
 
@@ -213,6 +225,7 @@ pub struct ComponentVecDeserializer<'a> {
     pub registry: &'a TypeRegistry,
 }
 
+#[cfg(feature = "serialize")]
 impl<'a, 'de> DeserializeSeed<'de> for ComponentVecDeserializer<'a> {
     type Value = Vec<Box<dyn Reflect>>;
 
@@ -230,6 +243,7 @@ struct ComponentSeqVisitor<'a> {
     pub registry: &'a TypeRegistry,
 }
 
+#[cfg(feature = "serialize")]
 impl<'a, 'de> Visitor<'de> for ComponentSeqVisitor<'a> {
     type Value = Vec<Box<dyn Reflect>>;
 
