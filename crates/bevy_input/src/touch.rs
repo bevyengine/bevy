@@ -2,6 +2,7 @@ use bevy_ecs::event::EventReader;
 use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
+use bevy_window::WindowId;
 
 /// A touch input event.
 ///
@@ -39,6 +40,8 @@ pub struct TouchInput {
     pub force: Option<ForceTouch>,
     /// The unique identifier of the finger.
     pub id: u64,
+    /// The id of the window that was touched.
+    pub window_id: WindowId,
 }
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.
@@ -121,6 +124,8 @@ pub struct Touch {
     position: Vec2,
     /// The current force of the touch input.
     force: Option<ForceTouch>,
+    /// The id of the window that was touched.
+    window_id: WindowId,
 }
 
 impl Touch {
@@ -138,6 +143,12 @@ impl Touch {
     #[inline]
     pub fn id(&self) -> u64 {
         self.id
+    }
+
+    /// Returns the `window_id` of the touch
+    #[inline]
+    pub fn window_id(&self) -> WindowId {
+        self.window_id
     }
 
     /// Returns the `start_position` of the touch.
@@ -187,6 +198,7 @@ impl From<&TouchInput> for Touch {
             previous_force: input.force,
             position: input.position,
             force: input.force,
+            window_id: input.window_id,
         }
     }
 }
@@ -356,6 +368,7 @@ mod test {
             previous_force: None,
             position: Vec2::ZERO,
             force: None,
+            window_id: WindowId::new,
         };
 
         // Add a touch to `just_pressed`, 'just_released', and 'just cancelled'
@@ -386,6 +399,7 @@ mod test {
             position: Vec2::splat(4.0),
             force: None,
             id: 4,
+            window_id: WindowId::primary(),
         };
 
         touches.update();
@@ -401,6 +415,7 @@ mod test {
             position: Vec2::splat(5.0),
             force: None,
             id: touch_event.id,
+            window_id: WindowId::primary(),
         };
 
         touches.update();
@@ -422,6 +437,7 @@ mod test {
             position: Vec2::ONE,
             force: None,
             id: touch_event.id,
+            window_id: WindowId::primary(),
         };
 
         touches.update();
@@ -437,6 +453,7 @@ mod test {
             position: Vec2::splat(4.0),
             force: None,
             id: 4,
+            window_id: WindowId::primary(),
         };
 
         touches.update();
@@ -459,6 +476,7 @@ mod test {
             position: Vec2::splat(4.0),
             force: None,
             id: 4,
+            window_id: WindowId::primary(),
         };
 
         // Register the touch and test that it was registered correctly
@@ -481,6 +499,7 @@ mod test {
             position: Vec2::splat(4.0),
             force: None,
             id: 4,
+            window_id: WindowId::primary(),
         };
 
         // Register the touch and test that it was registered correctly
@@ -503,6 +522,7 @@ mod test {
             position: Vec2::splat(4.0),
             force: None,
             id: 4,
+            window_id: WindowId::primary(),
         };
 
         // Register the touch and test that it was registered correctly

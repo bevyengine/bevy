@@ -5,7 +5,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::CursorIcon;
+use bevy_window::{CursorIcon, WindowId};
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {
@@ -32,6 +32,7 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
 }
 
 pub fn convert_touch_input(
+    source_window_id: WindowId,
     touch_input: winit::event::Touch,
     location: winit::dpi::LogicalPosition<f32>,
 ) -> TouchInput {
@@ -56,6 +57,7 @@ pub fn convert_touch_input(
             winit::event::Force::Normalized(x) => ForceTouch::Normalized(x),
         }),
         id: touch_input.id,
+        window_id: source_window_id,
     }
 }
 

@@ -495,7 +495,8 @@ pub fn winit_runner_with(mut app: App) {
                             let window_height = windows.primary().height();
                             location.y = window_height - location.y;
                         }
-                        touch_input_events.send(converters::convert_touch_input(touch, location));
+                        touch_input_events
+                            .send(converters::convert_touch_input(window_id, touch, location));
                     }
                     WindowEvent::ReceivedCharacter(c) => {
                         let mut char_input_events =

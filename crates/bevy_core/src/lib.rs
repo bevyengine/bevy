@@ -4,6 +4,12 @@
 mod name;
 mod task_pool_options;
 
+pub use bevy_ecs::{
+    event::EventReader,
+    system::{Local, Res, ResMut},
+};
+pub use bevy_input::{keyboard::KeyCode, Input};
+pub use bevy_window::{WindowFocused, WindowId, Windows};
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
@@ -82,4 +88,27 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Mat4>()
         .register_type::<bevy_math::DQuat>()
         .register_type::<bevy_math::Quat>();
+}
+
+/// Close the focused window whenever the escape key (<kbd>Esc</kbd>) is pressed
+///
+/// This is useful for examples or prototyping.
+pub fn close_on_esc(
+    mut focused: Local<Option<WindowId>>,
+    mut focused_events: EventReader<WindowFocused>,
+    mut windows: ResMut<Windows>,
+    input: Res<Input<KeyCode>>,
+) {
+    // TODO: Track this in e.g. a resource to ensure consistent behaviour across similar systems
+    for event in focused_events.iter() {
+        *focused = event.focused.then_some(event.id);
+    }
+
+    if let Some(focused) = &*focused {
+        if input.just_pressed(KeyCode::Escape) {
+            if let Some(window) = windows.get_mut(*focused) {
+                window.close();
+            }
+        }
+    }
 }

@@ -67,7 +67,7 @@ fn main() {
                 .with_system(play_collision_sound.after(check_for_collisions)),
         )
         .add_system(update_scoreboard)
-        .add_system(bevy::window::close_on_esc)
+        .add_system(bevy::core::close_on_esc)
         .run();
 }
 
