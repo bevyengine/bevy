@@ -1342,7 +1342,7 @@ wasm = true
 
 [[example]]
 name = "gamepad_viewer"
-path = "examples/input/gamepad_viewer.rs"
+path = "examples/tools/gamepad_viewer.rs"
 
 [package.metadata.example.gamepad_viewer]
 name = "Gamepad Viewer"
