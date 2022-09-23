@@ -300,6 +300,7 @@ fn find_ambiguities(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     // Required to make the derive macro behave
     use crate as bevy_ecs;
     use crate::event::Events;
@@ -484,17 +485,29 @@ mod tests {
 
         let mut test_stage = SystemStage::parallel();
         test_stage
-            // All 3 of these conflict with each other
+            // All 3 of these conflict with each other (`.at_start()` is the default configuration)
             .add_system(write_world_system.exclusive_system())
-            .add_system(write_world_system.exclusive_system().at_end())
+            .add_system(write_world_system.exclusive_system().at_start())
             .add_system(res_system.exclusive_system())
             // These do not, as they're in different segments of the stage
-            .add_system(write_world_system.exclusive_system().at_start())
+            .add_system(write_world_system.exclusive_system().at_end())
             .add_system(write_world_system.exclusive_system().before_commands());
 
         test_stage.run(&mut world);
 
         assert_eq!(test_stage.ambiguity_count(&world), 3);
+        assert_eq!(
+            test_stage.ambiguities(&world),
+            vec![SystemOrderAmbiguity {
+                segment: SystemStageSegment::ExclusiveAtStart,
+                conflicts: vec![],
+                system_names: vec![
+                    "bevy_ecs::schedule::ambiguity_detection::tests::res_system".to_owned(),
+                    "bevy_ecs::schedule::ambiguity_detection::tests::write_world_system".to_owned(),
+                    "bevy_ecs::schedule::ambiguity_detection::tests::write_world_system".to_owned(),
+                ]
+            }],
+        );
     }
 
     // Tests for silencing and resolving ambiguities
