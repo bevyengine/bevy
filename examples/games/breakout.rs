@@ -178,7 +178,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     // Sound
     let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
@@ -187,7 +187,7 @@ fn setup(
     // Paddle
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
 
-    commands.spawn_bundle((
+    commands.spawn((
         SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(0.0, paddle_y, 0.0),
@@ -205,7 +205,7 @@ fn setup(
     ));
 
     // Ball
-    commands.spawn_bundle((
+    commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.add(shape::Circle::default().into()).into(),
             material: materials.add(ColorMaterial::from(BALL_COLOR)),
@@ -217,7 +217,7 @@ fn setup(
     ));
 
     // Scoreboard
-    commands.spawn_bundle(
+    commands.spawn(
         TextBundle::from_sections([
             TextSection::new(
                 "Score: ",
@@ -245,10 +245,10 @@ fn setup(
     );
 
     // Walls
-    commands.spawn_bundle(WallBundle::new(WallLocation::Left));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Right));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Bottom));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Top));
+    commands.spawn(WallBundle::new(WallLocation::Left));
+    commands.spawn(WallBundle::new(WallLocation::Right));
+    commands.spawn(WallBundle::new(WallLocation::Bottom));
+    commands.spawn(WallBundle::new(WallLocation::Top));
 
     // Bricks
     // Negative scales result in flipped sprites / meshes,
@@ -290,7 +290,7 @@ fn setup(
             );
 
             // brick
-            commands.spawn_bundle((
+            commands.spawn((
                 SpriteBundle {
                     sprite: Sprite {
                         color: BRICK_COLOR,

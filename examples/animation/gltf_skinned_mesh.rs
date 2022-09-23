@@ -19,13 +19,13 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create a camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
-    commands.spawn_bundle(SceneBundle {
+    commands.spawn(SceneBundle {
         scene: asset_server.load("models/SimpleSkin/SimpleSkin.gltf#Scene0"),
         ..default()
     });

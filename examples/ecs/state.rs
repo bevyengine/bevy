@@ -36,12 +36,12 @@ const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 }
 
 fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     let button_entity = commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
@@ -56,7 +56,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle::from_section(
+            parent.spawn(TextBundle::from_section(
                 "Play",
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -97,7 +97,7 @@ fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
         ..default()
     });

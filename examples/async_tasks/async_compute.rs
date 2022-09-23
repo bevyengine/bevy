@@ -71,7 +71,7 @@ fn spawn_tasks(mut commands: Commands) {
                 });
 
                 // Spawn new entity and add our new task as a component
-                commands.spawn_bundle(ComputeTransform(task));
+                commands.spawn(ComputeTransform(task));
             }
         }
     }
@@ -113,13 +113,13 @@ fn setup_env(mut commands: Commands) {
     };
 
     // lights
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 12.0, 15.0),
         ..default()
     });
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
         ..default()

@@ -41,12 +41,13 @@ fn setup(
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands
-        .spawn_bundle(SpriteSheetBundle {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn((
+        SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..default()
-        })
-        .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
+        },
+        AnimationTimer(Timer::from_seconds(0.1, true)),
+    ));
 }

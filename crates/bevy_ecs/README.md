@@ -57,9 +57,8 @@ struct Velocity { x: f32, y: f32 }
 
 let mut world = World::new();
 
-let entity = world.spawn()
-    .insert(Position { x: 0.0, y: 0.0 })
-    .insert(Velocity { x: 1.0, y: 0.0 })
+let entity = world
+    .spawn((Position { x: 0.0, y: 0.0 }, Velocity { x: 1.0, y: 0.0 }))
     .id();
 
 let entity_ref = world.entity(entity);
@@ -141,9 +140,10 @@ fn main() {
     let mut world = World::new();
 
     // Spawn an entity with Position and Velocity components
-    world.spawn()
-        .insert(Position { x: 0.0, y: 0.0 })
-        .insert(Velocity { x: 1.0, y: 0.0 });
+    world.spawn((
+        Position { x: 0.0, y: 0.0 },
+        Velocity { x: 1.0, y: 0.0 },
+    ));
 
     // Create a new Schedule, which defines an execution strategy for Systems
     let mut schedule = Schedule::default();
@@ -276,10 +276,10 @@ struct PlayerBundle {
 let mut world = World::new();
 
 // Spawn a new entity and insert the default PlayerBundle
-world.spawn().insert(PlayerBundle::default());
+world.spawn(PlayerBundle::default());
 
 // Bundles play well with Rust's struct update syntax
-world.spawn().insert(PlayerBundle {
+world.spawn(PlayerBundle {
     position: Position { x: 1.0, y: 1.0 },
     ..Default::default()
 });

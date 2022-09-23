@@ -960,7 +960,7 @@ mod tests {
     #[test]
     fn entity_ref_get_by_id() {
         let mut world = World::new();
-        let entity = world.spawn().insert(TestComponent(42)).id();
+        let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
             .get_id(std::any::TypeId::of::<TestComponent>())
@@ -977,7 +977,7 @@ mod tests {
     #[test]
     fn entity_mut_get_by_id() {
         let mut world = World::new();
-        let entity = world.spawn().insert(TestComponent(42)).id();
+        let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
             .get_id(std::any::TypeId::of::<TestComponent>())
@@ -1006,7 +1006,7 @@ mod tests {
         let invalid_component_id = ComponentId::new(usize::MAX);
 
         let mut world = World::new();
-        let entity = world.spawn().id();
+        let entity = world.spawn_empty().id();
         let entity = world.entity(entity);
         assert!(entity.get_by_id(invalid_component_id).is_none());
     }
@@ -1016,7 +1016,7 @@ mod tests {
         let invalid_component_id = ComponentId::new(usize::MAX);
 
         let mut world = World::new();
-        let mut entity = world.spawn();
+        let mut entity = world.spawn_empty();
         assert!(entity.get_by_id(invalid_component_id).is_none());
         assert!(entity.get_mut_by_id(invalid_component_id).is_none());
     }

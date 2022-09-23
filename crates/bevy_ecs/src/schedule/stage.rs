@@ -1477,7 +1477,7 @@ mod tests {
         world.insert_resource(R(0));
         let mut stage = SystemStage::single(query_count_system);
 
-        let entity = world.spawn().insert(()).id();
+        let entity = world.spawn_empty().id();
         stage.run(&mut world);
         assert_eq!(world.resource::<R>().0, 1);
 
@@ -1497,7 +1497,7 @@ mod tests {
         let mut stage = SystemStage::parallel();
         stage.add_system(query_count_system);
 
-        let entity = world.spawn().insert(()).id();
+        let entity = world.spawn_empty().id();
         stage.run(&mut world);
         assert_eq!(world.resource::<R>().0, 1);
 
@@ -1522,7 +1522,7 @@ mod tests {
         }
 
         fn spawn_entity(mut commands: crate::prelude::Commands) {
-            commands.spawn_bundle(Foo);
+            commands.spawn(Foo);
         }
 
         fn count_entities(query: Query<&Foo>, mut res: ResMut<EntityCount>) {
@@ -1564,7 +1564,7 @@ mod tests {
         }
 
         fn spawn_entity(mut commands: crate::prelude::Commands) {
-            commands.spawn_bundle(Foo);
+            commands.spawn(Foo);
         }
 
         fn count_entities(query: Query<&Foo>, mut res: ResMut<EntityCount>) {

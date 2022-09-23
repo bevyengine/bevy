@@ -30,7 +30,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
-    commands.spawn_bundle((
+    commands.spawn((
         meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
         Transform::from_xyz(0.0, 0.0, 0.0),
         GlobalTransform::default(),
@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     ));
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

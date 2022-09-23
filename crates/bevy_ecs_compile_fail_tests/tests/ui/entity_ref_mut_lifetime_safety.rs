@@ -8,7 +8,7 @@ struct B;
 
 fn main() {
     let mut world = World::default();
-    let e = world.spawn().insert(A(Box::new(10_usize))).id();
+    let e = world.spawn(A(Box::new(10_usize))).id();
 
     let mut e_mut = world.entity_mut(e);
 
@@ -34,7 +34,7 @@ fn main() {
         assert_eq!(gotten, &A(Box::new(14_usize))); // oops UB
     }
 
-    let e = world.spawn().insert(A(Box::new(16_usize))).id();
+    let e = world.spawn(A(Box::new(16_usize))).id();
     let mut e_mut = world.entity_mut(e);
 
     {

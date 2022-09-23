@@ -104,7 +104,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         let transform = Transform::from_xyz(pos.0, pos.1, 0.0);
 
         let entity = commands
-            .spawn_bundle((
+            .spawn((
                 Contributor { name, hue },
                 Velocity {
                     translation: velocity,
@@ -133,9 +133,9 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
-    commands.spawn_bundle((
+    commands.spawn((
         TextBundle::from_sections([
             TextSection::new(
                 "Contributor showcase",
