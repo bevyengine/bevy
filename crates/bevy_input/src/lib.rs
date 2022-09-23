@@ -4,6 +4,7 @@ mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod touch;
+pub mod cursor;
 
 pub use axis::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
@@ -28,6 +29,7 @@ use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use prelude::Gamepads;
 use touch::{touch_screen_input_system, TouchInput, Touches};
+use cursor::CursorMoved;
 
 use gamepad::{
     gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
@@ -83,7 +85,9 @@ impl Plugin for InputPlugin {
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 touch_screen_input_system.label(InputSystem),
-            );
+            )
+            // cursor
+            .add_event::<CursorMoved>();
     }
 }
 

@@ -352,6 +352,7 @@ pub fn touch_screen_input_system(
 
 #[cfg(test)]
 mod test {
+    use bevy_window::WindowId;
 
     #[test]
     fn touch_update() {
@@ -368,7 +369,7 @@ mod test {
             previous_force: None,
             position: Vec2::ZERO,
             force: None,
-            window_id: WindowId::new,
+            window_id: WindowId::primary(),
         };
 
         // Add a touch to `just_pressed`, 'just_released', and 'just cancelled'

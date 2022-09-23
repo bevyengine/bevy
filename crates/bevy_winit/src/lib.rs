@@ -17,6 +17,7 @@ use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
+    cursor::CursorMoved
 };
 use bevy_math::{ivec2, DVec2, UVec2, Vec2};
 use bevy_utils::{
@@ -24,7 +25,7 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
+    CreateWindow, CursorEntered, CursorLeft, FileDragAndDrop, ModifiesWindows,
     ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
     WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
     WindowScaleFactorChanged, Windows,
