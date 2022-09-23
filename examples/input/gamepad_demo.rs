@@ -441,8 +441,6 @@ fn update_buttons(
     materials: Res<ButtonMaterials>,
     mut query: Query<(&mut Handle<ColorMaterial>, &ReactTo)>,
 ) {
-    info!("button inputs changed? {:?}", button_inputs.is_changed());
-
     for gamepad in gamepads.iter() {
         for (mut handle, react_to) in query.iter_mut() {
             if button_inputs.just_pressed(GamepadButton::new(gamepad, **react_to)) {
