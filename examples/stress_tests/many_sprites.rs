@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
     let sprite_handle = assets.load("branding/icon.png");
 
     // Spawns the camera
-    commands.spawn_bundle((Camera2dBundle::default(),));
+    commands.spawn_bundle(Camera2dBundle::default());
 
     // Builds and spawns the sprites
     let mut sprites = vec![];
