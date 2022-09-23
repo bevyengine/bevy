@@ -52,7 +52,6 @@ fn setup(
     // Spawns the camera
     commands.spawn_bundle((
         Camera2dBundle::default(),
-        Transform::from_xyz(0.0, 0.0, 1000.0),
     ));
 
     // Builds and spawns the sprites
