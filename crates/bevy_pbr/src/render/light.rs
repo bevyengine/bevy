@@ -803,7 +803,7 @@ pub fn prepare_lights(
         .filter(|light| light.1.spot_light_angles.is_none())
         .count();
 
-    let directional_light_count = directional_lights.iter().count();
+    let directional_light_count = directional_lights.len();
 
     let point_light_shadow_maps_count = point_lights
         .iter()
@@ -1036,7 +1036,7 @@ pub fn prepare_lights(
 
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
         let gpu_lights = GpuLights {
-            directional_lights: gpu_directional_lights.clone(),
+            directional_lights: gpu_directional_lights,
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
                 * ambient_light.brightness,
             cluster_factors: Vec4::new(
