@@ -754,6 +754,19 @@ pub(crate) fn point_light_order(
         .then_with(|| entity_1.cmp(entity_2)) // stable
 }
 
+// Sort lights by
+// - those with shadows enabled first, so that the index can be used to render at most `directional_light_shadow_maps_count`
+//   directional light shadows
+// - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
+pub(crate) fn directional_light_order(
+    (entity_1, shadows_enabled_1): (&Entity, &bool),
+    (entity_2, shadows_enabled_2): (&Entity, &bool),
+) -> std::cmp::Ordering {
+    shadows_enabled_2
+        .cmp(shadows_enabled_1) // shadow casters before non-casters
+        .then_with(|| entity_1.cmp(entity_2)) // stable
+}
+
 #[derive(Clone, Copy)]
 // data required for assigning lights to clusters
 pub(crate) struct PointLightAssignmentData {
