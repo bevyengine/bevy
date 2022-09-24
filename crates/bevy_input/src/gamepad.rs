@@ -624,7 +624,7 @@ impl ButtonSettings {
 /// to 0.0.
 /// Otherwise, values will not be rounded.
 ///
-/// The valid range is [-1, 1].
+/// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to -1.0.
@@ -644,8 +644,8 @@ impl Default for AxisSettings {
         AxisSettings {
             livezone_upperbound: 0.95,
             deadzone_upperbound: 0.05,
-            deadzone_lowerbound: -0.95,
-            livezone_lowerbound: -0.05,
+            deadzone_lowerbound: -0.05,
+            livezone_lowerbound: -0.95,
             threshold: 0.01,
         }
     }
@@ -856,11 +856,11 @@ impl AxisSettings {
 
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
         let new_value =
-            if new_value <= self.deadzone_upperbound && new_value >= self.livezone_lowerbound {
+            if self.deadzone_lowerbound <= new_value && new_value <= self.deadzone_upperbound {
                 0.0
             } else if new_value >= self.livezone_upperbound {
                 1.0
-            } else if new_value <= self.deadzone_lowerbound {
+            } else if new_value <= self.livezone_lowerbound {
                 -1.0
             } else {
                 new_value
