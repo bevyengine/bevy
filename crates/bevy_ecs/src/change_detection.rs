@@ -376,7 +376,7 @@ mod tests {
         let mut world = World::new();
 
         // component added: 1, changed: 1
-        world.spawn().insert(C);
+        world.spawn(C);
 
         let mut change_detected_system = IntoSystem::into_system(change_detected);
         let mut change_expired_system = IntoSystem::into_system(change_expired);
@@ -409,7 +409,7 @@ mod tests {
         *world.change_tick.get_mut() = 0;
 
         // component added: 0, changed: 0
-        world.spawn().insert(C);
+        world.spawn(C);
 
         // system last ran: u32::MAX
         let mut change_detected_system = IntoSystem::into_system(change_detected);
@@ -425,7 +425,7 @@ mod tests {
         let mut world = World::new();
 
         // component added: 1, changed: 1
-        world.spawn().insert(C);
+        world.spawn(C);
 
         // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
         *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;

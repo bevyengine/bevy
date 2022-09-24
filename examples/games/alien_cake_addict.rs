@@ -81,7 +81,7 @@ const RESET_FOCUS: [f32; 3] = [
 fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     game.camera_should_focus = Vec3::from(RESET_FOCUS);
     game.camera_is_focus = game.camera_should_focus;
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(
             -(BOARD_SIZE_I as f32 / 2.0),
             2.0 * BOARD_SIZE_J as f32 / 3.0,
@@ -100,7 +100,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.j = BOARD_SIZE_J / 2;
     game.player.move_cooldown = Timer::from_seconds(0.3, false);
 
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 10.0, 4.0),
         point_light: PointLight {
             intensity: 3000.0,
@@ -118,7 +118,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             (0..BOARD_SIZE_I)
                 .map(|i| {
                     let height = rand::thread_rng().gen_range(-0.1..0.1);
-                    commands.spawn_bundle(SceneBundle {
+                    commands.spawn(SceneBundle {
                         transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         scene: cell_scene.clone(),
                         ..default()
@@ -132,7 +132,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     // spawn the game character
     game.player.entity = Some(
         commands
-            .spawn_bundle(SceneBundle {
+            .spawn(SceneBundle {
                 transform: Transform {
                     translation: Vec3::new(
                         game.player.i as f32,
@@ -152,7 +152,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.bonus.handle = asset_server.load("models/AlienCake/cakeBirthday.glb#Scene0");
 
     // scoreboard
-    commands.spawn_bundle(
+    commands.spawn(
         TextBundle::from_section(
             "Score:",
             TextStyle {
@@ -319,7 +319,7 @@ fn spawn_bonus(
     }
     game.bonus.entity = Some(
         commands
-            .spawn_bundle(SceneBundle {
+            .spawn(SceneBundle {
                 transform: Transform::from_xyz(
                     game.bonus.i as f32,
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
@@ -329,7 +329,7 @@ fn spawn_bonus(
                 ..default()
             })
             .with_children(|children| {
-                children.spawn_bundle(PointLightBundle {
+                children.spawn(PointLightBundle {
                     point_light: PointLight {
                         color: Color::rgb(1.0, 1.0, 0.0),
                         intensity: 1000.0,
@@ -372,7 +372,7 @@ fn gameover_keyboard(mut state: ResMut<State<GameState>>, keyboard_input: Res<In
 // display the number of cake eaten before losing
 fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: Res<Game>) {
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 margin: UiRect::all(Val::Auto),
                 justify_content: JustifyContent::Center,
@@ -383,7 +383,7 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle::from_section(
+            parent.spawn(TextBundle::from_section(
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),

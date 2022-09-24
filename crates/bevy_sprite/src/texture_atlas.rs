@@ -69,29 +69,19 @@ impl TextureAtlas {
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
     /// `tile_size` by `tile_size` grid-cell is one of the textures in the
-    /// atlas. Resulting `TextureAtlas` is indexed left to right, top to bottom.
+    /// atlas. Grid cells are separated by some `padding`, and the grid starts
+    /// at `offset` pixels from the top left corner. Resulting `TextureAtlas` is
+    /// indexed left to right, top to bottom.
     pub fn from_grid(
         texture: Handle<Image>,
         tile_size: Vec2,
         columns: usize,
         rows: usize,
+        padding: Option<Vec2>,
+        offset: Option<Vec2>,
     ) -> TextureAtlas {
-        Self::from_grid_with_padding(texture, tile_size, columns, rows, Vec2::ZERO, Vec2::ZERO)
-    }
-
-    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// `tile_size` by `tile_size` grid-cell is one of the textures in the
-    /// atlas. Grid cells are separated by some `padding`, and the grid starts
-    /// at `offset` pixels from the top left corner. Resulting `TextureAtlas` is
-    /// indexed left to right, top to bottom.
-    pub fn from_grid_with_padding(
-        texture: Handle<Image>,
-        tile_size: Vec2,
-        columns: usize,
-        rows: usize,
-        padding: Vec2,
-        offset: Vec2,
-    ) -> TextureAtlas {
+        let padding = padding.unwrap_or_default();
+        let offset = offset.unwrap_or_default();
         let mut sprites = Vec::new();
         let mut current_padding = Vec2::ZERO;
 

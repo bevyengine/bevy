@@ -51,7 +51,7 @@ fn setup(
 
     // Spawn a basic cube to have an entity as reference.
     commands
-        .spawn_bundle((
+        .spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
                 material: materials.add(Color::YELLOW.into()),
@@ -66,7 +66,7 @@ fn setup(
         // where the green one will be changed via its local transform.
         .with_children(|child_builder| {
             // also see parenting example
-            child_builder.spawn_bundle((
+            child_builder.spawn((
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                     material: materials.add(Color::RED.into()),
@@ -77,7 +77,7 @@ fn setup(
                 Move,
                 ToggledBy(KeyCode::Key2),
             ));
-            child_builder.spawn_bundle((
+            child_builder.spawn((
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                     material: materials.add(Color::GREEN.into()),
@@ -91,19 +91,19 @@ fn setup(
         });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
     // Add a light source for better 3d visibility.
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_translation(Vec3::splat(3.0)),
         ..default()
     });
 
     // Add text to explain inputs and what is happening.
-    commands.spawn_bundle(TextBundle::from_section(
+    commands.spawn(TextBundle::from_section(
         "Press the arrow keys to move the cubes. Toggle movement for yellow (1), red (2) and green (3) cubes via number keys.
 
 Notice how the green cube will translate further in respect to the yellow in contrast to the red cube.

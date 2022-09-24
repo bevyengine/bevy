@@ -45,9 +45,9 @@ fn button_system(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle::from_section(
+            parent.spawn(TextBundle::from_section(
                 "Button",
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
