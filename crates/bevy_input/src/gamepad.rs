@@ -733,7 +733,7 @@ impl AxisSettings {
     }
 
     /// Get the value below which positive inputs will be rounded down to 0.0
-    pub fn deadzone_upperbound(&mut self) -> f32 {
+    pub fn deadzone_upperbound(&self) -> f32 {
         self.deadzone_upperbound
     }
 
