@@ -490,8 +490,8 @@ impl GamepadSettings {
 /// ## Usage
 ///
 /// It is used inside of the [`GamepadSettings`] to define the threshold for a gamepad button
-/// to be considered pressed or released. A button is considered pressed if the `press`
-/// value is surpassed and released if the `release` value is undercut.
+/// to be considered pressed or released. A button is considered pressed if the `press_threshold`
+/// value is surpassed and released if the `release_threshold` value is undercut.
 ///
 /// ## Updating
 ///
@@ -512,6 +512,36 @@ impl Default for ButtonSettings {
 }
 
 impl ButtonSettings {
+    /// Creates a new `ButtonSettings` instance
+    ///
+    /// # Arguments
+    ///
+    /// + `press_threshold` - the value above which the button is considered pressed.
+    /// + `release_threshold` - the value below which the button is considered released.
+    ///
+    /// Restrictions:
+    /// + `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
+    ///
+    /// # Errors
+    ///
+    /// If the restrictions are not met, `InvalidButtonSetting` will be returned.
+    pub fn new(press_threshold: f32, release_threshold: f32) -> Result<ButtonSettings> {
+        if 0.0 <= release_threshold
+            && release_threshold <= press_threshold
+            && press_threshold <= 1.0
+        {
+            Ok(ButtonSettings {
+                press_threshold,
+                release_threshold,
+            })
+        } else {
+            Err(GamepadSettingsError::InvalidButtonSetting(
+                "The condition 0.0 <= release_threshold <= press_threshold <= 1.0 must hold true"
+                    .to_owned(),
+            ))
+        }
+    }
+
     /// Returns `true` if the button is pressed.
     ///
     /// A button is considered pressed if the `value` passed is greater than or equal to the `press` threshold.
@@ -535,7 +565,8 @@ impl ButtonSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is outside the range [`release_threshold`, 1.0]
+    /// If the value passed is outside the range [`release_threshold`, 1.0], `InvalidButtonSetting` is
+    /// returned.
     pub fn try_set_press_threshold(&mut self, value: f32) -> Result<()> {
         if (self.release_threshold..=1.0).contains(&value) {
             self.press_threshold = value;
@@ -565,7 +596,8 @@ impl ButtonSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is outside the range [0.0, `press_threshold`]
+    /// If the value passed is outside the range [0.0, `press_threshold`], `InvalidButtonSetting` is
+    /// returned.
     pub fn try_set_release_threshold(&mut self, value: f32) -> Result<()> {
         if (0.0..=self.press_threshold).contains(&value) {
             self.release_threshold = value;
