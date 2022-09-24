@@ -507,7 +507,7 @@ impl Default for ButtonSettings {
 }
 
 impl ButtonSettings {
-    /// Creates a new `ButtonSettings` instance
+    /// Creates a new [`ButtonSettings`] instance
     ///
     /// # Arguments
     ///
