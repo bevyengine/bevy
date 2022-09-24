@@ -375,7 +375,10 @@ pub struct CalculatedSize {
     pub size: Size,
 }
 
-/// The color of the node
+/// The background color of the node
+///
+/// This serves as the "fill" color.
+/// When combined with [`UiImage`], tints the provided texture.
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct BackgroundColor(pub Color);
@@ -386,7 +389,7 @@ impl From<Color> for BackgroundColor {
     }
 }
 
-/// The image of the node
+/// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
 pub struct UiImage(pub Handle<Image>);
