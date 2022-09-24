@@ -220,7 +220,7 @@ impl SystemStage {
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
+fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
     let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
     for (index, container) in systems.iter().enumerate() {
@@ -467,12 +467,12 @@ mod tests {
         let mut test_stage = SystemStage::parallel();
         test_stage
             // All 3 of these conflict with each other
-            .add_system(write_world_system.exclusive_system())
-            .add_system(write_world_system.exclusive_system().at_end())
-            .add_system(res_system.exclusive_system())
+            .add_system(write_world_system)
+            .add_system(write_world_system.at_end())
+            .add_system(res_system.at_start())
             // These do not, as they're in different segments of the stage
-            .add_system(write_world_system.exclusive_system().at_start())
-            .add_system(write_world_system.exclusive_system().before_commands());
+            .add_system(write_world_system.at_start())
+            .add_system(write_world_system.before_commands());
 
         test_stage.run(&mut world);
 
