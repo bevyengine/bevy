@@ -14,10 +14,10 @@ bevy = ["glam", "smallvec", "bevy_math"]
 
 [dependencies]
 # bevy
-bevy_math = { path = "../bevy_math", version = "0.9.0-dev", optional = true }
-bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.9.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
-bevy_ptr = { path = "../bevy_ptr", version = "0.9.0-dev" }
+bevy_math = { workspace = true, optional = true }
+bevy_reflect_derive.workspace = true
+bevy_utils.workspace = true
+bevy_ptr.workspace = true
 
 # other
 erased-serde = "0.3"

@@ -14,13 +14,13 @@ serialize = ["serde"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.9.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
+bevy_app.workspace = true
+bevy_ecs.workspace = true
+bevy_math.workspace = true
+bevy_reflect.workspace = true
+bevy_utils.workspace = true
 # Used for close_on_esc
-bevy_input = { path = "../bevy_input", version = "0.9.0-dev" }
+bevy_input.workspace = true
 raw-window-handle = "0.4.2"
 
 # other

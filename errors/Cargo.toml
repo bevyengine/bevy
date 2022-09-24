@@ -7,4 +7,4 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-bevy = { path = ".." }
+bevy.workspace = true
