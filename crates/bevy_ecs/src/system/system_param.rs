@@ -706,27 +706,13 @@ impl<'w> SystemParam for &'w mut World {
     type Fetch = WorldMutState;
 }
 
+// SAFETY: `WorldAccessLevel::Exclusive` is set and conflicts result in a panic at construction
 unsafe impl SystemParamState for WorldMutState {
     fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        // no need to check for param conflicts, but add access for system conflicts
         let mut world_access = FilteredAccess::default();
         world_access.write_all();
-
-        // conflict with any preceding param
-        if !system_meta
-            .component_access_set
-            .is_compatible_single(&world_access)
-        {
-            panic!(
-                "&mut World conflicts with another system param in {}. \
-                Mutable access must be unique.",
-                system_meta.name,
-            );
-        }
-
-        // conflict with any following param
         system_meta.component_access_set.add(world_access);
-
-        // executor
         system_meta.archetype_component_access.write_all();
 
         // world can contain non-send resources, must run on its local thread
