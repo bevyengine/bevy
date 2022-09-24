@@ -6,7 +6,8 @@ use std::ops::Deref;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_core::{EntityPath, Name, NameLookup};
+use bevy_core::{Name, NameLookup};
+pub use bevy_core::EntityPath;
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -26,7 +27,7 @@ use bevy_utils::{tracing::warn, HashMap};
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{AnimationClip, AnimationPlayer, AnimationPlugin, Keyframes, VariableCurve};
+    pub use crate::{AnimationClip, AnimationPlayer, AnimationPlugin, Keyframes, VariableCurve, EntityPath};
 }
 
 /// List of keyframes for one of the attribute of a [`Transform`].

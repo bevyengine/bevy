@@ -173,6 +173,7 @@ pub struct NameLookup<'w, 's> {
 }
 
 /// Errors when looking up an entity by name
+#[derive(Debug)]
 pub enum LookupError {
     /// An entity could not be found, this either means the entity has been
     /// despawned, or the entity doesn't have the required components
@@ -244,5 +245,46 @@ impl<'w, 's> NameLookup<'w, 's> {
             }
         }
         ret
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+    use bevy_ecs::{
+        prelude::Bundle, query::With, schedule::{ParallelSystemDescriptorCoercion, Stage}, system::Commands,
+        world::World,
+    };
+    use bevy_hierarchy::BuildChildren;
+
+    use super::*;
+
+    #[derive(Component)]
+    struct Root;
+
+    fn create_heirachy(mut cmds: Commands) {
+        cmds.spawn()
+            .insert(Name::new("root"))
+            .insert(Root)
+            .with_children(|cmds| {
+                cmds.spawn().insert(Name::new("child a"));
+                cmds.spawn().insert(Name::new("child b"));
+                cmds.spawn().insert(Name::new("child c"));
+            });
+    }
+
+    #[test]
+    fn test_lookup() {
+        fn validate(root: Query<Entity, With<Root>>, lookup: NameLookup) {
+            let root = root.single();
+            let a = lookup.lookup(root, &EntityPath {
+                parts: vec![Name::new("root"), Name::new("child a")],
+            }).unwrap();
+        }
+
+        let mut app = App::empty();
+        // app.add_startup_stage_after("startup", "", )
+        app.add_startup_system(create_heirachy);
+        app.add_startup_system(validate.after(create_heirachy));
     }
 }
