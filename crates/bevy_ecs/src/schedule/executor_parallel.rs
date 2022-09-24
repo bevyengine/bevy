@@ -468,7 +468,7 @@ mod tests {
     #[test]
     fn queries() {
         let mut world = World::new();
-        world.spawn().insert(W(0usize));
+        world.spawn(W(0usize));
         fn wants_mut(_: Query<&mut W<usize>>) {}
         fn wants_ref(_: Query<&W<usize>>) {}
         let mut stage = SystemStage::parallel()
@@ -493,7 +493,7 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
         let mut world = World::new();
-        world.spawn().insert((W(0usize), W(0u32), W(0f32)));
+        world.spawn((W(0usize), W(0u32), W(0f32)));
         fn wants_mut_usize(_: Query<(&mut W<usize>, &W<f32>)>) {}
         fn wants_mut_u32(_: Query<(&mut W<u32>, &W<f32>)>) {}
         let mut stage = SystemStage::parallel()
@@ -506,7 +506,7 @@ mod tests {
     #[test]
     fn world() {
         let mut world = World::new();
-        world.spawn().insert(W(0usize));
+        world.spawn(W(0usize));
         fn wants_world(_: &World) {}
         fn wants_mut(_: Query<&mut W<usize>>) {}
         let mut stage = SystemStage::parallel()

@@ -186,7 +186,7 @@ fn new_player_system(
     let add_new_player = random::<bool>();
     if add_new_player && game_state.total_players < game_rules.max_players {
         game_state.total_players += 1;
-        commands.spawn_bundle((
+        commands.spawn((
             Player {
                 name: format!("Player {}", game_state.total_players),
             },
@@ -213,7 +213,7 @@ fn exclusive_player_system(world: &mut World) {
     // Randomly add a new player
     if should_add_player {
         println!("Player {} has joined the game!", total_players + 1);
-        world.spawn().insert((
+        world.spawn((
             Player {
                 name: format!("Player {}", total_players + 1),
             },

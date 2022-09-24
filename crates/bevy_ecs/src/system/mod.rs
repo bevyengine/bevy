@@ -183,7 +183,7 @@ mod tests {
 
         let mut system = IntoSystem::into_system(sys);
         let mut world = World::new();
-        world.spawn().insert(A);
+        world.spawn(A);
 
         system.initialize(&mut world);
         system.run((), &mut world);
@@ -245,10 +245,10 @@ mod tests {
 
         let mut world = World::default();
         world.insert_resource(SystemRan::No);
-        world.spawn().insert(A);
-        world.spawn().insert((A, B));
-        world.spawn().insert((A, C));
-        world.spawn().insert((A, D));
+        world.spawn(A);
+        world.spawn((A, B));
+        world.spawn((A, C));
+        world.spawn((A, D));
 
         run_system(&mut world, query_system);
 
@@ -276,7 +276,7 @@ mod tests {
 
         let mut world = World::default();
         world.insert_resource(SystemRan::No);
-        world.spawn().insert((A, B));
+        world.spawn((A, B));
 
         run_system(&mut world, query_system);
 
@@ -583,9 +583,9 @@ mod tests {
     fn removal_tracking() {
         let mut world = World::new();
 
-        let entity_to_despawn = world.spawn().insert(W(1)).id();
-        let entity_to_remove_w_from = world.spawn().insert(W(2)).id();
-        let spurious_entity = world.spawn().id();
+        let entity_to_despawn = world.spawn(W(1)).id();
+        let entity_to_remove_w_from = world.spawn(W(2)).id();
+        let spurious_entity = world.spawn_empty().id();
 
         // Track which entities we want to operate on
         #[derive(Resource)]
@@ -626,8 +626,8 @@ mod tests {
         world.clear_trackers();
 
         // Then, try removing a component
-        world.spawn().insert(W(3));
-        world.spawn().insert(W(4));
+        world.spawn(W(3));
+        world.spawn(W(4));
         world.entity_mut(entity_to_remove_w_from).remove::<W<i32>>();
 
         fn validate_remove(
@@ -654,7 +654,7 @@ mod tests {
     fn world_collections_system() {
         let mut world = World::default();
         world.insert_resource(SystemRan::No);
-        world.spawn().insert((W(42), W(true)));
+        world.spawn((W(42), W(true)));
         fn sys(
             archetypes: &Archetypes,
             components: &Components,
@@ -728,7 +728,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        world.spawn().insert(A).insert(C);
+        world.spawn(A).insert(C);
 
         let mut without_filter = IntoSystem::into_system(without_filter);
         without_filter.initialize(&mut world);
@@ -797,7 +797,7 @@ mod tests {
 
         let mut world = World::default();
         world.insert_resource(A(42));
-        world.spawn().insert(B(7));
+        world.spawn(B(7));
 
         let mut system_state: SystemState<(Res<A>, Query<&B>, ParamSet<(Query<&C>, Query<&D>)>)> =
             SystemState::new(&mut world);
@@ -820,7 +820,7 @@ mod tests {
 
         let mut world = World::default();
         world.insert_resource(A(42));
-        world.spawn().insert(B(7));
+        world.spawn(B(7));
 
         let mut system_state: SystemState<(ResMut<A>, Query<&mut B>)> =
             SystemState::new(&mut world);
@@ -843,7 +843,7 @@ mod tests {
         struct A(usize);
 
         let mut world = World::default();
-        let entity = world.spawn().insert(A(1)).id();
+        let entity = world.spawn(A(1)).id();
 
         let mut system_state: SystemState<Query<&A, Changed<A>>> = SystemState::new(&mut world);
         {
@@ -881,7 +881,7 @@ mod tests {
         struct B(usize);
 
         let mut world = World::default();
-        world.spawn().insert(A(1));
+        world.spawn(A(1));
 
         let mut system_state = SystemState::<Query<&A>>::new(&mut world);
         {
@@ -893,7 +893,7 @@ mod tests {
             );
         }
 
-        world.spawn().insert((A(2), B(2)));
+        world.spawn((A(2), B(2)));
         {
             let query = system_state.get(&world);
             assert_eq!(
@@ -946,8 +946,8 @@ mod tests {
         struct A(usize);
 
         let mut world = World::default();
-        world.spawn().insert(A(1));
-        world.spawn().insert(A(2));
+        world.spawn(A(1));
+        world.spawn(A(2));
 
         let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
         {
@@ -1113,24 +1113,22 @@ mod tests {
         // add some entities with archetypes that should match and save their ids
         expected_ids.insert(
             world
-                .spawn()
-                .insert(A)
+                .spawn(A)
                 .archetype()
                 .get_archetype_component_id(a_id)
                 .unwrap(),
         );
         expected_ids.insert(
             world
-                .spawn()
-                .insert((A, C))
+                .spawn((A, C))
                 .archetype()
                 .get_archetype_component_id(a_id)
                 .unwrap(),
         );
 
         // add some entities with archetypes that should not match
-        world.spawn().insert((A, B));
-        world.spawn().insert((B, C));
+        world.spawn((A, B));
+        world.spawn((B, C));
 
         // update system and verify its accesses are correct
         system.update_archetype_component_access(&world);
@@ -1145,13 +1143,12 @@ mod tests {
         // one more round
         expected_ids.insert(
             world
-                .spawn()
-                .insert((A, D))
+                .spawn((A, D))
                 .archetype()
                 .get_archetype_component_id(a_id)
                 .unwrap(),
         );
-        world.spawn().insert((A, B, D));
+        world.spawn((A, B, D));
         system.update_archetype_component_access(&world);
         assert_eq!(
             system
@@ -1166,7 +1163,7 @@ mod tests {
     fn commands_param_set() {
         // Regression test for #4676
         let mut world = World::new();
-        let entity = world.spawn().id();
+        let entity = world.spawn_empty().id();
 
         run_system(
             &mut world,
@@ -1184,7 +1181,7 @@ mod tests {
     #[test]
     fn into_iter_impl() {
         let mut world = World::new();
-        world.spawn().insert(W(42u32));
+        world.spawn(W(42u32));
         run_system(&mut world, |mut q: Query<&mut W<u32>>| {
             for mut a in &mut q {
                 assert_eq!(a.0, 42);

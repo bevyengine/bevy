@@ -67,7 +67,7 @@ const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
 fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // "Spawning" a scene bundle creates a new entity and spawns new instances
     // of the given scene's entities as children of that entity.
-    commands.spawn_bundle(DynamicSceneBundle {
+    commands.spawn(DynamicSceneBundle {
         // Scenes are loaded just like any other asset.
         scene: asset_server.load(SCENE_FILE_PATH),
         ..default()
@@ -92,12 +92,12 @@ fn save_scene_system(world: &mut World) {
     let mut scene_world = World::new();
     let mut component_b = ComponentB::from_world(world);
     component_b.value = "hello".to_string();
-    scene_world.spawn().insert((
+    scene_world.spawn((
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
         Transform::IDENTITY,
     ));
-    scene_world.spawn().insert(ComponentA { x: 3.0, y: 4.0 });
+    scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
@@ -127,8 +127,8 @@ fn save_scene_system(world: &mut World) {
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(
         TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {

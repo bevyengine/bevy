@@ -125,7 +125,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
     /// and returns its corresponding [`EntityCommands`].
     ///
-    /// See [`World::spawn`] for more details.
+    /// See [`World::spawn_empty`] for more details.
     ///
     /// # Example
     ///
@@ -141,10 +141,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new empty entity and retrieve its id.
-    ///     let empty_entity = commands.spawn().id();
+    ///     let empty_entity = commands.spawn_empty().id();
     ///
     ///     // Create another empty entity, then add some component to it
-    ///     commands.spawn()
+    ///     commands.spawn_empty()
     ///         // adds a new component bundle to the entity
     ///         .insert((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
@@ -155,9 +155,9 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # See also
     ///
-    /// - [`spawn_bundle`](Self::spawn_bundle) to spawn an entity with a bundle.
+    /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
+    pub fn spawn_empty<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
@@ -210,16 +210,19 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     ///
     /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity with a single component.
+    ///     commands.spawn(Component1);
+    ///
     ///     // Create a new entity with a component bundle.
-    ///     commands.spawn_bundle(ExampleBundle {
+    ///     commands.spawn(ExampleBundle {
     ///         a: Component1,
     ///         b: Component2,
     ///     });
     ///
     ///     commands
     ///         // Create a new entity with two components using a "tuple bundle".
-    ///         .spawn_bundle((Component1, Component2))
-    ///         // spawn_bundle returns a builder, so you can insert more bundles like this:
+    ///         .spawn((Component1, Component2))
+    ///         // `spawn returns a builder, so you can insert more bundles like this:
     ///         .insert((Strength(1), Agility(2)))
     ///         // or insert single components like this:
     ///         .insert(Label("hello world"));
@@ -229,10 +232,20 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # See also
     ///
-    /// - [`spawn`](Self::spawn) to just spawn an entity without any component.
+    /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
+    pub fn spawn<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
+        let mut e = self.spawn_empty();
+        e.insert(bundle);
+        e
+    }
+
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `spawn` instead, which now accepts bundles, components, and tuples of bundles and components."
+    )]
     pub fn spawn_bundle<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
-        let mut e = self.spawn();
+        let mut e = self.spawn_empty();
         e.insert(bundle);
         e
     }
@@ -257,7 +270,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new, empty entity
-    ///     let entity = commands.spawn().id();
+    ///     let entity = commands.spawn_empty().id();
     ///
     ///     commands.entity(entity)
     ///         // adds a new component bundle to the entity
@@ -299,7 +312,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new, empty entity
-    ///     let entity = commands.spawn().id();
+    ///     let entity = commands.spawn_empty().id();
     ///
     ///     // Get the entity if it still exists, which it will in this case
     ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
@@ -358,8 +371,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # See also
     ///
-    /// - [`spawn`](Self::spawn) to just spawn an entity without any component.
-    /// - [`spawn_bundle`](Self::spawn_bundle) to spawn an entity with a bundle.
+    /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
+    /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,
@@ -537,7 +550,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # use bevy_ecs::prelude::*;
     /// #
     /// fn my_system(mut commands: Commands) {
-    ///     let entity_id = commands.spawn().id();
+    ///     let entity_id = commands.spawn_empty().id();
     /// }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
@@ -725,7 +738,7 @@ where
     T: Bundle,
 {
     fn write(self, world: &mut World) {
-        world.spawn().insert(self.bundle);
+        world.spawn(self.bundle);
     }
 }
 
@@ -916,7 +929,7 @@ mod tests {
     struct W<T>(T);
 
     fn simple_command(world: &mut World) {
-        world.spawn().insert((W(0u32), W(42u64)));
+        world.spawn((W(0u32), W(42u64)));
     }
 
     #[test]
@@ -924,7 +937,7 @@ mod tests {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
         let entity = Commands::new(&mut command_queue, &world)
-            .spawn_bundle((W(1u32), W(2u64)))
+            .spawn((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
         assert!(world.entities().len() == 1);
@@ -954,7 +967,7 @@ mod tests {
 
             // set up a simple command using a closure that adds one additional entity
             commands.add(|world: &mut World| {
-                world.spawn().insert((W(42u32), W(0u64)));
+                world.spawn((W(42u32), W(0u64)));
             });
 
             // set up a simple command using a function that adds one additional entity
@@ -980,8 +993,7 @@ mod tests {
         let sparse_dropck = SparseDropCk(sparse_dropck);
 
         let entity = Commands::new(&mut command_queue, &world)
-            .spawn()
-            .insert((W(1u32), W(2u64), dense_dropck, sparse_dropck))
+            .spawn((W(1u32), W(2u64), dense_dropck, sparse_dropck))
             .id();
         command_queue.apply(&mut world);
         let results_before = world

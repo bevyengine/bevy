@@ -268,7 +268,7 @@ pub fn query_get_component_simple(criterion: &mut Criterion) {
     group.bench_function("unchecked", |bencher| {
         let mut world = World::new();
 
-        let entity = world.spawn().insert(A(0.0)).id();
+        let entity = world.spawn(A(0.0)).id();
         let mut query = world.query::<&mut A>();
 
         bencher.iter(|| {
@@ -281,7 +281,7 @@ pub fn query_get_component_simple(criterion: &mut Criterion) {
     group.bench_function("system", |bencher| {
         let mut world = World::new();
 
-        let entity = world.spawn().insert(A(0.0)).id();
+        let entity = world.spawn(A(0.0)).id();
         fn query_system(In(entity): In<Entity>, mut query: Query<&mut A>) {
             for _ in 0..100_000 {
                 let mut a = query.get_mut(entity).unwrap();
