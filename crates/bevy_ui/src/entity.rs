@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
+    CalculatedSize, Fill, FocusPolicy, Interaction, Node, Style, UiImage,
 };
 use bevy_ecs::{
     bundle::Bundle,
@@ -24,7 +24,7 @@ pub struct NodeBundle {
     /// Describes the style including flexbox settings
     pub style: Style,
     /// Describes the color of the node
-    pub color: UiColor,
+    pub fill: Fill,
     /// Describes the image of the node
     pub image: UiImage,
     /// Whether this node should block interaction with lower nodes
@@ -51,7 +51,7 @@ pub struct ImageBundle {
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// The color of the node
-    pub color: UiColor,
+    pub fill: Fill,
     /// The image of the node
     pub image: UiImage,
     /// Whether this node should block interaction with lower nodes
@@ -153,7 +153,7 @@ pub struct ButtonBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The color of the node
-    pub color: UiColor,
+    pub fill: Fill,
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
@@ -174,7 +174,7 @@ impl Default for ButtonBundle {
             focus_policy: Default::default(),
             node: Default::default(),
             style: Default::default(),
-            color: Default::default(),
+            fill: Default::default(),
             image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),

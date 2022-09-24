@@ -123,10 +123,7 @@ fn setup_scene(
 }
 
 fn button_handler(
-    mut interaction_query: Query<
-        (&Interaction, &mut UiColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+    mut interaction_query: Query<(&Interaction, &mut Fill), (Changed<Interaction>, With<Button>)>,
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {

@@ -379,7 +379,7 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
                 align_items: AlignItems::Center,
                 ..default()
             },
-            color: Color::NONE.into(),
+            fill: Color::NONE.into(),
             ..default()
         })
         .with_children(|parent| {

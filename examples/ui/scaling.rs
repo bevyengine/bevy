@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            color: Color::ANTIQUE_WHITE.into(),
+            fill: Color::ANTIQUE_WHITE.into(),
             ..default()
         })
         .with_children(|parent| {
@@ -54,7 +54,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                         size: Size::new(Val::Px(40.), Val::Px(40.)),
                         ..default()
                     },
-                    color: Color::RED.into(),
+                    fill: Color::RED.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                     size: Size::new(Val::Percent(15.), Val::Percent(15.)),
                     ..default()
                 },
-                color: Color::BLUE.into(),
+                fill: Color::BLUE.into(),
                 ..default()
             });
             parent.spawn(ImageBundle {
