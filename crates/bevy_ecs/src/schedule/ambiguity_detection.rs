@@ -45,7 +45,6 @@ impl SystemOrderAmbiguity {
         stage: &SystemStage,
         world: &World,
     ) -> Self {
-        use crate::schedule::graph_utils::GraphNode;
         use SystemStageSegment::*;
 
         // TODO: blocked on https://github.com/bevyengine/bevy/pull/4166
@@ -220,7 +219,7 @@ impl SystemStage {
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
+fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
     let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
     for (index, container) in systems.iter().enumerate() {
@@ -266,9 +265,8 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
                 let a_access = systems[index_a].component_access();
                 let b_access = systems[index_b].component_access();
                 if let (Some(a), Some(b)) = (a_access, b_access) {
-                    let conflicts = a.get_conflicts(b);
-                    if !conflicts.is_empty() {
-                        ambiguities.push((index_a, index_b, conflicts));
+                    if !a.is_compatible(b) {
+                        ambiguities.push((index_a, index_b, a.get_conflicts(b)));
                     }
                 } else {
                     ambiguities.push((index_a, index_b, Vec::new()));

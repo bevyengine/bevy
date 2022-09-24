@@ -1555,6 +1555,10 @@ unsafe impl SystemParamState for SystemNameState {
             name: system_meta.name.clone(),
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
+    }
 }
 
 impl<'w, 's> SystemParamFetch<'w, 's> for SystemNameState {
@@ -1564,7 +1568,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemNameState {
     unsafe fn get_param(
         state: &'s mut Self,
         _system_meta: &SystemMeta,
-        _world: &'w World,
+        _world: MaybeUnsafeCell<'w, World>,
         _change_tick: u32,
     ) -> Self::Item {
         SystemName {

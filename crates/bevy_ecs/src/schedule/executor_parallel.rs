@@ -1,7 +1,7 @@
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
-    schedule::{FunctionSystemContainer, ParallelSystemExecutor},
+    schedule::{ParallelSystemExecutor, SystemContainer},
     system::MaybeUnsafeCell,
     world::World,
 };
@@ -78,7 +78,7 @@ impl Default for ParallelExecutor {
 }
 
 impl ParallelSystemExecutor for ParallelExecutor {
-    fn rebuild_cached_data(&mut self, systems: &[FunctionSystemContainer]) {
+    fn rebuild_cached_data(&mut self, systems: &[SystemContainer]) {
         self.system_metadata.clear();
         self.queued.grow(systems.len());
         self.running.grow(systems.len());
@@ -109,7 +109,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
         }
     }
 
-    fn run_systems(&mut self, systems: &mut [FunctionSystemContainer], world: &mut World) {
+    fn run_systems(&mut self, systems: &mut [SystemContainer], world: &mut World) {
         #[cfg(test)]
         if self.events_sender.is_none() {
             let (sender, receiver) = async_channel::unbounded::<SchedulingEvent>();
@@ -172,7 +172,7 @@ impl ParallelExecutor {
     fn prepare_systems<'scope>(
         &mut self,
         scope: &mut Scope<'scope, ()>,
-        systems: &'scope mut [FunctionSystemContainer],
+        systems: &'scope mut [SystemContainer],
         world: &'scope World,
     ) {
         // These are used as a part of a unit test.

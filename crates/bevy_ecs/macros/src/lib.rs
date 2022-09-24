@@ -229,12 +229,11 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
 
                 fn world_access_level() -> WorldAccessLevel {
-                    let mut exclusive = false;
                     let mut shared = false;
                     #(
                         match #param_fetch::world_access_level() {
                             WorldAccessLevel::Exclusive => {
-                                exclusive = true;
+                                return WorldAccessLevel::Exclusive;
                             }
                             WorldAccessLevel::Shared => {
                                 shared = true;
@@ -243,9 +242,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                         }
                     )*
 
-                    if exclusive {
-                        WorldAccessLevel::Exclusive
-                    } else if shared {
+                    if shared {
                         WorldAccessLevel::Shared
                     } else {
                         WorldAccessLevel::None

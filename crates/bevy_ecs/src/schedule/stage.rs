@@ -5,11 +5,11 @@ use crate::{
     prelude::IntoSystem,
     schedule::{
         graph_utils::{self, DependencyGraphError},
-        BoxedRunCriteria, DuplicateLabelStrategy, FunctionSystemContainer, GraphNode,
-        InsertionPoint, ParallelExecutor, ParallelSystemExecutor, RunCriteriaContainer,
-        RunCriteriaDescriptor, RunCriteriaDescriptorOrLabel, RunCriteriaInner, RunCriteriaLabelId,
-        ShouldRun, SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemLabelId,
-        SystemSet, SystemType,
+        BoxedRunCriteria, DuplicateLabelStrategy, GraphNode, InsertionPoint, ParallelExecutor,
+        ParallelSystemExecutor, RunCriteriaContainer, RunCriteriaDescriptor,
+        RunCriteriaDescriptorOrLabel, RunCriteriaInner, RunCriteriaLabelId, ShouldRun,
+        SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemLabelId, SystemSet,
+        SystemType,
     },
     world::{World, WorldId},
 };
@@ -62,14 +62,14 @@ pub struct SystemStage {
     /// Topologically sorted run criteria of systems.
     run_criteria: Vec<RunCriteriaContainer>,
     /// Topologically sorted exclusive systems that want to be run at the start of the stage.
-    pub(super) exclusive_at_start: Vec<FunctionSystemContainer>,
+    pub(super) exclusive_at_start: Vec<SystemContainer>,
     /// Topologically sorted exclusive systems that want to be run after parallel systems but
     /// before the application of their command buffers.
-    pub(super) exclusive_before_commands: Vec<FunctionSystemContainer>,
+    pub(super) exclusive_before_commands: Vec<SystemContainer>,
     /// Topologically sorted exclusive systems that want to be run at the end of the stage.
-    pub(super) exclusive_at_end: Vec<FunctionSystemContainer>,
+    pub(super) exclusive_at_end: Vec<SystemContainer>,
     /// Topologically sorted parallel systems.
-    pub(super) parallel: Vec<FunctionSystemContainer>,
+    pub(super) parallel: Vec<SystemContainer>,
     /// Determines if the stage was modified and needs to rebuild its graphs and orders.
     pub(super) systems_modified: bool,
     /// Determines if the stage's executor was changed.
@@ -77,7 +77,7 @@ pub struct SystemStage {
     /// Newly inserted run criteria that will be initialized at the next opportunity.
     uninitialized_run_criteria: Vec<(usize, DuplicateLabelStrategy)>,
     /// Newly inserted systems that will be initialized at the next opportunity.
-    uninitialized_systems: Vec<(FunctionSystemContainer, SystemType)>,
+    uninitialized_systems: Vec<(SystemContainer, SystemType)>,
     /// Saves the value of the World change_tick during the last tick check
     last_tick_check: u32,
     /// If true, buffers will be automatically applied at the end of the stage. If false, buffers must be manually applied.
@@ -155,7 +155,7 @@ impl SystemStage {
         self.systems_modified = true;
         let system_type = descriptor.system_type;
         let criteria = descriptor.run_criteria.take();
-        let mut container = FunctionSystemContainer::from_descriptor(descriptor);
+        let mut container = SystemContainer::from_descriptor(descriptor);
         match criteria {
             Some(RunCriteriaDescriptorOrLabel::Label(label)) => {
                 container.run_criteria_label = Some(label);
@@ -189,21 +189,21 @@ impl SystemStage {
     /// Topologically sorted parallel systems.
     ///
     /// Note that systems won't be fully-formed until the stage has been run at least once.
-    pub fn parallel_systems(&self) -> &[impl SystemContainer] {
+    pub fn parallel_systems(&self) -> &[SystemContainer] {
         &self.parallel
     }
 
     /// Topologically sorted exclusive systems that want to be run at the start of the stage.
     ///
     /// Note that systems won't be fully-formed until the stage has been run at least once.
-    pub fn exclusive_at_start_systems(&self) -> &[impl SystemContainer] {
+    pub fn exclusive_at_start_systems(&self) -> &[SystemContainer] {
         &self.exclusive_at_start
     }
 
     /// Topologically sorted exclusive systems that want to be run at the end of the stage.
     ///
     /// Note that systems won't be fully-formed until the stage has been run at least once.
-    pub fn exclusive_at_end_systems(&self) -> &[impl SystemContainer] {
+    pub fn exclusive_at_end_systems(&self) -> &[SystemContainer] {
         &self.exclusive_at_end
     }
 
@@ -211,7 +211,7 @@ impl SystemStage {
     /// before the application of their command buffers.
     ///
     /// Note that systems won't be fully-formed until the stage has been run at least once.
-    pub fn exclusive_before_commands_systems(&self) -> &[impl SystemContainer] {
+    pub fn exclusive_before_commands_systems(&self) -> &[SystemContainer] {
         &self.exclusive_before_commands
     }
 
@@ -515,8 +515,8 @@ impl SystemStage {
             }
         }
 
-        fn update_run_criteria_indices<T: SystemContainer>(
-            systems: &mut [T],
+        fn update_run_criteria_indices(
+            systems: &mut [SystemContainer],
             order_inverted: &[(usize, &usize)],
         ) {
             for system in systems {
@@ -542,7 +542,7 @@ impl SystemStage {
 /// Sorts given system containers topologically, populates their resolved dependencies
 /// and run criteria.
 fn process_systems(
-    systems: &mut Vec<impl SystemContainer>,
+    systems: &mut Vec<SystemContainer>,
     run_criteria_labels: &HashMap<RunCriteriaLabelId, usize>,
 ) -> Result<(), DependencyGraphError<HashSet<SystemLabelId>>> {
     let mut graph = graph_utils::build_dependency_graph(systems);
@@ -638,7 +638,7 @@ impl Stage for SystemStage {
                 run_system_loop = false;
 
                 fn should_run(
-                    container: &impl SystemContainer,
+                    container: &SystemContainer,
                     run_criteria: &[RunCriteriaContainer],
                     default: ShouldRun,
                 ) -> bool {
@@ -800,7 +800,7 @@ mod tests {
     use crate::{
         schedule::{
             IntoSystemDescriptor, RunCriteria, RunCriteriaDescriptorCoercion, ShouldRun,
-            SingleThreadedExecutor, Stage, SystemLabel, SystemLabelId, SystemSet, SystemStage,
+            SingleThreadedExecutor, Stage, SystemLabel, SystemSet, SystemStage,
         },
         system::{In, Local, Query, ResMut},
         world::World,
@@ -978,13 +978,7 @@ mod tests {
             .with_system(make_exclusive(1).before(L234).after(L0))
             .with_system(make_exclusive(0).label(L0))
             .with_system(make_exclusive(4).label(L234).label(L4))
-            .with_system(
-                make_exclusive(3)
-                    
-                    .label(L234)
-                    .after(L2)
-                    .before(L4),
-            );
+            .with_system(make_exclusive(3).label(L234).after(L2).before(L4));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -999,31 +993,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<EntityCount>();
         let mut stage = SystemStage::parallel()
-            .with_system(
-                make_exclusive(2)
-                    
-                    .label(L2)
-                    .after(L1)
-                    .before(L3)
-                    .before(L3),
-            )
-            .with_system(
-                make_exclusive(1)
-                    
-                    .label(L1)
-                    .after(L0)
-                    .after(L0)
-                    .before(L2),
-            )
+            .with_system(make_exclusive(2).label(L2).after(L1).before(L3).before(L3))
+            .with_system(make_exclusive(1).label(L1).after(L0).after(L0).before(L2))
             .with_system(make_exclusive(0).label(L0).before(L1))
             .with_system(make_exclusive(4).label(L4).after(L3))
-            .with_system(
-                make_exclusive(3)
-                    
-                    .label(L3)
-                    .after(L2)
-                    .before(L4),
-            );
+            .with_system(make_exclusive(3).label(L3).after(L2).before(L4));
         stage.run(&mut world);
         stage.set_executor(Box::new(SingleThreadedExecutor::default()));
         stage.run(&mut world);
@@ -1083,8 +1057,7 @@ mod tests {
     fn exclusive_cycle_1() {
         let mut world = World::new();
         world.init_resource::<EntityCount>();
-        let mut stage = SystemStage::parallel()
-            .with_system(make_exclusive(0).label(L0).after(L0));
+        let mut stage = SystemStage::parallel().with_system(make_exclusive(0).label(L0).after(L0));
         stage.run(&mut world);
     }
 

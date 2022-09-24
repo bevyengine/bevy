@@ -1,11 +1,11 @@
-use crate::{schedule::FunctionSystemContainer, world::World};
+use crate::{schedule::SystemContainer, world::World};
 use downcast_rs::{impl_downcast, Downcast};
 
 pub trait ParallelSystemExecutor: Downcast + Send + Sync {
     /// Called by `SystemStage` whenever `systems` have been changed.
-    fn rebuild_cached_data(&mut self, systems: &[FunctionSystemContainer]);
+    fn rebuild_cached_data(&mut self, systems: &[SystemContainer]);
 
-    fn run_systems(&mut self, systems: &mut [FunctionSystemContainer], world: &mut World);
+    fn run_systems(&mut self, systems: &mut [SystemContainer], world: &mut World);
 }
 
 impl_downcast!(ParallelSystemExecutor);
@@ -14,9 +14,9 @@ impl_downcast!(ParallelSystemExecutor);
 pub struct SingleThreadedExecutor;
 
 impl ParallelSystemExecutor for SingleThreadedExecutor {
-    fn rebuild_cached_data(&mut self, _: &[FunctionSystemContainer]) {}
+    fn rebuild_cached_data(&mut self, _: &[SystemContainer]) {}
 
-    fn run_systems(&mut self, systems: &mut [FunctionSystemContainer], world: &mut World) {
+    fn run_systems(&mut self, systems: &mut [SystemContainer], world: &mut World) {
         for system in systems {
             if system.should_run() {
                 #[cfg(feature = "trace")]

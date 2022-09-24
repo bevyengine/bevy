@@ -1,28 +1,12 @@
 use crate::{
     component::ComponentId,
     query::Access,
-    schedule::{
-        GraphNode, RunCriteriaLabelId, SystemDescriptor, SystemLabelId,
-    },
+    schedule::{GraphNode, RunCriteriaLabelId, SystemDescriptor, SystemLabelId},
     system::System,
 };
 use std::borrow::Cow;
 
-/// System metadata like its name, labels, order requirements and component access.
-pub trait SystemContainer: GraphNode<Label = SystemLabelId> {
-    #[doc(hidden)]
-    fn dependencies(&self) -> &[usize];
-    #[doc(hidden)]
-    fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>);
-    #[doc(hidden)]
-    fn run_criteria(&self) -> Option<usize>;
-    #[doc(hidden)]
-    fn set_run_criteria(&mut self, index: usize);
-    fn run_criteria_label(&self) -> Option<&RunCriteriaLabelId>;
-    fn component_access(&self) -> Option<&Access<ComponentId>>;
-}
-
-pub struct FunctionSystemContainer {
+pub struct SystemContainer {
     system: Box<dyn System<In = (), Out = ()>>,
     pub(crate) run_criteria_index: Option<usize>,
     pub(crate) run_criteria_label: Option<RunCriteriaLabelId>,
@@ -33,9 +17,9 @@ pub struct FunctionSystemContainer {
     after: Vec<SystemLabelId>,
 }
 
-impl FunctionSystemContainer {
+impl SystemContainer {
     pub(crate) fn from_descriptor(descriptor: SystemDescriptor) -> Self {
-        FunctionSystemContainer {
+        SystemContainer {
             system: descriptor.system,
             should_run: false,
             run_criteria_index: None,
@@ -66,9 +50,30 @@ impl FunctionSystemContainer {
     pub fn dependencies(&self) -> &[usize] {
         &self.dependencies
     }
+
+    pub fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>) {
+        self.dependencies.clear();
+        self.dependencies.extend(dependencies);
+    }
+
+    pub fn run_criteria(&self) -> Option<usize> {
+        self.run_criteria_index
+    }
+
+    pub fn set_run_criteria(&mut self, index: usize) {
+        self.run_criteria_index = Some(index);
+    }
+
+    pub fn run_criteria_label(&self) -> Option<&RunCriteriaLabelId> {
+        self.run_criteria_label.as_ref()
+    }
+
+    pub fn component_access(&self) -> Option<&Access<ComponentId>> {
+        Some(self.system().component_access())
+    }
 }
 
-impl GraphNode for FunctionSystemContainer {
+impl GraphNode for SystemContainer {
     type Label = SystemLabelId;
 
     fn name(&self) -> Cow<'static, str> {
@@ -85,32 +90,5 @@ impl GraphNode for FunctionSystemContainer {
 
     fn after(&self) -> &[SystemLabelId] {
         &self.after
-    }
-}
-
-impl SystemContainer for FunctionSystemContainer {
-    fn dependencies(&self) -> &[usize] {
-        &self.dependencies
-    }
-
-    fn set_dependencies(&mut self, dependencies: impl IntoIterator<Item = usize>) {
-        self.dependencies.clear();
-        self.dependencies.extend(dependencies);
-    }
-
-    fn run_criteria(&self) -> Option<usize> {
-        self.run_criteria_index
-    }
-
-    fn set_run_criteria(&mut self, index: usize) {
-        self.run_criteria_index = Some(index);
-    }
-
-    fn run_criteria_label(&self) -> Option<&RunCriteriaLabelId> {
-        self.run_criteria_label.as_ref()
-    }
-
-    fn component_access(&self) -> Option<&Access<ComponentId>> {
-        Some(self.system().component_access())
     }
 }

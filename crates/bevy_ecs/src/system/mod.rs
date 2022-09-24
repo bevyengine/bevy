@@ -294,10 +294,7 @@ mod tests {
         let mut update = SystemStage::parallel();
         update.add_system(incr_e_on_flip);
         schedule.add_stage(UpdateStage, update);
-        schedule.add_stage(
-            ClearTrackers,
-            SystemStage::single(World::clear_trackers),
-        );
+        schedule.add_stage(ClearTrackers, SystemStage::single(World::clear_trackers));
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
