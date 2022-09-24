@@ -211,10 +211,7 @@ impl World {
     /// }
     ///
     /// let mut world = World::new();
-    /// let entity = world.spawn()
-    ///     .insert(Position { x: 0.0, y: 0.0 })
-    ///     .id();
-    ///
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
@@ -239,9 +236,7 @@ impl World {
     /// }
     ///
     /// let mut world = World::new();
-    /// let entity = world.spawn()
-    ///     .insert(Position { x: 0.0, y: 0.0 })
-    ///     .id();
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
     /// let mut entity_mut = world.entity_mut(entity);
     /// let mut position = entity_mut.get_mut::<Position>().unwrap();
     /// position.x = 1.0;
@@ -294,7 +289,7 @@ impl World {
             }
             AllocAtWithoutReplacement::DidNotExist => {
                 // SAFETY: entity was just allocated
-                Some(unsafe { self.spawn_at_internal(entity) })
+                Some(unsafe { self.spawn_at_empty_internal(entity) })
             }
             AllocAtWithoutReplacement::ExistsWithWrongGeneration => None,
         }
@@ -314,10 +309,7 @@ impl World {
     /// }
     ///
     /// let mut world = World::new();
-    /// let entity = world.spawn()
-    ///     .insert(Position { x: 0.0, y: 0.0 })
-    ///     .id();
-    ///
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
     /// let entity_ref = world.get_entity(entity).unwrap();
     /// let position = entity_ref.get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
@@ -342,10 +334,7 @@ impl World {
     /// }
     ///
     /// let mut world = World::new();
-    /// let entity = world.spawn()
-    ///     .insert(Position { x: 0.0, y: 0.0 })
-    ///     .id();
-    ///
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
     /// let mut entity_mut = world.get_entity_mut(entity).unwrap();
     /// let mut position = entity_mut.get_mut::<Position>().unwrap();
     /// position.x = 1.0;
@@ -374,7 +363,7 @@ impl World {
     /// struct Num(u32);
     ///
     /// let mut world = World::new();
-    /// let entity = world.spawn()
+    /// let entity = world.spawn_empty()
     ///     .insert(Position { x: 0.0, y: 0.0 }) // add a single component
     ///     .insert((Num(1), Label("hello"))) // add a bundle of components
     ///     .id();
@@ -382,16 +371,98 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
-    pub fn spawn(&mut self) -> EntityMut {
+    pub fn spawn_empty(&mut self) -> EntityMut {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
-        unsafe { self.spawn_at_internal(entity) }
+        unsafe { self.spawn_at_empty_internal(entity) }
+    }
+
+    /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
+    /// a corresponding [`EntityMut`], which can be used to add components to the entity or
+    /// retrieve its id.
+    ///
+    /// ```
+    /// use bevy_ecs::{bundle::Bundle, component::Component, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Velocity {
+    ///     x: f32,
+    ///     y: f32,
+    /// };
+    ///
+    /// #[derive(Component)]
+    /// struct Name(&'static str);
+    ///
+    /// #[derive(Bundle)]
+    /// struct PhysicsBundle {
+    ///     position: Position,
+    ///     velocity: Velocity,
+    /// }
+    ///
+    /// let mut world = World::new();
+    ///
+    /// // `spawn` can accept a single component:
+    /// world.spawn(Position { x: 0.0, y: 0.0 });
+
+    /// // It can also accept a tuple of components:
+    /// world.spawn((
+    ///     Position { x: 0.0, y: 0.0 },
+    ///     Velocity { x: 1.0, y: 1.0 },
+    /// ));
+
+    /// // Or it can accept a pre-defined Bundle of components:
+    /// world.spawn(PhysicsBundle {
+    ///     position: Position { x: 2.0, y: 2.0 },
+    ///     velocity: Velocity { x: 0.0, y: 4.0 },
+    /// });
+    ///
+    /// let entity = world
+    ///     // Tuples can also mix Bundles and Components
+    ///     .spawn((
+    ///         PhysicsBundle {
+    ///             position: Position { x: 2.0, y: 2.0 },
+    ///             velocity: Velocity { x: 0.0, y: 4.0 },
+    ///         },
+    ///         Name("Elaina Proctor"),
+    ///     ))
+    ///     // Calling id() will return the unique identifier for the spawned entity
+    ///     .id();
+    /// let position = world.entity(entity).get::<Position>().unwrap();
+    /// assert_eq!(position.x, 2.0);
+    /// ```
+    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityMut {
+        self.flush();
+        let entity = self.entities.alloc();
+        let entity_location = {
+            let bundle_info = self
+                .bundles
+                .init_info::<B>(&mut self.components, &mut self.storages);
+            let mut spawner = bundle_info.get_bundle_spawner(
+                &mut self.entities,
+                &mut self.archetypes,
+                &mut self.components,
+                &mut self.storages,
+                *self.change_tick.get_mut(),
+            );
+
+            // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
+            unsafe { spawner.spawn_non_existent(entity, bundle) }
+        };
+
+        // SAFETY: entity and location are valid, as they were just created above
+        unsafe { EntityMut::new(self, entity, entity_location) }
     }
 
     /// # Safety
     /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_internal(&mut self, entity: Entity) -> EntityMut {
+    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityMut {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
@@ -448,9 +519,7 @@ impl World {
     /// }
     ///
     /// let mut world = World::new();
-    /// let entity = world.spawn()
-    ///     .insert(Position { x: 0.0, y: 0.0 })
-    ///     .id();
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
     /// let position = world.get::<Position>(entity).unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
@@ -471,9 +540,7 @@ impl World {
     /// }
     ///
     /// let mut world = World::new();
-    /// let entity = world.spawn()
-    ///     .insert(Position { x: 0.0, y: 0.0 })
-    ///     .id();
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
     /// let mut position = world.get_mut::<Position>(entity).unwrap();
     /// position.x = 1.0;
     /// ```
@@ -496,9 +563,7 @@ impl World {
     /// }
     ///
     /// let mut world = World::new();
-    /// let entity = world.spawn()
-    ///     .insert(Position { x: 0.0, y: 0.0 })
-    ///     .id();
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
     /// assert!(world.despawn(entity));
     /// assert!(world.get_entity(entity).is_none());
     /// assert!(world.get::<Position>(entity).is_none());
@@ -570,9 +635,9 @@ impl World {
     /// struct Label(&'static str);
     ///
     /// let mut world = World::new();
-    /// let a = world.spawn().insert((Order(2), Label("second"))).id();
-    /// let b = world.spawn().insert((Order(3), Label("third"))).id();
-    /// let c = world.spawn().insert((Order(1), Label("first"))).id();
+    /// let a = world.spawn((Order(2), Label("second"))).id();
+    /// let b = world.spawn((Order(3), Label("third"))).id();
+    /// let c = world.spawn((Order(1), Label("first"))).id();
     /// let mut entities = world.query::<(Entity, &Order, &Label)>()
     ///     .iter(&world)
     ///     .collect::<Vec<_>>();
@@ -601,8 +666,8 @@ impl World {
     /// struct B;
     ///
     /// let mut world = World::new();
-    /// let e1 = world.spawn().insert(A).id();
-    /// let e2 = world.spawn().insert((A, B)).id();
+    /// let e1 = world.spawn(A).id();
+    /// let e2 = world.spawn((A, B)).id();
     ///
     /// let mut query = world.query_filtered::<Entity, With<B>>();
     /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
@@ -958,8 +1023,8 @@ impl World {
     /// struct B(f32);
     ///
     /// let mut world = World::new();
-    /// let e0 = world.spawn().id();
-    /// let e1 = world.spawn().id();
+    /// let e0 = world.spawn_empty().id();
+    /// let e1 = world.spawn_empty().id();
     /// world.insert_or_spawn_batch(vec![
     ///   (e0, (A("a"), B(0.0))), // the first entity
     ///   (e1, (A("b"), B(1.0))), // the second entity
@@ -1076,7 +1141,7 @@ impl World {
     /// struct B(u32);
     /// let mut world = World::new();
     /// world.insert_resource(A(1));
-    /// let entity = world.spawn().insert(B(1)).id();
+    /// let entity = world.spawn(B(1)).id();
     ///
     /// world.resource_scope(|world, mut a: Mut<A>| {
     ///     let b = world.get_mut::<B>(entity).unwrap();
@@ -1663,7 +1728,7 @@ mod tests {
         let res = panic::catch_unwind(|| {
             let mut world = World::new();
             world
-                .spawn()
+                .spawn_empty()
                 .insert(helper.make_component(true, 0))
                 .insert(helper.make_component(false, 1));
 
@@ -1782,13 +1847,13 @@ mod tests {
     #[test]
     fn inspect_entity_components() {
         let mut world = World::new();
-        let ent0 = world.spawn().insert((Foo, Bar, Baz)).id();
-        let ent1 = world.spawn().insert((Foo, Bar)).id();
-        let ent2 = world.spawn().insert((Bar, Baz)).id();
-        let ent3 = world.spawn().insert((Foo, Baz)).id();
-        let ent4 = world.spawn().insert(Foo).id();
-        let ent5 = world.spawn().insert(Bar).id();
-        let ent6 = world.spawn().insert(Baz).id();
+        let ent0 = world.spawn((Foo, Bar, Baz)).id();
+        let ent1 = world.spawn((Foo, Bar)).id();
+        let ent2 = world.spawn((Bar, Baz)).id();
+        let ent3 = world.spawn((Foo, Baz)).id();
+        let ent4 = world.spawn(Foo).id();
+        let ent5 = world.spawn(Bar).id();
+        let ent6 = world.spawn(Baz).id();
 
         fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
             component_infos

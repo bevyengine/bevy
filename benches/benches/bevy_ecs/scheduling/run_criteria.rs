@@ -150,7 +150,7 @@ struct TestBool(pub bool);
 
 pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {
     let mut world = World::new();
-    world.spawn().insert(TestBool(true));
+    world.spawn(TestBool(true));
     let mut group = criterion.benchmark_group("run_criteria/yes_using_query");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(3));

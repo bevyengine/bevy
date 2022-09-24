@@ -1013,7 +1013,7 @@ pub fn prepare_lights(
                         });
 
                 let view_light_entity = commands
-                    .spawn_bundle((
+                    .spawn((
                         ShadowView {
                             depth_texture_view,
                             pass_name: format!(
@@ -1072,7 +1072,7 @@ pub fn prepare_lights(
                     });
 
             let view_light_entity = commands
-                .spawn_bundle((
+                .spawn((
                     ShadowView {
                         depth_texture_view,
                         pass_name: format!("shadow pass spot light {}", light_index,),
@@ -1155,7 +1155,7 @@ pub fn prepare_lights(
                         });
 
                 let view_light_entity = commands
-                    .spawn_bundle((
+                    .spawn((
                         ShadowView {
                             depth_texture_view,
                             pass_name: format!("shadow pass directional light {}", i),

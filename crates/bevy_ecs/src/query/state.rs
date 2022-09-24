@@ -221,10 +221,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let entity_vec: Vec<Entity> = (0..3).map(|i|world.spawn().insert(A(i)).id()).collect();
+    /// let entity_vec: Vec<Entity> = (0..3).map(|i|world.spawn(A(i)).id()).collect();
     /// let entities: [Entity; 3] = entity_vec.try_into().unwrap();
     ///
-    /// world.spawn().insert(A(73));
+    /// world.spawn(A(73));
     ///
     /// let mut query_state = world.query::<&A>();
     ///
@@ -288,10 +288,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// let mut world = World::new();
     ///
-    /// let entities: Vec<Entity> = (0..3).map(|i|world.spawn().insert(A(i)).id()).collect();
+    /// let entities: Vec<Entity> = (0..3).map(|i|world.spawn(A(i)).id()).collect();
     /// let entities: [Entity; 3] = entities.try_into().unwrap();
     ///
-    /// world.spawn().insert(A(73));
+    /// world.spawn(A(73));
     ///
     /// let mut query_state = world.query::<&mut A>();
     ///
@@ -306,7 +306,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
     /// let wrong_entity = Entity::from_raw(57);
-    /// let invalid_entity = world.spawn().id();
+    /// let invalid_entity = world.spawn_empty().id();
     ///
     /// assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
     /// assert_eq!(query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch(invalid_entity));
@@ -1225,7 +1225,7 @@ mod tests {
     fn get_many_unchecked_manual_uniqueness() {
         let mut world = World::new();
 
-        let entities: Vec<Entity> = (0..10).map(|_| world.spawn().id()).collect();
+        let entities: Vec<Entity> = (0..10).map(|_| world.spawn_empty().id()).collect();
 
         let query_state = world.query::<Entity>();
 

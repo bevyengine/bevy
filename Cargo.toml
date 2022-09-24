@@ -1340,6 +1340,16 @@ description = "A simple way to view glTF models with Bevy. Just run `cargo run -
 category = "Tools"
 wasm = true
 
+[[example]]
+name = "gamepad_viewer"
+path = "examples/tools/gamepad_viewer.rs"
+
+[package.metadata.example.gamepad_viewer]
+name = "Gamepad Viewer"
+description = "Shows a visualization of gamepad buttons, sticks, and triggers"
+category = "Tools"
+wasm = false
+
 # Transforms
 [[example]]
 name = "global_vs_local_translation"

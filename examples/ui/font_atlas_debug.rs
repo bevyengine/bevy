@@ -47,7 +47,7 @@ fn atlas_render_system(
                 .get(&font_atlas[state.atlas_count as usize].texture_atlas)
                 .unwrap();
             state.atlas_count += 1;
-            commands.spawn_bundle(ImageBundle {
+            commands.spawn(ImageBundle {
                 image: texture_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,
@@ -81,8 +81,8 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(TextBundle::from_section(
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(TextBundle::from_section(
         "a",
         TextStyle {
             font: font_handle,

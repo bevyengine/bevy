@@ -320,7 +320,7 @@ mod tests {
     fn one_of_everything() {
         let mut world = World::new();
         world.insert_resource(R);
-        world.spawn().insert(A);
+        world.spawn(A);
         world.init_resource::<Events<E>>();
 
         let mut test_stage = SystemStage::parallel();
@@ -339,7 +339,7 @@ mod tests {
     fn read_only() {
         let mut world = World::new();
         world.insert_resource(R);
-        world.spawn().insert(A);
+        world.spawn(A);
         world.init_resource::<Events<E>>();
 
         let mut test_stage = SystemStage::parallel();
@@ -366,7 +366,7 @@ mod tests {
     fn read_world() {
         let mut world = World::new();
         world.insert_resource(R);
-        world.spawn().insert(A);
+        world.spawn(A);
         world.init_resource::<Events<E>>();
 
         let mut test_stage = SystemStage::parallel();
@@ -412,7 +412,7 @@ mod tests {
     #[test]
     fn components() {
         let mut world = World::new();
-        world.spawn().insert(A);
+        world.spawn(A);
 
         let mut test_stage = SystemStage::parallel();
         test_stage
@@ -428,7 +428,7 @@ mod tests {
     #[ignore = "Known failing but fix is non-trivial: https://github.com/bevyengine/bevy/issues/4381"]
     fn filtered_components() {
         let mut world = World::new();
-        world.spawn().insert(A);
+        world.spawn(A);
 
         let mut test_stage = SystemStage::parallel();
         test_stage
@@ -461,7 +461,7 @@ mod tests {
     fn exclusive() {
         let mut world = World::new();
         world.insert_resource(R);
-        world.spawn().insert(A);
+        world.spawn(A);
         world.init_resource::<Events<E>>();
 
         let mut test_stage = SystemStage::parallel();
