@@ -45,7 +45,6 @@ impl SystemOrderAmbiguity {
         stage: &SystemStage,
         world: &World,
     ) -> Self {
-        use crate::schedule::graph_utils::GraphNode;
         use SystemStageSegment::*;
 
         // TODO: blocked on https://github.com/bevyengine/bevy/pull/4166

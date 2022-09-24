@@ -70,6 +70,7 @@
 
 mod commands;
 mod exclusive_function_system;
+mod exclusive_system_param;
 mod function_system;
 mod query;
 #[allow(clippy::module_inception)]
@@ -79,6 +80,7 @@ mod system_param;
 
 pub use commands::*;
 pub use exclusive_function_system::*;
+pub use exclusive_system_param::*;
 pub use function_system::*;
 pub use query::*;
 pub use system::*;
