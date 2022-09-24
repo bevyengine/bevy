@@ -771,6 +771,7 @@ pub fn prepare_lights(
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
+    mut max_directional_lights_warning_emitted: Local<bool>,
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
@@ -798,12 +799,20 @@ pub fn prepare_lights(
     #[cfg(feature = "webgl")]
     let max_texture_cubes = 1;
 
+    if !*max_directional_lights_warning_emitted && directional_lights.len() > MAX_DIRECTIONAL_LIGHTS
+    {
+        warn!(
+            "The amount of directional lights of {} is exceeding the supported limit of {}.",
+            directional_lights.len(),
+            MAX_DIRECTIONAL_LIGHTS
+        );
+        *max_directional_lights_warning_emitted = true;
+    }
+
     let point_light_count = point_lights
         .iter()
         .filter(|light| light.1.spot_light_angles.is_none())
         .count();
-
-    let directional_light_count = directional_lights.len();
 
     let point_light_shadow_maps_count = point_lights
         .iter()
@@ -811,29 +820,18 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_cubes);
 
-    let mut directional_shadow_maps_count = directional_lights
+    let directional_shadow_maps_count = directional_lights
         .iter()
+        .take(MAX_DIRECTIONAL_LIGHTS)
         .filter(|(_, light)| light.shadows_enabled)
-        .count();
+        .count()
+        .min(max_texture_array_layers);
 
-    let mut spot_light_shadow_maps_count = point_lights
+    let spot_light_shadow_maps_count = point_lights
         .iter()
         .filter(|(_, light)| light.shadows_enabled && light.spot_light_angles.is_some())
-        .count();
-
-    if directional_light_count > MAX_DIRECTIONAL_LIGHTS {
-        error!(
-            "The amount of directional lights of {} is exceeding the supported limit of {}.",
-            directional_light_count, MAX_DIRECTIONAL_LIGHTS
-        );
-    }
-
-    // We can not support all shadow maps on this platform, thus all of them are skipped.
-    if directional_shadow_maps_count + spot_light_shadow_maps_count > max_texture_array_layers {
-        error!("The amount of shadow casting directional and spot lights of {} is exceeding the supported limit of {} on this platform.", directional_shadow_maps_count + spot_light_shadow_maps_count, max_texture_array_layers);
-        directional_shadow_maps_count = 0;
-        spot_light_shadow_maps_count = 0;
-    }
+        .count()
+        .min(max_texture_array_layers - directional_shadow_maps_count);
 
     // Sort lights by
     // - point-light vs spot-light, so that we can iterate point lights and spot lights in contiguous blocks in the fragment shader,
@@ -935,6 +933,7 @@ pub fn prepare_lights(
     }
 
     let mut gpu_directional_lights = [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS];
+
     for (index, (_light_entity, light)) in directional_lights
         .iter()
         .enumerate()
