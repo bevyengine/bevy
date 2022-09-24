@@ -1,7 +1,7 @@
 [package]
 name = "build-wasm-example"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
 description = "Build an example for wasm"
 publish = false
 license = "MIT OR Apache-2.0"

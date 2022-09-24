@@ -1,8 +1,8 @@
 [package]
 name = "bevy_ecs_macros"
-version = "0.9.0-dev"
+version.workspace = true
 description = "Bevy ECS Macros"
-edition = "2021"
+edition.workspace = true
 license = "MIT OR Apache-2.0"
 
 [lib]
