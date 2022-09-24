@@ -588,16 +588,12 @@ impl AxisSettings {
         }
     }
 
-    /// Set the value above which inputs will be rounded up to 1.0
-    ///
-    /// # Panics
-    ///
-    /// If the value passed is less than `positive_low` or greater than 1.0
-    pub fn set_positive_high(&mut self, value: f32) {
-        if let Err(GamepadSettingsError::InvalidAxisSetting(e)) = self.try_set_positive_high(value)
-        {
-            panic!("Invalid axis setting: {}", e);
-        }
+    /// Try to set the value above which inputs will be rounded up to 1.0. If the value is less than
+    /// `positive_low` or greater than 1.0, the value will not be changed.
+    /// Returns the new value of `positive_high`.
+    pub fn set_positive_high(&mut self, value: f32) -> f32 {
+        self.try_set_positive_high(value).ok();
+        self.positive_high
     }
 
     /// Get the value below which positive inputs will be rounded down to 0.0
@@ -621,15 +617,13 @@ impl AxisSettings {
         }
     }
 
-    /// Set the value below which positive inputs will be rounded down to 0.0
+    /// Try to set the value below which positive inputs will be rounded down to 0.0. If the value
+    /// passed is negative or greater than `positive_high`, the value will not be changed.
     ///
-    /// # Panics
-    ///
-    /// If the value passed is negative or greater than `positive_high`
-    pub fn set_positive_low(&mut self, value: f32) {
-        if let Err(GamepadSettingsError::InvalidAxisSetting(e)) = self.try_set_positive_low(value) {
-            panic!("Invalid axis setting: {}", e);
-        }
+    /// Returns the new value of `positive_low`.
+    pub fn set_positive_low(&mut self, value: f32) -> f32 {
+        self.try_set_positive_low(value).ok();
+        self.positive_low
     }
 
     /// Get the value above which negative inputs will be rounded up to 0.0
@@ -653,16 +647,13 @@ impl AxisSettings {
         }
     }
 
-    /// Set the value above which negative inputs will be rounded up to 0.0
+    /// Try to set the value above which negative inputs will be rounded up to 0.0. If the value
+    /// passed is positive or less than `negative_high`, the value will not be changed.
     ///
-    /// # Panics
-    ///
-    /// If the value passed is positive or less than `negative_high`
-    pub fn set_negative_low(&mut self, value: f32) {
-        if let Err(GamepadSettingsError::InvalidAxisSetting(e)) = self.try_set_negative_low(value) {
-            panic!("Invalid axis setting: {}", e);
-        }
-        self.negative_low = value;
+    /// Returns the new value of `negative_low`.
+    pub fn set_negative_low(&mut self, value: f32) -> f32 {
+        self.try_set_negative_low(value).ok();
+        self.negative_low
     }
 
     /// Get the value below which inputs will be rounded down to -1.0
@@ -686,16 +677,13 @@ impl AxisSettings {
         }
     }
 
-    /// Get the value below which inputs will be rounded down to -1.0
+    /// Try to set the value below which inputs will be rounded down to -1.0. If the value passed is
+    /// less than -1.0 or greater than `negative_low`, the value will not be changed.
     ///
-    /// # Panics
-    ///
-    /// If the value passed is less than -1.0 or greater than `negative_low`
-    pub fn set_negative_high(&mut self, value: f32) {
-        if let Err(GamepadSettingsError::InvalidAxisSetting(e)) = self.try_set_negative_high(value)
-        {
-            panic!("Invalid axis setting: {}", e);
-        }
+    /// Returns the new value of `negative_high`.
+    pub fn set_negative_high(&mut self, value: f32) -> f32 {
+        self.try_set_negative_high(value).ok();
+        self.negative_high
     }
 
     /// Get the minimum value by which input must change before the changes will be applied
@@ -719,15 +707,13 @@ impl AxisSettings {
         }
     }
 
-    /// Set the minimum value by which input must change before the changes will be applied
+    /// Try to set the minimum value by which input must change before the changes will be applied.
+    /// If the value passed is not within [0.0, 2.0], the value will not be changed.
     ///
-    /// # Panics
-    ///
-    /// If the value passed is not within [0.0, 2.0]
-    pub fn set_threshold(&mut self, value: f32) {
-        if let Err(GamepadSettingsError::InvalidAxisSetting(e)) = self.try_set_threshold(value) {
-            panic!("Invalid axis setting: {}", e);
-        }
+    /// Returns the new value of threshold.
+    pub fn set_threshold(&mut self, value: f32) -> f32 {
+        self.try_set_threshold(value).ok();
+        self.threshold
     }
 
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
