@@ -106,17 +106,17 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<ButtonMaterials>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     // Buttons
 
     commands
-        .spawn_bundle(SpatialBundle {
+        .spawn(SpatialBundle {
             transform: Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle((
+            parent.spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.circle.clone(),
                     material: materials.normal.clone(),
@@ -125,7 +125,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                 },
                 ReactTo(GamepadButtonType::North),
             ));
-            parent.spawn_bundle((
+            parent.spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.circle.clone(),
                     material: materials.normal.clone(),
@@ -134,7 +134,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                 },
                 ReactTo(GamepadButtonType::South),
             ));
-            parent.spawn_bundle((
+            parent.spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.circle.clone(),
                     material: materials.normal.clone(),
@@ -143,7 +143,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                 },
                 ReactTo(GamepadButtonType::West),
             ));
-            parent.spawn_bundle((
+            parent.spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.circle.clone(),
                     material: materials.normal.clone(),
@@ -157,7 +157,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
 
     // Start and Pause
 
-    commands.spawn_bundle((
+    commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.start_pause.clone(),
             material: materials.normal.clone(),
@@ -167,7 +167,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
         ReactTo(GamepadButtonType::Select),
     ));
 
-    commands.spawn_bundle((
+    commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.start_pause.clone(),
             material: materials.normal.clone(),
@@ -180,12 +180,12 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // D-Pad
 
     commands
-        .spawn_bundle(SpatialBundle {
+        .spawn(SpatialBundle {
             transform: Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle((
+            parent.spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.triangle.clone(),
                     material: materials.normal.clone(),
@@ -194,7 +194,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                 },
                 ReactTo(GamepadButtonType::DPadUp),
             ));
-            parent.spawn_bundle((
+            parent.spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.triangle.clone(),
                     material: materials.normal.clone(),
@@ -204,7 +204,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                 },
                 ReactTo(GamepadButtonType::DPadDown),
             ));
-            parent.spawn_bundle((
+            parent.spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.triangle.clone(),
                     material: materials.normal.clone(),
@@ -214,7 +214,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                 },
                 ReactTo(GamepadButtonType::DPadLeft),
             ));
-            parent.spawn_bundle((
+            parent.spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.triangle.clone(),
                     material: materials.normal.clone(),
@@ -228,7 +228,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
 
     // Triggers
 
-    commands.spawn_bundle((
+    commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.trigger.clone(),
             material: materials.normal.clone(),
@@ -238,7 +238,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
         ReactTo(GamepadButtonType::LeftTrigger),
     ));
 
-    commands.spawn_bundle((
+    commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.trigger.clone(),
             material: materials.normal.clone(),
@@ -268,13 +268,13 @@ fn setup_sticks(
 
     let mut spawn_stick = |x_pos, y_pos, x_axis, y_axis, button| {
         commands
-            .spawn_bundle(SpatialBundle {
+            .spawn(SpatialBundle {
                 transform: Transform::from_xyz(x_pos, y_pos, 0.),
                 ..default()
             })
             .with_children(|parent| {
                 // full extent
-                parent.spawn_bundle(SpriteBundle {
+                parent.spawn(SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2::splat(STICK_BOUNDS_SIZE * 2.)),
                         color: EXTENT_COLOR,
@@ -283,7 +283,7 @@ fn setup_sticks(
                     ..default()
                 });
                 // live zone
-                parent.spawn_bundle(SpriteBundle {
+                parent.spawn(SpriteBundle {
                     transform: Transform::from_xyz(live_mid, live_mid, 2.),
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(live_size, live_size)),
@@ -293,7 +293,7 @@ fn setup_sticks(
                     ..default()
                 });
                 // dead zone
-                parent.spawn_bundle(SpriteBundle {
+                parent.spawn(SpriteBundle {
                     transform: Transform::from_xyz(dead_mid, dead_mid, 3.),
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(dead_size, dead_size)),
@@ -308,7 +308,7 @@ fn setup_sticks(
                     color: TEXT_COLOR,
                     font: font.clone(),
                 };
-                parent.spawn_bundle((
+                parent.spawn((
                     Text2dBundle {
                         transform: Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
                         text: Text::from_sections([
@@ -331,7 +331,7 @@ fn setup_sticks(
                     TextWithAxes { x_axis, y_axis },
                 ));
                 // cursor
-                parent.spawn_bundle((
+                parent.spawn((
                     MaterialMesh2dBundle {
                         mesh: meshes.circle.clone(),
                         material: materials.normal.clone(),
@@ -373,7 +373,7 @@ fn setup_triggers(
 ) {
     let mut spawn_trigger = |x, y, button_type| {
         commands
-            .spawn_bundle((
+            .spawn((
                 MaterialMesh2dBundle {
                     mesh: meshes.trigger.clone(),
                     material: materials.normal.clone(),
@@ -383,7 +383,7 @@ fn setup_triggers(
                 ReactTo(button_type),
             ))
             .with_children(|parent| {
-                parent.spawn_bundle((
+                parent.spawn((
                     Text2dBundle {
                         transform: Transform::from_xyz(0., 0., 1.),
                         text: Text::from_section(
@@ -420,7 +420,7 @@ fn setup_connected(mut commands: Commands, font: Res<FontHandle>) {
         font_size: 30.,
         font: font.clone(),
     };
-    commands.spawn_bundle((
+    commands.spawn((
         TextBundle::from_sections([
             TextSection {
                 value: "Connected Gamepads\n".to_string(),
