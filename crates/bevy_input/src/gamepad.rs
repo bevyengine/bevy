@@ -576,7 +576,7 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than positive_low or greater than 1.0
+    /// If the value passed is less than `positive_low` or greater than 1.0
     pub fn try_set_positive_high(&mut self, value: f32) -> Result<()> {
         if value < self.positive_low || value > 1.0 {
             Err(GamepadSettingsError::InvalidAxisSetting(
@@ -592,7 +592,7 @@ impl AxisSettings {
     ///
     /// # Panics
     ///
-    /// If the value passed is less than positive_low or greater than 1.0
+    /// If the value passed is less than `positive_low` or greater than 1.0
     pub fn set_positive_high(&mut self, value: f32) {
         if let Err(GamepadSettingsError::InvalidAxisSetting(e)) = self.try_set_positive_high(value)
         {
@@ -609,7 +609,7 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is negative or greater than positive_high
+    /// If the value passed is negative or greater than `positive_high`
     pub fn try_set_positive_low(&mut self, value: f32) -> Result<()> {
         if value < 0.0 || value > self.positive_high {
             Err(GamepadSettingsError::InvalidAxisSetting(
@@ -625,7 +625,7 @@ impl AxisSettings {
     ///
     /// # Panics
     ///
-    /// If the value passed is negative or greater than positive_high
+    /// If the value passed is negative or greater than `positive_high`
     pub fn set_positive_low(&mut self, value: f32) {
         if let Err(GamepadSettingsError::InvalidAxisSetting(e)) = self.try_set_positive_low(value) {
             panic!("Invalid axis setting: {}", e);
@@ -641,7 +641,7 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is positive or less than negative_high
+    /// If the value passed is positive or less than `negative_high`
     pub fn try_set_negative_low(&mut self, value: f32) -> Result<()> {
         if value < self.negative_high || value > 0.0 {
             Err(GamepadSettingsError::InvalidAxisSetting(
@@ -657,7 +657,7 @@ impl AxisSettings {
     ///
     /// # Panics
     ///
-    /// If the value passed is positive or less than negative_high
+    /// If the value passed is positive or less than `negative_high`
     pub fn set_negative_low(&mut self, value: f32) {
         if let Err(GamepadSettingsError::InvalidAxisSetting(e)) = self.try_set_negative_low(value) {
             panic!("Invalid axis setting: {}", e);
@@ -674,7 +674,7 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than -1.0 or greater than negative_low
+    /// If the value passed is less than -1.0 or greater than `negative_low`
     pub fn try_set_negative_high(&mut self, value: f32) -> Result<()> {
         if value < -1.0 || value > self.negative_low {
             Err(GamepadSettingsError::InvalidAxisSetting(
@@ -690,7 +690,7 @@ impl AxisSettings {
     ///
     /// # Panics
     ///
-    /// If the value passed is less than -1.0 or greater than negative_low
+    /// If the value passed is less than -1.0 or greater than `negative_low`
     pub fn set_negative_high(&mut self, value: f32) {
         if let Err(GamepadSettingsError::InvalidAxisSetting(e)) = self.try_set_negative_high(value)
         {
@@ -709,7 +709,7 @@ impl AxisSettings {
     ///
     /// If the value passed is not within [0.0, 2.0]
     pub fn try_set_threshold(&mut self, value: f32) -> Result<()> {
-        if value < 0.0 || value > 2.0 {
+        if !(0.0..=2.0).contains(&value) {
             Err(GamepadSettingsError::InvalidAxisSetting(
                 "threshold must be between 0.0 and 2.0, inclusive".to_owned(),
             ))
