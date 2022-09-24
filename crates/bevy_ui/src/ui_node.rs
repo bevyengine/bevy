@@ -378,9 +378,9 @@ pub struct CalculatedSize {
 /// The color of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-pub struct Fill(pub Color);
+pub struct BackgroundColor(pub Color);
 
-impl From<Color> for Fill {
+impl From<Color> for BackgroundColor {
     fn from(color: Color) -> Self {
         Self(color)
     }
