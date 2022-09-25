@@ -1,6 +1,6 @@
 //! Prints out all touch inputs.
 
-use bevy::{window::touch::*, prelude::*};
+use bevy::{prelude::*, window::touch::*};
 
 fn main() {
     App::new()

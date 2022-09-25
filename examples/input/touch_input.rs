@@ -1,6 +1,6 @@
 //! Displays touch presses, releases, and cancels.
 
-use bevy::{window::touch::*, prelude::*};
+use bevy::{prelude::*, window::touch::*};
 
 fn main() {
     App::new()
