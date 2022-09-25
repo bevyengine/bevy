@@ -1,6 +1,6 @@
 use std::any::{Any, TypeId};
 
-use crate::{FromReflect, Reflect};
+use crate::Reflect;
 
 pub trait Wrapper: Reflect {
     fn get(&self) -> &dyn Reflect;
@@ -17,12 +17,12 @@ pub struct WrapperInfo {
 
 impl WrapperInfo {
     /// Create a new [`WrapperInfo`].
-    pub fn new<TWrapper: Wrapper, Tinner: FromReflect>() -> Self {
+    pub fn new<TWrapper: Wrapper, TInner: 'static>() -> Self {
         Self {
             type_name: std::any::type_name::<TWrapper>(),
             type_id: TypeId::of::<TWrapper>(),
-            inner_type_name: std::any::type_name::<Tinner>(),
-            inner_type_id: TypeId::of::<Tinner>(),
+            inner_type_name: std::any::type_name::<TInner>(),
+            inner_type_id: TypeId::of::<TInner>(),
         }
     }
 
