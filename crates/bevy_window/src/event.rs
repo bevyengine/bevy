@@ -47,7 +47,7 @@ pub struct TouchInput {
 
 /// An event reporting that the ESC key has been pressed
 /// while the current window is in focus.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowESC {
     pub window_id: WindowId,
