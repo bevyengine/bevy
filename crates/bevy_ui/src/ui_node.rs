@@ -303,11 +303,11 @@ pub enum FlexDirection {
     /// Same way as text direction along the main axis
     #[default]
     Row,
-    /// Flex from bottom to top
+    /// Flex from top to bottom
     Column,
     /// Opposite way as text direction along the main axis
     RowReverse,
-    /// Flex from top to bottom
+    /// Flex from bottom to top
     ColumnReverse,
 }
 
