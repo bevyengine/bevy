@@ -4,10 +4,6 @@
 mod name;
 mod task_pool_options;
 
-pub use bevy_ecs::{
-    event::EventReader,
-    system::{Local, Res, ResMut},
-};
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
