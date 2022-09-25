@@ -247,7 +247,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
             let default_camera_view = commands
                 .spawn(ExtractedView {
-                    projection: projection.get_projection_matrix(),
+                    projection: projection_matrix,
                     transform: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
