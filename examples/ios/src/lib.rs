@@ -1,4 +1,10 @@
-use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
+use bevy::{
+    prelude::*,
+    window::{
+        touch::{TouchInput, TouchPhase},
+        WindowMode,
+    },
+};
 
 // the `bevy_main` proc_macro generates the required ios boilerplate
 #[bevy_main]

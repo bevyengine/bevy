@@ -22,10 +22,10 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+pub use bevy_window::{TouchInput, Touches};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use prelude::Gamepads;
-pub use bevy_window::TouchInput;
 
 use gamepad::{
     gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,

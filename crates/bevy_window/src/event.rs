@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
+use super::touch::{ForceTouch, TouchPhase};
 use super::{WindowDescriptor, WindowId};
-use super::touch::{TouchPhase, ForceTouch};
 use bevy_math::{IVec2, Vec2};
 
 /// A touch input event.
@@ -49,10 +49,7 @@ pub struct TouchInput {
 /// The event is sent only if the cursor is over one of the application's windows.
 /// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate.
 ///
-/// Not to be confused with the [`MouseMotion`] event from `bevy_input`.
-///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
-/// [`MouseMotion`]: super::mouse::MouseMotion
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct CursorMoved {

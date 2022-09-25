@@ -8,8 +8,6 @@ pub use bevy_ecs::{
     event::EventReader,
     system::{Local, Res, ResMut},
 };
-pub use bevy_input::{keyboard::KeyCode, Input};
-pub use bevy_window::{WindowFocused, WindowId, Windows};
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
@@ -90,6 +88,12 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Quat>();
 }
 
+#[cfg(feature = "close_on_esc")]
+pub use bevy_input::{keyboard::KeyCode, Input};
+#[cfg(feature = "close_on_esc")]
+pub use bevy_window::{WindowFocused, WindowId, Windows};
+
+#[cfg(feature = "close_on_esc")]
 /// Close the focused window whenever the escape key (<kbd>Esc</kbd>) is pressed
 ///
 /// This is useful for examples or prototyping.

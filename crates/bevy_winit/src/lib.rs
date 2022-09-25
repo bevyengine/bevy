@@ -23,10 +23,10 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, FileDragAndDrop, ModifiesWindows, ReceivedCharacter,
-    RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed,
-    WindowCreated, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
-    CursorMoved, TouchInput,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
+    ReceivedCharacter, RequestRedraw, TouchInput, WindowBackendScaleFactorChanged,
+    WindowCloseRequested, WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
+    WindowScaleFactorChanged, Windows,
 };
 
 use winit::{

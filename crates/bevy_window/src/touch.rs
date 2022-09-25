@@ -1,8 +1,9 @@
+pub use super::event::TouchInput;
+use super::WindowId;
 use bevy_ecs::event::EventReader;
 use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
-use super::{WindowId, TouchInput};
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.
 #[derive(Debug, Clone, Copy, PartialEq)]

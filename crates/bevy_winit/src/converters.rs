@@ -4,7 +4,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorIcon, WindowId, TouchInput, ForceTouch, TouchPhase};
+use bevy_window::{CursorIcon, ForceTouch, TouchInput, TouchPhase, WindowId};
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {

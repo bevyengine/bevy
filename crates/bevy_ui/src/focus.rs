@@ -5,7 +5,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
-use bevy_input::{mouse::MouseButton, touch::Touches, Input};
+use bevy_input::{mouse::MouseButton, Input, Touches};
 use bevy_math::Vec2;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::camera::{Camera, RenderTarget};

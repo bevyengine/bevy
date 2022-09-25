@@ -3,17 +3,17 @@ mod cursor;
 mod event;
 mod raw_window_handle;
 mod system;
+pub mod touch;
 mod window;
 mod windows;
-mod touch;
 
 pub use crate::raw_window_handle::*;
 pub use cursor::*;
 pub use event::*;
 pub use system::*;
+pub use touch::*;
 pub use window::*;
 pub use windows::*;
-pub use touch::*;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -91,6 +91,7 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
+            .add_event::<CursorMoved>()
             .init_resource::<Touches>()
             .init_resource::<Windows>();
 
@@ -112,11 +113,7 @@ impl Plugin for WindowPlugin {
                 descriptor: window_descriptor,
             });
             // update touch events if there is an active window
-            app.add_system_to_stage(
-                CoreStage::PreUpdate,
-                touch_screen_input_system,
-            );
-
+            app.add_system_to_stage(CoreStage::PreUpdate, touch_screen_input_system);
         }
 
         if settings.exit_on_all_closed {
