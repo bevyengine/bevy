@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    CalculatedSize, FocusPolicy, Interaction, Node, Style, UiColor, UiImage,
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage,
 };
 use bevy_ecs::{
     bundle::Bundle,
@@ -23,8 +23,8 @@ pub struct NodeBundle {
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
-    /// Describes the color of the node
-    pub color: UiColor,
+    /// The background color, which serves as a "fill" for this node
+    pub background_color: BackgroundColor,
     /// Describes the image of the node
     pub image: UiImage,
     /// Whether this node should block interaction with lower nodes
@@ -50,8 +50,10 @@ pub struct ImageBundle {
     pub image_mode: ImageMode,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
-    /// The color of the node
-    pub color: UiColor,
+    /// The background color, which serves as a "fill" for this node
+    ///
+    /// When combined with `UiImage`, tints the provided image.
+    pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
     /// Whether this node should block interaction with lower nodes
@@ -152,8 +154,10 @@ pub struct ButtonBundle {
     pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
-    /// The color of the node
-    pub color: UiColor,
+    /// The background color, which serves as a "fill" for this node
+    ///
+    /// When combined with `UiImage`, tints the provided image.
+    pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
@@ -174,7 +178,7 @@ impl Default for ButtonBundle {
             focus_policy: Default::default(),
             node: Default::default(),
             style: Default::default(),
-            color: Default::default(),
+            background_color: Default::default(),
             image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),

@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -161,7 +161,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 
 pub struct ExtractedUiNode {
     pub transform: Mat4,
-    pub color: Color,
+    pub background_color: Color,
     pub rect: Rect,
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
@@ -180,7 +180,7 @@ pub fn extract_uinodes(
         Query<(
             &Node,
             &GlobalTransform,
-            &UiColor,
+            &BackgroundColor,
             &UiImage,
             &ComputedVisibility,
             Option<&CalculatedClip>,
@@ -203,7 +203,7 @@ pub fn extract_uinodes(
         }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
-            color: color.0,
+            background_color: color.0,
             rect: Rect {
                 min: Vec2::ZERO,
                 max: uinode.size,
@@ -328,7 +328,7 @@ pub fn extract_text_uinodes(
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 transform: extracted_transform,
-                color,
+                background_color: color,
                 rect,
                 image: texture,
                 atlas_size,
@@ -490,7 +490,7 @@ pub fn prepare_uinodes(
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
-                color: extracted_uinode.color.as_linear_rgba_f32(),
+                color: extracted_uinode.background_color.as_linear_rgba_f32(),
             });
         }
 

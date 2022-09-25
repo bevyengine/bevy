@@ -41,7 +41,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      
+
       - uses: actions/cache@v3
         with:
           path: |
@@ -51,13 +51,13 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
-      
+
       - name: Install Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi
-      
+
       - name: Install Cargo APK
         run: cargo install --force cargo-apk
-      
+
       - name: Build APK
         run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --example android_example
 
@@ -147,7 +147,7 @@ jobs:
           # start a webserver
           python3 -m http.server --directory examples/wasm &
 
-          xvfb-run cargo run -p build-wasm-example -- --browsers chromium --browsers firefox --frames 25 --test shapes lighting text_debug breakout
+          xvfb-run cargo run -p build-wasm-example -- --browsers chromium --browsers firefox --frames 25 --test 2d_shapes lighting text_debug breakout
 
       - name: Save screenshots
         uses: actions/upload-artifact@v3

@@ -193,11 +193,11 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "shapes"
-path = "examples/2d/shapes.rs"
+name = "2d_shapes"
+path = "examples/2d/2d_shapes.rs"
 
-[package.metadata.example.shapes]
-name = "Shapes"
+[package.metadata.example.2d_shapes]
+name = "2D Shapes"
 description = "Renders a rectangle, circle, and hexagon"
 category = "2D Rendering"
 wasm = true
@@ -275,7 +275,7 @@ wasm = true
 
 [[example]]
 name = "3d_shapes"
-path = "examples/3d/shapes.rs"
+path = "examples/3d/3d_shapes.rs"
 
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
