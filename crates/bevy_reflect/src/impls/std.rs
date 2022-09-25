@@ -950,7 +950,7 @@ impl<T: Reflect> Reflect for Box<T> {
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
-        todo!("clone value box")
+        Box::new(Wrapper::clone_dynamic(self))
     }
 }
 
