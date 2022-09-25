@@ -1,4 +1,4 @@
-use ab_glyph::{Font as _, FontArc, Glyph};
+use ab_glyph::{Font as _, FontArc, Glyph, ScaleFont as _};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
@@ -74,11 +74,16 @@ impl GlyphBrush {
             .collect::<Result<Vec<_>, _>>()?;
 
         let mut min_x = std::f32::MAX;
+        let mut min_y = std::f32::MAX;
         for sg in &glyphs {
             let glyph = &sg.glyph;
+
+            let scaled_font = sections_data[sg.section_index].3;
             min_x = min_x.min(glyph.position.x);
+            min_y = min_y.min(glyph.position.y - scaled_font.ascent());
         }
         min_x = min_x.floor();
+        min_y = min_y.floor();
 
         let mut positioned_glyphs = Vec::new();
         for sg in glyphs {
@@ -115,7 +120,7 @@ impl GlyphBrush {
                 let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
                 let x = bounds.min.x + size.x / 2.0 - min_x;
-                let y = bounds.max.y - size.y / 2.0;
+                let y = bounds.min.y + size.y / 2.0 - min_y;
                 let position = adjust.position(Vec2::new(x, y));
 
                 positioned_glyphs.push(PositionedGlyph {
