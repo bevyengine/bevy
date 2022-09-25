@@ -1,6 +1,6 @@
+mod alpha_mask_pass_3d_node;
 mod camera_3d;
 mod opaque_pass_3d_node;
-mod alpha_mask_pass_3d_node;
 mod transparent_pass_3d_node;
 
 pub mod graph {
@@ -17,9 +17,9 @@ pub mod graph {
 
 use std::cmp::Reverse;
 
+pub use alpha_mask_pass_3d_node::*;
 pub use camera_3d::*;
 pub use opaque_pass_3d_node::*;
-pub use alpha_mask_pass_3d_node::*;
 pub use transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin};

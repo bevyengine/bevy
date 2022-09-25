@@ -1,6 +1,4 @@
-use crate::{
-    core_3d::Transparent3d,
-};
+use crate::core_3d::Transparent3d;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -37,7 +35,10 @@ impl TransparentPass3dNode {
 
 impl Node for TransparentPass3dNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(TransparentPass3dNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(
+            TransparentPass3dNode::IN_VIEW,
+            SlotType::Entity,
+        )]
     }
 
     fn update(&mut self, world: &mut World) {

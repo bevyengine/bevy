@@ -42,10 +42,7 @@ impl OpaquePass3dNode {
 
 impl Node for OpaquePass3dNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(
-            OpaquePass3dNode::IN_VIEW,
-            SlotType::Entity,
-        )]
+        vec![SlotInfo::new(OpaquePass3dNode::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
