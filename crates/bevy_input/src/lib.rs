@@ -1,10 +1,8 @@
 mod axis;
-pub mod cursor;
 pub mod gamepad;
 mod input;
 pub mod keyboard;
 pub mod mouse;
-pub mod touch;
 
 pub use axis::*;
 use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
@@ -19,17 +17,15 @@ pub mod prelude {
         },
         keyboard::{KeyCode, ScanCode},
         mouse::MouseButton,
-        touch::{TouchInput, Touches},
         Axis, Input,
     };
 }
 
 use bevy_app::prelude::*;
-use cursor::CursorMoved;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use prelude::Gamepads;
-use touch::{touch_screen_input_system, TouchInput, Touches};
+pub use bevy_window::TouchInput;
 
 use gamepad::{
     gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
@@ -78,16 +74,7 @@ impl Plugin for InputPlugin {
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 gamepad_connection_system.after(InputSystem),
-            )
-            // touch
-            .add_event::<TouchInput>()
-            .init_resource::<Touches>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                touch_screen_input_system.label(InputSystem),
-            )
-            // cursor
-            .add_event::<CursorMoved>();
+            );
     }
 }
 

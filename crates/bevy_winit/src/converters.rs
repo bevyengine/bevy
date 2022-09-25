@@ -1,11 +1,10 @@
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     mouse::MouseButton,
-    touch::{ForceTouch, TouchInput, TouchPhase},
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorIcon, WindowId};
+use bevy_window::{CursorIcon, WindowId, TouchInput, ForceTouch, TouchPhase};
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {
