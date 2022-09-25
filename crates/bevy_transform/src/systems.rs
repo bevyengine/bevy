@@ -119,23 +119,20 @@ mod test {
         schedule.add_stage(Update, update_stage);
 
         // Root entity
-        world
-            .spawn()
-            .insert(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
+        world.spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
 
         let mut children = Vec::new();
         world
-            .spawn()
-            .insert(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
                         .id(),
                 );
             });
@@ -166,16 +163,16 @@ mod test {
         let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
                         .id(),
                 );
             });
@@ -208,12 +205,10 @@ mod test {
         let parent = {
             let mut command_queue = CommandQueue::default();
             let mut commands = Commands::new(&mut command_queue, &world);
-            let parent = commands
-                .spawn_bundle(Transform::from_xyz(1.0, 0.0, 0.0))
-                .id();
+            let parent = commands.spawn(Transform::from_xyz(1.0, 0.0, 0.0)).id();
             commands.entity(parent).with_children(|parent| {
-                children.push(parent.spawn_bundle(Transform::from_xyz(0.0, 2.0, 0.0)).id());
-                children.push(parent.spawn_bundle(Transform::from_xyz(0.0, 3.0, 0.0)).id());
+                children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.0)).id());
+                children.push(parent.spawn(Transform::from_xyz(0.0, 3.0, 0.0)).id());
             });
             command_queue.apply(&mut world);
             schedule.run(&mut world);
@@ -287,14 +282,15 @@ mod test {
         let mut grandchild = Entity::from_raw(1);
         let parent = app
             .world
-            .spawn()
-            .insert(Transform::from_translation(translation))
-            .insert(GlobalTransform::IDENTITY)
+            .spawn((
+                Transform::from_translation(translation),
+                GlobalTransform::IDENTITY,
+            ))
             .with_children(|builder| {
                 child = builder
-                    .spawn_bundle(TransformBundle::IDENTITY)
+                    .spawn(TransformBundle::IDENTITY)
                     .with_children(|builder| {
-                        grandchild = builder.spawn_bundle(TransformBundle::IDENTITY).id();
+                        grandchild = builder.spawn(TransformBundle::IDENTITY).id();
                     })
                     .id();
             })
@@ -327,10 +323,9 @@ mod test {
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);
             let child = world
-                .spawn()
-                .insert(TransformBundle::IDENTITY)
+                .spawn(TransformBundle::IDENTITY)
                 .with_children(|builder| {
-                    grandchild = builder.spawn_bundle(TransformBundle::IDENTITY).id();
+                    grandchild = builder.spawn(TransformBundle::IDENTITY).id();
                 })
                 .id();
             (child, grandchild)
@@ -343,8 +338,7 @@ mod test {
         assert_eq!(temp_grandchild, grandchild);
 
         app.world
-            .spawn()
-            .insert(TransformBundle::IDENTITY)
+            .spawn(TransformBundle::IDENTITY)
             .push_children(&[child]);
         std::mem::swap(
             &mut *app.world.get_mut::<Parent>(child).unwrap(),

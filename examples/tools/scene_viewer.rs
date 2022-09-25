@@ -240,8 +240,8 @@ fn setup_scene_after_load(
         info!("Spawning a controllable 3D perspective camera");
         let mut projection = PerspectiveProjection::default();
         projection.far = projection.far.max(size * 10.0);
-        commands
-            .spawn_bundle(Camera3dBundle {
+        commands.spawn((
+            Camera3dBundle {
                 projection: projection.into(),
                 transform: Transform::from_translation(
                     Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
@@ -252,8 +252,9 @@ fn setup_scene_after_load(
                     ..default()
                 },
                 ..default()
-            })
-            .insert(CameraController::default());
+            },
+            CameraController::default(),
+        ));
 
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {
@@ -266,7 +267,7 @@ fn setup_scene_after_load(
             let max = aabb.max();
 
             info!("Spawning a directional light");
-            commands.spawn_bundle(DirectionalLightBundle {
+            commands.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadow_projection: OrthographicProjection {
                         left: min.x,

@@ -12,12 +12,12 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 margin: UiRect::all(Val::Auto),
@@ -25,11 +25,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            color: Color::rgb(0.1, 0.5, 0.1).into(),
+            background_color: Color::rgb(0.1, 0.5, 0.1).into(),
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle::from_section(
+            parent.spawn(TextBundle::from_section(
                 "Button 1",
                 TextStyle {
                     font: font_handle.clone(),
@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Button with a different color,
     // to demonstrate the text looks different due to its transparency.
     commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(ButtonBundle {
             style: Style {
                 size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 margin: UiRect::all(Val::Auto),
@@ -51,11 +51,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            color: Color::rgb(0.5, 0.1, 0.5).into(),
+            background_color: Color::rgb(0.5, 0.1, 0.5).into(),
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle::from_section(
+            parent.spawn(TextBundle::from_section(
                 "Button 2",
                 TextStyle {
                     font: font_handle.clone(),

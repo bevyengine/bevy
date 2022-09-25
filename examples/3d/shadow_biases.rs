@@ -49,7 +49,7 @@ fn setup(
 
     println!("Using DirectionalLight");
 
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(5.0, 5.0, 0.0),
         point_light: PointLight {
             intensity: 0.0,
@@ -63,7 +63,7 @@ fn setup(
         ..default()
     });
 
-    commands.spawn_bundle(DirectionalLightBundle {
+    commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
             shadow_projection: OrthographicProjection {
@@ -90,16 +90,17 @@ fn setup(
     });
 
     // camera
-    commands
-        .spawn_bundle(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(-1.0, 1.0, 1.0)
                 .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
             ..default()
-        })
-        .insert(CameraController::default());
+        },
+        CameraController::default(),
+    ));
 
     for z_i32 in -spawn_plane_depth as i32..=0 {
-        commands.spawn_bundle(PbrBundle {
+        commands.spawn(PbrBundle {
             mesh: sphere_handle.clone(),
             material: white_handle.clone(),
             transform: Transform::from_xyz(0.0, spawn_height, z_i32 as f32),
@@ -108,7 +109,7 @@ fn setup(
     }
 
     // ground plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane {
             size: 2.0 * spawn_plane_depth,
         })),

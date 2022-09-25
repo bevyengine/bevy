@@ -85,7 +85,7 @@ use std::marker::PhantomData;
 ///
 /// // Spawn an entity using `CustomMaterial`.
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn_bundle(MaterialMeshBundle {
+///     commands.spawn(MaterialMeshBundle {
 ///         material: materials.add(CustomMaterial {
 ///             color: Color::RED,
 ///             color_texture: asset_server.load("some_image.png"),

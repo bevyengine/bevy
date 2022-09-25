@@ -43,7 +43,7 @@ fn setup(
     }));
 
     // sphere - initially a caster
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: sphere_handle.clone(),
         material: materials.add(Color::RED.into()),
         transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
@@ -51,17 +51,18 @@ fn setup(
     });
 
     // sphere - initially not a caster
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: sphere_handle,
             material: materials.add(Color::BLUE.into()),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
             ..default()
-        })
-        .insert(NotShadowCaster);
+        },
+        NotShadowCaster,
+    ));
 
     // floating plane - initially not a shadow receiver and not a caster
-    commands.spawn_bundle((
+    commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
             material: materials.add(Color::GREEN.into()),
@@ -73,7 +74,7 @@ fn setup(
     ));
 
     // lower ground plane - initially a shadow receiver
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
         material: white_handle,
         ..default()
@@ -81,7 +82,7 @@ fn setup(
 
     println!("Using DirectionalLight");
 
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(5.0, 5.0, 0.0),
         point_light: PointLight {
             intensity: 0.0,
@@ -93,7 +94,7 @@ fn setup(
         ..default()
     });
 
-    commands.spawn_bundle(DirectionalLightBundle {
+    commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
             shadow_projection: OrthographicProjection {
@@ -118,7 +119,7 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-5.0, 5.0, 5.0)
             .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
         ..default()
