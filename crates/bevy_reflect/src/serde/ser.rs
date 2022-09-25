@@ -156,6 +156,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
+            ReflectRef::Wrapper(_) => todo!("serialize wrapper"),
             ReflectRef::Value(_) => Err(serializable.err().unwrap()),
         }
     }

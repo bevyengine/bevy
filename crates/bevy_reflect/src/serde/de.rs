@@ -361,6 +361,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 dynamic_enum.set_name(type_name.to_string());
                 Ok(Box::new(dynamic_enum))
             }
+            TypeInfo::Wrapper(_wrapper_info) => todo!("wrapper deserialize"),
             TypeInfo::Value(_) => {
                 // This case should already be handled
                 Err(de::Error::custom(format_args!(

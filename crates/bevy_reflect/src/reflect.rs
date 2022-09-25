@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
     tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    ValueInfo, Wrapper,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -24,6 +24,7 @@ pub enum ReflectRef<'a> {
     List(&'a dyn List),
     Array(&'a dyn Array),
     Map(&'a dyn Map),
+    Wrapper(&'a dyn Wrapper),
     Enum(&'a dyn Enum),
     Value(&'a dyn Reflect),
 }
@@ -42,6 +43,7 @@ pub enum ReflectMut<'a> {
     Array(&'a mut dyn Array),
     Map(&'a mut dyn Map),
     Enum(&'a mut dyn Enum),
+    Wrapper(&'a mut dyn Wrapper),
     Value(&'a mut dyn Reflect),
 }
 
