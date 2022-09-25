@@ -161,7 +161,7 @@ mod game {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    color: Color::BLACK.into(),
+                    background_color: Color::BLACK.into(),
                     ..default()
                 },
                 OnGameScreen,
@@ -349,7 +349,7 @@ mod menu {
     // This system handles changing all buttons color based on mouse interaction
     fn button_system(
         mut interaction_query: Query<
-            (&Interaction, &mut UiColor, Option<&SelectedOption>),
+            (&Interaction, &mut BackgroundColor, Option<&SelectedOption>),
             (Changed<Interaction>, With<Button>),
         >,
     ) {
@@ -367,7 +367,7 @@ mod menu {
     // the button as the one currently selected
     fn setting_button<T: Resource + Component + PartialEq + Copy>(
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
-        mut selected_query: Query<(Entity, &mut UiColor), With<SelectedOption>>,
+        mut selected_query: Query<(Entity, &mut BackgroundColor), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
@@ -424,7 +424,7 @@ mod menu {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    color: Color::CRIMSON.into(),
+                    background_color: Color::CRIMSON.into(),
                     ..default()
                 },
                 OnMainMenuScreen,
@@ -454,7 +454,7 @@ mod menu {
                     .spawn((
                         ButtonBundle {
                             style: button_style.clone(),
-                            color: NORMAL_BUTTON.into(),
+                            background_color: NORMAL_BUTTON.into(),
                             ..default()
                         },
                         MenuButtonAction::Play,
@@ -475,7 +475,7 @@ mod menu {
                     .spawn((
                         ButtonBundle {
                             style: button_style.clone(),
-                            color: NORMAL_BUTTON.into(),
+                            background_color: NORMAL_BUTTON.into(),
                             ..default()
                         },
                         MenuButtonAction::Settings,
@@ -496,7 +496,7 @@ mod menu {
                     .spawn((
                         ButtonBundle {
                             style: button_style,
-                            color: NORMAL_BUTTON.into(),
+                            background_color: NORMAL_BUTTON.into(),
                             ..default()
                         },
                         MenuButtonAction::Quit,
@@ -537,7 +537,7 @@ mod menu {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    color: Color::CRIMSON.into(),
+                    background_color: Color::CRIMSON.into(),
                     ..default()
                 },
                 OnSettingsMenuScreen,
@@ -552,7 +552,7 @@ mod menu {
                         .spawn((
                             ButtonBundle {
                                 style: button_style.clone(),
-                                color: NORMAL_BUTTON.into(),
+                                background_color: NORMAL_BUTTON.into(),
                                 ..default()
                             },
                             action,
@@ -591,7 +591,7 @@ mod menu {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    color: Color::CRIMSON.into(),
+                    background_color: Color::CRIMSON.into(),
                     ..default()
                 },
                 OnDisplaySettingsMenuScreen,
@@ -605,7 +605,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        color: Color::CRIMSON.into(),
+                        background_color: Color::CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -625,7 +625,7 @@ mod menu {
                                     size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                                     ..button_style.clone()
                                 },
-                                color: NORMAL_BUTTON.into(),
+                                background_color: NORMAL_BUTTON.into(),
                                 ..default()
                             });
                             entity.insert(quality_setting).with_children(|parent| {
@@ -644,7 +644,7 @@ mod menu {
                     .spawn((
                         ButtonBundle {
                             style: button_style,
-                            color: NORMAL_BUTTON.into(),
+                            background_color: NORMAL_BUTTON.into(),
                             ..default()
                         },
                         MenuButtonAction::BackToSettings,
@@ -682,7 +682,7 @@ mod menu {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    color: Color::CRIMSON.into(),
+                    background_color: Color::CRIMSON.into(),
                     ..default()
                 },
                 OnSoundSettingsMenuScreen,
@@ -694,7 +694,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        color: Color::CRIMSON.into(),
+                        background_color: Color::CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -708,7 +708,7 @@ mod menu {
                                     size: Size::new(Val::Px(30.0), Val::Px(65.0)),
                                     ..button_style.clone()
                                 },
-                                color: NORMAL_BUTTON.into(),
+                                background_color: NORMAL_BUTTON.into(),
                                 ..default()
                             });
                             entity.insert(Volume(volume_setting));
@@ -721,7 +721,7 @@ mod menu {
                     .spawn((
                         ButtonBundle {
                             style: button_style,
-                            color: NORMAL_BUTTON.into(),
+                            background_color: NORMAL_BUTTON.into(),
                             ..default()
                         },
                         MenuButtonAction::BackToSettings,

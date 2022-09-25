@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
-            color: Color::NONE.into(),
+            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|parent| {
@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
-                    color: Color::rgb(0.65, 0.65, 0.65).into(),
+                    background_color: Color::rgb(0.65, 0.65, 0.65).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -52,7 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 align_items: AlignItems::FlexEnd,
                                 ..default()
                             },
-                            color: Color::rgb(0.15, 0.15, 0.15).into(),
+                            background_color: Color::rgb(0.15, 0.15, 0.15).into(),
                             ..default()
                         })
                         .with_children(|parent| {
@@ -82,7 +82,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         ..default()
                     },
-                    color: Color::rgb(0.15, 0.15, 0.15).into(),
+                    background_color: Color::rgb(0.15, 0.15, 0.15).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -116,7 +116,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 overflow: Overflow::Hidden,
                                 ..default()
                             },
-                            color: Color::rgb(0.10, 0.10, 0.10).into(),
+                            background_color: Color::rgb(0.10, 0.10, 0.10).into(),
                             ..default()
                         })
                         .with_children(|parent| {
@@ -130,7 +130,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             max_size: Size::UNDEFINED,
                                             ..default()
                                         },
-                                        color: Color::NONE.into(),
+                                        background_color: Color::NONE.into(),
                                         ..default()
                                     },
                                     ScrollingList::default(),
@@ -177,7 +177,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(20.0)),
                         ..default()
                     },
-                    color: Color::rgb(0.4, 0.4, 1.0).into(),
+                    background_color: Color::rgb(0.4, 0.4, 1.0).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -186,7 +186,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                             ..default()
                         },
-                        color: Color::rgb(0.8, 0.8, 1.0).into(),
+                        background_color: Color::rgb(0.8, 0.8, 1.0).into(),
                         ..default()
                     });
                 });
@@ -200,7 +200,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    color: Color::NONE.into(),
+                    background_color: Color::NONE.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -210,7 +210,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 size: Size::new(Val::Px(100.0), Val::Px(100.0)),
                                 ..default()
                             },
-                            color: Color::rgb(1.0, 0.0, 0.0).into(),
+                            background_color: Color::rgb(1.0, 0.0, 0.0).into(),
                             ..default()
                         })
                         .with_children(|parent| {
@@ -225,7 +225,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..default()
                                 },
-                                color: Color::rgb(1.0, 0.3, 0.3).into(),
+                                background_color: Color::rgb(1.0, 0.3, 0.3).into(),
                                 ..default()
                             });
                             parent.spawn(NodeBundle {
@@ -239,7 +239,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..default()
                                 },
-                                color: Color::rgb(1.0, 0.5, 0.5).into(),
+                                background_color: Color::rgb(1.0, 0.5, 0.5).into(),
                                 ..default()
                             });
                             parent.spawn(NodeBundle {
@@ -253,7 +253,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..default()
                                 },
-                                color: Color::rgb(1.0, 0.7, 0.7).into(),
+                                background_color: Color::rgb(1.0, 0.7, 0.7).into(),
                                 ..default()
                             });
                             // alpha test
@@ -268,7 +268,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..default()
                                 },
-                                color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
+                                background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
                                 ..default()
                             });
                         });
@@ -283,7 +283,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::FlexEnd,
                         ..default()
                     },
-                    color: Color::NONE.into(),
+                    background_color: Color::NONE.into(),
                     ..default()
                 })
                 .with_children(|parent| {
