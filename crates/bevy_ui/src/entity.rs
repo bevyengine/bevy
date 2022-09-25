@@ -30,12 +30,12 @@ pub struct NodeBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
-    /// This field is not to be used to set the position of the node inside the NodeBundle.
-    /// Use the [`Style`]'s `position` field to set node position.
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the NodeBundle, use the properties of the Style component.
     pub transform: Transform,
     /// The global transform of the node
-    /// This field is not to be used to set the position of the node inside the NodeBundle.
-    /// Use the [`Style`]'s `position` field to set node position.
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the NodeBundle, use the properties of the Style component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -61,12 +61,12 @@ pub struct ImageBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
-    /// This field is not to be used to set the position of the image inside the ImageBundle.
-    /// Use the [`Style`]'s `position` field to set image position.
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the NodeBundle, use the properties of the Style component.
     pub transform: Transform,
     /// The global transform of the node
-    /// This field is not to be used to set the position of the image inside the ImageBundle.
-    /// Use the [`Style`]'s `position` field to set image position.
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the NodeBundle, use the properties of the Style component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -88,12 +88,12 @@ pub struct TextBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
-    /// This field is not to be used to set the position of the text inside the TextBundle.
-    /// Use the [`Style`]'s `position` field to set text position.
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the NodeBundle, use the properties of the Style component.
     pub transform: Transform,
     /// The global transform of the node
-    /// This field is not to be used to set the position of the text inside the TextBundle.
-    /// Use the [`Style`]'s `position` field to set text position.
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the NodeBundle, use the properties of the Style component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -169,12 +169,12 @@ pub struct ButtonBundle {
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
-    /// This field is not to be used to set the position of the button inside the ButtonBundle.
-    /// Use the [`Style`]'s `position` field to set button position.
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the NodeBundle, use the properties of the Style component.
     pub transform: Transform,
     /// The global transform of the node
-    /// This field is not to be used to set the position of the button inside the ButtonBundle.
-    /// Use the [`Style`]'s `position` field to set button position.
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the NodeBundle, use the properties of the Style component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
