@@ -1,10 +1,10 @@
 use crate::serde::SerializationData;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
-    ReflectDeserialize, StructInfo, StructVariantInfo, Tuple, TupleInfo, TupleStruct,
-    TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, UnnamedField,
-    VariantInfo,
+    DynamicTupleStruct, DynamicVariant, DynamicWrapper, EnumInfo, ListInfo, Map, MapInfo,
+    NamedField, Reflect, ReflectDeserialize, StructInfo, StructVariantInfo, Tuple, TupleInfo,
+    TupleStruct, TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry,
+    UnnamedField, VariantInfo,
 };
 use erased_serde::Deserializer;
 use serde::de::{
@@ -361,7 +361,22 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 dynamic_enum.set_name(type_name.to_string());
                 Ok(Box::new(dynamic_enum))
             }
-            TypeInfo::Wrapper(_wrapper_info) => todo!("wrapper deserialize"),
+            TypeInfo::Wrapper(wrapper_info) => {
+                let registration = get_registration(
+                    wrapper_info.inner_type_id(),
+                    wrapper_info.inner_type_name(),
+                    self.registry,
+                )?;
+                let inner = TypedReflectDeserializer {
+                    registration,
+                    registry: self.registry,
+                }
+                .deserialize(deserializer)?;
+
+                let dynamic_wrapper =
+                    DynamicWrapper::new(wrapper_info.type_name().to_string(), inner);
+                Ok(Box::new(dynamic_wrapper))
+            }
             TypeInfo::Value(_) => {
                 // This case should already be handled
                 Err(de::Error::custom(format_args!(

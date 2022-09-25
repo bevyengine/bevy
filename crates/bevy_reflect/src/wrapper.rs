@@ -76,6 +76,10 @@ pub struct DynamicWrapper {
     value: Box<dyn Reflect>,
 }
 impl DynamicWrapper {
+    pub fn new(name: String, value: Box<dyn Reflect>) -> DynamicWrapper {
+        DynamicWrapper { name, value }
+    }
+
     /// Returns the type name of the wrapper.
     ///
     /// The value returned by this method is the same value returned by

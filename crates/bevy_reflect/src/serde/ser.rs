@@ -1,6 +1,6 @@
 use crate::{
     Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
-    TypeInfo, TypeRegistry, VariantInfo, VariantType,
+    TypeInfo, TypeRegistry, VariantInfo, VariantType, Wrapper,
 };
 use serde::ser::{
     Error, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
@@ -156,7 +156,11 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
-            ReflectRef::Wrapper(_) => todo!("serialize wrapper"),
+            ReflectRef::Wrapper(value) => WrapperSerializer {
+                wrapper: value,
+                registry: self.registry,
+            }
+            .serialize(serializer),
             ReflectRef::Value(_) => Err(serializable.err().unwrap()),
         }
     }
@@ -464,6 +468,20 @@ impl<'a> Serialize for ArraySerializer<'a> {
             state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
+    }
+}
+
+pub struct WrapperSerializer<'a> {
+    pub wrapper: &'a dyn Wrapper,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for WrapperSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        TypedReflectSerializer::new(self.wrapper.get(), self.registry).serialize(serializer)
     }
 }
 
