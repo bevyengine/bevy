@@ -1,5 +1,7 @@
 mod camera_3d;
-mod main_pass_3d_node;
+mod opaque_pass_3d_node;
+mod alpha_mask_pass_3d_node;
+mod transparent_pass_3d_node;
 
 pub mod graph {
     pub const NAME: &str = "core_3d";
@@ -7,14 +9,18 @@ pub mod graph {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
     pub mod node {
-        pub const MAIN_PASS: &str = "main_pass";
+        pub const OPAQUE_PASS: &str = "opaque_pass";
+        pub const ALPHA_MASK_PASS: &str = "alpha_mask_pass";
+        pub const TRANSPARENT_PASS: &str = "transparent_pass";
     }
 }
 
 use std::cmp::Reverse;
 
 pub use camera_3d::*;
-pub use main_pass_3d_node::*;
+pub use opaque_pass_3d_node::*;
+pub use alpha_mask_pass_3d_node::*;
+pub use transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -61,23 +67,57 @@ impl Plugin for Core3dPlugin {
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
-        let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-
+        // Init 3d sub-graph
         let mut draw_3d_graph = RenderGraph::default();
-        draw_3d_graph.add_node(graph::node::MAIN_PASS, pass_node_3d);
-        let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
+        let view_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
             graph::input::VIEW_ENTITY,
             SlotType::Entity,
         )]);
+
+        // Build opaque pass
+        let opaque_pass_3d = OpaquePass3dNode::new(&mut render_app.world);
+        draw_3d_graph.add_node(graph::node::OPAQUE_PASS, opaque_pass_3d);
         draw_3d_graph
             .add_slot_edge(
-                input_node_id,
+                view_node_id,
                 graph::input::VIEW_ENTITY,
-                graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
+                graph::node::OPAQUE_PASS,
+                OpaquePass3dNode::IN_VIEW,
             )
             .unwrap();
+
+        // Build alpha mask pass
+        let alpha_mask_pass_3d = AlphaMaskPass3dNode::new(&mut render_app.world);
+        draw_3d_graph.add_node(graph::node::ALPHA_MASK_PASS, alpha_mask_pass_3d);
+        draw_3d_graph
+            .add_slot_edge(
+                view_node_id,
+                graph::input::VIEW_ENTITY,
+                graph::node::ALPHA_MASK_PASS,
+                OpaquePass3dNode::IN_VIEW,
+            )
+            .unwrap();
+        draw_3d_graph
+            .add_node_edge(graph::node::OPAQUE_PASS, graph::node::ALPHA_MASK_PASS)
+            .unwrap();
+
+        // Build transparent pass
+        let transparent_pass_3d = TransparentPass3dNode::new(&mut render_app.world);
+        draw_3d_graph.add_node(graph::node::TRANSPARENT_PASS, transparent_pass_3d);
+        draw_3d_graph
+            .add_slot_edge(
+                view_node_id,
+                graph::input::VIEW_ENTITY,
+                graph::node::TRANSPARENT_PASS,
+                OpaquePass3dNode::IN_VIEW,
+            )
+            .unwrap();
+        draw_3d_graph
+            .add_node_edge(graph::node::ALPHA_MASK_PASS, graph::node::TRANSPARENT_PASS)
+            .unwrap();
+
+        // Add 3d graph to main render graph
+        let mut graph = render_app.world.resource_mut::<RenderGraph>();
         graph.add_sub_graph(graph::NAME, draw_3d_graph);
     }
 }
