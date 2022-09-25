@@ -30,8 +30,12 @@ pub struct NodeBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
+    /// This field is not to be used to set the position of the node inside the NodeBundle.
+    /// Use the [`Style`]'s `position` field to set node position.
     pub transform: Transform,
     /// The global transform of the node
+    /// This field is not to be used to set the position of the node inside the NodeBundle.
+    /// Use the [`Style`]'s `position` field to set node position.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -57,8 +61,12 @@ pub struct ImageBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
+    /// This field is not to be used to set the position of the image inside the ImageBundle.
+    /// Use the [`Style`]'s `position` field to set image position.
     pub transform: Transform,
     /// The global transform of the node
+    /// This field is not to be used to set the position of the image inside the ImageBundle.
+    /// Use the [`Style`]'s `position` field to set image position.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -84,6 +92,8 @@ pub struct TextBundle {
     /// Use the [`Style`]'s `position` field to set text position.
     pub transform: Transform,
     /// The global transform of the node
+    /// This field is not to be used to set the position of the text inside the TextBundle.
+    /// Use the [`Style`]'s `position` field to set text position.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -159,8 +169,12 @@ pub struct ButtonBundle {
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
+    /// This field is not to be used to set the position of the button inside the ButtonBundle.
+    /// Use the [`Style`]'s `position` field to set button position.
     pub transform: Transform,
     /// The global transform of the node
+    /// This field is not to be used to set the position of the button inside the ButtonBundle.
+    /// Use the [`Style`]'s `position` field to set button position.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
