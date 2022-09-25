@@ -52,7 +52,7 @@ fn setup(
 
     // Spawns the camera
 
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     // Builds and spawns the sprites
     for y in -half_y..half_y {
