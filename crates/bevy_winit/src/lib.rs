@@ -437,7 +437,7 @@ pub fn winit_runner_with(mut app: App) {
                             && button_state == ButtonState::Pressed
                         {
                             let mut window_esc_events = world.resource_mut::<Events<WindowESC>>();
-                            window_esc_events.send(WindowESC { window_id })
+                            window_esc_events.send(WindowESC { window_id });
                         }
                     }
                     WindowEvent::CursorMoved { position, .. } => {
