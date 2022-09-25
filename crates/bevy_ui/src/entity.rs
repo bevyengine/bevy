@@ -80,6 +80,8 @@ pub struct TextBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
+    /// This field is not to be used to set the position of the text inside the TextBundle.
+    /// Use the Style's position field to set text position.
     pub transform: Transform,
     /// The global transform of the node
     pub global_transform: GlobalTransform,
