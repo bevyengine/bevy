@@ -34,7 +34,7 @@ fn main() {
         .insert_resource(Phase::ContractingY)
         .add_system(change_window_size)
         .add_system(sync_dimensions)
-        .add_system(bevy::core::close_on_esc)
+        .add_system(bevy::window::close_on_esc)
         .add_startup_system(setup_3d)
         .add_startup_system(setup_2d)
         .run();

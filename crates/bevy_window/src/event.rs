@@ -28,6 +28,7 @@ use bevy_math::{IVec2, Vec2};
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct TouchInput {
     /// The phase of the touch input.
     pub phase: TouchPhase,
@@ -41,6 +42,14 @@ pub struct TouchInput {
     /// The unique identifier of the finger.
     pub id: u64,
     /// The id of the window that was touched.
+    pub window_id: WindowId,
+}
+
+/// An event reporting that the ESC key has been pressed
+/// while the current window is in focus.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct WindowESC {
     pub window_id: WindowId,
 }
 

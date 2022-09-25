@@ -14,8 +14,9 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_input::{
-    keyboard::KeyboardInput,
+    keyboard::{KeyCode, KeyboardInput},
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
+    ButtonState,
 };
 use bevy_math::{ivec2, DVec2, UVec2, Vec2};
 use bevy_utils::{
@@ -25,8 +26,8 @@ use bevy_utils::{
 use bevy_window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
     ReceivedCharacter, RequestRedraw, TouchInput, WindowBackendScaleFactorChanged,
-    WindowCloseRequested, WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
-    WindowScaleFactorChanged, Windows,
+    WindowCloseRequested, WindowClosed, WindowCreated, WindowESC, WindowFocused, WindowMoved,
+    WindowResized, WindowScaleFactorChanged, Windows,
 };
 
 use winit::{
@@ -424,9 +425,20 @@ pub fn winit_runner_with(mut app: App) {
                         window_close_requested_events.send(WindowCloseRequested { id: window_id });
                     }
                     WindowEvent::KeyboardInput { ref input, .. } => {
+                        let keyboard_event = converters::convert_keyboard_input(input);
+                        let key_pressed = keyboard_event.key_code;
+                        let button_state = keyboard_event.state;
+
                         let mut keyboard_input_events =
                             world.resource_mut::<Events<KeyboardInput>>();
-                        keyboard_input_events.send(converters::convert_keyboard_input(input));
+                        keyboard_input_events.send(keyboard_event);
+
+                        if key_pressed == Some(KeyCode::Escape)
+                            && button_state == ButtonState::Pressed
+                        {
+                            let mut window_esc_events = world.resource_mut::<Events<WindowESC>>();
+                            window_esc_events.send(WindowESC { window_id })
+                        }
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let mut cursor_moved_events = world.resource_mut::<Events<CursorMoved>>();

@@ -19,16 +19,16 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, FileDragAndDrop, MonitorSelection,
-        ReceivedCharacter, Window, WindowDescriptor, WindowMode, WindowMoved, WindowPosition,
-        Windows,
+        ReceivedCharacter, Window, WindowDescriptor, WindowESC, WindowMode, WindowMoved,
+        WindowPosition, Windows,
     };
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    event::Events,
+    event::{EventReader, Events},
     schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
-    system::Resource,
+    system::{Local, ResMut, Resource},
 };
 
 /// The configuration information for the [`WindowPlugin`].
@@ -92,6 +92,7 @@ impl Plugin for WindowPlugin {
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
             .add_event::<CursorMoved>()
+            .add_event::<WindowESC>()
             .init_resource::<Touches>()
             .init_resource::<Windows>();
 
@@ -130,3 +131,29 @@ impl Plugin for WindowPlugin {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub struct ModifiesWindows;
+
+/// Close the focused window whenever the escape key (<kbd>Esc</kbd>) is pressed
+///
+/// This is useful for examples or prototyping.
+pub fn close_on_esc(
+    mut focused: Local<Option<WindowId>>,
+    mut windows: ResMut<Windows>,
+    close_events: EventReader<WindowESC>,
+) {
+    // TODO: Track this in e.g. a resource to ensure consistent behaviour across similar systems
+    for window in windows.iter() {
+        if window.is_focused() {
+            *focused = Some(window.id());
+        }
+    }
+
+    if close_events.is_empty() {
+        return;
+    }
+
+    if let Some(focused) = &*focused {
+        if let Some(window) = windows.get_mut(*focused) {
+            window.close();
+        }
+    }
+}

@@ -7,6 +7,7 @@ use bevy_utils::HashMap;
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum ForceTouch {
     /// On iOS, the force is calibrated so that the same number corresponds to
     /// roughly the same amount of pressure on the screen regardless of the

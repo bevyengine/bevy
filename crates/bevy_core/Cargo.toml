@@ -8,10 +8,6 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
-[features]
-default = ["close_on_esc"]
-close_on_esc = ["dep:bevy_window", "dep:bevy_input"]
-
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.9.0-dev", features = ["bevy_reflect"] }
@@ -20,8 +16,6 @@ bevy_math = { path = "../bevy_math", version = "0.9.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.9.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.9.0-dev", optional = true }
-bevy_input = { path = "../bevy_input", version = "0.9.0-dev", optional = true }
 
 # other
 bytemuck = "1.5"
