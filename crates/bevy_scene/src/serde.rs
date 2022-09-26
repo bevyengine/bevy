@@ -4,7 +4,7 @@ use bevy_reflect::{Reflect, TypeRegistry, TypeRegistryArc};
 #[cfg(feature = "serde")]
 use anyhow::Result;
 #[cfg(feature = "serde")]
-use bevy_reflect::serde::{ReflectDeserializer, ReflectSerializer};
+use bevy_reflect::serde::{ReflectSerializer, UntypedReflectDeserializer};
 #[cfg(feature = "serde")]
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
