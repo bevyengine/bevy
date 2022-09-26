@@ -88,7 +88,10 @@ where
 
     #[inline]
     fn is_send(&self) -> bool {
-        self.system_meta.is_send()
+        // exclusive systems should have access to non-send resources
+        // the executor runs exclusive systems on the main thread, so this
+        // field reflects that constraint
+        false
     }
 
     #[inline]
