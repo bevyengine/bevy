@@ -8,16 +8,13 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
 async-io = ["async-global-executor/async-io"]
 tokio = ["async-global-executor/tokio"]
 
 [dependencies]
-futures-lite = "1.4.0"
-async-global-executor= { version="2.0.2", default-features = false }
 futures-lite = "1.12.0"
-event-listener = "2.4.0"
+async-global-executor= { version="2.2.0", default-features = false }
 async-executor = "1.3.0"
 async-channel = "1.4.2"
 once_cell = "1.7"

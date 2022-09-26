@@ -64,8 +64,8 @@ bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
 # alternative async executors, defaults to futures-lite
-async-io = ["bevy_tasks/async-io", "bevy_wgpu/async-io"]
-tokio = ["bevy_tasks/tokio", "bevy_wgpu/tokio"]
+async-io = ["bevy_tasks/async-io"]
+tokio = ["bevy_tasks/tokio"]
 
 [dependencies]
 # bevy
