@@ -324,7 +324,7 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(LoadContributorsError::Var)?;
 
     let mut cmd = std::process::Command::new("git")
-        .args(&["--no-pager", "log", "--pretty=format:%an"])
+        .args(["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
         .spawn()
