@@ -23,7 +23,7 @@ use bevy_ecs::{schedule::ExclusiveSystemDescriptorCoercion, system::IntoExclusiv
 #[derive(Default)]
 pub struct ScenePlugin;
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<DynamicScene>()
@@ -39,7 +39,7 @@ impl Plugin for ScenePlugin {
     }
 }
 
-#[cfg(not(feature = "serialize"))]
+#[cfg(not(feature = "serde"))]
 impl Plugin for ScenePlugin {
     fn build(&self, _: &mut App) {}
 }
