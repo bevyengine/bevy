@@ -11,6 +11,7 @@ pub struct SystemContainer {
     pub(crate) run_criteria_index: Option<usize>,
     pub(crate) run_criteria_label: Option<RunCriteriaLabelId>,
     pub(crate) should_run: bool,
+    is_exclusive: bool,
     dependencies: Vec<usize>,
     labels: Vec<SystemLabelId>,
     before: Vec<SystemLabelId>,
@@ -28,6 +29,7 @@ impl SystemContainer {
             labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
+            is_exclusive: descriptor.exclusive_insertion_point.is_some(),
         }
     }
 
@@ -68,8 +70,12 @@ impl SystemContainer {
         self.run_criteria_label.as_ref()
     }
 
-    pub fn component_access(&self) -> Option<&Access<ComponentId>> {
-        Some(self.system().component_access())
+    pub fn component_access(&self) -> &Access<ComponentId> {
+        self.system().component_access()
+    }
+
+    pub fn is_exclusive(&self) -> bool {
+        self.is_exclusive
     }
 }
 

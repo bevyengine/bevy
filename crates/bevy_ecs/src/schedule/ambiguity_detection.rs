@@ -262,15 +262,17 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
         // .take(index_a)
         {
             if !processed.contains(index_b) {
-                let a_access = systems[index_a].component_access();
-                let b_access = systems[index_b].component_access();
-                if let (Some(a), Some(b)) = (a_access, b_access) {
-                    let conflicts = a.get_conflicts(b);
+                let system_a = &systems[index_a];
+                let system_b = &systems[index_b];
+                if system_a.is_exclusive() || system_b.is_exclusive() {
+                    ambiguities.push((index_a, index_b, Vec::new()));
+                } else {
+                    let a_access = systems[index_a].component_access();
+                    let b_access = systems[index_b].component_access();
+                    let conflicts = a_access.get_conflicts(b_access);
                     if !conflicts.is_empty() {
                         ambiguities.push((index_a, index_b, conflicts));
                     }
-                } else {
-                    ambiguities.push((index_a, index_b, Vec::new()));
                 }
             }
         }

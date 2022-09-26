@@ -488,8 +488,7 @@ impl SystemStage {
     fn check_uses_resource(&self, resource_id: ComponentId, world: &World) {
         debug_assert!(!self.systems_modified);
         for system in &self.parallel {
-            let access = system.component_access().unwrap();
-            if !access.has_read(resource_id) {
+            if !system.component_access().has_read(resource_id) {
                 let component_name = world.components().get_info(resource_id).unwrap().name();
                 warn!(
                     "System {} doesn't access resource {component_name}, despite being required to",
