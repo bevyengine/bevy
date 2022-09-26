@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = []
+default = ["serde"]
 serde = ["dep:serde", "uuid/serde"]
 
 [dependencies]
