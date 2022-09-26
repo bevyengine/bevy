@@ -17,11 +17,10 @@ use std::{borrow::Cow, marker::PhantomData};
 /// A function system that runs with exclusive [`World`] access.
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
-/// [`ExclusiveSystemParam`]s. The output of the system becomes the functions return type, while the input
-/// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+/// [`ExclusiveSystemParam`]s.
 ///
 /// [`ExclusiveFunctionSystem`] must be `.initialized` before they can be run.
-pub struct ExclusiveFunctionSystem<In, Out, Param, Marker, F>
+pub struct ExclusiveFunctionSystem<Param, Marker, F>
 where
     Param: ExclusiveSystemParam,
 {
@@ -30,21 +29,18 @@ where
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> (In, Out, Marker)>,
+    marker: PhantomData<fn() -> Marker>,
 }
 
 pub struct IsExclusiveFunctionSystem;
 
-impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsExclusiveFunctionSystem, Param, Marker)>
-    for F
+impl<Param, Marker, F> IntoSystem<(), (), (IsExclusiveFunctionSystem, Param, Marker)> for F
 where
-    In: 'static,
-    Out: 'static,
     Param: ExclusiveSystemParam + 'static,
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: ExclusiveSystemParamFunction<Param, Marker> + Send + Sync + 'static,
 {
-    type System = ExclusiveFunctionSystem<In, Out, Param, Marker, F>;
+    type System = ExclusiveFunctionSystem<Param, Marker, F>;
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
@@ -58,16 +54,14 @@ where
 
 const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
-impl<In, Out, Param, Marker, F> System for ExclusiveFunctionSystem<In, Out, Param, Marker, F>
+impl<Param, Marker, F> System for ExclusiveFunctionSystem<Param, Marker, F>
 where
-    In: 'static,
-    Out: 'static,
     Param: ExclusiveSystemParam + 'static,
     Marker: 'static,
-    F: ExclusiveSystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
+    F: ExclusiveSystemParamFunction<Param, Marker> + Send + Sync + 'static,
 {
-    type In = In;
-    type Out = Out;
+    type In = ();
+    type Out = ();
 
     #[inline]
     fn name(&self) -> Cow<'static, str> {
@@ -97,7 +91,7 @@ where
         panic!("Cannot run exclusive systems with a shared World reference");
     }
 
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+    fn run(&mut self, _input: Self::In, world: &mut World) -> Self::Out {
         let saved_last_tick = world.last_change_tick;
         world.last_change_tick = self.system_meta.last_change_tick;
 
@@ -105,14 +99,12 @@ where
             self.param_state.as_mut().expect(PARAM_MESSAGE),
             &self.system_meta,
         );
-        let out = self.func.run(input, world, params);
+        self.func.run(world, params);
 
         let change_tick = world.change_tick.get_mut();
         self.system_meta.last_change_tick = *change_tick;
         *change_tick += 1;
         world.last_change_tick = saved_last_tick;
-
-        out
     }
 
     #[inline]
@@ -159,13 +151,8 @@ where
     }
 }
 
-impl<
-        In,
-        Out,
-        Param: ExclusiveSystemParam,
-        Marker,
-        T: ExclusiveSystemParamFunction<In, Out, Param, Marker>,
-    > AsSystemLabel<(In, Out, Param, Marker, IsExclusiveFunctionSystem)> for T
+impl<Param: ExclusiveSystemParam, Marker, T: ExclusiveSystemParamFunction<Param, Marker>>
+    AsSystemLabel<(Param, Marker, IsExclusiveFunctionSystem)> for T
 {
     #[inline]
     fn as_system_label(&self) -> SystemLabelId {
@@ -177,37 +164,32 @@ impl<
 ///
 /// This trait can be useful for making your own systems which accept other systems,
 /// sometimes called higher order systems.
-pub trait ExclusiveSystemParamFunction<In, Out, Param: ExclusiveSystemParam, Marker>:
+pub trait ExclusiveSystemParamFunction<Param: ExclusiveSystemParam, Marker>:
     Send + Sync + 'static
 {
-    fn run(
-        &mut self,
-        input: In,
-        world: &mut World,
-        param_value: ExclusiveSystemParamItem<Param>,
-    ) -> Out;
+    fn run(&mut self, world: &mut World, param_value: ExclusiveSystemParamItem<Param>);
 }
 
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(), Out, ($($param,)*), ()> for Func
+        impl<Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<($($param,)*), ()> for Func
         where
         for <'a> &'a mut Func:
-                FnMut(&mut World, $($param),*) -> Out +
-                FnMut(&mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out, Out: 'static
+                FnMut(&mut World, $($param),*) +
+                FnMut(&mut World, $(ExclusiveSystemParamItem<$param>),*)
         {
             #[inline]
-            fn run(&mut self, _input: (), world: &mut World, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, world: &mut World, param_value: ExclusiveSystemParamItem< ($($param,)*)>) {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognise that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<Out, $($param,)*>(
-                    mut f: impl FnMut(&mut World, $($param,)*)->Out,
+                fn call_inner<$($param,)*>(
+                    mut f: impl FnMut(&mut World, $($param,)*),
                     world: &mut World,
                     $($param: $param,)*
-                )->Out{
+                ) {
                     f(world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
