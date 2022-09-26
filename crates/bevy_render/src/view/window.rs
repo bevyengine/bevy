@@ -221,16 +221,20 @@ pub fn prepare_windows(
         };
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
-        // AMD drivers. This seems to be a quirk of the driver.
-        // We'd rather keep panicking when not on Linux AMD, because in those case,
+        // mesa driver implementations. This seems to be a quirk of some drivers.
+        // We'd rather keep panicking when not on Linux mesa, because in those case,
         // the `Timeout` is still probably the symptom of a degraded unrecoverable
         // application state.
         // see https://github.com/bevyengine/bevy/pull/5957
+        // and https://github.com/gfx-rs/wgpu/issues/1218
         #[cfg(target_os = "linux")]
-        let is_amd = || {
+        let may_erroneously_timeout = || {
             render_instance
                 .enumerate_adapters(wgpu::Backends::VULKAN)
-                .any(|adapter| adapter.get_info().name.starts_with("AMD"))
+                .any(|adapter| {
+                    let name = adapter.get_info().name;
+                    name.starts_with("AMD") || name.starts_with("Intel")
+                })
         };
 
         let not_already_configured = window_surfaces.configured_windows.insert(window.id);
@@ -255,10 +259,10 @@ pub fn prepare_windows(
                     window.swap_chain_texture = Some(TextureView::from(frame));
                 }
                 #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Timeout) if is_amd() => {
+                Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
                     debug!(
                         "Couldn't get swap chain texture. This is probably a quirk \
-                        of your Linux AMD GPU driver, so it can be safely ignored."
+                        of your Linux GPU driver, so it can be safely ignored."
                     );
                 }
                 Err(err) => {
