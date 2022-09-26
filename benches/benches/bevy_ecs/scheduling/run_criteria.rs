@@ -1,10 +1,4 @@
-use bevy_ecs::{
-    component::Component,
-    prelude::{ParallelSystemDescriptorCoercion, Res, Resource, RunCriteriaDescriptorCoercion},
-    schedule::{RunCriteriaLabel, ShouldRun, Stage, SystemStage},
-    system::Query,
-    world::World,
-};
+use bevy_ecs::{prelude::*, schedule::ShouldRun};
 use criterion::Criterion;
 
 fn run_stage(stage: &mut SystemStage, world: &mut World) {

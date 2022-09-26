@@ -3,7 +3,7 @@ pub use bevy_derive::AppLabel;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::{Event, Events},
-    prelude::{FromWorld, IntoExclusiveSystem},
+    prelude::FromWorld,
     schedule::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
@@ -84,7 +84,7 @@ impl Default for App {
 
         app.add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
+            .add_system_to_stage(CoreStage::Last, World::clear_trackers);
 
         #[cfg(feature = "bevy_ci_testing")]
         {

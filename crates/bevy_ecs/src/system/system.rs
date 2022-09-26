@@ -32,6 +32,9 @@ pub trait System: Send + Sync + 'static {
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
 
+    /// Returns true if the system must be run exclusively.
+    fn is_exclusive(&self) -> bool;
+
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// takes a shared reference to [`World`] and may therefore break Rust's aliasing rules, making
     /// it unsafe to call.

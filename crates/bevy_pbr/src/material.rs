@@ -10,7 +10,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::World,
-    schedule::ParallelSystemDescriptorCoercion,
+    schedule::IntoSystemDescriptor,
     system::{
         lifetimeless::{Read, SQuery, SRes},
         Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
