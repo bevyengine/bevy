@@ -188,9 +188,9 @@ pub fn update_text2d_layout(
                 scale_factor,
                 text.alignment,
                 text_bounds,
-                &mut *font_atlas_set_storage,
-                &mut *texture_atlases,
-                &mut *textures,
+                &mut font_atlas_set_storage,
+                &mut texture_atlases,
+                &mut textures,
                 text_settings.as_ref(),
             ) {
                 Err(TextError::NoSuchFont) => {
