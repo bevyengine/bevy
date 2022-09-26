@@ -124,10 +124,7 @@ where
     let mut bitset = BitSet::default();
 
     member_iter.fold(0, |next_idx, member| match member {
-        ReflectIgnoreBehavior::IgnoreAlways => {
-            bitset.insert(next_idx);
-            next_idx
-        }
+        ReflectIgnoreBehavior::IgnoreAlways => next_idx,
         ReflectIgnoreBehavior::IgnoreSerialization => {
             bitset.insert(next_idx);
             next_idx + 1

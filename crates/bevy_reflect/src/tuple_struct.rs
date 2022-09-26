@@ -49,6 +49,7 @@ pub trait TupleStruct: Reflect {
 /// A container for compile-time tuple struct info.
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
+    name: &'static str,
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
@@ -59,10 +60,12 @@ impl TupleStructInfo {
     ///
     /// # Arguments
     ///
+    /// * `name`: The name of this struct (_without_ generics or lifetimes)
     /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
+    pub fn new<T: Reflect>(name: &'static str, fields: &[UnnamedField]) -> Self {
         Self {
+            name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
@@ -82,6 +85,15 @@ impl TupleStructInfo {
     /// The total number of fields in this struct.
     pub fn field_len(&self) -> usize {
         self.fields.len()
+    }
+
+    /// The name of the struct.
+    ///
+    /// This does _not_ include any generics or lifetimes.
+    ///
+    /// For example, `foo::bar::Baz<'a, T>` would simply be `Baz`.
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     /// The [type name] of the tuple struct.

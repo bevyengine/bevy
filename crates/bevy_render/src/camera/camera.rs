@@ -426,7 +426,7 @@ pub fn extract_cameras(
             if target_size.x == 0 || target_size.y == 0 {
                 continue;
             }
-            commands.get_or_spawn(entity).insert_bundle((
+            commands.get_or_spawn(entity).insert((
                 ExtractedCamera {
                     target: camera.target.clone(),
                     viewport: camera.viewport.clone(),

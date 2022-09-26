@@ -97,7 +97,7 @@ pub mod __macro_exports {
 mod tests {
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
-    use ::serde::de::DeserializeSeed;
+    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
@@ -108,7 +108,7 @@ mod tests {
     use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer};
+    use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
 
     #[test]
     fn reflect_struct() {
@@ -455,7 +455,8 @@ mod tests {
             h: [u32; 2],
         }
 
-        #[derive(Reflect)]
+        #[derive(Reflect, Serialize, Deserialize)]
+        #[reflect(Serialize, Deserialize)]
         struct Bar {
             x: u32,
         }
@@ -476,18 +477,23 @@ mod tests {
 
         let mut registry = TypeRegistry::default();
         registry.register::<u32>();
-        registry.register::<isize>();
-        registry.register::<usize>();
-        registry.register::<Bar>();
-        registry.register::<String>();
         registry.register::<i8>();
         registry.register::<i32>();
+        registry.register::<usize>();
+        registry.register::<isize>();
+        registry.register::<Foo>();
+        registry.register::<Bar>();
+        registry.register::<String>();
+        registry.register::<Vec<isize>>();
+        registry.register::<HashMap<usize, i8>>();
+        registry.register::<(i32, Vec<isize>, Bar)>();
+        registry.register::<[u32; 2]>();
 
         let serializer = ReflectSerializer::new(&foo, &registry);
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
 
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
@@ -956,23 +962,38 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let result = ron::to_string(&ser).expect("Failed to serialize to string");
+            let config = PrettyConfig::default()
+                .new_line(String::from("\n"))
+                .indentor(String::from("    "));
+            let output = to_string_pretty(&ser, config).unwrap();
+            let expected = r#"
+{
+    "glam::f32::vec3::Vec3": (
+        x: 12.0,
+        y: 3.0,
+        z: -6.9,
+    ),
+}"#;
 
-            assert_eq!(
-                result,
-                r#"{"type":"glam::f32::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
-            );
+            assert_eq!(expected, format!("\n{}", output));
         }
 
         #[test]
         fn vec3_deserialization() {
-            let data = r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#;
+            let data = r#"
+{
+    "glam::f32::vec3::Vec3": (
+        x: 12.0,
+        y: 3.0,
+        z: -6.9,
+    ),
+}"#;
 
             let mut registry = TypeRegistry::default();
             registry.add_registration(Vec3::get_type_registration());
             registry.add_registration(f32::get_type_registration());
 
-            let de = ReflectDeserializer::new(&registry);
+            let de = UntypedReflectDeserializer::new(&registry);
 
             let mut deserializer =
                 ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");

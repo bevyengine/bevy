@@ -21,6 +21,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         enum_name_at,
         enum_field_len,
         enum_variant_name,
+        enum_variant_index,
         enum_variant_type,
     } = generate_impls(reflect_enum, &ref_index, &ref_name);
 
@@ -53,12 +54,13 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
         });
 
+    let string_name = enum_name.to_string();
     let typed_impl = impl_typed(
         enum_name,
         reflect_enum.meta().generics(),
         quote! {
             let variants = [#(#variant_info),*];
-            let info = #bevy_reflect_path::EnumInfo::new::<Self>(&variants);
+            let info = #bevy_reflect_path::EnumInfo::new::<Self>(#string_name, &variants);
             #bevy_reflect_path::TypeInfo::Enum(info)
         },
         bevy_reflect_path,
@@ -132,6 +134,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             fn variant_name(&self) -> &str {
                  match self {
                     #(#enum_variant_name,)*
+                    _ => unreachable!(),
+                }
+            }
+
+            #[inline]
+            fn variant_index(&self) -> usize {
+                 match self {
+                    #(#enum_variant_index,)*
                     _ => unreachable!(),
                 }
             }
@@ -254,6 +264,7 @@ struct EnumImpls {
     enum_name_at: Vec<proc_macro2::TokenStream>,
     enum_field_len: Vec<proc_macro2::TokenStream>,
     enum_variant_name: Vec<proc_macro2::TokenStream>,
+    enum_variant_index: Vec<proc_macro2::TokenStream>,
     enum_variant_type: Vec<proc_macro2::TokenStream>,
 }
 
@@ -267,12 +278,20 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
     let mut enum_name_at = Vec::new();
     let mut enum_field_len = Vec::new();
     let mut enum_variant_name = Vec::new();
+    let mut enum_variant_index = Vec::new();
     let mut enum_variant_type = Vec::new();
 
-    for variant in reflect_enum.variants() {
+    for (variant_index, variant) in reflect_enum.variants().iter().enumerate() {
         let ident = &variant.data.ident;
         let name = ident.to_string();
         let unit = reflect_enum.get_unit(ident);
+
+        enum_variant_name.push(quote! {
+            #unit{..} => #name
+        });
+        enum_variant_index.push(quote! {
+            #unit{..} => #variant_index
+        });
 
         fn for_fields(
             fields: &[StructField],
@@ -300,9 +319,6 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
             });
             enum_field_len.push(quote! {
                 #unit{..} => #field_len
-            });
-            enum_variant_name.push(quote! {
-                #unit{..} => #name
             });
             enum_variant_type.push(quote! {
                 #unit{..} => #bevy_reflect_path::VariantType::#variant
@@ -342,7 +358,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     });
 
                     let field_ty = &field.data.ty;
-                    quote! { #bevy_reflect_path::NamedField::new::<#field_ty, _>(#field_name) }
+                    quote! { #bevy_reflect_path::NamedField::new::<#field_ty>(#field_name) }
                 });
                 let arguments = quote!(#name, &[ #(#argument),* ]);
                 add_fields_branch("Struct", "StructVariantInfo", arguments, field_len);
@@ -358,6 +374,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
         enum_name_at,
         enum_field_len,
         enum_variant_name,
+        enum_variant_index,
         enum_variant_type,
     }
 }
