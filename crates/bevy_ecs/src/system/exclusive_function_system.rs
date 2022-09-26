@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    archetype::ArchetypeComponentId,
     change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     query::Access,
@@ -29,7 +29,6 @@ where
     param_state: Option<Param::Fetch>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
-    archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> (In, Out, Marker)>,
 }
@@ -52,7 +51,6 @@ where
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
             world_id: None,
-            archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
         }
     }
@@ -146,20 +144,7 @@ where
         ));
     }
 
-    fn update_archetype_component_access(&mut self, world: &World) {
-        assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
-        let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
-
-        for archetype_index in archetype_index_range {
-            self.param_state.as_mut().unwrap().new_archetype(
-                &archetypes[ArchetypeId::new(archetype_index)],
-                &mut self.system_meta,
-            );
-        }
-    }
+    fn update_archetype_component_access(&mut self, _world: &World) {}
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: u32) {
