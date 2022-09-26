@@ -191,6 +191,8 @@ pub struct StandardMaterial {
     /// In short, in bevy, front faces winds counter-clockwise.
     ///
     /// Your 3D editing software should manage all of that.
+    ///
+    /// [`Mesh`]: bevy_render::mesh::Mesh
     pub cull_mode: Option<Face>,
 
     /// Whether to apply only the base color to this material.
