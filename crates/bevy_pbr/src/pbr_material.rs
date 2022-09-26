@@ -26,8 +26,8 @@ pub struct StandardMaterial {
     /// Defaults to [`Color::WHITE`].
     pub base_color: Color,
 
-    /// The texture component of the material's color before lighting,
-    /// the actual pre-lighting color is `base_color * this_texture`.
+    /// The texture component of the material's color before lighting.
+    /// The actual pre-lighting color is `base_color * this_texture`.
     ///
     /// See [`base_color`] for details.
     ///
@@ -97,11 +97,12 @@ pub struct StandardMaterial {
 
     /// Metallic and roughness maps, stored as a single texture.
     ///
-    /// The blue channel contains metallic values, and the green channel roughness values.
+    /// The blue channel contains metallic values,
+    /// and the green channel contains the roughness values.
     /// Other channels are unused.
     ///
-    /// Those values are multiplied by the scalar ones of the material; see [`metallic`] and
-    /// [`perceptual_roughness`] for details.
+    /// Those values are multiplied by the scalar ones of the material,
+    /// see [`metallic`] and [`perceptual_roughness`] for details.
     ///
     /// Note that with the default values of [`metallic`] and [`perceptual_roughness`],
     /// setting this texture has no effect. If you want to exclusively use the
@@ -116,9 +117,9 @@ pub struct StandardMaterial {
 
     /// Specular intensity for non-metals on a linear scale of `[0.0, 1.0]`.
     ///
-    /// Please consider the value as a way to control the intensity of the
-    /// specular highlight of the material, rather than the physical property
-    /// "reflectance."
+    /// Use the value as a way to control the intensity of the
+    /// specular highlight of the material, i.e. how reflective is the material,
+    /// rather than the physical property "reflectance."
     ///
     /// Set to `0.0`, no specular highlight is visible, the highlight is strongest
     /// when `reflectance` is set to `1.0`.
@@ -171,13 +172,25 @@ pub struct StandardMaterial {
     /// within the PBR lighting shader.
     ///
     /// Defaults to `false`.
-    /// This does not automatically configure backface culling, which can be done via
-    /// `cull_mode`.
+    /// This does not automatically configure backface culling,
+    /// which can be done via `cull_mode`.
     pub double_sided: bool,
 
-    /// Whether to cull the "front", "back" or neither side of a mesh if set to `None`.
+    /// Whether to cull the "front", "back" or neither side of a mesh.
+    /// If set to `None`, the two sides of the mesh are visible.
     ///
     /// Defaults to `Some(Face::Back)`.
+    /// In bevy, the order of declaration of a triangle's vertices
+    /// in [`Mesh`] defines the triangle's front face.
+    ///
+    /// When a triangle is in a viewport,
+    /// if its vertices appear counter-clockwise from the viewport's perspective,
+    /// then the viewport is seeing the triangle's front face.
+    /// Conversly, if the vertices appear clockwise, you are seeing the back face.
+    ///
+    /// In short, in bevy, front faces winds counter-clockwise.
+    ///
+    /// Your 3D editing software should manage all of that.
     pub cull_mode: Option<Face>,
 
     /// Whether to apply only the base color to this material.
