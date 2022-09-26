@@ -1,5 +1,4 @@
 use crate::{
-    archetype::Archetype,
     prelude::{FromWorld, QueryState},
     query::{ReadOnlyWorldQuery, WorldQuery},
     system::{Local, LocalState, SystemMeta, SystemParam, SystemState},
@@ -19,15 +18,12 @@ pub type ExclusiveSystemParamItem<'s, P> =
 pub trait ExclusiveSystemParamState: Send + Sync {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self;
     #[inline]
-    fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
-    #[inline]
     fn apply(&mut self, _world: &mut World) {}
 }
 
 pub trait ExclusiveSystemParamFetch<'state>: ExclusiveSystemParamState {
     type Item: ExclusiveSystemParam<Fetch = Self>;
-    fn get_param(state: &'state mut Self, system_meta: &SystemMeta, change_tick: u32)
-        -> Self::Item;
+    fn get_param(state: &'state mut Self, system_meta: &SystemMeta) -> Self::Item;
 }
 
 impl<'a, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSystemParam
@@ -41,7 +37,7 @@ impl<'s, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSyst
 {
     type Item = &'s mut QueryState<Q, F>;
 
-    fn get_param(state: &'s mut Self, _system_meta: &SystemMeta, _change_tick: u32) -> Self::Item {
+    fn get_param(state: &'s mut Self, _system_meta: &SystemMeta) -> Self::Item {
         state
     }
 }
@@ -61,7 +57,7 @@ impl<'a, P: SystemParam + 'static> ExclusiveSystemParam for &'a mut SystemState<
 impl<'s, P: SystemParam + 'static> ExclusiveSystemParamFetch<'s> for SystemState<P> {
     type Item = &'s mut SystemState<P>;
 
-    fn get_param(state: &'s mut Self, _system_meta: &SystemMeta, _change_tick: u32) -> Self::Item {
+    fn get_param(state: &'s mut Self, _system_meta: &SystemMeta) -> Self::Item {
         state
     }
 }
@@ -79,7 +75,7 @@ impl<'s, T: FromWorld + Send + Sync + 'static> ExclusiveSystemParam for Local<'s
 impl<'s, T: FromWorld + Send + Sync + 'static> ExclusiveSystemParamFetch<'s> for LocalState<T> {
     type Item = Local<'s, T>;
 
-    fn get_param(state: &'s mut Self, _system_meta: &SystemMeta, _change_tick: u32) -> Self::Item {
+    fn get_param(state: &'s mut Self, _system_meta: &SystemMeta) -> Self::Item {
         Local(state.0.get())
     }
 }
@@ -106,11 +102,10 @@ macro_rules! impl_exclusive_system_param_tuple {
             fn get_param(
                 state: &'s mut Self,
                 system_meta: &SystemMeta,
-                change_tick: u32,
             ) -> Self::Item {
 
                 let ($($param,)*) = state;
-                ($($param::get_param($param, system_meta, change_tick),)*)
+                ($($param::get_param($param, system_meta),)*)
             }
         }
 
@@ -121,12 +116,6 @@ macro_rules! impl_exclusive_system_param_tuple {
             #[inline]
             fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
                 (($($param::init(_world, _system_meta),)*))
-            }
-
-            #[inline]
-            fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
-                let ($($param,)*) = self;
-                $($param.new_archetype(_archetype, _system_meta);)*
             }
 
             #[inline]

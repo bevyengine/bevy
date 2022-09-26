@@ -102,7 +102,6 @@ where
         let params = <Param as ExclusiveSystemParam>::Fetch::get_param(
             self.param_state.as_mut().expect(PARAM_MESSAGE),
             &self.system_meta,
-            change_tick,
         );
         let out = self.func.run(input, world, params);
         self.system_meta.last_change_tick = change_tick;
