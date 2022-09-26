@@ -30,10 +30,12 @@ pub struct NodeBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
+    ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the NodeBundle, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
+    ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the NodeBundle, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
@@ -61,10 +63,12 @@ pub struct ImageBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
+    ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the NodeBundle, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
+    ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the NodeBundle, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
@@ -88,10 +92,12 @@ pub struct TextBundle {
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
+    ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the NodeBundle, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
+    ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the NodeBundle, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
@@ -169,10 +175,12 @@ pub struct ButtonBundle {
     /// The image of the node
     pub image: UiImage,
     /// The transform of the node
+    ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the NodeBundle, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
+    ///
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the NodeBundle, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
