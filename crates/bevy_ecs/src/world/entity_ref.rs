@@ -363,7 +363,7 @@ impl<'w> EntityMut<'w> {
         let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.index);
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            entities.meta[swapped_entity.id as usize].location = old_location;
+            entities.meta[swapped_entity.index as usize].location = old_location;
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
@@ -397,7 +397,7 @@ impl<'w> EntityMut<'w> {
         };
 
         *self_location = new_location;
-        entities.meta[entity.id as usize].location = new_location;
+        entities.meta[entity.index as usize].location = new_location;
     }
 
     #[deprecated(
@@ -492,7 +492,7 @@ impl<'w> EntityMut<'w> {
             }
             let remove_result = archetype.swap_remove(location.index);
             if let Some(swapped_entity) = remove_result.swapped_entity {
-                world.entities.meta[swapped_entity.id as usize].location = location;
+                world.entities.meta[swapped_entity.index as usize].location = location;
             }
             table_row = remove_result.table_row;
 

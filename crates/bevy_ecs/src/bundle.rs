@@ -533,10 +533,10 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
                 let result = self.archetype.swap_remove(location.index);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.meta[swapped_entity.id as usize].location = location;
+                    self.entities.meta[swapped_entity.index as usize].location = location;
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                self.entities.meta[entity.id as usize].location = new_location;
+                self.entities.meta[entity.index as usize].location = new_location;
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
                 let add_bundle = self
@@ -561,7 +561,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             } => {
                 let result = self.archetype.swap_remove(location.index);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.meta[swapped_entity.id as usize].location = location;
+                    self.entities.meta[swapped_entity.index as usize].location = location;
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
@@ -569,7 +569,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     .table
                     .move_to_superset_unchecked(result.table_row, *new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                self.entities.meta[entity.id as usize].location = new_location;
+                self.entities.meta[entity.index as usize].location = new_location;
 
                 // if an entity was moved into this entity's table spot, update its table row
                 if let Some(swapped_entity) = move_result.swapped_entity {
@@ -645,7 +645,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
             self.change_tick,
             bundle,
         );
-        self.entities.meta[entity.id as usize].location = location;
+        self.entities.meta[entity.index as usize].location = location;
 
         location
     }
