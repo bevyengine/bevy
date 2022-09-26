@@ -39,14 +39,23 @@ impl Plugin for WindowRenderPlugin {
 }
 
 pub struct ExtractedWindow {
-    pub id: WindowId,
-    pub handle: RawWindowHandleWrapper,
-    pub physical_width: u32,
-    pub physical_height: u32,
-    pub present_mode: PresentMode,
-    pub swap_chain_texture: Option<TextureView>,
-    pub size_changed: bool,
-    pub present_mode_changed: bool,
+    id: WindowId,
+    raw_window_handle: RawWindowHandleWrapper,
+    physical_width: u32,
+    physical_height: u32,
+    present_mode: PresentMode,
+    swap_chain_texture: Option<TextureView>,
+    size_changed: bool,
+    present_mode_changed: bool,
+}
+
+impl ExtractedWindow {
+    pub fn swap_chain_texture(&self) -> Option<&TextureView> {
+        match self.swap_chain_texture {
+            None => None,
+            _ => self.swap_chain_texture.as_ref(),
+        }
+    }
 }
 
 #[derive(Default, Resource)]
@@ -85,7 +94,7 @@ fn extract_windows(
                 .entry(window.id())
                 .or_insert(ExtractedWindow {
                     id: window.id(),
-                    handle: window.raw_window_handle(),
+                    raw_window_handle: window.raw_window_handle(),
                     physical_width: new_width,
                     physical_height: new_height,
                     present_mode: window.present_mode(),
@@ -169,7 +178,7 @@ pub fn prepare_windows(
             .entry(window.id)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                render_instance.create_surface(&window.handle.get_handle())
+                render_instance.create_surface(&window.raw_window_handle.get_handle())
             });
 
         let swap_chain_descriptor = wgpu::SurfaceConfiguration {
