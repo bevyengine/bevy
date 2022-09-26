@@ -97,14 +97,20 @@ where
     }
 
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        let change_tick = world.increment_change_tick();
+        let saved_last_tick = world.last_change_tick;
+        world.last_change_tick = self.system_meta.last_change_tick;
 
         let params = <Param as ExclusiveSystemParam>::Fetch::get_param(
             self.param_state.as_mut().expect(PARAM_MESSAGE),
             &self.system_meta,
         );
         let out = self.func.run(input, world, params);
-        self.system_meta.last_change_tick = change_tick;
+
+        let change_tick = world.change_tick.get_mut();
+        self.system_meta.last_change_tick = *change_tick;
+        *change_tick += 1;
+        world.last_change_tick = saved_last_tick;
+
         out
     }
 
