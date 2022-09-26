@@ -79,7 +79,7 @@ type IdCursor = isize;
 /// }
 /// #
 /// # bevy_ecs::system::assert_is_system(setup);
-/// # bevy_ecs::system::IntoExclusiveSystem::exclusive_system(exclusive_system);
+/// # bevy_ecs::system::assert_is_system(exclusive_system);
 /// ```
 ///
 /// It can be used to refer to a specific entity to apply [`EntityCommands`], or to call [`Query::get`] (or similar methods) to access its components.

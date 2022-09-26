@@ -112,8 +112,8 @@ impl SystemMeta {
 ///
 /// struct MyEvent;
 /// #[derive(Resource)]
-/// struct CachedSystemState<'w, 's>{
-///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
+/// struct CachedSystemState {
+///    event_state: SystemState<EventReader<'static, 'static, MyEvent>>
 /// }
 ///
 /// // Create and store a system state once
