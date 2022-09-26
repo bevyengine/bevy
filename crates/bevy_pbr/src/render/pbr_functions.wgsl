@@ -1,5 +1,30 @@
 #define_import_path bevy_pbr::pbr_functions
 
+#ifdef VERTEX_UVS
+#ifdef STANDARDMATERIAL_NORMAL_MAP
+// Calculates the tangent-space normal by sampling the normal-map texture
+fn prepare_tangent_space_normal(
+    standard_material_flags: u32,
+    uv: vec2<f32>,
+) -> vec3<f32> {
+    // Nt is the tangent-space normal.
+    var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
+    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+        // Only use the xy components and derive z for 2-component normal maps.
+        Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
+        Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
+    } else {
+        Nt = Nt * 2.0 - 1.0;
+    }
+    // Normal maps authored for DirectX require flipping the y component
+    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
+        Nt.y = -Nt.y;
+    }
+    return Nt;
+}
+#endif
+#endif
+
 // NOTE: This ensures that the world_normal is normalized and if
 // vertex tangents and normal maps then normal mapping may be applied.
 fn prepare_normal(
@@ -49,19 +74,7 @@ fn prepare_normal(
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_UVS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
-    // Nt is the tangent-space normal.
-    var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
-        // Only use the xy components and derive z for 2-component normal maps.
-        Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
-        Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
-    } else {
-        Nt = Nt * 2.0 - 1.0;
-    }
-    // Normal maps authored for DirectX require flipping the y component
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
-        Nt.y = -Nt.y;
-    }
+    let Nt = prepare_tangent_space_normal(standard_material_flags, uv);
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
     // the normal map texture in this way to be an EXACT inverse of how the normal map baker
     // calculates the normal maps so there is no error introduced. Do not change this code

@@ -100,6 +100,11 @@ impl<S: SpecializedMeshPipeline> Default for SpecializedMeshPipelines<S> {
 }
 
 impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
+    pub fn invalidate(&mut self) {
+        self.mesh_layout_cache = Default::default();
+        self.vertex_layout_cache = Default::default();
+    }
+
     #[inline]
     pub fn specialize(
         &mut self,

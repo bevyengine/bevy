@@ -9,6 +9,7 @@ use bevy::{
     gltf::Gltf,
     input::mouse::MouseMotion,
     math::Vec3A,
+    pbr::PbrDebug,
     prelude::*,
     render::primitives::{Aabb, Sphere},
     scene::InstanceId,
@@ -32,6 +33,7 @@ Controls:
     L           - animate light direction
     U           - toggle shadows
     C           - cycle through cameras
+    V           - cycle through PBR debug visualizations
     5/6         - decrease/increase shadow projection width
     7/8         - decrease/increase shadow projection height
     9/0         - decrease/increase shadow projection near/far
@@ -59,6 +61,7 @@ Controls:
     .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
     .add_system_to_stage(CoreStage::PreUpdate, setup_scene_after_load)
     .add_system(update_lights)
+    .add_system(cycle_pbr_debug)
     .add_system(camera_controller)
     .add_system(camera_tracker);
 
@@ -401,6 +404,42 @@ fn camera_tracker(
                 camera.is_active = true;
             }
         }
+    }
+}
+
+fn cycle_pbr_debug(key_input: Res<Input<KeyCode>>, mut pbr_debug: ResMut<PbrDebug>) {
+    if key_input.just_pressed(KeyCode::V) {
+        *pbr_debug = match *pbr_debug {
+            PbrDebug::None => PbrDebug::Uvs,
+            PbrDebug::Uvs => PbrDebug::Depth,
+            PbrDebug::Depth => PbrDebug::InterpolatedVertexNormals,
+            PbrDebug::InterpolatedVertexNormals => PbrDebug::InterpolatedVertexTangents,
+            PbrDebug::InterpolatedVertexTangents => PbrDebug::TangentSpaceNormalMap,
+            PbrDebug::TangentSpaceNormalMap => PbrDebug::NormalMappedNormal,
+            PbrDebug::NormalMappedNormal => PbrDebug::ViewSpaceNormalMappedNormal,
+            PbrDebug::ViewSpaceNormalMappedNormal => PbrDebug::BaseColor,
+            PbrDebug::BaseColor => PbrDebug::BaseColorTexture,
+            PbrDebug::BaseColorTexture => PbrDebug::Emissive,
+            PbrDebug::Emissive => PbrDebug::EmissiveTexture,
+            PbrDebug::EmissiveTexture => PbrDebug::Roughness,
+            PbrDebug::Roughness => PbrDebug::RoughnessTexture,
+            PbrDebug::RoughnessTexture => PbrDebug::Metallic,
+            PbrDebug::Metallic => PbrDebug::MetallicTexture,
+            PbrDebug::MetallicTexture => PbrDebug::Reflectance,
+            PbrDebug::Reflectance => PbrDebug::OcclusionTexture,
+            PbrDebug::OcclusionTexture => PbrDebug::Opaque,
+            PbrDebug::Opaque => PbrDebug::AlphaMask,
+            PbrDebug::AlphaMask => PbrDebug::AlphaBlend,
+            PbrDebug::AlphaBlend => PbrDebug::ClusteredForwardDebugZSlices,
+            PbrDebug::ClusteredForwardDebugZSlices => {
+                PbrDebug::ClusteredForwardDebugClusterLightComplexity
+            }
+            PbrDebug::ClusteredForwardDebugClusterLightComplexity => {
+                PbrDebug::ClusteredForwardDebugClusterCoherency
+            }
+            PbrDebug::ClusteredForwardDebugClusterCoherency => PbrDebug::None,
+        };
+        info!("Showing {:?} visualization", *pbr_debug);
     }
 }
 
