@@ -625,7 +625,10 @@ impl PipelineCache {
             if let CachedPipelineState::Err(err) = &pipeline.state {
                 match err {
                     PipelineCacheError::ShaderNotLoaded(_)
-                    | PipelineCacheError::ShaderImportNotYetAvailable => { /* retry */ }
+                    | PipelineCacheError::ShaderImportNotYetAvailable => {
+                        // retry
+                        self.waiting_pipelines.insert(id);
+                    }
                     // shader could not be processed ... retrying won't help
                     PipelineCacheError::ProcessShaderError(err) => {
                         error!("failed to process shader: {}", err);
@@ -640,7 +643,6 @@ impl PipelineCache {
                         continue;
                     }
                 }
-                self.waiting_pipelines.insert(id);
             }
         }
 
