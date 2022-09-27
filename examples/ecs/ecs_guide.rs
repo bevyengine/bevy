@@ -316,13 +316,7 @@ fn main() {
             MyStage::BeforeRound,
             new_player_system.after(new_round_system),
         )
-        .add_system_to_stage(
-            MyStage::BeforeRound,
-            // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
-            // The following will not compile.
-            //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
-            exclusive_player_system.exclusive_system(),
-        )
+        .add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
         .add_system_to_stage(MyStage::AfterRound, score_check_system)
         .add_system_to_stage(
             // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering

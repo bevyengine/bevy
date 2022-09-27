@@ -27,7 +27,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
+    schedule::{IntoSystemDescriptor, SystemLabel},
     system::Resource,
 };
 use bevy_input::InputSystem;
@@ -90,7 +90,7 @@ impl Plugin for UiPlugin {
             .register_type::<Size>()
             .register_type::<UiRect>()
             .register_type::<Style>()
-            .register_type::<UiColor>()
+            .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()

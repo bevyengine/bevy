@@ -25,10 +25,13 @@ fn main() {
 }
 
 #[derive(Component)]
-struct IdleColor(UiColor);
+struct IdleColor(BackgroundColor);
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &mut UiColor, &IdleColor), Changed<Interaction>>,
+    mut interaction_query: Query<
+        (&Interaction, &mut BackgroundColor, &IdleColor),
+        Changed<Interaction>,
+    >,
 ) {
     for (interaction, mut material, IdleColor(idle_color)) in interaction_query.iter_mut() {
         if matches!(interaction, Interaction::Hovered) {
@@ -74,7 +77,7 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
 fn spawn_button(
     commands: &mut ChildBuilder,
     font: Handle<Font>,
-    color: UiColor,
+    color: BackgroundColor,
     total: f32,
     i: usize,
     j: usize,
@@ -95,7 +98,7 @@ fn spawn_button(
                     position_type: PositionType::Absolute,
                     ..default()
                 },
-                color,
+                background_color: color,
                 ..default()
             },
             IdleColor(color),

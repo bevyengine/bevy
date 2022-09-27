@@ -46,14 +46,13 @@ fn setup(
     let half_y = (map_size.y / 2.0) as i32;
 
     let texture_handle = assets.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1);
+    let texture_atlas =
+        TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // Spawns the camera
-    commands.spawn((
-        Camera2dBundle::default(),
-        Transform::from_xyz(0.0, 0.0, 1000.0),
-    ));
+
+    commands.spawn(Camera2dBundle::default());
 
     // Builds and spawns the sprites
     for y in -half_y..half_y {
