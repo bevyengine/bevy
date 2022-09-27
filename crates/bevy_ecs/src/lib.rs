@@ -1264,6 +1264,37 @@ mod tests {
     }
 
     #[test]
+    fn non_send_resource_scope() {
+        let mut world = World::default();
+        world.insert_non_send_resource(A(0));
+        world.resource_scope(|world: &mut World, mut value: Mut<A>| {
+            value.0 += 1;
+            assert!(!world.contains_resource::<A>());
+        });
+        assert_eq!(world.non_send_resource::<A>().0, 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn non_send_resource_scope_from_different_thread() {
+        let mut world = World::default();
+        world.insert_non_send_resource(A(0));
+
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                // Accessing the non-send resource on a different thread
+                // Should result in a panic
+                world.resource_scope(|world: &mut World, mut value: Mut<A>| {
+                    value.0 += 1;
+                    assert!(!world.contains_resource::<A>());
+                });
+            });
+        });
+
+        assert_eq!(world.get_non_send_resource::<A>().unwrap().0, 1);
+    }
+
+    #[test]
     fn insert_overwrite_drop() {
         let (dropck1, dropped1) = DropCk::new_pair();
         let (dropck2, dropped2) = DropCk::new_pair();
