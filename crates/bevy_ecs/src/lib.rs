@@ -34,14 +34,13 @@ pub mod prelude {
         event::{EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
-            ExclusiveSystemDescriptorCoercion, ParallelSystemDescriptorCoercion, RunCriteria,
-            RunCriteriaDescriptorCoercion, RunCriteriaLabel, Schedule, Stage, StageLabel, State,
-            SystemLabel, SystemSet, SystemStage,
+            IntoSystemDescriptor, RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel,
+            Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            adapter as system_adapter, Commands, In, IntoChainSystem, IntoExclusiveSystem,
-            IntoSystem, Local, NonSend, NonSendMut, ParallelCommands, ParamSet, Query,
-            RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
+            adapter as system_adapter, Commands, In, IntoChainSystem, IntoSystem, Local, NonSend,
+            NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut,
+            Resource, System, SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };
