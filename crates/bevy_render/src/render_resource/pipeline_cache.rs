@@ -609,7 +609,7 @@ impl PipelineCache {
 
         for id in waiting_pipelines {
             let pipeline = &mut pipelines[id];
-            if let CachedPipelineState::Ok(_) = pipeline.state {
+            if matches!(pipeline.state, CachedPipelineState::Ok(_)) {
                 continue;
             }
 
