@@ -65,11 +65,11 @@ mod tests {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
         any::TypeId,
+        marker::PhantomData,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc, Mutex,
         },
-        marker::PhantomData,
     };
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Clone, Copy)]
@@ -1278,7 +1278,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "attempted to access NonSend resource bevy_ecs::tests::NonSend off of the main thread")]
+    #[should_panic(
+        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSend off of the main thread"
+    )]
     fn non_send_resource_scope_from_different_thread() {
         let mut world = World::default();
         world.insert_non_send_resource(NonSend::default());
