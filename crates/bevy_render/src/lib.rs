@@ -140,11 +140,11 @@ impl Plugin for RenderPlugin {
             .register_type::<Color>();
 
         if let Some(backends) = options.backends {
+            let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
             let surface = {
-                let windows = app.world.resource_mut::<bevy_window::Windows>();
                 let raw_handle = windows.get_primary().map(|window| unsafe {
-                    let handle = window.raw_window_handle().get_handle();
+                    let handle = window.raw_window_handle().unwrap().get_handle();
                     instance.create_surface(&handle)
                 });
                 raw_handle
