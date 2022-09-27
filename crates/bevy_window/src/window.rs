@@ -719,7 +719,9 @@ impl Window {
     pub fn is_focused(&self) -> bool {
         self.focused
     }
-    /// Get the [`RawWindowHandleWrapper`] corresponding to this window
+    /// Get the [`RawWindowHandleWrapper`] corresponding to this window if set.
+    ///
+    /// During normal use, this can be safely unwrapped; the value should only be [`None`] when synthetically constructed for tests.
     pub fn raw_window_handle(&self) -> Option<RawWindowHandleWrapper> {
         self.raw_window_handle.as_ref().cloned()
     }
