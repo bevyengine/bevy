@@ -69,6 +69,7 @@ mod tests {
             atomic::{AtomicUsize, Ordering},
             Arc, Mutex,
         },
+        marker::PhantomData,
     };
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Clone, Copy)]
@@ -77,6 +78,9 @@ mod tests {
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
+
+    #[derive(Default)]
+    struct NonSend(usize, PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -1265,32 +1269,31 @@ mod tests {
     #[test]
     fn non_send_resource_scope() {
         let mut world = World::default();
-        world.insert_non_send_resource(A(0));
-        world.resource_scope(|world: &mut World, mut value: Mut<A>| {
+        world.insert_non_send_resource(NonSend::default());
+        world.resource_scope(|world: &mut World, mut value: Mut<NonSend>| {
             value.0 += 1;
-            assert!(!world.contains_resource::<A>());
+            assert!(!world.contains_resource::<NonSend>());
         });
-        assert_eq!(world.non_send_resource::<A>().0, 1);
+        assert_eq!(world.non_send_resource::<NonSend>().0, 1);
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "attempted to access NonSend resource bevy_ecs::tests::NonSend off of the main thread")]
     fn non_send_resource_scope_from_different_thread() {
         let mut world = World::default();
-        world.insert_non_send_resource(A(0));
+        world.insert_non_send_resource(NonSend::default());
 
-        std::thread::scope(|s| {
-            s.spawn(|| {
-                // Accessing the non-send resource on a different thread
-                // Should result in a panic
-                world.resource_scope(|world: &mut World, mut value: Mut<A>| {
-                    value.0 += 1;
-                    assert!(!world.contains_resource::<A>());
-                });
+        let thread = std::thread::spawn(move || {
+            // Accessing the non-send resource on a different thread
+            // Should result in a panic
+            world.resource_scope(|_: &mut World, mut value: Mut<NonSend>| {
+                value.0 += 1;
             });
         });
 
-        assert_eq!(world.get_non_send_resource::<A>().unwrap().0, 1);
+        if let Err(err) = thread.join() {
+            panic!("{}", err.downcast::<String>().unwrap());
+        }
     }
 
     #[test]
