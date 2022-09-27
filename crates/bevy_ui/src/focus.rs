@@ -191,8 +191,8 @@ pub fn ui_focus_system(
                 // (0., 0.) is the bottom-left corner, (1., 1.) is the upper-right corner
                 let relative_cursor_postition = cursor_position.map(|cursor_position| {
                     Vec2::new(
-                        (cursor_position.x - min.x) / node.size.x,
-                        (cursor_position.y - min.y) / node.size.y,
+                        (cursor_position.x - min.x) / node.size().x,
+                        (cursor_position.y - min.y) / node.size().y,
                     )
                 });
                 // if the current cursor position is within the bounds of the node, consider it for
