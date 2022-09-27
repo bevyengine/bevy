@@ -112,7 +112,7 @@ pub struct MeshUniform {
     pub flags: u32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr2/src/render/mesh.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct MeshFlags: u32 {
