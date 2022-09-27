@@ -44,18 +44,9 @@ pub struct ExtractedWindow {
     physical_width: u32,
     physical_height: u32,
     present_mode: PresentMode,
-    swap_chain_texture: Option<TextureView>,
+    pub swap_chain_texture: Option<TextureView>,
     size_changed: bool,
     present_mode_changed: bool,
-}
-
-impl ExtractedWindow {
-    pub fn swap_chain_texture(&self) -> Option<&TextureView> {
-        match self.swap_chain_texture {
-            None => None,
-            _ => self.swap_chain_texture.as_ref(),
-        }
-    }
 }
 
 #[derive(Default, Resource)]
