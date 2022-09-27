@@ -57,7 +57,7 @@ where
 }
 
 #[doc(hidden)]
-pub struct ExtractState<P: SystemParam> {
+pub struct ExtractState<P: SystemParam + 'static> {
     state: SystemState<P>,
     main_world_state: ResState<MainWorld>,
 }

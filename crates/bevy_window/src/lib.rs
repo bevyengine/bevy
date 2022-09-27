@@ -27,7 +27,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::{
     event::{EventReader, Events},
-    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
+    schedule::{IntoSystemDescriptor, SystemLabel},
     system::{Local, ResMut, Resource},
 };
 
