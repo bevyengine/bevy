@@ -211,9 +211,9 @@ pub fn extract_core_3d_camera_phases(
     mut commands: Commands,
     cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
 ) {
-    for (entity, camera) in cameras_3d.iter() {
+    for (entity, camera) in &cameras_3d {
         if camera.is_active {
-            commands.get_or_spawn(entity).insert_bundle((
+            commands.get_or_spawn(entity).insert((
                 RenderPhase::<Opaque3d>::default(),
                 RenderPhase::<AlphaMask3d>::default(),
                 RenderPhase::<Transparent3d>::default(),

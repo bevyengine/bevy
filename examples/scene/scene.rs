@@ -6,10 +6,17 @@ use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 
 fn main() {
     App::new()
+        // This tells the AssetServer to watch for changes to assets.
+        // It enables our scenes to automatically reload in game when we modify their files.
+        // AssetServerSettings must be inserted before the DefaultPlugins are added.
+        .insert_resource(AssetServerSettings {
+            watch_for_changes: true,
+            ..default()
+        })
         .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
-        .add_startup_system(save_scene_system.exclusive_system())
+        .add_startup_system(save_scene_system)
         .add_startup_system(load_scene_system)
         .add_startup_system(infotext_system)
         .add_system(log_system)
@@ -30,14 +37,14 @@ struct ComponentA {
 }
 
 // Some components have fields that cannot (or should not) be written to scene files. These can be
-// ignored with the #[reflect(ignore)] attribute. This is also generally where the `FromWorld`
+// ignored with the #[reflect(skip_serializing)] attribute. This is also generally where the `FromWorld`
 // trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
 // when you construct your component.
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 struct ComponentB {
     pub value: String,
-    #[reflect(ignore)]
+    #[reflect(skip_serializing)]
     pub _time_since_startup: Duration,
 }
 
@@ -60,15 +67,11 @@ const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
 fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // "Spawning" a scene bundle creates a new entity and spawns new instances
     // of the given scene's entities as children of that entity.
-    commands.spawn_bundle(DynamicSceneBundle {
+    commands.spawn(DynamicSceneBundle {
         // Scenes are loaded just like any other asset.
         scene: asset_server.load(SCENE_FILE_PATH),
         ..default()
     });
-
-    // This tells the AssetServer to watch for changes to assets.
-    // It enables our scenes to automatically reload in game when we modify their files
-    asset_server.watch_for_changes().unwrap();
 }
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
@@ -89,14 +92,12 @@ fn save_scene_system(world: &mut World) {
     let mut scene_world = World::new();
     let mut component_b = ComponentB::from_world(world);
     component_b.value = "hello".to_string();
-    scene_world.spawn().insert_bundle((
+    scene_world.spawn((
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
         Transform::IDENTITY,
     ));
-    scene_world
-        .spawn()
-        .insert_bundle((ComponentA { x: 3.0, y: 4.0 },));
+    scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
 
     // The TypeRegistry resource contains information about all registered types (including
     // components). This is used to construct scenes.
@@ -126,8 +127,8 @@ fn save_scene_system(world: &mut World) {
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(
         TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {

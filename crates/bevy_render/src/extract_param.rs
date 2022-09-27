@@ -3,7 +3,7 @@ use bevy_ecs::{
     prelude::*,
     system::{
         ReadOnlySystemParamFetch, ResState, SystemMeta, SystemParam, SystemParamFetch,
-        SystemParamState, SystemState,
+        SystemParamItem, SystemParamState, SystemState,
     },
 };
 use std::ops::{Deref, DerefMut};
@@ -34,7 +34,7 @@ use std::ops::{Deref, DerefMut};
 /// # #[derive(Component)]
 /// # struct Cloud;
 /// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<Entity, With<Cloud>>>) {
-///     for cloud in clouds.iter() {
+///     for cloud in &clouds {
 ///         commands.get_or_spawn(cloud).insert(Cloud);
 ///     }
 /// }
@@ -57,7 +57,7 @@ where
 }
 
 #[doc(hidden)]
-pub struct ExtractState<P: SystemParam> {
+pub struct ExtractState<P: SystemParam + 'static> {
     state: SystemState<P>,
     main_world_state: ResState<MainWorld>,
 }
@@ -116,5 +116,18 @@ where
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.item
+    }
+}
+
+impl<'a, 'w, 's, P: SystemParam> IntoIterator for &'a Extract<'w, 's, P>
+where
+    P::Fetch: ReadOnlySystemParamFetch,
+    &'a SystemParamItem<'w, 's, P>: IntoIterator,
+{
+    type Item = <&'a SystemParamItem<'w, 's, P> as IntoIterator>::Item;
+    type IntoIter = <&'a SystemParamItem<'w, 's, P> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.item).into_iter()
     }
 }

@@ -107,18 +107,9 @@ impl SystemSet {
             after,
         } = self;
         for descriptor in &mut systems {
-            match descriptor {
-                SystemDescriptor::Parallel(descriptor) => {
-                    descriptor.labels.extend(labels.iter().cloned());
-                    descriptor.before.extend(before.iter().cloned());
-                    descriptor.after.extend(after.iter().cloned());
-                }
-                SystemDescriptor::Exclusive(descriptor) => {
-                    descriptor.labels.extend(labels.iter().cloned());
-                    descriptor.before.extend(before.iter().cloned());
-                    descriptor.after.extend(after.iter().cloned());
-                }
-            }
+            descriptor.labels.extend(labels.iter().cloned());
+            descriptor.before.extend(before.iter().cloned());
+            descriptor.after.extend(after.iter().cloned());
         }
         (run_criteria, systems)
     }

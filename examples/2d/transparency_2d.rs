@@ -11,15 +11,15 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     let sprite_handle = asset_server.load("branding/icon.png");
 
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         texture: sprite_handle.clone(),
         ..default()
     });
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         sprite: Sprite {
             // Alpha channel of the color controls transparency.
             color: Color::rgba(0.0, 0.0, 1.0, 0.7),
@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_xyz(100.0, 0.0, 0.0),
         ..default()
     });
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         sprite: Sprite {
             color: Color::rgba(0.0, 1.0, 0.0, 0.3),
             ..default()

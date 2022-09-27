@@ -254,6 +254,10 @@ impl AssetLoader for ShaderLoader {
                     String::from_utf8(Vec::from(bytes))?,
                     naga::ShaderStage::Fragment,
                 ),
+                "comp" => Shader::from_glsl(
+                    String::from_utf8(Vec::from(bytes))?,
+                    naga::ShaderStage::Compute,
+                ),
                 _ => panic!("unhandled extension: {}", ext),
             };
 
@@ -279,7 +283,7 @@ impl AssetLoader for ShaderLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["spv", "wgsl", "vert", "frag"]
+        &["spv", "wgsl", "vert", "frag", "comp"]
     }
 }
 

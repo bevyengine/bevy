@@ -97,7 +97,7 @@ impl TaskPool {
 
         let executor = Arc::new(async_executor::Executor::new());
 
-        let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+        let num_threads = num_threads.unwrap_or_else(crate::available_parallelism);
 
         let threads = (0..num_threads)
             .map(|i| {
@@ -372,7 +372,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
 }
 
 #[cfg(test)]
-#[allow(clippy::blacklisted_name)]
+#[allow(clippy::disallowed_types)]
 mod tests {
     use super::*;
     use std::sync::{

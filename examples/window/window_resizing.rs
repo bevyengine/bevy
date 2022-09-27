@@ -30,13 +30,13 @@ struct ResolutionSettings {
 
 // Spawns the camera that draws UI
 fn setup_camera(mut cmd: Commands) {
-    cmd.spawn_bundle(Camera2dBundle::default());
+    cmd.spawn(Camera2dBundle::default());
 }
 
 // Spawns the UI
 fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
     // Node that fills entire background
-    cmd.spawn_bundle(NodeBundle {
+    cmd.spawn(NodeBundle {
         style: Style {
             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
             ..default()
@@ -45,15 +45,17 @@ fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
     })
     .with_children(|root| {
         // Text where we display current resolution
-        root.spawn_bundle(TextBundle::from_section(
-            "Resolution",
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 50.0,
-                color: Color::BLACK,
-            },
-        ))
-        .insert(ResolutionText);
+        root.spawn((
+            TextBundle::from_section(
+                "Resolution",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: 50.0,
+                    color: Color::BLACK,
+                },
+            ),
+            ResolutionText,
+        ));
     });
 }
 

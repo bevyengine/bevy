@@ -51,20 +51,21 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
         });
 
+    let string_name = struct_name.to_string();
     let typed_impl = impl_typed(
         struct_name,
         reflect_struct.meta().generics(),
         quote! {
            let fields = [
-                #(#bevy_reflect_path::NamedField::new::<#field_types, _>(#field_names),)*
+                #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names),)*
             ];
-            let info = #bevy_reflect_path::StructInfo::new::<Self>(&fields);
+            let info = #bevy_reflect_path::StructInfo::new::<Self>(#string_name, &fields);
             #bevy_reflect_path::TypeInfo::Struct(info)
         },
         bevy_reflect_path,
     );
 
-    let get_type_registration_impl = reflect_struct.meta().get_type_registration();
+    let get_type_registration_impl = reflect_struct.get_type_registration();
     let (impl_generics, ty_generics, where_clause) =
         reflect_struct.meta().generics().split_for_impl();
 

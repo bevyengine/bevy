@@ -4,7 +4,7 @@ use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    query::{Changed, With, Without, WorldQuery},
+    query::{Changed, ReadOnlyWorldQuery, With, Without},
     system::{Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -234,7 +234,7 @@ pub fn flex_node_system(
         update_changed(&mut *flex_surface, scale_factor, node_query);
     }
 
-    fn update_changed<F: WorldQuery>(
+    fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
         scaling_factor: f64,
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,

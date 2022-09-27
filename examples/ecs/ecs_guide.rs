@@ -186,7 +186,7 @@ fn new_player_system(
     let add_new_player = random::<bool>();
     if add_new_player && game_state.total_players < game_rules.max_players {
         game_state.total_players += 1;
-        commands.spawn_bundle((
+        commands.spawn((
             Player {
                 name: format!("Player {}", game_state.total_players),
             },
@@ -213,7 +213,7 @@ fn exclusive_player_system(world: &mut World) {
     // Randomly add a new player
     if should_add_player {
         println!("Player {} has joined the game!", total_players + 1);
-        world.spawn().insert_bundle((
+        world.spawn((
             Player {
                 name: format!("Player {}", total_players + 1),
             },
@@ -316,13 +316,7 @@ fn main() {
             MyStage::BeforeRound,
             new_player_system.after(new_round_system),
         )
-        .add_system_to_stage(
-            MyStage::BeforeRound,
-            // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
-            // The following will not compile.
-            //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
-            exclusive_player_system.exclusive_system(),
-        )
+        .add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
         .add_system_to_stage(MyStage::AfterRound, score_check_system)
         .add_system_to_stage(
             // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
