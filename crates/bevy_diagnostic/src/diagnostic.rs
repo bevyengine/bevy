@@ -39,6 +39,7 @@ pub struct Diagnostic {
     sum: f64,
     max_history_length: usize,
     pub is_enabled: bool,
+    pub num_of_decimals: usize, // Seams like it needs to be usize
 }
 
 impl Diagnostic {
@@ -61,11 +62,12 @@ impl Diagnostic {
             .push_back(DiagnosticMeasurement { time, value });
     }
 
-    /// Create a new diagnostic with the given ID, name and maximum history.
+    /// Create a new diagnostic with the given ID, name, maximum history and number of decimals.
     pub fn new(
         id: DiagnosticId,
         name: impl Into<Cow<'static, str>>,
         max_history_length: usize,
+        num_of_decimals: usize, // Choose number of decimals for display precision.
     ) -> Diagnostic {
         let name = name.into();
         if name.chars().count() > MAX_DIAGNOSTIC_NAME_WIDTH {
@@ -84,6 +86,7 @@ impl Diagnostic {
             max_history_length,
             sum: 0.0,
             is_enabled: true,
+            num_of_decimals,
         }
     }
 
