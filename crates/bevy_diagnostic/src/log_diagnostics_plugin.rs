@@ -62,20 +62,23 @@ impl LogDiagnosticsPlugin {
                         // so we reserve one column for it; however,
                         // Do not reserve one column for the suffix in the average
                         // The ) hugging the value is more aesthetically pleasing
-                        "{name:<name_width$}: {value:>11.6}{suffix:1} (avg {average:>.6}{suffix:})",
+                        "{name:<name_width$}: {value:>11.num_of_decimals$}{suffix:1} (avg {average:>.num_of_decimals$}{suffix:})",
+                        // TODO: read up on how formatting works
                         name = diagnostic.name,
                         suffix = diagnostic.suffix,
                         name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+                        num_of_decimals = diagnostic.num_of_decimals,
                     );
                     return;
                 }
             }
             info!(
                 target: "bevy diagnostic",
-                "{name:<name_width$}: {value:>.6}{suffix:}",
+                "{name:<name_width$}: {value:>.num_of_decimals$}{suffix:}", // TODO: read up on how formatting works
                 name = diagnostic.name,
                 suffix = diagnostic.suffix,
                 name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+                num_of_decimals = diagnostic.num_of_decimals,
             );
         }
     }
