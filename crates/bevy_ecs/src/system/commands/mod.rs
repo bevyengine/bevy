@@ -168,6 +168,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
     /// and returns its corresponding [`EntityCommands`].
     ///
+    /// This method silently fails by returning `EntityCommands`
+    /// even if the given `Entity` cannot be spawned.
+    ///
     /// See [`World::get_or_spawn`] for more details.
     ///
     /// # Note
