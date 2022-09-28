@@ -1294,7 +1294,7 @@ mod tests {
         });
 
         if let Err(err) = thread.join() {
-            panic!("{}", err.downcast::<String>().unwrap());
+            std::panic::resume_unwind(err);
         }
     }
 
