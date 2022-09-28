@@ -92,7 +92,7 @@ sudo pacman -S libx11 pkgconf alsa-lib
 
 Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
 
-Note that for intel GPUs, Vulkan drivers are not installed by default, you must also install
+Note that for Intel GPUs, Vulkan drivers are not installed by default, you must also install
 the `vulkan-intel` for bevy to work.
 
 ## Void
