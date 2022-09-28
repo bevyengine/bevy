@@ -65,6 +65,7 @@ mod tests {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
         any::TypeId,
+        marker::PhantomData,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc, Mutex,
@@ -77,6 +78,9 @@ mod tests {
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
+
+    #[derive(Default)]
+    struct NonSendA(usize, PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -1260,6 +1264,38 @@ mod tests {
             assert!(!world.contains_resource::<A>());
         });
         assert_eq!(world.resource::<A>().0, 1);
+    }
+
+    #[test]
+    fn non_send_resource_scope() {
+        let mut world = World::default();
+        world.insert_non_send_resource(NonSendA::default());
+        world.resource_scope(|world: &mut World, mut value: Mut<NonSendA>| {
+            value.0 += 1;
+            assert!(!world.contains_resource::<NonSendA>());
+        });
+        assert_eq!(world.non_send_resource::<NonSendA>().0, 1);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSendA off of the main thread"
+    )]
+    fn non_send_resource_scope_from_different_thread() {
+        let mut world = World::default();
+        world.insert_non_send_resource(NonSendA::default());
+
+        let thread = std::thread::spawn(move || {
+            // Accessing the non-send resource on a different thread
+            // Should result in a panic
+            world.resource_scope(|_: &mut World, mut value: Mut<NonSendA>| {
+                value.0 += 1;
+            });
+        });
+
+        if let Err(err) = thread.join() {
+            std::panic::resume_unwind(err);
+        }
     }
 
     #[test]
