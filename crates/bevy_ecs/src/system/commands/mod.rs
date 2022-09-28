@@ -565,6 +565,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Adds a [`Bundle`] of components to the entity.
     ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
     /// # Example
     ///
     /// ```
@@ -686,6 +690,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// See [`World::despawn`] for more details.
     ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
     /// # Example
     ///
     /// ```
@@ -710,6 +718,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 
     /// Logs the components of the entity at the info level.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
     pub fn log_components(&mut self) {
         self.commands.add(LogComponents {
             entity: self.entity,
