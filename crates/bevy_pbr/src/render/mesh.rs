@@ -13,6 +13,7 @@ use bevy_math::{Mat3A, Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, Mesh, MeshVertexBufferLayout,
@@ -383,6 +384,16 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                BindGroupLayoutEntry {
+                    binding: 9,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
+                    },
+                    count: None,
+                },
             ],
             label: Some("mesh_view_layout"),
         });
@@ -469,6 +480,7 @@ impl FromWorld for MeshPipeline {
                 ),
             }
         };
+
         MeshPipeline {
             view_layout,
             mesh_layout,
@@ -764,11 +776,13 @@ pub fn queue_mesh_view_bind_groups(
     global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+    globals_buffer: Res<GlobalsBuffer>,
 ) {
-    if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
+    if let (Some(view_binding), Some(light_binding), Some(point_light_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
+        globals_buffer.buffer.binding(),
     ) {
         for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -814,6 +828,10 @@ pub fn queue_mesh_view_bind_groups(
                     BindGroupEntry {
                         binding: 8,
                         resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
+                    },
+                    BindGroupEntry {
+                        binding: 9,
+                        resource: globals.clone(),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),
