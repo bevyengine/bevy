@@ -45,7 +45,7 @@ fn setup(
         ..default()
     });
     // transparent unlit sphere, uses `alpha_mode: Mask(f32)`
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Icosphere {
             radius: 0.5,
             subdivisions: 3,
