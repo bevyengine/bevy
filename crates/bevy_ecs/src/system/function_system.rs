@@ -27,7 +27,7 @@ pub struct SystemMeta {
 }
 
 impl SystemMeta {
-    fn new<T>() -> Self {
+    pub(crate) fn new<T>() -> Self {
         Self {
             name: std::any::type_name::<T>().into(),
             archetype_component_access: Access::default(),
@@ -112,8 +112,8 @@ impl SystemMeta {
 ///
 /// struct MyEvent;
 /// #[derive(Resource)]
-/// struct CachedSystemState<'w, 's>{
-///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
+/// struct CachedSystemState {
+///    event_state: SystemState<EventReader<'static, 'static, MyEvent>>
 /// }
 ///
 /// // Create and store a system state once
@@ -133,7 +133,7 @@ impl SystemMeta {
 ///     };
 /// });
 /// ```
-pub struct SystemState<Param: SystemParam> {
+pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
     world_id: WorldId,
@@ -388,6 +388,11 @@ where
     }
 
     #[inline]
+    fn is_exclusive(&self) -> bool {
+        false
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
@@ -459,7 +464,7 @@ where
 }
 
 /// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
-pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
+pub struct SystemTypeIdLabel<T: 'static>(pub(crate) PhantomData<fn() -> T>);
 
 impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
     #[inline]

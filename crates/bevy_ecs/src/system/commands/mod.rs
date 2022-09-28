@@ -40,7 +40,7 @@ use super::Resource;
 ///     commands.add(AddToCounter(42));
 /// }
 /// ```
-pub trait Command: Send + Sync + 'static {
+pub trait Command: Send + 'static {
     fn write(self, world: &mut World);
 }
 

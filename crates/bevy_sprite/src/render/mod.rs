@@ -31,7 +31,6 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
-use copyless::VecHelper;
 use fixedbitset::FixedBitSet;
 
 #[derive(Resource)]
@@ -253,7 +252,7 @@ pub fn extract_sprites(
             continue;
         }
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-        extracted_sprites.sprites.alloc().init(ExtractedSprite {
+        extracted_sprites.sprites.push(ExtractedSprite {
             entity,
             color: sprite.color,
             transform: *transform,
@@ -272,7 +271,7 @@ pub fn extract_sprites(
         }
         if let Some(texture_atlas) = texture_atlases.get(texture_atlas_handle) {
             let rect = Some(texture_atlas.textures[atlas_sprite.index as usize]);
-            extracted_sprites.sprites.alloc().init(ExtractedSprite {
+            extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
                 color: atlas_sprite.color,
                 transform: *transform,
