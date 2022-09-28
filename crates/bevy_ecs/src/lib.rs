@@ -80,7 +80,7 @@ mod tests {
     struct C;
 
     #[derive(Default)]
-    struct NonSend(usize, PhantomData<*mut ()>);
+    struct NonSendA(usize, PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -1269,26 +1269,26 @@ mod tests {
     #[test]
     fn non_send_resource_scope() {
         let mut world = World::default();
-        world.insert_non_send_resource(NonSend::default());
-        world.resource_scope(|world: &mut World, mut value: Mut<NonSend>| {
+        world.insert_non_send_resource(NonSendA::default());
+        world.resource_scope(|world: &mut World, mut value: Mut<NonSendA>| {
             value.0 += 1;
-            assert!(!world.contains_resource::<NonSend>());
+            assert!(!world.contains_resource::<NonSendA>());
         });
-        assert_eq!(world.non_send_resource::<NonSend>().0, 1);
+        assert_eq!(world.non_send_resource::<NonSendA>().0, 1);
     }
 
     #[test]
     #[should_panic(
-        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSend off of the main thread"
+        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSendA off of the main thread"
     )]
     fn non_send_resource_scope_from_different_thread() {
         let mut world = World::default();
-        world.insert_non_send_resource(NonSend::default());
+        world.insert_non_send_resource(NonSendA::default());
 
         let thread = std::thread::spawn(move || {
             // Accessing the non-send resource on a different thread
             // Should result in a panic
-            world.resource_scope(|_: &mut World, mut value: Mut<NonSend>| {
+            world.resource_scope(|_: &mut World, mut value: Mut<NonSendA>| {
                 value.0 += 1;
             });
         });
