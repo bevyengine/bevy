@@ -23,9 +23,10 @@ impl FrameTimeDiagnosticsPlugin {
         DiagnosticId::from_u128(73441630925388532774622109383099159699);
 
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
-        diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20).with_suffix("ms"));
-        diagnostics.add(Diagnostic::new(Self::FPS, "fps", 20));
-        diagnostics.add(Diagnostic::new(Self::FRAME_COUNT, "frame_count", 1));
+        diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20, 6).with_suffix("ms")); // TODO: let user pick num_of_decimals
+        diagnostics.add(Diagnostic::new(Self::FPS, "fps", 20, 6)); // TODO: let user pick num_of_decimals
+        diagnostics.add(Diagnostic::new(Self::FRAME_COUNT, "frame_count", 1, 6));
+        // TODO: let user pick num_of_decimals
     }
 
     pub fn diagnostic_system(

@@ -19,7 +19,8 @@ impl EntityCountDiagnosticsPlugin {
         DiagnosticId::from_u128(187513512115068938494459732780662867798);
 
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
-        diagnostics.add(Diagnostic::new(Self::ENTITY_COUNT, "entity_count", 20));
+        diagnostics.add(Diagnostic::new(Self::ENTITY_COUNT, "entity_count", 20, 6));
+        // TODO: let user pick num_of_decimals
     }
 
     pub fn diagnostic_system(mut diagnostics: ResMut<Diagnostics>, entities: &Entities) {

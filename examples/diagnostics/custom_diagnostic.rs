@@ -28,6 +28,7 @@ fn setup_diagnostic_system(mut diagnostics: ResMut<Diagnostics>) {
         SYSTEM_ITERATION_COUNT,
         "system_iteration_count",
         10,
+        6, // TODO: let user pick num_of_decimals
     ));
 }
 
