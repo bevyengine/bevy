@@ -271,11 +271,11 @@ pub fn flex_node_system(
     }
 
     // update and remove children
-    for (entity, children) in &children_query {
-        flex_surface.update_children(entity, children);
-    }
     for entity in &removed_children {
         flex_surface.try_remove_children(entity);
+    }
+    for (entity, children) in &children_query {
+        flex_surface.update_children(entity, children);
     }
 
     // compute layouts
