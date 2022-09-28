@@ -165,7 +165,7 @@ pub fn prepare_windows(
     for window in windows
         .windows
         .values_mut()
-        .filter(|x| x.raw_window_handle.is_some())
+        .filter(|x| x.raw_window_handle.is_some()) // only None if synthetic test
     {
         let window_surfaces = window_surfaces.deref_mut();
         let surface = window_surfaces
