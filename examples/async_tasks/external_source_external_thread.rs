@@ -46,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // This system reads from the receiver and sends events to Bevy
-fn read_stream(receiver: ResMut<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
+fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
     for from_stream in receiver.try_iter() {
         events.send(StreamEvent(from_stream));
     }
