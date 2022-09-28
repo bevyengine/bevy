@@ -166,7 +166,7 @@ impl ParallelExecutor {
     /// queues systems with no dependencies to run (or skip) at next opportunity.
     fn prepare_systems<'scope>(
         &mut self,
-        scope: &mut Scope<'scope, ()>,
+        scope: &Scope<'_, 'scope, ()>,
         systems: &'scope mut [SystemContainer],
         world: &'scope World,
     ) {
@@ -236,7 +236,7 @@ impl ParallelExecutor {
                 if system_data.is_send {
                     scope.spawn(task);
                 } else {
-                    scope.spawn_local(task);
+                    scope.spawn_on_scope(task);
                 }
 
                 #[cfg(test)]
@@ -271,7 +271,7 @@ impl ParallelExecutor {
                 if system_data.is_send {
                     scope.spawn(task);
                 } else {
-                    scope.spawn_local(task);
+                    scope.spawn_on_scope(task);
                 }
             }
         }

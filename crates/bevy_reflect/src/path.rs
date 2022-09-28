@@ -1,6 +1,6 @@
 use std::num::ParseIntError;
 
-use crate::{Reflect, ReflectMut, ReflectRef};
+use crate::{Array, Reflect, ReflectMut, ReflectRef};
 use thiserror::Error;
 
 /// An error returned from a failed path string query.
@@ -122,14 +122,10 @@ impl GetPath for dyn Reflect {
                     if let Some(Token::Ident(value)) = next_token(path, &mut index) {
                         match current.reflect_ref() {
                             ReflectRef::List(reflect_list) => {
-                                let list_index = value.parse::<usize>()?;
-                                let list_item = reflect_list.get(list_index).ok_or(
-                                    ReflectPathError::InvalidListIndex {
-                                        index: current_index,
-                                        list_index,
-                                    },
-                                )?;
-                                current = list_item;
+                                current = read_array_entry(reflect_list, value, current_index)?;
+                            }
+                            ReflectRef::Array(reflect_arr) => {
+                                current = read_array_entry(reflect_arr, value, current_index)?;
                             }
                             _ => {
                                 return Err(ReflectPathError::ExpectedList {
@@ -188,14 +184,10 @@ impl GetPath for dyn Reflect {
                     if let Some(Token::Ident(value)) = next_token(path, &mut index) {
                         match current.reflect_mut() {
                             ReflectMut::List(reflect_list) => {
-                                let list_index = value.parse::<usize>()?;
-                                let list_item = reflect_list.get_mut(list_index).ok_or(
-                                    ReflectPathError::InvalidListIndex {
-                                        index: current_index,
-                                        list_index,
-                                    },
-                                )?;
-                                current = list_item;
+                                current = read_array_entry_mut(reflect_list, value, current_index)?;
+                            }
+                            ReflectMut::Array(reflect_arr) => {
+                                current = read_array_entry_mut(reflect_arr, value, current_index)?;
                             }
                             _ => {
                                 return Err(ReflectPathError::ExpectedStruct {
@@ -231,6 +223,38 @@ impl GetPath for dyn Reflect {
 
         Ok(current)
     }
+}
+
+fn read_array_entry<'r, 'p, T>(
+    list: &'r T,
+    value: &'p str,
+    current_index: usize,
+) -> Result<&'r dyn Reflect, ReflectPathError<'p>>
+where
+    T: Array + ?Sized,
+{
+    let list_index = value.parse::<usize>()?;
+    list.get(list_index)
+        .ok_or(ReflectPathError::InvalidListIndex {
+            index: current_index,
+            list_index,
+        })
+}
+
+fn read_array_entry_mut<'r, 'p, T>(
+    list: &'r mut T,
+    value: &'p str,
+    current_index: usize,
+) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>
+where
+    T: Array + ?Sized,
+{
+    let list_index = value.parse::<usize>()?;
+    list.get_mut(list_index)
+        .ok_or(ReflectPathError::InvalidListIndex {
+            index: current_index,
+            list_index,
+        })
 }
 
 fn read_field<'r, 'p>(
@@ -341,6 +365,49 @@ mod tests {
     use super::GetPath;
     use crate as bevy_reflect;
     use crate::*;
+
+    #[test]
+    fn reflect_array_behaves_like_list() {
+        #[derive(Reflect)]
+        struct A {
+            list: Vec<u8>,
+            array: [u8; 10],
+        }
+
+        let a = A {
+            list: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            array: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        };
+
+        assert_eq!(*a.get_path::<u8>("list[5]").unwrap(), 5);
+        assert_eq!(*a.get_path::<u8>("array[5]").unwrap(), 5);
+        assert_eq!(*a.get_path::<u8>("list[0]").unwrap(), 0);
+        assert_eq!(*a.get_path::<u8>("array[0]").unwrap(), 0);
+    }
+
+    #[test]
+    fn reflect_array_behaves_like_list_mut() {
+        #[derive(Reflect)]
+        struct A {
+            list: Vec<u8>,
+            array: [u8; 10],
+        }
+
+        let mut a = A {
+            list: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            array: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        };
+
+        assert_eq!(*a.get_path_mut::<u8>("list[5]").unwrap(), 5);
+        assert_eq!(*a.get_path_mut::<u8>("array[5]").unwrap(), 5);
+
+        *a.get_path_mut::<u8>("list[5]").unwrap() = 10;
+        *a.get_path_mut::<u8>("array[5]").unwrap() = 10;
+
+        assert_eq!(*a.get_path_mut::<u8>("list[5]").unwrap(), 10);
+        assert_eq!(*a.get_path_mut::<u8>("array[5]").unwrap(), 10);
+    }
+
     #[test]
     fn reflect_path() {
         #[derive(Reflect)]
