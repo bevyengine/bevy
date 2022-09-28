@@ -39,14 +39,14 @@ impl Plugin for WindowRenderPlugin {
 }
 
 pub struct ExtractedWindow {
-    id: WindowId,
-    raw_window_handle: Option<RawWindowHandleWrapper>,
-    physical_width: u32,
-    physical_height: u32,
-    present_mode: PresentMode,
+    pub id: WindowId,
+    pub raw_window_handle: Option<RawWindowHandleWrapper>,
+    pub physical_width: u32,
+    pub physical_height: u32,
+    pub present_mode: PresentMode,
     pub swap_chain_texture: Option<TextureView>,
-    size_changed: bool,
-    present_mode_changed: bool,
+    pub size_changed: bool,
+    pub present_mode_changed: bool,
 }
 
 #[derive(Default, Resource)]
