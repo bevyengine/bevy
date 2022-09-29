@@ -490,6 +490,10 @@ impl GamepadSettings {
 /// + `press_threshold` is the button input value above which the button is considered pressed.
 /// + `release_threshold` is the button input value below which the button is considered released.
 ///
+/// It is used inside of [`GamepadSettings`] to define the threshold for a gamepad button
+/// to be considered pressed or released.  A button is considered pressed if the `press_threshold`
+/// value is surpassed and released if the `release_threshold` value is undercut.
+///
 /// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
 #[derive(Debug, Clone)]
 pub struct ButtonSettings {
