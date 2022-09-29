@@ -4,7 +4,7 @@ use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::{tracing::info, HashMap, HashSet};
 use thiserror::Error;
 
-/// Errors that occur when setting settings for gamepad input
+/// Errors that occur when setting settings for gamepad input.
 #[derive(Error, Debug)]
 pub enum GamepadSettingsError {
     #[error("{0}")]
