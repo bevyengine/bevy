@@ -298,8 +298,7 @@ fn spawn_bonus(
     mut game: ResMut<Game>,
 ) {
     // make sure we wait enough time before spawning the next cake
-    timer.0.tick(time.delta());
-    if !timer.0.finished() {
+    if !timer.0.tick(time.delta()).finished() {
         return;
     }
 
