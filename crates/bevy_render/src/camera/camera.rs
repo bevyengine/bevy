@@ -268,7 +268,7 @@ impl Camera {
     /// To get the world space coordinates with the viewport position,
     /// you should use [`world_to_viewport`](Self::world_to_viewport).
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
-        // Build a transform to convert from NDC to world using camera data
+        // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
             camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
 
