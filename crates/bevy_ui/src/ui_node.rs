@@ -8,6 +8,7 @@ use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
+use bevy_utils::tracing::warn;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
@@ -119,6 +120,83 @@ impl DivAssign<f32> for Val {
             Val::Undefined | Val::Auto => {}
             Val::Px(value) | Val::Percent(value) => *value /= rhs,
         }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum ValArithmeticError {
+    NonIdenticalVariants,
+    NonEvaluateable,
+}
+
+impl Val {
+    /// Tries to add the values of two [`Val`]s.
+    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
+    /// When adding non-numeric [`Val`]s, it returns the value unchanged.
+    pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
+        match (self, rhs) {
+            (Val::Undefined, Val::Undefined) => {
+                warn!("Adding to Val::Undefined is a redundant operation");
+                Ok(*self)
+            }
+            (Val::Auto, Val::Auto) => {
+                warn!("Adding to Val::Auto is a redundant operation");
+                Ok(*self)
+            }
+            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
+            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
+            _ => Err(ValArithmeticError::NonIdenticalVariants),
+        }
+    }
+
+    /// Tries to subtract the values of two [`Val`]s.
+    /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
+    /// When adding non-numeric [`Val`]s, it returns the value unchanged.
+    pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
+        match (self, rhs) {
+            (Val::Undefined, Val::Undefined) => {
+                warn!("Subtracting from Val::Undefined is a redundant operation");
+                Ok(*self)
+            }
+            (Val::Auto, Val::Auto) => {
+                warn!("Subtracting from Val::Auto is a redundant operation");
+                Ok(*self)
+            }
+            (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
+            (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
+            _ => Err(ValArithmeticError::NonIdenticalVariants),
+        }
+    }
+
+    /// A convenience function for simple evaluation of [`Val::Percent`] variant into a concrete [`Val::Px`] value.
+    /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to evaluate into [`Val::Px`].
+    /// Otherwise it returns a [`Val::Px`] containing the evaluated value.
+    /// 
+    /// **Note:** If a [`Val::Px`] value is evaluated, it's returned unchanged.
+    pub fn evaluate(&self, size: f32) -> Result<Val, ValArithmeticError> {
+        match self {
+            Val::Percent(value) => Ok(Val::Px(size * value / 100.0)),
+            Val::Px(_) => Ok(*self),
+            _ => Err(ValArithmeticError::NonEvaluateable),
+        }
+    }
+
+    /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
+    /// Both values have to be evaluatable (numeric).
+    pub fn try_add_with_size(&self, rhs: Val, size: f32) -> Result<Val, ValArithmeticError> {
+        let lhs = self.evaluate(size)?;
+        let rhs = rhs.evaluate(size)?;
+
+        lhs.try_add(rhs)
+    }
+
+    /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
+    /// Both values have to be evaluatable (numeric).
+    pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<Val, ValArithmeticError> {
+        let lhs = self.evaluate(size)?;
+        let rhs = rhs.evaluate(size)?;
+
+        lhs.try_sub(rhs)
     }
 }
 
@@ -412,4 +490,122 @@ impl From<Handle<Image>> for UiImage {
 pub struct CalculatedClip {
     /// The rect of the clip
     pub clip: Rect,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ValArithmeticError;
+
+    use super::Val;
+
+    #[test]
+    fn val_try_add() {
+        let undefined_sum = Val::Undefined.try_add(Val::Undefined).unwrap();
+        let auto_sum = Val::Auto.try_add(Val::Auto).unwrap();
+        let px_sum = Val::Px(20.).try_add(Val::Px(22.)).unwrap();
+        let percent_sum = Val::Percent(50.).try_add(Val::Percent(50.)).unwrap();
+
+        assert_eq!(undefined_sum, Val::Undefined);
+        assert_eq!(auto_sum, Val::Auto);
+        assert_eq!(px_sum, Val::Px(42.));
+        assert_eq!(percent_sum, Val::Percent(100.));
+    }
+
+    #[test]
+    fn val_try_sub() {
+        let undefined_sum = Val::Undefined.try_sub(Val::Undefined).unwrap();
+        let auto_sum = Val::Auto.try_sub(Val::Auto).unwrap();
+        let px_sum = Val::Px(72.).try_sub(Val::Px(30.)).unwrap();
+        let percent_sum = Val::Percent(100.).try_sub(Val::Percent(50.)).unwrap();
+
+        assert_eq!(undefined_sum, Val::Undefined);
+        assert_eq!(auto_sum, Val::Auto);
+        assert_eq!(px_sum, Val::Px(42.));
+        assert_eq!(percent_sum, Val::Percent(50.));
+    }
+
+    #[test]
+    fn different_variant_val_try_add() {
+        let different_variant_sum_1 = Val::Undefined.try_add(Val::Auto);
+        let different_variant_sum_2 = Val::Px(50.).try_add(Val::Percent(50.));
+        let different_variant_sum_3 = Val::Percent(50.).try_add(Val::Undefined);
+
+        assert_eq!(different_variant_sum_1, Err(ValArithmeticError::NonIdenticalVariants));
+        assert_eq!(different_variant_sum_2, Err(ValArithmeticError::NonIdenticalVariants));
+        assert_eq!(different_variant_sum_3, Err(ValArithmeticError::NonIdenticalVariants));
+    }
+
+    #[test]
+    fn different_variant_val_try_sub() {
+        let different_variant_diff_1 = Val::Undefined.try_sub(Val::Auto);
+        let different_variant_diff_2 = Val::Px(50.).try_sub(Val::Percent(50.));
+        let different_variant_diff_3 = Val::Percent(50.).try_sub(Val::Undefined);
+
+        assert_eq!(different_variant_diff_1, Err(ValArithmeticError::NonIdenticalVariants));
+        assert_eq!(different_variant_diff_2, Err(ValArithmeticError::NonIdenticalVariants));
+        assert_eq!(different_variant_diff_3, Err(ValArithmeticError::NonIdenticalVariants));
+    }
+
+    #[test]
+    fn val_evaluate() {
+        let size = 250.;
+        let result = Val::Percent(80.).evaluate(size).unwrap();
+
+        assert_eq!(result, Val::Px(size * 0.8));
+    }
+
+    #[test]
+    fn val_evaluate_px() {
+        let size = 250.;
+        let result = Val::Px(10.).evaluate(size).unwrap();
+
+        assert_eq!(result, Val::Px(10.));
+    }
+
+    #[test]
+    fn val_invalid_evaluation() {
+        let size = 250.;
+        let evaluate_undefined = Val::Undefined.evaluate(size);
+        let evaluate_auto = Val::Auto.evaluate(size);
+
+        assert_eq!(evaluate_undefined, Err(ValArithmeticError::NonEvaluateable));
+        assert_eq!(evaluate_auto, Err(ValArithmeticError::NonEvaluateable));
+    }
+
+    #[test]
+    fn val_try_add_with_size() {
+        let size = 250.;
+
+        let px_sum = Val::Px(21.).try_add_with_size(Val::Px(21.), size).unwrap();
+        let percent_sum = Val::Percent(20.).try_add_with_size(Val::Percent(30.), size).unwrap();
+        let mixed_sum = Val::Px(20.).try_add_with_size(Val::Percent(30.), size).unwrap();
+
+        assert_eq!(px_sum, Val::Px(42.));
+        assert_eq!(percent_sum, Val::Px(0.5 * size));
+        assert_eq!(mixed_sum, Val::Px(20. + 0.3 * size));
+    }
+
+    #[test]
+    fn val_try_sub_with_size() {
+        let size = 250.;
+
+        let px_sum = Val::Px(60.).try_sub_with_size(Val::Px(18.), size).unwrap();
+        let percent_sum = Val::Percent(80.).try_sub_with_size(Val::Percent(30.), size).unwrap();
+        let mixed_sum = Val::Percent(50.).try_sub_with_size(Val::Px(30.), size).unwrap();
+
+        assert_eq!(px_sum, Val::Px(42.));
+        assert_eq!(percent_sum, Val::Px(0.5 * size));
+        assert_eq!(mixed_sum, Val::Px(0.5 * size - 30.));
+    }
+
+    #[test]
+    fn val_try_add_non_numeric_with_size() {
+        let size = 250.;
+
+        let undefined_sum = Val::Undefined.try_add_with_size(Val::Undefined, size);
+        let percent_sum = Val::Auto.try_add_with_size(Val::Auto, size);
+
+        assert_eq!(undefined_sum, Err(ValArithmeticError::NonEvaluateable));
+        assert_eq!(percent_sum, Err(ValArithmeticError::NonEvaluateable));
+    }
 }
