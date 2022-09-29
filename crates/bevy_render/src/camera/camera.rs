@@ -242,8 +242,8 @@ impl Camera {
     ///
     /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
     /// and between 0.0 and 1.0 on the Z axis.
-    /// To get the coordinates in the render target's viewport dimensions,
-    /// you should use [`world_to_viewport`](Self::world_to_viewport).
+    /// To get the coordinates in the render target's viewport dimensions, you should use
+    /// [`world_to_viewport`](Self::world_to_viewport).
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
@@ -266,8 +266,8 @@ impl Camera {
     ///
     /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
     /// and between 0.0 and 1.0 on the Z axis.
-    /// To get the world space coordinates with the viewport position,
-    /// you should use [`world_to_viewport`](Self::world_to_viewport).
+    /// To get the world space coordinates with the viewport position, you should use
+    /// [`world_to_viewport`](Self::world_to_viewport).
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
