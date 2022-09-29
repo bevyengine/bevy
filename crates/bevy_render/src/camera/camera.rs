@@ -193,8 +193,8 @@ impl Camera {
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
     ///
-    /// To get the coordinates in Normalized Device Coordinates,
-    /// you should use [`world_to_ndc`](Self::world_to_ndc).
+    /// To get the coordinates in Normalized Device Coordinates, you should use
+    /// [`world_to_ndc`](Self::world_to_ndc).
     #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
@@ -218,8 +218,8 @@ impl Camera {
     ///
     /// If the camera's projection is orthographic the direction of the ray is always equal to `camera_transform.forward()`.
     ///
-    /// To get the world space coordinates with Normalized Device Coordinates,
-    /// you should use [`ndc_to_world`](Self::ndc_to_world).
+    /// To get the world space coordinates with Normalized Device Coordinates, you should use
+    /// [`ndc_to_world`](Self::ndc_to_world).
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
