@@ -10,7 +10,7 @@ use bevy_render::{
 };
 use bevy_utils::tracing::warn;
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Clone, Default, Reflect)]
@@ -33,50 +33,6 @@ pub enum Val {
     Px(f32),
     /// Set this value in percent
     Percent(f32),
-}
-
-impl Add<f32> for Val {
-    type Output = Val;
-
-    fn add(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Undefined => Val::Undefined,
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value + rhs),
-            Val::Percent(value) => Val::Percent(value + rhs),
-        }
-    }
-}
-
-impl AddAssign<f32> for Val {
-    fn add_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Undefined | Val::Auto => {}
-            Val::Px(value) | Val::Percent(value) => *value += rhs,
-        }
-    }
-}
-
-impl Sub<f32> for Val {
-    type Output = Val;
-
-    fn sub(self, rhs: f32) -> Self::Output {
-        match self {
-            Val::Undefined => Val::Undefined,
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value - rhs),
-            Val::Percent(value) => Val::Percent(value - rhs),
-        }
-    }
-}
-
-impl SubAssign<f32> for Val {
-    fn sub_assign(&mut self, rhs: f32) {
-        match self {
-            Val::Undefined | Val::Auto => {}
-            Val::Px(value) | Val::Percent(value) => *value -= rhs,
-        }
-    }
 }
 
 impl Mul<f32> for Val {
@@ -149,6 +105,11 @@ impl Val {
         }
     }
 
+    pub fn try_add_to_self(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
+        *self = self.try_add(rhs)?;
+        Ok(())
+    }
+
     /// Tries to subtract the values of two [`Val`]s.
     /// Returns [`ValArithmeticError::NonIdenticalVariants`] if two [`Val`]s are of different variants.
     /// When adding non-numeric [`Val`]s, it returns the value unchanged.
@@ -168,10 +129,15 @@ impl Val {
         }
     }
 
+    pub fn try_sub_from_self(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
+        *self = self.try_sub(rhs)?;
+        Ok(())
+    }
+
     /// A convenience function for simple evaluation of [`Val::Percent`] variant into a concrete [`Val::Px`] value.
     /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to evaluate into [`Val::Px`].
     /// Otherwise it returns a [`Val::Px`] containing the evaluated value.
-    /// 
+    ///
     /// **Note:** If a [`Val::Px`] value is evaluated, it's returned unchanged.
     pub fn evaluate(&self, size: f32) -> Result<Val, ValArithmeticError> {
         match self {
@@ -512,6 +478,15 @@ mod tests {
     }
 
     #[test]
+    fn val_try_add_to_self() {
+        let mut val = Val::Px(5.);
+
+        val.try_add_to_self(Val::Px(3.)).unwrap();
+
+        assert_eq!(val, Val::Px(8.));
+    }
+
+    #[test]
     fn val_try_sub() {
         let undefined_sum = Val::Undefined.try_sub(Val::Undefined).unwrap();
         let auto_sum = Val::Auto.try_sub(Val::Auto).unwrap();
@@ -530,9 +505,18 @@ mod tests {
         let different_variant_sum_2 = Val::Px(50.).try_add(Val::Percent(50.));
         let different_variant_sum_3 = Val::Percent(50.).try_add(Val::Undefined);
 
-        assert_eq!(different_variant_sum_1, Err(ValArithmeticError::NonIdenticalVariants));
-        assert_eq!(different_variant_sum_2, Err(ValArithmeticError::NonIdenticalVariants));
-        assert_eq!(different_variant_sum_3, Err(ValArithmeticError::NonIdenticalVariants));
+        assert_eq!(
+            different_variant_sum_1,
+            Err(ValArithmeticError::NonIdenticalVariants)
+        );
+        assert_eq!(
+            different_variant_sum_2,
+            Err(ValArithmeticError::NonIdenticalVariants)
+        );
+        assert_eq!(
+            different_variant_sum_3,
+            Err(ValArithmeticError::NonIdenticalVariants)
+        );
     }
 
     #[test]
@@ -541,9 +525,18 @@ mod tests {
         let different_variant_diff_2 = Val::Px(50.).try_sub(Val::Percent(50.));
         let different_variant_diff_3 = Val::Percent(50.).try_sub(Val::Undefined);
 
-        assert_eq!(different_variant_diff_1, Err(ValArithmeticError::NonIdenticalVariants));
-        assert_eq!(different_variant_diff_2, Err(ValArithmeticError::NonIdenticalVariants));
-        assert_eq!(different_variant_diff_3, Err(ValArithmeticError::NonIdenticalVariants));
+        assert_eq!(
+            different_variant_diff_1,
+            Err(ValArithmeticError::NonIdenticalVariants)
+        );
+        assert_eq!(
+            different_variant_diff_2,
+            Err(ValArithmeticError::NonIdenticalVariants)
+        );
+        assert_eq!(
+            different_variant_diff_3,
+            Err(ValArithmeticError::NonIdenticalVariants)
+        );
     }
 
     #[test]
@@ -577,8 +570,12 @@ mod tests {
         let size = 250.;
 
         let px_sum = Val::Px(21.).try_add_with_size(Val::Px(21.), size).unwrap();
-        let percent_sum = Val::Percent(20.).try_add_with_size(Val::Percent(30.), size).unwrap();
-        let mixed_sum = Val::Px(20.).try_add_with_size(Val::Percent(30.), size).unwrap();
+        let percent_sum = Val::Percent(20.)
+            .try_add_with_size(Val::Percent(30.), size)
+            .unwrap();
+        let mixed_sum = Val::Px(20.)
+            .try_add_with_size(Val::Percent(30.), size)
+            .unwrap();
 
         assert_eq!(px_sum, Val::Px(42.));
         assert_eq!(percent_sum, Val::Px(0.5 * size));
@@ -590,8 +587,12 @@ mod tests {
         let size = 250.;
 
         let px_sum = Val::Px(60.).try_sub_with_size(Val::Px(18.), size).unwrap();
-        let percent_sum = Val::Percent(80.).try_sub_with_size(Val::Percent(30.), size).unwrap();
-        let mixed_sum = Val::Percent(50.).try_sub_with_size(Val::Px(30.), size).unwrap();
+        let percent_sum = Val::Percent(80.)
+            .try_sub_with_size(Val::Percent(30.), size)
+            .unwrap();
+        let mixed_sum = Val::Percent(50.)
+            .try_sub_with_size(Val::Px(30.), size)
+            .unwrap();
 
         assert_eq!(px_sum, Val::Px(42.));
         assert_eq!(percent_sum, Val::Px(0.5 * size));

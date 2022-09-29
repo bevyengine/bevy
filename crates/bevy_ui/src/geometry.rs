@@ -1,5 +1,4 @@
 use crate::Val;
-use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
@@ -356,39 +355,39 @@ impl Size {
     };
 }
 
-impl Add<Vec2> for Size {
+impl Add<(Val, Val)> for Size {
     type Output = Size;
 
-    fn add(self, rhs: Vec2) -> Self::Output {
+    fn add(self, rhs: (Val, Val)) -> Self::Output {
         Self {
-            width: self.width + rhs.x,
-            height: self.height + rhs.y,
+            width: self.width.try_add(rhs.0).unwrap(),
+            height: self.height.try_add(rhs.1).unwrap(),
         }
     }
 }
 
-impl AddAssign<Vec2> for Size {
-    fn add_assign(&mut self, rhs: Vec2) {
-        self.width += rhs.x;
-        self.height += rhs.y;
+impl AddAssign<(Val, Val)> for Size {
+    fn add_assign(&mut self, rhs: (Val, Val)) {
+        self.width.try_add_to_self(rhs.0).unwrap();
+        self.height.try_add_to_self(rhs.1).unwrap();
     }
 }
 
-impl Sub<Vec2> for Size {
+impl Sub<(Val, Val)> for Size {
     type Output = Size;
 
-    fn sub(self, rhs: Vec2) -> Self::Output {
+    fn sub(self, rhs: (Val, Val)) -> Self::Output {
         Self {
-            width: self.width - rhs.x,
-            height: self.height - rhs.y,
+            width: self.width.try_sub(rhs.0).unwrap(),
+            height: self.height.try_sub(rhs.1).unwrap(),
         }
     }
 }
 
-impl SubAssign<Vec2> for Size {
-    fn sub_assign(&mut self, rhs: Vec2) {
-        self.width -= rhs.x;
-        self.height -= rhs.y;
+impl SubAssign<(Val, Val)> for Size {
+    fn sub_assign(&mut self, rhs: (Val, Val)) {
+        self.width.try_sub_from_self(rhs.0).unwrap();
+        self.height.try_sub_from_self(rhs.1).unwrap();
     }
 }
 
@@ -435,24 +434,24 @@ mod tests {
     #[test]
     fn test_size_add() {
         assert_eq!(
-            Size::new(Val::Px(10.), Val::Px(10.)) + Vec2::new(10., 10.),
+            Size::new(Val::Px(10.), Val::Px(10.)) + (Val::Px(10.), Val::Px(10.)),
             Size::new(Val::Px(20.), Val::Px(20.))
         );
 
         let mut size = Size::new(Val::Px(10.), Val::Px(10.));
-        size += Vec2::new(10., 10.);
+        size += (Val::Px(10.), Val::Px(10.));
         assert_eq!(size, Size::new(Val::Px(20.), Val::Px(20.)));
     }
 
     #[test]
     fn test_size_sub() {
         assert_eq!(
-            Size::new(Val::Px(20.), Val::Px(20.)) - Vec2::new(10., 10.),
+            Size::new(Val::Px(20.), Val::Px(20.)) - (Val::Px(10.), Val::Px(10.)),
             Size::new(Val::Px(10.), Val::Px(10.))
         );
 
         let mut size = Size::new(Val::Px(20.), Val::Px(20.));
-        size -= Vec2::new(10., 10.);
+        size -= (Val::Px(10.), Val::Px(10.));
         assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
     }
 
