@@ -229,6 +229,7 @@ impl Camera {
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
         let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
+        // Using EPSILON because passing an ndc with Z = 0 returns NaNs.
         let world_far_plane = self.ndc_to_world(camera_transform, ndc.extend(f32::EPSILON))?;
 
         Some(Ray {
