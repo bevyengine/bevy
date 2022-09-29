@@ -187,6 +187,59 @@ impl WindowResizeConstraints {
 ///     }
 /// }
 /// ```
+/// To test code that uses `Window`s, one can test it with varying `Window` parameters by
+/// creating `WindowResizeConstraints` or `WindowDescriptor` structures.
+/// values by setting
+///
+/// ```no_run
+/// # use bevy_utils::default;
+/// # use bevy_window::{Window, WindowCommand, WindowDescriptor, WindowId, WindowResizeConstraints};
+/// # fn compute_window_area(w: &Window) -> f32 {
+/// #   w.width() * w.height()
+/// # }
+/// # fn grow_window_to_text_size(_window: &mut Window, _text: &str) {}
+/// # fn set_new_title(window: &mut Window, text: String) { window.set_title(text); }
+/// # fn a_window_resize_test() {
+/// let resize_constraints = WindowResizeConstraints {
+///                             min_width: 400.0,
+///                             min_height: 300.0,
+///                             max_width: 1280.0,
+///                             max_height: 1024.0,
+/// };
+/// let window_descriptor = WindowDescriptor {
+///     width: 800.0,
+///     height: 600.0,
+///     resizable: true,
+///     resize_constraints,
+///     ..default()
+/// };
+/// let mut window = Window::new(
+///    WindowId::new(),
+///    &window_descriptor,
+///    100, // physical_width
+///    100, // physical_height
+///    1.0, // scale_factor
+///    None, None);
+///
+/// let area = compute_window_area(&window);
+/// assert_eq!(area, 100.0 * 100.0);
+///
+/// grow_window_to_text_size(&mut window, "very long text that does not wrap");
+/// assert_eq!(window.physical_width(), window.requested_width() as u32);
+/// grow_window_to_text_size(&mut window, "very long text that does wrap, creating a maximum width window");
+/// assert_eq!(window.physical_width(), window.requested_width() as u32);
+///
+/// set_new_title(&mut window, "new title".to_string());
+/// let mut found_command = false;
+/// for command in window.drain_commands() {
+///     if command == (WindowCommand::SetTitle{ title: "new title".to_string() }) {
+///         found_command = true;
+///         break;
+///     }
+/// }
+/// assert_eq!(found_command, true);
+/// }
+/// ```
 #[derive(Debug)]
 pub struct Window {
     id: WindowId,
@@ -217,7 +270,7 @@ pub struct Window {
 ///
 /// Bevy apps don't interact with this `enum` directly. Instead, they should use the methods on [`Window`].
 /// This `enum` is meant for authors of windowing plugins. See the documentation on [`crate::WindowPlugin`] for more information.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum WindowCommand {
     /// Set the window's [`WindowMode`].
