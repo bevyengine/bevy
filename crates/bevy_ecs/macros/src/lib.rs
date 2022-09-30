@@ -161,7 +161,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
             BundleFieldKind::Ignore => {
                 field_from_components.push(quote! {
-                    #field: Default::default(),
+                    #field: ::std::default::Default::default(),
                 });
             }
         }
