@@ -122,9 +122,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         .into_compile_error()
                         .into();
                     }
+                } else {
+                    return syn::Error::new(attr.span(), format!("Invalid bundle attribute. Use `#[{BUNDLE_ATTRIBUTE_NAME}({BUNDLE_ATTRIBUTE_IGNORE_NAME})]`")).into_compile_error().into();
                 }
-
-                return syn::Error::new(attr.span(), format!("Invalid bundle attribute. Use `#[{BUNDLE_ATTRIBUTE_NAME}({BUNDLE_ATTRIBUTE_IGNORE_NAME})]`")).into_compile_error().into();
             }
         }
 
