@@ -101,7 +101,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let mut field_kind = vec![];
+    let mut field_kind = Vec::with_capacity(named_fields.len());
 
     'field_loop: for field in named_fields.iter() {
         for attr in &field.attrs {
