@@ -110,18 +110,18 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         if path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
                             field_kind.push(BundleFieldKind::Ignore);
                             continue 'field_loop;
-                        } else {
-                            return syn::Error::new(
-                                path.span(),
-                                format!(
-                                    "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
-                                ),
-                            )
-                            .into_compile_error()
-                            .into();
                         }
+
+                        return syn::Error::new(
+                            path.span(),
+                            format!(
+                                "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
+                            ),
+                        )
+                        .into_compile_error()
+                        .into();
                     }
-                } else {
+
                     return syn::Error::new(attr.span(), format!("Invalid bundle attribute. Use `#[{BUNDLE_ATTRIBUTE_NAME}({BUNDLE_ATTRIBUTE_IGNORE_NAME})]`")).into_compile_error().into();
                 }
             }
