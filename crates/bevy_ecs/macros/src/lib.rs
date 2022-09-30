@@ -82,14 +82,13 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
     })
 }
 
-#[derive(Eq, PartialEq)]
 enum BundleFieldKind {
     Component,
     Ignore,
 }
 
-static BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
-static BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
+const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
+const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
@@ -120,7 +119,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                             )
                             .into_compile_error()
                             .into();
-                        }    
+                        }
                     }
                 } else {
                     return syn::Error::new(attr.span(), format!("Invalid bundle attribute. Use `#[{BUNDLE_ATTRIBUTE_NAME}({BUNDLE_ATTRIBUTE_IGNORE_NAME})]`")).into_compile_error().into();
