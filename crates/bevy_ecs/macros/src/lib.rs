@@ -113,7 +113,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                             continue 'field_loop;
                         }
 
-                        return syn::Error::new(path.span(), format!("Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`")).into_compile_error().into();
+                        return syn::Error::new(
+                            path.span(),
+                            format!(
+                                "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
+                            ),
+                        )
+                        .into_compile_error()
+                        .into();
                     }
                 }
 
@@ -159,10 +166,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
     }
-    let field_len = field_kind
-        .iter()
-        .filter(|fk| **fk != BundleFieldKind::Ignore)
-        .count();
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;

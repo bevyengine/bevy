@@ -106,7 +106,7 @@ use std::{any::TypeId, collections::HashMap};
 /// struct Other(f32);
 ///
 /// #[derive(Bundle)]
-/// struct NamedPointBundle {
+/// struct NamedPointBundle<T: Send + Sync + 'static> {
 ///     // Or other bundles
 ///     a: PositionBundle,
 ///     // In addition to more components
