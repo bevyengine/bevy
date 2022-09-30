@@ -254,11 +254,7 @@ impl Camera {
             self.computed.projection_matrix * camera_transform.compute_matrix().inverse();
         let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
 
-        if !ndc_space_coords.is_nan() {
-            Some(ndc_space_coords)
-        } else {
-            None
-        }
+        (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
     }
 
     /// Given a position in Normalized Device Coordinates,
@@ -275,11 +271,7 @@ impl Camera {
 
         let world_space_coords = ndc_to_world.project_point3(ndc);
 
-        if !world_space_coords.is_nan() {
-            Some(world_space_coords)
-        } else {
-            None
-        }
+        (!world_space_coords.is_nan()).then_some(world_space_coords)
     }
 }
 
