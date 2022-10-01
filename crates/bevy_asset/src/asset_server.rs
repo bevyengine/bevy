@@ -857,8 +857,7 @@ mod test {
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
             let asset_server = world.resource::<AssetServer>();
-            let id = bevy_tasks::block_on(asset_server.load_async(path.clone(), true))
-                .unwrap();
+            let id = bevy_tasks::block_on(asset_server.load_async(path.clone(), true)).unwrap();
             asset_server.get_handle_untyped(id)
         }
 
