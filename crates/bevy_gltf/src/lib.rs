@@ -7,7 +7,7 @@ pub use loader::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent, system::Resource};
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::mesh::{Mesh, MeshVertexAttribute};
@@ -29,7 +29,7 @@ impl Plugin for GltfPlugin {
 }
 
 /// Holds configuration data for the glTF loader
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct GltfConfiguration {
     custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
