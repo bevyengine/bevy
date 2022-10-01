@@ -21,7 +21,7 @@ fn setup(
             let x01 = (x + 5) as f32 / 10.0;
             let y01 = (y + 2) as f32 / 4.0;
             // sphere
-            commands.spawn_bundle(PbrBundle {
+            commands.spawn(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Icosphere {
                     radius: 0.45,
                     subdivisions: 32,
@@ -39,7 +39,7 @@ fn setup(
         }
     }
     // unlit sphere
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Icosphere {
             radius: 0.45,
             subdivisions: 32,
@@ -54,7 +54,7 @@ fn setup(
         ..default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(50.0, 50.0, 50.0),
         point_light: PointLight {
             intensity: 600000.,
@@ -64,7 +64,7 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
         projection: OrthographicProjection {
             scale: 0.01,

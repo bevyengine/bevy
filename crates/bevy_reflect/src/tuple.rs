@@ -40,6 +40,9 @@ pub trait Tuple: Reflect {
     /// Returns an iterator over the values of the tuple's fields.
     fn iter_fields(&self) -> TupleFieldIter;
 
+    /// Drain the fields of this tuple to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
+
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
 }
@@ -182,7 +185,7 @@ impl TupleInfo {
 }
 
 /// A tuple which allows fields to be added at runtime.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct DynamicTuple {
     name: String,
     fields: Vec<Box<dyn Reflect>>,
@@ -251,6 +254,11 @@ impl Tuple for DynamicTuple {
             tuple: self,
             index: 0,
         }
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.fields
     }
 
     #[inline]
@@ -449,6 +457,13 @@ macro_rules! impl_reflect_tuple {
                     tuple: self,
                     index: 0,
                 }
+            }
+
+            #[inline]
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+                vec![
+                    $(Box::new(self.$index),)*
+                ]
             }
 
             #[inline]

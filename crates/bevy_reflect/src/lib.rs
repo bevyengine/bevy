@@ -15,12 +15,16 @@ mod type_uuid;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
+    #[cfg(feature = "bevy_math")]
+    mod rect;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     mod std;
 
     #[cfg(feature = "glam")]
     pub use self::glam::*;
+    #[cfg(feature = "bevy_math")]
+    pub use self::rect::*;
     #[cfg(feature = "smallvec")]
     pub use self::smallvec::*;
     pub use self::std::*;
@@ -35,7 +39,7 @@ pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
+        reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
         ReflectSerialize, Struct, TupleStruct,
     };
 }
@@ -89,11 +93,11 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::blacklisted_name, clippy::approx_constant)]
+#[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
-    use ::serde::de::DeserializeSeed;
+    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
@@ -104,7 +108,7 @@ mod tests {
     use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer};
+    use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
 
     #[test]
     fn reflect_struct() {
@@ -184,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::blacklisted_name)]
+    #[allow(clippy::disallowed_types)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -451,7 +455,8 @@ mod tests {
             h: [u32; 2],
         }
 
-        #[derive(Reflect)]
+        #[derive(Reflect, Serialize, Deserialize)]
+        #[reflect(Serialize, Deserialize)]
         struct Bar {
             x: u32,
         }
@@ -472,18 +477,23 @@ mod tests {
 
         let mut registry = TypeRegistry::default();
         registry.register::<u32>();
-        registry.register::<isize>();
-        registry.register::<usize>();
-        registry.register::<Bar>();
-        registry.register::<String>();
         registry.register::<i8>();
         registry.register::<i32>();
+        registry.register::<usize>();
+        registry.register::<isize>();
+        registry.register::<Foo>();
+        registry.register::<Bar>();
+        registry.register::<String>();
+        registry.register::<Vec<isize>>();
+        registry.register::<HashMap<usize, i8>>();
+        registry.register::<(i32, Vec<isize>, Bar)>();
+        registry.register::<[u32; 2]>();
 
         let serializer = ReflectSerializer::new(&foo, &registry);
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
 
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
@@ -517,6 +527,29 @@ mod tests {
         let foo2: Box<dyn Reflect> = Box::new(foo.clone());
 
         assert_eq!(foo, *foo2.downcast::<Foo>().unwrap());
+    }
+
+    #[test]
+    fn should_drain_fields() {
+        let array_value: Box<dyn Array> = Box::new([123_i32, 321_i32]);
+        let fields = array_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let list_value: Box<dyn List> = Box::new(vec![123_i32, 321_i32]);
+        let fields = list_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let tuple_value: Box<dyn Tuple> = Box::new((123_i32, 321_i32));
+        let fields = tuple_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
+        let fields = map_value.drain();
+        assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());
     }
 
     #[test]
@@ -929,23 +962,38 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let result = ron::to_string(&ser).expect("Failed to serialize to string");
+            let config = PrettyConfig::default()
+                .new_line(String::from("\n"))
+                .indentor(String::from("    "));
+            let output = to_string_pretty(&ser, config).unwrap();
+            let expected = r#"
+{
+    "glam::f32::vec3::Vec3": (
+        x: 12.0,
+        y: 3.0,
+        z: -6.9,
+    ),
+}"#;
 
-            assert_eq!(
-                result,
-                r#"{"type":"glam::f32::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
-            );
+            assert_eq!(expected, format!("\n{}", output));
         }
 
         #[test]
         fn vec3_deserialization() {
-            let data = r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#;
+            let data = r#"
+{
+    "glam::f32::vec3::Vec3": (
+        x: 12.0,
+        y: 3.0,
+        z: -6.9,
+    ),
+}"#;
 
             let mut registry = TypeRegistry::default();
             registry.add_registration(Vec3::get_type_registration());
             registry.add_registration(f32::get_type_registration());
 
-            let de = ReflectDeserializer::new(&registry);
+            let de = UntypedReflectDeserializer::new(&registry);
 
             let mut deserializer =
                 ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");

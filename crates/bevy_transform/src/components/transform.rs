@@ -26,35 +26,51 @@ use std::ops::Mul;
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+///
+/// # Examples
+///
+/// - [`transform`]
+/// - [`global_vs_local_translation`]
+///
+/// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
+/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Component, Default, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
+    ///
+    /// See the [`translations`] example for usage.
+    ///
+    /// [`translations`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/translation.rs
     pub translation: Vec3,
     /// Rotation of the entity.
+    ///
+    /// See the [`3d_rotation`] example for usage.
+    ///
+    /// [`3d_rotation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs
     pub rotation: Quat,
     /// Scale of the entity.
+    ///
+    /// See the [`scale`] example for usage.
+    ///
+    /// [`scale`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/scale.rs
     pub scale: Vec3,
 }
 
 impl Transform {
+    /// An identity [`Transform`] with no translation, rotation, and a scale of 1 on all axes.
+    pub const IDENTITY: Self = Transform {
+        translation: Vec3::ZERO,
+        rotation: Quat::IDENTITY,
+        scale: Vec3::ONE,
+    };
+
     /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
     #[inline]
     pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Self::from_translation(Vec3::new(x, y, z))
-    }
-
-    /// Creates a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
-    /// all axes.
-    #[inline]
-    pub const fn identity() -> Self {
-        Transform {
-            translation: Vec3::ZERO,
-            rotation: Quat::IDENTITY,
-            scale: Vec3::ONE,
-        }
     }
 
     /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
@@ -76,7 +92,7 @@ impl Transform {
     pub const fn from_translation(translation: Vec3) -> Self {
         Transform {
             translation,
-            ..Self::identity()
+            ..Self::IDENTITY
         }
     }
 
@@ -86,7 +102,7 @@ impl Transform {
     pub const fn from_rotation(rotation: Quat) -> Self {
         Transform {
             rotation,
-            ..Self::identity()
+            ..Self::IDENTITY
         }
     }
 
@@ -96,7 +112,7 @@ impl Transform {
     pub const fn from_scale(scale: Vec3) -> Self {
         Transform {
             scale,
-            ..Self::identity()
+            ..Self::IDENTITY
         }
     }
 
@@ -205,6 +221,12 @@ impl Transform {
     /// Rotates this [`Transform`] by the given rotation.
     ///
     /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
+    ///
+    /// # Examples
+    ///
+    /// - [`3d_rotation`]
+    ///
+    /// [`3d_rotation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation = rotation * self.rotation;
@@ -335,7 +357,7 @@ impl Transform {
 
 impl Default for Transform {
     fn default() -> Self {
-        Self::identity()
+        Self::IDENTITY
     }
 }
 

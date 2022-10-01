@@ -1,6 +1,6 @@
 use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::{tracing::info, HashMap, HashSet};
 
 /// A gamepad with an associated `ID`.
@@ -39,7 +39,7 @@ impl Gamepad {
 /// The [`Gamepad`]s are registered and deregistered in the [`gamepad_connection_system`]
 /// whenever a [`GamepadEventType::Connected`] or [`GamepadEventType::Disconnected`]
 /// event is received.
-#[derive(Default, Debug)]
+#[derive(Resource, Default, Debug)]
 pub struct Gamepads {
     /// The collection of the connected [`Gamepad`]s.
     gamepads: HashSet<Gamepad>,
@@ -47,28 +47,28 @@ pub struct Gamepads {
 
 impl Gamepads {
     /// Returns `true` if the `gamepad` is connected.
-    pub fn contains(&self, gamepad: &Gamepad) -> bool {
-        self.gamepads.contains(gamepad)
+    pub fn contains(&self, gamepad: Gamepad) -> bool {
+        self.gamepads.contains(&gamepad)
     }
 
-    /// An iterator visiting all connected [`Gamepad`]s in arbitrary order.
-    pub fn iter(&self) -> impl Iterator<Item = &Gamepad> + '_ {
-        self.gamepads.iter()
+    /// Returns an iterator over registered [`Gamepad`]s in an arbitrary order.
+    pub fn iter(&self) -> impl Iterator<Item = Gamepad> + '_ {
+        self.gamepads.iter().copied()
     }
 
-    /// Registers the `gamepad` marking it as connected.
+    /// Registers the `gamepad`, marking it as connected.
     fn register(&mut self, gamepad: Gamepad) {
         self.gamepads.insert(gamepad);
     }
 
-    /// Deregisters the `gamepad` marking it as disconnected.
-    fn deregister(&mut self, gamepad: &Gamepad) {
-        self.gamepads.remove(gamepad);
+    /// Deregisters the `gamepad`, marking it as disconnected.
+    fn deregister(&mut self, gamepad: Gamepad) {
+        self.gamepads.remove(&gamepad);
     }
 }
 
 /// The data contained in a [`GamepadEvent`] or [`GamepadEventRaw`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadEventType {
     /// A [`Gamepad`] has been connected.
@@ -101,7 +101,7 @@ pub enum GamepadEventType {
 /// [`Axis<GamepadAxis>`], and [`Axis<GamepadButton>`] resources won't be updated correctly.
 ///
 /// An example for gamepad input mocking can be seen in the documentation of the [`GamepadEventRaw`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEvent {
     /// The gamepad this event corresponds to.
@@ -144,18 +144,19 @@ impl GamepadEvent {
 /// # use bevy_input::gamepad::GamepadEventRaw;
 /// # use bevy_app::prelude::*;
 /// # use bevy_ecs::prelude::*;
-/// #
-/// // This system sets the `bool` resource to `true` if the `South` button
-/// // of the first gamepad is pressed.
+/// #[derive(Resource)]
+/// struct MyResource(bool);
+///
+/// // This system sets the bool inside `MyResource` to `true` if the `South` button of the first gamepad is pressed.
 /// fn change_resource_on_gamepad_button_press(
-///     mut my_resource: ResMut<bool>,
+///     mut my_resource: ResMut<MyResource>,
 ///     gamepads: Res<Gamepads>,
 ///     button_inputs: ResMut<Input<GamepadButton>>,
 /// ) {
 ///     let gamepad = gamepads.iter().next().unwrap();
-///     let gamepad_button= GamepadButton::new(*gamepad, GamepadButtonType::South);
+///     let gamepad_button= GamepadButton::new(gamepad, GamepadButtonType::South);
 ///
-///     *my_resource = button_inputs.pressed(gamepad_button);
+///     my_resource.0 = button_inputs.pressed(gamepad_button);
 /// }
 ///
 /// // Create our app.
@@ -163,7 +164,7 @@ impl GamepadEvent {
 ///
 /// // Add the input plugin and the system/resource we want to test.
 /// app.add_plugin(InputPlugin)
-///     .insert_resource(false)
+///     .insert_resource(MyResource(false))
 ///     .add_system(change_resource_on_gamepad_button_press);
 ///
 /// // Define our dummy gamepad input data.
@@ -185,8 +186,8 @@ impl GamepadEvent {
 /// app.update();
 ///
 /// // At this point you can check if your game logic corresponded correctly to the gamepad input.
-/// // In this example we are checking if the `bool` resource was updated from `false` to `true`.
-/// assert!(app.world.resource::<bool>());
+/// // In this example we are checking if the bool in `MyResource` was updated from `false` to `true`.
+/// assert!(app.world.resource::<MyResource>().0);
 ///
 /// // Send the gamepad input event to mark the `South` gamepad button as released.
 /// // This updates the `Input<GamepadButton>` resource accordingly.
@@ -198,12 +199,12 @@ impl GamepadEvent {
 /// // Advance the execution of the schedule by another cycle.
 /// app.update();
 ///
-/// // Check if the `bool` resource was updated from `true` to `false`.
-/// assert!(!app.world.resource::<bool>());
+/// // Check if the bool in `MyResource` was updated from `true` to `false`.
+/// assert!(!app.world.resource::<MyResource>().0);
 /// #
 /// # bevy_ecs::system::assert_is_system(change_resource_on_gamepad_button_press);
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEventRaw {
     /// The gamepad this event corresponds to.
@@ -275,6 +276,9 @@ pub enum GamepadButtonType {
     DPadLeft,
     /// The right button of the D-Pad.
     DPadRight,
+
+    /// Miscellaneous buttons, considered non-standard (i.e. Extra buttons on a flight stick that do not have a gamepad equivalent).
+    Other(u8),
 }
 
 /// A button of a [`Gamepad`].
@@ -340,6 +344,9 @@ pub enum GamepadAxisType {
     RightStickY,
     /// The value of the right `Z` button.
     RightZ,
+
+    /// Non-standard support for other axis types (i.e. HOTAS sliders, potentiometers, etc).
+    Other(u8),
 }
 
 /// An axis of a [`Gamepad`].
@@ -391,7 +398,7 @@ impl GamepadAxis {
 ///
 /// The [`GamepadSettings`] are used inside of the [`gamepad_event_system`], but are never written to
 /// inside of `bevy`. To modify these settings, mutate the corresponding resource.
-#[derive(Default, Debug)]
+#[derive(Resource, Default, Debug)]
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -666,7 +673,7 @@ pub fn gamepad_connection_system(
                 info!("{:?} Connected", event.gamepad);
             }
             GamepadEventType::Disconnected => {
-                gamepads.deregister(&event.gamepad);
+                gamepads.deregister(event.gamepad);
                 info!("{:?} Disconnected", event.gamepad);
             }
             _ => (),
@@ -696,7 +703,7 @@ pub fn gamepad_event_system(
     for event in raw_events.iter() {
         match event.event_type {
             GamepadEventType::Connected => {
-                events.send(GamepadEvent::new(event.gamepad, event.event_type.clone()));
+                events.send(GamepadEvent::new(event.gamepad, event.event_type));
                 for button_type in &ALL_BUTTON_TYPES {
                     let gamepad_button = GamepadButton::new(event.gamepad, *button_type);
                     button_input.reset(gamepad_button);
@@ -707,7 +714,7 @@ pub fn gamepad_event_system(
                 }
             }
             GamepadEventType::Disconnected => {
-                events.send(GamepadEvent::new(event.gamepad, event.event_type.clone()));
+                events.send(GamepadEvent::new(event.gamepad, event.event_type));
                 for button_type in &ALL_BUTTON_TYPES {
                     let gamepad_button = GamepadButton::new(event.gamepad, *button_type);
                     button_input.reset(gamepad_button);

@@ -16,7 +16,7 @@ fn grab_mouse(
     mouse: Res<Input<MouseButton>>,
     key: Res<Input<KeyCode>>,
 ) {
-    let window = windows.get_primary_mut().unwrap();
+    let window = windows.primary_mut();
     if mouse.just_pressed(MouseButton::Left) {
         window.set_cursor_visibility(false);
         window.set_cursor_lock_mode(true);

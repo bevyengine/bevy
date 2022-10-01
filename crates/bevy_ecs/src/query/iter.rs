@@ -13,14 +13,14 @@ use super::{QueryFetch, QueryItem, ReadOnlyWorldQuery};
 ///
 /// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryIter<'w, 's, Q: WorldQuery, F: WorldQuery> {
+pub struct QueryIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     cursor: QueryIterationCursor<'w, 's, Q, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
@@ -41,7 +41,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's, Q, F> {
     type Item = QueryItem<'w, Q>;
 
     #[inline(always)]
@@ -70,12 +70,12 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F> 
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
 
 /// An [`Iterator`] over [`Query`](crate::system::Query) results of a list of [`Entity`]s.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
-pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator>
+pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator>
 where
     I::Item: Borrow<Entity>,
 {
@@ -88,7 +88,7 @@ where
     query_state: &'s QueryState<Q, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator> QueryManyIter<'w, 's, Q, F, I>
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator> QueryManyIter<'w, 's, Q, F, I>
 where
     I::Item: Borrow<Entity>,
 {
@@ -214,14 +214,69 @@ where
 {
 }
 
-pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> {
+/// An iterator over `K`-sized combinations of query items without repetition.
+///
+/// In this context, a combination is an unordered subset of `K` elements.
+/// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`] (called `N`):
+/// - if `K = N`, only one combination exists,
+/// - if `K < N`, there are <sub>N</sub>C<sub>K</sub> combinations (see the [performance section] of `Query`),
+/// - if `K > N`, there are no combinations.
+///
+/// # Usage
+///
+/// This type is returned by calling [`Query::iter_combinations`] or [`Query::iter_combinations_mut`].
+///
+/// It implements [`Iterator`] only if it iterates over read-only query items ([learn more]).
+///
+/// In the case of mutable query items, it can be iterated by calling [`fetch_next`] in a `while let` loop.
+///
+/// # Examples
+///
+/// The following example shows how to traverse the iterator when the query items are read-only.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// fn some_system(query: Query<&ComponentA>) {
+///     for [a1, a2] in query.iter_combinations() {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// The following example shows how `fetch_next` should be called with a `while let` loop to traverse the iterator when the query items are mutable.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// fn some_system(mut query: Query<&mut ComponentA>) {
+///     let mut combinations = query.iter_combinations_mut();
+///     while let Some([a1, a2]) = combinations.fetch_next() {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// [`fetch_next`]: Self::fetch_next
+/// [learn more]: Self#impl-Iterator
+/// [performance section]: crate::system::Query#performance
+/// [`Query`]: crate::system::Query
+/// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
+/// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
+pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     cursors: [QueryIterationCursor<'w, 's, Q, F>; K],
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
+    QueryCombinationIter<'w, 's, Q, F, K>
+{
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
@@ -383,7 +438,7 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, F>
 where
     F: ArchetypeFilter,
 {
@@ -420,7 +475,7 @@ where
 {
 }
 
-struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: WorldQuery> {
+struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
     fetch: QueryFetch<'w, Q>,
@@ -432,7 +487,7 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: WorldQuery> {
     phantom: PhantomData<Q>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Clone for QueryIterationCursor<'w, 's, Q, F>
 where
     QueryFetch<'w, Q>: Clone,
     QueryFetch<'w, F>: Clone,
@@ -450,7 +505,7 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, Q, F> {
     const IS_DENSE: bool = Q::IS_DENSE && F::IS_DENSE;
 
     unsafe fn init_empty(

@@ -27,7 +27,7 @@ pub struct SystemMeta {
 }
 
 impl SystemMeta {
-    fn new<T>() -> Self {
+    pub(crate) fn new<T>() -> Self {
         Self {
             name: std::any::type_name::<T>().into(),
             archetype_component_access: Access::default(),
@@ -82,6 +82,7 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
+/// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
 /// #[derive(Component)]
@@ -110,8 +111,9 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
-/// struct CachedSystemState<'w, 's>{
-///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
+/// #[derive(Resource)]
+/// struct CachedSystemState {
+///    event_state: SystemState<EventReader<'static, 'static, MyEvent>>
 /// }
 ///
 /// // Create and store a system state once
@@ -131,7 +133,7 @@ impl SystemMeta {
 ///     };
 /// });
 /// ```
-pub struct SystemState<Param: SystemParam> {
+pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
     world_id: WorldId,
@@ -246,10 +248,9 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 /// # Examples
 ///
 /// ```
-/// use bevy_ecs::system::IntoSystem;
-/// use bevy_ecs::system::Res;
+/// use bevy_ecs::prelude::*;
 ///
-/// fn my_system_function(an_usize_resource: Res<usize>) {}
+/// fn my_system_function(a_usize_local: Local<usize>) {}
 ///
 /// let system = IntoSystem::into_system(my_system_function);
 /// ```
@@ -387,6 +388,11 @@ where
     }
 
     #[inline]
+    fn is_exclusive(&self) -> bool {
+        false
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
@@ -403,6 +409,14 @@ where
         let out = self.func.run(input, params);
         self.system_meta.last_change_tick = change_tick;
         out
+    }
+
+    fn get_last_change_tick(&self) -> u32 {
+        self.system_meta.last_change_tick
+    }
+
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.system_meta.last_change_tick = last_change_tick;
     }
 
     #[inline]
@@ -450,7 +464,7 @@ where
 }
 
 /// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
-pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
+pub struct SystemTypeIdLabel<T: 'static>(pub(crate) PhantomData<fn() -> T>);
 
 impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
     #[inline]
@@ -526,6 +540,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     assert_eq!(chained_system.run((), &mut world), Some(42));
 /// }
 ///
+/// #[derive(Resource)]
 /// struct Message(String);
 ///
 /// fn parse_message(message: Res<Message>) -> Result<usize, ParseIntError> {

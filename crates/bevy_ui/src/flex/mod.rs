@@ -1,11 +1,11 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style};
+use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    query::{Changed, With, Without, WorldQuery},
-    system::{Query, Res, ResMut},
+    query::{Changed, ReadOnlyWorldQuery, With, Without},
+    system::{Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_log::warn;
@@ -16,6 +16,7 @@ use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
 use taffy::{number::Number, Taffy};
 
+#[derive(Resource)]
 pub struct FlexSurface {
     entity_to_taffy: HashMap<Entity, taffy::node::Node>,
     window_nodes: HashMap<WindowId, taffy::node::Node>,
@@ -171,6 +172,15 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Removes each entity from the internal map and then removes their associated node from taffy
+    pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        for entity in entities {
+            if let Some(node) = self.entity_to_taffy.remove(&entity) {
+                self.taffy.remove(node);
+            }
+        }
+    }
+
     pub fn get_layout(&self, entity: Entity) -> Result<&taffy::layout::Layout, FlexError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy
@@ -195,6 +205,7 @@ pub enum FlexError {
 #[allow(clippy::too_many_arguments)]
 pub fn flex_node_system(
     windows: Res<Windows>,
+    ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
@@ -206,6 +217,7 @@ pub fn flex_node_system(
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
+    removed_nodes: RemovedComponents<Node>,
 ) {
     // update window root nodes
     for window in windows.iter() {
@@ -214,18 +226,15 @@ pub fn flex_node_system(
 
     // assume one window for time being...
     let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
+    let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
-    if scale_factor_events.iter().next_back().is_some() {
-        update_changed(
-            &mut *flex_surface,
-            logical_to_physical_factor,
-            full_node_query,
-        );
+    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
+        update_changed(&mut *flex_surface, scale_factor, full_node_query);
     } else {
-        update_changed(&mut *flex_surface, logical_to_physical_factor, node_query);
+        update_changed(&mut *flex_surface, scale_factor, node_query);
     }
 
-    fn update_changed<F: WorldQuery>(
+    fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
         scaling_factor: f64,
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
@@ -242,10 +251,11 @@ pub fn flex_node_system(
     }
 
     for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, logical_to_physical_factor);
+        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
     }
 
-    // TODO: handle removed nodes
+    // clean up removed nodes
+    flex_surface.remove_entities(&removed_nodes);
 
     // update window children (for now assuming all Nodes live in the primary window)
     if let Some(primary_window) = windows.get_primary() {

@@ -12,94 +12,139 @@ pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use std::{cell::UnsafeCell, marker::PhantomData};
 
-/// Types that can be queried from a [`World`].
+/// Types that can be fetched from a [`World`] using a [`Query`].
 ///
-/// Notable types that implement this trait are `&T` and `&mut T` where `T` implements [`Component`],
-/// allowing you to query for components immutably and mutably accordingly.
+/// There are many types that natively implement this trait:
 ///
-/// See [`Query`](crate::system::Query) for a primer on queries.
-///
-/// # Basic [`WorldQuery`]'s
-///
-/// Here is a small list of the most important world queries to know about where `C` stands for a
-/// [`Component`] and `WQ` stands for a [`WorldQuery`]:
-/// - `&C`: Queries immutably for the component `C`
-/// - `&mut C`: Queries mutably for the component `C`
-/// - `Option<WQ>`: Queries the inner [`WorldQuery`] `WQ` but instead of discarding the entity if the world
-///     query fails it returns [`None`]. See [`Query`](crate::system::Query).
-/// - `(WQ1, WQ2, ...)`: Queries all contained world queries allowing to query for more than one thing.
-///     This is the `And` operator for filters. See [`Or`].
-/// - `ChangeTrackers<C>`: See the docs of [`ChangeTrackers`].
-/// - [`Entity`]: Using the entity type as a world query will grant access to the entity that is
-///     being queried for. See [`Entity`].
-///
-/// Bevy also offers a few filters like [`Added`](crate::query::Added), [`Changed`](crate::query::Changed),
-/// [`With`](crate::query::With), [`Without`](crate::query::Without) and [`Or`].
-/// For more information on these consult the item's corresponding documentation.
-///
-/// [`Or`]: crate::query::Or
-///
-/// # Derive
-///
-/// This trait can be derived with the [`derive@super::WorldQuery`] macro.
-///
-/// You may want to implement a custom query with the derive macro for the following reasons:
-/// - Named structs can be clearer and easier to use than complex query tuples. Access via struct
-///   fields is more convenient than destructuring tuples or accessing them via `q.0, q.1, ...`
-///   pattern and saves a lot of maintenance burden when adding or removing components.
-/// - Nested queries enable the composition pattern and makes query types easier to re-use.
-/// - You can bypass the limit of 15 components that exists for query tuples.
+/// - **Component references.**
+///   Fetches a component by reference (immutably or mutably).
+/// - **`WorldQuery` tuples.**
+///   If every element of a tuple implements `WorldQuery`, then the tuple itself also implements the same trait.
+///   This enables a single `Query` to access multiple components and filter over multiple conditions.
+///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
+///   but nesting of tuples allows infinite `WorldQuery`s.
+/// - **Component filters.**
+///   [`With`] and [`Without`] filters can be applied to check if the queried entity contains or not a particular component.
+/// - **Change detection filters.**
+///   [`Added`] and [`Changed`] filters can be applied to detect component changes to an entity.
+/// - **Filter disjunction operator.**
+///   By default, tuples compose query filters in such a way that all conditions must be satisfied to generate a query item for a given entity.
+///   Wrapping a tuple inside an [`Or`] operator will relax the requirement to just one condition.
+/// - **[`Entity`].**
+///   Gets the identifier of the queried entity.
+/// - **[`Option`].**
+///   By default, a world query only tests entities that have the matching component types.
+///   Wrapping it into an `Option` will increase the query search space, and it will return `None` if an entity doesn't satisfy the `WorldQuery`.
+/// - **[`AnyOf`].**
+///   Equivalent to wrapping each world query inside it into an `Option`.
+/// - **[`ChangeTrackers`].**
+///   Similar to change detection filters but it is used as a query fetch parameter.
+///   It exposes methods to check for changes to the wrapped component.
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behaviour.
 ///
-/// The derive macro implements [`WorldQuery`] for your type and declares an additional struct
-/// which will be used as an item for query iterators. The implementation also generates two other
-/// structs that are used as [`WorldQuery::Fetch`](WorldQueryGats::Fetch) and
-/// [`WorldQuery::State`] associated types.
+/// # Trait derivation
 ///
-/// The derive macro requires every struct field to implement the `WorldQuery` trait.
+/// Query design can be easily structured by deriving `WorldQuery` for custom types.
+/// Despite the added complexity, this approach has several advantages over using `WorldQuery` tuples.
+/// The most relevant improvements are:
 ///
-/// **Note:** currently, the macro only supports named structs.
+/// - Reusability across multiple systems.
+/// - There is no need to destructure a tuple since all fields are named.
+/// - Subqueries can be composed together to create a more complex query.
+/// - Methods can be implemented for the query items.
+/// - There is no hardcoded limit on the number of elements.
+///
+/// This trait can only be derived if each field of the struct also implements `WorldQuery`.
+/// The derive macro only supports regular structs (structs with named fields).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(Component)]
-/// struct Foo;
-/// #[derive(Component)]
-/// struct Bar;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
 ///
 /// #[derive(WorldQuery)]
 /// struct MyQuery {
 ///     entity: Entity,
-///     // We must explicitly list out all lifetimes, as we are defining a struct
-///     foo: &'static Foo,
-///     bar: Option<&'static Bar>,
+///     // It is required that all reference lifetimes are explicitly annotated, just like in any
+///     // struct. Each lifetime should be 'static.
+///     component_a: &'static ComponentA,
+///     component_b: &'static ComponentB,
 /// }
 ///
 /// fn my_system(query: Query<MyQuery>) {
 ///     for q in &query {
-///         // Note the type of the returned item.
-///         let q: MyQueryItem<'_> = q;
-///         q.foo;
+///         q.component_a;
 ///     }
 /// }
-///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// ## Mutable queries
+/// ## Macro expansion
 ///
-/// All queries that are derived with the `WorldQuery` macro provide only an immutable access by default.
-/// If you need a mutable access to components, you can mark a struct with the `mutable` attribute.
+/// Expanding the macro will declare three or six additional structs, depending on whether or not the struct is marked as mutable.
+/// For a struct named `X`, the additional structs will be:
+///
+/// |Struct name|`mutable` only|Description|
+/// |:---:|:---:|---|
+/// |`XState`|---|Used as the [`State`] type for `X` and `XReadOnly`|
+/// |`XItem`|---|The type of the query item for `X`|
+/// |`XFetch`|---|Used as the [`Fetch`] type for `X`|
+/// |`XReadOnlyItem`|✓|The type of the query item for `XReadOnly`|
+/// |`XReadOnlyFetch`|✓|Used as the [`Fetch`] type for `XReadOnly`|
+/// |`XReadOnly`|✓|[`ReadOnly`] variant of `X`|
+///
+/// ## Adding mutable references
+///
+/// Simply adding mutable references to a derived `WorldQuery` will result in a compilation error:
+///
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::WorldQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// #[derive(WorldQuery)]
+/// struct CustomQuery {
+///     component_a: &'static mut ComponentA,
+/// }
+/// ```
+///
+/// To grant mutable access to components, the struct must be marked with the `#[world_query(mutable)]` attribute.
+/// This will also create three more structs that will be used for accessing the query immutably (see table above).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
+/// # use bevy_ecs::query::WorldQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// #[derive(WorldQuery)]
+/// #[world_query(mutable)]
+/// struct CustomQuery {
+///     component_a: &'static mut ComponentA,
+/// }
+/// ```
 ///
+/// ## Adding methods to query items
+///
+/// It is possible to add methods to query items in order to write reusable logic about related components.
+/// This will often make systems more readable because low level logic is moved out from them.
+/// It is done by adding `impl` blocks with methods for the `-Item` or `-ReadOnlyItem` generated structs.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::WorldQuery;
+/// #
 /// #[derive(Component)]
 /// struct Health(f32);
+///
 /// #[derive(Component)]
 /// struct Buff(f32);
 ///
@@ -110,7 +155,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///     buff: Option<&'static mut Buff>,
 /// }
 ///
-/// // This implementation is only available when iterating with `iter_mut`.
+/// // `HealthQueryItem` is only available when accessing the query with mutable methods.
 /// impl<'w> HealthQueryItem<'w> {
 ///     fn damage(&mut self, value: f32) {
 ///         self.health.0 -= value;
@@ -121,7 +166,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///     }
 /// }
 ///
-/// // If you want to use it with `iter`, you'll need to write an additional implementation.
+/// // `HealthQueryReadOnlyItem` is only available when accessing the query with immutable methods.
 /// impl<'w> HealthQueryReadOnlyItem<'w> {
 ///     fn total(&self) -> f32 {
 ///         self.health.0 + self.buff.map_or(0.0, |Buff(buff)| *buff)
@@ -129,202 +174,134 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 ///
 /// fn my_system(mut health_query: Query<HealthQuery>) {
-///     // Iterator's item is `HealthQueryReadOnlyItem`.
-///     for health in &health_query {
+///     // The item returned by the iterator is of type `HealthQueryReadOnlyItem`.
+///     for health in health_query.iter() {
 ///         println!("Total: {}", health.total());
 ///     }
-///     // Iterator's item is `HealthQueryItem`.
+///     // The item returned by the iterator is of type `HealthQueryItem`.
 ///     for mut health in &mut health_query {
 ///         health.damage(1.0);
 ///         println!("Total (mut): {}", health.total());
 ///     }
 /// }
-///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// Mutable queries will also have a read only version derived:
-/// ```rust
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
+/// ## Deriving traits for query items
 ///
-/// #[derive(Component)]
-/// pub struct MyComponent;
-///
-/// #[derive(WorldQuery)]
-/// #[world_query(mutable)]
-/// pub struct Foo {
-///     my_component_yay: &'static mut MyComponent,
-/// }
-///
-/// fn my_system(mut my_query: Query<(FooReadOnly, FooReadOnly)>) {
-///     for (i1, i2) in &mut my_query {
-///         let _: FooReadOnlyItem<'_> = i1;
-///         let _: FooReadOnlyItem<'_> = i2;
-///     }
-/// }
-///
-/// # bevy_ecs::system::assert_is_system(my_system);
-/// ```
-///
-/// **Note:** if you omit the `mutable` attribute for a query that doesn't implement
-/// [`ReadOnlyWorldQuery`], compilation will fail. We insert static checks as in the example above for
-/// every query component and a nested query.
-/// (The checks neither affect the runtime, nor pollute your local namespace.)
-///
-/// ```compile_fail
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(Component)]
-/// struct Foo;
-/// #[derive(Component)]
-/// struct Bar;
-///
-/// #[derive(WorldQuery)]
-/// struct FooQuery {
-///     foo: &'static Foo,
-///     bar_query: BarQuery,
-/// }
-///
-/// #[derive(WorldQuery)]
-/// #[world_query(mutable)]
-/// struct BarQuery {
-///     bar: &'static mut Bar,
-/// }
-/// ```
-///
-/// ## Derives for items
-///
-/// If you want query items to have derivable traits, you can pass them with using
-/// the `world_query(derive)` attribute. When the `WorldQuery` macro generates the structs
-/// for query items, it doesn't automatically inherit derives of a query itself. Since derive macros
-/// can't access information about other derives, they need to be passed manually with the
-/// `world_query(derive)` attribute.
+/// The `WorldQuery` derive macro does not automatically implement the traits of the struct to the query item types.
+/// Something similar can be done by using the `#[world_query(derive(...))]` attribute.
+/// This will apply the listed derivable traits to the query item structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(Component, Debug)]
-/// struct Foo;
-///
+/// # use bevy_ecs::query::WorldQuery;
+/// #
+/// # #[derive(Component, Debug)]
+/// # struct ComponentA;
+/// #
 /// #[derive(WorldQuery)]
 /// #[world_query(mutable, derive(Debug))]
-/// struct FooQuery {
-///     foo: &'static Foo,
+/// struct CustomQuery {
+///     component_a: &'static ComponentA,
 /// }
 ///
+/// // This function statically checks that `T` implements `Debug`.
 /// fn assert_debug<T: std::fmt::Debug>() {}
 ///
-/// assert_debug::<FooQueryItem>();
-/// assert_debug::<FooQueryReadOnlyItem>();
+/// assert_debug::<CustomQueryItem>();
+/// assert_debug::<CustomQueryReadOnlyItem>();
 /// ```
 ///
-/// ## Nested queries
+/// ## Query composition
 ///
-/// Using nested queries enable the composition pattern, which makes it possible to re-use other
-/// query types. All types that implement [`WorldQuery`] (including the ones that use this derive
-/// macro) are supported.
+/// It is possible to use any `WorldQuery` as a field of another one.
+/// This means that a `WorldQuery` can also be used as a subquery, potentially in multiple places.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(Component)]
-/// struct Foo;
-/// #[derive(Component)]
-/// struct Bar;
-/// #[derive(Component)]
-/// struct OptionalFoo;
-/// #[derive(Component)]
-/// struct OptionalBar;
+/// # use bevy_ecs::query::WorldQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # #[derive(Component)]
+/// # struct ComponentC;
+/// #
+/// #[derive(WorldQuery)]
+/// struct SubQuery {
+///     component_a: &'static ComponentA,
+///     component_b: &'static ComponentB,
+/// }
 ///
 /// #[derive(WorldQuery)]
 /// struct MyQuery {
-///     foo: FooQuery,
-///     bar: (&'static Bar, Option<&'static OptionalBar>)
+///     subquery: SubQuery,
+///     component_c: &'static ComponentC,
 /// }
-///
-/// #[derive(WorldQuery)]
-/// struct FooQuery {
-///     foo: &'static Foo,
-///     optional_foo: Option<&'static OptionalFoo>,
-/// }
-///
-/// // You can also compose derived queries with regular ones in tuples.
-/// fn my_system(query: Query<(&Foo, MyQuery, FooQuery)>) {
-///     for (foo, my_query, foo_query) in &query {
-///         foo; my_query; foo_query;
-///     }
-/// }
-///
-/// # bevy_ecs::system::assert_is_system(my_system);
-/// ```
-///
-/// ## Ignored fields
-///
-/// The macro also supports `ignore` attribute for struct members. Fields marked with this attribute
-/// must implement the `Default` trait.
-///
-/// This example demonstrates a query that would iterate over every entity.
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(WorldQuery, Debug)]
-/// struct EmptyQuery {
-///     empty: (),
-/// }
-///
-/// fn my_system(query: Query<EmptyQuery>) {
-///     for _ in &query {}
-/// }
-///
-/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
 /// ## Filters
 ///
-/// Using [`derive@super::WorldQuery`] macro we can create our own query filters.
+/// Since the query filter type parameter is `WorldQuery`, it is also possible to use this macro to create filters.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::{query::WorldQuery, component::Component};
-///
-/// #[derive(Component)]
-/// struct Foo;
-/// #[derive(Component)]
-/// struct Bar;
-/// #[derive(Component)]
-/// struct Baz;
-/// #[derive(Component)]
-/// struct Qux;
-///
+/// # use bevy_ecs::{query::WorldQuery, component::Component};
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # #[derive(Component)]
+/// # struct ComponentC;
+/// # #[derive(Component)]
+/// # struct ComponentD;
+/// # #[derive(Component)]
+/// # struct ComponentE;
+/// #
 /// #[derive(WorldQuery)]
 /// struct MyFilter<T: Component, P: Component> {
-///     _foo: With<Foo>,
-///     _bar: With<Bar>,
-///     _or: Or<(With<Baz>, Changed<Foo>, Added<Bar>)>,
-///     _generic_tuple: (With<T>, Without<P>),
+///     // Field names are not relevant, since they are never manually accessed.
+///     with_a: With<ComponentA>,
+///     or_filter: Or<(With<ComponentC>, Added<ComponentB>)>,
+///     generic_tuple: (With<T>, Without<P>),
 /// }
 ///
-/// fn my_system(query: Query<Entity, MyFilter<Foo, Qux>>) {
-///     for _ in &query {}
+/// fn my_system(query: Query<Entity, MyFilter<ComponentD, ComponentE>>) {
+///     // ...
 /// }
-///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+///
 /// # Safety
 ///
-/// component access of `ROQueryFetch<Self>` must be a subset of `QueryFetch<Self>`
+/// Component access of `ROQueryFetch<Self>` must be a subset of `QueryFetch<Self>`
 /// and `ROQueryFetch<Self>` must match exactly the same archetypes/tables as `QueryFetch<Self>`
 ///
-/// Implementor must ensure that [`WorldQuery::update_component_access`] and
-/// [`WorldQuery::update_archetype_component_access`] exactly reflects the results of
-/// [`WorldQuery::matches_component_set`], [`WorldQuery::archetype_fetch`], and
-/// [`WorldQuery::table_fetch`].
+/// Implementor must ensure that
+/// [`update_component_access`] and [`update_archetype_component_access`]
+/// exactly reflects the results of the following methods:
+///
+/// - [`matches_component_set`]
+/// - [`archetype_fetch`]
+/// - [`table_fetch`]
+///
+/// [`Added`]: crate::query::Added
+/// [`archetype_fetch`]: Self::archetype_fetch
+/// [`Changed`]: crate::query::Changed
+/// [`Fetch`]: crate::query::WorldQueryGats::Fetch
+/// [`matches_component_set`]: Self::matches_component_set
+/// [`Or`]: crate::query::Or
+/// [`Query`]: crate::system::Query
+/// [`ReadOnly`]: Self::ReadOnly
+/// [`State`]: Self::State
+/// [`table_fetch`]: Self::table_fetch
+/// [`update_archetype_component_access`]: Self::update_archetype_component_access
+/// [`update_component_access`]: Self::update_component_access
+/// [`With`]: crate::query::With
+/// [`Without`]: crate::query::Without
 pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     /// The read-only variant of this [`WorldQuery`], which satisfies the [`ReadOnlyWorldQuery`] trait.
     type ReadOnly: ReadOnlyWorldQuery<State = Self::State>;
@@ -459,7 +436,9 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     ) -> bool;
 }
 
-/// A helper trait for [`WorldQuery`] that works around Rust's lack of Generic Associated Types
+/// A helper trait for [`WorldQuery`] that works around Rust's lack of Generic Associated Types.
+///
+/// **Note**: Consider using the type aliases [`QueryItem`] and [`QueryFetch`] when using `Item` or `Fetch`.
 pub trait WorldQueryGats<'world> {
     type Item;
     type Fetch;
@@ -1413,7 +1392,7 @@ macro_rules! impl_tuple_fetch {
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
-/// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), (Or(With<A>, With<B>, With<C>)>`.
+/// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
 /// Each of the components in `T` is returned as an `Option`, as with `Option<A>` queries.
 /// Entities are guaranteed to have at least one of the components in `T`.
 #[derive(Clone)]

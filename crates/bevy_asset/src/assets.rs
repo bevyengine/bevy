@@ -5,7 +5,7 @@ use crate::{
 use bevy_app::App;
 use bevy_ecs::{
     event::{EventWriter, Events},
-    system::ResMut,
+    system::{ResMut, Resource},
     world::FromWorld,
 };
 use bevy_utils::HashMap;
@@ -66,7 +66,7 @@ impl<T: Asset> Debug for AssetEvent<T> {
 /// Remember, if there are no Strong handles for an asset (i.e. they have all been dropped), the
 /// asset will unload. Make sure you always have a Strong handle when you want to keep an asset
 /// loaded!
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct Assets<T: Asset> {
     assets: HashMap<HandleId, T>,
     events: Events<AssetEvent<T>>,

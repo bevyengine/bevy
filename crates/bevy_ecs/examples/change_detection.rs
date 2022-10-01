@@ -30,7 +30,9 @@ fn main() {
     update.add_system(remove_old_entities.after(SimulationSystem::Age));
     update.add_system(print_changed_entities.after(SimulationSystem::Age));
     // Add the Stage with our systems to the Schedule
-    schedule.add_stage("update", update);
+    #[derive(StageLabel)]
+    struct Update;
+    schedule.add_stage(Update, update);
 
     // Simulate 10 frames in our world
     for iteration in 1..=10 {
@@ -40,7 +42,7 @@ fn main() {
 }
 
 // This struct will be used as a Resource keeping track of the total amount of spawned entities
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 struct EntityCounter {
     pub value: i32,
 }
@@ -63,7 +65,7 @@ enum SimulationSystem {
 // If an entity gets spawned, we increase the counter in the EntityCounter resource
 fn spawn_entities(mut commands: Commands, mut entity_counter: ResMut<EntityCounter>) {
     if rand::thread_rng().gen_bool(0.6) {
-        let entity_id = commands.spawn().insert(Age::default()).id();
+        let entity_id = commands.spawn(Age::default()).id();
         println!("    spawning {:?}", entity_id);
         entity_counter.value += 1;
     }

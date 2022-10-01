@@ -5,6 +5,7 @@ pub mod color;
 pub mod extract_component;
 mod extract_param;
 pub mod extract_resource;
+pub mod globals;
 pub mod mesh;
 pub mod primitives;
 pub mod rangefinder;
@@ -18,6 +19,8 @@ mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
+use bevy_core::FrameCount;
+use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
 
 pub mod prelude {
@@ -33,7 +36,9 @@ pub mod prelude {
     };
 }
 
+use globals::GlobalsPlugin;
 pub use once_cell;
+use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
@@ -42,7 +47,7 @@ use crate::{
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::render_system,
+    renderer::{render_system, RenderInstance},
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -91,8 +96,12 @@ pub enum RenderStage {
 /// This resource is only available during [`RenderStage::Extract`] and not
 /// during command application of that stage.
 /// See [`Extract`] for more details.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct MainWorld(World);
+
+/// The Render App World. This is only available as a resource during the Extract step.
+#[derive(Resource, Default)]
+pub struct RenderWorld(World);
 
 impl Deref for MainWorld {
     type Target = World;
@@ -190,11 +199,11 @@ impl Plugin for RenderPlugin {
                     RenderStage::Render,
                     SystemStage::parallel()
                         .with_system(PipelineCache::process_pipeline_queue_system)
-                        .with_system(render_system.exclusive_system().at_end()),
+                        .with_system(render_system.at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .init_resource::<RenderGraph>()
-                .insert_resource(instance)
+                .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(adapter_info)
@@ -245,7 +254,7 @@ impl Plugin for RenderPlugin {
                     // prepare
                     let prepare = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Prepare)
+                        .get_stage_mut::<SystemStage>(RenderStage::Prepare)
                         .unwrap();
                     prepare.run(&mut render_app.world);
                 }
@@ -258,7 +267,7 @@ impl Plugin for RenderPlugin {
                     // queue
                     let queue = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Queue)
+                        .get_stage_mut::<SystemStage>(RenderStage::Queue)
                         .unwrap();
                     queue.run(&mut render_app.world);
                 }
@@ -271,7 +280,7 @@ impl Plugin for RenderPlugin {
                     // phase sort
                     let phase_sort = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::PhaseSort)
+                        .get_stage_mut::<SystemStage>(RenderStage::PhaseSort)
                         .unwrap();
                     phase_sort.run(&mut render_app.world);
                 }
@@ -284,7 +293,7 @@ impl Plugin for RenderPlugin {
                     // render
                     let render = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Render)
+                        .get_stage_mut::<SystemStage>(RenderStage::Render)
                         .unwrap();
                     render.run(&mut render_app.world);
                 }
@@ -297,7 +306,7 @@ impl Plugin for RenderPlugin {
                     // cleanup
                     let cleanup = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
+                        .get_stage_mut::<SystemStage>(RenderStage::Cleanup)
                         .unwrap();
                     cleanup.run(&mut render_app.world);
                 }
@@ -311,19 +320,22 @@ impl Plugin for RenderPlugin {
             });
         }
 
-        app.add_plugin(WindowRenderPlugin)
+        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
+            .add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
             // NOTE: Load this after renderer initialization so that it knows about the supported
             // compressed texture formats
-            .add_plugin(ImagePlugin);
+            .add_plugin(ImagePlugin)
+            .add_plugin(GlobalsPlugin)
+            .add_plugin(FrameCountPlugin);
     }
 }
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
 /// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct ScratchMainWorld(World);
 
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
@@ -331,7 +343,7 @@ struct ScratchMainWorld(World);
 fn extract(app_world: &mut World, render_app: &mut App) {
     let extract = render_app
         .schedule
-        .get_stage_mut::<SystemStage>(&RenderStage::Extract)
+        .get_stage_mut::<SystemStage>(RenderStage::Extract)
         .unwrap();
 
     // temporarily add the app world to the render world as a resource
@@ -350,4 +362,23 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     // so that in future, pipelining will be able to do this too without any code relying on it.
     // see <https://github.com/bevyengine/bevy/issues/5082>
     extract.apply_buffers(running_world);
+}
+
+pub struct FrameCountPlugin;
+impl Plugin for FrameCountPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.add_system(update_frame_count);
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_system_to_stage(RenderStage::Extract, extract_frame_count);
+        }
+    }
+}
+
+fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+    frame_count.0 = frame_count.0.wrapping_add(1);
+}
+
+fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCount>>) {
+    commands.insert_resource(**frame_count);
 }

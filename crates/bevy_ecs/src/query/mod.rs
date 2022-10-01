@@ -19,7 +19,7 @@ pub(crate) unsafe fn debug_checked_unreachable() -> ! {
 
 #[cfg(test)]
 mod tests {
-    use super::WorldQuery;
+    use super::{ReadOnlyWorldQuery, WorldQuery};
     use crate::prelude::{AnyOf, Entity, Or, QueryState, With, Without};
     use crate::query::{ArchetypeFilter, QueryCombinationIter, QueryFetch};
     use crate::system::{IntoSystem, Query, System, SystemState};
@@ -43,8 +43,8 @@ mod tests {
     #[test]
     fn query() {
         let mut world = World::new();
-        world.spawn().insert_bundle((A(1), B(1)));
-        world.spawn().insert_bundle((A(2),));
+        world.spawn((A(1), B(1)));
+        world.spawn(A(2));
         let values = world.query::<&A>().iter(&world).collect::<Vec<&A>>();
         assert_eq!(values, vec![&A(1), &A(2)]);
 
@@ -68,7 +68,7 @@ mod tests {
         fn assert_combination<Q, F, const K: usize>(world: &mut World, expected_size: usize)
         where
             Q: WorldQuery,
-            F: WorldQuery,
+            F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
             for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
             for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
@@ -81,7 +81,7 @@ mod tests {
         fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
         where
             Q: WorldQuery,
-            F: WorldQuery,
+            F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
             for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
             for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
@@ -127,24 +127,24 @@ count():       {count}"#
         }
 
         let mut world = World::new();
-        world.spawn().insert_bundle((A(1), B(1)));
-        world.spawn().insert_bundle((A(2),));
-        world.spawn().insert_bundle((A(3),));
+        world.spawn((A(1), B(1)));
+        world.spawn(A(2));
+        world.spawn(A(3));
 
         assert_all_sizes_equal::<&A, With<B>>(&mut world, 1);
         assert_all_sizes_equal::<&A, Without<B>>(&mut world, 2);
 
         let mut world = World::new();
-        world.spawn().insert_bundle((A(1), B(1), C(1)));
-        world.spawn().insert_bundle((A(2), B(2)));
-        world.spawn().insert_bundle((A(3), B(3)));
-        world.spawn().insert_bundle((A(4), C(4)));
-        world.spawn().insert_bundle((A(5), C(5)));
-        world.spawn().insert_bundle((A(6), C(6)));
-        world.spawn().insert_bundle((A(7),));
-        world.spawn().insert_bundle((A(8),));
-        world.spawn().insert_bundle((A(9),));
-        world.spawn().insert_bundle((A(10),));
+        world.spawn((A(1), B(1), C(1)));
+        world.spawn((A(2), B(2)));
+        world.spawn((A(3), B(3)));
+        world.spawn((A(4), C(4)));
+        world.spawn((A(5), C(5)));
+        world.spawn((A(6), C(6)));
+        world.spawn(A(7));
+        world.spawn(A(8));
+        world.spawn(A(9));
+        world.spawn(A(10));
 
         // With/Without for B and C
         assert_all_sizes_equal::<&A, With<B>>(&mut world, 3);
@@ -167,7 +167,7 @@ count():       {count}"#
         assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>(&mut world, 6);
 
         for i in 11..14 {
-            world.spawn().insert_bundle((A(i), D(i)));
+            world.spawn((A(i), D(i)));
         }
 
         assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>(&mut world, 9);
@@ -175,7 +175,7 @@ count():       {count}"#
 
         // a fair amount of entities
         for i in 14..20 {
-            world.spawn().insert_bundle((C(i), D(i)));
+            world.spawn((C(i), D(i)));
         }
         assert_all_sizes_equal::<Entity, (With<C>, With<D>)>(&mut world, 6);
     }
@@ -184,10 +184,10 @@ count():       {count}"#
     fn query_iter_combinations() {
         let mut world = World::new();
 
-        world.spawn().insert_bundle((A(1), B(1)));
-        world.spawn().insert_bundle((A(2),));
-        world.spawn().insert_bundle((A(3),));
-        world.spawn().insert_bundle((A(4),));
+        world.spawn((A(1), B(1)));
+        world.spawn(A(2));
+        world.spawn(A(3));
+        world.spawn(A(4));
 
         let values: Vec<[&A; 2]> = world.query::<&A>().iter_combinations(&world).collect();
         assert_eq!(
@@ -247,10 +247,10 @@ count():       {count}"#
 
         let mut world = World::new();
 
-        world.spawn().insert_bundle((A(1), B(1)));
-        world.spawn().insert_bundle((A(2),));
-        world.spawn().insert_bundle((A(3),));
-        world.spawn().insert_bundle((A(4),));
+        world.spawn((A(1), B(1)));
+        world.spawn(A(2));
+        world.spawn(A(3));
+        world.spawn(A(4));
 
         let mut a_wout_b = world.query_filtered::<&A, Without<B>>();
         let values: HashSet<[&A; 2]> = a_wout_b.iter_combinations(&world).collect();
@@ -302,28 +302,28 @@ count():       {count}"#
         // Check if Added<T>, Changed<T> works
         let mut world = World::new();
 
-        world.spawn().insert_bundle((A(1), B(1)));
-        world.spawn().insert_bundle((A(2), B(2)));
-        world.spawn().insert_bundle((A(3), B(3)));
-        world.spawn().insert_bundle((A(4), B(4)));
+        world.spawn((A(1), B(1)));
+        world.spawn((A(2), B(2)));
+        world.spawn((A(3), B(3)));
+        world.spawn((A(4), B(4)));
 
         let mut query_added = world.query_filtered::<&A, Added<A>>();
 
         world.clear_trackers();
-        world.spawn().insert_bundle((A(5),));
+        world.spawn(A(5));
 
         assert_eq!(query_added.iter_combinations::<2>(&world).count(), 0);
 
         world.clear_trackers();
-        world.spawn().insert_bundle((A(6),));
-        world.spawn().insert_bundle((A(7),));
+        world.spawn(A(6));
+        world.spawn(A(7));
 
         assert_eq!(query_added.iter_combinations::<2>(&world).count(), 1);
 
         world.clear_trackers();
-        world.spawn().insert_bundle((A(8),));
-        world.spawn().insert_bundle((A(9),));
-        world.spawn().insert_bundle((A(10),));
+        world.spawn(A(8));
+        world.spawn(A(9));
+        world.spawn(A(10));
 
         assert_eq!(query_added.iter_combinations::<2>(&world).count(), 3);
 
@@ -384,8 +384,8 @@ count():       {count}"#
     fn multi_storage_query() {
         let mut world = World::new();
 
-        world.spawn().insert_bundle((Sparse(1), B(2)));
-        world.spawn().insert_bundle((Sparse(2),));
+        world.spawn((Sparse(1), B(2)));
+        world.spawn(Sparse(2));
 
         let values = world
             .query::<&Sparse>()
@@ -405,9 +405,9 @@ count():       {count}"#
     fn any_query() {
         let mut world = World::new();
 
-        world.spawn().insert_bundle((A(1), B(2)));
-        world.spawn().insert_bundle((A(2),));
-        world.spawn().insert_bundle((C(3),));
+        world.spawn((A(1), B(2)));
+        world.spawn(A(2));
+        world.spawn(C(3));
 
         let values: Vec<(Option<&A>, Option<&B>)> =
             world.query::<AnyOf<(&A, &B)>>().iter(&world).collect();
@@ -436,26 +436,26 @@ count():       {count}"#
     fn derived_worldqueries() {
         let mut world = World::new();
 
-        world.spawn().insert_bundle((A(10), B(18), C(3), Sparse(4)));
+        world.spawn((A(10), B(18), C(3), Sparse(4)));
 
-        world.spawn().insert_bundle((A(101), B(148), C(13)));
-        world.spawn().insert_bundle((A(51), B(46), Sparse(72)));
-        world.spawn().insert_bundle((A(398), C(6), Sparse(9)));
-        world.spawn().insert_bundle((B(11), C(28), Sparse(92)));
+        world.spawn((A(101), B(148), C(13)));
+        world.spawn((A(51), B(46), Sparse(72)));
+        world.spawn((A(398), C(6), Sparse(9)));
+        world.spawn((B(11), C(28), Sparse(92)));
 
-        world.spawn().insert_bundle((C(18348), Sparse(101)));
-        world.spawn().insert_bundle((B(839), Sparse(5)));
-        world.spawn().insert_bundle((B(6721), C(122)));
-        world.spawn().insert_bundle((A(220), Sparse(63)));
-        world.spawn().insert_bundle((A(1092), C(382)));
-        world.spawn().insert_bundle((A(2058), B(3019)));
+        world.spawn((C(18348), Sparse(101)));
+        world.spawn((B(839), Sparse(5)));
+        world.spawn((B(6721), C(122)));
+        world.spawn((A(220), Sparse(63)));
+        world.spawn((A(1092), C(382)));
+        world.spawn((A(2058), B(3019)));
 
-        world.spawn().insert_bundle((B(38), C(8), Sparse(100)));
-        world.spawn().insert_bundle((A(111), C(52), Sparse(1)));
-        world.spawn().insert_bundle((A(599), B(39), Sparse(13)));
-        world.spawn().insert_bundle((A(55), B(66), C(77)));
+        world.spawn((B(38), C(8), Sparse(100)));
+        world.spawn((A(111), C(52), Sparse(1)));
+        world.spawn((A(599), B(39), Sparse(13)));
+        world.spawn((A(55), B(66), C(77)));
 
-        world.spawn();
+        world.spawn_empty();
 
         {
             #[derive(WorldQuery)]
@@ -619,10 +619,10 @@ count():       {count}"#
     #[test]
     fn many_entities() {
         let mut world = World::new();
-        world.spawn().insert_bundle((A(0), B(0)));
-        world.spawn().insert_bundle((A(0), B(0)));
-        world.spawn().insert(A(0));
-        world.spawn().insert(B(0));
+        world.spawn((A(0), B(0)));
+        world.spawn((A(0), B(0)));
+        world.spawn(A(0));
+        world.spawn(B(0));
         {
             fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
                 assert_eq!(has_a_and_b.iter_many(&has_a).count(), 2);
@@ -663,7 +663,7 @@ count():       {count}"#
         struct Foo;
 
         let mut world = World::new();
-        let e = world.spawn().insert(Foo).id();
+        let e = world.spawn(Foo).id();
 
         // state
         let mut q = world.query::<&mut Foo>();
