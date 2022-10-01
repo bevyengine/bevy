@@ -119,6 +119,9 @@ impl Transform {
     /// Updates and returns this [`Transform`] by rotating it so that its unit
     /// vector in the local negative `Z` direction is toward `target` and its
     /// unit vector in the local `Y` direction is toward `up`.
+    ///
+    /// It is not possible to construct a rotation when the resulting forward direction is parallel with `up`.
+    /// This will result in the [`Transform`] having a broken rotation.
     #[inline]
     #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
@@ -315,6 +318,9 @@ impl Transform {
 
     /// Rotates this [`Transform`] so that its local negative `Z` direction is toward
     /// `target` and its local `Y` direction is toward `up`.
+    ///
+    /// It is not possible to construct a rotation when the resulting forward direction is parallel with `up`.
+    /// This will result in the [`Transform`] having a broken rotation.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
         let forward = Vec3::normalize(self.translation - target);
