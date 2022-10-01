@@ -158,7 +158,11 @@ impl Val {
 
     /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
     /// Both values have to be evaluatable (numeric).
-    pub fn try_add_assign_with_size(&mut self, rhs: Val, size: f32) -> Result<(), ValArithmeticError> {
+    pub fn try_add_assign_with_size(
+        &mut self,
+        rhs: Val,
+        size: f32,
+    ) -> Result<(), ValArithmeticError> {
         *self = self.try_add_with_size(rhs, size)?;
         Ok(())
     }
@@ -174,7 +178,11 @@ impl Val {
 
     /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
     /// Both values have to be evaluatable (numeric).
-    pub fn try_sub_assign_with_size(&mut self, rhs: Val, size: f32) -> Result<(), ValArithmeticError> {
+    pub fn try_sub_assign_with_size(
+        &mut self,
+        rhs: Val,
+        size: f32,
+    ) -> Result<(), ValArithmeticError> {
         *self = self.try_add_with_size(rhs, size)?;
         Ok(())
     }
