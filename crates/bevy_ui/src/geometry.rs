@@ -368,8 +368,8 @@ impl Add<(Val, Val)> for Size {
 
 impl AddAssign<(Val, Val)> for Size {
     fn add_assign(&mut self, rhs: (Val, Val)) {
-        self.width.try_add_to_self(rhs.0).unwrap();
-        self.height.try_add_to_self(rhs.1).unwrap();
+        self.width.try_add_assign(rhs.0).unwrap();
+        self.height.try_add_assign(rhs.1).unwrap();
     }
 }
 
@@ -386,8 +386,8 @@ impl Sub<(Val, Val)> for Size {
 
 impl SubAssign<(Val, Val)> for Size {
     fn sub_assign(&mut self, rhs: (Val, Val)) {
-        self.width.try_sub_from_self(rhs.0).unwrap();
-        self.height.try_sub_from_self(rhs.1).unwrap();
+        self.width.try_sub_assign(rhs.0).unwrap();
+        self.height.try_sub_assign(rhs.1).unwrap();
     }
 }
 

@@ -105,7 +105,7 @@ impl Val {
         }
     }
 
-    pub fn try_add_to_self(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
+    pub fn try_add_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
         *self = self.try_add(rhs)?;
         Ok(())
     }
@@ -129,7 +129,7 @@ impl Val {
         }
     }
 
-    pub fn try_sub_from_self(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
+    pub fn try_sub_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
         *self = self.try_sub(rhs)?;
         Ok(())
     }
@@ -156,6 +156,13 @@ impl Val {
         lhs.try_add(rhs)
     }
 
+    /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
+    /// Both values have to be evaluatable (numeric).
+    pub fn try_add_assign_with_size(&mut self, rhs: Val, size: f32) -> Result<(), ValArithmeticError> {
+        *self = self.try_add_with_size(rhs, size)?;
+        Ok(())
+    }
+
     /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
     /// Both values have to be evaluatable (numeric).
     pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<Val, ValArithmeticError> {
@@ -163,6 +170,13 @@ impl Val {
         let rhs = rhs.evaluate(size)?;
 
         lhs.try_sub(rhs)
+    }
+
+    /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
+    /// Both values have to be evaluatable (numeric).
+    pub fn try_sub_assign_with_size(&mut self, rhs: Val, size: f32) -> Result<(), ValArithmeticError> {
+        *self = self.try_add_with_size(rhs, size)?;
+        Ok(())
     }
 }
 
@@ -481,7 +495,7 @@ mod tests {
     fn val_try_add_to_self() {
         let mut val = Val::Px(5.);
 
-        val.try_add_to_self(Val::Px(3.)).unwrap();
+        val.try_add_assign(Val::Px(3.)).unwrap();
 
         assert_eq!(val, Val::Px(8.));
     }
