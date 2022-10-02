@@ -279,8 +279,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             TypeInfo::Struct(struct_info) => {
                 let mut dynamic_struct = deserializer.deserialize_struct(
                     struct_info.name(),
-                    // Field names are mainly just a hint, we don't necessarily need to store and pass that data
-                    &[],
+                    struct_info.field_names(),
                     StructVisitor {
                         struct_info,
                         registry: self.registry,
@@ -350,8 +349,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 } else {
                     deserializer.deserialize_enum(
                         enum_info.name(),
-                        // Variant names are mainly just a hint, we don't necessarily need to store and pass that data
-                        &[],
+                        enum_info.variant_names(),
                         EnumVisitor {
                             enum_info,
                             registry: self.registry,
@@ -622,8 +620,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
             VariantInfo::Unit(..) => variant.unit_variant()?.into(),
             VariantInfo::Struct(struct_info) => variant
                 .struct_variant(
-                    // Field names are mainly just a hint, we don't necessarily need to store and pass that data
-                    &[],
+                    struct_info.field_names(),
                     StructVariantVisitor {
                         struct_info,
                         registry: self.registry,
