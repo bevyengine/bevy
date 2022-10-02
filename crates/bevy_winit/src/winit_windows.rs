@@ -93,26 +93,6 @@ impl WinitWindows {
         #[allow(unused_mut)]
         let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);
 
-        #[cfg(target_arch = "wasm32")]
-        {
-            use wasm_bindgen::JsCast;
-            use winit::platform::web::WindowBuilderExtWebSys;
-
-            if let Some(selector) = &window_descriptor.canvas {
-                let window = web_sys::window().unwrap();
-                let document = window.document().unwrap();
-                let canvas = document
-                    .query_selector(&selector)
-                    .expect("Cannot query for canvas element.");
-                if let Some(canvas) = canvas {
-                    let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
-                    winit_window_builder = winit_window_builder.with_canvas(canvas);
-                } else {
-                    panic!("Cannot find element: {}.", selector);
-                }
-            }
-        }
-
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
         if window_descriptor.mode == WindowMode::Windowed {
@@ -174,16 +154,14 @@ impl WinitWindows {
         {
             use winit::platform::web::WindowExtWebSys;
 
-            if window_descriptor.canvas.is_none() {
-                let canvas = winit_window.canvas();
+            let canvas = winit_window.canvas();
 
-                let window = web_sys::window().unwrap();
-                let document = window.document().unwrap();
-                let body = document.body().unwrap();
+            let window = web_sys::window().unwrap();
+            let document = window.document().unwrap();
+            let body = document.body().unwrap();
 
-                body.append_child(&canvas)
-                    .expect("Append canvas to HTML body.");
-            }
+            body.append_child(&canvas)
+                .expect("Append canvas to HTML body.");
         }
 
         let position = winit_window

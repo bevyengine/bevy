@@ -154,6 +154,14 @@ impl Plugin for RenderPlugin {
                             Some(instance.create_surface(&handle.get_handle()))
                         }
                         AbstractWindowHandle::Virtual => None,
+                        #[cfg(target_arch = "wasm32")]
+                        AbstractWindowHandle::HtmlCanvas(canvas) => {
+                            Some(instance.create_surface_from_canvas(&canvas))
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        AbstractWindowHandle::OffscreenCanvas(canvas) => {
+                            Some(instance.create_surface_from_offscreen_canvas(&canvas))
+                        }
                     }
                 });
                 raw_handle

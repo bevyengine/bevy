@@ -173,6 +173,16 @@ pub fn prepare_windows(
                     // NOTE: On some OSes this MUST be called from the main thread.
                     render_instance.create_surface(&handle.get_handle())
                 }),
+            #[cfg(target_arch = "wasm32")]
+            AbstractWindowHandle::HtmlCanvas(canvas) => window_surfaces
+                .surfaces
+                .entry(window.id)
+                .or_insert_with(|| render_instance.create_surface_from_canvas(canvas)),
+            #[cfg(target_arch = "wasm32")]
+            AbstractWindowHandle::OffscreenCanvas(canvas) => window_surfaces
+                .surfaces
+                .entry(window.id)
+                .or_insert_with(|| render_instance.create_surface_from_offscreen_canvas(canvas)),
             AbstractWindowHandle::Virtual => continue,
         };
 

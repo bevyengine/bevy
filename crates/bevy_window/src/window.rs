@@ -3,6 +3,10 @@ use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsCast;
+#[cfg(target_arch = "wasm32")]
+use web_sys::{HtmlCanvasElement, OffscreenCanvas};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
 #[reflect_value(PartialEq, Hash)]
@@ -164,7 +168,16 @@ pub enum AbstractWindowHandle {
     /// for creating and presenting surface textures and inserting them into
     /// [`ExtractedWindow`](https://docs.rs/bevy/*/bevy/render/view/struct.ExtractedWindow.html).
     Virtual,
+    #[cfg(target_arch = "wasm32")]
+    HtmlCanvas(web_sys::HtmlCanvasElement),
+    #[cfg(target_arch = "wasm32")]
+    OffscreenCanvas(web_sys::OffscreenCanvas),
 }
+
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for AbstractWindowHandle {}
+#[cfg(target_arch = "wasm32")]
+unsafe impl Sync for AbstractWindowHandle {}
 
 /// An operating system or virtual window that can present content and receive user input.
 ///
@@ -277,7 +290,6 @@ pub struct Window {
     window_handle: AbstractWindowHandle,
     focused: bool,
     mode: WindowMode,
-    canvas: Option<String>,
     fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
 }
@@ -408,7 +420,6 @@ impl Window {
             )),
             focused: true,
             mode: window_descriptor.mode,
-            canvas: window_descriptor.canvas.clone(),
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
         }
@@ -446,7 +457,103 @@ impl Window {
             window_handle: AbstractWindowHandle::Virtual,
             focused: true,
             mode: window_descriptor.mode,
-            canvas: window_descriptor.canvas.clone(),
+            fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
+            command_queue: Vec::new(),
+        }
+    }
+
+    /// Creates a new [`Window`] from a canvas.
+    ///
+    /// See [`AbstractWindowHandle::HtmlCanvas`].
+    #[cfg(target_arch = "wasm32")]
+    pub fn new_canvas(
+        id: WindowId,
+        window_descriptor: &WindowDescriptor,
+        canvas: HtmlCanvasElement,
+    ) -> Self {
+        let size = canvas.get_bounding_client_rect();
+        Window {
+            id,
+            requested_width: window_descriptor.width,
+            requested_height: window_descriptor.height,
+            position: None,
+            physical_width: size.width() as _,
+            physical_height: size.height() as _,
+            resize_constraints: window_descriptor.resize_constraints,
+            scale_factor_override: window_descriptor.scale_factor_override,
+            backend_scale_factor: web_sys::window().unwrap().device_pixel_ratio(),
+            title: window_descriptor.title.clone(),
+            present_mode: window_descriptor.present_mode,
+            resizable: window_descriptor.resizable,
+            decorations: window_descriptor.decorations,
+            cursor_visible: window_descriptor.cursor_visible,
+            cursor_locked: window_descriptor.cursor_locked,
+            cursor_icon: CursorIcon::Default,
+            physical_cursor_position: None,
+            window_handle: AbstractWindowHandle::HtmlCanvas(canvas),
+            focused: true,
+            mode: window_descriptor.mode,
+            fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
+            command_queue: Vec::new(),
+        }
+    }
+
+    /// Creates a new [`Window`] from a selector to a canvas.
+    ///
+    /// The selector format used is a [CSS selector](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors).
+    /// It uses the first element matching the selector.
+    ///
+    /// Returns an `Err` if the selector format is invalid. Panics if it is run from a web worker.
+    ///
+    /// Returns Ok(None) when the element could not be found with the selector.
+    ///
+    /// See [`AbstractWindowHandle::HtmlCanvas`].
+    #[cfg(target_arch = "wasm32")]
+    pub fn new_canvas_selector(
+        id: WindowId,
+        window_descriptor: &WindowDescriptor,
+        selector: &str,
+    ) -> Result<Option<Self>, wasm_bindgen::JsValue> {
+        Ok(web_sys::window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .query_selector(selector)?
+            .and_then(|element| element.dyn_into().ok())
+            .map(|canvas| Self::new_canvas(id, window_descriptor, canvas)))
+    }
+
+    /// Creates a new [`Window`] from an offscreen canvas.
+    ///
+    /// See [`AbstractWindowHandle::OffscreenCanvas`].
+    #[cfg(target_arch = "wasm32")]
+    pub fn new_offscreen_canvas(
+        id: WindowId,
+        window_descriptor: &WindowDescriptor,
+        canvas: OffscreenCanvas,
+        scale_factor: f64,
+    ) -> Self {
+        Window {
+            id,
+            requested_width: window_descriptor.width,
+            requested_height: window_descriptor.height,
+            position: None,
+            physical_width: canvas.width() as _,
+            physical_height: canvas.height() as _,
+            resize_constraints: window_descriptor.resize_constraints,
+            scale_factor_override: window_descriptor.scale_factor_override,
+            backend_scale_factor: scale_factor,
+            title: window_descriptor.title.clone(),
+            present_mode: window_descriptor.present_mode,
+            resizable: window_descriptor.resizable,
+            decorations: window_descriptor.decorations,
+            cursor_visible: window_descriptor.cursor_visible,
+            cursor_locked: window_descriptor.cursor_locked,
+            cursor_icon: CursorIcon::Default,
+            physical_cursor_position: None,
+            window_handle: AbstractWindowHandle::OffscreenCanvas(canvas),
+            focused: true,
+            mode: window_descriptor.mode,
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
         }
@@ -803,12 +910,12 @@ impl Window {
         });
     }
     /// Close the operating system window corresponding to this [`Window`].
-    ///  
+    ///
     /// This will also lead to this [`Window`] being removed from the
     /// [`Windows`] resource.
     ///
     /// If the default [`WindowPlugin`] is used, when no windows are
-    /// open, the [app will exit](bevy_app::AppExit).  
+    /// open, the [app will exit](bevy_app::AppExit).
     /// To disable this behaviour, set `exit_on_all_closed` on the [`WindowPlugin`]
     /// to `false`
     ///
@@ -832,18 +939,6 @@ impl Window {
     /// Get the [`AbstractWindowHandle`] corresponding to this window.
     pub fn window_handle(&self) -> AbstractWindowHandle {
         self.window_handle.clone()
-    }
-
-    /// The "html canvas" element selector.
-    ///
-    /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
-    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
-    ///
-    /// This value has no effect on non-web platforms.
-    #[inline]
-    pub fn canvas(&self) -> Option<&str> {
-        self.canvas.as_deref()
     }
 
     /// Whether or not to fit the canvas element's size to its parent element's size.
@@ -961,14 +1056,6 @@ pub struct WindowDescriptor {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
-    /// The "html canvas" element selector.
-    ///
-    /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
-    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
-    ///
-    /// This value has no effect on non-web platforms.
-    pub canvas: Option<String>,
     /// Whether or not to fit the canvas element's size to its parent element's size.
     ///
     /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
@@ -996,7 +1083,6 @@ impl Default for WindowDescriptor {
             cursor_visible: true,
             mode: WindowMode::Windowed,
             transparent: false,
-            canvas: None,
             fit_canvas_to_parent: false,
         }
     }
