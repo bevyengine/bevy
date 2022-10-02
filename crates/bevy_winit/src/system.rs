@@ -65,15 +65,31 @@ pub(crate) fn create_window<'a>(
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor());
-        commands
-            .entity(entity)
-            .insert(RawHandleWrapper {
-                window_handle: winit_window.raw_window_handle(),
-                display_handle: winit_window.raw_display_handle(),
-            })
-            .insert(CachedWindow {
-                window: window.clone(),
-            });
+
+        let handle = {
+            use bevy_window::{AbstractHandlePlaceholder, AbstractHandleWrapper};
+
+            match &window.handle {
+                AbstractHandlePlaceholder::RawHandle(()) => {
+                    AbstractHandleWrapper::RawHandle(RawHandleWrapper {
+                        window_handle: winit_window.raw_window_handle(),
+                        display_handle: winit_window.raw_display_handle(),
+                    })
+                }
+                #[cfg(target_arch = "wasm32")]
+                AbstractHandlePlaceholder::HtmlCanvas(canvas) => {
+                    AbstractHandleWrapper::HtmlCanvas(canvas.clone())
+                }
+                #[cfg(target_arch = "wasm32")]
+                AbstractHandlePlaceholder::OffscreenCanvas(canvas) => {
+                    AbstractHandleWrapper::OffscreenCanvas(canvas.clone())
+                }
+            }
+        };
+
+        commands.entity(entity).insert(handle).insert(CachedWindow {
+            window: window.clone(),
+        });
 
         #[cfg(target_arch = "wasm32")]
         {

@@ -10,6 +10,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_utils::tracing::warn;
 
+use crate::raw_handle::AbstractHandlePlaceholder;
 use crate::CursorIcon;
 
 /// Marker component for the window considered the primary window.
@@ -115,6 +116,26 @@ pub struct Window {
     /// Note: This does not stop the program from fullscreening/setting
     /// the size programmatically.
     pub resizable: bool,
+    /// Determines with which rendering context window should be associated.
+    ///
+    /// ## Platform-specific
+    ///
+    /// For non-web platforms there exists only one enum variant that indicates
+    /// that `winit` should use `RawWindowHandle`.
+    /// Note that this field doesn't hold handle value itself,
+    /// i.e. you don't need to create the window yourself.
+    /// Instead it is generated when winit creates a new window for you.
+    /// You can safely pass `Default::default()`.
+    ///
+    /// For web the enum offers two more enum variants: one for html canvas and offscreen canvas.
+    /// Those are later piped through to `wgpu`.
+    ///
+    /// ## Reflection
+    ///
+    /// On `wasm32` this field contains `js-sys` objects which are neither `Send` nor `Sync`
+    /// nor implement `Reflect`.
+    #[reflect(ignore)]
+    pub handle: AbstractHandlePlaceholder,
     /// Should the window have decorations enabled?
     ///
     /// (Decorations are the minimize, maximize, and close buttons on desktop apps)
@@ -199,6 +220,7 @@ impl Default for Window {
             internal: Default::default(),
             composite_alpha_mode: Default::default(),
             resize_constraints: Default::default(),
+            handle: Default::default(),
             ime_enabled: Default::default(),
             ime_position: Default::default(),
             resizable: true,
@@ -448,21 +470,6 @@ impl WindowPosition {
     pub fn center(&mut self, monitor: MonitorSelection) {
         *self = WindowPosition::Centered(monitor);
     }
-}
-
-/// Handle used for creating surfaces in the render plugin
-///
-/// Either a raw handle to an OS window or `Virtual` to signify that there is no corresponding OS window.
-#[derive(Clone, Debug)]
-pub enum AbstractWindowHandle {
-    /// The window corresponds to an operator system window.
-    RawWindowHandle(crate::RawHandleWrapper),
-    /// The window does not to correspond to an operator system window.
-    ///
-    /// It differs from a non-virtual window, in that the caller is responsible
-    /// for creating and presenting surface textures and inserting them into
-    /// [`ExtractedWindow`](https://docs.rs/bevy/*/bevy/render/view/struct.ExtractedWindow.html).
-    Virtual,
 }
 
 /// An operating system or virtual window that can present content and receive user input.

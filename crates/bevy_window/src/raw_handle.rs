@@ -2,6 +2,8 @@ use bevy_ecs::prelude::Component;
 use raw_window_handle::{
     HasRawDisplayHandle, HasRawWindowHandle, RawDisplayHandle, RawWindowHandle,
 };
+#[cfg(target_arch = "wasm32")]
+use web_sys::{HtmlCanvasElement, OffscreenCanvas};
 
 /// A wrapper over [`RawWindowHandle`] and [`RawDisplayHandle`] that allows us to safely pass it across threads.
 ///
@@ -74,3 +76,38 @@ unsafe impl HasRawDisplayHandle for ThreadLockedRawWindowHandleWrapper {
         self.0.get_display_handle()
     }
 }
+
+/// Handle used for creating surfaces in the render plugin
+///
+/// Either a raw handle to an OS window or some canvas flavor when compiling on wasm.
+#[derive(Clone, Debug, Component)]
+pub enum AbstractHandle<T> {
+    /// The window corresponds to an operator system window.
+    RawHandle(T),
+    #[cfg(target_arch = "wasm32")]
+    HtmlCanvas(HtmlCanvasElement),
+    #[cfg(target_arch = "wasm32")]
+    OffscreenCanvas(OffscreenCanvas),
+}
+
+impl<T> Default for AbstractHandle<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self::RawHandle(Default::default())
+    }
+}
+
+pub type AbstractHandlePlaceholder = AbstractHandle<()>;
+pub type AbstractHandleWrapper = AbstractHandle<RawHandleWrapper>;
+
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for AbstractHandleWrapper {}
+#[cfg(target_arch = "wasm32")]
+unsafe impl Sync for AbstractHandleWrapper {}
+
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for AbstractHandlePlaceholder {}
+#[cfg(target_arch = "wasm32")]
+unsafe impl Sync for AbstractHandlePlaceholder {}

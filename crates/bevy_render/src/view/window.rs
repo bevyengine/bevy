@@ -7,8 +7,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
-    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
-    AbstractWindowHandle
+    AbstractHandleWrapper, CompositeAlphaMode, PresentMode, PrimaryWindow, Window, WindowClosed,
 };
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
@@ -43,7 +42,7 @@ impl Plugin for WindowRenderPlugin {
 pub struct ExtractedWindow {
     /// An entity that contains the components in [`Window`].
     pub entity: Entity,
-    pub handle: AbstractWindowHandle,
+    pub handle: AbstractHandleWrapper,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -77,7 +76,14 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     mut closed: Extract<EventReader<WindowClosed>>,
-    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
+    windows: Extract<
+        Query<(
+            Entity,
+            &Window,
+            &AbstractHandleWrapper,
+            Option<&PrimaryWindow>,
+        )>,
+    >,
 ) {
     for (entity, window, handle, primary) in windows.iter() {
         if primary.is_some() {
@@ -91,7 +97,7 @@ fn extract_windows(
 
         let mut extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
             entity,
-            handle: AbstractWindowHandle::RawWindowHandle(handle.clone()),
+            handle: handle.clone(),
             physical_width: new_width,
             physical_height: new_height,
             present_mode: window.present_mode,
@@ -182,10 +188,6 @@ pub fn prepare_windows(
     mut msaa: ResMut<Msaa>,
 ) {
     for window in windows.windows.values_mut() {
-        let AbstractWindowHandle::RawWindowHandle(handle) = &window.handle else {
-            continue
-        };
-
         let window_surfaces = window_surfaces.deref_mut();
         let surface_data = window_surfaces
             .surfaces
@@ -193,9 +195,19 @@ pub fn prepare_windows(
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
                 // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                let surface = render_instance
-                    .create_surface(&handle.get_handle())
-                    .expect("Failed to create wgpu surface");
+                let surface = match &window.handle {
+                    AbstractHandleWrapper::RawHandle(handle) => render_instance
+                        .create_surface(&handle.get_handle())
+                        .expect("Failed to create wgpu surface"),
+                    #[cfg(target_arch = "wasm32")]
+                    AbstractHandleWrapper::HtmlCanvas(canvas) => render_instance
+                        .create_surface_from_canvas(canvas)
+                        .expect("Failed to create wgpu surface"),
+                    #[cfg(target_arch = "wasm32")]
+                    AbstractHandleWrapper::OffscreenCanvas(canvas) => render_instance
+                        .create_surface_from_offscreen_canvas(canvas)
+                        .expect("Failed to create wgpu surface"),
+                };
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,
