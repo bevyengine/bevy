@@ -47,42 +47,16 @@ impl SystemOrderAmbiguity {
     ) -> Self {
         use SystemStageSegment::*;
 
-        // TODO: blocked on https://github.com/bevyengine/bevy/pull/4166
-        // We can't grab the system container generically, because .parallel_systems()
-        // and the exclusive equivalent return a different type,
-        // and SystemContainer is not object-safe
-        let (system_a_name, system_b_name) = match segment {
-            Parallel => {
-                let system_container = stage.parallel_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-            ExclusiveAtStart => {
-                let system_container = stage.exclusive_at_start_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-            ExclusiveBeforeCommands => {
-                let system_container = stage.exclusive_before_commands_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-            ExclusiveAtEnd => {
-                let system_container = stage.exclusive_at_end_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
+        let systems = match segment {
+            Parallel => stage.parallel_systems(),
+            ExclusiveAtStart => stage.exclusive_at_start_systems(),
+            ExclusiveBeforeCommands => stage.exclusive_before_commands_systems(),
+            ExclusiveAtEnd => stage.exclusive_at_end_systems(),
         };
-
-        let mut system_names = [system_a_name.to_string(), system_b_name.to_string()];
+        let mut system_names = [
+            systems[system_a_index].name().to_string(),
+            systems[system_b_index].name().to_string(),
+        ];
         system_names.sort();
 
         let mut conflicts: Vec<_> = component_ids
