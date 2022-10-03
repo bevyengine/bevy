@@ -472,7 +472,7 @@ impl World {
         // SAFETY: entity index was just allocated
         self.entities
             .meta
-            .get_unchecked_mut(entity.id() as usize)
+            .get_unchecked_mut(entity.index() as usize)
             .location = location;
         EntityMut::new(self, entity, location)
     }

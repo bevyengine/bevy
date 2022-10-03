@@ -54,7 +54,7 @@ type IdCursor = isize;
 
 /// Lightweight identifier of an [entity](crate::entity).
 ///
-/// The identifier is implemented using a [generational index]: a combination of an ID and a generation.
+/// The identifier is implemented using a [generational index]: a combination of an index and a generation.
 /// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
@@ -117,14 +117,14 @@ pub enum AllocAtWithoutReplacement {
 }
 
 impl Entity {
-    /// Creates a new entity reference with the specified `id` and a generation of 0.
+    /// Creates a new entity reference with the specified `index` and a generation of 0.
     ///
     /// # Note
     ///
     /// Spawning a specific `entity` value is __rarely the right choice__. Most apps should favor
     /// [`Commands::spawn`](crate::system::Commands::spawn). This method should generally
     /// only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an ID space (which doesn't happen by default).
+    /// worked out to share an index space (which doesn't happen by default).
     ///
     /// In general, one should not try to synchronize the ECS by attempting to ensure that
     /// `Entity` lines up between instances, but instead insert a secondary identifier as
@@ -193,17 +193,17 @@ impl Entity {
 
     /// Return a transiently unique identifier.
     ///
-    /// No two simultaneously-live entities share the same ID, but dead entities' IDs may collide
+    /// No two simultaneously-live entities share the same index, but dead entities' indices may collide
     /// with both live and dead entities. Useful for compactly representing entities within a
     /// specific snapshot of the world, such as when serializing.
     #[inline]
-    pub const fn id(self) -> u32 {
+    pub const fn index(self) -> u32 {
         self.index
     }
 
-    /// Returns the generation of this Entity's id. The generation is incremented each time an
-    /// entity with a given id is despawned. This serves as a "count" of the number of times a
-    /// given id has been reused (id, generation) pairs uniquely identify a given Entity.
+    /// Returns the generation of this Entity's index. The generation is incremented each time an
+    /// entity with a given index is despawned. This serves as a "count" of the number of times a
+    /// given index has been reused (index, generation) pairs uniquely identify a given Entity.
     #[inline]
     pub const fn generation(self) -> u32 {
         self.generation
@@ -218,7 +218,7 @@ impl fmt::Debug for Entity {
 
 impl SparseSetIndex for Entity {
     fn sparse_set_index(&self) -> usize {
-        self.id() as usize
+        self.index() as usize
     }
 
     fn get_sparse_set_index(value: usize) -> Self {
@@ -232,25 +232,25 @@ pub struct ReserveEntitiesIterator<'a> {
     // Metas, so we can recover the current generation for anything in the freelist.
     meta: &'a [EntityMeta],
 
-    // Reserved IDs formerly in the freelist to hand out.
-    id_iter: std::slice::Iter<'a, u32>,
+    // Reserved indices formerly in the freelist to hand out.
+    index_iter: std::slice::Iter<'a, u32>,
 
-    // New Entity IDs to hand out, outside the range of meta.len().
-    id_range: std::ops::Range<u32>,
+    // New Entity indices to hand out, outside the range of meta.len().
+    index_range: std::ops::Range<u32>,
 }
 
 impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.id_iter
+        self.index_iter
             .next()
             .map(|&index| Entity {
                 generation: self.meta[index as usize].generation,
                 index,
             })
             .or_else(|| {
-                self.id_range.next().map(|index| Entity {
+                self.index_range.next().map(|index| Entity {
                     generation: 0,
                     index,
                 })
@@ -258,7 +258,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.id_iter.len() + self.id_range.len();
+        let len = self.index_iter.len() + self.index_range.len();
         (len, Some(len))
     }
 }
@@ -353,8 +353,8 @@ impl Entities {
 
         ReserveEntitiesIterator {
             meta: &self.meta[..],
-            id_iter: self.pending[freelist_range].iter(),
-            id_range: new_id_start..new_id_end,
+            index_iter: self.pending[freelist_range].iter(),
+            index_range: new_id_start..new_id_end,
         }
     }
 
@@ -519,7 +519,7 @@ impl Entities {
     // This will return false for entities which have been freed, even if
     // not reallocated since the generation is incremented in `free`
     pub fn contains(&self, entity: Entity) -> bool {
-        self.resolve_from_id(entity.id())
+        self.resolve_from_id(entity.index())
             .map_or(false, |e| e.generation() == entity.generation)
     }
 
@@ -722,7 +722,7 @@ mod tests {
         assert_eq!(0x0000_00cc, C2.index);
         assert_eq!(0x0000_00ff, C2.generation);
 
-        const C3: u32 = Entity::from_raw(33).id();
+        const C3: u32 = Entity::from_raw(33).index();
         assert_eq!(33, C3);
 
         const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();

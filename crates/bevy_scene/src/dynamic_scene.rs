@@ -49,7 +49,7 @@ impl DynamicScene {
             // and insert it into the dynamic scene.
             for entity in archetype.entities() {
                 scene.entities.push(DynamicEntity {
-                    entity: entity.id(),
+                    entity: entity.index(),
                     components: Vec::new(),
                 });
             }

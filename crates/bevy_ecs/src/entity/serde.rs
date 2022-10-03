@@ -6,7 +6,7 @@ impl Serialize for Entity {
     where
         S: Serializer,
     {
-        serializer.serialize_u32(self.id())
+        serializer.serialize_u32(self.index())
     }
 }
 
