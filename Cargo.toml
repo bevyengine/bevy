@@ -196,6 +196,10 @@ wasm = true
 name = "2d_shapes"
 path = "examples/2d/2d_shapes.rs"
 
+[[example]]
+name = "drag_scale_camera"
+path = "examples/2d/drag_scale_camera.rs"
+
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
 description = "Renders a rectangle, circle, and hexagon"
