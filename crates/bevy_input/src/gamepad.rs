@@ -524,7 +524,7 @@ impl ButtonSettings {
     /// # Errors
     ///
     /// If the restrictions are not met, `InvalidButtonSetting` will be returned.
-    pub fn new(press_threshold: f32, release_threshold: f32) -> Result<Self> {
+    pub fn new(press_threshold: f32, release_threshold: f32) -> Result<ButtonSettings, GamepadSettingsError> {
         if 0.0 <= release_threshold
             && release_threshold <= press_threshold
             && press_threshold <= 1.0
@@ -1090,6 +1090,8 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
 
 #[cfg(test)]
 mod tests {
+    use crate::gamepad::GamepadSettingsError;
+
     use super::{AxisSettings, ButtonAxisSettings, ButtonSettings};
 
     fn test_button_axis_settings_filter(
@@ -1241,7 +1243,7 @@ mod tests {
             let settings = ButtonSettings::default();
             let actual = settings.is_pressed(value);
 
-            assert_eq!(expected, actual, "Testing is pressed for value: {}", value);
+            assert_eq!(expected, actual, "Testing ButtonSettings::is_pressed() for value: {}", value);
         }
     }
 
@@ -1263,7 +1265,59 @@ mod tests {
             let settings = ButtonSettings::default();
             let actual = settings.is_released(value);
 
-            assert_eq!(expected, actual, "Testing is released for value: {}", value);
+            assert_eq!(expected, actual, "Testing ButtonSettings::is_released() for value: {}", value);
         }
     }
+
+    #[test]
+    fn test_new_button_settings_given_valid_parameters() {
+        let cases = [
+            (1.0, 0.0),
+            (1.0, 1.0),
+            (1.0, 0.9),
+            (0.9, 0.9),
+            (0.9, 0.0),
+            (0.0, 0.0),
+        ];
+
+        for (press_threshold, release_threshold) in cases {
+            let bs = ButtonSettings::new(press_threshold, release_threshold);
+            match bs {
+                Ok(button_settings) => {
+                    assert_eq!(button_settings.press_threshold, press_threshold);
+                    assert_eq!(button_settings.release_threshold, release_threshold);
+                },
+                Err(_) => { assert!(false, "ButtonSettings::new({}, {}) should be valid ", press_threshold, release_threshold); },
+            }
+        }
+    }
+
+
+    #[test]
+    fn test_new_button_settings_given_invalid_parameters() {
+        let cases = [
+            (1.1, 0.0),
+            (1.1, 1.0),
+            (1.0, 1.1),
+            (-1.0, 0.9),
+            (-1.0, 0.0),
+            (-1.0, -0.4),
+            (0.9, 1.0),
+            (0.0, 0.1),
+        ];
+
+        for (press_threshoid, release_threshold) in cases {
+            let bs = ButtonSettings::new(press_threshoid, release_threshold);
+            match bs {
+                Ok(_) => { assert!(false, "ButtonSettings::new({}, {}) should be invalid ", press_threshoid, release_threshold); },
+                Err(err_code) => {
+                    match err_code {
+                        GamepadSettingsError::InvalidButtonSetting(_) => {},
+                        _ => { assert!(false, "Expected GamepadSettingsError::InvalidButtonSetting for ButtonSettings::new({}, {})", press_threshoid, release_threshold); },
+                    }
+                }
+            }
+        }
+    }
+
 }
