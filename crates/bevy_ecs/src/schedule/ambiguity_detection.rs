@@ -501,7 +501,8 @@ mod tests {
         let mut test_stage = SystemStage::parallel();
         test_stage
             .add_system(resmut_system.ignore_all_ambiguities())
-            .add_system(res_system);
+            .add_system(res_system)
+            .add_system(nonsend_system);
 
         test_stage.run(&mut world);
 
@@ -520,7 +521,7 @@ mod tests {
         test_stage
             .add_system(resmut_system.ambiguous_with(IgnoreMe))
             .add_system(res_system.label(IgnoreMe))
-            .add_system(res_system.label(IgnoreMe));
+            .add_system(nonsend_system.label(IgnoreMe));
 
         test_stage.run(&mut world);
 
