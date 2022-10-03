@@ -131,7 +131,7 @@ impl ComponentSparseSet {
             #[cfg(debug_assertions)]
             assert_eq!(self.entities.len(), dense_index);
             #[cfg(not(debug_assertions))]
-            self.entities.push(entity.id());
+            self.entities.push(entity.index());
             #[cfg(debug_assertions)]
             self.entities.push(entity);
         }
@@ -150,7 +150,7 @@ impl ComponentSparseSet {
             }
         }
         #[cfg(not(debug_assertions))]
-        self.sparse.contains(entity.id())
+        self.sparse.contains(entity.index())
     }
 
     #[inline]
