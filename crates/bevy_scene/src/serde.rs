@@ -1,5 +1,3 @@
-#![cfg(feature = "serde")]
-
 use crate::{DynamicEntity, DynamicScene};
 use anyhow::Result;
 use bevy_reflect::serde::{ReflectSerializer, UntypedReflectDeserializer};

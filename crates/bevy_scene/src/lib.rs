@@ -3,6 +3,8 @@ mod dynamic_scene;
 mod scene;
 mod scene_loader;
 mod scene_spawner;
+
+#[cfg(feature = "serde")]
 pub mod serde;
 
 pub use bundle::*;
