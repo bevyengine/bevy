@@ -3,6 +3,16 @@ use crate::{
     system::{AsSystemLabel, BoxedSystem, IntoSystem},
 };
 
+/// Configures ambiguity detection for a single system.
+#[derive(Default)]
+pub(crate) enum AmbiguityDetection {
+    #[default]
+    Check,
+    IgnoreAll,
+    /// Ignore systems with any of these labels.
+    IgnoreWithLabel(Vec<SystemLabelId>),
+}
+
 /// Encapsulates a system and information on when it run in a `SystemStage`.
 ///
 /// Systems can be inserted into 4 different groups within the stage:
@@ -38,6 +48,7 @@ pub struct SystemDescriptor {
     pub(crate) labels: Vec<SystemLabelId>,
     pub(crate) before: Vec<SystemLabelId>,
     pub(crate) after: Vec<SystemLabelId>,
+    pub(crate) ambiguity_detection: AmbiguityDetection,
 }
 
 impl SystemDescriptor {
@@ -53,6 +64,7 @@ impl SystemDescriptor {
             run_criteria: None,
             before: Vec::new(),
             after: Vec::new(),
+            ambiguity_detection: Default::default(),
         }
     }
 }
@@ -74,6 +86,15 @@ pub trait IntoSystemDescriptor<Params> {
 
     /// Specifies that the system should run after systems with the given label.
     fn after<Marker>(self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor;
+
+    /// Marks this system as ambiguous with any system with the specified label.
+    /// This means that execution order between these systems does not matter,
+    /// which allows [some warnings](crate::schedule::ReportExecutionOrderAmbiguities) to be silenced.
+    fn ambiguous_with<Marker>(self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor;
+
+    /// Specifies that this system should opt out of
+    /// [execution order ambiguity detection](crate::schedule::ReportExecutionOrderAmbiguities).
+    fn ignore_all_ambiguities(self) -> SystemDescriptor;
 
     /// Specifies that the system should run with other exclusive systems at the start of stage.
     fn at_start(self) -> SystemDescriptor;
@@ -107,6 +128,26 @@ impl IntoSystemDescriptor<()> for SystemDescriptor {
 
     fn after<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor {
         self.after.push(label.as_system_label().as_label());
+        self
+    }
+
+    fn ambiguous_with<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor {
+        match &mut self.ambiguity_detection {
+            detection @ AmbiguityDetection::Check => {
+                *detection =
+                    AmbiguityDetection::IgnoreWithLabel(vec![label.as_system_label().as_label()]);
+            }
+            AmbiguityDetection::IgnoreWithLabel(labels) => {
+                labels.push(label.as_system_label().as_label());
+            }
+            // This descriptor is already ambiguous with everything.
+            AmbiguityDetection::IgnoreAll => {}
+        }
+        self
+    }
+
+    fn ignore_all_ambiguities(mut self) -> SystemDescriptor {
+        self.ambiguity_detection = AmbiguityDetection::IgnoreAll;
         self
     }
 
@@ -154,6 +195,14 @@ where
         SystemDescriptor::new(Box::new(IntoSystem::into_system(self))).after(label)
     }
 
+    fn ambiguous_with<Marker>(self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor {
+        SystemDescriptor::new(Box::new(IntoSystem::into_system(self))).ambiguous_with(label)
+    }
+
+    fn ignore_all_ambiguities(self) -> SystemDescriptor {
+        SystemDescriptor::new(Box::new(IntoSystem::into_system(self))).ignore_all_ambiguities()
+    }
+
     fn at_start(self) -> SystemDescriptor {
         SystemDescriptor::new(Box::new(IntoSystem::into_system(self))).at_start()
     }
@@ -189,6 +238,14 @@ impl IntoSystemDescriptor<()> for BoxedSystem<(), ()> {
 
     fn after<Marker>(self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor {
         SystemDescriptor::new(self).after(label)
+    }
+
+    fn ambiguous_with<Marker>(self, label: impl AsSystemLabel<Marker>) -> SystemDescriptor {
+        SystemDescriptor::new(self).ambiguous_with(label)
+    }
+
+    fn ignore_all_ambiguities(self) -> SystemDescriptor {
+        SystemDescriptor::new(self).ignore_all_ambiguities()
     }
 
     fn at_start(self) -> SystemDescriptor {

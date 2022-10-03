@@ -2,8 +2,10 @@ use bevy_utils::tracing::info;
 use fixedbitset::FixedBitSet;
 
 use crate::component::ComponentId;
-use crate::schedule::{SystemContainer, SystemStage};
+use crate::schedule::{AmbiguityDetection, GraphNode, SystemContainer, SystemStage};
 use crate::world::World;
+
+use super::SystemLabelId;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct SystemOrderAmbiguity {
@@ -194,6 +196,24 @@ impl SystemStage {
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
 fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
+    // Check if we should ignore ambiguities between `system_a` and `system_b`.
+    fn should_ignore(system_a: &SystemContainer, system_b: &SystemContainer) -> bool {
+        fn should_ignore_inner(
+            system_a_detection: &AmbiguityDetection,
+            system_b_labels: &[SystemLabelId],
+        ) -> bool {
+            match system_a_detection {
+                AmbiguityDetection::Check => false,
+                AmbiguityDetection::IgnoreAll => true,
+                AmbiguityDetection::IgnoreWithLabel(labels) => {
+                    labels.iter().any(|l| system_b_labels.contains(l))
+                }
+            }
+        }
+        should_ignore_inner(&system_a.ambiguity_detection, system_b.labels())
+            || should_ignore_inner(&system_b.ambiguity_detection, system_a.labels())
+    }
+
     let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
     for (index, container) in systems.iter().enumerate() {
@@ -235,7 +255,8 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
         for index_b in full_bitset.difference(&relations)
         // .take(index_a)
         {
-            if !processed.contains(index_b) {
+            if !processed.contains(index_b) && !should_ignore(&systems[index_a], &systems[index_b])
+            {
                 let system_a = &systems[index_a];
                 let system_b = &systems[index_b];
                 if system_a.is_exclusive() || system_b.is_exclusive() {
