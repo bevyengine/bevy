@@ -492,4 +492,52 @@ mod tests {
 
         assert_eq!(test_stage.ambiguity_count(&world), 0);
     }
+
+    #[test]
+    fn ignore_all_ambiguities() {
+        let mut world = World::new();
+        world.insert_resource(R);
+
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(resmut_system.ignore_all_ambiguities())
+            .add_system(res_system);
+
+        test_stage.run(&mut world);
+
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
+    }
+
+    #[test]
+    fn ambiguous_with_label() {
+        let mut world = World::new();
+        world.insert_resource(R);
+
+        #[derive(SystemLabel)]
+        struct IgnoreMe;
+
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(resmut_system.ambiguous_with(IgnoreMe))
+            .add_system(res_system.label(IgnoreMe))
+            .add_system(res_system.label(IgnoreMe));
+
+        test_stage.run(&mut world);
+
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
+    }
+
+    #[test]
+    fn ambiguous_with_system() {
+        let mut world = World::new();
+
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(write_component_system.ambiguous_with(read_component_system))
+            .add_system(read_component_system);
+
+        test_stage.run(&mut world);
+
+        assert_eq!(test_stage.ambiguity_count(&world), 0);
+    }
 }
