@@ -97,7 +97,7 @@ wav = ["bevy_internal/wav"]
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 
-serde = ["bevy_internal/serde"]
+serialize = ["bevy_internal/serialize"]
 
 # Display server protocol support (X11 is enabled by default)
 wayland = ["bevy_internal/wayland"]
