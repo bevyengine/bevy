@@ -987,6 +987,7 @@ fn get_registration<'a, E: Error>(
 
 #[cfg(test)]
 mod tests {
+    use bincode::Options;
     use std::any::TypeId;
     use std::f32::consts::PI;
 
@@ -1322,7 +1323,7 @@ mod tests {
     }
 
     #[test]
-    fn should_deserialize_binary() {
+    fn should_deserialize_non_self_describing_binary() {
         let mut map = HashMap::new();
         map.insert(64, 32);
 
@@ -1348,6 +1349,63 @@ mod tests {
             },
         };
 
+        let registry = get_registry();
+
+        let input = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 114, 101, 102,
+            108, 101, 99, 116, 58, 58, 115, 101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101,
+            115, 116, 115, 58, 58, 77, 121, 83, 116, 114, 117, 99, 116, 123, 1, 12, 0, 0, 0, 0, 0,
+            0, 0, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33, 1, 123, 0, 0, 0, 0, 0,
+            0, 0, 219, 15, 73, 64, 57, 5, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 254, 255, 255,
+            255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255, 255,
+            255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32, 0,
+            0, 0, 0, 0, 0, 0, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 84, 117, 112,
+            108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1, 0, 0, 0, 123, 0, 0, 0, 0, 0,
+            0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20, 0, 0, 0, 0, 0,
+            0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
+            108, 117, 101, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
+        ];
+
+        let deserializer = UntypedReflectDeserializer::new(&registry);
+
+        let dynamic_output = bincode::DefaultOptions::new()
+            .with_fixint_encoding()
+            .deserialize_seed(deserializer, &input)
+            .unwrap();
+
+        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_deserialize_self_describing_binary() {
+        let mut map = HashMap::new();
+        map.insert(64, 32);
+
+        let expected = MyStruct {
+            primitive_value: 123,
+            option_value: Some(String::from("Hello world!")),
+            option_value_complex: Some(SomeStruct { foo: 123 }),
+            tuple_value: (PI, 1337),
+            list_value: vec![-2, -1, 0, 1, 2],
+            array_value: [-2, -1, 0, 1, 2],
+            map_value: map,
+            struct_value: SomeStruct { foo: 999999999 },
+            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_enum: SomeEnum::Unit,
+            newtype_enum: SomeEnum::NewType(123),
+            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
+            struct_enum: SomeEnum::Struct {
+                foo: String::from("Struct variant value"),
+            },
+            custom_deserialize: CustomDeserialize {
+                value: 100,
+                inner_struct: SomeDeserializableStruct { foo: 101 },
+            },
+        };
+
+        let registry = get_registry();
+
         let input = vec![
             129, 217, 40, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115,
             101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
@@ -1361,7 +1419,6 @@ mod tests {
             101, 146, 100, 145, 101,
         ];
 
-        let registry = get_registry();
         let deserializer = UntypedReflectDeserializer::new(&registry);
 
         let dynamic_output = deserializer
