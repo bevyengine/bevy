@@ -2,7 +2,7 @@ use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
 
-use crate::UpdateTime;
+use crate::DesiredTime;
 
 const SECONDS_PER_HOUR: u64 = 60 * 60;
 
@@ -182,9 +182,9 @@ impl TimeUpdater for bevy_app::App {
     /// This is ordinarily done automatically, but setting this time value directly can be useful when writing tests,
     /// dealing with networking code, or similar.
     fn update_with_instant(&mut self, instant: Instant) {
-        self.world.insert_resource(UpdateTime(instant));
+        self.world.insert_resource(DesiredTime(instant));
         self.update();
-        self.world.remove_resource::<UpdateTime>();
+        self.world.remove_resource::<DesiredTime>();
     }
 }
 
