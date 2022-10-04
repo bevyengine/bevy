@@ -29,7 +29,10 @@ pub mod prelude {
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
-        usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
+        usages::{
+            tick_global_task_pools_on_main_thread, AsyncComputeTaskPool, ComputeTaskPool,
+            IoTaskPool,
+        },
     };
 }
 
