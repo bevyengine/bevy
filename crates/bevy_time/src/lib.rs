@@ -45,7 +45,7 @@ impl Plugin for TimePlugin {
 }
 
 /// Resource for updating time with a specific value.
-/// 
+///
 /// See [`update_with_interval`](self::TimeUpdater::update_with_instant) for more details.
 #[derive(Resource)]
 struct UpdateTime(Instant);

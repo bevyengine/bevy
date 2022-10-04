@@ -177,14 +177,14 @@ impl Time {
 }
 
 impl TimeUpdater for bevy_app::App {
-
     /// Runs the app's schedule once, manually setting the [`Time`] resource to the provided value.
     ///
     /// This is ordinarily done automatically, but setting this time value directly can be useful when writing tests,
-    /// dealing with networking code, or similar. 
-    fn update_with_instant(&mut self, instant: Instant)  {
+    /// dealing with networking code, or similar.
+    fn update_with_instant(&mut self, instant: Instant) {
         self.world.insert_resource(UpdateTime(instant));
         self.update();
+        self.world.remove_resource::<UpdateTime>();
     }
 }
 
