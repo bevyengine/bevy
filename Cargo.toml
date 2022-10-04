@@ -9,53 +9,11 @@ members = [
   "tools/build-wasm-example",
   "errors",
 ]
-
 [workspace.package]
 version = "0.9.0-dev"
 edition = "2021"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
-
-[workspace.dependencies]
-bevy = { path = ".", version = "0.9.0-dev"}
-bevy_animation = { path = "crates/bevy_animation", version = "0.9.0-dev" }
-bevy_app = { path = "crates/bevy_app", version = "0.9.0-dev" }
-bevy_asset = { path = "crates/bevy_asset", version = "0.9.0-dev" }
-bevy_audio = { path = "crates/bevy_audio", version = "0.9.0-dev" }
-bevy_core = { path = "crates/bevy_core", version = "0.9.0-dev" }
-bevy_core_pipeline = { path = "crates/bevy_core_pipeline", version = "0.9.0-dev" }
-bevy_derive = { path = "crates/bevy_derive", version = "0.9.0-dev" }
-bevy_diagnostic = { path = "crates/bevy_diagnostic", version = "0.9.0-dev" }
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0-dev" }
-bevy_dynamic_plugin = { path = "crates/bevy_dynamic_plugin", version = "0.9.0-dev" }
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.9.0-dev" }
-bevy_ecs_macros = { path = "crates/bevy_ecs/macros", version = "0.9.0-dev" }
-bevy_encase_derive = { path = "crates/bevy_encase_derive", version = "0.9.0-dev" }
-bevy_gilrs = { path = "crates/bevy_gilrs", version = "0.9.0-dev" }
-bevy_gltf = { path = "crates/bevy_gltf", version = "0.9.0-dev" }
-bevy_hierarchy = { path = "crates/bevy_hierarchy", version = "0.9.0-dev" }
-bevy_input = { path = "crates/bevy_input", version = "0.9.0-dev" }
-bevy_internal = { path = "crates/bevy_internal", version = "0.9.0-dev" }
-bevy_log = { path = "crates/bevy_log", version = "0.9.0-dev" }
-bevy_macro_utils = { path = "crates/bevy_macro_utils", version = "0.9.0-dev" }
-bevy_math = { path = "crates/bevy_math", version = "0.9.0-dev" }
-bevy_mikktspace = { path = "crates/bevy_mikktspace", version = "0.9.0-dev" }
-bevy_pbr = { path = "crates/bevy_pbr", version = "0.9.0-dev" }
-bevy_ptr = { path = "crates/bevy_ptr", version = "0.9.0-dev" }
-bevy_reflect = { path = "crates/bevy_reflect", version = "0.9.0-dev" }
-bevy_reflect_derive = { path = "crates/bevy_reflect/bevy_reflect_derive", version = "0.9.0-dev" }
-bevy_render = { path = "crates/bevy_render", version = "0.9.0-dev" }
-bevy_render_macros = { path = "crates/bevy_render/macros", version = "0.9.0-dev" }
-bevy_scene = { path = "crates/bevy_scene", version = "0.9.0-dev" }
-bevy_sprite = { path = "crates/bevy_sprite", version = "0.9.0-dev" }
-bevy_tasks = { path = "crates/bevy_tasks", version = "0.9.0-dev" }
-bevy_text = { path = "crates/bevy_text", version = "0.9.0-dev" }
-bevy_time = { path = "crates/bevy_time", version = "0.9.0-dev" }
-bevy_transform = { path = "crates/bevy_transform", version = "0.9.0-dev" }
-bevy_ui = { path = "crates/bevy_ui", version = "0.9.0-dev" }
-bevy_utils = { path = "crates/bevy_utils", version = "0.9.0-dev" }
-bevy_window = { path = "crates/bevy_window", version = "0.9.0-dev" }
-bevy_winit = { path = "crates/bevy_winit", version = "0.9.0-dev" }
 
 [package]
 name = "bevy"
@@ -163,11 +121,11 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 animation = ["bevy_internal/animation"]
 
 [dependencies]
-bevy_dylib = { workspace = true, default-features = false, optional = true }
-bevy_internal = { workspace = true, default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0-dev", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { workspace = true, default-features = false, features = [
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0-dev", default-features = false, features = [
   "webgl",
 ] }
 

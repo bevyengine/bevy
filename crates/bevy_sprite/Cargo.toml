@@ -10,17 +10,19 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app.workspace = true
-bevy_asset.workspace = true
-bevy_core_pipeline.workspace = true
-bevy_ecs.workspace = true
-bevy_log.workspace = true
-bevy_math.workspace = true
-bevy_reflect = { workspace = true, features = ["bevy"] }
-bevy_render.workspace = true
-bevy_transform.workspace = true
-bevy_utils.workspace = true
-bevy_derive.workspace = true
+bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.9.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.9.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.9.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.9.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = [
+    "bevy",
+] }
+bevy_render = { path = "../bevy_render", version = "0.9.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.9.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.9.0-dev" }
 
 # other
 bytemuck = { version = "1.5", features = ["derive"] }

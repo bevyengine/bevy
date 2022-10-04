@@ -10,11 +10,11 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app.workspace = true
-bevy_asset.workspace = true
-bevy_ecs.workspace = true
-bevy_reflect = { workspace = true, features = ["bevy"] }
-bevy_utils.workspace = true
+bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.9.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"] }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
 
 # other
 anyhow = "1.0.4"

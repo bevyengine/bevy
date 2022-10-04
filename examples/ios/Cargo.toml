@@ -11,7 +11,7 @@ name = "bevy_ios_example"
 crate-type = ["staticlib"]
 
 [dependencies]
-bevy = { workspace = true, features = [
+bevy = { path = "../../", features = [ 
   "bevy_audio",
   "bevy_winit",
   "render",
