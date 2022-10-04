@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 description = "CI script for Bevy"
 publish = false
-license = "MIT OR Apache-2.0"
+license.workspace = true
 
 [dependencies]
 xshell = "0.2"

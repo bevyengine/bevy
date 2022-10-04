@@ -5,7 +5,7 @@ edition.workspace = true
 description = "Provides audio functionality for Bevy Engine"
 homepage.workspace = true
 repository.workspace = true
-license = "MIT OR Apache-2.0"
+license.workspace = true
 keywords = ["bevy"]
 
 [dependencies]

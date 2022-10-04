@@ -3,7 +3,7 @@ name = "bevy_ecs_macros"
 version.workspace = true
 description = "Bevy ECS Macros"
 edition.workspace = true
-license = "MIT OR Apache-2.0"
+license.workspace = true
 
 [lib]
 proc-macro = true

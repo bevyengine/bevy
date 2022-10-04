@@ -5,7 +5,7 @@ edition.workspace = true
 description = "Provides dynamic plugin loading capabilities for non-wasm platforms"
 homepage.workspace = true
 repository.workspace = true
-license = "MIT OR Apache-2.0"
+license.workspace = true
 keywords = ["bevy"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

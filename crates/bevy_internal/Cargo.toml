@@ -5,7 +5,7 @@ edition.workspace = true
 description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic' feature"
 homepage.workspace = true
 repository.workspace = true
-license = "MIT OR Apache-2.0"
+license.workspace = true
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 

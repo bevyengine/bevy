@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 description = "Build an example for wasm"
 publish = false
-license = "MIT OR Apache-2.0"
+license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

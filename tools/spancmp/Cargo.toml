@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 description = "compare spans for Bevy"
 publish = false
-license = "MIT OR Apache-2.0"
+license.workspace = true
 
 [dependencies]
 serde_json = "1.0"

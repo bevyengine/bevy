@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 description = "handle examples in Bevy"
 publish = false
-license = "MIT OR Apache-2.0"
+license.workspace = true
 
 [dependencies]
 toml = "0.5"
