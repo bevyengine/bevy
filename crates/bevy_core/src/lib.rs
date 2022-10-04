@@ -4,7 +4,6 @@
 mod name;
 mod task_pool_options;
 
-use bevy_ecs::schedule::IntoSystemDescriptor;
 use bevy_ecs::system::Resource;
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
@@ -18,10 +17,14 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
-use bevy_tasks::prelude::tick_global_task_pools_on_main_thread;
 use bevy_utils::{Duration, HashSet, Instant};
 use std::borrow::Cow;
 use std::ops::Range;
+
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_ecs::schedule::IntoSystemDescriptor;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_tasks::tick_global_task_pools_on_main_thread;
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
@@ -36,6 +39,7 @@ impl Plugin for CorePlugin {
             .unwrap_or_default()
             .create_default_pools();
 
+        #[cfg(not(target_arch = "wasm32"))]
         app.add_system_to_stage(
             bevy_app::CoreStage::Last,
             tick_global_task_pools_on_main_thread.at_end(),

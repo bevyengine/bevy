@@ -18,6 +18,8 @@ mod single_threaded_task_pool;
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod usages;
+#[cfg(not(target_arch = "wasm32"))]
+pub use usages::tick_global_task_pools_on_main_thread;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 mod iter;
@@ -29,10 +31,7 @@ pub mod prelude {
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
-        usages::{
-            tick_global_task_pools_on_main_thread, AsyncComputeTaskPool, ComputeTaskPool,
-            IoTaskPool,
-        },
+        usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
     };
 }
 
