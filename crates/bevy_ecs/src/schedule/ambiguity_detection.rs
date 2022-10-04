@@ -45,45 +45,18 @@ impl SystemOrderAmbiguity {
         stage: &SystemStage,
         world: &World,
     ) -> Self {
-        use crate::schedule::graph_utils::GraphNode;
         use SystemStageSegment::*;
 
-        // TODO: blocked on https://github.com/bevyengine/bevy/pull/4166
-        // We can't grab the system container generically, because .parallel_systems()
-        // and the exclusive equivalent return a different type,
-        // and SystemContainer is not object-safe
-        let (system_a_name, system_b_name) = match segment {
-            Parallel => {
-                let system_container = stage.parallel_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-            ExclusiveAtStart => {
-                let system_container = stage.exclusive_at_start_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-            ExclusiveBeforeCommands => {
-                let system_container = stage.exclusive_before_commands_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
-            ExclusiveAtEnd => {
-                let system_container = stage.exclusive_at_end_systems();
-                (
-                    system_container[system_a_index].name(),
-                    system_container[system_b_index].name(),
-                )
-            }
+        let systems = match segment {
+            Parallel => stage.parallel_systems(),
+            ExclusiveAtStart => stage.exclusive_at_start_systems(),
+            ExclusiveBeforeCommands => stage.exclusive_before_commands_systems(),
+            ExclusiveAtEnd => stage.exclusive_at_end_systems(),
         };
-
-        let mut system_names = [system_a_name.to_string(), system_b_name.to_string()];
+        let mut system_names = [
+            systems[system_a_index].name().to_string(),
+            systems[system_b_index].name().to_string(),
+        ];
         system_names.sort();
 
         let mut conflicts: Vec<_> = component_ids
@@ -220,7 +193,7 @@ impl SystemStage {
 /// Returns vector containing all pairs of indices of systems with ambiguous execution order,
 /// along with specific components that have triggered the warning.
 /// Systems must be topologically sorted beforehand.
-fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
+fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<ComponentId>)> {
     let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
     for (index, container) in systems.iter().enumerate() {
@@ -263,15 +236,17 @@ fn find_ambiguities(systems: &[impl SystemContainer]) -> Vec<(usize, usize, Vec<
         // .take(index_a)
         {
             if !processed.contains(index_b) {
-                let a_access = systems[index_a].component_access();
-                let b_access = systems[index_b].component_access();
-                if let (Some(a), Some(b)) = (a_access, b_access) {
-                    let conflicts = a.get_conflicts(b);
+                let system_a = &systems[index_a];
+                let system_b = &systems[index_b];
+                if system_a.is_exclusive() || system_b.is_exclusive() {
+                    ambiguities.push((index_a, index_b, Vec::new()));
+                } else {
+                    let a_access = systems[index_a].component_access();
+                    let b_access = systems[index_b].component_access();
+                    let conflicts = a_access.get_conflicts(b_access);
                     if !conflicts.is_empty() {
                         ambiguities.push((index_a, index_b, conflicts));
                     }
-                } else {
-                    ambiguities.push((index_a, index_b, Vec::new()));
                 }
             }
         }
@@ -467,12 +442,12 @@ mod tests {
         let mut test_stage = SystemStage::parallel();
         test_stage
             // All 3 of these conflict with each other
-            .add_system(write_world_system.exclusive_system())
-            .add_system(write_world_system.exclusive_system().at_end())
-            .add_system(res_system.exclusive_system())
+            .add_system(write_world_system)
+            .add_system(write_world_system.at_end())
+            .add_system(res_system.at_start())
             // These do not, as they're in different segments of the stage
-            .add_system(write_world_system.exclusive_system().at_start())
-            .add_system(write_world_system.exclusive_system().before_commands());
+            .add_system(write_world_system.at_start())
+            .add_system(write_world_system.before_commands());
 
         test_stage.run(&mut world);
 

@@ -275,8 +275,8 @@ impl Plugin for ColoredMesh2dPlugin {
         );
 
         // Register our custom draw function and pipeline, and add our render systems
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-        render_app
+        app.get_sub_app_mut(RenderApp)
+            .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()

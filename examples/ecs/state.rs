@@ -52,7 +52,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            color: NORMAL_BUTTON.into(),
+            background_color: NORMAL_BUTTON.into(),
             ..default()
         })
         .with_children(|parent| {
@@ -72,7 +72,7 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn menu(
     mut state: ResMut<State<AppState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiColor),
+        (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {

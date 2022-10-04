@@ -65,7 +65,6 @@ hex = "0.4.2"
 hexasphere = "7.2"
 parking_lot = "0.12.1"
 regex = "1.5"
-copyless = "0.1.5"
 ddsfile = { version = "0.5.0", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
 # For ktx2 supercompression
