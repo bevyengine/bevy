@@ -44,6 +44,12 @@ impl Plugin for TimePlugin {
     }
 }
 
+/// Resource for updating time with a specific value.
+/// 
+/// See [`update_with_interval`](self::TimeUpdater::update_with_instant) for more details.
+#[derive(Resource)]
+struct UpdateTime(Instant);
+
 /// Channel resource used to receive time from render world
 #[derive(Resource)]
 pub struct TimeReceiver(pub Receiver<Instant>);
@@ -64,6 +70,7 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 /// there to this system through channels. Otherwise the time is updated in this system.
 fn time_system(
     mut time: ResMut<Time>,
+    update_time: Option<Res<UpdateTime>>,
     time_recv: Option<Res<TimeReceiver>>,
     mut has_received_time: Local<bool>,
 ) {
@@ -76,6 +83,10 @@ fn time_system(
             warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
         }
     } else {
-        time.update();
+        if let Some(update_time) = update_time {
+            time.update_with_instant(update_time.0);
+        } else {
+            time.update();
+        }
     }
 }
