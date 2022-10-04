@@ -123,54 +123,54 @@ impl Val {
 
     /// A convenience function for simple evaluation of [`Val::Percent`] variant into a concrete [`Val::Px`] value.
     /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to evaluate into [`Val::Px`].
-    /// Otherwise it returns a [`Val::Px`] containing the evaluated value.
+    /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
     ///
-    /// **Note:** If a [`Val::Px`] value is evaluated, it's returned unchanged.
-    pub fn evaluate(&self, size: f32) -> Result<Val, ValArithmeticError> {
+    /// **Note:** If a [`Val::Px`] is evaluated, it's innver value returned unchanged.
+    pub fn evaluate(&self, size: f32) -> Result<f32, ValArithmeticError> {
         match self {
-            Val::Percent(value) => Ok(Val::Px(size * value / 100.0)),
-            Val::Px(_) => Ok(*self),
+            Val::Percent(value) => Ok(size * value / 100.0),
+            Val::Px(value) => Ok(*value),
             _ => Err(ValArithmeticError::NonEvaluateable),
         }
     }
 
     /// Similar to [`Val::try_add`], but performs [`Val::evaluate`] on both values before adding.
-    /// Both values have to be evaluatable (numeric).
-    pub fn try_add_with_size(&self, rhs: Val, size: f32) -> Result<Val, ValArithmeticError> {
+    /// Returns an [`f32`] value in pixels.
+    pub fn try_add_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
         let lhs = self.evaluate(size)?;
         let rhs = rhs.evaluate(size)?;
 
-        lhs.try_add(rhs)
+        Ok(lhs + rhs)
     }
 
     /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// Both values have to be evaluatable (numeric).
+    /// [`self`] gets converted to [`Val::Px`].
     pub fn try_add_assign_with_size(
         &mut self,
         rhs: Val,
         size: f32,
     ) -> Result<(), ValArithmeticError> {
-        *self = self.try_add_with_size(rhs, size)?;
+        *self = Val::Px(self.evaluate(size)? + rhs.evaluate(size)?);
         Ok(())
     }
 
     /// Similar to [`Val::try_sub`], but performs [`Val::evaluate`] on both values before subtracting.
-    /// Both values have to be evaluatable (numeric).
-    pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<Val, ValArithmeticError> {
+    /// Returns an [`f32`] value in pixels.
+    pub fn try_sub_with_size(&self, rhs: Val, size: f32) -> Result<f32, ValArithmeticError> {
         let lhs = self.evaluate(size)?;
         let rhs = rhs.evaluate(size)?;
 
-        lhs.try_sub(rhs)
+        Ok(lhs - rhs)
     }
 
     /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// Both values have to be evaluatable (numeric).
+    /// [`self`] gets converted to [`Val::Px`].
     pub fn try_sub_assign_with_size(
         &mut self,
         rhs: Val,
         size: f32,
     ) -> Result<(), ValArithmeticError> {
-        *self = self.try_add_with_size(rhs, size)?;
+        *self = Val::Px(self.try_add_with_size(rhs, size)?);
         Ok(())
     }
 }
@@ -553,7 +553,7 @@ mod tests {
         let size = 250.;
         let result = Val::Percent(80.).evaluate(size).unwrap();
 
-        assert_eq!(result, Val::Px(size * 0.8));
+        assert_eq!(result, size * 0.8);
     }
 
     #[test]
@@ -561,7 +561,7 @@ mod tests {
         let size = 250.;
         let result = Val::Px(10.).evaluate(size).unwrap();
 
-        assert_eq!(result, Val::Px(10.));
+        assert_eq!(result, 10.);
     }
 
     #[test]
@@ -586,9 +586,9 @@ mod tests {
             .try_add_with_size(Val::Percent(30.), size)
             .unwrap();
 
-        assert_eq!(px_sum, Val::Px(42.));
-        assert_eq!(percent_sum, Val::Px(0.5 * size));
-        assert_eq!(mixed_sum, Val::Px(20. + 0.3 * size));
+        assert_eq!(px_sum, 42.);
+        assert_eq!(percent_sum, 0.5 * size);
+        assert_eq!(mixed_sum, 20. + 0.3 * size);
     }
 
     #[test]
@@ -603,9 +603,9 @@ mod tests {
             .try_sub_with_size(Val::Px(30.), size)
             .unwrap();
 
-        assert_eq!(px_sum, Val::Px(42.));
-        assert_eq!(percent_sum, Val::Px(0.5 * size));
-        assert_eq!(mixed_sum, Val::Px(0.5 * size - 30.));
+        assert_eq!(px_sum, 42.);
+        assert_eq!(percent_sum, 0.5 * size);
+        assert_eq!(mixed_sum, 0.5 * size - 30.);
     }
 
     #[test]
