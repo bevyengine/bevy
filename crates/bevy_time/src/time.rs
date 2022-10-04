@@ -2,7 +2,13 @@ use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
 
+use crate::UpdateTime;
+
 const SECONDS_PER_HOUR: u64 = 60 * 60;
+
+pub trait TimeUpdater {
+    fn update_with_instant(&mut self, instant: Instant);
+}
 
 /// Tracks elapsed time since the last update and since the App has started
 #[derive(Resource, Reflect, FromReflect, Debug, Clone)]
@@ -167,6 +173,18 @@ impl Time {
     #[inline]
     pub fn time_since_startup(&self) -> Duration {
         self.time_since_startup
+    }
+}
+
+impl TimeUpdater for bevy_app::App {
+
+    /// Runs the app's schedule once, manually setting the [`Time`] resource to the provided value.
+    ///
+    /// This is ordinarily done automatically, but setting this time value directly can be useful when writing tests,
+    /// dealing with networking code, or similar. 
+    fn update_with_instant(&mut self, instant: Instant)  {
+        self.world.insert_resource(UpdateTime(instant));
+        self.update();
     }
 }
 
