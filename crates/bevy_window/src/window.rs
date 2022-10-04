@@ -21,7 +21,7 @@ pub struct WindowId(Uuid);
 ///
 /// `AutoVsync` or `AutoNoVsync` will gracefully fallback to `Fifo` when unavailable.
 ///
-/// `Immediate` or `Mailbox` will panic if not supported.
+/// `Immediate` or `Mailbox` will panic if not supported by the platform.
 ///
 /// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor) using [`WindowDescriptor::present_mode`](WindowDescriptor::present_mode)
 /// or updated on a [`Window`](Window) using [`set_present_mode`](Window::set_present_mode).
