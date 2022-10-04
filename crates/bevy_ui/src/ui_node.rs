@@ -8,7 +8,6 @@ use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
-use bevy_utils::tracing::warn;
 use serde::{Deserialize, Serialize};
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
