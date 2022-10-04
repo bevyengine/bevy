@@ -99,3 +99,42 @@ fn register_math_types(app: &mut App) {
 /// Wraps to 0 when it reaches the maximum u32 value
 #[derive(Default, Resource, Clone, Copy)]
 pub struct FrameCount(pub u32);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_tasks::prelude::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+
+    #[test]
+    fn runs_spawn_local_tasks() {
+        let mut app = App::new();
+        app.add_plugin(CorePlugin);
+
+        let (async_tx, async_rx) = crossbeam_channel::unbounded();
+        AsyncComputeTaskPool::get()
+            .spawn_local(async move {
+                async_tx.send(()).unwrap();
+            })
+            .detach();
+
+        let (compute_tx, compute_rx) = crossbeam_channel::unbounded();
+        ComputeTaskPool::get()
+            .spawn_local(async move {
+                compute_tx.send(()).unwrap();
+            })
+            .detach();
+
+        let (io_tx, io_rx) = crossbeam_channel::unbounded();
+        IoTaskPool::get()
+            .spawn_local(async move {
+                io_tx.send(()).unwrap();
+            })
+            .detach();
+
+        app.run();
+
+        async_rx.try_recv().unwrap();
+        compute_rx.try_recv().unwrap();
+        io_rx.try_recv().unwrap();
+    }
+}
