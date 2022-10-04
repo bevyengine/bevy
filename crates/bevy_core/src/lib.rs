@@ -6,7 +6,6 @@ mod task_pool_options;
 
 use bevy_ecs::schedule::IntoSystemDescriptor;
 use bevy_ecs::system::Resource;
-use bevy_ecs::world::World;
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
@@ -37,12 +36,10 @@ impl Plugin for CorePlugin {
             .unwrap_or_default()
             .create_default_pools();
 
-        // run function in an exclusive system to make sure it runs on main thread
-        fn tick_local_executors(_world: &mut World) {
-            tick_global_task_pools_on_main_thread();
-        }
-
-        app.add_system_to_stage(bevy_app::CoreStage::Last, tick.at_end());
+        app.add_system_to_stage(
+            bevy_app::CoreStage::Last,
+            tick_global_task_pools_on_main_thread.at_end(),
+        );
 
         app.register_type::<Entity>().register_type::<Name>();
 
