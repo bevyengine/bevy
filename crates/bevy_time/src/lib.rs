@@ -82,11 +82,9 @@ fn time_system(
         } else if *has_received_time {
             warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
         }
+    } else if let Some(wanted_time) = wanted_time {
+        time.update_with_instant(wanted_time.0);
     } else {
-        if let Some(wanted_time) = wanted_time {
-            time.update_with_instant(wanted_time.0);
-        } else {
-            time.update();
-        }
+        time.update();
     }
 }
