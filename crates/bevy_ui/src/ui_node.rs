@@ -91,14 +91,8 @@ impl Val {
     /// When adding non-numeric [`Val`]s, it returns the value unchanged.
     pub fn try_add(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
-            (Val::Undefined, Val::Undefined) => {
-                warn!("Adding to Val::Undefined is a redundant operation");
-                Ok(*self)
-            }
-            (Val::Auto, Val::Auto) => {
-                warn!("Adding to Val::Auto is a redundant operation");
-                Ok(*self)
-            }
+            (Val::Undefined, Val::Undefined) => Ok(*self),
+            (Val::Auto, Val::Auto) => Ok(*self),
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value + rhs_value)),
             (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value + rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
@@ -115,14 +109,8 @@ impl Val {
     /// When adding non-numeric [`Val`]s, it returns the value unchanged.
     pub fn try_sub(&self, rhs: Val) -> Result<Val, ValArithmeticError> {
         match (self, rhs) {
-            (Val::Undefined, Val::Undefined) => {
-                warn!("Subtracting from Val::Undefined is a redundant operation");
-                Ok(*self)
-            }
-            (Val::Auto, Val::Auto) => {
-                warn!("Subtracting from Val::Auto is a redundant operation");
-                Ok(*self)
-            }
+            (Val::Undefined, Val::Undefined) => Ok(*self),
+            (Val::Auto, Val::Auto) => Ok(*self),
             (Val::Px(value), Val::Px(rhs_value)) => Ok(Val::Px(value - rhs_value)),
             (Val::Percent(value), Val::Percent(rhs_value)) => Ok(Val::Percent(value - rhs_value)),
             _ => Err(ValArithmeticError::NonIdenticalVariants),
