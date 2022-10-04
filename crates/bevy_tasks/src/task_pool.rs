@@ -223,75 +223,71 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-            // SAFETY: This safety comment applies to all references transmuted to 'env.
-            // Any futures spawned with these references need to return before this function completes.
-            // This is guaranteed because we drive all the futures spawned onto the Scope
-            // to completion in this function. However, rust has no way of knowing this so we
-            // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
-            let executor: &async_executor::Executor = &*self.executor;
-            let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
-            let task_scope_executor = &async_executor::Executor::default();
-            let task_scope_executor: &'env async_executor::Executor =
-                unsafe { mem::transmute(task_scope_executor) };
-            let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
-            let spawned_ref: &'env ConcurrentQueue<async_executor::Task<T>> =
-                unsafe { mem::transmute(&spawned) };
+        // SAFETY: This safety comment applies to all references transmuted to 'env.
+        // Any futures spawned with these references need to return before this function completes.
+        // This is guaranteed because we drive all the futures spawned onto the Scope
+        // to completion in this function. However, rust has no way of knowing this so we
+        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
+        let executor: &async_executor::Executor = &*self.executor;
+        let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
+        let task_scope_executor = &async_executor::Executor::default();
+        let task_scope_executor: &'env async_executor::Executor =
+            unsafe { mem::transmute(task_scope_executor) };
+        let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
+        let spawned_ref: &'env ConcurrentQueue<async_executor::Task<T>> =
+            unsafe { mem::transmute(&spawned) };
 
-            let scope = Scope {
-                executor,
-                task_scope_executor,
-                spawned: spawned_ref,
-                scope: PhantomData,
-                env: PhantomData,
+        let scope = Scope {
+            executor,
+            task_scope_executor,
+            spawned: spawned_ref,
+            scope: PhantomData,
+            env: PhantomData,
+        };
+
+        let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
+
+        f(scope_ref);
+
+        if spawned.is_empty() {
+            Vec::new()
+        } else {
+            let get_results = async move {
+                let mut results = Vec::with_capacity(spawned.len());
+                while let Ok(task) = spawned.pop() {
+                    results.push(task.await);
+                }
+
+                results
             };
 
-            let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
+            // Pin the futures on the stack.
+            pin!(get_results);
 
-            f(scope_ref);
+            // SAFETY: This function blocks until all futures complete, so we do not read/write
+            // the data from futures outside of the 'scope lifetime. However,
+            // rust has no way of knowing this so we must convert to 'static
+            // here to appease the compiler as it is unable to validate safety.
+            let get_results: Pin<&mut (dyn Future<Output = Vec<T>> + 'static + Send)> = get_results;
+            let get_results: Pin<&'static mut (dyn Future<Output = Vec<T>> + 'static + Send)> =
+                unsafe { mem::transmute(get_results) };
 
-            if spawned.is_empty() {
-                Vec::new()
-            } else {
-                let get_results = async move {
-                    let mut results = Vec::with_capacity(spawned.len());
-                    while let Ok(task) = spawned.pop() {
-                        results.push(task.await);
-                    }
+            // The thread that calls scope() will participate in driving tasks in the pool
+            // forward until the tasks that are spawned by this scope() call
+            // complete. (If the caller of scope() happens to be a thread in
+            // this thread pool, and we only have one thread in the pool, then
+            // simply calling future::block_on(spawned) would deadlock.)
+            let mut spawned = task_scope_executor.spawn(get_results);
 
-                    results
+            loop {
+                if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
+                    break result;
                 };
 
-                // Pin the futures on the stack.
-                pin!(get_results);
-
-                // SAFETY: This function blocks until all futures complete, so we do not read/write
-                // the data from futures outside of the 'scope lifetime. However,
-                // rust has no way of knowing this so we must convert to 'static
-                // here to appease the compiler as it is unable to validate safety.
-                let get_results: Pin<&mut (dyn Future<Output = Vec<T>> + 'static + Send)> =
-                    get_results;
-                let get_results: Pin<&'static mut (dyn Future<Output = Vec<T>> + 'static + Send)> =
-                    unsafe { mem::transmute(get_results) };
-
-                // The thread that calls scope() will participate in driving tasks in the pool
-                // forward until the tasks that are spawned by this scope() call
-                // complete. (If the caller of scope() happens to be a thread in
-                // this thread pool, and we only have one thread in the pool, then
-                // simply calling future::block_on(spawned) would deadlock.)
-                let mut spawned = task_scope_executor.spawn(get_results);
-
-                loop {
-                    if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
-                        break result;
-                    };
-
-                    self.executor.try_tick();
-                    task_scope_executor.try_tick();
-                    local_executor.try_tick();
-                }
+                self.executor.try_tick();
+                task_scope_executor.try_tick();
             }
-        })
+        }
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
