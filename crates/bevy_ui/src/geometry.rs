@@ -359,7 +359,7 @@ impl Add<(Val, Val)> for Size {
     type Output = Size;
 
     /// Adds ([`Val`], [`Val`]) respectively to the width and the height of the [`Size`] struct.
-    /// 
+    ///
     /// # Panics
     /// If the [`Val`]s can't be added correctly (if they are of different variants).
     fn add(self, rhs: (Val, Val)) -> Self::Output {
@@ -372,7 +372,7 @@ impl Add<(Val, Val)> for Size {
 
 impl AddAssign<(Val, Val)> for Size {
     /// Add-assigns ([`Val`], [`Val`]) respectively to the width and the height of the [`Size`] struct.
-    /// 
+    ///
     /// # Panics
     /// If the [`Val`]s can't be added correctly (if they are of different variants).
     fn add_assign(&mut self, rhs: (Val, Val)) {
@@ -385,7 +385,7 @@ impl Sub<(Val, Val)> for Size {
     type Output = Size;
 
     /// Subtracts ([`Val`], [`Val`]) respectively to the width and the height of the [`Size`] struct.
-    /// 
+    ///
     /// # Panics
     /// If the [`Val`]s can't be subtracted correctly (if they are of different variants).
     fn sub(self, rhs: (Val, Val)) -> Self::Output {
@@ -398,7 +398,7 @@ impl Sub<(Val, Val)> for Size {
 
 impl SubAssign<(Val, Val)> for Size {
     /// Subtract-assigns ([`Val`], [`Val`]) respectively to the width and the height of the [`Size`] struct.
-    /// 
+    ///
     /// # Panics
     /// If the [`Val`]s can't be subtracted correctly (if they are of different variants).
     fn sub_assign(&mut self, rhs: (Val, Val)) {
