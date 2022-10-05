@@ -202,7 +202,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                 meshes.triangle.clone(),
                 materials.normal.clone(),
                 Transform::from_xyz(0., -BUTTON_CLUSTER_RADIUS, 0.)
-                        .with_rotation(Quat::from_rotation_z(PI)),
+                    .with_rotation(Quat::from_rotation_z(PI)),
             ));
             parent.spawn(GamepadButtonBundle::new(
                 GamepadButtonType::DPadLeft,
@@ -216,7 +216,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
                 meshes.triangle.clone(),
                 materials.normal.clone(),
                 Transform::from_xyz(BUTTON_CLUSTER_RADIUS, 0., 0.)
-                        .with_rotation(Quat::from_rotation_z(-PI / 2.))
+                    .with_rotation(Quat::from_rotation_z(-PI / 2.)),
             ));
         });
 
@@ -366,8 +366,7 @@ fn setup_triggers(
                 meshes.trigger.clone(),
                 materials.normal.clone(),
                 Transform::from_xyz(x, y, 0.),
-            )
-        )
+            ))
             .with_children(|parent| {
                 parent.spawn((
                     Text2dBundle {
