@@ -6,19 +6,53 @@ use thiserror::Error;
 
 /// Errors that occur when setting axis settings for gamepad input.
 ///
-/// + `ZoneBounds`
+/// + `LiveZoneLowerBoundOutOfRange(f32)`
 ///
-///     The given parameters must fit the bounds described by the expression
-///     -1.0 <= `livezone_lowerbound` <= `deadzone_lowerbound` <= 0.0 <= `deadzone_upperbound` <= `livezone_upperbound` <= 1.0.
-///     These are named parameters to `AxisSettings::new()`.
+///     The given parameter `livezone_lowerbound` was not in range -1.0..=0.0.
 ///
-/// + `Threshold`
+/// + `DeadZoneLowerBoundOutOfRange(f32)`
+///
+///     The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
+///
+/// + `DeadZoneUpperBoundOutOfRange(f32)`
+///
+///     The given parameter `deadzone_upperbound` was not in range 0.0..=1.0.
+///
+/// + `LiveZoneUpperBoundOutOfRange(f32)`
+///
+///     The given parameter `livezone_upperbound` was not in range 0.0..=1.0.
+///
+/// + `LiveZoneLowerBoundGreaterThanDeadZoneLowerBound { livezone_lowerbound: f32, deadzone_lowerbound: f32, }`
+///
+///     Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
+///
+/// + `LiveZoneUpperBoundGreaterThanLiveZoneUpperBound { livezone_upperbound: f32, deadzone_upperbound: f32, }`
+///
+///     Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
+///
+/// + `Threshold(f32)`
 ///
 ///     The given parameter was not in range 0.0..=2.0.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum AxisSettingsError {
-    #[error("the conditions -1.0 <= livezone_lowerbound <= deadzone_lowerbound <= 0.0 <= deadzone_upperbound <= livezone_upperbound <= 1.0 must hold true")]
-    ZoneBounds,
+    #[error("invalid livezone_lowerbound {0}, expected value [-1.0..=0.0]")]
+    LiveZoneLowerBoundOutOfRange(f32),
+    #[error("invalid deadzone_lowerbound {0}, expected value [-1.0..=0.0]")]
+    DeadZoneLowerBoundOutOfRange(f32),
+    #[error("invalid deadzone_upperbound {0}, expected value [0.0..=1.0]")]
+    DeadZoneUpperBoundOutOfRange(f32),
+    #[error("invalid livezone_upperbound {0}, expected value [0.0..=1.0]")]
+    LiveZoneUpperBoundOutOfRange(f32),
+    #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", .livezone_lowerbound, .deadzone_lowerbound)]
+    LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+        livezone_lowerbound: f32,
+        deadzone_lowerbound: f32,
+    },
+    #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", .livezone_upperbound, .deadzone_upperbound)]
+    DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+        livezone_upperbound: f32,
+        deadzone_upperbound: f32,
+    },
     #[error("invalid threshold {0}, expected 0.0 <= threshold <= 2.0")]
     Threshold(f32),
 }
@@ -35,13 +69,13 @@ pub enum AxisSettingsError {
 ///
 /// + `ReleaseThresholdGreaterThanPressThreshold {press_threshold: f32, release_threshold: f32,}`
 ///
-///     Parameter `release_threshold` was not less than `press_threshold`.
+///     Parameter `release_threshold` was not less than or equal to `press_threshold`.
 ///
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ButtonSettingsError {
-    #[error("invalid release_threshold {0}, expected 0.0 <= release_threshold <= 1.0")]
+    #[error("invalid release_threshold {0}, expected value [0.0..=1.0]")]
     ReleaseThresholdOutOfRange(f32),
-    #[error("invalid press_threshold {0}, expected 0.0 <= press_threshold <= 1.0")]
+    #[error("invalid press_threshold {0}, expected [0.0..=1.0]")]
     PressThresholdOutOfRange(f32),
     #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", .release_threshold, .press_threshold)]
     ReleaseThresholdGreaterThanPressThreshold {
@@ -730,7 +764,7 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// Returns `AxisSettingsError::ZoneBounds` if any restrictions on the zone values are not met.
+    /// Returns an `AxisSettingsError` if any restrictions on the zone values are not met.
     /// If the zone restrictions are met, but the ``threshold`` value restrictions are not met,
     /// returns `AxisSettingsError::Threshold`.
     pub fn new(
@@ -740,26 +774,46 @@ impl AxisSettings {
         livezone_upperbound: f32,
         threshold: f32,
     ) -> Result<AxisSettings, AxisSettingsError> {
-        if -1.0 <= livezone_lowerbound
-            && livezone_lowerbound <= deadzone_lowerbound
-            && deadzone_lowerbound <= 0.0
-            && 0.0 <= deadzone_upperbound
-            && deadzone_upperbound <= livezone_upperbound
-            && livezone_upperbound <= 1.0
-        {
-            if (0.0..=2.0).contains(&threshold) {
-                Ok(Self {
+        if !(-1.0..=0.0).contains(&livezone_lowerbound) {
+            Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(
+                livezone_lowerbound,
+            ))
+        } else if !(-1.0..=0.0).contains(&deadzone_lowerbound) {
+            Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(
+                deadzone_lowerbound,
+            ))
+        } else if !(-1.0..=0.0).contains(&deadzone_upperbound) {
+            Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(
+                deadzone_upperbound,
+            ))
+        } else if !(-1.0..=0.0).contains(&livezone_upperbound) {
+            Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(
+                livezone_upperbound,
+            ))
+        } else if livezone_lowerbound > deadzone_lowerbound {
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
                     livezone_lowerbound,
                     deadzone_lowerbound,
-                    deadzone_upperbound,
+                },
+            )
+        } else if deadzone_upperbound > livezone_upperbound {
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
                     livezone_upperbound,
-                    threshold,
-                })
-            } else {
-                Err(AxisSettingsError::Threshold(threshold))
-            }
+                    deadzone_upperbound,
+                },
+            )
+        } else if !(0.0..=2.0).contains(&threshold) {
+            Err(AxisSettingsError::Threshold(threshold))
         } else {
-            Err(AxisSettingsError::ZoneBounds)
+            Ok(Self {
+                livezone_lowerbound,
+                deadzone_lowerbound,
+                deadzone_upperbound,
+                livezone_upperbound,
+                threshold,
+            })
         }
     }
 
@@ -772,10 +826,19 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than `deadzone_upperbound` or greater than 1.0, returns `GamepadSettingsError::AxisZoneBounds`.
+    /// If the value passed is less than the dead zone upper bound,
+    /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
+    /// If the value passsed is not in range [0.0..=1.0], returns `AxisSettingsError::LiveZoneUpperBoundOutOfRange`.
     pub fn try_set_livezone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
-        if value < self.deadzone_upperbound || value > 1.0 {
-            Err(AxisSettingsError::ZoneBounds)
+        if !(0.0..=1.0).contains(&value) {
+            Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(value))
+        } else if value < self.deadzone_upperbound {
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+                    livezone_upperbound: value,
+                    deadzone_upperbound: self.deadzone_upperbound,
+                },
+            )
         } else {
             self.livezone_upperbound = value;
             Ok(())
@@ -800,10 +863,19 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is negative or greater than `livezone_upperbound`, returns `GamepadSettingsError::AxisZoneBounds`.
+    /// If the value passed is greater than the live zone upper bound,
+    /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
+    /// If the value passsed is not in range [0.0..=1.0], returns `AxisSettingsError::DeadZoneUpperBoundOutOfRange`.
     pub fn try_set_deadzone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
-        if value < 0.0 || value > self.livezone_upperbound {
-            Err(AxisSettingsError::ZoneBounds)
+        if !(0.0..=1.0).contains(&value) {
+            Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(value))
+        } else if self.livezone_upperbound < value {
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+                    livezone_upperbound: self.livezone_upperbound,
+                    deadzone_upperbound: value,
+                },
+            )
         } else {
             self.deadzone_upperbound = value;
             Ok(())
@@ -829,10 +901,19 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is positive or less than `deadzone_lowerbound`, returns `GamepadSettingsError::AxisZoneBounds`.
+    /// If the value passed is less than the dead zone lower bound,
+    /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
+    /// If the value passsed is not in range [-1.0..=0.0], returns `AxisSettingsError::LiveZoneLowerBoundOutOfRange`.
     pub fn try_set_livezone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
-        if value < self.deadzone_lowerbound || value > 0.0 {
-            Err(AxisSettingsError::ZoneBounds)
+        if !(-1.0..=0.0).contains(&value) {
+            Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(value))
+        } else if value > self.deadzone_lowerbound {
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+                    livezone_lowerbound: value,
+                    deadzone_lowerbound: self.deadzone_lowerbound,
+                },
+            )
         } else {
             self.livezone_lowerbound = value;
             Ok(())
@@ -858,10 +939,19 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than -1.0 or greater than `livezone_lowerbound`, returns `GamepadSettingsError::AxisZoneBounds`.
+    /// If the value passed is less than the live zone lower bound,
+    /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
+    /// If the value passsed is not in range [-1.0..=0.0], returns `AxisSettingsError::DeadZoneLowerBoundOutOfRange`.
     pub fn try_set_deadzone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
-        if value < -1.0 || value > self.livezone_lowerbound {
-            Err(AxisSettingsError::ZoneBounds)
+        if !(-1.0..=0.0).contains(&value) {
+            Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(value))
+        } else if self.livezone_lowerbound > value {
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+                    livezone_lowerbound: self.livezone_lowerbound,
+                    deadzone_lowerbound: value,
+                },
+            )
         } else {
             self.deadzone_lowerbound = value;
             Ok(())
@@ -1134,7 +1224,7 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
 
 #[cfg(test)]
 mod tests {
-    use crate::gamepad::ButtonSettingsError;
+    use crate::gamepad::{AxisSettingsError, ButtonSettingsError};
 
     use super::{AxisSettings, ButtonAxisSettings, ButtonSettings};
 
@@ -1381,5 +1471,85 @@ mod tests {
                 },
             }
         }
+    }
+
+    #[test]
+    fn test_try_out_of_range_axis_settings() {
+        let mut axis_settings = AxisSettings::default();
+        assert_eq!(
+            Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(-2.0)),
+            axis_settings.try_set_livezone_lowerbound(-2.0)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(0.1)),
+            axis_settings.try_set_livezone_lowerbound(0.1)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(-2.0)),
+            axis_settings.try_set_deadzone_lowerbound(-2.0)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(0.1)),
+            axis_settings.try_set_deadzone_lowerbound(0.1)
+        );
+
+        assert_eq!(
+            Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(-0.1)),
+            axis_settings.try_set_deadzone_upperbound(-0.1)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(1.1)),
+            axis_settings.try_set_deadzone_upperbound(1.1)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(-0.1)),
+            axis_settings.try_set_livezone_upperbound(-0.1)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(1.1)),
+            axis_settings.try_set_livezone_upperbound(1.1)
+        );
+
+        axis_settings.set_livezone_lowerbound(-0.7);
+        axis_settings.set_deadzone_lowerbound(-0.3);
+        assert_eq!(
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+                    livezone_lowerbound: -0.1,
+                    deadzone_lowerbound: -0.3,
+                }
+            ),
+            axis_settings.try_set_livezone_lowerbound(-0.1)
+        );
+        assert_eq!(
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+                    livezone_lowerbound: -0.7,
+                    deadzone_lowerbound: -0.9
+                }
+            ),
+            axis_settings.try_set_deadzone_lowerbound(-0.9)
+        );
+
+        axis_settings.set_deadzone_upperbound(0.3);
+        axis_settings.set_livezone_upperbound(0.7);
+        assert_eq!(
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+                    deadzone_upperbound: 0.8,
+                    livezone_upperbound: 0.7
+                }
+            ),
+            axis_settings.try_set_deadzone_upperbound(0.8)
+        );
+        assert_eq!(
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+                    deadzone_upperbound: 0.3,
+                    livezone_upperbound: 0.1
+                }
+            ),
+            axis_settings.try_set_livezone_upperbound(0.1)
+        );
     }
 }
