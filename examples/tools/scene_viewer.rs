@@ -31,7 +31,7 @@ Controls:
     Q           - down
     L           - animate light direction
     U           - toggle shadows
-    C           - cycle through cameras
+    C           - cycle through the camera controller and any cameras loaded from the scene
     5/6         - decrease/increase shadow projection width
     7/8         - decrease/increase shadow projection height
     9/0         - decrease/increase shadow projection near/far
