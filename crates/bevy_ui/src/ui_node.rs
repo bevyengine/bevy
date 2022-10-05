@@ -9,8 +9,8 @@ use bevy_render::{
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
+use thiserror::Error;
 
 /// Describes the size of a UI node
 #[derive(Component, Debug, Clone, Default, Reflect)]
@@ -622,7 +622,13 @@ mod tests {
 
     #[test]
     fn val_arithmetic_error_messages() {
-        assert_eq!(format!("{}", ValArithmeticError::NonIdenticalVariants), "the variants of the Vals don't match");
-        assert_eq!(format!("{}", ValArithmeticError::NonEvaluateable), "the given variant of Val is not evaluateable (non-numeric)");
+        assert_eq!(
+            format!("{}", ValArithmeticError::NonIdenticalVariants),
+            "the variants of the Vals don't match"
+        );
+        assert_eq!(
+            format!("{}", ValArithmeticError::NonEvaluateable),
+            "the given variant of Val is not evaluateable (non-numeric)"
+        );
     }
 }
