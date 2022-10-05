@@ -78,7 +78,7 @@ impl DivAssign<f32> for Val {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum ValArithmeticError {
     NonIdenticalVariants,
     NonEvaluateable,
