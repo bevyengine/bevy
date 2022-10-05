@@ -1,6 +1,6 @@
 use crate::Val;
 use bevy_reflect::Reflect;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 /// A type which is commonly used to define positions, margins, paddings and borders.
 ///
@@ -355,55 +355,12 @@ impl Size {
     };
 }
 
-impl Add<(Val, Val)> for Size {
-    type Output = Size;
-
-    /// Adds ([`Val`], [`Val`]) respectively to the width and the height of the [`Size`] struct.
-    ///
-    /// # Panics
-    /// If the [`Val`]s can't be added correctly (if they are of different variants).
-    fn add(self, rhs: (Val, Val)) -> Self::Output {
+impl From<(Val, Val)> for Size {
+    fn from(vals: (Val, Val)) -> Self {
         Self {
-            width: self.width.try_add(rhs.0).unwrap(),
-            height: self.height.try_add(rhs.1).unwrap(),
+            width: vals.0,
+            height: vals.1,
         }
-    }
-}
-
-impl AddAssign<(Val, Val)> for Size {
-    /// Add-assigns ([`Val`], [`Val`]) respectively to the width and the height of the [`Size`] struct.
-    ///
-    /// # Panics
-    /// If the [`Val`]s can't be added correctly (if they are of different variants).
-    fn add_assign(&mut self, rhs: (Val, Val)) {
-        self.width.try_add_assign(rhs.0).unwrap();
-        self.height.try_add_assign(rhs.1).unwrap();
-    }
-}
-
-impl Sub<(Val, Val)> for Size {
-    type Output = Size;
-
-    /// Subtracts ([`Val`], [`Val`]) respectively to the width and the height of the [`Size`] struct.
-    ///
-    /// # Panics
-    /// If the [`Val`]s can't be subtracted correctly (if they are of different variants).
-    fn sub(self, rhs: (Val, Val)) -> Self::Output {
-        Self {
-            width: self.width.try_sub(rhs.0).unwrap(),
-            height: self.height.try_sub(rhs.1).unwrap(),
-        }
-    }
-}
-
-impl SubAssign<(Val, Val)> for Size {
-    /// Subtract-assigns ([`Val`], [`Val`]) respectively to the width and the height of the [`Size`] struct.
-    ///
-    /// # Panics
-    /// If the [`Val`]s can't be subtracted correctly (if they are of different variants).
-    fn sub_assign(&mut self, rhs: (Val, Val)) {
-        self.width.try_sub_assign(rhs.0).unwrap();
-        self.height.try_sub_assign(rhs.1).unwrap();
     }
 }
 
@@ -448,27 +405,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_size_add() {
+    fn test_size_from() {
+        let size: Size = (Val::Px(20.), Val::Px(30.)).into();
+
         assert_eq!(
-            Size::new(Val::Px(10.), Val::Px(10.)) + (Val::Px(10.), Val::Px(10.)),
-            Size::new(Val::Px(20.), Val::Px(20.))
+            size,
+            Size {
+                width: Val::Px(20.),
+                height: Val::Px(30.),
+            }
         );
-
-        let mut size = Size::new(Val::Px(10.), Val::Px(10.));
-        size += (Val::Px(10.), Val::Px(10.));
-        assert_eq!(size, Size::new(Val::Px(20.), Val::Px(20.)));
-    }
-
-    #[test]
-    fn test_size_sub() {
-        assert_eq!(
-            Size::new(Val::Px(20.), Val::Px(20.)) - (Val::Px(10.), Val::Px(10.)),
-            Size::new(Val::Px(10.), Val::Px(10.))
-        );
-
-        let mut size = Size::new(Val::Px(20.), Val::Px(20.));
-        size -= (Val::Px(10.), Val::Px(10.));
-        assert_eq!(size, Size::new(Val::Px(10.), Val::Px(10.)));
     }
 
     #[test]
