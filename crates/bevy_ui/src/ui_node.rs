@@ -9,6 +9,7 @@ use bevy_render::{
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 /// Describes the size of a UI node
@@ -78,9 +79,11 @@ impl DivAssign<f32> for Val {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum ValArithmeticError {
+    #[error("the variants of the Vals don't match")]
     NonIdenticalVariants,
+    #[error("the given variant of Val is not evaluateable (non-numeric)")]
     NonEvaluateable,
 }
 
@@ -615,5 +618,11 @@ mod tests {
 
         assert_eq!(undefined_sum, Err(ValArithmeticError::NonEvaluateable));
         assert_eq!(percent_sum, Err(ValArithmeticError::NonEvaluateable));
+    }
+
+    #[test]
+    fn val_arithmetic_error_messages() {
+        assert_eq!(format!("{}", ValArithmeticError::NonIdenticalVariants), "the variants of the Vals don't match");
+        assert_eq!(format!("{}", ValArithmeticError::NonEvaluateable), "the given variant of Val is not evaluateable (non-numeric)");
     }
 }
