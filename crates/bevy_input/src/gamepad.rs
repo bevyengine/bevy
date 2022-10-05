@@ -8,15 +8,15 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum GamepadSettingsError {
     #[error("the conditions -1.0 <= livezone_lowerbound <= deadzone_lowerbound <= 0.0 <= deadzone_upperbound <= livezone_upperbound <= 1.0 must hold true")]
-    InvalidAxisZoneSetting,
+    AxisZoneBounds,
     #[error("invalid threshold {0}, expected 0.0 <= threshold <= 2.0")]
-    InvalidAxisThresholdSetting(f32),
+    AxisThreshold(f32),
     #[error("invalid release_threshold {0}, expected 0.0 <= release_threshold <= 1.0")]
-    InvalidButtonSettingReleaseThresholdOutOfRange(f32),
+    ButtonReleaseThresholdOutOfRange(f32),
     #[error("invalid press_threshold {0}, expected 0.0 <= press_threshold <= 1.0")]
-    InvalidButtonSettingPressThresholdOutOfRange(f32),
+    ButtonPressThresholdOutOfRange(f32),
     #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", .release_threshold, .press_threshold)]
-    InvalidButtonSettingReleaseThresholdGreaterThanPressThreshold {
+    ButtonReleaseThresholdGreaterThanPressThreshold {
         press_threshold: f32,
         release_threshold: f32,
     },
@@ -530,20 +530,25 @@ impl ButtonSettings {
     /// # Errors
     ///
     /// If the restrictions are not met, returns one of
-    /// `GamepadSettingsError::InvalidButtonSettingReleaseThresholdOutOfRange`,
-    /// `GamepadSettingsError::InvalidButtonSettingPressThresholdOutOfRange`, or
-    /// `GamepadSettingsError::InvalidButtonSettingReleaseThresholdGreaterThanPressThreshold`.
+    /// `GamepadSettingsError::ButtonReleaseThresholdOutOfRange`,
+    /// `GamepadSettingsError::ButtonPressThresholdOutOfRange`, or
+    /// `GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold`.
     pub fn new(press_threshold: f32, release_threshold: f32) -> Result<ButtonSettings> {
         if !(0.0..=1.0).contains(&release_threshold) {
-            Err(
-                GamepadSettingsError::InvalidButtonSettingReleaseThresholdOutOfRange(
-                    release_threshold,
-                ),
-            )
+            Err(GamepadSettingsError::ButtonReleaseThresholdOutOfRange(
+                release_threshold,
+            ))
         } else if !(0.0..=1.0).contains(&press_threshold) {
-            Err(GamepadSettingsError::InvalidButtonSettingPressThresholdOutOfRange(press_threshold))
+            Err(GamepadSettingsError::ButtonPressThresholdOutOfRange(
+                press_threshold,
+            ))
         } else if release_threshold > press_threshold {
-            Err(GamepadSettingsError::InvalidButtonSettingReleaseThresholdGreaterThanPressThreshold { press_threshold, release_threshold } )
+            Err(
+                GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold {
+                    press_threshold,
+                    release_threshold,
+                },
+            )
         } else {
             Ok(ButtonSettings {
                 press_threshold,
@@ -576,16 +581,21 @@ impl ButtonSettings {
     /// # Errors
     ///
     /// If the value passed is outside the range [`release_threshold`, 1.0], returns either
-    /// `GamepadSettingsError::InvalidButtonSettingPressThresholdOutOfRange` or
-    /// `GamepadSettingsError::InvalidButtonSettingReleaseThresholdGreaterThanPressThreshold`.
+    /// `GamepadSettingsError::ButtonPressThresholdOutOfRange` or
+    /// `GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold`.
     pub fn try_set_press_threshold(&mut self, value: f32) -> Result<()> {
         if (self.release_threshold..=1.0).contains(&value) {
             self.press_threshold = value;
             Ok(())
         } else if !(0.0..1.0).contains(&value) {
-            Err(GamepadSettingsError::InvalidButtonSettingPressThresholdOutOfRange(value))
+            Err(GamepadSettingsError::ButtonPressThresholdOutOfRange(value))
         } else {
-            Err(GamepadSettingsError::InvalidButtonSettingReleaseThresholdGreaterThanPressThreshold { press_threshold: value, release_threshold: self.release_threshold })
+            Err(
+                GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold {
+                    press_threshold: value,
+                    release_threshold: self.release_threshold,
+                },
+            )
         }
     }
 
@@ -608,16 +618,23 @@ impl ButtonSettings {
     /// # Errors
     ///
     /// If the value passed is outside the range [0.0, `press_threshold`], returns
-    /// `GamepadSettingsError::InvalidButtonSettingReleaseThresholdOutOfRange` or
-    /// `GamepadSettingsError::InvalidButtonSettingReleaseThresholdGreaterThanPressThreshold`.
+    /// `GamepadSettingsError::ButtonReleaseThresholdOutOfRange` or
+    /// `GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold`.
     pub fn try_set_release_threshold(&mut self, value: f32) -> Result<()> {
         if (0.0..=self.press_threshold).contains(&value) {
             self.release_threshold = value;
             Ok(())
         } else if !(0.0..1.0).contains(&value) {
-            Err(GamepadSettingsError::InvalidButtonSettingReleaseThresholdOutOfRange(value))
+            Err(GamepadSettingsError::ButtonReleaseThresholdOutOfRange(
+                value,
+            ))
         } else {
-            Err(GamepadSettingsError::InvalidButtonSettingReleaseThresholdGreaterThanPressThreshold { press_threshold: self.press_threshold, release_threshold: value })
+            Err(
+                GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold {
+                    press_threshold: self.press_threshold,
+                    release_threshold: value,
+                },
+            )
         }
     }
 
@@ -686,9 +703,9 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// Returns `GamepadSettingsError::InvalidAxisZoneSetting` if any restrictions on the zone values are not met.
+    /// Returns `GamepadSettingsError::AxisZoneBounds` if any restrictions on the zone values are not met.
     /// If the zone restrictions are met, but the ``threshold`` value restrictions are not met,
-    /// returns `GamepadSettingsError::InvalidAxisThresholdSetting`.
+    /// returns `GamepadSettingsError::AxisThreshold`.
     pub fn new(
         livezone_lowerbound: f32,
         deadzone_lowerbound: f32,
@@ -712,10 +729,10 @@ impl AxisSettings {
                     threshold,
                 })
             } else {
-                Err(GamepadSettingsError::InvalidAxisThresholdSetting(threshold))
+                Err(GamepadSettingsError::AxisThreshold(threshold))
             }
         } else {
-            Err(GamepadSettingsError::InvalidAxisZoneSetting)
+            Err(GamepadSettingsError::AxisZoneBounds)
         }
     }
 
@@ -728,10 +745,10 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than `deadzone_upperbound` or greater than 1.0, returns `GamepadSettingsError::InvalidAxisZoneSetting`.
+    /// If the value passed is less than `deadzone_upperbound` or greater than 1.0, returns `GamepadSettingsError::AxisZoneBounds`.
     pub fn try_set_livezone_upperbound(&mut self, value: f32) -> Result<()> {
         if value < self.deadzone_upperbound || value > 1.0 {
-            Err(GamepadSettingsError::InvalidAxisZoneSetting)
+            Err(GamepadSettingsError::AxisZoneBounds)
         } else {
             self.livezone_upperbound = value;
             Ok(())
@@ -756,10 +773,10 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is negative or greater than `livezone_upperbound`, returns `GamepadSettingsError::InvalidAxisZoneSetting`.
+    /// If the value passed is negative or greater than `livezone_upperbound`, returns `GamepadSettingsError::AxisZoneBounds`.
     pub fn try_set_deadzone_upperbound(&mut self, value: f32) -> Result<()> {
         if value < 0.0 || value > self.livezone_upperbound {
-            Err(GamepadSettingsError::InvalidAxisZoneSetting)
+            Err(GamepadSettingsError::AxisZoneBounds)
         } else {
             self.deadzone_upperbound = value;
             Ok(())
@@ -785,10 +802,10 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is positive or less than `deadzone_lowerbound`, returns `GamepadSettingsError::InvalidAxisZoneSetting`.
+    /// If the value passed is positive or less than `deadzone_lowerbound`, returns `GamepadSettingsError::AxisZoneBounds`.
     pub fn try_set_livezone_lowerbound(&mut self, value: f32) -> Result<()> {
         if value < self.deadzone_lowerbound || value > 0.0 {
-            Err(GamepadSettingsError::InvalidAxisZoneSetting)
+            Err(GamepadSettingsError::AxisZoneBounds)
         } else {
             self.livezone_lowerbound = value;
             Ok(())
@@ -814,10 +831,10 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than -1.0 or greater than `livezone_lowerbound`, returns `GamepadSettingsError::InvalidAxisZoneSetting`.
+    /// If the value passed is less than -1.0 or greater than `livezone_lowerbound`, returns `GamepadSettingsError::AxisZoneBounds`.
     pub fn try_set_deadzone_lowerbound(&mut self, value: f32) -> Result<()> {
         if value < -1.0 || value > self.livezone_lowerbound {
-            Err(GamepadSettingsError::InvalidAxisZoneSetting)
+            Err(GamepadSettingsError::AxisZoneBounds)
         } else {
             self.deadzone_lowerbound = value;
             Ok(())
@@ -843,10 +860,10 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is not within [0.0..=2.0], returns `GamepadSettingsError::InvalidAxisThresholdSetting`.
+    /// If the value passed is not within [0.0..=2.0], returns `GamepadSettingsError::AxisThreshold`.
     pub fn try_set_threshold(&mut self, value: f32) -> Result<()> {
         if !(0.0..=2.0).contains(&value) {
-            Err(GamepadSettingsError::InvalidAxisThresholdSetting(value))
+            Err(GamepadSettingsError::AxisThreshold(value))
         } else {
             self.threshold = value;
             Ok(())
@@ -1321,15 +1338,23 @@ mod tests {
         for (press_threshold, release_threshold) in cases {
             let bs = ButtonSettings::new(press_threshold, release_threshold);
             match bs {
-                Ok(_) => { panic!("ButtonSettings::new({}, {}) should be invalid ", press_threshold, release_threshold); },
-                Err(err_code) => {
-                    match err_code {
-                        GamepadSettingsError::InvalidButtonSettingPressThresholdOutOfRange(_press_threshold) => {},
-                        GamepadSettingsError::InvalidButtonSettingReleaseThresholdGreaterThanPressThreshold {press_threshold: _press_threshold, release_threshold: _release_threshold} => {},
-                        GamepadSettingsError::InvalidButtonSettingReleaseThresholdOutOfRange(_release_threshold) => {},
-                        _ => { panic!("expected GamepadSettingsError::InvalidButtonSetting... for ButtonSettings::new({}, {})", press_threshold, release_threshold); },
-                    }
+                Ok(_) => {
+                    panic!(
+                        "ButtonSettings::new({}, {}) should be invalid",
+                        press_threshold, release_threshold
+                    );
                 }
+                Err(err_code) => match err_code {
+                    GamepadSettingsError::ButtonPressThresholdOutOfRange(_press_threshold) => {}
+                    GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold {
+                        press_threshold: _press_threshold,
+                        release_threshold: _release_threshold,
+                    } => {}
+                    GamepadSettingsError::ButtonReleaseThresholdOutOfRange(_release_threshold) => {}
+                    _ => {
+                        panic!("expected GamepadSettingsError::Button... for ButtonSettings::new({}, {})", press_threshold, release_threshold);
+                    }
+                },
             }
         }
     }
