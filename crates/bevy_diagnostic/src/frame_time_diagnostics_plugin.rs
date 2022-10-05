@@ -1,21 +1,16 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
-use bevy_ecs::system::{Res, ResMut, Resource};
+use bevy_core::FrameCount;
+use bevy_ecs::system::{Res, ResMut};
 use bevy_time::Time;
 
 /// Adds "frame time" diagnostic to an App, specifically "frame time", "fps" and "frame count"
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;
 
-#[derive(Resource)]
-pub struct FrameTimeDiagnosticsState {
-    frame_count: u64,
-}
-
 impl Plugin for FrameTimeDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_startup_system(Self::setup_system)
-            .insert_resource(FrameTimeDiagnosticsState { frame_count: 0 })
             .add_system(Self::diagnostic_system);
     }
 }
@@ -36,12 +31,9 @@ impl FrameTimeDiagnosticsPlugin {
     pub fn diagnostic_system(
         mut diagnostics: ResMut<Diagnostics>,
         time: Res<Time>,
-        mut state: ResMut<FrameTimeDiagnosticsState>,
+        frame_count: Res<FrameCount>,
     ) {
-        diagnostics.add_measurement(Self::FRAME_COUNT, || {
-            state.frame_count = state.frame_count.wrapping_add(1);
-            state.frame_count as f64
-        });
+        diagnostics.add_measurement(Self::FRAME_COUNT, || frame_count.0 as f64);
 
         if time.delta_seconds_f64() == 0.0 {
             return;
@@ -50,11 +42,5 @@ impl FrameTimeDiagnosticsPlugin {
         diagnostics.add_measurement(Self::FRAME_TIME, || time.delta_seconds_f64() * 1000.);
 
         diagnostics.add_measurement(Self::FPS, || 1.0 / time.delta_seconds_f64());
-    }
-}
-
-impl FrameTimeDiagnosticsState {
-    pub fn reset_frame_count(&mut self) {
-        self.frame_count = 0;
     }
 }
