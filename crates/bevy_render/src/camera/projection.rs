@@ -199,17 +199,49 @@ pub enum ScalingMode {
     FixedHorizontal(f32),
 }
 
+/// Project a 3D space onto a 2D surface using parallel lines, i.e., objects have the same
+/// apparent size regardless of depth. The volume contained in the projection is called the view frustum.
+///
+/// If the window is smaller than the view frustum, some objects within the view frustum will not appear on the screen.
+///
+/// Note that the cross sectional area of the view frustum and the apparent size of objects are inversely proportional.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
+    /// The location of the left face of the camera's view frustum relative to the `window_origin`, measured in
+    /// world units.
+    ///
+    /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
     pub left: f32,
+    /// The location of the right face of the camera's view frustum relative to the `window_origin`, measured in
+    /// world units.
+    ///
+    /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
     pub right: f32,
+    /// The location of the bottom face of the camera's view frustum relative to the `window_origin`, measured in
+    /// world units.
+    ///
+    /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
     pub bottom: f32,
+    /// The location of the top face of the camera's view frustum relative to the `window_origin`, measured in
+    /// world units.
+    ///
+    /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
     pub top: f32,
+    /// The distance of the near clipping plane, in world units.
+    ///
+    /// Objects closer than this will not be rendered.
     pub near: f32,
+    /// The distance of the far clipping plane, in world units.
+    ///
+    /// Objects further than this will not be rendered.
     pub far: f32,
+    /// Specifies where `(0, 0)` is located.
     pub window_origin: WindowOrigin,
     pub scaling_mode: ScalingMode,
+    /// Scales the cross sectional area of the view frustum.
+    ///
+    /// As `scale` increases, the apparent size of objects decrease, and vise versa.
     pub scale: f32,
 }
 
