@@ -4,7 +4,7 @@
 //! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
 //! for more details.
 
-use bevy::{prelude::*, window::WindowDescriptor};
+use bevy::prelude::*;
 
 fn main() {
     App::new()

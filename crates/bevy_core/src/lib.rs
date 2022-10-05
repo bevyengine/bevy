@@ -4,6 +4,7 @@
 mod name;
 mod task_pool_options;
 
+use bevy_ecs::system::Resource;
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
@@ -37,6 +38,8 @@ impl Plugin for CorePlugin {
 
         register_rust_types(app);
         register_math_types(app);
+
+        app.init_resource::<FrameCount>();
     }
 }
 
@@ -83,3 +86,9 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::DQuat>()
         .register_type::<bevy_math::Quat>();
 }
+
+/// Keeps a count of rendered frames since the start of the app
+///
+/// Wraps to 0 when it reaches the maximum u32 value
+#[derive(Default, Resource, Clone, Copy)]
+pub struct FrameCount(pub u32);
