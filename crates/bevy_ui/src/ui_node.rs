@@ -145,7 +145,7 @@ impl Val {
     }
 
     /// Similar to [`Val::try_add_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// [`self`] gets converted to [`Val::Px`].
+    /// The value gets converted to [`Val::Px`].
     pub fn try_add_assign_with_size(
         &mut self,
         rhs: Val,
@@ -165,7 +165,7 @@ impl Val {
     }
 
     /// Similar to [`Val::try_sub_assign`], but performs [`Val::evaluate`] on both values before adding.
-    /// [`self`] gets converted to [`Val::Px`].
+    /// The value gets converted to [`Val::Px`].
     pub fn try_sub_assign_with_size(
         &mut self,
         rhs: Val,
