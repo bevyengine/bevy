@@ -134,7 +134,7 @@ pub fn extract_text2d_sprite(
                 color,
                 rect,
                 custom_size: None,
-                image_handle_id: handle.id,
+                image_handle_id: handle.id(),
                 flip_x: false,
                 flip_y: false,
                 anchor: Anchor::Center.as_vec(),
