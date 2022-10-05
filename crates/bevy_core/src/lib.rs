@@ -35,8 +35,8 @@ impl Plugin for CorePlugin {
             .unwrap_or_default()
             .create_default_pools();
 
-        app.
-            register_type::<Entity>().register_type::<Name>()
+        app
+            .register_type::<Entity>().register_type::<Name>()
             .register_type_data::<Range<f32>, ReflectSerialize>()
             .register_type_data::<Range<f32>, ReflectDeserialize>();
 
