@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct Ray {
     /// The origin of the ray.
     pub origin: Vec3,
-    /// The direction of the ray.
+    /// A normalized vector representing the direction of the ray.
     pub direction: Vec3,
 }
 
