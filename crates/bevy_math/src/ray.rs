@@ -11,14 +11,16 @@ pub struct Ray {
 }
 
 impl Ray {
-    /// Returns true if this ray intersects the plane.
-    pub fn intersects_plane(&self, plane_origin: Vec3, plane_normal: Vec3) -> bool {
-        let denom = plane_normal.dot(self.direction);
-        if denom.abs() > f32::EPSILON {
-            let t = (plane_origin - self.origin).dot(plane_normal) / denom;
-            return t >= f32::EPSILON;
+    /// Returns some distance to the plane if the ray intersects it.
+    pub fn intersect_plane(&self, plane_origin: Vec3, plane_normal: Vec3) -> Option<f32> {
+        let denominator = plane_normal.dot(self.direction);
+        if denominator.abs() > f32::EPSILON {
+            let distance = (plane_origin - self.origin).dot(plane_normal) / denominator;
+            if distance >= f32::EPSILON {
+                return Some(distance);
+            }
         }
-        false
+        None
     }
 
     /// Retrieve a point at the given distance along the ray.
@@ -39,25 +41,25 @@ mod test {
         };
 
         // Orthogonal
-        assert!(ray.intersects_plane(Vec3::Z, Vec3::Z));
-        assert!(ray.intersects_plane(Vec3::Z, Vec3::NEG_Z));
-        assert!(!ray.intersects_plane(Vec3::NEG_Z, Vec3::Z));
-        assert!(!ray.intersects_plane(Vec3::NEG_Z, Vec3::NEG_Z));
+        assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::Z));
+        assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::NEG_Z));
+        assert_eq!(None, ray.intersect_plane(Vec3::NEG_Z, Vec3::Z));
+        assert_eq!(None, ray.intersect_plane(Vec3::NEG_Z, Vec3::NEG_Z));
 
         // Diagonal
-        assert!(ray.intersects_plane(Vec3::Z, Vec3::ONE));
-        assert!(ray.intersects_plane(Vec3::Z, Vec3::NEG_ONE));
-        assert!(!ray.intersects_plane(Vec3::NEG_Z, Vec3::ONE));
-        assert!(!ray.intersects_plane(Vec3::NEG_Z, Vec3::NEG_ONE));
+        assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::ONE));
+        assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::NEG_ONE));
+        assert_eq!(None, ray.intersect_plane(Vec3::NEG_Z, Vec3::ONE));
+        assert_eq!(None, ray.intersect_plane(Vec3::NEG_Z, Vec3::NEG_ONE));
 
         // Parralel
-        assert!(!ray.intersects_plane(Vec3::X, Vec3::X));
-        assert!(!ray.intersects_plane(Vec3::X, Vec3::NEG_X));
-        assert!(!ray.intersects_plane(Vec3::NEG_X, Vec3::X));
-        assert!(!ray.intersects_plane(Vec3::NEG_X, Vec3::NEG_X));
+        assert_eq!(None, ray.intersect_plane(Vec3::X, Vec3::X));
+        assert_eq!(None, ray.intersect_plane(Vec3::X, Vec3::NEG_X));
+        assert_eq!(None, ray.intersect_plane(Vec3::NEG_X, Vec3::X));
+        assert_eq!(None, ray.intersect_plane(Vec3::NEG_X, Vec3::NEG_X));
 
         // Parralel with simulated rounding error
-        assert!(!ray.intersects_plane(Vec3::X, Vec3::X + Vec3::Z * f32::EPSILON));
-        assert!(!ray.intersects_plane(Vec3::NEG_X, Vec3::X + Vec3::NEG_Z * f32::EPSILON));
+        assert_eq!(None, ray.intersect_plane(Vec3::X, Vec3::X + Vec3::Z * f32::EPSILON));
+        assert_eq!(None, ray.intersect_plane(Vec3::NEG_X, Vec3::X + Vec3::NEG_Z * f32::EPSILON));
     }
 }
