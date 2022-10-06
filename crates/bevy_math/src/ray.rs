@@ -11,7 +11,7 @@ pub struct Ray {
 }
 
 impl Ray {
-    /// Returns some distance to the plane if the ray intersects it.
+    /// Returns the distance to the plane if the ray intersects it.
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec3, plane_normal: Vec3) -> Option<f32> {
         let denominator = plane_normal.dot(self.direction);
@@ -56,6 +56,9 @@ mod test {
         assert_eq!(None, ray.intersect_plane(Vec3::X, Vec3::X));
 
         // Parralel with simulated rounding error
-        assert_eq!(None, ray.intersect_plane(Vec3::X, Vec3::X + Vec3::Z * f32::EPSILON));
+        assert_eq!(
+            None,
+            ray.intersect_plane(Vec3::X, Vec3::X + Vec3::Z * f32::EPSILON)
+        );
     }
 }
