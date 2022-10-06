@@ -22,6 +22,11 @@ impl Ray {
         }
         false
     }
+    
+    /// Retrieve a point at the given distance along the ray.
+    pub fn get_point(&self, distance: f32) -> Vec3 {
+        self.origin + self.direction * distance
+    }
 }
 
 #[cfg(test)]
