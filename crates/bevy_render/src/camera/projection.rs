@@ -173,7 +173,15 @@ impl Default for PerspectiveProjection {
 #[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum WindowOrigin {
+    /// Scale the view frustum from the center.
+    ///
+    /// When resizing the window, object in the center of the screen remain in the center, while opposite
+    /// faces of the view frustum expand/shrink equally.
     Center,
+    /// Scale the view frustum from the bottom left corner.
+    ///
+    /// When resizing the window, the top and right faces of the view frustum will move accordingly, keeping
+    /// the bottom and left faces in place.
     BottomLeft,
 }
 
@@ -199,49 +207,48 @@ pub enum ScalingMode {
     FixedHorizontal(f32),
 }
 
-/// Project a 3D space onto a 2D surface using parallel lines, i.e., objects have the same
-/// apparent size regardless of depth. The volume contained in the projection is called the view frustum.
+/// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
+/// the size at which objects appear remain the same regardless of depth.
 ///
-/// If the window is smaller than the view frustum, some objects within the view frustum will not appear on the screen.
+/// The volume contained in the projection is called the *view frustum*. Since the viewport is rectangular,
+/// the view frustum is in the shape of a rectangular prism.
 ///
 /// Note that the cross sectional area of the view frustum and the apparent size of objects are inversely proportional.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
-    /// The location of the left face of the camera's view frustum relative to the `window_origin`, measured in
-    /// world units.
+    /// The distance of the left face of the view frustum relative to the camera, measured in world units.
     ///
     /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
     pub left: f32,
-    /// The location of the right face of the camera's view frustum relative to the `window_origin`, measured in
-    /// world units.
+    /// The distance of the right face of the view frustum relative to the camera, measured in world units.
     ///
     /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
     pub right: f32,
-    /// The location of the bottom face of the camera's view frustum relative to the `window_origin`, measured in
-    /// world units.
+    /// The distance the bottom face of the view frustum relative to the camera, measured in world units.
     ///
     /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
     pub bottom: f32,
-    /// The location of the top face of the camera's view frustum relative to the `window_origin`, measured in
-    /// world units.
+    /// The distance of the top face of the view frustum relative to the camera, measured in world units.
     ///
     /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
     pub top: f32,
-    /// The distance of the near clipping plane, in world units.
+    /// The distance of the near clipping plane in world units.
     ///
     /// Objects closer than this will not be rendered.
     pub near: f32,
-    /// The distance of the far clipping plane, in world units.
+    /// The distance of the far clipping plane in world units.
     ///
     /// Objects further than this will not be rendered.
     pub far: f32,
-    /// Specifies where `(0, 0)` is located.
+    /// Specifies the origin of the scaling.
+    ///
+    /// This will not have any effect if `scaling_mode` is set to `ScalingMode::None`.
     pub window_origin: WindowOrigin,
     pub scaling_mode: ScalingMode,
-    /// Scales the cross sectional area of the view frustum.
+    /// Scales the width and height of the view frustum.
     ///
-    /// As `scale` increases, the apparent size of objects decrease, and vise versa.
+    /// As `scale` increases, the apparent size of objects decreases, and vice versa.
     pub scale: f32,
 }
 
