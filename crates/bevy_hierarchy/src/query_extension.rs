@@ -8,7 +8,7 @@ use bevy_ecs::{
 
 use crate::{Children, Parent};
 
-/// Extension trait for [`Query`]
+/// An extension trait for [`Query`] that adds hierarchy related methods.
 pub trait HierarchyQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///
