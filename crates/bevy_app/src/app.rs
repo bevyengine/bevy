@@ -8,7 +8,7 @@ use bevy_ecs::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
     },
-    system::Resource,
+    system::{Resource, Commands, Execute},
     world::World,
 };
 use bevy_utils::{tracing::debug, HashMap};
@@ -997,6 +997,12 @@ impl App {
             .get(&label.as_label())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
+    }
+}
+
+impl Execute for &mut App {
+    fn execute<F: FnOnce(&World, Commands) -> R, R>(self, f: F) -> R {
+        self.world.execute(f)
     }
 }
 

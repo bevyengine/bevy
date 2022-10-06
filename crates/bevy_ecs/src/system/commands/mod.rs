@@ -907,6 +907,42 @@ impl Command for LogComponents {
     }
 }
 
+/// Trait to execute some [`Commands`] on some [`World`].
+pub trait Execute {
+    fn execute<F: FnOnce(&World, Commands) -> R, R>(self, f: F) -> R;
+}
+
+impl Execute for &mut World {    
+    /// Creates a new [`Commands`] instances and passes it to the given function, then executes it on this [`World`].
+    /// 
+    /// # Usage
+    /// 
+    /// This is not an efficient method of executing commands. However, it can be a convenient tool for
+    /// testing commands. Therefore, its use should be reserved for tests and examples.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// 
+    /// let world = World::default();
+    /// world.execute(|_world, mut commands| {
+    ///     /* ... */
+    /// });
+    /// ```
+    /// 
+    /// # See also
+    /// - [`Commands`]
+    /// - [`World`]
+    fn execute<F: FnOnce(&World, Commands) -> R, R>(self, f: F) -> R {
+        let mut queue = CommandQueue::default();
+        let commands = Commands::new(&mut queue, self);
+        let result = f(self, commands);
+        queue.apply(self);
+        result
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
@@ -920,6 +956,8 @@ mod tests {
         atomic::{AtomicUsize, Ordering},
         Arc,
     };
+
+    use super::Execute;
 
     #[derive(Component)]
     #[component(storage = "SparseSet")]
@@ -1066,5 +1104,16 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn test_immediate_command_execution() {
+        let mut world = World::default();
+
+        let entity = world.execute(|_, mut commands| {
+            commands.spawn(()).id()
+        });
+
+        assert!(world.get_entity(entity).is_some());
     }
 }
