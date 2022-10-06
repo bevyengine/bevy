@@ -16,13 +16,11 @@ impl Ray {
         let denom = plane_normal.dot(self.direction);
         if denom.abs() > f32::EPSILON {
             let t = (plane_origin - self.origin).dot(plane_normal) / denom;
-            if t >= f32::EPSILON {
-                return true;
-            }
+            return t >= f32::EPSILON;
         }
         false
     }
-    
+
     /// Retrieve a point at the given distance along the ray.
     pub fn get_point(&self, distance: f32) -> Vec3 {
         self.origin + self.direction * distance
@@ -51,7 +49,7 @@ mod test {
         assert!(ray.intersects_plane(Vec3::Z, Vec3::NEG_ONE));
         assert!(!ray.intersects_plane(Vec3::NEG_Z, Vec3::ONE));
         assert!(!ray.intersects_plane(Vec3::NEG_Z, Vec3::NEG_ONE));
-        
+
         // Parralel
         assert!(!ray.intersects_plane(Vec3::X, Vec3::X));
         assert!(!ray.intersects_plane(Vec3::X, Vec3::NEG_X));
