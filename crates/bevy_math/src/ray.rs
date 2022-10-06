@@ -12,6 +12,7 @@ pub struct Ray {
 
 impl Ray {
     /// Returns some distance to the plane if the ray intersects it.
+    #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec3, plane_normal: Vec3) -> Option<f32> {
         let denominator = plane_normal.dot(self.direction);
         if denominator.abs() > f32::EPSILON {
@@ -24,6 +25,7 @@ impl Ray {
     }
 
     /// Retrieve a point at the given distance along the ray.
+    #[inline]
     pub fn get_point(&self, distance: f32) -> Vec3 {
         self.origin + self.direction * distance
     }
