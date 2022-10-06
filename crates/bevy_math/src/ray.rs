@@ -42,7 +42,7 @@ mod test {
             direction: Vec3::Z,
         };
 
-        // Orthogonal
+        // Orthogonal, and test that plane_normal direction doesn't matter
         assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::Z));
         assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::NEG_Z));
         assert_eq!(None, ray.intersect_plane(Vec3::NEG_Z, Vec3::Z));
@@ -50,18 +50,12 @@ mod test {
 
         // Diagonal
         assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::ONE));
-        assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::NEG_ONE));
         assert_eq!(None, ray.intersect_plane(Vec3::NEG_Z, Vec3::ONE));
-        assert_eq!(None, ray.intersect_plane(Vec3::NEG_Z, Vec3::NEG_ONE));
 
         // Parralel
         assert_eq!(None, ray.intersect_plane(Vec3::X, Vec3::X));
-        assert_eq!(None, ray.intersect_plane(Vec3::X, Vec3::NEG_X));
-        assert_eq!(None, ray.intersect_plane(Vec3::NEG_X, Vec3::X));
-        assert_eq!(None, ray.intersect_plane(Vec3::NEG_X, Vec3::NEG_X));
 
         // Parralel with simulated rounding error
         assert_eq!(None, ray.intersect_plane(Vec3::X, Vec3::X + Vec3::Z * f32::EPSILON));
-        assert_eq!(None, ray.intersect_plane(Vec3::NEG_X, Vec3::X + Vec3::NEG_Z * f32::EPSILON));
     }
 }
