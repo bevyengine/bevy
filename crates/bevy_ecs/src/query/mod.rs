@@ -85,8 +85,8 @@ mod tests {
         }
         fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
         where
-            Q: WorldQuery,
-            F: WorldQuery,
+            Q: ReadOnlyWorldQuery,
+            F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
             for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
             for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
@@ -98,24 +98,24 @@ mod tests {
         }
 
         let mut world = World::new();
-        world.spawn().insert_bundle((A(1), B(1)));
-        world.spawn().insert_bundle((A(2),));
-        world.spawn().insert_bundle((A(3),));
+        world.spawn((A(1), B(1)));
+        world.spawn((A(2),));
+        world.spawn((A(3),));
 
         assert_all_sizes_equal::<&A, With<B>>(&mut world, 1);
         assert_all_sizes_equal::<&A, Without<B>>(&mut world, 2);
 
         let mut world = World::new();
-        world.spawn().insert_bundle((A(1), B(1), C(1)));
-        world.spawn().insert_bundle((A(2), B(2)));
-        world.spawn().insert_bundle((A(3), B(3)));
-        world.spawn().insert_bundle((A(4), C(4)));
-        world.spawn().insert_bundle((A(5), C(5)));
-        world.spawn().insert_bundle((A(6), C(6)));
-        world.spawn().insert_bundle((A(7),));
-        world.spawn().insert_bundle((A(8),));
-        world.spawn().insert_bundle((A(9),));
-        world.spawn().insert_bundle((A(10),));
+        world.spawn((A(1), B(1), C(1)));
+        world.spawn((A(2), B(2)));
+        world.spawn((A(3), B(3)));
+        world.spawn((A(4), C(4)));
+        world.spawn((A(5), C(5)));
+        world.spawn((A(6), C(6)));
+        world.spawn((A(7),));
+        world.spawn((A(8),));
+        world.spawn((A(9),));
+        world.spawn((A(10),));
 
         // With/Without for B and C
         assert_all_sizes_equal::<&A, With<B>>(&mut world, 3);
@@ -138,7 +138,7 @@ mod tests {
         assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>(&mut world, 6);
 
         for i in 11..14 {
-            world.spawn().insert_bundle((A(i), D(i)));
+            world.spawn((A(i), D(i)));
         }
 
         assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>(&mut world, 9);
@@ -146,7 +146,7 @@ mod tests {
 
         // a fair amount of entities
         for i in 14..20 {
-            world.spawn().insert_bundle((C(i), D(i)));
+            world.spawn((C(i), D(i)));
         }
         assert_all_sizes_equal::<Entity, (With<C>, With<D>)>(&mut world, 6);
     }
