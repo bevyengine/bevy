@@ -924,6 +924,7 @@ impl Execute for &mut World {
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::system::Execute;
     ///
     /// let mut world = World::default();
     /// world.execute(|_world, mut commands| {
