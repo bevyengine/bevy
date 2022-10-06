@@ -36,7 +36,9 @@ impl Plugin for CorePlugin {
             .create_default_pools();
 
         app
-            .register_type::<Entity>().register_type::<Name>()
+            .register_type::<Entity>()
+            .register_type::<Name>()
+            .register_type::<Range<f32>>()
             .register_type_data::<Range<f32>, ReflectSerialize>()
             .register_type_data::<Range<f32>, ReflectDeserialize>();
 
