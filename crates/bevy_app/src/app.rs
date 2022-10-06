@@ -8,7 +8,7 @@ use bevy_ecs::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
     },
-    system::{Resource, Commands, Execute},
+    system::{Commands, Execute, Resource},
     world::World,
 };
 use bevy_utils::{tracing::debug, HashMap};

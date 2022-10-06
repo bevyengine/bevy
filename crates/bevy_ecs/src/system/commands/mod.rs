@@ -912,25 +912,25 @@ pub trait Execute {
     fn execute<F: FnOnce(&World, Commands) -> R, R>(self, f: F) -> R;
 }
 
-impl Execute for &mut World {    
+impl Execute for &mut World {
     /// Creates a new [`Commands`] instances and passes it to the given function, then executes it on this [`World`].
-    /// 
+    ///
     /// # Usage
-    /// 
+    ///
     /// This is not an efficient method of executing commands. However, it can be a convenient tool for
     /// testing commands. Therefore, its use should be reserved for tests and examples.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use bevy_ecs::prelude::*;
-    /// 
+    ///
     /// let mut world = World::default();
     /// world.execute(|_world, mut commands| {
     ///     /* ... */
     /// });
     /// ```
-    /// 
+    ///
     /// # See also
     /// - [`Commands`]
     /// - [`World`]
@@ -949,7 +949,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource, Execute},
+        system::{CommandQueue, Commands, Execute, Resource},
         world::World,
     };
     use std::sync::{
@@ -1108,9 +1108,7 @@ mod tests {
     fn test_immediate_command_execution() {
         let mut world = World::default();
 
-        let entity = world.execute(|_, mut commands| {
-            commands.spawn(()).id()
-        });
+        let entity = world.execute(|_, mut commands| commands.spawn(()).id());
 
         assert!(world.get_entity(entity).is_some());
     }
