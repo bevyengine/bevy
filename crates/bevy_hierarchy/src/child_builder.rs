@@ -146,7 +146,7 @@ impl Command for InsertChildren {
     }
 }
 
-/// Command that pushes children to the end of the entity's children
+/// Command that pushes children to the end of the entity's [`Children`].
 #[derive(Debug)]
 pub struct PushChildren {
     parent: Entity,
@@ -166,7 +166,7 @@ impl Command for PushChildren {
     }
 }
 
-/// Command that removes children from an entity, and removes that child's parent and inserts it into the previous parent component
+/// Command that removes children from an entity, and removes that child's parent.
 pub struct RemoveChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
@@ -175,6 +175,27 @@ pub struct RemoveChildren {
 impl Command for RemoveChildren {
     fn write(self, world: &mut World) {
         remove_children(self.parent, &self.children, world);
+    }
+}
+
+/// Command that removes the parent of an entity, and removes that entity from the parent's [`Children`].
+pub struct RemoveParent {
+    child: Entity,
+}
+
+impl Command for RemoveParent {
+    fn write(self, world: &mut World) {
+        if let Some(parent) = world.get::<Parent>(self.child) {
+            let parent_entity = parent.get();
+            remove_from_children(world, parent_entity, self.child);
+            world.entity_mut(self.child).remove::<Parent>();
+            if let Some(mut events) = world.get_resource_mut::<Events<_>>() {
+                events.send(HierarchyEvent::ChildRemoved {
+                    child: self.child,
+                    parent: parent_entity,
+                });
+            }
+        }
     }
 }
 
@@ -265,6 +286,10 @@ pub trait BuildChildren {
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Adds a single child
     fn add_child(&mut self, child: Entity) -> &mut Self;
+    /// Sets the parent of this entity.
+    fn set_parent(&mut self, parent: Entity) -> &mut Self;
+    /// Removes the parent of this entity.
+    fn remove_parent(&mut self) -> &mut Self;
 }
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
@@ -321,6 +346,18 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
         self.commands().add(AddChild { child, parent });
+        self
+    }
+
+    fn set_parent(&mut self, parent: Entity) -> &mut Self {
+        let child = self.id();
+        self.commands().add(AddChild { child, parent });
+        self
+    }
+
+    fn remove_parent(&mut self) -> &mut Self {
+        let child = self.id();
+        self.commands().add(RemoveParent { child });
         self
     }
 }
