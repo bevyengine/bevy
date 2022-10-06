@@ -17,10 +17,10 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
 use std::borrow::Cow;
 use std::ops::Range;
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
@@ -35,8 +35,7 @@ impl Plugin for CorePlugin {
             .unwrap_or_default()
             .create_default_pools();
 
-        app
-            .register_type::<Entity>()
+        app.register_type::<Entity>()
             .register_type::<Name>()
             .register_type::<Range<f32>>()
             .register_type_data::<Range<f32>, ReflectSerialize>()
