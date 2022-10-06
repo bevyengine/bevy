@@ -105,8 +105,7 @@ pub struct Handle<T>
 where
     T: Asset,
 {
-    /// The ID of the asset as contained within its respective [`Assets`] collection
-    pub id: HandleId,
+    id: HandleId,
     #[reflect(ignore)]
     handle_type: HandleType,
     #[reflect(ignore)]
@@ -149,6 +148,12 @@ impl<T: Asset> Handle<T> {
             handle_type: HandleType::Weak,
             marker: PhantomData,
         }
+    }
+
+    /// The ID of the asset as contained within its respective [`Assets`] collection.
+    #[inline]
+    pub fn id(&self) -> HandleId {
+        self.id
     }
 
     /// Recasts this handle as a weak handle of an Asset `U`.

@@ -261,7 +261,7 @@ pub fn extract_sprites(
             custom_size: sprite.custom_size,
             flip_x: sprite.flip_x,
             flip_y: sprite.flip_y,
-            image_handle_id: handle.id,
+            image_handle_id: handle.id(),
             anchor: sprite.anchor.as_vec(),
         });
     }
@@ -281,7 +281,7 @@ pub fn extract_sprites(
                 custom_size: atlas_sprite.custom_size,
                 flip_x: atlas_sprite.flip_x,
                 flip_y: atlas_sprite.flip_y,
-                image_handle_id: texture_atlas.texture.id,
+                image_handle_id: texture_atlas.texture.id(),
                 anchor: atlas_sprite.anchor.as_vec(),
             });
         }
