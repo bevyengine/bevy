@@ -949,15 +949,13 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource},
+        system::{CommandQueue, Commands, Resource, Execute},
         world::World,
     };
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     };
-
-    use super::Execute;
 
     #[derive(Component)]
     #[component(storage = "SparseSet")]
