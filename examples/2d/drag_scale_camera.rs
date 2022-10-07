@@ -15,7 +15,6 @@ fn main() {
 fn camer_drag(
     mouse_button_input: Res<Input<MouseButton>>,
     mut query: Query<(&mut Transform, &mut OrthographicProjection)>,
-
     windows: Res<Windows>,
     mut prev_position: Local<Vec2>,
 ) {
