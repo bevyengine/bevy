@@ -24,7 +24,7 @@ fn camer_drag(
                 // Calculate the delta in mouse position when it has been held down.
                 let delta: Vec2 = (*prev_position - cursor_position) * cam.scale;
 
-                //Applying the motion Delta to the camera's transform
+                //Applying the motion delta to the camera's transform
                 *transf = Transform::from_translation(transf.mul_vec3(delta.extend(0.0)));
             }
         }
