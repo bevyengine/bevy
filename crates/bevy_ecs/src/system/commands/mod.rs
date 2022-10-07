@@ -917,8 +917,12 @@ impl Execute for &mut World {
     ///
     /// # Usage
     ///
-    /// This is not an efficient method of executing commands. However, it can be a convenient tool for
-    /// testing commands. Therefore, its use should be reserved for tests and examples.
+    /// This function is not an efficient method of executing commands because it requires the creation of a
+    /// dedicated [`CommandQueue`] per call. See documentation on [`Commands`] for proper usage.
+    ///
+    /// However, this function provides a convenient tool for diagnostics and testing because it allows you to
+    /// invoke commands on a world immediately, without the need for a system.
+    /// Therefore, its use should be reserved for special cases where performance or memory is not a concern.
     ///
     /// # Example
     ///
