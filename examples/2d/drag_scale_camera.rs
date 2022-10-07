@@ -57,7 +57,7 @@ fn setup(
     // Quick loop to generate array of circles as a reference point for background
     for x in -square_size..square_size {
         for y in -square_size..square_size {
-            commands.spawn_bundle(MaterialMesh2dBundle {
+            commands.spawn(MaterialMesh2dBundle {
                 mesh: meshes.add(shape::Circle::new(10.).into()).into(),
                 material: materials.add(ColorMaterial::from(Color::BLUE)),
                 transform: Transform::from_translation(Vec3::new(
