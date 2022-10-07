@@ -212,7 +212,6 @@ description = "Renders a grid, and allows simple dragging and scaling of camera"
 category = "2D Rendering"
 wasm = true
 
-
 [[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
