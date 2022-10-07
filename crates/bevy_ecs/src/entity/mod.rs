@@ -31,12 +31,11 @@
 //! [`EntityMut::insert`]: crate::world::EntityMut::insert
 //! [`EntityMut::remove`]: crate::world::EntityMut::remove
 mod map_entities;
-mod serde;
 
-pub use self::serde::*;
 pub use map_entities::*;
 
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
+use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
@@ -104,7 +103,7 @@ type IdCursor = isize;
 /// [`EntityMut::id`]: crate::world::EntityMut::id
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
-#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Entity {
     pub(crate) generation: u32,
     pub(crate) id: u32,
