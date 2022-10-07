@@ -65,16 +65,20 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
-    if let Some(parent_children) = world.get::<Children>(parent).map(|c| c.0.clone()) {
+    if let Some(parent_children) = world.get::<Children>(parent) {
         for &child in children {
             if !parent_children.contains(&child) {
                 continue;
             }
-            world.entity_mut(child).remove::<Parent>();
             events.push(HierarchyEvent::ChildRemoved { child, parent });
         }
     } else {
         return;
+    }
+    for event in &events {
+        if let &HierarchyEvent::ChildRemoved { child, .. } = event {
+            world.entity_mut(child).remove::<Parent>();
+        }
     }
     push_events(world, events);
 
