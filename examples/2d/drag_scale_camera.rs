@@ -16,7 +16,7 @@ fn camer_drag(
     mouse_button_input: Res<Input<MouseButton>>,
     mut query: Query<(&mut Transform, &mut OrthographicProjection)>,
 
-    winfo: Res<Windows>,
+    windows: Res<Windows>,
     mut prev_position: Local<Vec2>,
 ) {
     if let Some(cursor_position) = winfo.primary().cursor_position() {
