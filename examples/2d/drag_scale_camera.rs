@@ -7,12 +7,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(camera_scale)
-        .add_system(camer_drag)
+        .add_system(camera_drag)
         .insert_resource(ClearColor(Color::RED))
         .run();
 }
 
-fn camer_drag(
+fn camera_drag(
     mouse_button_input: Res<Input<MouseButton>>,
     mut query: Query<(&mut Transform, &mut OrthographicProjection)>,
     windows: Res<Windows>,
