@@ -18,7 +18,7 @@ fn camer_drag(
     windows: Res<Windows>,
     mut prev_position: Local<Vec2>,
 ) {
-    if let Some(cursor_position) = winfo.primary().cursor_position() {
+    if let Some(cursor_position) = windows.primary().cursor_position() {
         if mouse_button_input.pressed(MouseButton::Left) {
             for (mut transform, cam) in query.iter_mut() {
                 // Calculate the delta in mouse position when it has been held down.
