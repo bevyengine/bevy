@@ -196,15 +196,22 @@ wasm = true
 name = "2d_shapes"
 path = "examples/2d/2d_shapes.rs"
 
-[[example]]
-name = "drag_scale_camera"
-path = "examples/2d/drag_scale_camera.rs"
-
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
 description = "Renders a rectangle, circle, and hexagon"
 category = "2D Rendering"
 wasm = true
+
+[[example]]
+name = "drag_scale_camera"
+path = "examples/2d/drag_scale_camera.rs"
+
+[package.metadata.example.drag_scale_camera]
+name = "Drag Scale Camera"
+description = "Renders a grid, and allows simple dragging and scaling of camera"
+category = "2D Rendering"
+wasm = true
+
 
 [[example]]
 name = "sprite"

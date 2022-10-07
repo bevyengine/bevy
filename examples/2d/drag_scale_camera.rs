@@ -15,18 +15,17 @@ fn main() {
 fn camer_drag(
     mouse_button_input: Res<Input<MouseButton>>,
     mut query: Query<(&mut Transform, &mut OrthographicProjection)>,
-
-    winfo: Res<Windows>,
+    windows: Res<Windows>,
     mut prev_position: Local<Vec2>,
 ) {
-    if let Some(cursor_position) = winfo.get_primary().unwrap().cursor_position() {
+    if let Some(cursor_position) = windows.primary().cursor_position() {
         if mouse_button_input.pressed(MouseButton::Left) {
-            for (mut transf, cam) in query.iter_mut() {
+            for (mut transform, cam) in query.iter_mut() {
                 // Calculate the delta in mouse position when it has been held down.
                 let delta: Vec2 = (*prev_position - cursor_position) * cam.scale;
 
-                //Applying the motion Delta to the camera's transform
-                *transf = Transform::from_translation(transf.mul_vec3(delta.extend(0.0)));
+                //Applying the motion delta to the camera's transform
+                *transform = Transform::from_translation(transform.mul_vec3(delta.extend(0.0)));
             }
         }
         *prev_position = cursor_position;
@@ -38,10 +37,10 @@ fn camera_scale(
 ) {
     // Query for mouse scroll events, and will apply delta scroll to camera's scale
     for event in mouse_wheel_events.iter() {
-        for mut que in query.iter_mut() {
-            let mut log_scale = que.scale.ln();
+        for mut proj in query.iter_mut() {
+            let mut log_scale = proj.scale.ln();
             log_scale += event.y * 0.5;
-            que.scale = log_scale.exp();
+            proj.scale = log_scale.exp();
         }
     }
 }
@@ -51,14 +50,14 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     let square_size = 10;
 
     // Quick loop to generate array of circles as a reference point for background
     for x in -square_size..square_size {
         for y in -square_size..square_size {
-            commands.spawn_bundle(MaterialMesh2dBundle {
+            commands.spawn(MaterialMesh2dBundle {
                 mesh: meshes.add(shape::Circle::new(10.).into()).into(),
                 material: materials.add(ColorMaterial::from(Color::BLUE)),
                 transform: Transform::from_translation(Vec3::new(
