@@ -202,10 +202,10 @@ impl ComponentSparseSet {
             if !is_last {
                 let swapped_entity = self.entities[dense_index];
                 #[cfg(not(debug_assertions))]
-                let idx = swapped_entity;
+                let index = swapped_entity;
                 #[cfg(debug_assertions)]
-                let idx = swapped_entity.index();
-                *self.sparse.get_mut(idx).unwrap() = dense_index as u32;
+                let index = swapped_entity.index();
+                *self.sparse.get_mut(index).unwrap() = dense_index as u32;
             }
             value
         })
@@ -223,10 +223,10 @@ impl ComponentSparseSet {
             if !is_last {
                 let swapped_entity = self.entities[dense_index];
                 #[cfg(not(debug_assertions))]
-                let idx = swapped_entity;
+                let index = swapped_entity;
                 #[cfg(debug_assertions)]
-                let idx = swapped_entity.index();
-                *self.sparse.get_mut(idx).unwrap() = dense_index as u32;
+                let index = swapped_entity.index();
+                *self.sparse.get_mut(index).unwrap() = dense_index as u32;
             }
             true
         } else {
