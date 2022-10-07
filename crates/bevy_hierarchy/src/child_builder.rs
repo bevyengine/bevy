@@ -67,10 +67,9 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
     if let Some(parent_children) = world.get::<Children>(parent) {
         for &child in children {
-            if !parent_children.contains(&child) {
-                continue;
+            if parent_children.contains(&child) {
+                events.push(HierarchyEvent::ChildRemoved { child, parent });
             }
-            events.push(HierarchyEvent::ChildRemoved { child, parent });
         }
     } else {
         return;
