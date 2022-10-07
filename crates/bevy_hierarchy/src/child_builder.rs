@@ -1,7 +1,4 @@
-use crate::{
-    prelude::{Children, Parent},
-    HierarchyEvent,
-};
+use crate::{Children, HierarchyEvent, Parent};
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
@@ -68,12 +65,16 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
-    for child in children {
-        world.entity_mut(*child).remove::<Parent>();
-        events.push(HierarchyEvent::ChildRemoved {
-            child: *child,
-            parent,
-        });
+    if let Some(parent_children) = world.get::<Children>(parent).map(|c| c.0.clone()) {
+        for &child in children {
+            if !parent_children.contains(&child) {
+                continue;
+            }
+            world.entity_mut(child).remove::<Parent>();
+            events.push(HierarchyEvent::ChildRemoved { child, parent });
+        }
+    } else {
+        return;
     }
     push_events(world, events);
 
