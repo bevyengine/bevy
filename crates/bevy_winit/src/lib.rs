@@ -137,10 +137,10 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_cursor_icon(converters::convert_cursor_icon(icon));
                 }
-                bevy_window::WindowCommand::SetCursorLockMode { locked } => {
+                bevy_window::WindowCommand::SetCursorGrabMode { grab_mode } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window
-                        .set_cursor_grab(locked)
+                        .set_cursor_grab(winit_grab_mode(grab_mode))
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
                 bevy_window::WindowCommand::SetCursorVisibility { visible } => {
@@ -717,5 +717,14 @@ fn handle_create_window_events(
                 channel.listen_to_selector(create_window_event.id, selector);
             }
         }
+    }
+}
+
+/// Map `bevy_window::CursorGrabMode` to `winit::window::CursorGrabMode`.
+fn winit_grab_mode(mode: bevy_window::CursorGrabMode) -> winit::window::CursorGrabMode {
+    match mode {
+        bevy_window::CursorGrabMode::None => winit::window::CursorGrabMode::None,
+        bevy_window::CursorGrabMode::Confined => winit::window::CursorGrabMode::Confined,
+        bevy_window::CursorGrabMode::Locked => winit::window::CursorGrabMode::Locked,
     }
 }

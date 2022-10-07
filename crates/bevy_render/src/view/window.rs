@@ -6,7 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
+use bevy_window::{PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 
 /// Token to ensure a system runs on the main thread.
@@ -38,7 +38,7 @@ impl Plugin for WindowRenderPlugin {
 
 pub struct ExtractedWindow {
     pub id: WindowId,
-    pub raw_window_handle: Option<RawWindowHandleWrapper>,
+    pub raw_handle: Option<RawHandleWrapper>,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -83,7 +83,7 @@ fn extract_windows(
                 .entry(window.id())
                 .or_insert(ExtractedWindow {
                     id: window.id(),
-                    raw_window_handle: window.raw_window_handle(),
+                    handle: window.raw_handle(),
                     physical_width: new_width,
                     physical_height: new_height,
                     present_mode: window.present_mode(),
@@ -197,6 +197,7 @@ pub fn prepare_windows(
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                 PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
+            alpha_mode: wgpu::CompositeAlphaMode::Auto,
         };
 
         // Do the initial surface configuration if it hasn't been configured yet. Or if size or
