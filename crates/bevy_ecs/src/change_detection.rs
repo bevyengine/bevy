@@ -177,7 +177,26 @@ macro_rules! impl_methods {
             /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
             ///
             /// You should not modify the argument passed to the closure, unless you are familiar with `bevy_ecs` internals.
-            /// Violating this rule will likely result in logic errors, but it will not cause undefined behavior.
+            ///
+            /// ```rust
+            /// # use bevy_ecs::prelude::*;
+            /// # pub struct Transform { translation: Vec2 }
+            /// # mod my_utils {
+            /// #   pub fn set_if_not_equal<T: std::ops::PartialEq>(x: Mut<T>, val: T) {
+            /// #     if *x != val { *x = val; }
+            /// #   }
+            /// # }
+            /// // When run, zeroes the translation of every entity.
+            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
+            ///     for transform in &mut transforms {
+            ///         // We pinky promise not to modify `t` within the closure.
+            ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
+            ///         let translation = transform.map_unchanged(|t| &mut t.translation);
+            ///         // Only reset the translation if it isn't already zero;
+            ///         my_utils::set_if_not_equal(translation, Vec2::ZERO);
+            ///     }
+            /// }
+            /// ```
             pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'a, U> {
                 Mut {
                     value: f(self.value),
