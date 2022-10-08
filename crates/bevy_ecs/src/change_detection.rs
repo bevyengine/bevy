@@ -163,7 +163,7 @@ macro_rules! change_detection_impl {
     };
 }
 
-macro_rules! impl_into_inner {
+macro_rules! impl_methods {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
@@ -226,7 +226,7 @@ pub struct ResMut<'a, T: ?Sized + Resource> {
 }
 
 change_detection_impl!(ResMut<'a, T>, T, Resource);
-impl_into_inner!(ResMut<'a, T>, T, Resource);
+impl_methods!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
 impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
@@ -258,7 +258,7 @@ pub struct NonSendMut<'a, T: ?Sized + 'static> {
 }
 
 change_detection_impl!(NonSendMut<'a, T>, T,);
-impl_into_inner!(NonSendMut<'a, T>, T,);
+impl_methods!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
 impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
@@ -279,7 +279,7 @@ pub struct Mut<'a, T: ?Sized> {
 }
 
 change_detection_impl!(Mut<'a, T>, T,);
-impl_into_inner!(Mut<'a, T>, T,);
+impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
 /// Unique mutable borrow of resources or an entity's component.
