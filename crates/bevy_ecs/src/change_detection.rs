@@ -173,6 +173,17 @@ macro_rules! impl_into_inner {
                 self.set_changed();
                 self.value
             }
+
+            /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
+            ///
+            /// You must *not* modify the argument passed to the closure.
+            /// Violating this rule will likely result in logic errors, but it will not cause undefined behavior.
+            pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'a, U> {
+                Mut {
+                    value: f(self.value),
+                    ticks: self.ticks,
+                }
+            }
         }
     };
 }
@@ -496,5 +507,36 @@ mod tests {
         assert_eq!(2, into_mut.ticks.component_ticks.changed);
         assert_eq!(3, into_mut.ticks.last_change_tick);
         assert_eq!(4, into_mut.ticks.change_tick);
+    }
+
+    #[test]
+    fn map_mut() {
+        use super::*;
+        struct Outer(i64);
+
+        let mut component_ticks = ComponentTicks {
+            added: 1,
+            changed: 2,
+        };
+        let ticks = Ticks {
+            component_ticks: &mut component_ticks,
+            last_change_tick: 2,
+            change_tick: 3,
+        };
+
+        let mut outer = Outer(0);
+        let ptr = Mut {
+            value: &mut outer,
+            ticks,
+        };
+        assert!(!ptr.is_changed());
+
+        // Perform a mapping operation.
+        let mut inner = ptr.map_unchanged(|x| &mut x.0);
+        assert!(!inner.is_changed());
+
+        // Mutate the inner value.
+        *inner = 64;
+        assert!(inner.is_changed());
     }
 }
