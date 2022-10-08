@@ -518,10 +518,11 @@ mod tests {
             added: 1,
             changed: 2,
         };
+        let (last_change_tick, change_tick) = (2, 3);
         let ticks = Ticks {
             component_ticks: &mut component_ticks,
-            last_change_tick: 2,
-            change_tick: 3,
+            last_change_tick,
+            change_tick,
         };
 
         let mut outer = Outer(0);
@@ -538,5 +539,7 @@ mod tests {
         // Mutate the inner value.
         *inner = 64;
         assert!(inner.is_changed());
+        // Modifying one field of a component should flag a change for the entire component.
+        assert!(component_ticks.is_changed(last_change_tick, change_tick));
     }
 }
