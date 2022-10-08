@@ -65,7 +65,7 @@ struct Swordsman;
 struct Mage;
 
 fn spawn_player(mut commands: Commands) {
-    commands.spawn().insert_bundle((Player, Mage, Life));
+    commands.spawn((Player, Mage, Life));
 }
 
 fn position_player(mut commands: Commands, query: Query<Entity, Added<Player>>) {
@@ -76,7 +76,7 @@ fn position_player(mut commands: Commands, query: Query<Entity, Added<Player>>) 
     // where it has only one of the two components.
     commands
         .entity(player_entity)
-        .insert_bundle((GlobalTransform::default(), Transform::default()));
+        .insert((GlobalTransform::default(), Transform::default()));
 
     // Adding the components one at a time panics.
     // Track this limitation at https://github.com/bevyengine/bevy/issues/5074.

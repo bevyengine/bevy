@@ -460,6 +460,7 @@ impl World {
                 &mut self.components,
                 &mut self.storages,
                 *self.change_tick.get_mut(),
+                &self.archetype_invariants,
             );
 
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent

@@ -30,7 +30,7 @@ use crate::{
 ///
 /// When working with dynamic component types (for non-Rust components),
 /// use [`UntypedArchetypeInvariant`] and [`UntypedArchetypeStatement`] instead.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArchetypeInvariant<B1: Bundle, B2: Bundle = B1> {
     /// Defines which entities this invariant applies to.
     /// This is the "if" of the if/then clause.
@@ -63,7 +63,7 @@ impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
 /// For the statements about a single component `C`, wrap it in a single-component bundle `(C,)`.
 /// For single component bundles, `AllOf` and `AnyOf` are equivalent.
 /// Prefer `ArchetypeStatement::<(C,)>::all_of` over `ArchetypeStatement::<(C,)>::any_of` for consistency and clarity.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ArchetypeStatement<B: Bundle> {
     /// Evaluates to true if and only if the entity has all of the components present in the bundle `B`.
     AllOf(PhantomData<B>),
@@ -95,7 +95,10 @@ impl<B: Bundle> ArchetypeStatement<B> {
     ///
     /// Requires mutable world access, since the components might not have been added to the world yet.
     pub fn into_untyped(self, world: &mut World) -> UntypedArchetypeStatement {
-        let component_ids = B::component_ids(&mut world.components, &mut world.storages);
+        let mut component_ids = Vec::new();
+        B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
+            component_ids.push(id);
+        });
         let component_ids: HashSet<ComponentId> = component_ids.into_iter().collect();
 
         match self {
@@ -263,7 +266,7 @@ mod private {
 ///
 /// Intended to be used with dynamic components that cannot be represented with Rust types.
 /// Prefer [`ArchetypeInvariant`] when possible.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UntypedArchetypeInvariant {
     /// Defines which entities this invariant applies to.
     /// This is the "if" of the if/then clause.
@@ -316,7 +319,7 @@ impl UntypedArchetypeInvariant {
 ///
 /// Intended to be used with dynamic components that cannot be represented with Rust types.
 /// Prefer [`ArchetypeStatement`] when possible.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UntypedArchetypeStatement {
     /// Evaluates to true if and only if the entity has all of the components present in the set.
     AllOf(HashSet<ComponentId>),
@@ -521,7 +524,7 @@ mod tests {
     fn on_insert_happy() {
         let mut world = World::new();
 
-        world.spawn().insert_bundle((A, B, C));
+        world.spawn((A, B, C));
         world.add_archetype_invariant(<(A, B, C)>::atomic());
     }
 
@@ -530,7 +533,7 @@ mod tests {
     fn on_insert_sad() {
         let mut world = World::new();
 
-        world.spawn().insert_bundle((A, B));
+        world.spawn((A, B));
         world.add_archetype_invariant(<(A, B, C)>::atomic());
     }
 
@@ -538,7 +541,7 @@ mod tests {
     fn on_insert_untyped_happy() {
         let mut world = World::new();
 
-        world.spawn().insert_bundle((A, B, C));
+        world.spawn((A, B, C));
         let archetype_invariant = <(A, B, C)>::atomic().into_untyped(&mut world);
         world.add_untyped_archetype_invariant(archetype_invariant);
     }
@@ -548,7 +551,7 @@ mod tests {
     fn on_insert_untyped_sad() {
         let mut world = World::new();
 
-        world.spawn().insert_bundle((A, B));
+        world.spawn((A, B));
         let archetype_invariant = <(A, B, C)>::atomic().into_untyped(&mut world);
         world.add_untyped_archetype_invariant(archetype_invariant);
     }
@@ -570,7 +573,7 @@ mod tests {
 
         // Since invariants are only checked when archetypes are created,
         // we must add something to trigger the check.
-        world.spawn().insert(A);
+        world.spawn(A);
     }
 
     #[test]
@@ -586,7 +589,7 @@ mod tests {
 
         // Since invariants are only checked when archetypes are created,
         // we must add something to trigger the check.
-        world.spawn().insert(A);
+        world.spawn(A);
     }
 
     #[test]
@@ -594,8 +597,8 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A,)>::forbids::<(B, C)>());
-        world.spawn().insert(A);
-        world.spawn().insert_bundle((B, C));
+        world.spawn(A);
+        world.spawn((B, C));
     }
 
     #[test]
@@ -604,7 +607,7 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A,)>::forbids::<(B, C)>());
-        world.spawn().insert_bundle((A, B));
+        world.spawn((A, B));
     }
 
     #[test]
@@ -612,8 +615,8 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A,)>::requires::<(B, C)>());
-        world.spawn().insert_bundle((A, B, C));
-        world.spawn().insert_bundle((B, C));
+        world.spawn((A, B, C));
+        world.spawn((B, C));
     }
 
     #[test]
@@ -622,7 +625,7 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A,)>::requires::<(B, C)>());
-        world.spawn().insert_bundle((A, B));
+        world.spawn((A, B));
     }
 
     #[test]
@@ -631,7 +634,7 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A,)>::requires::<(B, C)>());
-        world.spawn().insert(A);
+        world.spawn(A);
     }
 
     #[test]
@@ -639,9 +642,9 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A,)>::requires_one::<(B, C)>());
-        world.spawn().insert_bundle((A, B, C));
-        world.spawn().insert_bundle((A, B));
-        world.spawn().insert_bundle((B, C));
+        world.spawn((A, B, C));
+        world.spawn((A, B));
+        world.spawn((B, C));
     }
 
     #[test]
@@ -650,7 +653,7 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A,)>::requires_one::<(B, C)>());
-        world.spawn().insert(A);
+        world.spawn(A);
     }
 
     #[test]
@@ -658,7 +661,7 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A, B, C)>::atomic());
-        world.spawn().insert_bundle((A, B, C));
+        world.spawn((A, B, C));
     }
 
     #[test]
@@ -667,7 +670,7 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A, B, C)>::atomic());
-        world.spawn().insert_bundle((A, B));
+        world.spawn((A, B));
     }
 
     #[test]
@@ -675,9 +678,9 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A, B, C)>::disjoint());
-        world.spawn().insert(A);
-        world.spawn().insert(B);
-        world.spawn().insert(C);
+        world.spawn(A);
+        world.spawn(B);
+        world.spawn(C);
     }
 
     #[test]
@@ -686,7 +689,7 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A, B, C)>::disjoint());
-        world.spawn().insert_bundle((A, B));
+        world.spawn((A, B));
     }
 
     #[test]
@@ -695,7 +698,7 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A, B, C)>::disjoint());
-        world.spawn().insert_bundle((A, B, C));
+        world.spawn((A, B, C));
     }
 
     #[test]
@@ -703,9 +706,9 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A, B)>::exclusive());
-        world.spawn().insert_bundle((A, B));
-        world.spawn().insert(A);
-        world.spawn().insert(C);
+        world.spawn((A, B));
+        world.spawn(A);
+        world.spawn(C);
     }
 
     #[test]
@@ -714,7 +717,7 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A, B)>::exclusive());
-        world.spawn().insert_bundle((A, C));
+        world.spawn((A, C));
     }
 
     #[test]
@@ -723,6 +726,6 @@ mod tests {
         let mut world = World::new();
 
         world.add_archetype_invariant(<(A, B)>::exclusive());
-        world.spawn().insert_bundle((A, B, C));
+        world.spawn((A, B, C));
     }
 }

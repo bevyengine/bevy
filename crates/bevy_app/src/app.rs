@@ -3,7 +3,7 @@ pub use bevy_derive::AppLabel;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::{Event, Events},
-    prelude::{Bundle, FromWorld, IntoExclusiveSystem},
+    prelude::{Bundle, FromWorld},
     schedule::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
