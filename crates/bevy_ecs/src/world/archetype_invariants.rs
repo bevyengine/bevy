@@ -60,9 +60,9 @@ impl<B1: Bundle, B2: Bundle> ArchetypeInvariant<B1, B2> {
 /// When used as a premise, the archetype invariant matches all entities which satisfy the statement.
 /// When used as a consequence, then the statment must be true for all entities that were matched by the premise.
 ///
-/// For the statements about a single component `C`, wrap it in a single-component bundle `(C,)`.
-/// For single component bundles, `AllOf` and `AnyOf` are equivalent.
-/// Prefer `ArchetypeStatement::<(C,)>::all_of` over `ArchetypeStatement::<(C,)>::any_of` for consistency and clarity.
+/// Statements can also be defined on single components, like so: `ArchetypeStatement::<MyComponent>::all_of`.
+/// For single component statements, `AllOf` and `AnyOf` are equivalent.
+/// Prefer `ArchetypeStatement::<C>::all_of` over `ArchetypeStatement::<C>::any_of` for consistency and clarity.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ArchetypeStatement<B: Bundle> {
     /// Evaluates to true if and only if the entity has all of the components present in the bundle `B`.

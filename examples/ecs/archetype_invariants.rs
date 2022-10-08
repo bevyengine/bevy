@@ -19,8 +19,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        // Archetype invariants are constructed in terms of bundles;
-        // use (MyComponent, ) to construct a bundle with a single item.
+        // Archetype invariants are constructed in terms of either bundles or single components.
         // This invariant ensures that Player and Camera can never be found together on the same entity.
         .add_archetype_invariant(Player::forbids::<Camera>())
         // This invariant ensures that the `GlobalTransform` component is always found with the `Transform` component, and vice versa.
