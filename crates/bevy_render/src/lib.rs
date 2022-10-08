@@ -3,31 +3,42 @@ extern crate core;
 pub mod camera;
 pub mod color;
 pub mod extract_component;
+mod extract_param;
 pub mod extract_resource;
+pub mod globals;
 pub mod mesh;
 pub mod primitives;
+pub mod rangefinder;
 pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
+mod spatial_bundle;
 pub mod texture;
 pub mod view;
+
+use bevy_core::FrameCount;
+use bevy_hierarchy::ValidParentCheckPlugin;
+pub use extract_param::Extract;
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera::{Camera, OrthographicProjection, PerspectiveProjection},
+        camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
         mesh::{shape, Mesh},
         render_resource::Shader,
-        texture::Image,
-        view::{ComputedVisibility, Msaa, Visibility},
+        spatial_bundle::SpatialBundle,
+        texture::{Image, ImageSettings},
+        view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
 
+use globals::GlobalsPlugin;
 pub use once_cell;
+use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
@@ -36,7 +47,7 @@ use crate::{
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::render_system,
+    renderer::{render_system, RenderInstance},
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -44,7 +55,10 @@ use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
 use bevy_utils::tracing::debug;
-use std::ops::{Deref, DerefMut};
+use std::{
+    any::TypeId,
+    ops::{Deref, DerefMut},
+};
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
@@ -78,11 +92,18 @@ pub enum RenderStage {
     Cleanup,
 }
 
+/// The simulation [`World`] of the application, stored as a resource.
+/// This resource is only available during [`RenderStage::Extract`] and not
+/// during command application of that stage.
+/// See [`Extract`] for more details.
+#[derive(Resource, Default)]
+pub struct MainWorld(World);
+
 /// The Render App World. This is only available as a resource during the Extract step.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct RenderWorld(World);
 
-impl Deref for RenderWorld {
+impl Deref for MainWorld {
     type Target = World;
 
     fn deref(&self) -> &Self::Target {
@@ -90,7 +111,7 @@ impl Deref for RenderWorld {
     }
 }
 
-impl DerefMut for RenderWorld {
+impl DerefMut for MainWorld {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -105,11 +126,6 @@ pub mod main_graph {
 /// A Label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
-
-/// A "scratch" world used to avoid allocating new worlds every frame when
-/// swapping out the [`RenderWorld`].
-#[derive(Default)]
-struct ScratchRenderWorld(World);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
@@ -149,7 +165,7 @@ impl Plugin for RenderPlugin {
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
-                .init_resource::<ScratchRenderWorld>()
+                .init_resource::<ScratchMainWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
 
@@ -159,8 +175,20 @@ impl Plugin for RenderPlugin {
             let mut render_app = App::empty();
             let mut extract_stage =
                 SystemStage::parallel().with_system(PipelineCache::extract_shaders);
+            // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
+            render_app.init_resource::<MainWorld>();
+            render_app.world.remove_resource::<MainWorld>();
+            let main_world_in_render = render_app
+                .world
+                .components()
+                .get_resource_id(TypeId::of::<MainWorld>());
+            // `Extract` systems must read from the main world. We want to emit an error when that doesn't occur
+            // Safe to unwrap: Ensured it existed just above
+            extract_stage.set_must_read_resource(main_world_in_render.unwrap());
             // don't apply buffers when the stage finishes running
-            // extract stage runs on the app world, but the buffers are applied to the render world
+            // extract stage runs on the render world, but buffers are applied
+            // after access to the main world is removed
+            // See also https://github.com/bevyengine/bevy/issues/5082
             extract_stage.set_apply_buffers(false);
             render_app
                 .add_stage(RenderStage::Extract, extract_stage)
@@ -171,17 +199,20 @@ impl Plugin for RenderPlugin {
                     RenderStage::Render,
                     SystemStage::parallel()
                         .with_system(PipelineCache::process_pipeline_queue_system)
-                        .with_system(render_system.exclusive_system().at_end()),
+                        .with_system(render_system.at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .init_resource::<RenderGraph>()
-                .insert_resource(instance)
+                .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
-                .insert_resource(asset_server)
-                .init_resource::<RenderGraph>();
+                .insert_resource(asset_server);
+
+            let (sender, receiver) = bevy_time::create_time_channels();
+            app.insert_resource(receiver);
+            render_app.insert_resource(sender);
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
@@ -223,7 +254,7 @@ impl Plugin for RenderPlugin {
                     // prepare
                     let prepare = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Prepare)
+                        .get_stage_mut::<SystemStage>(RenderStage::Prepare)
                         .unwrap();
                     prepare.run(&mut render_app.world);
                 }
@@ -236,7 +267,7 @@ impl Plugin for RenderPlugin {
                     // queue
                     let queue = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Queue)
+                        .get_stage_mut::<SystemStage>(RenderStage::Queue)
                         .unwrap();
                     queue.run(&mut render_app.world);
                 }
@@ -249,7 +280,7 @@ impl Plugin for RenderPlugin {
                     // phase sort
                     let phase_sort = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::PhaseSort)
+                        .get_stage_mut::<SystemStage>(RenderStage::PhaseSort)
                         .unwrap();
                     phase_sort.run(&mut render_app.world);
                 }
@@ -262,7 +293,7 @@ impl Plugin for RenderPlugin {
                     // render
                     let render = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Render)
+                        .get_stage_mut::<SystemStage>(RenderStage::Render)
                         .unwrap();
                     render.run(&mut render_app.world);
                 }
@@ -275,7 +306,7 @@ impl Plugin for RenderPlugin {
                     // cleanup
                     let cleanup = render_app
                         .schedule
-                        .get_stage_mut::<SystemStage>(&RenderStage::Cleanup)
+                        .get_stage_mut::<SystemStage>(RenderStage::Cleanup)
                         .unwrap();
                     cleanup.run(&mut render_app.world);
                 }
@@ -289,35 +320,65 @@ impl Plugin for RenderPlugin {
             });
         }
 
-        app.add_plugin(WindowRenderPlugin)
+        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
+            .add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
             // NOTE: Load this after renderer initialization so that it knows about the supported
             // compressed texture formats
-            .add_plugin(ImagePlugin);
+            .add_plugin(ImagePlugin)
+            .add_plugin(GlobalsPlugin)
+            .add_plugin(FrameCountPlugin);
     }
 }
+
+/// A "scratch" world used to avoid allocating new worlds every frame when
+/// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
+#[derive(Resource, Default)]
+struct ScratchMainWorld(World);
 
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.
 fn extract(app_world: &mut World, render_app: &mut App) {
     let extract = render_app
         .schedule
-        .get_stage_mut::<SystemStage>(&RenderStage::Extract)
+        .get_stage_mut::<SystemStage>(RenderStage::Extract)
         .unwrap();
 
-    // temporarily add the render world to the app world as a resource
-    let scratch_world = app_world.remove_resource::<ScratchRenderWorld>().unwrap();
-    let render_world = std::mem::replace(&mut render_app.world, scratch_world.0);
-    app_world.insert_resource(RenderWorld(render_world));
+    // temporarily add the app world to the render world as a resource
+    let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
+    let inserted_world = std::mem::replace(app_world, scratch_world.0);
+    let running_world = &mut render_app.world;
+    running_world.insert_resource(MainWorld(inserted_world));
 
-    extract.run(app_world);
+    extract.run(running_world);
+    // move the app world back, as if nothing happened.
+    let inserted_world = running_world.remove_resource::<MainWorld>().unwrap();
+    let scratch_world = std::mem::replace(app_world, inserted_world.0);
+    app_world.insert_resource(ScratchMainWorld(scratch_world));
 
-    // add the render world back to the render app
-    let render_world = app_world.remove_resource::<RenderWorld>().unwrap();
-    let scratch_world = std::mem::replace(&mut render_app.world, render_world.0);
-    app_world.insert_resource(ScratchRenderWorld(scratch_world));
+    // Note: We apply buffers (read, Commands) after the `MainWorld` has been removed from the render app's world
+    // so that in future, pipelining will be able to do this too without any code relying on it.
+    // see <https://github.com/bevyengine/bevy/issues/5082>
+    extract.apply_buffers(running_world);
+}
 
-    extract.apply_buffers(&mut render_app.world);
+pub struct FrameCountPlugin;
+impl Plugin for FrameCountPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.add_system(update_frame_count);
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_system_to_stage(RenderStage::Extract, extract_frame_count);
+        }
+    }
+}
+
+fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+    frame_count.0 = frame_count.0.wrapping_add(1);
+}
+
+fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCount>>) {
+    commands.insert_resource(**frame_count);
 }

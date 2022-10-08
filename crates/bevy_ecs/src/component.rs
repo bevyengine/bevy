@@ -311,7 +311,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -348,7 +348,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -359,7 +359,7 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -495,7 +495,7 @@ impl Components {
 
     #[inline]
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_resource::<T>()
@@ -505,7 +505,7 @@ impl Components {
 
     #[inline]
     pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())

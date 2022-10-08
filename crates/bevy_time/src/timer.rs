@@ -98,7 +98,7 @@ impl Timer {
         self.stopwatch.elapsed()
     }
 
-    /// Returns the time elapsed on the timer as a `f32`.
+    /// Returns the time elapsed on the timer as an `f32`.
     /// See also [`Timer::elapsed`](Timer::elapsed).
     #[inline]
     pub fn elapsed_secs(&self) -> f32 {
@@ -292,7 +292,7 @@ impl Timer {
         self.stopwatch.paused()
     }
 
-    /// Resets the timer. the reset doesn't affect the `paused` state of the timer.
+    /// Resets the timer. The reset doesn't affect the `paused` state of the timer.
     ///
     /// See also [`Stopwatch::reset`](Stopwatch::reset).
     ///
@@ -328,7 +328,7 @@ impl Timer {
         self.elapsed().as_secs_f32() / self.duration().as_secs_f32()
     }
 
-    /// Returns the percentage of the timer remaining time (goes from 0.0 to 1.0).
+    /// Returns the percentage of the timer remaining time (goes from 1.0 to 0.0).
     ///
     /// # Examples
     /// ```
@@ -341,6 +341,38 @@ impl Timer {
     #[inline]
     pub fn percent_left(&self) -> f32 {
         1.0 - self.percent()
+    }
+
+    /// Returns the remaining time in seconds
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_time::*;
+    /// use std::cmp::Ordering;
+    /// use std::time::Duration;
+    /// let mut timer = Timer::from_seconds(2.0, false);
+    /// timer.tick(Duration::from_secs_f32(0.5));
+    /// let result = timer.remaining_secs().total_cmp(&1.5);
+    /// assert_eq!(Ordering::Equal, result);
+    /// ```
+    #[inline]
+    pub fn remaining_secs(&self) -> f32 {
+        self.remaining().as_secs_f32()
+    }
+
+    /// Returns the remaining time using Duration
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_time::*;
+    /// use std::time::Duration;
+    /// let mut timer = Timer::from_seconds(2.0, false);
+    /// timer.tick(Duration::from_secs_f32(0.5));
+    /// assert_eq!(timer.remaining(), Duration::from_secs_f32(1.5));
+    /// ```
+    #[inline]
+    pub fn remaining(&self) -> Duration {
+        self.duration() - self.elapsed()
     }
 
     /// Returns the number of times a repeating timer

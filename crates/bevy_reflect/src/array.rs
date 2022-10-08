@@ -30,6 +30,8 @@ pub trait Array: Reflect {
     }
     /// Returns an iterator over the collection.
     fn iter(&self) -> ArrayIter;
+    /// Drain the elements of this array to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
@@ -115,6 +117,7 @@ impl ArrayInfo {
 /// can be mutated— just that the _number_ of items cannot change.
 ///
 /// [`DynamicList`]: crate::DynamicList
+#[derive(Debug)]
 pub struct DynamicArray {
     pub(crate) name: String,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
@@ -247,6 +250,11 @@ impl Array for DynamicArray {
     }
 
     #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.values.into_vec()
+    }
+
+    #[inline]
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.name.clone(),
@@ -327,13 +335,16 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
 
 /// Compares two [arrays](Array) (one concrete and one reflected) to see if they
 /// are equal.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bool> {
     match reflect.reflect_ref() {
         ReflectRef::Array(reflect_array) if reflect_array.len() == array.len() => {
             for (a, b) in array.iter().zip(reflect_array.iter()) {
-                if let Some(false) | None = a.reflect_partial_eq(b) {
-                    return Some(false);
+                let eq_result = a.reflect_partial_eq(b);
+                if let failed @ (Some(false) | None) = eq_result {
+                    return failed;
                 }
             }
         }
