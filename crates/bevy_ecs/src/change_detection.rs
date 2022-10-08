@@ -196,6 +196,7 @@ macro_rules! impl_methods {
             ///         my_utils::set_if_not_equal(translation, Vec2::ZERO);
             ///     }
             /// }
+            /// # bevy_ecs::system::assert_is_system(reset_positions);
             /// ```
             pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'a, U> {
                 Mut {
