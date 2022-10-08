@@ -180,9 +180,12 @@ macro_rules! impl_methods {
             ///
             /// ```rust
             /// # use bevy_ecs::prelude::*;
+            /// # pub struct Vec2;
+            /// # impl Vec2 { pub const ZERO: Self = Self; }
             /// # pub struct Transform { translation: Vec2 }
             /// # mod my_utils {
-            /// #   pub fn set_if_not_equal<T: std::ops::PartialEq>(x: Mut<T>, val: T) {
+            /// #   use super::*;
+            /// #   pub fn set_if_not_equal<T: std::cmp::PartialEq>(x: Mut<T>, val: T) {
             /// #     if *x != val { *x = val; }
             /// #   }
             /// # }
