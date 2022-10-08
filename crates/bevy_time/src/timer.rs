@@ -328,7 +328,7 @@ impl Timer {
         self.elapsed().as_secs_f32() / self.duration().as_secs_f32()
     }
 
-    /// Returns the percentage of the timer remaining time (goes from 0.0 to 1.0).
+    /// Returns the percentage of the timer remaining time (goes from 1.0 to 0.0).
     ///
     /// # Examples
     /// ```
