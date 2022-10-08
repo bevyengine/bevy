@@ -169,41 +169,26 @@ impl Default for PerspectiveProjection {
     }
 }
 
-// TODO: make this a component instead of a property
-#[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
-pub enum WindowOrigin {
-    /// Scale the view frustum from the center.
-    ///
-    /// When resizing the window, object in the center of the screen remain in the center, while opposite
-    /// faces of the view frustum expand/shrink equally.
-    Center,
-    /// Scale the view frustum from the bottom left corner.
-    ///
-    /// When resizing the window, the top and right faces of the view frustum will move accordingly, keeping
-    /// the bottom and left faces in place.
-    BottomLeft,
-}
-
 #[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
-    /// Manually specify left/right/top/bottom values.
+    /// Manually specify the projection's size with `width` and `height`.
     /// Ignore window resizing; the image will stretch.
-    None,
-    /// Match the window size. 1 world unit = 1 pixel.
-    WindowSize,
+    None { width: f32, height: f32 },
+    /// Match the window size.
+    /// The argument is the number of pixels that equals one world unit.
+    WindowSize(f32),
     /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
     /// Arguments are in world units.
     AutoMin { min_width: f32, min_height: f32 },
     /// Keeping the aspect ratio while the axes can't be bigger than given maximum.
     /// Arguments are in world units.
     AutoMax { max_width: f32, max_height: f32 },
-    /// Keep vertical axis constant; resize horizontal with aspect ratio.
-    /// The argument is the desired height of the viewport in world units.
+    /// Keep the projection's height constant; adjust width to match aspect ratio.
+    /// The argument is the desired height of the projection in world units.
     FixedVertical(f32),
-    /// Keep horizontal axis constant; resize vertical with aspect ratio.
-    /// The argument is the desired width of the viewport in world units.
+    /// Keep the projection's width constant; adjust height to match aspect ratio.
+    /// The argument is the desired width of the projection in world units.
     FixedHorizontal(f32),
 }
 
@@ -217,22 +202,6 @@ pub enum ScalingMode {
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
-    /// The distance of the left face of the view frustum relative to the camera, measured in world units.
-    ///
-    /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
-    pub left: f32,
-    /// The distance of the right face of the view frustum relative to the camera, measured in world units.
-    ///
-    /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
-    pub right: f32,
-    /// The distance the bottom face of the view frustum relative to the camera, measured in world units.
-    ///
-    /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
-    pub bottom: f32,
-    /// The distance of the top face of the view frustum relative to the camera, measured in world units.
-    ///
-    /// This value will be set automatically unless `scaling_mode` is set to [`ScalingMode::None`].
-    pub top: f32,
     /// The distance of the near clipping plane in world units.
     ///
     /// Objects closer than this will not be rendered.
@@ -241,24 +210,33 @@ pub struct OrthographicProjection {
     ///
     /// Objects further than this will not be rendered.
     pub far: f32,
-    /// Specifies the origin of the scaling.
+    /// Specifies the origin of the viewport as a fraction of its width and height (from the bottom left corner).
+    /// Consequently, this is the point from where scaling caused by viewport resizing will occur.
     ///
-    /// This will not have any effect if `scaling_mode` is set to `ScalingMode::None`.
-    pub window_origin: WindowOrigin,
+    /// For example, if `viewport_origin` is set to (0.2, 0.6) and the size of the viewport is (10, 10),
+    /// the location of the camera will determine where the point (2, 6) on the viewport is;
+    /// if the projection needs to triple in width, it will expand 4 units to the left and
+    /// 16 units to the right (20% and 80% of the total scaling, respectively).
+    pub viewport_origin: (f32, f32),
+    /// How the projection will scale when the viewport is resized.
     pub scaling_mode: ScalingMode,
-    /// Scales the width and height of the view frustum.
+    /// Scales the projection, in world units.
     ///
-    /// As `scale` increases, the apparent size of objects decreases, and vice versa.
+    /// As scale increases, the apparent size of objects decreases, and vice versa.
     pub scale: f32,
+    pub left: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub top: f32,
 }
 
 impl CameraProjection for OrthographicProjection {
     fn get_projection_matrix(&self) -> Mat4 {
         Mat4::orthographic_rh(
-            self.left * self.scale,
-            self.right * self.scale,
-            self.bottom * self.scale,
-            self.top * self.scale,
+            self.left,
+            self.right,
+            self.bottom,
+            self.top,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
             // This is for interoperability with pipelines using infinite reverse perspective projections.
             self.far,
@@ -267,8 +245,8 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        let (viewport_width, viewport_height) = match self.scaling_mode {
-            ScalingMode::WindowSize => (width, height),
+        let (frustum_width, frustum_height) = match self.scaling_mode {
+            ScalingMode::WindowSize(pixel_scale) => (width / pixel_scale, height / pixel_scale),
             ScalingMode::AutoMin {
                 min_width,
                 min_height,
@@ -299,34 +277,16 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::FixedHorizontal(viewport_width) => {
                 (viewport_width, height * viewport_width / width)
             }
-            ScalingMode::None => return,
+            ScalingMode::None { width, height } => (width, height),
         };
 
-        match self.window_origin {
-            WindowOrigin::Center => {
-                let half_width = viewport_width / 2.0;
-                let half_height = viewport_height / 2.0;
-                self.left = -half_width;
-                self.bottom = -half_height;
-                self.right = half_width;
-                self.top = half_height;
+        let origin_x = frustum_width * self.viewport_origin.0;
+        let origin_y = frustum_height * self.viewport_origin.1;
 
-                if let ScalingMode::WindowSize = self.scaling_mode {
-                    if self.scale == 1.0 {
-                        self.left = self.left.floor();
-                        self.bottom = self.bottom.floor();
-                        self.right = self.right.floor();
-                        self.top = self.top.floor();
-                    }
-                }
-            }
-            WindowOrigin::BottomLeft => {
-                self.left = 0.0;
-                self.bottom = 0.0;
-                self.right = viewport_width;
-                self.top = viewport_height;
-            }
-        }
+        self.left = -origin_x * self.scale;
+        self.bottom = -origin_y * self.scale;
+        self.right = (frustum_width - origin_x) * self.scale;
+        self.top = (frustum_height - origin_y) * self.scale;
     }
 
     fn far(&self) -> f32 {
@@ -341,11 +301,11 @@ impl Default for OrthographicProjection {
             right: 1.0,
             bottom: -1.0,
             top: 1.0,
+            scale: 1.0,
             near: 0.0,
             far: 1000.0,
-            window_origin: WindowOrigin::Center,
-            scaling_mode: ScalingMode::WindowSize,
-            scale: 1.0,
+            viewport_origin: (0.5, 0.5),
+            scaling_mode: ScalingMode::WindowSize(10.0),
         }
     }
 }
