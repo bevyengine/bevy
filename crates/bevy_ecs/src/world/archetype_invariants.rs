@@ -95,11 +95,10 @@ impl<B: Bundle> ArchetypeStatement<B> {
     ///
     /// Requires mutable world access, since the components might not have been added to the world yet.
     pub fn into_untyped(self, world: &mut World) -> UntypedArchetypeStatement {
-        let mut component_ids = Vec::new();
+        let mut component_ids = HashSet::new();
         B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
-            component_ids.push(id);
+            component_ids.insert(id);
         });
-        let component_ids: HashSet<ComponentId> = component_ids.into_iter().collect();
 
         match self {
             ArchetypeStatement::AllOf(_) => UntypedArchetypeStatement::AllOf(component_ids),
@@ -181,7 +180,7 @@ pub trait ArchetypeInvariantHelpers<B: Bundle>: private::Sealed {
 }
 
 impl<B: Bundle> ArchetypeInvariantHelpers<B> for B {
-    /// Creates an archetype invariant where any component of `B` forbids every comonent from `B2`, and vice versa.
+    /// Creates an archetype invariant where any component of `B` forbids every component from `B2`, and vice versa.
     ///
     /// In other words, if any component from `B` is present, then none of the components from `B2` can be present.
     /// Although this appears asymmetric, it actually implies its own converse.
@@ -596,7 +595,7 @@ mod tests {
     fn forbids_happy() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(<(A,)>::forbids::<(B, C)>());
+        world.add_archetype_invariant(A::forbids::<(B, C)>());
         world.spawn(A);
         world.spawn((B, C));
     }
@@ -606,7 +605,7 @@ mod tests {
     fn forbids_sad() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(<(A,)>::forbids::<(B, C)>());
+        world.add_archetype_invariant(A::forbids::<(B, C)>());
         world.spawn((A, B));
     }
 
@@ -614,7 +613,7 @@ mod tests {
     fn requires_happy() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(<(A,)>::requires::<(B, C)>());
+        world.add_archetype_invariant(A::requires::<(B, C)>());
         world.spawn((A, B, C));
         world.spawn((B, C));
     }
@@ -624,7 +623,7 @@ mod tests {
     fn requires_sad_partial() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(<(A,)>::requires::<(B, C)>());
+        world.add_archetype_invariant(A::requires::<(B, C)>());
         world.spawn((A, B));
     }
 
@@ -633,7 +632,7 @@ mod tests {
     fn requires_sad_none() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(<(A,)>::requires::<(B, C)>());
+        world.add_archetype_invariant(A::requires::<(B, C)>());
         world.spawn(A);
     }
 
@@ -641,7 +640,7 @@ mod tests {
     fn requires_one_happy() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(<(A,)>::requires_one::<(B, C)>());
+        world.add_archetype_invariant(A::requires_one::<(B, C)>());
         world.spawn((A, B, C));
         world.spawn((A, B));
         world.spawn((B, C));
@@ -652,7 +651,7 @@ mod tests {
     fn requires_one_sad() {
         let mut world = World::new();
 
-        world.add_archetype_invariant(<(A,)>::requires_one::<(B, C)>());
+        world.add_archetype_invariant(A::requires_one::<(B, C)>());
         world.spawn(A);
     }
 

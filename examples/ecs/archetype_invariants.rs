@@ -22,12 +22,12 @@ fn main() {
         // Archetype invariants are constructed in terms of bundles;
         // use (MyComponent, ) to construct a bundle with a single item.
         // This invariant ensures that Player and Camera can never be found together on the same entity.
-        .add_archetype_invariant(<(Player,)>::forbids::<(Camera,)>())
+        .add_archetype_invariant(Player::forbids::<Camera>())
         // This invariant ensures that the `GlobalTransform` component is always found with the `Transform` component, and vice versa.
         .add_archetype_invariant(<(GlobalTransform, Transform)>::atomic())
         // This invariant ensures that the `Player` component is always found with the `Life` component.
         // This requirement is only in one direction: it is possible to have entities which have `Life`, but not `Player` (like enemies).
-        .add_archetype_invariant(<(Player,)>::requires::<(Life,)>())
+        .add_archetype_invariant(Player::requires::<Life>())
         // The `disjoint` invariant ensures that at most one component from the bundle is present on a given entity.
         // This way, an entity never belongs to more than one RPG class at once.
         // This is useful for creating groups of components that behave similarly to an enum.
@@ -36,12 +36,12 @@ fn main() {
         // at least one component in the `(Archer, Swordsman, Mage)` bundle.
         // We could use a type alias to improve clarity and avoid errors caused by duplication:
         //   type Class = (Archer, Swordsman, Mage);
-        .add_archetype_invariant(<(Player,)>::requires_one::<(Archer, Swordsman, Mage)>())
+        .add_archetype_invariant(Player::requires_one::<(Archer, Swordsman, Mage)>())
         // You can also specify custom invariants by constructing `ArchetypeInvariant` directly.
         // This invariant specifies that the `Node` component cannot appear on any entity in our world.
         // We're not using bevy_ui in our App, so this component should never show up.
         .add_archetype_invariant(ArchetypeInvariant {
-            premise: ArchetypeStatement::<(Node,)>::all_of(),
+            premise: ArchetypeStatement::<Node>::all_of(),
             consequence: ArchetypeStatement::always_false(),
         })
         .add_startup_system(spawn_player)
