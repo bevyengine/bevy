@@ -85,6 +85,7 @@ impl From<UVSphere> for Mesh {
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.generate_tangents().unwrap();
         mesh
     }
 }

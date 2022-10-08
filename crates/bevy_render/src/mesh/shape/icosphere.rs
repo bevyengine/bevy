@@ -98,6 +98,7 @@ impl From<Icosphere> for Mesh {
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, points);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.generate_tangents().unwrap();
         mesh
     }
 }

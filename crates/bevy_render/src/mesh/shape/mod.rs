@@ -110,6 +110,7 @@ impl From<Box> for Mesh {
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
         mesh.set_indices(Some(indices));
+        mesh.generate_tangents().unwrap();
         mesh
     }
 }
@@ -163,6 +164,7 @@ impl From<Quad> for Mesh {
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.generate_tangents().unwrap();
         mesh
     }
 }
@@ -202,6 +204,7 @@ impl From<Plane> for Mesh {
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.generate_tangents().unwrap();
         mesh
     }
 }
