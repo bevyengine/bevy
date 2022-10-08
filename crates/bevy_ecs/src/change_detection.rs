@@ -184,10 +184,7 @@ macro_rules! impl_methods {
             /// # impl Vec2 { pub const ZERO: Self = Self; }
             /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
             /// # mod my_utils {
-            /// #   use super::*;
-            /// #   pub fn set_if_not_equal<T: std::cmp::PartialEq>(x: Mut<T>, val: T) {
-            /// #     if *x != val { *x = val; }
-            /// #   }
+            /// #   pub fn set_if_not_equal<T>(x: bevy_ecs::prelude::Mut<T>, val: T) { unimplemented!() }
             /// # }
             /// // When run, zeroes the translation of every entity.
             /// fn reset_positions(mut transforms: Query<&mut Transform>) {
