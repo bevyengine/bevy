@@ -176,7 +176,8 @@ macro_rules! impl_methods {
 
             /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
             ///
-            /// You should not modify the argument passed to the closure, unless you are familiar with `bevy_ecs` internals.
+            /// You should never modify the argument passed to the closure -- if you want to modify the data
+            /// without flagging a change, consider using [`DetectChanges::bypass_change_detection`] to make your intent explicit.
             ///
             /// ```rust
             /// # use bevy_ecs::prelude::*;
