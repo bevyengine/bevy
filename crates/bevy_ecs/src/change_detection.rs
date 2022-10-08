@@ -176,7 +176,7 @@ macro_rules! impl_methods {
 
             /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
             ///
-            /// You must *not* modify the argument passed to the closure.
+            /// You should not modify the argument passed to the closure, unless you are familiar with `bevy_ecs` internals.
             /// Violating this rule will likely result in logic errors, but it will not cause undefined behavior.
             pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'a, U> {
                 Mut {
