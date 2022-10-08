@@ -182,7 +182,7 @@ macro_rules! impl_methods {
             /// # use bevy_ecs::prelude::*;
             /// # pub struct Vec2;
             /// # impl Vec2 { pub const ZERO: Self = Self; }
-            /// # pub struct Transform { translation: Vec2 }
+            /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
             /// # mod my_utils {
             /// #   use super::*;
             /// #   pub fn set_if_not_equal<T: std::cmp::PartialEq>(x: Mut<T>, val: T) {
