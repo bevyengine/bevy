@@ -28,7 +28,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
-            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|parent| {
@@ -130,7 +129,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             max_size: Size::UNDEFINED,
                                             ..default()
                                         },
-                                        background_color: Color::NONE.into(),
                                         ..default()
                                     },
                                     ScrollingList::default(),
@@ -200,7 +198,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    background_color: Color::NONE.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -283,7 +280,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::FlexEnd,
                         ..default()
                     },
-                    background_color: Color::NONE.into(),
                     ..default()
                 })
                 .with_children(|parent| {
