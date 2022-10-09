@@ -94,6 +94,7 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
+            .register_type::<widget::Slider>()
             .register_type::<widget::ImageMode>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
@@ -109,6 +110,17 @@ impl Plugin for UiPlugin {
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 widget::image_node_system.before(UiSystem::Flex),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                widget::update_slider_value
+                    .label(widget::UpdateSliderValue)
+                    .after(UiSystem::Focus),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                widget::update_slider_handle
+                    .after(widget::UpdateSliderValue),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

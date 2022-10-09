@@ -3,7 +3,9 @@
 mod button;
 mod image;
 mod text;
+mod slider;
 
 pub use button::*;
 pub use image::*;
 pub use text::*;
+pub use slider::*;

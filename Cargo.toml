@@ -1423,6 +1423,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "slider"
+path = "examples/ui/slider.rs"
+
+[package.metadata.example.slider]
+name = "Slider"
+description = "Illustrates creating and reading the value of a slider"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 
