@@ -32,13 +32,11 @@ impl ArchetypeId {
     }
 }
 
-#[derive(Debug)]
 pub(crate) enum ComponentStatus {
     Added,
     Mutated,
 }
 
-#[derive(Debug)]
 pub struct AddBundle {
     pub archetype_id: ArchetypeId,
     pub(crate) bundle_status: Vec<ComponentStatus>,
@@ -58,7 +56,7 @@ pub struct AddBundle {
 /// yet.
 ///
 /// [`World`]: crate::world::World
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Edges {
     add_bundle: SparseArray<BundleId, AddBundle>,
     remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
@@ -120,25 +118,21 @@ impl Edges {
     }
 }
 
-#[derive(Debug)]
 struct TableInfo {
     id: TableId,
     entity_rows: Vec<usize>,
 }
 
-#[derive(Debug)]
 pub(crate) struct ArchetypeSwapRemoveResult {
     pub(crate) swapped_entity: Option<Entity>,
     pub(crate) table_row: usize,
 }
 
-#[derive(Debug)]
 pub(crate) struct ArchetypeComponentInfo {
     pub(crate) storage_type: StorageType,
     pub(crate) archetype_component_id: ArchetypeComponentId,
 }
 
-#[derive(Debug)]
 pub struct Archetype {
     id: ArchetypeId,
     entities: Vec<Entity>,
@@ -352,7 +346,7 @@ impl ArchetypeGeneration {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Hash, PartialEq, Eq)]
 pub struct ArchetypeIdentity {
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
@@ -384,7 +378,6 @@ impl SparseSetIndex for ArchetypeComponentId {
     }
 }
 
-#[derive(Debug)]
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
