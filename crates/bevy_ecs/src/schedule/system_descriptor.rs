@@ -31,6 +31,7 @@ use crate::{
 ///     .with_system(do_the_other_thing.after(Something))
 ///     .with_system(do_something_else.at_end());
 /// ```
+#[derive(Debug)]
 pub struct SystemDescriptor {
     pub(crate) system: BoxedSystem<(), ()>,
     pub(crate) exclusive_insertion_point: Option<ExclusiveInsertionPoint>,

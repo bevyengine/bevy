@@ -12,7 +12,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::{tracing::debug, HashMap};
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -25,7 +25,7 @@ bevy_utils::define_label!(
 
 /// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
 #[cfg(feature = "bevy_reflect")]
-#[derive(Resource, Clone, Deref, DerefMut, Default)]
+#[derive(Debug, Resource, Clone, Deref, DerefMut, Default)]
 pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
 
 #[allow(clippy::needless_doctest_main)]
@@ -70,10 +70,26 @@ pub struct App {
     sub_apps: HashMap<AppLabelId, SubApp>,
 }
 
+impl Debug for App {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "App {{sub_apps: ")?;
+        f.debug_map()
+            .entries(self.sub_apps.iter().map(|(k, v)| (k, v)))
+            .finish()?;
+        write!(f, "}}")
+    }
+}
+
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
 struct SubApp {
     app: App,
     runner: Box<dyn Fn(&mut World, &mut App)>,
+}
+
+impl Debug for SubApp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SubApp")
+    }
 }
 
 impl Default for App {

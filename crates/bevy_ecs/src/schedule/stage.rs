@@ -14,6 +14,7 @@ use crate::{
 };
 use bevy_ecs_macros::Resource;
 use bevy_utils::{tracing::warn, HashMap, HashSet};
+use core::fmt::Debug;
 use downcast_rs::{impl_downcast, Downcast};
 
 use super::IntoSystemDescriptor;
@@ -23,6 +24,12 @@ pub trait Stage: Downcast + Send + Sync {
     /// Runs the stage; this happens once per update.
     /// Implementors must initialize all of their state and systems before running the first time.
     fn run(&mut self, world: &mut World);
+}
+
+impl Debug for dyn Stage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Stage {:?}", self.as_any().downcast_ref::<SystemStage>())
+    }
 }
 
 impl_downcast!(Stage);
@@ -51,6 +58,7 @@ pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
 /// see `SystemDescriptor` documentation.
+#[derive(Debug)]
 pub struct SystemStage {
     /// The WorldId this stage was last run on.
     world_id: Option<WorldId>,

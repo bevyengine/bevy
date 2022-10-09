@@ -4,6 +4,7 @@ use crate::{
     schedule::{GraphNode, RunCriteriaLabelId, SystemDescriptor, SystemLabelId},
     system::System,
 };
+use core::fmt::Debug;
 use std::borrow::Cow;
 
 pub struct SystemContainer {
@@ -76,6 +77,12 @@ impl SystemContainer {
 
     pub fn is_exclusive(&self) -> bool {
         self.is_exclusive
+    }
+}
+
+impl Debug for SystemContainer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\n{{{:?}}}", &self.system())
     }
 }
 
