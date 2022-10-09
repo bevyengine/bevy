@@ -35,7 +35,6 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
         )
         .with_style(Style {
-            align_self: AlignSelf::FlexStart,
             position_type: PositionType::Absolute,
             position: UiRect {
                 top: Val::Px(5.0),

@@ -71,11 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: 60.0,
                 color: Color::GOLD,
             }),
-        ])
-        .with_style(Style {
-            align_self: AlignSelf::FlexStart,
-            ..default()
-        }),
+        ]),
         FpsText,
     ));
 }
