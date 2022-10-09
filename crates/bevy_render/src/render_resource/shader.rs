@@ -1,4 +1,5 @@
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
+use bevy_ecs::system::Resource;
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
 use naga::back::wgsl::WriterFlags;
@@ -13,7 +14,7 @@ use thiserror::Error;
 use wgpu::Features;
 use wgpu::{util::make_spirv, ShaderModuleDescriptor, ShaderSource};
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Resource)]
 pub struct ShaderId(Uuid);
 
 impl ShaderId {
@@ -23,7 +24,7 @@ impl ShaderId {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Resource)]
 pub enum ShaderReflectError {
     #[error(transparent)]
     WgslParse(#[from] naga::front::wgsl::ParseError),
@@ -36,7 +37,7 @@ pub enum ShaderReflectError {
 }
 /// A shader, as defined by its [`ShaderSource`] and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid, Resource)]
 #[uuid = "d95bc916-6c55-4de3-9622-37e7b6969fda"]
 pub struct Shader {
     source: Source,
@@ -93,7 +94,7 @@ impl Shader {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Resource)]
 pub enum Source {
     Wgsl(Cow<'static, str>),
     Glsl(Cow<'static, str>, naga::ShaderStage),
@@ -104,7 +105,7 @@ pub enum Source {
 }
 
 /// A processed [Shader]. This cannot contain preprocessor directions. It must be "ready to compile"
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Resource)]
 pub enum ProcessedShader {
     Wgsl(Cow<'static, str>),
     Glsl(Cow<'static, str>, naga::ShaderStage),
@@ -198,7 +199,7 @@ impl ProcessedShader {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Resource)]
 pub enum AsModuleDescriptorError {
     #[error(transparent)]
     ShaderReflectError(#[from] ShaderReflectError),
@@ -208,6 +209,7 @@ pub enum AsModuleDescriptorError {
     SpirVConversion(#[from] naga::back::spv::Error),
 }
 
+#[derive(Resource)]
 pub struct ShaderReflection {
     pub module: Module,
     pub module_info: ModuleInfo,
@@ -231,7 +233,7 @@ impl ShaderReflection {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct ShaderLoader;
 
 impl AssetLoader for ShaderLoader {
@@ -287,7 +289,7 @@ impl AssetLoader for ShaderLoader {
     }
 }
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq, Eq, Resource)]
 pub enum ProcessShaderError {
     #[error("Too many '# endif' lines. Each endif should be preceded by an if statement.")]
     TooManyEndIfs,
@@ -305,13 +307,14 @@ pub enum ProcessShaderError {
     MismatchedImportFormat(ShaderImport),
 }
 
+#[derive(Resource)]
 pub struct ShaderImportProcessor {
     import_asset_path_regex: Regex,
     import_custom_path_regex: Regex,
     define_import_path_regex: Regex,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Resource)]
 pub enum ShaderImport {
     AssetPath(String),
     Custom(String),
@@ -327,7 +330,7 @@ impl Default for ShaderImportProcessor {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct ShaderImports {
     imports: Vec<ShaderImport>,
     import_path: Option<ShaderImport>,
@@ -368,6 +371,7 @@ impl ShaderImportProcessor {
 pub static SHADER_IMPORT_PROCESSOR: Lazy<ShaderImportProcessor> =
     Lazy::new(ShaderImportProcessor::default);
 
+#[derive(Resource)]
 pub struct ShaderProcessor {
     ifdef_regex: Regex,
     ifndef_regex: Regex,
@@ -523,6 +527,7 @@ impl ShaderProcessor {
 }
 
 /// A reference to a shader asset.
+#[derive(Resource)]
 pub enum ShaderRef {
     /// Use the "default" shader for the current context.
     Default,

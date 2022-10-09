@@ -1,13 +1,14 @@
+use bevy_ecs::system::Resource;
 use bevy_utils::Uuid;
 use std::{
     ops::{Bound, Deref, RangeBounds},
     sync::Arc,
 };
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Resource)]
 pub struct BufferId(Uuid);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct Buffer {
     id: BufferId,
     value: Arc<wgpu::Buffer>,
@@ -56,7 +57,7 @@ impl Deref for Buffer {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct BufferSlice<'a> {
     id: BufferId,
     offset: wgpu::BufferAddress,

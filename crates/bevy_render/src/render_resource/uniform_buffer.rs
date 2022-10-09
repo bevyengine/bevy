@@ -2,6 +2,7 @@ use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
+use bevy_ecs::system::Resource;
 use encase::{
     internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
     UniformBuffer as UniformBufferWrapper,
@@ -27,6 +28,7 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
+#[derive(Resource)]
 pub struct UniformBuffer<T: ShaderType> {
     value: T,
     scratch: UniformBufferWrapper<Vec<u8>>,
@@ -139,6 +141,7 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
+#[derive(Resource)]
 pub struct DynamicUniformBuffer<T: ShaderType> {
     values: Vec<T>,
     scratch: DynamicUniformBufferWrapper<Vec<u8>>,

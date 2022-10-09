@@ -2,6 +2,7 @@
 
 use super::Buffer;
 use crate::renderer::{RenderDevice, RenderQueue};
+use bevy_ecs::system::Resource;
 use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
@@ -27,6 +28,7 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
+#[derive(Resource)]
 pub struct StorageBuffer<T: ShaderType> {
     value: T,
     scratch: StorageBufferWrapper<Vec<u8>>,
@@ -146,6 +148,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 /// * [`Texture`](crate::render_resource::Texture)
 ///
 /// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
+#[derive(Resource)]
 pub struct DynamicStorageBuffer<T: ShaderType> {
     values: Vec<T>,
     scratch: DynamicStorageBufferWrapper<Vec<u8>>,

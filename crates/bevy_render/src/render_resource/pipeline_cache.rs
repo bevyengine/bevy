@@ -10,8 +10,8 @@ use crate::{
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::system::{Res, ResMut};
-use bevy_ecs::{event::EventReader, system::Resource};
+use bevy_ecs::event::EventReader;
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::{
     default,
     tracing::{debug, error},
@@ -27,7 +27,7 @@ use wgpu::{
 /// A descriptor for a [`Pipeline`].
 ///
 /// Used to store an heterogenous collection of render and compute pipeline descriptors together.
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
     ComputePipelineDescriptor(Box<ComputePipelineDescriptor>),
@@ -36,7 +36,7 @@ pub enum PipelineDescriptor {
 /// A pipeline defining the data layout and shader logic for a specific GPU task.
 ///
 /// Used to store an heterogenous collection of render and compute pipelines together.
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub enum Pipeline {
     RenderPipeline(RenderPipeline),
     ComputePipeline(ComputePipeline),
@@ -45,7 +45,7 @@ pub enum Pipeline {
 type CachedPipelineId = usize;
 
 /// Index of a cached render pipeline in a [`PipelineCache`].
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Resource)]
 pub struct CachedRenderPipelineId(CachedPipelineId);
 
 impl CachedRenderPipelineId {
@@ -54,7 +54,7 @@ impl CachedRenderPipelineId {
 }
 
 /// Index of a cached compute pipeline in a [`PipelineCache`].
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Resource)]
 pub struct CachedComputePipelineId(CachedPipelineId);
 
 impl CachedComputePipelineId {
@@ -62,13 +62,14 @@ impl CachedComputePipelineId {
     pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
 }
 
+#[derive(Resource)]
 pub struct CachedPipeline {
     pub descriptor: PipelineDescriptor,
     pub state: CachedPipelineState,
 }
 
 /// State of a cached pipeline inserted into a [`PipelineCache`].
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub enum CachedPipelineState {
     /// The pipeline GPU object is queued for creation.
     Queued,
@@ -763,7 +764,7 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Resource)]
 pub enum PipelineCacheError {
     #[error(
         "Pipeline cound not be compiled because the following shader is not loaded yet: {0:?}"

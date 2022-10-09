@@ -1,10 +1,11 @@
+use bevy_ecs::system::Resource;
 use bevy_reflect::Uuid;
 use std::{ops::Deref, sync::Arc};
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Resource)]
 pub struct BindGroupLayoutId(Uuid);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,
     value: Arc<wgpu::BindGroupLayout>,

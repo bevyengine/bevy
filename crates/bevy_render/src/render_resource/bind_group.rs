@@ -8,12 +8,13 @@ use crate::{
     renderer::RenderDevice,
     texture::FallbackImage,
 };
+use bevy_ecs::system::Resource;
 use bevy_reflect::Uuid;
 use std::{ops::Deref, sync::Arc};
 use wgpu::BindingResource;
 
 /// A [`BindGroup`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Resource)]
 pub struct BindGroupId(Uuid);
 
 /// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
@@ -22,7 +23,7 @@ pub struct BindGroupId(Uuid);
 ///
 /// May be converted from and dereferences to a wgpu [`BindGroup`](wgpu::BindGroup).
 /// Can be created via [`RenderDevice::create_bind_group`](crate::renderer::RenderDevice::create_bind_group).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct BindGroup {
     id: BindGroupId,
     value: Arc<wgpu::BindGroup>,
@@ -256,12 +257,14 @@ pub trait AsBindGroup: Sized {
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
+#[derive(Resource)]
 pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
     RetryNextUpdate,
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
+#[derive(Resource)]
 pub struct PreparedBindGroup<T: AsBindGroup> {
     pub bindings: Vec<OwnedBindingResource>,
     pub bind_group: BindGroup,
@@ -271,6 +274,7 @@ pub struct PreparedBindGroup<T: AsBindGroup> {
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
 /// This is used by types like [`PreparedBindGroup`] to hold a single list of all
 /// render resources used by bindings.
+#[derive(Resource)]
 pub enum OwnedBindingResource {
     Buffer(Buffer),
     TextureView(TextureView),

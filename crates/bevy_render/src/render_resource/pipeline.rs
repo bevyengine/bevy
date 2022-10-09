@@ -1,5 +1,6 @@
 use crate::render_resource::{BindGroupLayout, Shader};
 use bevy_asset::Handle;
+use bevy_ecs::system::Resource;
 use bevy_reflect::Uuid;
 use std::{borrow::Cow, ops::Deref, sync::Arc};
 use wgpu::{
@@ -8,14 +9,14 @@ use wgpu::{
 };
 
 /// A [`RenderPipeline`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Resource)]
 pub struct RenderPipelineId(Uuid);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
 /// May be converted from and dereferences to a wgpu [`RenderPipeline`](wgpu::RenderPipeline).
 /// Can be created via [`RenderDevice::create_render_pipeline`](crate::renderer::RenderDevice::create_render_pipeline).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
     value: Arc<wgpu::RenderPipeline>,
@@ -47,14 +48,14 @@ impl Deref for RenderPipeline {
 }
 
 /// A [`ComputePipeline`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Resource)]
 pub struct ComputePipelineId(Uuid);
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
 /// Can be created via [`RenderDevice::create_compute_pipeline`](crate::renderer::RenderDevice::create_compute_pipeline).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
     value: Arc<wgpu::ComputePipeline>,
@@ -87,7 +88,7 @@ impl Deref for ComputePipeline {
 }
 
 /// Describes a render (graphics) pipeline.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Resource)]
 pub struct RenderPipelineDescriptor {
     /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
     pub label: Option<Cow<'static, str>>,
@@ -105,7 +106,7 @@ pub struct RenderPipelineDescriptor {
     pub fragment: Option<FragmentState>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Resource)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -118,7 +119,7 @@ pub struct VertexState {
 }
 
 /// Describes how the vertex buffer is interpreted.
-#[derive(Default, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Hash, Eq, PartialEq, Resource)]
 pub struct VertexBufferLayout {
     /// The stride, in bytes, between elements of this buffer.
     pub array_stride: BufferAddress,
@@ -157,7 +158,7 @@ impl VertexBufferLayout {
 }
 
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Resource)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -170,7 +171,7 @@ pub struct FragmentState {
 }
 
 /// Describes a compute pipeline.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Option<Vec<BindGroupLayout>>,

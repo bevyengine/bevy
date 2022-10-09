@@ -3,6 +3,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_core::{cast_slice, Pod};
+use bevy_ecs::system::Resource;
 use wgpu::BufferUsages;
 
 /// A structure for storing raw bytes that have already been properly formatted
@@ -26,6 +27,7 @@ use wgpu::BufferUsages;
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
+#[derive(Resource)]
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
     buffer: Option<Buffer>,

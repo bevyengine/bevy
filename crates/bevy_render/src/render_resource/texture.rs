@@ -1,15 +1,16 @@
+use bevy_ecs::system::Resource;
 use bevy_utils::Uuid;
 use std::{ops::Deref, sync::Arc};
 
 /// A [`Texture`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Resource)]
 pub struct TextureId(Uuid);
 
 /// A GPU-accessible texture.
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
 /// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct Texture {
     id: TextureId,
     value: Arc<wgpu::Texture>,
@@ -47,12 +48,12 @@ impl Deref for Texture {
 }
 
 /// A [`TextureView`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Resource)]
 pub struct TextureViewId(Uuid);
 
 /// This type combines wgpu's [`TextureView`](wgpu::TextureView) and
 /// [`SurfaceTexture`](wgpu::SurfaceTexture) into the same interface.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub enum TextureViewValue {
     /// The value is an actual wgpu [`TextureView`](wgpu::TextureView).
     TextureView(Arc<wgpu::TextureView>),
@@ -71,7 +72,7 @@ pub enum TextureViewValue {
 ///
 /// May be converted from a [`TextureView`](wgpu::TextureView) or [`SurfaceTexture`](wgpu::SurfaceTexture)
 /// or dereferences to a wgpu [`TextureView`](wgpu::TextureView).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct TextureView {
     id: TextureViewId,
     value: TextureViewValue,
@@ -128,7 +129,7 @@ impl Deref for TextureView {
 }
 
 /// A [`Sampler`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug, Resource)]
 pub struct SamplerId(Uuid);
 
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
@@ -136,7 +137,7 @@ pub struct SamplerId(Uuid);
 ///
 /// May be converted from and dereferences to a wgpu [`Sampler`](wgpu::Sampler).
 /// Can be created via [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct Sampler {
     id: SamplerId,
     value: Arc<wgpu::Sampler>,
