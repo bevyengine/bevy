@@ -10,7 +10,7 @@ pub use time::*;
 pub use timer::*;
 
 use bevy_ecs::system::{Local, Res, ResMut};
-use bevy_utils::{tracing::warn, Instant};
+use bevy_utils::{tracing::warn, Duration, Instant};
 use crossbeam_channel::{Receiver, Sender};
 
 pub mod prelude {
@@ -34,6 +34,7 @@ pub struct TimeSystem;
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
+            .init_resource::<TimeUpdateStrategy>()
             .init_resource::<FixedTimesteps>()
             .register_type::<Timer>()
             .register_type::<Time>()
@@ -44,11 +45,17 @@ impl Plugin for TimePlugin {
     }
 }
 
-/// Resource for updating time with a desired value.
-///
-/// See [`update_with_interval`](self::TimeUpdater::update_with_instant) for more details.
-#[derive(Resource)]
-pub struct DesiredTime(pub Instant);
+/// Configuration resource used to determine how the time system should run.
+/// 
+/// For most cases, [`TimeUpdateStrategy::Automatic`] is fine. When writing tests, dealing with networking, or similar
+/// you may prefer to set the next [`Time`] value manually.
+#[derive(Resource, Default)]
+pub enum TimeUpdateStrategy {
+    #[default]
+    Automatic,
+    ManualInstant(Instant),
+    ManualDuration(Duration),
+}
 
 /// Channel resource used to receive time from render world
 #[derive(Resource)]
@@ -70,21 +77,27 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 /// there to this system through channels. Otherwise the time is updated in this system.
 fn time_system(
     mut time: ResMut<Time>,
-    wanted_time: Option<Res<DesiredTime>>,
+    update_strategy: Res<TimeUpdateStrategy>,
     time_recv: Option<Res<TimeReceiver>>,
     mut has_received_time: Local<bool>,
 ) {
-    if let Some(time_recv) = time_recv {
-        // TODO: Figure out how to handle this when using pipelined rendering.
-        if let Ok(new_time) = time_recv.0.try_recv() {
-            time.update_with_instant(new_time);
-            *has_received_time = true;
-        } else if *has_received_time {
-            warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
+    match update_strategy.as_ref() {
+        TimeUpdateStrategy::Automatic => {
+            if let Some(time_recv) = time_recv {
+                // TODO: Figure out how to handle this when using pipelined rendering.
+                if let Ok(new_time) = time_recv.0.try_recv() {
+                    time.update_with_instant(new_time);
+                    *has_received_time = true;
+                } else if *has_received_time {
+                    warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
+                }
+            } else {
+                time.update();
+            }
         }
-    } else if let Some(wanted_time) = wanted_time {
-        time.update_with_instant(wanted_time.0);
-    } else {
-        time.update();
+        TimeUpdateStrategy::ManualInstant(instant) => time.update_with_instant(*instant),
+        TimeUpdateStrategy::ManualDuration(duration) => {
+            time.update_with_instant(Instant::now() + *duration)
+        }
     }
 }
