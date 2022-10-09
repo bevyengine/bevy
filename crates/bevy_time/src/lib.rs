@@ -46,14 +46,16 @@ impl Plugin for TimePlugin {
 }
 
 /// Configuration resource used to determine how the time system should run.
-/// 
+///
 /// For most cases, [`TimeUpdateStrategy::Automatic`] is fine. When writing tests, dealing with networking, or similar
 /// you may prefer to set the next [`Time`] value manually.
 #[derive(Resource, Default)]
 pub enum TimeUpdateStrategy {
     #[default]
     Automatic,
+    // Update [`Time`] with an exact `Instant` value
     ManualInstant(Instant),
+    // Update [`Time`] with the current time + a specified `Duration`
     ManualDuration(Duration),
 }
 
@@ -97,7 +99,7 @@ fn time_system(
         }
         TimeUpdateStrategy::ManualInstant(instant) => time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => {
-            time.update_with_instant(Instant::now() + *duration)
+            time.update_with_instant(Instant::now() + *duration);
         }
     }
 }
