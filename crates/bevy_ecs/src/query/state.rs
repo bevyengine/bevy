@@ -37,7 +37,12 @@ pub struct QueryState<Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
 
 impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "QueryState<Q, F> matched_table_ids: {} matched_archetype_ids: {}", self.matched_table_ids.len(), self.matched_archetype_ids.len())
+        write!(
+            f,
+            "QueryState<Q, F> matched_table_ids: {} matched_archetype_ids: {}",
+            self.matched_table_ids.len(),
+            self.matched_archetype_ids.len()
+        )
     }
 }
 
