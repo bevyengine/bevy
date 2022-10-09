@@ -11,14 +11,16 @@ use bevy_ecs::{
     query::QueryItem,
 };
 use bevy_render::{
-    camera::Camera, extract_component::ExtractComponent, prelude::ComputedVisibility,
+    camera::Camera,
+    extract_component::ExtractComponent,
+    prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
 use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -44,6 +46,23 @@ pub struct NodeBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+}
+
+impl Default for NodeBundle {
+    fn default() -> Self {
+        NodeBundle {
+            // Transparent background
+            background_color: Color::NONE.into(),
+            node: Default::default(),
+            style: Default::default(),
+            image: Default::default(),
+            focus_policy: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+        }
+    }
 }
 
 /// A UI node that is an image
