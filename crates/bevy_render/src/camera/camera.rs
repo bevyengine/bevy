@@ -195,7 +195,7 @@ impl Camera {
     ///
     /// Note that the [`GlobalTransform`] can be out of sync with the [`Transform`] when
     /// you modify the [`Transform`] of the camera in a system. When it seems the result of this function
-    /// lags behind the actual position make sure to run the system using this funciont in the PostUpdate
+    /// lags behind the actual position make sure to run the system using this function in the [`CoreStage::PostUpdate`]
     /// stage after the [`TransformSystem::TransformPropagate`] label.
     ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
@@ -225,7 +225,7 @@ impl Camera {
     ///
     /// Note that the [`GlobalTransform`] can be out of sync with the [`Transform`] when
     /// you modify the [`Transform`] of the camera in a system. When it seems the result of this function
-    /// lags behind the actual position make sure to run the system using this funciont in the PostUpdate
+    /// lags behind the actual position make sure to run the system using this function in the [`CoreStage::PostUpdate`]
     /// stage after the [`TransformSystem::TransformPropagate`] label.
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
@@ -252,7 +252,7 @@ impl Camera {
     ///
     /// Note that the [`GlobalTransform`] can be out of sync with the [`Transform`] when
     /// you modify the [`Transform`] of the camera in a system. When it seems the result of this function
-    /// lags behind the actual position make sure to run the system using this funciont in the PostUpdate
+    /// lags behind the actual position make sure to run the system using this function in the [`CoreStage::PostUpdate`]
     /// stage after the [`TransformSystem::TransformPropagate`] label.
     ///
     /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
@@ -280,7 +280,7 @@ impl Camera {
     ///
     /// Note that the [`GlobalTransform`] can be out of sync with the [`Transform`] when
     /// you modify the [`Transform`] of the camera in a system. When it seems the result of this function
-    /// lags behind the actual position make sure to run the system using this funciont in the PostUpdate
+    /// lags behind the actual position make sure to run the system using this function in the [`CoreStage::PostUpdate`]
     /// stage after the [`TransformSystem::TransformPropagate`] label.
     ///
     /// To get the world space coordinates with the viewport position, you should use
