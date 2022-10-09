@@ -243,6 +243,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
+            // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix =
                 Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
             let default_camera_view = commands
