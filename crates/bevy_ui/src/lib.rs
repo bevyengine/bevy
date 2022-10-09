@@ -121,6 +121,17 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
+                widget::update_slider_value
+                    .label(widget::UpdateSliderValue)
+                    .after(UiSystem::Focus),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                widget::update_slider_handle
+                    .after(widget::UpdateSliderValue),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
                 flex_node_system
                     .label(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate)
