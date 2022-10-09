@@ -105,6 +105,7 @@ pub struct ReceivedCharacter {
 
 /// An event that indicates a window has received or lost focus.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowFocused {
     pub id: WindowId,
     pub focused: bool,

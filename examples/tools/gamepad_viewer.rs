@@ -88,6 +88,37 @@ impl FromWorld for FontHandle {
     }
 }
 
+#[derive(Bundle)]
+struct GamepadButtonBundle {
+    mesh_bundle: MaterialMesh2dBundle<ColorMaterial>,
+    react_to: ReactTo,
+}
+
+impl GamepadButtonBundle {
+    pub fn new(
+        button_type: GamepadButtonType,
+        mesh: Mesh2dHandle,
+        material: Handle<ColorMaterial>,
+        x: f32,
+        y: f32,
+    ) -> Self {
+        Self {
+            mesh_bundle: MaterialMesh2dBundle {
+                mesh,
+                material,
+                transform: Transform::from_xyz(x, y, 0.),
+                ..default()
+            },
+            react_to: ReactTo(button_type),
+        }
+    }
+
+    pub fn with_rotation(mut self, angle: f32) -> Self {
+        self.mesh_bundle.transform.rotation = Quat::from_rotation_z(angle);
+        self
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -116,65 +147,52 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.circle.clone(),
-                    material: materials.normal.clone(),
-                    transform: Transform::from_xyz(0., BUTTON_CLUSTER_RADIUS, 0.),
-                    ..default()
-                },
-                ReactTo(GamepadButtonType::North),
+            parent.spawn(GamepadButtonBundle::new(
+                GamepadButtonType::North,
+                meshes.circle.clone(),
+                materials.normal.clone(),
+                0.,
+                BUTTON_CLUSTER_RADIUS,
             ));
-            parent.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.circle.clone(),
-                    material: materials.normal.clone(),
-                    transform: Transform::from_xyz(0., -BUTTON_CLUSTER_RADIUS, 0.),
-                    ..default()
-                },
-                ReactTo(GamepadButtonType::South),
+            parent.spawn(GamepadButtonBundle::new(
+                GamepadButtonType::South,
+                meshes.circle.clone(),
+                materials.normal.clone(),
+                0.,
+                -BUTTON_CLUSTER_RADIUS,
             ));
-            parent.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.circle.clone(),
-                    material: materials.normal.clone(),
-                    transform: Transform::from_xyz(-BUTTON_CLUSTER_RADIUS, 0., 0.),
-                    ..default()
-                },
-                ReactTo(GamepadButtonType::West),
+            parent.spawn(GamepadButtonBundle::new(
+                GamepadButtonType::West,
+                meshes.circle.clone(),
+                materials.normal.clone(),
+                -BUTTON_CLUSTER_RADIUS,
+                0.,
             ));
-            parent.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.circle.clone(),
-                    material: materials.normal.clone(),
-                    transform: Transform::from_xyz(BUTTON_CLUSTER_RADIUS, 0., 0.),
-
-                    ..default()
-                },
-                ReactTo(GamepadButtonType::East),
+            parent.spawn(GamepadButtonBundle::new(
+                GamepadButtonType::East,
+                meshes.circle.clone(),
+                materials.normal.clone(),
+                BUTTON_CLUSTER_RADIUS,
+                0.,
             ));
         });
 
     // Start and Pause
 
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.start_pause.clone(),
-            material: materials.normal.clone(),
-            transform: Transform::from_xyz(-30., BUTTONS_Y, 0.),
-            ..default()
-        },
-        ReactTo(GamepadButtonType::Select),
+    commands.spawn(GamepadButtonBundle::new(
+        GamepadButtonType::Select,
+        meshes.start_pause.clone(),
+        materials.normal.clone(),
+        -30.,
+        BUTTONS_Y,
     ));
 
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.start_pause.clone(),
-            material: materials.normal.clone(),
-            transform: Transform::from_xyz(30., BUTTONS_Y, 0.),
-            ..default()
-        },
-        ReactTo(GamepadButtonType::Start),
+    commands.spawn(GamepadButtonBundle::new(
+        GamepadButtonType::Start,
+        meshes.start_pause.clone(),
+        materials.normal.clone(),
+        30.,
+        BUTTONS_Y,
     ));
 
     // D-Pad
@@ -185,67 +203,61 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.triangle.clone(),
-                    material: materials.normal.clone(),
-                    transform: Transform::from_xyz(0., BUTTON_CLUSTER_RADIUS, 0.),
-                    ..default()
-                },
-                ReactTo(GamepadButtonType::DPadUp),
+            parent.spawn(GamepadButtonBundle::new(
+                GamepadButtonType::DPadUp,
+                meshes.triangle.clone(),
+                materials.normal.clone(),
+                0.,
+                BUTTON_CLUSTER_RADIUS,
             ));
-            parent.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.triangle.clone(),
-                    material: materials.normal.clone(),
-                    transform: Transform::from_xyz(0., -BUTTON_CLUSTER_RADIUS, 0.)
-                        .with_rotation(Quat::from_rotation_z(PI)),
-                    ..default()
-                },
-                ReactTo(GamepadButtonType::DPadDown),
-            ));
-            parent.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.triangle.clone(),
-                    material: materials.normal.clone(),
-                    transform: Transform::from_xyz(-BUTTON_CLUSTER_RADIUS, 0., 0.)
-                        .with_rotation(Quat::from_rotation_z(PI / 2.)),
-                    ..default()
-                },
-                ReactTo(GamepadButtonType::DPadLeft),
-            ));
-            parent.spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.triangle.clone(),
-                    material: materials.normal.clone(),
-                    transform: Transform::from_xyz(BUTTON_CLUSTER_RADIUS, 0., 0.)
-                        .with_rotation(Quat::from_rotation_z(-PI / 2.)),
-                    ..default()
-                },
-                ReactTo(GamepadButtonType::DPadRight),
-            ));
+            parent.spawn(
+                GamepadButtonBundle::new(
+                    GamepadButtonType::DPadDown,
+                    meshes.triangle.clone(),
+                    materials.normal.clone(),
+                    0.,
+                    -BUTTON_CLUSTER_RADIUS,
+                )
+                .with_rotation(PI),
+            );
+            parent.spawn(
+                GamepadButtonBundle::new(
+                    GamepadButtonType::DPadLeft,
+                    meshes.triangle.clone(),
+                    materials.normal.clone(),
+                    -BUTTON_CLUSTER_RADIUS,
+                    0.,
+                )
+                .with_rotation(PI / 2.),
+            );
+            parent.spawn(
+                GamepadButtonBundle::new(
+                    GamepadButtonType::DPadRight,
+                    meshes.triangle.clone(),
+                    materials.normal.clone(),
+                    BUTTON_CLUSTER_RADIUS,
+                    0.,
+                )
+                .with_rotation(-PI / 2.),
+            );
         });
 
     // Triggers
 
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.trigger.clone(),
-            material: materials.normal.clone(),
-            transform: Transform::from_xyz(-BUTTONS_X, BUTTONS_Y + 115., 0.),
-            ..default()
-        },
-        ReactTo(GamepadButtonType::LeftTrigger),
+    commands.spawn(GamepadButtonBundle::new(
+        GamepadButtonType::LeftTrigger,
+        meshes.trigger.clone(),
+        materials.normal.clone(),
+        -BUTTONS_X,
+        BUTTONS_Y + 115.,
     ));
 
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.trigger.clone(),
-            material: materials.normal.clone(),
-            transform: Transform::from_xyz(BUTTONS_X, BUTTONS_Y + 115., 0.),
-            ..default()
-        },
-        ReactTo(GamepadButtonType::RightTrigger),
+    commands.spawn(GamepadButtonBundle::new(
+        GamepadButtonType::RightTrigger,
+        meshes.trigger.clone(),
+        materials.normal.clone(),
+        BUTTONS_X,
+        BUTTONS_Y + 115.,
     ));
 }
 
@@ -373,14 +385,12 @@ fn setup_triggers(
 ) {
     let mut spawn_trigger = |x, y, button_type| {
         commands
-            .spawn((
-                MaterialMesh2dBundle {
-                    mesh: meshes.trigger.clone(),
-                    material: materials.normal.clone(),
-                    transform: Transform::from_xyz(x, y, 0.),
-                    ..default()
-                },
-                ReactTo(button_type),
+            .spawn(GamepadButtonBundle::new(
+                button_type,
+                meshes.trigger.clone(),
+                materials.normal.clone(),
+                x,
+                y,
             ))
             .with_children(|parent| {
                 parent.spawn((
