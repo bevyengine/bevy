@@ -541,4 +541,68 @@ mod tests {
 
         assert_eq!(test_stage.ambiguity_count(&world), 0);
     }
+
+    fn system_a(_res: ResMut<R>) {}
+    fn system_b(_res: ResMut<R>) {}
+    fn system_c(_res: ResMut<R>) {}
+    fn system_d(_res: ResMut<R>) {}
+    fn system_e(_res: ResMut<R>) {}
+
+    // Tests that the correct ambiguities were reported in the correct order.
+    #[test]
+    fn correct_ambiguities() {
+        use super::*;
+
+        let mut world = World::new();
+        world.insert_resource(R);
+
+        let mut test_stage = SystemStage::parallel();
+        test_stage
+            .add_system(system_a)
+            .add_system(system_b)
+            .add_system(system_c.ignore_all_ambiguities())
+            .add_system(system_d.ambiguous_with(system_b))
+            .add_system(system_e.after(system_a));
+
+        test_stage.run(&mut world);
+
+        let ambiguities = test_stage.ambiguities(&world);
+        assert_eq!(
+            ambiguities,
+            vec![
+                SystemOrderAmbiguity {
+                    system_names: [
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_a".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_b".to_string()
+                    ],
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: SystemStageSegment::Parallel,
+                },
+                SystemOrderAmbiguity {
+                    system_names: [
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_a".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_d".to_string()
+                    ],
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: SystemStageSegment::Parallel,
+                },
+                SystemOrderAmbiguity {
+                    system_names: [
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_b".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_e".to_string()
+                    ],
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: SystemStageSegment::Parallel,
+                },
+                SystemOrderAmbiguity {
+                    system_names: [
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_d".to_string(),
+                        "bevy_ecs::schedule::ambiguity_detection::tests::system_e".to_string()
+                    ],
+                    conflicts: vec!["bevy_ecs::schedule::ambiguity_detection::tests::R".to_string()],
+                    segment: SystemStageSegment::Parallel,
+                },
+            ]
+        );
+    }
 }
