@@ -29,7 +29,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.clip_position = mesh2d_position_world_to_clip(out.world_position);
     out.world_normal = mesh2d_normal_local_to_world(vertex.normal);
 #ifdef VERTEX_TANGENTS
-    out.world_tangent = mesh2d_tangent_local_to_world(vertex.tangent);
+    out.world_tangent = mesh2d_tangent_local_to_world(mesh.model, vertex.tangent);
 #endif
 #ifdef VERTEX_COLORS
     out.color = vertex.color;
