@@ -297,12 +297,22 @@ impl Touches {
                 }
             }
             TouchPhase::Ended => {
-                self.just_released.insert(event.id, event.into());
-                self.pressed.remove_entry(&event.id);
+                // if touch `just_released`, add related event to it
+                // the event position info is inside `pressed`, so use it unless not found
+                if let Some((_, v)) = self.pressed.remove_entry(&event.id) {
+                    self.just_released.insert(event.id, v);
+                } else {
+                    self.just_released.insert(event.id, event.into());
+                }
             }
             TouchPhase::Cancelled => {
-                self.just_cancelled.insert(event.id, event.into());
-                self.pressed.remove_entry(&event.id);
+                // if touch `just_cancelled`, add related event to it
+                // the event position info is inside `pressed`, so use it unless not found
+                if let Some((_, v)) = self.pressed.remove_entry(&event.id) {
+                    self.just_cancelled.insert(event.id, v);
+                } else {
+                    self.just_cancelled.insert(event.id, event.into());
+                }
             }
         };
     }
@@ -427,8 +437,8 @@ mod test {
         touches.update();
         touches.process_touch_event(&cancel_touch_event);
 
-        assert!(touches.just_cancelled.get(&cancel_touch_event.id).is_some());
-        assert!(touches.pressed.get(&cancel_touch_event.id).is_none());
+        assert!(touches.just_cancelled.get(&touch_event.id).is_some());
+        assert!(touches.pressed.get(&touch_event.id).is_none());
 
         // Test ending an event
 
@@ -436,15 +446,19 @@ mod test {
             phase: TouchPhase::Ended,
             position: Vec2::splat(4.0),
             force: None,
-            id: 4,
+            id: touch_event.id,
         };
 
         touches.update();
         touches.process_touch_event(&touch_event);
+        touches.process_touch_event(&moved_touch_event);
         touches.process_touch_event(&end_touch_event);
 
         assert!(touches.just_released.get(&touch_event.id).is_some());
         assert!(touches.pressed.get(&touch_event.id).is_none());
+        let touch = touches.just_released.get(&touch_event.id).unwrap();
+        // Make sure the position is updated from TouchPhase::Moved and TouchPhase::Ended
+        assert!(touch.previous_position != touch.position);
     }
 
     #[test]
