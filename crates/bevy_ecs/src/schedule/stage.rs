@@ -58,7 +58,6 @@ pub struct ReportExecutionOrderAmbiguities;
 
 /// Stores and executes systems. Execution order is not defined unless explicitly specified;
 /// see `SystemDescriptor` documentation.
-#[derive(Debug)]
 pub struct SystemStage {
     /// The WorldId this stage was last run on.
     world_id: Option<WorldId>,
@@ -591,6 +590,64 @@ impl SystemStage {
             self.run_criteria.push(temp[index].take().unwrap());
         }
         Ok(labels)
+    }
+
+    pub fn vec_system_container_debug(
+        &self,
+        name: &str,
+        v: &Vec<SystemContainer>,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        write!(f, "{}: ", name)?;
+        if v.len() > 1 {
+            writeln!(f, "[")?;
+            for sc in v.iter() {
+                writeln!(f, "{:?},", sc)?;
+            }
+            write!(f, "], ")
+        } else {
+            write!(f, "{:?}, ", v)
+        }
+    }
+}
+
+impl std::fmt::Debug for SystemStage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SystemStage: {{ ")?;
+        write!(
+            f,
+            "world_id: {:?}, executor: {:?}, stage_run_criteria: {:?}, run_criteria: {:?}, ",
+            self.world_id, self.executor, self.stage_run_criteria, self.run_criteria
+        )?;
+        self.vec_system_container_debug("exclusive_at_start", &self.exclusive_at_start, f)?;
+        self.vec_system_container_debug(
+            "exclusive_before_commands",
+            &self.exclusive_before_commands,
+            f,
+        )?;
+        self.vec_system_container_debug("exclusive_at_end", &self.exclusive_at_end, f)?;
+        self.vec_system_container_debug("parallel", &self.parallel, f)?;
+        write!(
+            f,
+            "systems_modified: {:?}, uninitialized_run_criteria: {:?}, ",
+            self.systems_modified, self.uninitialized_run_criteria
+        )?;
+        write!(
+            f,
+            "uninitialized_at_start: {:?}, uninitialized_before_commands: {:?}, ",
+            self.uninitialized_at_start, self.uninitialized_before_commands
+        )?;
+        write!(
+            f,
+            "uninitialized_at_end: {:?}, uninitialized_parallel: {:?}, ",
+            self.uninitialized_at_end, self.uninitialized_parallel
+        )?;
+        write!(
+            f,
+            "last_tick_check: {:?}, apply_buffers: {:?}, ",
+            self.last_tick_check, self.apply_buffers
+        )?;
+        write!(f, "must_read_resource: {:?}}}", self.must_read_resource)
     }
 }
 
