@@ -163,7 +163,7 @@ macro_rules! change_detection_impl {
     };
 }
 
-macro_rules! impl_into_inner {
+macro_rules! impl_methods {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
@@ -172,6 +172,38 @@ macro_rules! impl_into_inner {
             pub fn into_inner(mut self) -> &'a mut $target {
                 self.set_changed();
                 self.value
+            }
+
+            /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
+            ///
+            /// You should never modify the argument passed to the closure -- if you want to modify the data
+            /// without flagging a change, consider using [`DetectChanges::bypass_change_detection`] to make your intent explicit.
+            ///
+            /// ```rust
+            /// # use bevy_ecs::prelude::*;
+            /// # pub struct Vec2;
+            /// # impl Vec2 { pub const ZERO: Self = Self; }
+            /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
+            /// # mod my_utils {
+            /// #   pub fn set_if_not_equal<T>(x: bevy_ecs::prelude::Mut<T>, val: T) { unimplemented!() }
+            /// # }
+            /// // When run, zeroes the translation of every entity.
+            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
+            ///     for transform in &mut transforms {
+            ///         // We pinky promise not to modify `t` within the closure.
+            ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
+            ///         let translation = transform.map_unchanged(|t| &mut t.translation);
+            ///         // Only reset the translation if it isn't already zero;
+            ///         my_utils::set_if_not_equal(translation, Vec2::ZERO);
+            ///     }
+            /// }
+            /// # bevy_ecs::system::assert_is_system(reset_positions);
+            /// ```
+            pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'a, U> {
+                Mut {
+                    value: f(self.value),
+                    ticks: self.ticks,
+                }
             }
         }
     };
@@ -215,7 +247,7 @@ pub struct ResMut<'a, T: ?Sized + Resource> {
 }
 
 change_detection_impl!(ResMut<'a, T>, T, Resource);
-impl_into_inner!(ResMut<'a, T>, T, Resource);
+impl_methods!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
 impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
@@ -247,7 +279,7 @@ pub struct NonSendMut<'a, T: ?Sized + 'static> {
 }
 
 change_detection_impl!(NonSendMut<'a, T>, T,);
-impl_into_inner!(NonSendMut<'a, T>, T,);
+impl_methods!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
 impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
@@ -268,7 +300,7 @@ pub struct Mut<'a, T: ?Sized> {
 }
 
 change_detection_impl!(Mut<'a, T>, T,);
-impl_into_inner!(Mut<'a, T>, T,);
+impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
 /// Unique mutable borrow of resources or an entity's component.
@@ -496,5 +528,39 @@ mod tests {
         assert_eq!(2, into_mut.ticks.component_ticks.changed);
         assert_eq!(3, into_mut.ticks.last_change_tick);
         assert_eq!(4, into_mut.ticks.change_tick);
+    }
+
+    #[test]
+    fn map_mut() {
+        use super::*;
+        struct Outer(i64);
+
+        let mut component_ticks = ComponentTicks {
+            added: 1,
+            changed: 2,
+        };
+        let (last_change_tick, change_tick) = (2, 3);
+        let ticks = Ticks {
+            component_ticks: &mut component_ticks,
+            last_change_tick,
+            change_tick,
+        };
+
+        let mut outer = Outer(0);
+        let ptr = Mut {
+            value: &mut outer,
+            ticks,
+        };
+        assert!(!ptr.is_changed());
+
+        // Perform a mapping operation.
+        let mut inner = ptr.map_unchanged(|x| &mut x.0);
+        assert!(!inner.is_changed());
+
+        // Mutate the inner value.
+        *inner = 64;
+        assert!(inner.is_changed());
+        // Modifying one field of a component should flag a change for the entire component.
+        assert!(component_ticks.is_changed(last_change_tick, change_tick));
     }
 }
