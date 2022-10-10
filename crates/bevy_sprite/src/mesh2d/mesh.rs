@@ -8,6 +8,7 @@ use bevy_math::{Mat4, Vec2};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -173,6 +174,16 @@ impl FromWorld for Mesh2dPipeline {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
                         min_binding_size: Some(ViewUniform::min_size()),
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
                     },
                     count: None,
                 },
@@ -429,14 +440,24 @@ pub fn queue_mesh2d_view_bind_groups(
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<Entity, With<ExtractedView>>,
+    globals_buffer: Res<GlobalsBuffer>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
+    if let (Some(view_binding), Some(globals)) = (
+        view_uniforms.uniforms.binding(),
+        globals_buffer.buffer.binding(),
+    ) {
         for entity in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding.clone(),
-                }],
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: view_binding.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: globals.clone(),
+                    },
+                ],
                 label: Some("mesh2d_view_bind_group"),
                 layout: &mesh2d_pipeline.view_layout,
             });
