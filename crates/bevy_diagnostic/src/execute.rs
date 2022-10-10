@@ -40,9 +40,6 @@ impl Execute for &mut World {
 
 impl Execute for &mut App {
     /// Invokes [`Execute`] on the [`World`] of this [`App`].
-    /// ```
-    /// assert!(true);
-    /// ```
     fn execute<F: FnOnce(&World, Commands) -> R, R>(self, f: F) -> R {
         self.world.execute(f)
     }
