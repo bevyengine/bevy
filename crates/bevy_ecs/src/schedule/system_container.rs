@@ -1,7 +1,9 @@
 use crate::{
     component::ComponentId,
     query::Access,
-    schedule::{GraphNode, RunCriteriaLabelId, SystemDescriptor, SystemLabelId},
+    schedule::{
+        AmbiguityDetection, GraphNode, RunCriteriaLabelId, SystemDescriptor, SystemLabelId,
+    },
     system::System,
 };
 use core::fmt::Debug;
@@ -17,6 +19,7 @@ pub struct SystemContainer {
     labels: Vec<SystemLabelId>,
     before: Vec<SystemLabelId>,
     after: Vec<SystemLabelId>,
+    pub(crate) ambiguity_detection: AmbiguityDetection,
 }
 
 impl SystemContainer {
@@ -30,6 +33,7 @@ impl SystemContainer {
             labels: descriptor.labels,
             before: descriptor.before,
             after: descriptor.after,
+            ambiguity_detection: descriptor.ambiguity_detection,
             is_exclusive: descriptor.exclusive_insertion_point.is_some(),
         }
     }

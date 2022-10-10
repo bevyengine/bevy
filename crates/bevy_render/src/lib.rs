@@ -47,7 +47,7 @@ use crate::{
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
+    renderer::{render_system, RenderInstance, RenderTextureFormat},
     texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -157,14 +157,23 @@ impl Plugin for RenderPlugin {
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue, adapter_info) = futures_lite::future::block_on(
-                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
-            );
+            let (device, queue, adapter_info, render_adapter, available_texture_formats) =
+                futures_lite::future::block_on(renderer::initialize_renderer(
+                    &instance,
+                    &options,
+                    &request_adapter_options,
+                ));
+            // `available_texture_formats` won't be empty, or else will panick in the former
+            // `initialize_renderer` call.
+            let first_available_texture_format = RenderTextureFormat(available_texture_formats[0]);
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
+                .insert_resource(render_adapter.clone())
+                .insert_resource(available_texture_formats.clone())
+                .insert_resource(first_available_texture_format.clone())
                 .init_resource::<ScratchMainWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
@@ -206,6 +215,9 @@ impl Plugin for RenderPlugin {
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
+                .insert_resource(render_adapter)
+                .insert_resource(available_texture_formats)
+                .insert_resource(first_available_texture_format)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server);
