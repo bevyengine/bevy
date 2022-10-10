@@ -1,3 +1,5 @@
+//! TaskPool implementation for non-wasm platforms.
+
 use std::{
     future::Future,
     marker::PhantomData,
@@ -12,10 +14,10 @@ use futures_lite::{future, pin};
 
 use crate::Task;
 
-/// Used to create a [`TaskPool`]
+/// Used to create a [`PlatformTaskPool`]
 #[derive(Debug, Default, Clone)]
 #[must_use]
-pub struct TaskPoolBuilder {
+pub struct PlatformTaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most `num_threads` threads.
     /// Otherwise use the logical core count of the system
     num_threads: Option<usize>,
@@ -26,8 +28,8 @@ pub struct TaskPoolBuilder {
     thread_name: Option<String>,
 }
 
-impl TaskPoolBuilder {
-    /// Creates a new [`TaskPoolBuilder`] instance
+impl PlatformTaskPoolBuilder {
+    /// Creates a new [`PlatformTaskPoolBuilder`] instance
     pub fn new() -> Self {
         Self::default()
     }
@@ -52,9 +54,9 @@ impl TaskPoolBuilder {
         self
     }
 
-    /// Creates a new [`TaskPool`] based on the current options.
-    pub fn build(self) -> TaskPool {
-        TaskPool::new_internal(
+    /// Creates a new [`PlatformTaskPool`] based on the current options.
+    pub fn build(self) -> PlatformTaskPool {
+        PlatformTaskPool::new_internal(
             self.num_threads,
             self.stack_size,
             self.thread_name.as_deref(),
@@ -65,7 +67,7 @@ impl TaskPoolBuilder {
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool.
 #[derive(Debug)]
-pub struct TaskPool {
+pub struct PlatformTaskPool {
     /// The executor for the pool
     ///
     /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
@@ -78,14 +80,14 @@ pub struct TaskPool {
     shutdown_tx: async_channel::Sender<()>,
 }
 
-impl TaskPool {
+impl PlatformTaskPool {
     thread_local! {
         static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
     }
 
-    /// Create a `TaskPool` with the default configuration.
+    /// Create a [`PlatformTaskPool`] with the default configuration.
     pub fn new() -> Self {
-        TaskPoolBuilder::new().build()
+        PlatformTaskPoolBuilder::new().build()
     }
 
     fn new_internal(
@@ -213,7 +215,7 @@ impl TaskPool {
     ///
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
-        F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
+        F: for<'scope> FnOnce(&'scope PlatformScope<'scope, 'env, T>),
         T: Send + 'static,
     {
         // SAFETY: This safety comment applies to all references transmuted to 'env.
@@ -230,7 +232,7 @@ impl TaskPool {
         let spawned_ref: &'env ConcurrentQueue<async_executor::Task<T>> =
             unsafe { mem::transmute(&spawned) };
 
-        let scope = Scope {
+        let scope = PlatformScope {
             executor,
             task_scope_executor,
             spawned: spawned_ref,
@@ -238,7 +240,7 @@ impl TaskPool {
             env: PhantomData,
         };
 
-        let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
+        let scope_ref: &'env PlatformScope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
         f(scope_ref);
 
@@ -304,17 +306,17 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+        Task::new(PlatformTaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
     }
 }
 
-impl Default for TaskPool {
+impl Default for PlatformTaskPool {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Drop for TaskPool {
+impl Drop for PlatformTaskPool {
     fn drop(&mut self) {
         self.shutdown_tx.close();
 
@@ -332,24 +334,24 @@ impl Drop for TaskPool {
 ///
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
-pub struct Scope<'scope, 'env: 'scope, T> {
+pub struct PlatformScope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
     task_scope_executor: &'scope async_executor::Executor<'scope>,
     spawned: &'scope ConcurrentQueue<async_executor::Task<T>>,
-    // make `Scope` invariant over 'scope and 'env
+    // make [`PlatformScope`] invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
 }
 
-impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
+impl<'scope, 'env, T: Send + 'scope> PlatformScope<'scope, 'env, T> {
     /// Spawns a scoped future onto the thread pool. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
-    /// [`TaskPool::scope`]'s return value.
+    /// [`PlatformTaskPool::scope`]'s return value.
     ///
     /// For futures that should run on the thread `scope` is called on [`Scope::spawn_on_scope`] should be used
     /// instead.
     ///
-    /// For more information, see [`TaskPool::scope`].
+    /// For more information, see [`PlatformTaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         let task = self.executor.spawn(f);
         // ConcurrentQueue only errors when closed or full, but we never
@@ -368,204 +370,5 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::disallowed_types)]
-mod tests {
-    use super::*;
-    use std::sync::{
-        atomic::{AtomicBool, AtomicI32, Ordering},
-        Barrier,
-    };
-
-    #[test]
-    fn test_spawn() {
-        let pool = TaskPool::new();
-
-        let foo = Box::new(42);
-        let foo = &*foo;
-
-        let count = Arc::new(AtomicI32::new(0));
-
-        let outputs = pool.scope(|scope| {
-            for _ in 0..100 {
-                let count_clone = count.clone();
-                scope.spawn(async move {
-                    if *foo != 42 {
-                        panic!("not 42!?!?")
-                    } else {
-                        count_clone.fetch_add(1, Ordering::Relaxed);
-                        *foo
-                    }
-                });
-            }
-        });
-
-        for output in &outputs {
-            assert_eq!(*output, 42);
-        }
-
-        assert_eq!(outputs.len(), 100);
-        assert_eq!(count.load(Ordering::Relaxed), 100);
-    }
-
-    #[test]
-    fn test_mixed_spawn_on_scope_and_spawn() {
-        let pool = TaskPool::new();
-
-        let foo = Box::new(42);
-        let foo = &*foo;
-
-        let local_count = Arc::new(AtomicI32::new(0));
-        let non_local_count = Arc::new(AtomicI32::new(0));
-
-        let outputs = pool.scope(|scope| {
-            for i in 0..100 {
-                if i % 2 == 0 {
-                    let count_clone = non_local_count.clone();
-                    scope.spawn(async move {
-                        if *foo != 42 {
-                            panic!("not 42!?!?")
-                        } else {
-                            count_clone.fetch_add(1, Ordering::Relaxed);
-                            *foo
-                        }
-                    });
-                } else {
-                    let count_clone = local_count.clone();
-                    scope.spawn_on_scope(async move {
-                        if *foo != 42 {
-                            panic!("not 42!?!?")
-                        } else {
-                            count_clone.fetch_add(1, Ordering::Relaxed);
-                            *foo
-                        }
-                    });
-                }
-            }
-        });
-
-        for output in &outputs {
-            assert_eq!(*output, 42);
-        }
-
-        assert_eq!(outputs.len(), 100);
-        assert_eq!(local_count.load(Ordering::Relaxed), 50);
-        assert_eq!(non_local_count.load(Ordering::Relaxed), 50);
-    }
-
-    #[test]
-    fn test_thread_locality() {
-        let pool = Arc::new(TaskPool::new());
-        let count = Arc::new(AtomicI32::new(0));
-        let barrier = Arc::new(Barrier::new(101));
-        let thread_check_failed = Arc::new(AtomicBool::new(false));
-
-        for _ in 0..100 {
-            let inner_barrier = barrier.clone();
-            let count_clone = count.clone();
-            let inner_pool = pool.clone();
-            let inner_thread_check_failed = thread_check_failed.clone();
-            std::thread::spawn(move || {
-                inner_pool.scope(|scope| {
-                    let inner_count_clone = count_clone.clone();
-                    scope.spawn(async move {
-                        inner_count_clone.fetch_add(1, Ordering::Release);
-                    });
-                    let spawner = std::thread::current().id();
-                    let inner_count_clone = count_clone.clone();
-                    scope.spawn_on_scope(async move {
-                        inner_count_clone.fetch_add(1, Ordering::Release);
-                        if std::thread::current().id() != spawner {
-                            // NOTE: This check is using an atomic rather than simply panicing the
-                            // thread to avoid deadlocking the barrier on failure
-                            inner_thread_check_failed.store(true, Ordering::Release);
-                        }
-                    });
-                });
-                inner_barrier.wait();
-            });
-        }
-        barrier.wait();
-        assert!(!thread_check_failed.load(Ordering::Acquire));
-        assert_eq!(count.load(Ordering::Acquire), 200);
-    }
-
-    #[test]
-    fn test_nested_spawn() {
-        let pool = TaskPool::new();
-
-        let foo = Box::new(42);
-        let foo = &*foo;
-
-        let count = Arc::new(AtomicI32::new(0));
-
-        let outputs: Vec<i32> = pool.scope(|scope| {
-            for _ in 0..10 {
-                let count_clone = count.clone();
-                scope.spawn(async move {
-                    for _ in 0..10 {
-                        let count_clone_clone = count_clone.clone();
-                        scope.spawn(async move {
-                            if *foo != 42 {
-                                panic!("not 42!?!?")
-                            } else {
-                                count_clone_clone.fetch_add(1, Ordering::Relaxed);
-                                *foo
-                            }
-                        });
-                    }
-                    *foo
-                });
-            }
-        });
-
-        for output in &outputs {
-            assert_eq!(*output, 42);
-        }
-
-        // the inner loop runs 100 times and the outer one runs 10. 100 + 10
-        assert_eq!(outputs.len(), 110);
-        assert_eq!(count.load(Ordering::Relaxed), 100);
-    }
-
-    #[test]
-    fn test_nested_locality() {
-        let pool = Arc::new(TaskPool::new());
-        let count = Arc::new(AtomicI32::new(0));
-        let barrier = Arc::new(Barrier::new(101));
-        let thread_check_failed = Arc::new(AtomicBool::new(false));
-
-        for _ in 0..100 {
-            let inner_barrier = barrier.clone();
-            let count_clone = count.clone();
-            let inner_pool = pool.clone();
-            let inner_thread_check_failed = thread_check_failed.clone();
-            std::thread::spawn(move || {
-                inner_pool.scope(|scope| {
-                    let spawner = std::thread::current().id();
-                    let inner_count_clone = count_clone.clone();
-                    scope.spawn(async move {
-                        inner_count_clone.fetch_add(1, Ordering::Release);
-
-                        // spawning on the scope from another thread runs the futures on the scope's thread
-                        scope.spawn_on_scope(async move {
-                            inner_count_clone.fetch_add(1, Ordering::Release);
-                            if std::thread::current().id() != spawner {
-                                // NOTE: This check is using an atomic rather than simply panicing the
-                                // thread to avoid deadlocking the barrier on failure
-                                inner_thread_check_failed.store(true, Ordering::Release);
-                            }
-                        });
-                    });
-                });
-                inner_barrier.wait();
-            });
-        }
-        barrier.wait();
-        assert!(!thread_check_failed.load(Ordering::Acquire));
-        assert_eq!(count.load(Ordering::Acquire), 200);
     }
 }
