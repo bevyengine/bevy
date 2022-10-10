@@ -172,9 +172,10 @@ impl Default for PerspectiveProjection {
 #[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
-    /// Manually specify the projection's size with `width` and `height`.
+    /// Manually specify the projection's size.
+    ///
     /// Ignore window resizing; the image will stretch.
-    None { width: f32, height: f32 },
+    Fixed { width: f32, height: f32 },
     /// Match the window size.
     /// The argument is the number of pixels that equals one world unit.
     WindowSize(f32),
@@ -195,10 +196,11 @@ pub enum ScalingMode {
 /// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
 /// the size at which objects appear remain the same regardless of depth.
 ///
-/// The volume contained in the projection is called the *view frustum*. Since the viewport is rectangular,
-/// the view frustum is in the shape of a rectangular prism.
+/// The volume contained in the projection is called the *view frustum*. Since the viewport is rectangular
+/// and projection lines are parallel, the view frustum takes the shape of a rectangular prism.
 ///
-/// Note that the cross sectional area of the view frustum and the apparent size of objects are inversely proportional.
+/// Note that the scale of the projection and the apparent size of objects are inversely proportional.
+/// As the size of the projection increases, the apparent size of objects decreases.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
@@ -210,13 +212,20 @@ pub struct OrthographicProjection {
     ///
     /// Objects further than this will not be rendered.
     pub far: f32,
-    /// Specifies the origin of the viewport as a fraction of its width and height (from the bottom left corner).
-    /// Consequently, this is the point from where scaling caused by viewport resizing will occur.
+    /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is the bottom left
+    /// and (1, 1) is the top right. This determines where the position of the camera sits inside the viewport.
     ///
-    /// For example, if `viewport_origin` is set to (0.2, 0.6) and the size of the viewport is (10, 10),
-    /// the location of the camera will determine where the point (2, 6) on the viewport is;
-    /// if the projection needs to triple in width, it will expand 4 units to the left and
-    /// 16 units to the right (20% and 80% of the total scaling, respectively).
+    /// This is also the pivot point when resizing the viewport. With a bottom left pivot, the projection will expand
+    /// upwards and to the right. With a top right pivot, the projection will expand downwards and to the left.
+    /// Values in between will caused the projection to scale proportionally on each axis.
+    ///
+    /// If `scaling_mode` is set to anything other than `ScalingMode::None`, resizing the viewport will also scale the
+    /// projection. When the projection scales, the position of the camera doesn't change, and since `viewport_origin`
+    /// specifies the point on the viewport where the camera sits, this point will always remain at the same position
+    /// (relative to the viewport size; if `viewport_origin` is (0.3, 0.6), objects at (0.3, 0.6) (normalized) on the
+    /// viewport will always remain at (0.3, 0.6) (normalized).
+    ///
+    /// Set this to (0.5, 0.5) make scaling affect opposite sides equally, thereby keeping centered objects on each axis centered.
     pub viewport_origin: (f32, f32),
     /// How the projection will scale when the viewport is resized.
     pub scaling_mode: ScalingMode,
@@ -277,7 +286,7 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::FixedHorizontal(viewport_width) => {
                 (viewport_width, height * viewport_width / width)
             }
-            ScalingMode::None { width, height } => (width, height),
+            ScalingMode::Fixed { width, height } => (width, height),
         };
 
         let origin_x = frustum_width * self.viewport_origin.0;
@@ -305,7 +314,7 @@ impl Default for OrthographicProjection {
             near: 0.0,
             far: 1000.0,
             viewport_origin: (0.5, 0.5),
-            scaling_mode: ScalingMode::WindowSize(10.0),
+            scaling_mode: ScalingMode::WindowSize(1.0),
         }
     }
 }
