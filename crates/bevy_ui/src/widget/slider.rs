@@ -1,14 +1,18 @@
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::query::With;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::schedule::SystemLabel;
-use bevy_ecs::system::Query;
-use bevy_ecs::{prelude::Component, query::Changed};
+use bevy_ecs::system::{Query, Res};
+use bevy_ecs::prelude::Component;
 use bevy_hierarchy::Children;
+use bevy_input::prelude::MouseButton;
+use bevy_input::touch::Touches;
+use bevy_input::Input;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use thiserror::Error;
 
-use crate::{Node, PositionedInteraction, Style, Val};
+use crate::{Interaction, Node, RelativeCursorPosition, Style, Val};
 
 /// Describes the slider-specific value, such as max and min values and step
 #[derive(Component, Debug, Clone, Copy, Reflect)]
@@ -67,7 +71,7 @@ impl Slider {
             value
         };
 
-        if (self.min..self.max).contains(&value) {
+        if (self.min..=self.max).contains(&value) {
             self.value = value;
             return Ok(());
         }
@@ -107,37 +111,61 @@ pub enum SliderValueError {
 #[reflect(Component, Default)]
 pub struct SliderHandle;
 
+/// Whether the slider is currently being dragged
+#[derive(Component, Debug, Default, Clone, Copy, Reflect, Deref, DerefMut)]
+#[reflect(Component, Default)]
+pub struct SliderDragged(bool);
+
 /// A label for the [`update_slider_value`] system
 #[derive(SystemLabel)]
 pub struct UpdateSliderValue;
 
 pub fn update_slider_value(
-    mut slider_query: Query<(&mut Slider, &PositionedInteraction), Changed<PositionedInteraction>>,
+    mouse_button_input: Res<Input<MouseButton>>,
+    touches_input: Res<Touches>,
+    mut slider_query: Query<(
+        &mut Slider,
+        &mut SliderDragged,
+        &Interaction,
+        &RelativeCursorPosition,
+    )>,
 ) {
-    for (mut slider, interaction) in slider_query.iter_mut() {
-        match *interaction {
-            PositionedInteraction::Pressed(pos) => {
-                let min = slider.get_min();
-                let max = slider.get_max();
+    let mouse_released =
+        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
 
-                slider.set_value(pos.x * (max - min)).unwrap();
-            }
-            _ => (),
+    for (mut slider, mut slider_dragged, interaction, cursor_position) in slider_query.iter_mut() {
+        if mouse_released {
+            slider_dragged.0 = false;
+        }
+
+        if *interaction == Interaction::Clicked {
+            slider_dragged.0 = true;
+        }
+
+        if slider_dragged.0 {
+            let max = slider.get_max();
+            let min = slider.get_min();
+
+            slider
+                .set_value(cursor_position.x.clamp(0., 1.) * (max - min) + min)
+                .unwrap(); // The unwrap here is alright since the value is clamped between min and max, so it shouldn't return an error
         }
     }
 }
 
 pub fn update_slider_handle(
-    slider_query: Query<(&Slider, &Node, &Children), Changed<Slider>>,
+    slider_query: Query<(&Slider, &Node, &Children)>,
     mut slider_handles_query: Query<(&Node, &mut Style), With<SliderHandle>>,
 ) {
     for (slider, slider_node, slider_children) in slider_query.iter() {
         for child in slider_children {
-            let (slider_handle_node, mut slider_handle_style) = slider_handles_query.get_mut(*child).unwrap();
+            let (slider_handle_node, mut slider_handle_style) =
+                slider_handles_query.get_mut(*child).unwrap();
 
             let slider_width = slider_node.size.x - slider_handle_node.size.x;
 
-            slider_handle_style.margin.left = Val::Px(slider.get_value() * slider_width / (slider.get_max() - slider.get_min()));
+            slider_handle_style.margin.left =
+                Val::Px(slider.get_value() * slider_width / (slider.get_max() - slider.get_min()));
         }
     }
 }

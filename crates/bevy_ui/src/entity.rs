@@ -1,8 +1,9 @@
 //! This module contains the bundles used in Bevy's UI
 
 use crate::{
-    widget::{Button, ImageMode, Slider, SliderHandle},
-    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, PositionedInteraction,
+    widget::{Button, ImageMode, Slider, SliderDragged, SliderHandle},
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, RelativeCursorPosition, Style,
+    UiImage,
 };
 use bevy_ecs::{
     bundle::Bundle,
@@ -219,8 +220,12 @@ pub struct SliderBundle {
     pub node: Node,
     /// Slider specific values
     pub slider: Slider,
+    /// Describes the cursor position relative to the slider node
+    pub relative_cursor: RelativeCursorPosition,
     /// Describes whether and how the slider has been interacted with by the input
-    pub interaction: PositionedInteraction,
+    pub interaction: Interaction,
+    /// Whether the slider is currently being dragged by the user
+    pub dragged: SliderDragged,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
@@ -246,7 +251,7 @@ pub struct SliderBundle {
 }
 
 /// A UI node that is a slider
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Clone, Debug)]
 pub struct SliderHandleBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -277,6 +282,23 @@ pub struct SliderHandleBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+}
+
+impl Default for SliderHandleBundle {
+    fn default() -> Self {
+        Self {
+            node: Node::default(),
+            slider_handle: SliderHandle,
+            style: Style::default(),
+            focus_policy: FocusPolicy::Pass,
+            background_color: BackgroundColor::default(),
+            image: UiImage::default(),
+            transform: Transform::default(),
+            global_transform: GlobalTransform::default(),
+            visibility: Visibility::default(),
+            computed_visibility: ComputedVisibility::default(),
+        }
+    }
 }
 
 /// Configuration for cameras related to UI.

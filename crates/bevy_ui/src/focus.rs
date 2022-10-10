@@ -1,4 +1,5 @@
 use crate::{entity::UiCameraConfig, CalculatedClip, Node};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,
@@ -44,21 +45,11 @@ pub enum Interaction {
     None,
 }
 
-/// A more detailed version of [`Interaction`], also storing the position of the mouse relative to the node
-/// Also, instead of [`Interaction::Clicked`], there is a [`PositionedInteraction::Pressed`], which works for holding the mouse button instead of clicking it
-#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+/// A component storing the position of the mouse relative to the node, (0., 0.) being the bottom-left corner and (1., 1.) being the upper-right
+/// I can be used alongside interaction to get the position of the press.
+#[derive(Component, Deref, DerefMut, Copy, Clone, Default, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
-pub enum PositionedInteraction {
-    /// The node is pressed
-    /// The position of the click is stored in [`Vec2`], (0., 0.) meaning the left-bottom corner and (1., 1.) meaning the right-top corner of the node
-    Pressed(Vec2),
-    /// The node is hovered over
-    /// The position of the mouse over the node is stored in [`Vec2`], (0., 0.) meaning the left-bottom corner and (1., 1.) meaning the right-top corner of the node
-    Hovered(Vec2),
-    /// Nothing is happening
-    #[default]
-    None,
-}
+pub struct RelativeCursorPosition(Vec2);
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(
@@ -92,7 +83,7 @@ pub fn ui_focus_system(
         &Node,
         &GlobalTransform,
         Option<&mut Interaction>,
-        Option<&mut PositionedInteraction>,
+        Option<&mut RelativeCursorPosition>,
         Option<&FocusPolicy>,
         Option<&CalculatedClip>,
         Option<&ComputedVisibility>,
@@ -113,7 +104,7 @@ pub fn ui_focus_system(
             _node,
             _global_transform,
             interaction,
-            positioned_interaction,
+            _relative_cursor_position,
             _focus_policy,
             _clip,
             _visibility,
@@ -124,20 +115,11 @@ pub fn ui_focus_system(
                     *interaction = Interaction::None;
                 }
             }
-
-            if let Some(mut positioned_interaction) = positioned_interaction {
-                if matches!(*positioned_interaction, PositionedInteraction::Pressed(_)) {
-                    *positioned_interaction = PositionedInteraction::None;
-                }
-            }
         }
     }
 
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
-
-    let mouse_pressed =
-        mouse_button_input.pressed(MouseButton::Left) || touches_input.iter().next().is_some();
 
     let is_ui_disabled =
         |camera_ui| matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }));
@@ -165,7 +147,7 @@ pub fn ui_focus_system(
                 node,
                 global_transform,
                 interaction,
-                positioned_interaction,
+                relative_cursor_position_component,
                 focus_policy,
                 clip,
                 visibility,
@@ -178,14 +160,6 @@ pub fn ui_focus_system(
                             // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
                             if *interaction != Interaction::None {
                                 *interaction = Interaction::None;
-                            }
-                        }
-
-                        // Reset their positioned interaction to None to avoid strange stuck state
-                        if let Some(mut positioned_interaction) = positioned_interaction {
-                            // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
-                            if *positioned_interaction != PositionedInteraction::None {
-                                *positioned_interaction = PositionedInteraction::None;
                             }
                         }
 
@@ -215,6 +189,11 @@ pub fn ui_focus_system(
                 // if the current cursor position is within the bounds of the node, consider it for
                 // clicking
                 let contains_cursor = if let Some(cursor_position) = relative_cursor_postition {
+                    // Save the relative cursor position to the correct component
+                    if let Some(mut relative_cursor_position_component) = relative_cursor_position_component {
+                        relative_cursor_position_component.0 = cursor_position;
+                    }
+
                     ((0.)..1.).contains(&cursor_position.x)
                         && ((0.)..1.).contains(&cursor_position.y)
                 } else {
@@ -224,10 +203,8 @@ pub fn ui_focus_system(
                 if contains_cursor {
                     Some((
                         entity,
-                        relative_cursor_postition.unwrap(), // unwrap here is alright, since contains_cursor would be false if the relative_cursor_position was None
                         focus_policy,
                         interaction,
-                        positioned_interaction,
                         FloatOrd(position.z),
                     ))
                 } else {
@@ -238,26 +215,18 @@ pub fn ui_focus_system(
                             *interaction = Interaction::None;
                         }
                     }
-
-                    if let Some(mut positioned_interaction) = positioned_interaction {
-                        if matches!(*positioned_interaction, PositionedInteraction::Hovered(_))
-                            || (cursor_position.is_none()
-                                && *positioned_interaction != PositionedInteraction::None)
-                        {
-                            *positioned_interaction = PositionedInteraction::None;
-                        }
-                    }
+    
                     None
                 }
             },
         )
         .collect::<Vec<_>>();
 
-    moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, _, _, z)| -*z);
+    moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
 
     let mut moused_over_z_sorted_nodes = moused_over_z_sorted_nodes.into_iter();
     // set Clicked or Hovered on top nodes
-    for (entity, relative_cursor_position, focus_policy, interaction, positioned_interaction, _) in
+    for (entity, focus_policy, interaction, _) in
         moused_over_z_sorted_nodes.by_ref()
     {
         if let Some(mut interaction) = interaction {
@@ -276,27 +245,6 @@ pub fn ui_focus_system(
             }
         }
 
-        if let Some(mut positioned_interaction) = positioned_interaction {
-            if mouse_pressed {
-                // only consider nodes with Interaction "clickable"
-                if *positioned_interaction
-                    != PositionedInteraction::Pressed(relative_cursor_position)
-                {
-                    *positioned_interaction =
-                        PositionedInteraction::Pressed(relative_cursor_position);
-                    // if the mouse was simultaneously released, reset this Interaction in the next
-                    // frame
-                    if mouse_released {
-                        state.entities_to_reset.push(entity);
-                    }
-                }
-            } else if *positioned_interaction
-                != PositionedInteraction::Hovered(relative_cursor_position)
-            {
-                *positioned_interaction = PositionedInteraction::Hovered(relative_cursor_position);
-            }
-        }
-
         match focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
             FocusPolicy::Block => {
                 break;
@@ -307,10 +255,8 @@ pub fn ui_focus_system(
     // reset lower nodes to None
     for (
         _entity,
-        _relative_cursor_position,
         _focus_policy,
         interaction,
-        positioned_interaction,
         _,
     ) in moused_over_z_sorted_nodes
     {
@@ -318,15 +264,6 @@ pub fn ui_focus_system(
             // don't reset clicked nodes because they're handled separately
             if *interaction != Interaction::Clicked && *interaction != Interaction::None {
                 *interaction = Interaction::None;
-            }
-        }
-
-        if let Some(mut positioned_interaction) = positioned_interaction {
-            // don't reset clicked nodes because they're handled separately
-            if !matches!(*positioned_interaction, PositionedInteraction::Pressed(_))
-                && *positioned_interaction != PositionedInteraction::None
-            {
-                *positioned_interaction = PositionedInteraction::None;
             }
         }
     }
