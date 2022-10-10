@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Configures ambiguity detection for a single system.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) enum AmbiguityDetection {
     #[default]
     Check,
