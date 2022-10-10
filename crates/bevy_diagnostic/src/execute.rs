@@ -2,7 +2,7 @@ use bevy_app::App;
 use bevy_ecs::prelude::{Commands, World};
 use bevy_ecs::system::CommandQueue;
 
-/// Extension trait used to execute some [`Commands`] immediately on a [`World`].
+/// Extension trait used to execute [`Commands`] immediately on a [`World`].
 pub trait Execute {
     fn execute<F: FnOnce(&World, Commands) -> R, R>(self, f: F) -> R;
 }
@@ -24,7 +24,7 @@ impl Execute for &mut World {
     ///
     /// let mut world = World::default();
     /// let entity = world.execute(|_world, mut commands| {
-    ///     commands.spawn(()).id()
+    ///     commands.spawn_empty().id()
     /// });
     ///
     /// assert!(world.get_entity(entity).is_some());

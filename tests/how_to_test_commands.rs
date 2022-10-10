@@ -34,7 +34,7 @@ fn did_set_destination() {
     let mut world = World::default();
 
     // Spawn entity
-    let entity = world.spawn(Position::default()).id();
+    let entity = world.spawn_empty().id();
 
     // Spawn target at `TARGET_POS`
     let target = world.spawn(Position(TARGET_POS)).id();
