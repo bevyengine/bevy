@@ -184,10 +184,10 @@ pub enum ScalingMode {
     /// Keeping the aspect ratio while the axes can't be bigger than given maximum.
     /// Arguments are in world units.
     AutoMax { max_width: f32, max_height: f32 },
-    /// Keep the projection's height constant; adjust width to match aspect ratio.
+    /// Keep the projection's height constant; width will be adjusted to match aspect ratio.
     /// The argument is the desired height of the projection in world units.
     FixedVertical(f32),
-    /// Keep the projection's width constant; adjust height to match aspect ratio.
+    /// Keep the projection's width constant; height will be adjusted to match aspect ratio.
     /// The argument is the desired width of the projection in world units.
     FixedHorizontal(f32),
 }
