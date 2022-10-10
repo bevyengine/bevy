@@ -17,7 +17,7 @@ use bevy_utils::{tracing::warn, HashMap, HashSet};
 use core::fmt::Debug;
 use downcast_rs::{impl_downcast, Downcast};
 
-use super::IntoSystemDescriptor;
+use super::{IntoSystemDescriptor, Schedule};
 
 /// A type that can run as a step of a [`Schedule`](super::Schedule).
 pub trait Stage: Downcast + Send + Sync {
@@ -28,7 +28,13 @@ pub trait Stage: Downcast + Send + Sync {
 
 impl Debug for dyn Stage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Stage {:?}", self.as_any().downcast_ref::<SystemStage>())
+        if let Some(as_systemstage) = self.as_any().downcast_ref::<SystemStage>() {
+            write!(f, "{:?}", as_systemstage)
+        } else if let Some(as_schedule) = self.as_any().downcast_ref::<Schedule>() {
+            write!(f, "{:?}", as_schedule)
+        } else {
+            write!(f, "Unknown dyn Stage")
+        }
     }
 }
 
