@@ -30,7 +30,7 @@ pub struct DynamicSceneBuilder<'w> {
 
 impl<'w> DynamicSceneBuilder<'w> {
     /// Prepare a builder that will extract entities and their component from the given [`World`].
-    /// All components registered in that world's [`AppTypeRegistry`] will be extracted.
+    /// All components registered in that world's [`AppTypeRegistry`] resource will be extracted.
     pub fn from_world(world: &'w World) -> Self {
         Self {
             scene: default(),
@@ -49,7 +49,7 @@ impl<'w> DynamicSceneBuilder<'w> {
         }
     }
 
-    /// Consume the builder, and produce the [`DynamicScene`].
+    /// Consume the builder, producing a [`DynamicScene`].
     pub fn build(self) -> DynamicScene {
         DynamicScene {
             entities: self.scene.into_values().collect(),
