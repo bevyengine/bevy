@@ -57,11 +57,15 @@ impl<'w> DynamicSceneBuilder<'w> {
     }
 
     /// Extract one entity from the builder's [`World`].
+    ///
+    /// Re-extracting an entity that was already extracted will have no effect.
     pub fn extract_entity(&mut self, entity: Entity) -> &mut Self {
         self.extract_entities(std::iter::once(entity))
     }
 
     /// Extract entities from the builder's [`World`].
+    ///
+    /// Re-extracting an entity that was already extracted will have no effect.
     ///
     /// Extracting entities can be used to extract entities from a query:
     /// ```
