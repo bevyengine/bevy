@@ -77,10 +77,15 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     }
     push_events(world, events);
 
-    if let Some(mut parent_children) = world.get_mut::<Children>(parent) {
+    let mut parent = world.entity_mut(parent);
+    if let Some(mut parent_children) = parent.get_mut::<Children>() {
         parent_children
             .0
             .retain(|parent_child| !children.contains(parent_child));
+
+        if parent_children.is_empty() {
+            parent.remove::<Children>();
+        }
     }
 }
 
@@ -258,12 +263,26 @@ pub trait BuildChildren {
     /// ```
     fn add_children<T>(&mut self, f: impl FnOnce(&mut ChildBuilder) -> T) -> T;
     /// Pushes children to the back of the builder's children
+    ///
+    /// If the children were previously children of another parent, that parent's [`Children`] component
+    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// [`Children`] component to be removed from the entity.
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index
+    ///
+    /// If the children were previously children of another parent, that parent's [`Children`] component
+    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// [`Children`] component to be removed from the entity.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
     /// Removes the given children
+    ///
+    /// Removing all children from a parent causes its [`Children`] component to be removed from the entity.
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Adds a single child
+    ///
+    /// If the children were previously children of another parent, that parent's [`Children`] component
+    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// [`Children`] component to be removed from the entity.
     fn add_child(&mut self, child: Entity) -> &mut Self;
 }
 
@@ -670,6 +689,96 @@ mod tests {
         );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child4).is_none());
+    }
+
+    /// Tests what happens when all children are removed from a parent using world functions
+    #[test]
+    fn children_removed_when_empty_world() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![(C(1),), (C(2),), (C(3),)])
+            .collect::<Vec<Entity>>();
+
+        let parent1 = entities[0];
+        let parent2 = entities[1];
+        let child = entities[2];
+
+        // push child into parent1
+        world.entity_mut(parent1).push_children(&[child]);
+        assert_eq!(
+            world.get::<Children>(parent1).unwrap().0.as_slice(),
+            &[child]
+        );
+
+        // move only child from parent1 with `push_children`
+        world.entity_mut(parent2).push_children(&[child]);
+        assert!(world.get::<Children>(parent1).is_none());
+
+        // move only child from parent2 with `insert_children`
+        world.entity_mut(parent1).insert_children(0, &[child]);
+        assert!(world.get::<Children>(parent2).is_none());
+
+        // remove only child from parent1 with `remove_children`
+        world.entity_mut(parent1).remove_children(&[child]);
+        assert!(world.get::<Children>(parent1).is_none());
+    }
+
+    /// Tests what happens when all children are removed form a parent using commands
+    #[test]
+    fn children_removed_when_empty_commands() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![(C(1),), (C(2),), (C(3),)])
+            .collect::<Vec<Entity>>();
+
+        let parent1 = entities[0];
+        let parent2 = entities[1];
+        let child = entities[2];
+
+        let mut queue = CommandQueue::default();
+
+        // push child into parent1
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent1).push_children(&[child]);
+            queue.apply(&mut world);
+        }
+        assert_eq!(
+            world.get::<Children>(parent1).unwrap().0.as_slice(),
+            &[child]
+        );
+
+        // move only child from parent1 with `push_children`
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent2).push_children(&[child]);
+            queue.apply(&mut world);
+        }
+        assert!(world.get::<Children>(parent1).is_none());
+
+        // move only child from parent2 with `insert_children`
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent1).insert_children(0, &[child]);
+            queue.apply(&mut world);
+        }
+        assert!(world.get::<Children>(parent2).is_none());
+
+        // move only child from parent1 with `add_child`
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent2).add_child(child);
+            queue.apply(&mut world);
+        }
+        assert!(world.get::<Children>(parent1).is_none());
+
+        // remove only child from parent2 with `remove_children`
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent2).remove_children(&[child]);
+            queue.apply(&mut world);
+        }
+        assert!(world.get::<Children>(parent2).is_none());
     }
 
     #[test]
