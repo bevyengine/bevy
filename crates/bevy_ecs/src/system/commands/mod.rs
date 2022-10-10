@@ -907,54 +907,13 @@ impl Command for LogComponents {
     }
 }
 
-/// Trait to execute some [`Commands`] on some [`World`].
-pub trait Execute {
-    fn execute<F: FnOnce(&World, Commands) -> R, R>(self, f: F) -> R;
-}
-
-impl Execute for &mut World {
-    /// Creates a new [`Commands`] instances and passes it to the given function, then executes it on this [`World`].
-    ///
-    /// # Usage
-    ///
-    /// This function is not an efficient method of executing commands because it requires the creation of a
-    /// dedicated [`CommandQueue`] per call. See documentation on [`Commands`] for proper usage.
-    ///
-    /// However, this function provides a convenient tool for diagnostics and testing because it allows you to
-    /// invoke commands on a world immediately, without the need for a system.
-    /// Therefore, its use should be reserved for special cases where performance or memory is not a concern.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    /// use bevy_ecs::system::Execute;
-    ///
-    /// let mut world = World::default();
-    /// world.execute(|_world, mut commands| {
-    ///     /* ... */
-    /// });
-    /// ```
-    ///
-    /// # See also
-    /// - [`Commands`]
-    /// - [`World`]
-    fn execute<F: FnOnce(&World, Commands) -> R, R>(self, f: F) -> R {
-        let mut queue = CommandQueue::default();
-        let commands = Commands::new(&mut queue, self);
-        let result = f(self, commands);
-        queue.apply(self);
-        result
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Execute, Resource},
+        system::{CommandQueue, Commands, Resource},
         world::World,
     };
     use std::sync::{
@@ -1107,14 +1066,5 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
-    }
-
-    #[test]
-    fn test_immediate_command_execution() {
-        let mut world = World::default();
-
-        let entity = world.execute(|_, mut commands| commands.spawn(()).id());
-
-        assert!(world.get_entity(entity).is_some());
     }
 }

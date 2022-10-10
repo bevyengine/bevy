@@ -1,5 +1,6 @@
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
+mod execute;
 mod frame_time_diagnostics_plugin;
 mod log_diagnostics_plugin;
 pub use diagnostic::*;
