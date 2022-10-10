@@ -27,6 +27,7 @@ use bevy_utils::HashMap;
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct TouchInput {
     /// The phase of the touch input.
     pub phase: TouchPhase,
@@ -43,6 +44,7 @@ pub struct TouchInput {
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum ForceTouch {
     /// On iOS, the force is calibrated so that the same number corresponds to
     /// roughly the same amount of pressure on the screen regardless of the
