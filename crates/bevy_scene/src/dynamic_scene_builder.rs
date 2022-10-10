@@ -88,28 +88,31 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-            if !self.scene.contains_key(&entity.id()) {
-                let mut entry = DynamicEntity {
-                    entity: entity.id(),
-                    components: Vec::new(),
-                };
+            if self.scene.contains_key(&entity.id()) {
+                continue;
+            }
 
-                for component_id in self.world.entity(entity).archetype().components() {
-                    let reflect_component = self
-                        .world
-                        .components()
-                        .get_info(component_id)
-                        .and_then(|info| type_registry.get(info.type_id().unwrap()))
-                        .and_then(|registration| registration.data::<ReflectComponent>());
+            let mut entry = DynamicEntity {
+                entity: entity.id(),
+                components: Vec::new(),
+            };
 
-                    if let Some(reflect_component) = reflect_component {
-                        if let Some(component) = reflect_component.reflect(self.world, entity) {
-                            entry.components.push(component.clone_value());
-                        }
+            for component_id in self.world.entity(entity).archetype().components() {
+                let reflect_component = self
+                    .world
+                    .components()
+                    .get_info(component_id)
+                    .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                    .and_then(|registration| registration.data::<ReflectComponent>());
+
+                if let Some(reflect_component) = reflect_component {
+                    if let Some(component) = reflect_component.reflect(self.world, entity) {
+                        entry.components.push(component.clone_value());
                     }
                 }
-                self.scene.insert(entity.id(), entry);
             }
+
+            self.scene.insert(entity.id(), entry);
         }
 
         drop(type_registry);
