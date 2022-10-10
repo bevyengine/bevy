@@ -20,7 +20,7 @@ impl Execute for &mut World {
     /// # Example
     /// ```
     /// use bevy::prelude::*;
-    /// use moonshine_core::execute::Execute;
+    /// use bevy_diagnostic::Execute;
     ///
     /// let mut world = World::default();
     /// let entity = world.execute(|_world, mut commands| {
