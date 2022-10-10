@@ -1,4 +1,5 @@
 use crate::{schedule::SystemContainer, world::World};
+use core::fmt::Debug;
 use downcast_rs::{impl_downcast, Downcast};
 
 pub trait ParallelSystemExecutor: Downcast + Send + Sync {
@@ -8,9 +9,15 @@ pub trait ParallelSystemExecutor: Downcast + Send + Sync {
     fn run_systems(&mut self, systems: &mut [SystemContainer], world: &mut World);
 }
 
+impl Debug for dyn ParallelSystemExecutor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "dyn ParallelSystemExecutor")
+    }
+}
+
 impl_downcast!(ParallelSystemExecutor);
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SingleThreadedExecutor;
 
 impl ParallelSystemExecutor for SingleThreadedExecutor {

@@ -1,8 +1,10 @@
 use crate::{
+    prelude::System,
     schedule::{GraphNode, RunCriteriaLabel, RunCriteriaLabelId},
     system::{BoxedSystem, IntoSystem, Local},
     world::World,
 };
+use core::fmt::Debug;
 use std::borrow::Cow;
 
 /// Determines whether a system should be executed or not, and how many times it should be ran each
@@ -66,7 +68,7 @@ impl From<bool> for ShouldRun {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct BoxedRunCriteria {
     criteria_system: Option<BoxedSystem<(), ShouldRun>>,
     initialized: bool,
@@ -93,6 +95,7 @@ impl BoxedRunCriteria {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum RunCriteriaInner {
     Single(BoxedSystem<(), ShouldRun>),
     Piped {
@@ -101,6 +104,7 @@ pub(crate) enum RunCriteriaInner {
     },
 }
 
+#[derive(Debug)]
 pub(crate) struct RunCriteriaContainer {
     pub(crate) should_run: ShouldRun,
     pub(crate) inner: RunCriteriaInner,
@@ -165,17 +169,19 @@ impl GraphNode for RunCriteriaContainer {
     }
 }
 
+#[derive(Debug)]
 pub enum RunCriteriaDescriptorOrLabel {
     Descriptor(RunCriteriaDescriptor),
     Label(RunCriteriaLabelId),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum DuplicateLabelStrategy {
     Panic,
     Discard,
 }
 
+#[derive(Debug)]
 pub struct RunCriteriaDescriptor {
     pub(crate) system: RunCriteriaSystem,
     pub(crate) label: Option<RunCriteriaLabelId>,
@@ -184,6 +190,7 @@ pub struct RunCriteriaDescriptor {
     pub(crate) after: Vec<RunCriteriaLabelId>,
 }
 
+#[derive(Debug)]
 pub(crate) enum RunCriteriaSystem {
     Single(BoxedSystem<(), ShouldRun>),
     Piped(BoxedSystem<ShouldRun, ShouldRun>),
@@ -326,6 +333,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct RunCriteria {
     label: RunCriteriaLabelId,
 }
@@ -344,5 +352,51 @@ impl RunCriteria {
             before: vec![],
             after: vec![label.as_label()],
         }
+    }
+}
+
+impl Debug for dyn System<In = (), Out = ShouldRun> + 'static {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "System {} with In=(), Out=ShouldRun: {{{}}}",
+            self.name(),
+            {
+                if self.is_send() {
+                    if self.is_exclusive() {
+                        "is_send is_exclusive"
+                    } else {
+                        "is_send"
+                    }
+                } else if self.is_exclusive() {
+                    "is_exclusive"
+                } else {
+                    ""
+                }
+            },
+        )
+    }
+}
+
+impl Debug for dyn System<In = ShouldRun, Out = ShouldRun> + 'static {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "System {} with In=ShouldRun, Out=ShouldRun: {{{}}}",
+            self.name(),
+            {
+                if self.is_send() {
+                    if self.is_exclusive() {
+                        "is_send is_exclusive"
+                    } else {
+                        "is_send"
+                    }
+                } else if self.is_exclusive() {
+                    "is_exclusive"
+                } else {
+                    ""
+                }
+            },
+        )
     }
 }
