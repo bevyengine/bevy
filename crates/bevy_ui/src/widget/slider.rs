@@ -158,7 +158,7 @@ pub fn update_slider_handle(
             let slider_width = slider_node.size.x - slider_handle_node.size.x;
 
             slider_handle_style.margin.left =
-                Val::Px(slider.get_value() * slider_width / (slider.get_max() - slider.get_min()));
+                Val::Px((slider.get_value() - slider.get_min()) * slider_width / (slider.get_max() - slider.get_min()));
         }
     }
 }
