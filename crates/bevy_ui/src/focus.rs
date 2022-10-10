@@ -47,7 +47,19 @@ pub enum Interaction {
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the bottom-left corner and (1., 1.) being the upper-right
 /// I can be used alongside interaction to get the position of the press.
-#[derive(Component, Deref, DerefMut, Copy, Clone, Default, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[derive(
+    Component,
+    Deref,
+    DerefMut,
+    Copy,
+    Clone,
+    Default,
+    PartialEq,
+    Debug,
+    Reflect,
+    Serialize,
+    Deserialize,
+)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub struct RelativeCursorPosition(Vec2);
 
@@ -190,7 +202,9 @@ pub fn ui_focus_system(
                 // clicking
                 let contains_cursor = if let Some(cursor_position) = relative_cursor_postition {
                     // Save the relative cursor position to the correct component
-                    if let Some(mut relative_cursor_position_component) = relative_cursor_position_component {
+                    if let Some(mut relative_cursor_position_component) =
+                        relative_cursor_position_component
+                    {
                         relative_cursor_position_component.0 = cursor_position;
                     }
 
@@ -201,12 +215,7 @@ pub fn ui_focus_system(
                 };
 
                 if contains_cursor {
-                    Some((
-                        entity,
-                        focus_policy,
-                        interaction,
-                        FloatOrd(position.z),
-                    ))
+                    Some((entity, focus_policy, interaction, FloatOrd(position.z)))
                 } else {
                     if let Some(mut interaction) = interaction {
                         if *interaction == Interaction::Hovered
@@ -215,7 +224,7 @@ pub fn ui_focus_system(
                             *interaction = Interaction::None;
                         }
                     }
-    
+
                     None
                 }
             },
@@ -226,9 +235,7 @@ pub fn ui_focus_system(
 
     let mut moused_over_z_sorted_nodes = moused_over_z_sorted_nodes.into_iter();
     // set Clicked or Hovered on top nodes
-    for (entity, focus_policy, interaction, _) in
-        moused_over_z_sorted_nodes.by_ref()
-    {
+    for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes.by_ref() {
         if let Some(mut interaction) = interaction {
             if mouse_clicked {
                 // only consider nodes with Interaction "clickable"
@@ -253,13 +260,7 @@ pub fn ui_focus_system(
         }
     }
     // reset lower nodes to None
-    for (
-        _entity,
-        _focus_policy,
-        interaction,
-        _,
-    ) in moused_over_z_sorted_nodes
-    {
+    for (_entity, _focus_policy, interaction, _) in moused_over_z_sorted_nodes {
         if let Some(mut interaction) = interaction {
             // don't reset clicked nodes because they're handled separately
             if *interaction != Interaction::Clicked && *interaction != Interaction::None {
