@@ -568,7 +568,9 @@ pub fn queue_sprites(
                 let positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
                     extracted_sprite
                         .transform
-                        .mul_vec3(((quad_pos - extracted_sprite.anchor) * quad_size).extend(0.))
+                        .transform_point(
+                            ((quad_pos - extracted_sprite.anchor) * quad_size).extend(0.),
+                        )
                         .into()
                 });
 
