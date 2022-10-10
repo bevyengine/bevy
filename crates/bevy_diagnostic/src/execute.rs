@@ -24,7 +24,7 @@ impl Execute for &mut World {
     ///
     /// let mut world = World::default();
     /// let entity = world.execute(|_world, mut commands| {
-    ///     commands.spawn().id()
+    ///     commands.spawn(()).id()
     /// });
     ///
     /// assert!(world.get_entity(entity).is_some());
