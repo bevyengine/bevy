@@ -1,4 +1,4 @@
-//! TaskPool implementation for non-wasm platforms.
+//! Task pool implementation for non-wasm platforms.
 
 use std::{
     future::Future,

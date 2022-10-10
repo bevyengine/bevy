@@ -141,7 +141,7 @@ impl TaskPool {
     {
         self.0.scope(|s| {
             let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&Scope(s)) };
-            f(scope_ref)
+            f(scope_ref);
         })
     }
 
@@ -186,7 +186,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`PlatformTaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        self.0.spawn(f)
+        self.0.spawn(f);
     }
 
     /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
@@ -196,7 +196,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        self.0.spawn_on_scope(f)
+        self.0.spawn_on_scope(f);
     }
 }
 

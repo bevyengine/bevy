@@ -1,4 +1,4 @@
-//! TaskPool implementation for wasm platform.
+//! Task pool implementation for wasm platform.
 
 use std::{
     future::Future,
