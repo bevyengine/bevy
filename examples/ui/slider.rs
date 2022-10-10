@@ -1,5 +1,4 @@
-//! This example illustrates how to create a button that changes color and text based on its
-//! interaction state.
+//! This example illustrates how to create a slider and display its value on a text node.
 
 use bevy::{prelude::*, ui::widget::Slider, winit::WinitSettings};
 
