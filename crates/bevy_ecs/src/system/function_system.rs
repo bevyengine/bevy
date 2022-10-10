@@ -535,9 +535,9 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     world.insert_resource(Message("42".to_string()));
 ///
 ///     // chain the `parse_message_system`'s output into the `filter_system`s input
-///     let mut chained_system = IntoSystem::into_system(chain(parse_message, filter));
-///     chained_system.initialize(&mut world);
-///     assert_eq!(chained_system.run((), &mut world), Some(42));
+///     let mut piped_system = IntoSystem::into_system(chain(parse_message, filter));
+///     piped_system.initialize(&mut world);
+///     assert_eq!(piped_system.run((), &mut world), Some(42));
 /// }
 ///
 /// #[derive(Resource)]

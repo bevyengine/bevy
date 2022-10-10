@@ -29,7 +29,7 @@ use std::borrow::Cow;
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // chain the `parse_message_system`'s output into the `filter_system`s input
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = parse_message_system.pipe(filter_system);
 ///     piped_system.initialize(&mut world);
 ///     assert_eq!(piped_system.run((), &mut world), Some(42));
@@ -135,8 +135,7 @@ pub trait IntoPipeSystem<ParamA, Payload, SystemB, ParamB, Out>:
 where
     SystemB: IntoSystem<Payload, Out, ParamB>,
 {
-    /// Chain this system `A` with another system `B` creating a new system that feeds system A's
-    /// output into system `B`, returning the output of system `B`.
+    /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
     fn pipe(self, system: SystemB) -> PipeSystem<Self::System, SystemB::System>;
 }
 
@@ -171,9 +170,9 @@ pub mod adapter {
     /// use bevy_ecs::prelude::*;
     ///
     /// return1
-    ///     .chain(system_adapter::new(u32::try_from))
-    ///     .chain(system_adapter::unwrap)
-    ///     .chain(print);
+    ///     .pipe(system_adapter::new(u32::try_from))
+    ///     .pipe(system_adapter::unwrap)
+    ///     .pipe(print);
     ///
     /// fn return1() -> u64 { 1 }
     /// fn print(In(x): In<impl std::fmt::Debug>) {
@@ -207,7 +206,7 @@ pub mod adapter {
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // Panic if the load system returns an error.
-    ///         load_save_system.chain(system_adapter::unwrap)
+    ///         load_save_system.pipe(system_adapter::unwrap)
     ///     )
     ///     // ...
     /// #   ;
@@ -227,7 +226,7 @@ pub mod adapter {
         res.unwrap()
     }
 
-    /// System adapter that ignores the output of the previous system in a chain.
+    /// System adapter that ignores the output of the previous system in a pipe.
     /// This is useful for fallible systems that should simply return early in case of an `Err`/`None`.
     ///
     /// # Examples
@@ -251,7 +250,7 @@ pub mod adapter {
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // If the system fails, just move on and try again next frame.
-    ///         fallible_system.chain(system_adapter::ignore)
+    ///         fallible_system.pipe(system_adapter::ignore)
     ///     )
     ///     // ...
     /// #   ;
