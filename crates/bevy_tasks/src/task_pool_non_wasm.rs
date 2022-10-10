@@ -144,75 +144,6 @@ impl PlatformTaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bevy_tasks::TaskPool;
-    ///
-    /// let pool = TaskPool::new();
-    /// let mut x = 0;
-    /// let results = pool.scope(|s| {
-    ///     s.spawn(async {
-    ///         // you can borrow the spawner inside a task and spawn tasks from within the task
-    ///         s.spawn(async {
-    ///             // borrow x and mutate it.
-    ///             x = 2;
-    ///             // return a value from the task
-    ///             1
-    ///         });
-    ///         // return some other value from the first task
-    ///         0
-    ///     });
-    /// });
-    ///
-    /// // results are returned in the order the tasks are spawned in.
-    /// // Note: the ordering may become non-deterministic if you spawn from within tasks.
-    /// // the ordering is only guaranteed when tasks are spawned directly from the main closure.
-    /// assert_eq!(&results[..], &[0, 1]);
-    /// // can access x after scope runs
-    /// assert_eq!(x, 2);
-    /// ```
-    ///
-    /// # Lifetimes
-    ///
-    /// The [`Scope`] object takes two lifetimes: `'scope` and `'env`.
-    ///
-    /// The `'scope` lifetime represents the lifetime of the scope. That is the time during
-    /// which the provided closure and tasks that are spawned into the scope are run.
-    ///
-    /// The `'env` lifetime represents the lifetime of whatever is borrowed by the scope.
-    /// Thus this lifetime must outlive `'scope`.
-    ///
-    /// ```compile_fail
-    /// use bevy_tasks::TaskPool;
-    /// fn scope_escapes_closure() {
-    ///     let pool = TaskPool::new();
-    ///     let foo = Box::new(42);
-    ///     pool.scope(|scope| {
-    ///         std::thread::spawn(move || {
-    ///             // UB. This could spawn on the scope after `.scope` returns and the internal Scope is dropped.
-    ///             scope.spawn(async move {
-    ///                 assert_eq!(*foo, 42);
-    ///             });
-    ///         });
-    ///     });
-    /// }
-    /// ```
-    ///
-    /// ```compile_fail
-    /// use bevy_tasks::TaskPool;
-    /// fn cannot_borrow_from_closure() {
-    ///     let pool = TaskPool::new();
-    ///     pool.scope(|scope| {
-    ///         let x = 1;
-    ///         let y = &x;
-    ///         scope.spawn(async move {
-    ///             assert_eq!(*y, 1);
-    ///         });
-    ///     });
-    /// }
-    ///
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
         F: for<'scope> FnOnce(&'scope PlatformScope<'scope, 'env, T>),
@@ -220,7 +151,7 @@ impl PlatformTaskPool {
     {
         // SAFETY: This safety comment applies to all references transmuted to 'env.
         // Any futures spawned with these references need to return before this function completes.
-        // This is guaranteed because we drive all the futures spawned onto the Scope
+        // This is guaranteed because we drive all the futures spawned onto the [`PlatformScope`]
         // to completion in this function. However, rust has no way of knowing this so we
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         let executor: &async_executor::Executor = &*self.executor;
@@ -289,7 +220,7 @@ impl PlatformTaskPool {
     /// cancelled and "detached" allowing it to continue running without having to be polled by the
     /// end-user.
     ///
-    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
+    /// If the provided future is non-`Send`, [`PlatformTaskPool::spawn_local`] should be used instead.
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
@@ -300,7 +231,7 @@ impl PlatformTaskPool {
     /// Spawns a static future on the thread-local async executor for the current thread. The task
     /// will run entirely on the thread the task was spawned on.  The returned Task is a future.
     /// It can also be cancelled and "detached" allowing it to continue running without having
-    /// to be polled by the end-user. Users should generally prefer to use [`TaskPool::spawn`]
+    /// to be polled by the end-user. Users should generally prefer to use [`PlatformTaskPool::spawn`]
     /// instead, unless the provided future is not `Send`.
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
@@ -330,9 +261,9 @@ impl Drop for PlatformTaskPool {
     }
 }
 
-/// A `TaskPool` scope for running one or more non-`'static` futures.
+/// A [`PlatformTaskPool`] scope for running one or more non-`'static` futures.
 ///
-/// For more information, see [`TaskPool::scope`].
+/// For more information, see [`PlatformTaskPool::scope`].
 #[derive(Debug)]
 pub struct PlatformScope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
@@ -348,7 +279,7 @@ impl<'scope, 'env, T: Send + 'scope> PlatformScope<'scope, 'env, T> {
     /// the provided future. The results of the future will be returned as a part of
     /// [`PlatformTaskPool::scope`]'s return value.
     ///
-    /// For futures that should run on the thread `scope` is called on [`Scope::spawn_on_scope`] should be used
+    /// For futures that should run on the thread `scope` is called on [`PlatformScope::spawn_on_scope`] should be used
     /// instead.
     ///
     /// For more information, see [`PlatformTaskPool::scope`].
@@ -361,10 +292,10 @@ impl<'scope, 'env, T: Send + 'scope> PlatformScope<'scope, 'env, T> {
 
     /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
-    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
-    /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
+    /// [`PlatformTaskPool::scope`]'s return value.  Users should generally prefer to use
+    /// [`PlatformScope::spawn`] instead, unless the provided future needs to run on the scope's thread.
     ///
-    /// For more information, see [`TaskPool::scope`].
+    /// For more information, see [`PlatformTaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         let task = self.task_scope_executor.spawn(f);
         // ConcurrentQueue only errors when closed or full, but we never
