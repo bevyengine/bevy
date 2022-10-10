@@ -20,7 +20,7 @@ use crate::{Interaction, Node, RelativeCursorPosition, Style, Val};
 pub struct Slider {
     min: f32,
     max: f32,
-    step: Option<f32>,
+    step: f32,
     value: f32,
 }
 
@@ -29,7 +29,7 @@ impl Default for Slider {
         Self {
             min: 0.,
             max: 100.,
-            step: None,
+            step: 0.,
             value: 0.,
         }
     }
@@ -42,7 +42,7 @@ impl Slider {
         Self {
             min,
             max,
-            step: None,
+            step: 0.,
             value: min,
         }
     }
@@ -54,19 +54,16 @@ impl Slider {
 
     // Consumes self, returning a new [`Slider`] with a given step
     pub fn with_step(self, step: f32) -> Self {
-        if step == 0. {
-            return Self { step: None, ..self };
-        }
         Self {
-            step: Some(step),
+            step,
             ..self
         }
     }
 
     pub fn set_value(&mut self, value: f32) -> Result<(), SliderValueError> {
         // Round the value up to self.step (we have to consider that self.min can be a fraction)
-        let value = if let Some(step) = self.step {
-            (value / step).round() * step
+        let value = if self.step != 0. {
+            (value / self.step).round() * self.step
         } else {
             value
         };
@@ -92,11 +89,7 @@ impl Slider {
     }
 
     pub fn get_step(&self) -> f32 {
-        if let Some(step) = self.step {
-            return step;
-        }
-
-        0.
+        self.step
     }
 }
 
