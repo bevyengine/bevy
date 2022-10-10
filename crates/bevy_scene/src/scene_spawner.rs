@@ -295,14 +295,19 @@ impl SceneSpawner {
         self.spawned_instances.contains_key(&instance_id)
     }
 
-    /// Get an iterator over the entities in an instance, once it's spawned
+    /// Get an iterator over the entities in an instance, once it's spawned.
+    ///
+    /// Before the scene is spawned, the iterator will be empty. Use [`Self::instance_is_ready`]
+    /// to check if the instance is ready.
     pub fn iter_instance_entities(
         &'_ self,
         instance_id: InstanceId,
-    ) -> Option<impl Iterator<Item = Entity> + '_> {
+    ) -> impl Iterator<Item = Entity> + '_ {
         self.spawned_instances
             .get(&instance_id)
             .map(|instance| instance.entity_map.values())
+            .into_iter()
+            .flatten()
     }
 }
 
