@@ -19,7 +19,7 @@ impl Execute for &mut World {
     ///
     /// # Example
     /// ```
-    /// use bevy::prelude::*;
+    /// use bevy_ecs::prelude::*;
     /// use bevy_diagnostic::Execute;
     ///
     /// let mut world = World::default();
