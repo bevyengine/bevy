@@ -88,7 +88,11 @@ struct SubApp {
 
 impl Debug for SubApp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SubApp")
+        write!(f, "SubApp {{ app: ")?;
+        f.debug_map()
+            .entries(self.app.sub_apps.iter().map(|(k, v)| (k, v)))
+            .finish()?;
+        write!(f, "}}")
     }
 }
 

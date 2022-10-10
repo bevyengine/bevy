@@ -82,7 +82,7 @@ impl SystemContainer {
 
 impl Debug for SystemContainer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\n{{{:?}}}", &self.system())
+        write!(f, "{{{:?}}}", &self.system())
     }
 }
 

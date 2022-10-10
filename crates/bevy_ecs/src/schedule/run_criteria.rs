@@ -68,18 +68,6 @@ impl From<bool> for ShouldRun {
     }
 }
 
-impl Debug for dyn System<In = (), Out = ShouldRun> + 'static {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "System with In=(), Out=ShouldRun")
-    }
-}
-
-impl Debug for dyn System<In = ShouldRun, Out = ShouldRun> + 'static {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "System with In=ShouldRun, Out=ShouldRun")
-    }
-}
-
 #[derive(Debug, Default)]
 pub(crate) struct BoxedRunCriteria {
     criteria_system: Option<BoxedSystem<(), ShouldRun>>,
@@ -364,5 +352,51 @@ impl RunCriteria {
             before: vec![],
             after: vec![label.as_label()],
         }
+    }
+}
+
+impl Debug for dyn System<In = (), Out = ShouldRun> + 'static {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "System {} with In=(), Out=ShouldRun: {{{}}}",
+            self.name(),
+            {
+                if self.is_send() {
+                    if self.is_exclusive() {
+                        "is_send is_exclusive"
+                    } else {
+                        "is_send"
+                    }
+                } else if self.is_exclusive() {
+                    "is_exclusive"
+                } else {
+                    ""
+                }
+            },
+        )
+    }
+}
+
+impl Debug for dyn System<In = ShouldRun, Out = ShouldRun> + 'static {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "System {} with In=ShouldRun, Out=ShouldRun: {{{}}}",
+            self.name(),
+            {
+                if self.is_send() {
+                    if self.is_exclusive() {
+                        "is_send is_exclusive"
+                    } else {
+                        "is_send"
+                    }
+                } else if self.is_exclusive() {
+                    "is_exclusive"
+                } else {
+                    ""
+                }
+            },
+        )
     }
 }
