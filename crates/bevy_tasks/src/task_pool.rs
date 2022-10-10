@@ -140,7 +140,8 @@ impl TaskPool {
         T: Send + 'static,
     {
         self.0.scope(|s| {
-            let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&Scope(s)) };
+            let scope = Scope(s);
+            let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
             f(scope_ref);
         })
     }
