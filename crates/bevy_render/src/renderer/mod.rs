@@ -15,7 +15,7 @@ use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
-use wgpu::{AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
+use wgpu::{Adapter, AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -88,6 +88,11 @@ pub fn render_system(world: &mut World) {
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderQueue(pub Arc<Queue>);
 
+/// The handle to the physical device being used for rendering.
+/// See [`wgpu::Adapter`] for more info.
+#[derive(Resource, Clone, Debug, Deref, DerefMut)]
+pub struct RenderAdapter(pub Arc<Adapter>);
+
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Deref, DerefMut)]
@@ -97,13 +102,29 @@ pub struct RenderInstance(pub Instance);
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderAdapterInfo(pub AdapterInfo);
 
+/// The [`TextureFormat`](wgpu::TextureFormat) used for rendering.
+/// Initially it's the first element in `AvailableTextureFormats`.
+#[derive(Resource, Clone, Deref, DerefMut)]
+pub struct RenderTextureFormat(pub wgpu::TextureFormat);
+
+/// The available [`TextureFormat`](wgpu::TextureFormat)s on the [`RenderAdapter`].
+/// Will be inserted as a `Resource` after the renderer is initialized.
+#[derive(Resource, Clone, Deref, DerefMut)]
+pub struct AvailableTextureFormats(pub Arc<Vec<wgpu::TextureFormat>>);
+
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue, RenderAdapterInfo) {
+) -> (
+    RenderDevice,
+    RenderQueue,
+    RenderAdapterInfo,
+    RenderAdapter,
+    AvailableTextureFormats,
+) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -250,12 +271,25 @@ pub async fn initialize_renderer(
         )
         .await
         .unwrap();
+
     let device = Arc::new(device);
     let queue = Arc::new(queue);
+    let adapter = Arc::new(adapter);
+    let mut available_texture_formats = Vec::new();
+    if let Some(s) = request_adapter_options.compatible_surface {
+        available_texture_formats = s.get_supported_formats(&adapter);
+        if available_texture_formats.is_empty() {
+            info!("{:?}", adapter_info);
+            panic!("No supported texture formats found!");
+        }
+    };
+    let available_texture_formats = Arc::new(available_texture_formats);
     (
         RenderDevice::from(device),
         RenderQueue(queue),
         RenderAdapterInfo(adapter_info),
+        RenderAdapter(adapter),
+        AvailableTextureFormats(available_texture_formats),
     )
 }
 

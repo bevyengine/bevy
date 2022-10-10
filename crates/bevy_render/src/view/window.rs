@@ -1,7 +1,6 @@
 use crate::{
     render_resource::TextureView,
-    renderer::{RenderDevice, RenderInstance},
-    texture::BevyDefault,
+    renderer::{RenderAdapter, RenderDevice, RenderInstance},
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -9,7 +8,6 @@ use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
-use wgpu::TextureFormat;
 
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
@@ -161,6 +159,7 @@ pub fn prepare_windows(
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
+    render_adapter: Res<RenderAdapter>,
 ) {
     let window_surfaces = window_surfaces.deref_mut();
     for window in windows.windows.values_mut() {
@@ -173,7 +172,15 @@ pub fn prepare_windows(
             });
 
         let swap_chain_descriptor = wgpu::SurfaceConfiguration {
-            format: TextureFormat::bevy_default(),
+            format: *surface
+                .get_supported_formats(&render_adapter)
+                .get(0)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "No supported formats found for surface {:?} on adapter {:?}",
+                        surface, render_adapter
+                    )
+                }),
             width: window.physical_width,
             height: window.physical_height,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,

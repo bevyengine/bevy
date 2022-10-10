@@ -4,7 +4,7 @@ pub mod window;
 pub use visibility::*;
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsages,
+    TextureUsages,
 };
 pub use window::*;
 
@@ -15,8 +15,8 @@ use crate::{
     rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, TextureCache},
+    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
+    texture::TextureCache,
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -182,6 +182,7 @@ fn prepare_view_targets(
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
+    texture_format: Res<RenderTextureFormat>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera)>,
 ) {
@@ -205,7 +206,7 @@ fn prepare_view_targets(
                                     mip_level_count: 1,
                                     sample_count: msaa.samples,
                                     dimension: TextureDimension::D2,
-                                    format: TextureFormat::bevy_default(),
+                                    format: **texture_format,
                                     usage: TextureUsages::RENDER_ATTACHMENT,
                                 },
                             )

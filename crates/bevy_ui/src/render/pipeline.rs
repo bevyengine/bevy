@@ -1,17 +1,29 @@
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_math::Vec2;
 use bevy_render::{
-    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
+    render_resource::*,
+    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
+    texture::{DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo},
+    view::ViewUniform,
 };
 
 #[derive(Resource)]
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub dummy_white_gpu_image: GpuImage,
 }
 
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let mut system_state: SystemState<(
+            Res<RenderDevice>,
+            Res<DefaultImageSampler>,
+            Res<RenderQueue>,
+            Res<RenderTextureFormat>,
+        )> = SystemState::new(world);
+        let (render_device, default_sampler, render_queue, first_available_texture_format) =
+            system_state.get_mut(world);
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -48,10 +60,57 @@ impl FromWorld for UiPipeline {
             ],
             label: Some("ui_image_layout"),
         });
+        let dummy_white_gpu_image = {
+            let image = Image::new_fill(
+                Extent3d::default(),
+                TextureDimension::D2,
+                &[255u8; 4],
+                first_available_texture_format.0,
+            );
+            let texture = render_device.create_texture(&image.texture_descriptor);
+            let sampler = match image.sampler_descriptor {
+                ImageSampler::Default => (**default_sampler).clone(),
+                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            };
+
+            let format_size = image.texture_descriptor.format.pixel_size();
+            render_queue.write_texture(
+                ImageCopyTexture {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: Origin3d::ZERO,
+                    aspect: TextureAspect::All,
+                },
+                &image.data,
+                ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(
+                            image.texture_descriptor.size.width * format_size as u32,
+                        )
+                        .unwrap(),
+                    ),
+                    rows_per_image: None,
+                },
+                image.texture_descriptor.size,
+            );
+            let texture_view = texture.create_view(&TextureViewDescriptor::default());
+            GpuImage {
+                texture,
+                texture_view,
+                texture_format: image.texture_descriptor.format,
+                sampler,
+                size: Vec2::new(
+                    image.texture_descriptor.size.width as f32,
+                    image.texture_descriptor.size.height as f32,
+                ),
+            }
+        };
 
         UiPipeline {
             view_layout,
             image_layout,
+            dummy_white_gpu_image,
         }
     }
 }
@@ -88,7 +147,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: self.dummy_white_gpu_image.texture_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
