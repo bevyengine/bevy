@@ -355,13 +355,6 @@ impl Transform {
         point += self.translation;
         point
     }
-
-    /// Changes the `scale` of this [`Transform`], multiplying the current `scale` by
-    /// `scale_factor`.
-    #[inline]
-    pub fn apply_non_uniform_scale(&mut self, scale_factor: Vec3) {
-        self.scale *= scale_factor;
-    }
 }
 
 impl Default for Transform {
