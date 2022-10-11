@@ -14,6 +14,8 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod schedule;
+// This module must remain private until it replaces the existing schedule module
+mod schedule_v3;
 pub mod storage;
 pub mod system;
 pub mod world;
