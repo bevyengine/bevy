@@ -529,13 +529,13 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     }
 /// }
 ///
-/// // Usage example for `chain`:
+/// // Usage example for `pipe`:
 /// fn main() {
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // chain the `parse_message_system`'s output into the `filter_system`s input
-///     let mut piped_system = IntoSystem::into_system(chain(parse_message, filter));
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input
+///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
 ///     piped_system.initialize(&mut world);
 ///     assert_eq!(piped_system.run((), &mut world), Some(42));
 /// }
