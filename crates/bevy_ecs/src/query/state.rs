@@ -99,6 +99,74 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let fetch_state = Q::init_state(world);
         let filter_state = F::init_state(world);
 
+        // SAFETY: uses state initialized by `init_state`
+        unsafe { Self::new_with_state(world, fetch_state, filter_state) }
+    }
+
+    /// Creates a new [`QueryState`] with custom state initializer
+    ///
+    /// This is useful when you need to initialize [`WorldQuery::State`] using a different implementation
+    /// than provided by [`WorldQuery::init_state`] which is called by [`QueryState::new`].
+    ///
+    /// # Safety
+    ///
+    /// State must be the same as what is returned by [`WorldQuery::init_state`] with the same [`World`]
+    /// passed into the function, as long as [`WorldQuery::init_state`] can be used.
+    ///
+    /// Use [`QueryState::new`] directly when possible.
+    ///
+    /// It is possible to get Bevy to cast `&U` into `&T` by providing the incorrect [`ComponentId`]
+    /// when querying references to components.
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::query::WorldQuery;
+    /// # #[derive(Component)]
+    /// # struct T(usize);
+    /// # #[derive(Component)]
+    /// # struct U(usize);
+    /// # let mut world = World::new();
+    /// // `QueryState` will cast `&U` into `&T` when executing the query
+    /// let incorrect_fetch_state = world.init_component::<U>();
+    /// let query_state = unsafe {
+    ///     QueryState::<&T, ()>::new_with_state(&mut world, incorrect_fetch_state, ());
+    /// };
+    /// ```
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::query::WorldQuery;
+    ///
+    /// #[derive(Component)]
+    /// struct A(usize);
+    ///
+    /// #[derive(Component)]
+    /// struct B(usize);
+    ///
+    /// let mut world = World::new();
+    ///
+    /// // Query state will be initialized using `<&A as WorldQuery>::init_state`
+    /// let query_state = QueryState::<&A, ()>::new(&mut world);
+    ///
+    /// // Alternatively we can initialize the state ourselves
+    /// // The state for `&T` is it's `ComponentId`.
+    /// # unsafe {
+    /// let fetch_state = world.init_component::<A>();
+    /// let query_state = QueryState::<&A, ()>::new_with_state(&mut world, fetch_state, ());
+    ///
+    /// // We can do the same when initializing filters
+    /// let fetch_state = <&A as WorldQuery>::init_state(&mut world);
+    /// let filter_state = world.init_component::<B>();
+    /// let query_state = QueryState::<&A, With<B>>::new_with_state(&mut world, fetch_state, filter_state);
+    /// # }
+    /// ```
+    pub unsafe fn new_with_state(
+        world: &mut World,
+        fetch_state: Q::State,
+        filter_state: F::State,
+    ) -> Self {
         let mut component_access = FilteredAccess::default();
         Q::update_component_access(&fetch_state, &mut component_access);
 
