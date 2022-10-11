@@ -54,10 +54,7 @@ impl Slider {
 
     // Consumes self, returning a new [`Slider`] with a given step
     pub fn with_step(self, step: f32) -> Self {
-        Self {
-            step,
-            ..self
-        }
+        Self { step, ..self }
     }
 
     pub fn set_value(&mut self, value: f32) -> Result<(), SliderValueError> {
@@ -157,8 +154,10 @@ pub fn update_slider_handle(
 
             let slider_width = slider_node.size.x - slider_handle_node.size.x;
 
-            slider_handle_style.margin.left =
-                Val::Px((slider.get_value() - slider.get_min()) * slider_width / (slider.get_max() - slider.get_min()));
+            slider_handle_style.margin.left = Val::Px(
+                (slider.get_value() - slider.get_min()) * slider_width
+                    / (slider.get_max() - slider.get_min()),
+            );
         }
     }
 }
