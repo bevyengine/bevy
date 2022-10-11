@@ -1,6 +1,6 @@
 //! This example illustrates how to create a slider and display its value on a text node.
 
-use bevy::{prelude::*, ui::widget::Slider, winit::WinitSettings};
+use bevy::{prelude::*, ui::widget::Slider};
 
 fn main() {
     App::new()

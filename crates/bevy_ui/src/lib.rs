@@ -113,8 +113,7 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(
                 CoreStage::Update,
-                widget::update_slider_value
-                    .label(widget::UpdateSliderValue),
+                widget::update_slider_value.label(widget::UpdateSliderValue),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
