@@ -187,9 +187,7 @@ impl ReflectTraits {
                         let trait_func_ident = TraitImpl::Custom(path.clone(), span);
                         match ident.as_str() {
                             DEBUG_ATTR => {
-                                traits.debug = {
-                                    traits.debug.merge(trait_func_ident)?;
-                                }
+                                traits.debug = traits.debug.merge(trait_func_ident)?;
                             }
                             PARTIAL_EQ_ATTR => {
                                 traits.partial_eq = traits.partial_eq.merge(trait_func_ident)?;
