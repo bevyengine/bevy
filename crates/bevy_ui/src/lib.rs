@@ -112,10 +112,9 @@ impl Plugin for UiPlugin {
                 widget::image_node_system.before(UiSystem::Flex),
             )
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreStage::Update,
                 widget::update_slider_value
-                    .label(widget::UpdateSliderValue)
-                    .after(UiSystem::Focus),
+                    .label(widget::UpdateSliderValue),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
