@@ -4,10 +4,14 @@ use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A unique ID for a [`Window`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect_value(Debug, PartialEq, Hash, Default)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowId(Uuid);
 
 /// Presentation mode for a window.
@@ -29,6 +33,7 @@ pub struct WindowId(Uuid);
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq, Hash)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
@@ -101,6 +106,7 @@ impl Default for WindowId {
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq, Default)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowResizeConstraints {
     pub min_width: f32,
     pub min_height: f32,
@@ -296,6 +302,7 @@ pub enum WindowCommand {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum WindowMode {
     /// Creates a window that uses the given size.
     Windowed,
@@ -756,6 +763,7 @@ impl Window {
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum WindowPosition {
     /// The position will be set by the window manager.
     Automatic,
@@ -775,6 +783,7 @@ pub enum WindowPosition {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum MonitorSelection {
     /// Uses current monitor of the window.
     ///
@@ -797,6 +806,7 @@ pub enum MonitorSelection {
 #[derive(Resource, Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq, Default)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     ///

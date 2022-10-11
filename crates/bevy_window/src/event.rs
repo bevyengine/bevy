@@ -4,10 +4,14 @@ use super::{WindowDescriptor, WindowId};
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::{FromReflect, Reflect};
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A window event that is sent whenever a window's logical size has changed.
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowResized {
     pub id: WindowId,
     /// The new logical width of the window.
@@ -20,6 +24,7 @@ pub struct WindowResized {
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct CreateWindow {
     pub id: WindowId,
     pub descriptor: WindowDescriptor,
@@ -30,6 +35,7 @@ pub struct CreateWindow {
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct RequestRedraw;
 
 /// An event that is sent whenever a new window is created.
@@ -39,6 +45,7 @@ pub struct RequestRedraw;
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowCreated {
     pub id: WindowId,
 }
@@ -57,6 +64,7 @@ pub struct WindowCreated {
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowCloseRequested {
     pub id: WindowId,
 }
@@ -68,6 +76,7 @@ pub struct WindowCloseRequested {
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowClosed {
     pub id: WindowId,
 }
@@ -83,6 +92,7 @@ pub struct WindowClosed {
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct CursorMoved {
     /// The identifier of the window the cursor has moved on.
     pub id: WindowId,
@@ -94,6 +104,7 @@ pub struct CursorMoved {
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct CursorEntered {
     pub id: WindowId,
 }
@@ -101,6 +112,7 @@ pub struct CursorEntered {
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct CursorLeft {
     pub id: WindowId,
 }
@@ -109,6 +121,7 @@ pub struct CursorLeft {
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct ReceivedCharacter {
     pub id: WindowId,
     pub char: char,
@@ -118,6 +131,7 @@ pub struct ReceivedCharacter {
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowFocused {
     pub id: WindowId,
     pub focused: bool,
@@ -127,6 +141,7 @@ pub struct WindowFocused {
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowScaleFactorChanged {
     pub id: WindowId,
     pub scale_factor: f64,
@@ -135,6 +150,7 @@ pub struct WindowScaleFactorChanged {
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowBackendScaleFactorChanged {
     pub id: WindowId,
     pub scale_factor: f64,
@@ -144,6 +160,7 @@ pub struct WindowBackendScaleFactorChanged {
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum FileDragAndDrop {
     DroppedFile { id: WindowId, path_buf: PathBuf },
 
@@ -156,6 +173,7 @@ pub enum FileDragAndDrop {
 #[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct WindowMoved {
     pub id: WindowId,
     pub position: IVec2,
