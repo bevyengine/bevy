@@ -153,9 +153,13 @@ impl TypeInfo {
         match self {
             Self::Struct(info) => info.docs(),
             Self::TupleStruct(info) => info.docs(),
+            Self::Tuple(info) => info.docs(),
+            Self::List(info) => info.docs(),
+            Self::Array(info) => info.docs(),
+            Self::Map(info) => info.docs(),
             Self::Enum(info) => info.docs(),
             Self::Value(info) => info.docs(),
-            _ => None,
+            Self::Dynamic(info) => info.docs(),
         }
     }
 }
@@ -209,7 +213,7 @@ impl ValueInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The docstring of this value, if any.
+    /// The docstring of this dynamic value, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
@@ -228,6 +232,8 @@ impl ValueInfo {
 pub struct DynamicInfo {
     type_name: &'static str,
     type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl DynamicInfo {
@@ -235,7 +241,15 @@ impl DynamicInfo {
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this dynamic value.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The [type name] of the dynamic value.
@@ -253,5 +267,11 @@ impl DynamicInfo {
     /// Check if the given type matches the dynamic value type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this value, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
