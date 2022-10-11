@@ -127,8 +127,12 @@ impl Plugin for InputPlugin {
 
 /// The current "press" state of an element
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum ButtonState {
     Pressed,
     Released,

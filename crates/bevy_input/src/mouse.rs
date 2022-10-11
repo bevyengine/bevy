@@ -15,9 +15,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// The event is read inside of the [`mouse_button_input_system`](crate::mouse::mouse_button_input_system)
 /// to update the [`Input<MouseButton>`](crate::Input<MouseButton>) resource.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct MouseButtonInput {
     /// The mouse button assigned to the event.
     pub button: MouseButton,
@@ -36,9 +39,12 @@ pub struct MouseButtonInput {
 ///
 /// The resource is updated inside of the [`mouse_button_input_system`](crate::mouse::mouse_button_input_system).
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum MouseButton {
     /// The left mouse button.
     Left,
@@ -60,9 +66,12 @@ pub enum MouseButton {
 ///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct MouseMotion {
     /// The change in the position of the pointing device since the last event was sent.
     pub delta: Vec2,
@@ -75,9 +84,12 @@ pub struct MouseMotion {
 /// The value of the event can either be interpreted as the amount of lines or the amount of pixels
 /// to scroll.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum MouseScrollUnit {
     /// The line scroll unit.
     ///
@@ -95,9 +107,12 @@ pub enum MouseScrollUnit {
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct MouseWheel {
     /// The mouse scroll unit.
     pub unit: MouseScrollUnit,
