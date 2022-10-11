@@ -124,7 +124,7 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
 
 /// An extension trait providing the [`IntoPipeSystem::pipe`] method to pass input from one system into the next.
 ///
-/// The first system must have a non-empty return type `T`
+/// The first system must have return type `T`
 /// and the second system must have [`In<T>`](crate::system::In) as its first system parameter.
 ///
 /// This trait is blanket implemented for all system pairs that fulfill the type requirements.
