@@ -1,7 +1,7 @@
 use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
 use bevy_math::Vec2;
-use bevy_reflect::{Reflect, FromReflect};
+use bevy_reflect::{FromReflect, Reflect};
 
 /// A mouse button input event.
 ///

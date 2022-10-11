@@ -1,7 +1,7 @@
 use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_reflect::{Reflect, FromReflect};
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::info, HashMap, HashSet};
 
 /// A gamepad with an associated `ID`.
