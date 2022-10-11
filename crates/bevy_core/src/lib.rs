@@ -4,6 +4,7 @@
 mod name;
 mod task_pool_options;
 
+use bevy_ecs::system::Resource;
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
@@ -16,6 +17,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
 use std::borrow::Cow;
 use std::ops::Range;
@@ -33,10 +35,16 @@ impl Plugin for CorePlugin {
             .unwrap_or_default()
             .create_default_pools();
 
-        app.register_type::<Entity>().register_type::<Name>();
+        app.register_type::<Entity>()
+            .register_type::<Name>()
+            .register_type::<Range<f32>>()
+            .register_type_data::<Range<f32>, ReflectSerialize>()
+            .register_type_data::<Range<f32>, ReflectDeserialize>();
 
         register_rust_types(app);
         register_math_types(app);
+
+        app.init_resource::<FrameCount>();
     }
 }
 
@@ -83,3 +91,9 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::DQuat>()
         .register_type::<bevy_math::Quat>();
 }
+
+/// Keeps a count of rendered frames since the start of the app
+///
+/// Wraps to 0 when it reaches the maximum u32 value
+#[derive(Default, Resource, Clone, Copy)]
+pub struct FrameCount(pub u32);

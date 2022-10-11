@@ -19,10 +19,12 @@ pub struct WindowId(Uuid);
 /// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
 /// `Fifo`.
 ///
-/// `Immediate` or `Mailbox` will gracefully fallback to `Fifo` when unavailable.
+/// `AutoVsync` or `AutoNoVsync` will gracefully fallback to `Fifo` when unavailable.
 ///
-/// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor::present_mode)
-/// or updated on a [`Window`](Window::set_present_mode).
+/// `Immediate` or `Mailbox` will panic if not supported by the platform.
+///
+/// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor) using [`WindowDescriptor::present_mode`](WindowDescriptor::present_mode)
+/// or updated on a [`Window`](Window) using [`set_present_mode`](Window::set_present_mode).
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -38,16 +40,14 @@ pub enum PresentMode {
     AutoNoVsync = 1,
     /// The presentation engine does **not** wait for a vertical blanking period and
     /// the request is presented immediately. This is a low-latency presentation mode,
-    /// but visible tearing may be observed. Will fallback to `Fifo` if unavailable on the
-    /// selected platform and backend. Not optimal for mobile.
+    /// but visible tearing may be observed. Not optimal for mobile.
     ///
     /// Selecting this variant will panic if not supported, it is preferred to use
     /// [`PresentMode::AutoNoVsync`].
     Immediate = 2,
     /// The presentation engine waits for the next vertical blanking period to update
     /// the current image, but frames may be submitted without delay. This is a low-latency
-    /// presentation mode and visible tearing will **not** be observed. Will fallback to `Fifo`
-    /// if unavailable on the selected platform and backend. Not optimal for mobile.
+    /// presentation mode and visible tearing will **not** be observed. Not optimal for mobile.
     ///
     /// Selecting this variant will panic if not supported, it is preferred to use
     /// [`PresentMode::AutoNoVsync`].

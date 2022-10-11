@@ -44,6 +44,21 @@ fn setup(
         transform: Transform::from_xyz(1.0, 0.5, -1.5),
         ..default()
     });
+    // transparent unlit sphere, uses `alpha_mode: Mask(f32)`
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Icosphere {
+            radius: 0.5,
+            subdivisions: 3,
+        })),
+        material: materials.add(StandardMaterial {
+            base_color: Color::rgba(0.2, 0.7, 0.1, 0.0),
+            alpha_mode: AlphaMode::Mask(0.5),
+            unlit: true,
+            ..default()
+        }),
+        transform: Transform::from_xyz(-1.0, 0.5, -1.5),
+        ..default()
+    });
     // transparent cube, uses `alpha_mode: Blend`
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
