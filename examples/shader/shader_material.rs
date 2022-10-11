@@ -26,7 +26,7 @@ fn setup(
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::BLUE,
+            color: Vec3::ONE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
         }),
@@ -57,7 +57,7 @@ impl Material for CustomMaterial {
 #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 pub struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: Vec3,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,

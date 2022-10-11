@@ -1,6 +1,6 @@
 use crate::{
-    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
-    SetMeshViewBindGroup,
+    queue_depth_prepass_material_meshes, AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey,
+    MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -180,6 +180,7 @@ where
                     RenderStage::Prepare,
                     prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
                 )
+                .add_system_to_stage(RenderStage::Queue, queue_depth_prepass_material_meshes::<M>)
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
         }
     }

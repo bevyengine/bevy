@@ -516,8 +516,11 @@ bitflags::bitflags! {
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
         const TRANSPARENT_MAIN_PASS       = (1 << 0);
-        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const DEPTH_PREPASS               = (1 << 1);
+        const DEPTH_PREPASS_NORMALS       = (1 << 2);
+        const ALPHA_MASK                  = (1 << 3);
+        const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
@@ -621,7 +624,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // For the opaque and alpha mask passes, fragments that are closer will replace
             // the current fragment value in the output and the depth is written to the
             // depth buffer
-            depth_write_enabled = true;
+            depth_write_enabled = !key.contains(MeshPipelineKey::DEPTH_PREPASS);
         }
 
         Ok(RenderPipelineDescriptor {
@@ -654,7 +657,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled,
-                depth_compare: CompareFunction::Greater,
+                depth_compare: if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+                    CompareFunction::Equal
+                } else {
+                    CompareFunction::GreaterEqual
+                },
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,

@@ -275,53 +275,53 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     resource: bindings[#binding_vec_index].get_binding(),
                 }
             });
-            // single field uniform bindings for a given index can use a straightforward binding
-            if uniform_fields.len() == 1 {
-                let field = &uniform_fields[0];
-                let field_name = field.ident.as_ref().unwrap();
-                let field_ty = &field.ty;
-                binding_impls.push(quote! {{
-                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
-                    buffer.write(&self.#field_name).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
-                        &#render_path::render_resource::BufferInitDescriptor {
-                            label: None,
-                            usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
-                            contents: buffer.as_ref(),
-                        },
-                    ))
-                }});
+            // // single field uniform bindings for a given index can use a straightforward binding
+            // if uniform_fields.len() == 1 {
+            //     let field = &uniform_fields[0];
+            //     let field_name = field.ident.as_ref().unwrap();
+            //     let field_ty = &field.ty;
+            //     binding_impls.push(quote! {{
+            //         let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
+            //         buffer.write(&self.#field_name).unwrap();
+            //         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+            //             &#render_path::render_resource::BufferInitDescriptor {
+            //                 label: None,
+            //                 usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
+            //                 contents: buffer.as_ref(),
+            //             },
+            //         ))
+            //     }});
 
-                binding_layouts.push(quote!{
-                    #render_path::render_resource::BindGroupLayoutEntry {
-                        binding: #binding_index,
-                        visibility: #render_path::render_resource::ShaderStages::all(),
-                        ty: #render_path::render_resource::BindingType::Buffer {
-                            ty: #render_path::render_resource::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size()),
-                        },
-                        count: None,
-                    }
-                });
-            // multi-field uniform bindings for a given index require an intermediate struct to derive ShaderType
-            } else {
-                let uniform_struct_name = Ident::new(
-                    &format!("_{struct_name}AsBindGroupUniformStructBindGroup{binding_index}"),
-                    Span::call_site(),
-                );
+            //     binding_layouts.push(quote!{
+            //         #render_path::render_resource::BindGroupLayoutEntry {
+            //             binding: #binding_index,
+            //             visibility: #render_path::render_resource::ShaderStages::all(),
+            //             ty: #render_path::render_resource::BindingType::Buffer {
+            //                 ty: #render_path::render_resource::BufferBindingType::Uniform,
+            //                 has_dynamic_offset: false,
+            //                 min_binding_size: Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size()),
+            //             },
+            //             count: None,
+            //         }
+            //     });
+            // // multi-field uniform bindings for a given index require an intermediate struct to derive ShaderType
+            // } else {
+            let uniform_struct_name = Ident::new(
+                &format!("_{struct_name}AsBindGroupUniformStructBindGroup{binding_index}"),
+                Span::call_site(),
+            );
 
-                let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
-                let field_type = uniform_fields.iter().map(|f| &f.ty);
-                field_struct_impls.push(quote! {
-                    #[derive(#render_path::render_resource::ShaderType)]
-                    struct #uniform_struct_name<'a> {
-                        #(#field_name: &'a #field_type,)*
-                    }
-                });
+            let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
+            let field_type = uniform_fields.iter().map(|f| &f.ty);
+            field_struct_impls.push(quote! {
+                #[derive(#render_path::render_resource::ShaderType)]
+                struct #uniform_struct_name<'a> {
+                    #(#field_name: &'a #field_type,)*
+                }
+            });
 
-                let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
-                binding_impls.push(quote! {{
+            let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
+            binding_impls.push(quote! {{
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
                     buffer.write(&#uniform_struct_name {
                         #(#field_name: &self.#field_name,)*
@@ -335,7 +335,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     ))
                 }});
 
-                binding_layouts.push(quote!{
+            binding_layouts.push(quote!{
                     #render_path::render_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
                         visibility: #render_path::render_resource::ShaderStages::all(),
@@ -347,7 +347,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         count: None,
                     }
                 });
-            }
+            // }
         }
     }
 

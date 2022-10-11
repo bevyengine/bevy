@@ -14,6 +14,17 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
+/// Add a DepthPrepassSettings component to a view to perform a depth prepass and use it in a main
+/// pass to reduce overdraw for opaque meshes.
+#[derive(Clone, Component)]
+pub struct DepthPrepassSettings {
+    /// If true then a ViewNormalsTexture component will be added to the view, and the world
+    /// normals will be output from the depth prepass for use in subsequent passes.
+    pub output_normals: bool,
+}
+
+use super::Camera3dDepthLoadOp;
+
 pub struct MainPass3dNode {
     query: QueryState<
         (
@@ -24,6 +35,7 @@ pub struct MainPass3dNode {
             &'static Camera3d,
             &'static ViewTarget,
             &'static ViewDepthTexture,
+            Option<&'static DepthPrepassSettings>,
         ),
         With<ExtractedView>,
     >,
@@ -55,13 +67,21 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(query) => query,
-                Err(_) => {
-                    return Ok(());
-                } // No window
-            };
+        let (
+            camera,
+            opaque_phase,
+            alpha_mask_phase,
+            transparent_phase,
+            camera_3d,
+            target,
+            depth,
+            maybe_depth_prepass_settings,
+        ) = match self.query.get_manual(world, view_entity) {
+            Ok(query) => query,
+            Err(_) => {
+                return Ok(());
+            } // No window
+        };
 
         // Always run opaque pass to ensure screen is cleared
         {
@@ -88,7 +108,12 @@ impl Node for MainPass3dNode {
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
                         // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                        load: camera_3d.depth_load_op.clone().into(),
+                        load: if maybe_depth_prepass_settings.is_some() {
+                            Camera3dDepthLoadOp::Load
+                        } else {
+                            camera_3d.depth_load_op.clone()
+                        }
+                        .into(),
                         store: true,
                     }),
                     stencil_ops: None,
