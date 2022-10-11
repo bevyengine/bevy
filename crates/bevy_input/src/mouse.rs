@@ -3,6 +3,9 @@ use bevy_ecs::{event::EventReader, system::ResMut};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect};
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A mouse button input event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseInput` from the `winit` crate.
@@ -14,6 +17,7 @@ use bevy_reflect::{FromReflect, Reflect};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct MouseButtonInput {
     /// The mouse button assigned to the event.
     pub button: MouseButton,
@@ -34,6 +38,7 @@ pub struct MouseButtonInput {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum MouseButton {
     /// The left mouse button.
     Left,
@@ -57,6 +62,7 @@ pub enum MouseButton {
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct MouseMotion {
     /// The change in the position of the pointing device since the last event was sent.
     pub delta: Vec2,
@@ -71,6 +77,7 @@ pub struct MouseMotion {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum MouseScrollUnit {
     /// The line scroll unit.
     ///
@@ -90,6 +97,7 @@ pub enum MouseScrollUnit {
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct MouseWheel {
     /// The mouse scroll unit.
     pub unit: MouseScrollUnit,

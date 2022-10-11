@@ -2,6 +2,9 @@ use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
 use bevy_reflect::{FromReflect, Reflect};
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A keyboard input event.
 ///
 /// This event is the translated version of the `WindowEvent::KeyboardInput` from the `winit` crate.
@@ -14,6 +17,7 @@ use bevy_reflect::{FromReflect, Reflect};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct KeyboardInput {
     /// The scan code of the key.
     pub scan_code: u32,
@@ -66,6 +70,7 @@ pub fn keyboard_input_system(
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 #[repr(u32)]
 pub enum KeyCode {
     /// The `1` key over the letters.
@@ -427,6 +432,7 @@ pub enum KeyCode {
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct ScanCode(pub u32);

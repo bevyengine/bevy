@@ -4,6 +4,9 @@ use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::HashMap;
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A touch input event.
 ///
 /// ## Logic
@@ -30,6 +33,7 @@ use bevy_utils::HashMap;
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct TouchInput {
     /// The phase of the touch input.
     pub phase: TouchPhase,
@@ -48,6 +52,7 @@ pub struct TouchInput {
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum ForceTouch {
     /// On iOS, the force is calibrated so that the same number corresponds to
     /// roughly the same amount of pressure on the screen regardless of the
@@ -90,6 +95,7 @@ pub enum ForceTouch {
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum TouchPhase {
     /// A finger started to touch the touchscreen.
     Started,

@@ -4,6 +4,9 @@ use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 use bevy_utils::{tracing::info, HashMap, HashSet};
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A gamepad with an associated `ID`.
 ///
 /// ## Usage
@@ -18,6 +21,7 @@ use bevy_utils::{tracing::info, HashMap, HashSet};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct Gamepad {
     /// The `ID` of the gamepad.
     pub id: usize,
@@ -73,6 +77,7 @@ impl Gamepads {
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum GamepadEventType {
     /// A [`Gamepad`] has been connected.
     Connected,
@@ -107,6 +112,7 @@ pub enum GamepadEventType {
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct GamepadEvent {
     /// The gamepad this event corresponds to.
     pub gamepad: Gamepad,
@@ -211,6 +217,7 @@ impl GamepadEvent {
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct GamepadEventRaw {
     /// The gamepad this event corresponds to.
     pub gamepad: Gamepad,
@@ -239,6 +246,7 @@ impl GamepadEventRaw {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum GamepadButtonType {
     /// The bottom action button of the action pad (i.e. PS: Cross, Xbox: A).
     South,
@@ -300,6 +308,7 @@ pub enum GamepadButtonType {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct GamepadButton {
     /// The gamepad on which the button is located on.
     pub gamepad: Gamepad,
@@ -338,6 +347,7 @@ impl GamepadButton {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum GamepadAxisType {
     /// The horizontal value of the left stick.
     LeftStickX,
@@ -370,6 +380,7 @@ pub enum GamepadAxisType {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct GamepadAxis {
     /// The gamepad on which the axis is located on.
     pub gamepad: Gamepad,
