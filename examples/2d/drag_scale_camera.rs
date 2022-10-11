@@ -1,4 +1,6 @@
-//! How to change the transform and scale of the camera. Affect camera via dragging and scrolling
+//! Demonstrates changing the transform and scale of the camera. 
+//!
+//! The camera will move when the left mouse button is draghed, and zoom when the mouse wheel is scrolled.
 
 use bevy::{input::mouse::MouseWheel, prelude::*, sprite::MaterialMesh2dBundle};
 
