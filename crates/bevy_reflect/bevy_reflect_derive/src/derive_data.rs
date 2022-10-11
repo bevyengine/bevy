@@ -41,7 +41,7 @@ pub(crate) struct ReflectMeta<'a> {
     bevy_reflect_path: Path,
     /// The documentation for this type, if any
     #[cfg(feature = "documentation")]
-    doc: crate::documentation::Documentation,
+    docs: crate::documentation::Documentation,
 }
 
 /// Struct data used by derive macros for `Reflect` and `FromReflect`.
@@ -285,14 +285,14 @@ impl<'a> ReflectMeta<'a> {
             generics,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
-            doc: Default::default(),
+            docs: Default::default(),
         }
     }
 
     /// Sets the documentation for this type.
     #[cfg(feature = "documentation")]
-    fn with_docs(self, docs: crate::documentation::Documentation) -> Self {
-        Self { doc: docs, ..self }
+    pub fn with_docs(self, docs: crate::documentation::Documentation) -> Self {
+        Self { docs, ..self }
     }
 
     /// The registered reflect traits on this struct.
@@ -329,7 +329,7 @@ impl<'a> ReflectMeta<'a> {
     /// The collection of docstrings for this type, if any.
     #[cfg(feature = "documentation")]
     pub fn doc(&self) -> &crate::documentation::Documentation {
-        &self.doc
+        &self.docs
     }
 }
 

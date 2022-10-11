@@ -154,6 +154,7 @@ impl TypeInfo {
             Self::Struct(info) => info.docs(),
             Self::TupleStruct(info) => info.docs(),
             Self::Enum(info) => info.docs(),
+            Self::Value(info) => info.docs(),
             _ => None,
         }
     }
@@ -171,6 +172,8 @@ impl TypeInfo {
 pub struct ValueInfo {
     type_name: &'static str,
     type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl ValueInfo {
@@ -178,7 +181,15 @@ impl ValueInfo {
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this value.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, doc: Option<&'static str>) -> Self {
+        Self { docs: doc, ..self }
     }
 
     /// The [type name] of the value.
@@ -196,6 +207,12 @@ impl ValueInfo {
     /// Check if the given type matches the value type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this value, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 

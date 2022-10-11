@@ -881,6 +881,19 @@ mod tests {
 
             let info = <SomeEnum as Typed>::type_info();
             assert_eq!(Some(" Some enum."), info.docs());
+
+            #[derive(Clone)]
+            struct SomePrimitive;
+            impl_reflect_value!(
+                /// Some primitive for which we have attributed custom documentation.
+                SomePrimitive
+            );
+
+            let info = <SomePrimitive as Typed>::type_info();
+            assert_eq!(
+                Some(" Some primitive for which we have attributed custom documentation."),
+                info.docs()
+            );
         }
 
         #[test]
