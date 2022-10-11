@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::{Interaction, Node, RelativeCursorPosition, Style, Val};
 
-/// Describes the slider-specific value, such as max and min values and step
+/// A component describing the slider-specific value, such as max and min values and step
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct Slider {
@@ -47,16 +47,17 @@ impl Slider {
         }
     }
 
-    // Consumes self, returning a new [`Slider`] with a given value
+    /// Consumes self, returning a new [`Slider`] with a given value
     pub fn with_value(self, value: f32) -> Self {
         Self { value, ..self }
     }
 
-    // Consumes self, returning a new [`Slider`] with a given step
+    /// Consumes self, returning a new [`Slider`] with a given step
     pub fn with_step(self, step: f32) -> Self {
         Self { step, ..self }
     }
 
+    /// Sets the slider value, returning error if the given value is out of the slider range
     pub fn set_value(&mut self, value: f32) -> Result<(), SliderValueError> {
         // Round the value up to self.step (we have to consider that self.min can be a fraction)
         let value = if self.step != 0. {
@@ -73,23 +74,28 @@ impl Slider {
         Err(SliderValueError::ValueOutOfSliderRange)
     }
 
+    /// Retrieves the slider value
     pub fn get_value(&self) -> f32 {
         self.value
     }
 
+    /// Retrieves the minimum slider value
     pub fn get_min(&self) -> f32 {
         self.min
     }
 
+    /// Retrieves the maximum slider value
     pub fn get_max(&self) -> f32 {
         self.max
     }
 
+    /// Retrieves the slider step
     pub fn get_step(&self) -> f32 {
         self.step
     }
 }
 
+/// Error connected to setting the value of a slider
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum SliderValueError {
     #[error("the value given to the Slider is out of range")]
