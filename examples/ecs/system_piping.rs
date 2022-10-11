@@ -1,5 +1,5 @@
-//! Illustrates how to make a single system from multiple functions running in sequence and sharing
-//! their inputs and outputs.
+//! Illustrates how to make a single system from multiple functions running in sequence,
+//! passing the output of the first into the input of the next.
 
 use anyhow::Result;
 use bevy::prelude::*;
@@ -7,7 +7,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .insert_resource(Message("42".to_string()))
-        .add_system(parse_message_system.chain(handler_system))
+        .add_system(parse_message_system.pipe(handler_system))
         .run();
 }
 
