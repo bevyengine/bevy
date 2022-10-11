@@ -11,7 +11,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect_value(Debug, PartialEq, Hash, Default)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialize", reflect_value(Serialize, Deserialize))]
 pub struct WindowId(Uuid);
 
 /// Presentation mode for a window.
