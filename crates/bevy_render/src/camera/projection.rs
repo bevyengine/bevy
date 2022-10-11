@@ -233,10 +233,10 @@ pub struct OrthographicProjection {
     ///
     /// As scale increases, the apparent size of objects decreases, and vice versa.
     pub scale: f32,
-    pub left: f32,
-    pub right: f32,
-    pub bottom: f32,
-    pub top: f32,
+    left: f32,
+    right: f32,
+    bottom: f32,
+    top: f32,
 }
 
 impl CameraProjection for OrthographicProjection {
@@ -316,5 +316,86 @@ impl Default for OrthographicProjection {
             viewport_origin: (0.5, 0.5),
             scaling_mode: ScalingMode::WindowSize(1.0),
         }
+    }
+}
+
+impl OrthographicProjection {
+    /// Create a new `OrthographicProjection` with default values.
+    ///
+    /// Use its other methods to modify its properties, or modify them after creation if `mut`.
+    ///
+    /// ```
+    /// use bevy_render::camera::{OrthographicProjection, ScalingMode};
+    /// let projection = OrthographicProjection::new()
+    ///     .scale(1.0)
+    ///     .clipping_plane(0.0, 1000.0)
+    ///     .viewport_origin(0.5, 0.5)
+    ///     .scaling_mode(ScalingMode::WindowSize(1.0));
+    /// ```
+    pub fn new() -> Self {
+        OrthographicProjection {
+            left: 0.0,
+            right: 0.0,
+            bottom: 0.0,
+            top: 0.0,
+            scale: 1.0,
+            near: 0.0,
+            far: 1000.0,
+            viewport_origin: (0.5, 0.5),
+            scaling_mode: ScalingMode::WindowSize(1.0),
+        }
+    }
+
+    /// Set the scale of the projection.
+    pub fn scale(mut self, scale: f32) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    /// Set the near and far clipping planes of the projection.
+    pub fn clipping_plane(mut self, near: f32, far: f32) -> Self {
+        self.near = near;
+        self.far = far;
+        self
+    }
+
+    /// Set the viewport origin of the projection.
+    pub fn viewport_origin(mut self, x: f32, y: f32) -> Self {
+        self.viewport_origin = (x, y);
+        self
+    }
+
+    /// Set the scaling mode of the projection.
+    pub fn scaling_mode(mut self, scaling_mode: ScalingMode) -> Self {
+        self.scaling_mode = scaling_mode;
+        self
+    }
+
+    /// Get the distance of the left side of the projection in world units.
+    ///
+    /// This value is updated automatically. Use `OrthographicProjection`'s other properties to modify its behavior.
+    pub fn left(&self) -> f32 {
+        self.left
+    }
+
+    /// Get the distance of the right side of the projection in world units.
+    ///
+    /// This value is updated automatically. Use `OrthographicProjection`'s other properties to modify its behavior.
+    pub fn right(&self) -> f32 {
+        self.right
+    }
+
+    /// Get the distance of the right side of the projection in world units.
+    ///
+    /// This value is updated automatically. Use `OrthographicProjection`'s other properties to modify its behavior.
+    pub fn bottom(&self) -> f32 {
+        self.bottom
+    }
+
+    /// Get the distance of the right side of the projection in world units.
+    ///
+    /// This value is updated automatically. Use `OrthographicProjection`'s other properties to modify its behavior.
+    pub fn top(&self) -> f32 {
+        self.top
     }
 }

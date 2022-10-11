@@ -87,12 +87,10 @@ fn setup(
     // camera
     match std::env::args().nth(1).as_deref() {
         Some("orthographic") => commands.spawn(Camera3dBundle {
-            projection: OrthographicProjection {
-                scale: 20.0,
-                scaling_mode: ScalingMode::FixedHorizontal(1.0),
-                ..default()
-            }
-            .into(),
+            projection: OrthographicProjection::new()
+                .scale(20.0)
+                .scaling_mode(ScalingMode::FixedHorizontal(1.0))
+                .into(),
             ..default()
         }),
         _ => commands.spawn(Camera3dBundle::default()),
