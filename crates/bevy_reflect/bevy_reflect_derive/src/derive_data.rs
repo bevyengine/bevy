@@ -109,7 +109,7 @@ pub(crate) enum EnumVariantFields<'a> {
 }
 
 /// The method in which the type should be reflected.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 enum ReflectMode {
     /// Reflect the type normally, providing information about all fields/variants.
     Normal,
