@@ -189,15 +189,12 @@ pub fn ui_focus_system(
 
                 // The mouse position relative to the node
                 // (0., 0.) is the bottom-left corner, (1., 1.) is the upper-right corner
-                let relative_cursor_postition = if let Some(cursor_position) = cursor_position {
-                    Some(Vec2::new(
+                let relative_cursor_postition = cursor_position.map(|cursor_position| {
+                    Vec2::new(
                         (cursor_position.x - min.x) / node.size.x,
                         (cursor_position.y - min.y) / node.size.y,
-                    ))
-                } else {
-                    None
-                };
-
+                    )
+                });
                 // if the current cursor position is within the bounds of the node, consider it for
                 // clicking
                 let contains_cursor = if let Some(cursor_position) = relative_cursor_postition {
