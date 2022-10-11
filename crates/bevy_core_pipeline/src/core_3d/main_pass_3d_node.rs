@@ -14,12 +14,13 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-/// Add a DepthPrepassSettings component to a view to perform a depth prepass and use it in a main
+/// Add a `DepthPrepassSettings` component to a view to perform a depth prepass and use it in a main
 /// pass to reduce overdraw for opaque meshes.
 #[derive(Clone, Component)]
 pub struct DepthPrepassSettings {
-    /// If true then a ViewNormalsTexture component will be added to the view, and the world
-    /// normals will be output from the depth prepass for use in subsequent passes.
+    /// if true then depth values will be copied to a separate texture available to the main pass
+    pub depth_resource: bool,
+    /// If true then vertex world normals will be output from the depth prepass for use in subsequent passes.
     pub output_normals: bool,
 }
 

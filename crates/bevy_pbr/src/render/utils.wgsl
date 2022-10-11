@@ -29,3 +29,21 @@ fn random1D(s: f32) -> f32 {
 fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> {
     return (position - viewport.xy) / viewport.zw;
 }
+
+fn prepass_normal(frag_coord: vec4<f32>, sample_index: u32) -> vec3<f32> {
+#ifdef MULTISAMPLED
+    let normal_sample: vec4<f32> = textureLoad(normal_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
+#else
+    let normal_sample: vec4<f32> = textureLoad(normal_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+#endif
+    return normal_sample.xyz * 2.0 - vec3<f32>(1.0);
+}
+
+fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
+#ifdef MULTISAMPLED
+    let depth_sample: f32 = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
+#else
+    let depth_sample: f32 = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+#endif
+    return depth_sample;
+}

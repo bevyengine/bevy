@@ -30,11 +30,11 @@ use bevy_render::{
         PolygonMode, PrimitiveState, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
         RenderPassDescriptor, RenderPipelineDescriptor, Shader, ShaderStages, ShaderType,
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilState, Texture, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages, TextureView, VertexState,
+        StencilFaceState, StencilState, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages, VertexState,
     },
     renderer::{RenderContext, RenderDevice},
-    texture::TextureCache,
+    texture::{CachedTexture, TextureCache},
     view::{
         ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniformOffset, ViewUniforms,
         VisibleEntities,
@@ -289,9 +289,10 @@ pub fn extract_core_3d_camera_depth_prepass_phase(
 }
 
 #[derive(Component)]
-pub struct ViewNormalTexture {
-    pub texture: Texture,
-    pub view: TextureView,
+pub struct ViewPrepassTextures {
+    pub depth: Option<CachedTexture>,
+    pub normal: Option<CachedTexture>,
+    pub size: Extent3d,
 }
 
 pub fn prepare_core_3d_normal_textures(
@@ -307,37 +308,67 @@ pub fn prepare_core_3d_normal_textures(
         ),
     >,
 ) {
-    let mut textures = HashMap::default();
+    let mut depth_textures = HashMap::default();
+    let mut normal_textures = HashMap::default();
     for (entity, camera, depth_prepass_settings) in &views_3d {
-        if !depth_prepass_settings.output_normals {
-            continue;
-        }
         if let Some(physical_target_size) = camera.physical_target_size {
-            let cached_texture = textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    texture_cache.get(
-                        &render_device,
-                        TextureDescriptor {
-                            label: Some("view_normal_texture"),
-                            size: Extent3d {
-                                depth_or_array_layers: 1,
-                                width: physical_target_size.x,
-                                height: physical_target_size.y,
-                            },
-                            mip_level_count: 1,
-                            sample_count: msaa.samples,
-                            dimension: TextureDimension::D2,
-                            format: TextureFormat::Rgb10a2Unorm,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
-                        },
-                    )
-                })
-                .clone();
-            commands.entity(entity).insert(ViewNormalTexture {
-                texture: cached_texture.texture,
-                view: cached_texture.default_view,
+            let size = Extent3d {
+                depth_or_array_layers: 1,
+                width: physical_target_size.x,
+                height: physical_target_size.y,
+            };
+
+            let cached_depth_texture = match depth_prepass_settings.depth_resource {
+                true => Some(
+                    depth_textures
+                        .entry(camera.target.clone())
+                        .or_insert_with(|| {
+                            texture_cache.get(
+                                &render_device,
+                                TextureDescriptor {
+                                    label: Some("view_depth_texture_resource"),
+                                    size,
+                                    mip_level_count: 1,
+                                    sample_count: msaa.samples,
+                                    dimension: TextureDimension::D2,
+                                    format: TextureFormat::Depth32Float,
+                                    usage: TextureUsages::COPY_DST
+                                        | TextureUsages::RENDER_ATTACHMENT
+                                        | TextureUsages::TEXTURE_BINDING,
+                                },
+                            )
+                        })
+                        .clone(),
+                ),
+                false => None,
+            };
+            let cached_normal_texture = match depth_prepass_settings.output_normals {
+                true => Some(
+                    normal_textures
+                        .entry(camera.target.clone())
+                        .or_insert_with(|| {
+                            texture_cache.get(
+                                &render_device,
+                                TextureDescriptor {
+                                    label: Some("view_normal_texture"),
+                                    size,
+                                    mip_level_count: 1,
+                                    sample_count: msaa.samples,
+                                    dimension: TextureDimension::D2,
+                                    format: TextureFormat::Rgb10a2Unorm,
+                                    usage: TextureUsages::RENDER_ATTACHMENT
+                                        | TextureUsages::TEXTURE_BINDING,
+                                },
+                            )
+                        })
+                        .clone(),
+                ),
+                false => None,
+            };
+            commands.entity(entity).insert(ViewPrepassTextures {
+                depth: cached_depth_texture,
+                normal: cached_normal_texture,
+                size,
             });
         }
     }
@@ -549,7 +580,7 @@ pub struct DepthPrepassNode {
             &'static RenderPhase<OpaqueDepthPrepass>,
             &'static RenderPhase<AlphaMaskDepthPrepass>,
             &'static ViewDepthTexture,
-            Option<&'static ViewNormalTexture>,
+            &'static ViewPrepassTextures,
         ),
         With<ExtractedView>,
     >,
@@ -586,7 +617,7 @@ impl Node for DepthPrepassNode {
             opaque_depth_prepass_phase,
             alpha_mask_depth_prepass_phase,
             view_depth_texture,
-            maybe_view_normal_texture,
+            view_prepass_textures,
         )) = self.main_view_query.get_manual(world, view_entity)
         {
             if opaque_depth_prepass_phase.items.is_empty()
@@ -596,9 +627,9 @@ impl Node for DepthPrepassNode {
             }
 
             let mut color_attachments = vec![];
-            if let Some(view_normal_texture) = maybe_view_normal_texture {
+            if let Some(view_normal_texture) = &view_prepass_textures.normal {
                 color_attachments.push(Some(RenderPassColorAttachment {
-                    view: &view_normal_texture.view,
+                    view: &view_normal_texture.default_view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK.into()),
@@ -607,52 +638,64 @@ impl Node for DepthPrepassNode {
                 }));
             }
 
-            // Set up the pass descriptor with the depth attachment and maybe colour attachment
-            let pass_descriptor = RenderPassDescriptor {
-                label: Some("depth_prepass"),
-                color_attachments: &color_attachments,
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &view_depth_texture.view,
-                    depth_ops: Some(Operations {
-                        load: LoadOp::Clear(0.0),
-                        store: true,
+            {
+                // Set up the pass descriptor with the depth attachment and maybe colour attachment
+                let pass_descriptor = RenderPassDescriptor {
+                    label: Some("depth_prepass"),
+                    color_attachments: &color_attachments,
+                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                        view: &view_depth_texture.view,
+                        depth_ops: Some(Operations {
+                            load: LoadOp::Clear(0.0),
+                            store: true,
+                        }),
+                        stencil_ops: None,
                     }),
-                    stencil_ops: None,
-                }),
-            };
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
-            }
+                };
 
-            {
-                // Run the depth prepass, sorted front-to-back
-                #[cfg(feature = "trace")]
-                let _opaque_depth_prepass_span = info_span!("opaque_depth_prepass").entered();
-                let draw_functions = world.resource::<DrawFunctions<OpaqueDepthPrepass>>();
+                let render_pass = render_context
+                    .command_encoder
+                    .begin_render_pass(&pass_descriptor);
+                let mut tracked_pass = TrackedRenderPass::new(render_pass);
+                if let Some(viewport) = camera.viewport.as_ref() {
+                    tracked_pass.set_camera_viewport(viewport);
+                }
 
-                let mut draw_functions = draw_functions.write();
-                for item in &opaque_depth_prepass_phase.items {
-                    let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                    draw_function.draw(world, &mut tracked_pass, view_entity, item);
+                {
+                    // Run the depth prepass, sorted front-to-back
+                    #[cfg(feature = "trace")]
+                    let _opaque_depth_prepass_span = info_span!("opaque_depth_prepass").entered();
+                    let draw_functions = world.resource::<DrawFunctions<OpaqueDepthPrepass>>();
+
+                    let mut draw_functions = draw_functions.write();
+                    for item in &opaque_depth_prepass_phase.items {
+                        let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+                        draw_function.draw(world, &mut tracked_pass, view_entity, item);
+                    }
+                }
+
+                {
+                    // Run the depth prepass, sorted front-to-back
+                    #[cfg(feature = "trace")]
+                    let _alpha_mask_depth_prepass_span =
+                        info_span!("alpha_mask_depth_prepass").entered();
+                    let draw_functions = world.resource::<DrawFunctions<AlphaMaskDepthPrepass>>();
+
+                    let mut draw_functions = draw_functions.write();
+                    for item in &alpha_mask_depth_prepass_phase.items {
+                        let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+                        draw_function.draw(world, &mut tracked_pass, view_entity, item);
+                    }
                 }
             }
 
-            {
-                // Run the depth prepass, sorted front-to-back
-                #[cfg(feature = "trace")]
-                let _alpha_mask_depth_prepass_span =
-                    info_span!("alpha_mask_depth_prepass").entered();
-                let draw_functions = world.resource::<DrawFunctions<AlphaMaskDepthPrepass>>();
-
-                let mut draw_functions = draw_functions.write();
-                for item in &alpha_mask_depth_prepass_phase.items {
-                    let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                    draw_function.draw(world, &mut tracked_pass, view_entity, item);
-                }
+            if let Some(view_depth_texture_resource) = &view_prepass_textures.depth {
+                // copy depth buffer to texture
+                render_context.command_encoder.copy_texture_to_texture(
+                    view_depth_texture.texture.as_image_copy(),
+                    view_depth_texture_resource.texture.as_image_copy(),
+                    view_prepass_textures.size,
+                );
             }
         }
 

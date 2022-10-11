@@ -4,16 +4,16 @@ use bevy::{
     core_pipeline::core_3d::DepthPrepassSettings,
     prelude::*,
     reflect::TypeUuid,
-    render::{
-        render_asset::RenderAssets,
-        render_resource::{AsBindGroup, AsBindGroupShaderType, ShaderType},
-    },
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 
 fn main() {
     App::new()
+        .insert_resource(Msaa { samples: 1 })
         .add_plugins(DefaultPlugins)
+        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
         .add_startup_system(setup)
+        .add_system(rotate)
         .run();
 }
 
@@ -28,6 +28,16 @@ pub struct CustomMaterial {
     alpha_mode: AlphaMode,
 }
 
+impl Material for CustomMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/custom_material.wgsl".into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
+    }
+}
+
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
@@ -38,14 +48,33 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        material: materials.add(StandardMaterial {
+            unlit: true,
+            ..Color::rgb(0.3, 0.5, 0.3).into()
+        }),
         ..default()
     });
     // cube
-    commands.spawn(PbrBundle {
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials.add(StandardMaterial {
+                unlit: true,
+                ..Color::rgb(0.8, 0.7, 0.6).into()
+            }),
+            transform: Transform::from_xyz(-1.0, 0.5, 0.0),
+            ..default()
+        })
+        .insert(Rotates);
+    // cube
+    commands.spawn_bundle(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        material: cmaterials.add(CustomMaterial {
+            color: Vec3::ONE,
+            color_texture: None,
+            alpha_mode: AlphaMode::Opaque,
+        }),
+        transform: Transform::from_xyz(1.0, 0.5, 0.0),
         ..default()
     });
     // cube
@@ -76,6 +105,18 @@ fn setup(
             ..default()
         })
         .insert(DepthPrepassSettings {
+            depth_resource: true,
             output_normals: true,
         });
+}
+
+#[derive(Component)]
+struct Rotates;
+
+fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
+    for mut t in q.iter_mut() {
+        let rot =
+            (time.seconds_since_startup().sin() * 0.5 + 0.5) as f32 * std::f32::consts::PI * 2.0;
+        t.rotation = Quat::from_rotation_z(rot);
+    }
 }
