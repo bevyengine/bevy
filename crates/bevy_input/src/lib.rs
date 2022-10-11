@@ -89,24 +89,27 @@ impl Plugin for InputPlugin {
                 touch_screen_input_system.label(InputSystem),
             );
 
-        // Register reflected types
-        // Button types
+        // Register common types
         app.register_type::<ButtonState>();
-        // Keyboard types
+
+        // Register keyboard types
         app.register_type::<KeyboardInput>()
             .register_type::<KeyCode>()
             .register_type::<ScanCode>();
-        // Mouse types
+
+        // Register mouse types
         app.register_type::<MouseButtonInput>()
             .register_type::<MouseButton>()
             .register_type::<MouseMotion>()
             .register_type::<MouseScrollUnit>()
             .register_type::<MouseWheel>();
-        // Touch types
+
+        // Register touch types
         app.register_type::<TouchInput>()
             .register_type::<ForceTouch>()
             .register_type::<TouchPhase>();
-        // Gamepad types
+
+        // Register gamepad types
         app.register_type::<Gamepad>()
             .register_type::<GamepadEventType>()
             .register_type::<GamepadEvent>()
