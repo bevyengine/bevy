@@ -27,7 +27,7 @@ fn camera_drag(
                 let delta: Vec2 = (*prev_position - cursor_position) * cam.scale;
 
                 //Applying the motion delta to the camera's transform
-                transform.translation = transform.translation + delta.extend(0.0);
+                transform.translation += delta.extend(0.0);
             }
         }
         *prev_position = cursor_position;
