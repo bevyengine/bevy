@@ -37,9 +37,8 @@ pub(crate) enum TraitImpl {
     /// The trait is registered as implemented.
     Implemented(Span),
 
-    // TODO: This can be made to use `ExprPath` instead of `Ident`, allowing for fully qualified paths to be used
     /// The trait is registered with a custom function rather than an actual implementation.
-    Custom(Ident, Span),
+    Custom(Path, Span),
 }
 
 impl TraitImpl {
@@ -182,15 +181,21 @@ impl ReflectTraits {
 
                     let list_meta = list.nested.iter().next();
                     if let Some(NestedMeta::Meta(Meta::Path(path))) = list_meta {
-                        if let Some(segment) = path.segments.iter().next() {
-                            // This should be the ident of the custom function
-                            let trait_func_ident = TraitImpl::Custom(segment.ident.clone(), span);
-                            match ident.as_str() {
-                                DEBUG_ATTR => traits.debug = trait_func_ident,
-                                PARTIAL_EQ_ATTR => traits.partial_eq = trait_func_ident,
-                                HASH_ATTR => traits.hash = trait_func_ident,
-                                _ => {}
+                        // This should be the ident of the custom function
+                        let trait_func_ident = TraitImpl::Custom(path.clone(), span);
+                        match ident.as_str() {
+                            DEBUG_ATTR => {
+                                traits.debug = {
+                                    traits.debug.merge(trait_func_ident)?;
+                                }
                             }
+                            PARTIAL_EQ_ATTR => {
+                                traits.partial_eq = traits.partial_eq.merge(trait_func_ident)?;
+                            }
+                            HASH_ATTR => {
+                                traits.hash = traits.hash.merge(trait_func_ident)?;
+                            }
+                            _ => {}
                         }
                     }
                 }
