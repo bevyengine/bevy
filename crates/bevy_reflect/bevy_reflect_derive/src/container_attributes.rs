@@ -24,8 +24,8 @@ const HASH_ATTR: &str = "Hash";
 // but useful to know exist nonetheless
 pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
 
-// The error message to show when a trait is specified multiple times
-const CONFLICTING_IMPL_MESSAGE: &str = "conflicting type data registration";
+// The error message to show when a trait/type is specified multiple times
+const CONFLICTING_TYPE_DATA_MESSAGE: &str = "conflicting type data registration";
 
 /// A marker for trait implementations registered via the `Reflect` derive macro.
 #[derive(Clone, Default)]
@@ -51,7 +51,7 @@ impl TraitImpl {
         match (self, other) {
             (TraitImpl::NotImplemented, value) | (value, TraitImpl::NotImplemented) => Ok(value),
             (_, TraitImpl::Implemented(span) | TraitImpl::Custom(_, span)) => {
-                Err(syn::Error::new(span, CONFLICTING_IMPL_MESSAGE))
+                Err(syn::Error::new(span, CONFLICTING_TYPE_DATA_MESSAGE))
             }
         }
     }
@@ -318,7 +318,7 @@ impl Parse for ReflectTraits {
 fn add_unique_ident(idents: &mut Vec<Ident>, ident: Ident) -> Result<(), syn::Error> {
     let ident_name = ident.to_string();
     if idents.iter().any(|i| i == ident_name.as_str()) {
-        return Err(syn::Error::new(ident.span(), CONFLICTING_IMPL_MESSAGE));
+        return Err(syn::Error::new(ident.span(), CONFLICTING_TYPE_DATA_MESSAGE));
     }
 
     idents.push(ident);
