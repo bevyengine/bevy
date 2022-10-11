@@ -152,9 +152,8 @@ mod game {
                     style: Style {
                         // This will center the current node
                         margin: UiRect::all(Val::Auto),
-                        // This will display its children in a column, from top to bottom. Unlike
-                        // in Flexbox, Bevy origin is on bottom left, so the vertical axis is reversed
-                        flex_direction: FlexDirection::ColumnReverse,
+                        // This will display its children in a column, from top to bottom
+                        flex_direction: FlexDirection::Column,
                         // `align_items` will align children on the cross axis. Here the main axis is
                         // vertical (column), so the cross axis is horizontal. This will center the
                         // children
@@ -420,7 +419,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         margin: UiRect::all(Val::Auto),
-                        flex_direction: FlexDirection::ColumnReverse,
+                        flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
                         ..default()
                     },
@@ -533,7 +532,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         margin: UiRect::all(Val::Auto),
-                        flex_direction: FlexDirection::ColumnReverse,
+                        flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
                         ..default()
                     },
@@ -587,7 +586,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         margin: UiRect::all(Val::Auto),
-                        flex_direction: FlexDirection::ColumnReverse,
+                        flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
                         ..default()
                     },
@@ -678,7 +677,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         margin: UiRect::all(Val::Auto),
-                        flex_direction: FlexDirection::ColumnReverse,
+                        flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
                         ..default()
                     },
