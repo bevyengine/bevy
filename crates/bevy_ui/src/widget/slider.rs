@@ -61,7 +61,7 @@ impl Slider {
     pub fn set_value(&mut self, value: f32) -> Result<(), SliderValueError> {
         // Round the value up to self.step (we have to consider that self.min can be a fraction)
         let value = if self.step != 0. {
-            (value / self.step).round() * self.step
+            ((value - self.min) / self.step).round() * self.step + self.min
         } else {
             value
         };
