@@ -5,7 +5,7 @@ use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
-#[reflect_value(PartialEq, Hash)]
+#[reflect_value(Debug, PartialEq, Hash)]
 /// A unique ID for a [`Window`].
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowId(Uuid);
@@ -26,8 +26,9 @@ pub struct WindowId(Uuid);
 /// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor) using [`WindowDescriptor::present_mode`](WindowDescriptor::present_mode)
 /// or updated on a [`Window`](Window) using [`set_present_mode`](Window::set_present_mode).
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Debug, PartialEq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
@@ -97,8 +98,9 @@ impl Default for WindowId {
 /// Please note that if the window is resizable, then when the window is
 /// maximized it may have a size outside of these limits. The functionality
 /// required to disable maximizing is not yet exposed by winit.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Debug, PartialEq)]
 pub struct WindowResizeConstraints {
     pub min_width: f32,
     pub min_height: f32,
@@ -291,8 +293,9 @@ pub enum WindowCommand {
 }
 
 /// Defines the way a window is displayed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Debug, PartialEq)]
 pub enum WindowMode {
     /// Creates a window that uses the given size.
     Windowed,
@@ -750,8 +753,9 @@ impl Window {
 }
 
 /// Defines where window should be placed at on creation.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Debug, PartialEq)]
 pub enum WindowPosition {
     /// The position will be set by the window manager.
     Automatic,
@@ -768,8 +772,9 @@ pub enum WindowPosition {
 }
 
 /// Defines which monitor to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Debug, PartialEq)]
 pub enum MonitorSelection {
     /// Uses current monitor of the window.
     ///
@@ -789,8 +794,9 @@ pub enum MonitorSelection {
 /// See [`examples/window/window_settings.rs`] for usage.
 ///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Resource, Debug, Clone, PartialEq)]
+#[derive(Resource, Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Debug, PartialEq)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     ///

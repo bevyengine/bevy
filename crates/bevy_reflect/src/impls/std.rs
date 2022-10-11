@@ -88,6 +88,7 @@ impl_from_reflect_value!(isize);
 impl_from_reflect_value!(f32);
 impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
+impl_from_reflect_value!(PathBuf);
 impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Range<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(RangeInclusive<T: Clone + Send + Sync + 'static>);
