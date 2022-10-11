@@ -9,16 +9,13 @@ pub use render_device::*;
 use crate::{
     render_graph::RenderGraph,
     settings::{WgpuSettings, WgpuSettingsPriority},
-    texture::BevyDefault,
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
-use wgpu::{
-    Adapter, AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions, TextureFormat,
-};
+use wgpu::{Adapter, AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -106,7 +103,7 @@ pub struct RenderInstance(pub Instance);
 pub struct RenderAdapterInfo(pub AdapterInfo);
 
 /// The [`TextureFormat`](wgpu::TextureFormat) used for rendering.
-/// Initially it's the first element in `AvailableTextureFormats`.
+/// Initially it's the first element in `AvailableTextureFormats`, or Bevy default format.
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderTextureFormat(pub wgpu::TextureFormat);
 
@@ -282,9 +279,6 @@ pub async fn initialize_renderer(
     if let Some(s) = request_adapter_options.compatible_surface {
         available_texture_formats = s.get_supported_formats(&adapter);
     };
-    if available_texture_formats.is_empty() {
-        available_texture_formats.push(TextureFormat::bevy_default());
-    }
     let available_texture_formats = Arc::new(available_texture_formats);
     (
         RenderDevice::from(device),
