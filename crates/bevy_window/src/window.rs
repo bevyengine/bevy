@@ -4,10 +4,10 @@ use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
 use raw_window_handle::RawWindowHandle;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
-#[reflect_value(Debug, PartialEq, Hash)]
 /// A unique ID for a [`Window`].
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect_value(Debug, PartialEq, Hash, Default)]
 pub struct WindowId(Uuid);
 
 /// Presentation mode for a window.
@@ -100,7 +100,7 @@ impl Default for WindowId {
 /// required to disable maximizing is not yet exposed by winit.
 #[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowResizeConstraints {
     pub min_width: f32,
     pub min_height: f32,
@@ -796,7 +796,7 @@ pub enum MonitorSelection {
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
 #[derive(Resource, Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     ///
