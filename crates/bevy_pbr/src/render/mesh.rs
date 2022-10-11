@@ -22,9 +22,9 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image,
+        DefaultImageSampler, FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image,
         ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -386,19 +386,22 @@ impl FromWorld for MeshPipeline {
                         ),
                     ),
                 },
-                BindGroupLayoutEntry {
-                    binding: 9,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: Some(GlobalsUniform::min_size()),
-                    },
-                    count: None,
-                },
-                // depth texture
+                count: None,
+            },
+            // Globals
             BindGroupLayoutEntry {
                 binding: 9,
+                visibility: ShaderStages::VERTEX_FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: Some(GlobalsUniform::min_size()),
+                },
+                count: None,
+            },
+            // depth texture
+            BindGroupLayoutEntry {
+                binding: 10,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Texture {
                     multisampled: false,
@@ -409,7 +412,7 @@ impl FromWorld for MeshPipeline {
             },
             // normal texture
             BindGroupLayoutEntry {
-                binding: 10,
+                binding: 11,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Texture {
                     multisampled: false,
@@ -427,12 +430,12 @@ impl FromWorld for MeshPipeline {
         });
 
         // modify for multisampled
-        layout_entries[9].ty = BindingType::Texture {
+        layout_entries[10].ty = BindingType::Texture {
             multisampled: true,
             sample_type: TextureSampleType::Depth,
             view_dimension: TextureViewDimension::D2,
         };
-        layout_entries[10].ty = BindingType::Texture {
+        layout_entries[11].ty = BindingType::Texture {
             multisampled: true,
             sample_type: TextureSampleType::Float { filterable: true },
             view_dimension: TextureViewDimension::D2,
@@ -941,11 +944,11 @@ pub fn queue_mesh_view_bind_groups(
                         resource: globals.clone(),
                     },
                     BindGroupEntry {
-                        binding: 9,
+                        binding: 10,
                         resource: BindingResource::TextureView(depth_view),
                     },
                     BindGroupEntry {
-                        binding: 10,
+                        binding: 11,
                         resource: BindingResource::TextureView(normal_view),
                     },
                 ],

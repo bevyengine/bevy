@@ -55,8 +55,8 @@ fn setup(
         ..default()
     });
     // cube
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(StandardMaterial {
                 unlit: true,
@@ -64,10 +64,11 @@ fn setup(
             }),
             transform: Transform::from_xyz(-1.0, 0.5, 0.0),
             ..default()
-        })
-        .insert(Rotates);
+        },
+        Rotates,
+    ));
     // cube
-    commands.spawn_bundle(MaterialMeshBundle {
+    commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: cmaterials.add(CustomMaterial {
             color: Vec3::ONE,
@@ -78,7 +79,7 @@ fn setup(
         ..default()
     });
     // cube
-    commands.spawn_bundle(MaterialMeshBundle {
+    commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: cmaterials.add(CustomMaterial {
             color: Vec3::ONE,
@@ -99,15 +100,16 @@ fn setup(
         ..default()
     });
     // camera
-    commands
-        .spawn_bundle(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
-        })
-        .insert(DepthPrepassSettings {
+        },
+        DepthPrepassSettings {
             depth_resource: true,
             output_normals: true,
-        });
+        },
+    ));
 }
 
 #[derive(Component)]

@@ -279,7 +279,7 @@ pub fn extract_core_3d_camera_depth_prepass_phase(
 ) {
     for (entity, camera, depth_prepass_settings) in cameras_3d.iter() {
         if camera.is_active {
-            commands.get_or_spawn(entity).insert_bundle((
+            commands.get_or_spawn(entity).insert((
                 RenderPhase::<OpaqueDepthPrepass>::default(),
                 RenderPhase::<AlphaMaskDepthPrepass>::default(),
                 depth_prepass_settings.clone(),
