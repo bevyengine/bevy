@@ -48,7 +48,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn(NodeBundle {
                             style: Style {
                                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                                align_items: AlignItems::FlexEnd,
                                 ..default()
                             },
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -76,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        flex_direction: FlexDirection::ColumnReverse,
+                        flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         ..default()
@@ -109,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                flex_direction: FlexDirection::ColumnReverse,
+                                flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Center,
                                 size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
                                 overflow: Overflow::Hidden,
@@ -124,7 +123,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .spawn((
                                     NodeBundle {
                                         style: Style {
-                                            flex_direction: FlexDirection::ColumnReverse,
+                                            flex_direction: FlexDirection::Column,
                                             flex_grow: 1.0,
                                             max_size: Size::UNDEFINED,
                                             ..default()
@@ -161,7 +160,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
                         });
                 });
-            // absolute positioning
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -277,7 +275,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center,
-                        align_items: AlignItems::FlexEnd,
+                        align_items: AlignItems::FlexStart,
                         ..default()
                     },
                     ..default()
@@ -318,8 +316,8 @@ fn mouse_scroll(
                 MouseScrollUnit::Line => mouse_wheel_event.y * 20.,
                 MouseScrollUnit::Pixel => mouse_wheel_event.y,
             };
-            scrolling_list.position += dy;
-            scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
+            scrolling_list.position -= dy;
+            scrolling_list.position = scrolling_list.position.clamp(0., max_scroll);
             style.position.top = Val::Px(scrolling_list.position);
         }
     }

@@ -12,7 +12,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, OrthographicProjection, WindowOrigin},
+    camera::Camera,
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -243,15 +243,12 @@ pub fn extract_default_ui_camera_view<T: Component>(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
-            let mut projection = OrthographicProjection {
-                far: UI_CAMERA_FAR,
-                window_origin: WindowOrigin::BottomLeft,
-                ..Default::default()
-            };
-            projection.update(logical_size.x, logical_size.y);
+            // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
+            let projection_matrix =
+                Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
             let default_camera_view = commands
                 .spawn(ExtractedView {
-                    projection: projection.get_projection_matrix(),
+                    projection: projection_matrix,
                     transform: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
@@ -464,24 +461,23 @@ pub fn prepare_uinodes(
             }
         }
 
-        // Clip UVs (Note: y is reversed in UV space)
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
         let uvs = [
             Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x,
-                uinode_rect.max.y - positions_diff[0].y,
-            ),
-            Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x,
-                uinode_rect.max.y - positions_diff[1].y,
+                uinode_rect.min.x + positions_diff[3].x,
+                uinode_rect.min.y - positions_diff[3].y,
             ),
             Vec2::new(
                 uinode_rect.max.x + positions_diff[2].x,
                 uinode_rect.min.y - positions_diff[2].y,
             ),
             Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x,
-                uinode_rect.min.y - positions_diff[3].y,
+                uinode_rect.max.x + positions_diff[1].x,
+                uinode_rect.max.y - positions_diff[1].y,
+            ),
+            Vec2::new(
+                uinode_rect.min.x + positions_diff[0].x,
+                uinode_rect.max.y - positions_diff[0].y,
             ),
         ]
         .map(|pos| pos / atlas_extent);
