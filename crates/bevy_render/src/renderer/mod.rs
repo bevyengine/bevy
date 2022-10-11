@@ -283,7 +283,7 @@ pub async fn initialize_renderer(
         available_texture_formats = s.get_supported_formats(&adapter);
     };
     if available_texture_formats.is_empty() {
-        available_texture_formats.push(TextureFormat::bevy_default())
+        available_texture_formats.push(TextureFormat::bevy_default());
     }
     let available_texture_formats = Arc::new(available_texture_formats);
     (
