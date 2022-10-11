@@ -116,6 +116,7 @@ pub struct SliderDragged(bool);
 #[derive(SystemLabel)]
 pub struct UpdateSliderValue;
 
+/// System for updating slider value based on the user input
 pub fn update_slider_value(
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
@@ -149,6 +150,7 @@ pub fn update_slider_value(
     }
 }
 
+/// System for updating the slider handle position based on the parent slider value
 pub fn update_slider_handle(
     slider_query: Query<(&Slider, &Node, &Children)>,
     mut slider_handles_query: Query<(&Node, &mut Style), With<SliderHandle>>,
