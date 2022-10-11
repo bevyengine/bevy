@@ -9,6 +9,7 @@ members = [
   "tools/build-wasm-example",
   "errors",
 ]
+
 [workspace.package]
 version = "0.9.0-dev"
 edition = "2021"
