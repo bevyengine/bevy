@@ -25,7 +25,7 @@ const HASH_ATTR: &str = "Hash";
 pub(crate) const REFLECT_DEFAULT: &str = "ReflectDefault";
 
 // The error message to show when a trait is specified multiple times
-const CONFLICTING_IMPL_MESSAGE: &str = "conflicting reflected trait implementation";
+const CONFLICTING_IMPL_MESSAGE: &str = "conflicting type data registration";
 
 /// A marker for trait implementations registered via the `Reflect` derive macro.
 #[derive(Clone, Default)]
