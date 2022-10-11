@@ -48,8 +48,7 @@ impl TraitImpl {
     /// An error is returned if neither value is [`TraitImpl::NotImplemented`].
     pub fn merge(self, other: TraitImpl) -> Result<TraitImpl, syn::Error> {
         match (self, other) {
-            (TraitImpl::NotImplemented, value) => Ok(value),
-            (value, TraitImpl::NotImplemented) => Ok(value),
+            (TraitImpl::NotImplemented, value) | (value, TraitImpl::NotImplemented) => Ok(value),
             (_, TraitImpl::Implemented(span) | TraitImpl::Custom(_, span)) => {
                 Err(syn::Error::new(span, CONFLICTING_IMPL_MESSAGE))
             }
