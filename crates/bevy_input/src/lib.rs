@@ -26,13 +26,16 @@ use bevy_app::prelude::*;
 use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
 use bevy_reflect::{FromReflect, Reflect};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
-use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
-use prelude::Gamepads;
-use touch::{touch_screen_input_system, TouchInput, Touches};
+use mouse::{
+    mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
+    MouseWheel,
+};
+use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touches};
 
 use gamepad::{
-    gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
-    GamepadEventRaw, GamepadSettings,
+    gamepad_connection_system, gamepad_event_system, AxisSettings, ButtonAxisSettings,
+    ButtonSettings, Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType,
+    GamepadEvent, GamepadEventRaw, GamepadEventType, GamepadSettings, Gamepads,
 };
 
 /// Adds keyboard and mouse input to an App
@@ -85,6 +88,32 @@ impl Plugin for InputPlugin {
                 CoreStage::PreUpdate,
                 touch_screen_input_system.label(InputSystem),
             );
+
+        // Register reflected types
+        app.register_type::<ButtonState>();
+        app.register_type::<KeyboardInput>()
+            .register_type::<KeyCode>()
+            .register_type::<ScanCode>();
+        app.register_type::<MouseButtonInput>()
+            .register_type::<MouseButton>()
+            .register_type::<MouseMotion>()
+            .register_type::<MouseScrollUnit>()
+            .register_type::<MouseWheel>();
+        app.register_type::<TouchInput>()
+            .register_type::<ForceTouch>()
+            .register_type::<TouchPhase>();
+        app.register_type::<Gamepad>()
+            .register_type::<GamepadEventType>()
+            .register_type::<GamepadEvent>()
+            .register_type::<GamepadEventRaw>()
+            .register_type::<GamepadButtonType>()
+            .register_type::<GamepadButton>()
+            .register_type::<GamepadAxisType>()
+            .register_type::<GamepadAxis>()
+            .register_type::<GamepadSettings>()
+            .register_type::<ButtonSettings>()
+            .register_type::<AxisSettings>()
+            .register_type::<ButtonAxisSettings>();
     }
 }
 
