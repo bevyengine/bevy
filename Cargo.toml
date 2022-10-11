@@ -872,10 +872,10 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "system_chaining"
-path = "examples/ecs/system_chaining.rs"
+name = "system_piping"
+path = "examples/ecs/system_piping.rs"
 
-[package.metadata.example.system_chaining]
+[package.metadata.example.system_piping]
 name = "System Chaining"
 description = "Chain two systems together, specifying a return type in a system (such as `Result`)"
 category = "ECS (Entity Component System)"
