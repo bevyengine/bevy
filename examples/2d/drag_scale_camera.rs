@@ -40,9 +40,8 @@ fn camera_scale(
     // Query for mouse scroll events, and will apply delta scroll to camera's scale
     for event in mouse_wheel_events.iter() {
         for mut proj in query.iter_mut() {
-            let mut log_scale = proj.scale.ln();
-            log_scale += event.y * 0.5;
-            proj.scale = log_scale.exp();
+            // Multiplies & scales based the current value, it will never hit zero without rounding
+            proj.scale *=  1.0+event.y/10.0;
         }
     }
 }
