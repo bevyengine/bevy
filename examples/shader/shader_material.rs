@@ -9,8 +9,14 @@ use bevy::{
 
 fn main() {
     App::new()
+        .insert_resource(AssetServerSettings {
+            watch_for_changes: true,
+            ..Default::default()
+        })
+        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<CustomMaterial>::default())
+        .add_plugin(MaterialPlugin::<DepthMaterial>::default())
         .add_startup_system(setup)
         .add_system(rotate)
         .run();
@@ -22,12 +28,25 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
     mut std_materials: ResMut<Assets<StandardMaterial>>,
+    mut depth_materials: ResMut<Assets<DepthMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: std_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        ..default()
+    });
+
+    // depth plane
+    commands.spawn(MaterialMeshBundle {
+        mesh: meshes.add(Mesh::from(shape::Quad {
+            flip: false,
+            size: Vec2::new(3.0, 3.0),
+        })),
+        material: depth_materials.add(DepthMaterial {}),
+        transform: Transform::from_xyz(0.0, 1.0, 2.0)
+            .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         ..default()
     });
 
@@ -48,7 +67,7 @@ fn setup(
         material: materials.add(CustomMaterial {
             color: Vec3::ONE,
             color_texture: Some(asset_server.load("branding/icon.png")),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: AlphaMode::Opaque,
         }),
         transform: Transform::from_xyz(1.0, 0.5, 0.0),
         ..default()
@@ -122,5 +141,20 @@ fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
         let rot =
             (time.seconds_since_startup().sin() * 0.5 + 0.5) as f32 * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);
+    }
+}
+
+// This is the struct that will be passed to your shader
+#[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+#[uuid = "0af99895-b96e-4451-bc12-c6b1c1c52750"]
+pub struct DepthMaterial {}
+
+impl Material for DepthMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/show_depth.wgsl".into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode {
+        AlphaMode::Blend
     }
 }
