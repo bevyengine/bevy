@@ -28,6 +28,7 @@ use bevy_ecs::{
     schedule::{IntoSystemDescriptor, SystemLabel},
     system::Resource,
 };
+use std::path::PathBuf;
 
 /// The configuration information for the [`WindowPlugin`].
 ///
@@ -119,6 +120,31 @@ impl Plugin for WindowPlugin {
         if settings.close_when_requested {
             app.add_system(close_when_requested);
         }
+
+        // Register types
+        app.register_type::<WindowResized>()
+            .register_type::<CreateWindow>()
+            .register_type::<RequestRedraw>()
+            .register_type::<WindowCreated>()
+            .register_type::<WindowCloseRequested>()
+            .register_type::<WindowClosed>()
+            .register_type::<CursorMoved>()
+            .register_type::<CursorEntered>()
+            .register_type::<CursorLeft>()
+            .register_type::<ReceivedCharacter>()
+            .register_type::<WindowFocused>()
+            .register_type::<WindowScaleFactorChanged>()
+            .register_type::<WindowBackendScaleFactorChanged>()
+            .register_type::<FileDragAndDrop>()
+            .register_type::<WindowMoved>();
+        app.register_type::<WindowId>()
+            .register_type::<PresentMode>()
+            .register_type::<WindowResizeConstraints>()
+            .register_type::<WindowMode>()
+            .register_type::<WindowPosition>()
+            .register_type::<MonitorSelection>()
+            .register_type::<WindowDescriptor>();
+        app.register_type::<PathBuf>();
     }
 }
 
