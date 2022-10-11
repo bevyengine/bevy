@@ -168,7 +168,7 @@ impl Plugin for RenderPlugin {
                 available_texture_formats
                     .get(0)
                     .cloned()
-                    .unwrap_or_else(|| TextureFormat::bevy_default()),
+                    .unwrap_or_else(TextureFormat::bevy_default),
             );
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
