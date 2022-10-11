@@ -1,4 +1,4 @@
-//! Demonstrates changing the transform and scale of the camera. 
+//! Demonstrates changing the transform and scale of the camera.
 //!
 //! The camera will move when the left mouse button is draghed, and zoom when the mouse wheel is scrolled.
 
@@ -41,7 +41,7 @@ fn camera_scale(
     for event in mouse_wheel_events.iter() {
         for mut proj in query.iter_mut() {
             // Multiplies & scales based the current value, it will never hit zero without rounding
-            proj.scale *=  1.0+event.y/10.0;
+            proj.scale *= 1.0 + event.y / 10.0;
         }
     }
 }
