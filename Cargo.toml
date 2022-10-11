@@ -876,8 +876,8 @@ name = "system_piping"
 path = "examples/ecs/system_piping.rs"
 
 [package.metadata.example.system_piping]
-name = "System Chaining"
-description = "Chain two systems together, specifying a return type in a system (such as `Result`)"
+name = "System Piping"
+description = "Pipe the output of one system into a second, allowing you to handle any errors gracefully"
 category = "ECS (Entity Component System)"
 wasm = false
 
