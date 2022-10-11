@@ -6,7 +6,6 @@ pub mod mouse;
 pub mod touch;
 
 pub use axis::*;
-use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
 pub use input::*;
 
 pub mod prelude {
@@ -24,6 +23,8 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use bevy_reflect::{FromReflect, Reflect};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use prelude::Gamepads;
@@ -88,8 +89,9 @@ impl Plugin for InputPlugin {
 }
 
 /// The current "press" state of an element
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Debug, Hash, PartialEq)]
 pub enum ButtonState {
     Pressed,
     Released,

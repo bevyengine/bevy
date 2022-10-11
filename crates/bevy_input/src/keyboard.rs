@@ -11,8 +11,9 @@ use bevy_reflect::{FromReflect, Reflect};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[reflect(Debug, PartialEq)]
 pub struct KeyboardInput {
     /// The scan code of the key.
     pub scan_code: u32,
@@ -62,9 +63,9 @@ pub fn keyboard_input_system(
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Reflect, FromReflect, Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Hash, PartialEq)]
+#[reflect(Debug, Hash, PartialEq)]
 #[repr(u32)]
 pub enum KeyCode {
     /// The `1` key over the letters.
@@ -425,7 +426,7 @@ pub enum KeyCode {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Reflect, FromReflect, Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
-#[reflect(Hash, PartialEq)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ScanCode(pub u32);
