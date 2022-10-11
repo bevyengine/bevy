@@ -121,7 +121,7 @@ impl Plugin for WindowPlugin {
             app.add_system(close_when_requested);
         }
 
-        // Register types
+        // Register event types
         app.register_type::<WindowResized>()
             .register_type::<CreateWindow>()
             .register_type::<RequestRedraw>()
@@ -137,6 +137,8 @@ impl Plugin for WindowPlugin {
             .register_type::<WindowBackendScaleFactorChanged>()
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>();
+
+        // Register window descriptor and related types
         app.register_type::<WindowId>()
             .register_type::<PresentMode>()
             .register_type::<WindowResizeConstraints>()
@@ -144,6 +146,8 @@ impl Plugin for WindowPlugin {
             .register_type::<WindowPosition>()
             .register_type::<MonitorSelection>()
             .register_type::<WindowDescriptor>();
+
+        // Register `PathBuf` as it's used by `FileDragAndDrop`
         app.register_type::<PathBuf>();
     }
 }
