@@ -90,18 +90,23 @@ impl Plugin for InputPlugin {
             );
 
         // Register reflected types
+        // Button types
         app.register_type::<ButtonState>();
+        // Keyboard types
         app.register_type::<KeyboardInput>()
             .register_type::<KeyCode>()
             .register_type::<ScanCode>();
+        // Mouse types
         app.register_type::<MouseButtonInput>()
             .register_type::<MouseButton>()
             .register_type::<MouseMotion>()
             .register_type::<MouseScrollUnit>()
             .register_type::<MouseWheel>();
+        // Touch types
         app.register_type::<TouchInput>()
             .register_type::<ForceTouch>()
             .register_type::<TouchPhase>();
+        // Gamepad types
         app.register_type::<Gamepad>()
             .register_type::<GamepadEventType>()
             .register_type::<GamepadEvent>()
