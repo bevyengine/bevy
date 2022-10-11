@@ -10,7 +10,11 @@ keywords = ["bevy"]
 readme = "README.md"
 
 [features]
+default = []
+# Provides Bevy-related reflection implementations
 bevy = ["glam", "smallvec", "bevy_math"]
+# When enabled, allows documentation comments to be accessed via reflection
+documentation = ["bevy_reflect_derive/documentation"]
 
 [dependencies]
 # bevy

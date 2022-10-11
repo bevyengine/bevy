@@ -146,6 +146,17 @@ impl TypeInfo {
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id()
     }
+
+    /// The docstring of the underlying type, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&str> {
+        match self {
+            Self::Struct(info) => info.docs(),
+            Self::TupleStruct(info) => info.docs(),
+            Self::Enum(info) => info.docs(),
+            _ => None,
+        }
+    }
 }
 
 /// A container for compile-time info related to general value types, including primitives.

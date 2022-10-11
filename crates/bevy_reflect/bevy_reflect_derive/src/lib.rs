@@ -16,6 +16,8 @@ extern crate proc_macro;
 
 mod container_attributes;
 mod derive_data;
+#[cfg(feature = "documentation")]
+mod documentation;
 mod enum_utility;
 mod field_attributes;
 mod from_reflect;
