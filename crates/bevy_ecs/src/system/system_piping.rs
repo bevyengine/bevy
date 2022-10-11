@@ -9,7 +9,7 @@ use std::borrow::Cow;
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
-/// This can be repeated indefintely, but system pipes cannot branch: the output is consumed by the receiving system.
+/// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
 ///
 /// Given two systems `A` and `B`, A may be piped into `B` as `A.pipe(B)` if the output type of `A` is
 /// equal to the input type of `B`.
