@@ -1,7 +1,7 @@
 use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 use bevy_utils::{tracing::info, HashMap, HashSet};
 
 /// A gamepad with an associated `ID`.
@@ -408,7 +408,7 @@ impl GamepadAxis {
 /// The [`GamepadSettings`] are used inside of the [`gamepad_event_system`], but are never written to
 /// inside of `bevy`. To modify these settings, mutate the corresponding resource.
 #[derive(Resource, Default, Debug, Reflect, FromReflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Default)]
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -495,7 +495,7 @@ impl GamepadSettings {
 ///
 /// The current value of a button is received through the [`GamepadEvent`]s or [`GamepadEventRaw`]s.
 #[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Default)]
 pub struct ButtonSettings {
     /// The threshold for the button to be considered as pressed.
     pub press: f32,
@@ -546,7 +546,7 @@ impl ButtonSettings {
 ///
 /// The current value of an axis is received through the [`GamepadEvent`]s or [`GamepadEventRaw`]s.
 #[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Default)]
 pub struct AxisSettings {
     /// The positive high value at which to apply rounding.
     pub positive_high: f32,
@@ -621,7 +621,7 @@ impl AxisSettings {
 ///
 /// The current value of a button is received through the [`GamepadEvent`]s or [`GamepadEventRaw`]s.
 #[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(Debug)]
+#[reflect(Debug, Default)]
 pub struct ButtonAxisSettings {
     /// The high value at which to apply rounding.
     pub high: f32,
