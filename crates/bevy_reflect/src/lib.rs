@@ -841,10 +841,22 @@ mod tests {
 
         #[test]
         fn should_not_contain_docs() {
+            // Regular comments do not count as doc comments,
+            // and are therefore not reflected.
             #[derive(Reflect)]
             struct SomeStruct;
 
             let info = <SomeStruct as Typed>::type_info();
+            assert_eq!(None, info.docs());
+
+            /*
+             * Block comments do not count as doc comments,
+             * and are therefore not reflected.
+             */
+            #[derive(Reflect)]
+            struct SomeOtherStruct;
+
+            let info = <SomeOtherStruct as Typed>::type_info();
             assert_eq!(None, info.docs());
         }
 
@@ -863,6 +875,18 @@ mod tests {
             let info = <SomeStruct as Typed>::type_info();
             assert_eq!(
                 Some(" Some struct.\n\n # Example\n\n ```ignore\n let some_struct = SomeStruct;\n ```"),
+                info.docs()
+            );
+
+            #[doc = "The compiler automatically converts `///`-style comments into `#[doc]` attributes."]
+            #[doc = "Of course, you _could_ use the attribute directly if you wanted to."]
+            #[doc = "Both will be reflected."]
+            #[derive(Reflect)]
+            struct SomeOtherStruct;
+
+            let info = <SomeOtherStruct as Typed>::type_info();
+            assert_eq!(
+                Some("The compiler automatically converts `///`-style comments into `#[doc]` attributes.\nOf course, you _could_ use the attribute directly if you wanted to.\nBoth will be reflected."),
                 info.docs()
             );
 
