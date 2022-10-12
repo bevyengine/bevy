@@ -60,5 +60,5 @@ fn update(slider_query: Query<&Slider>, mut text_query: Query<&mut Text>) {
     let slider = slider_query.single();
     let mut text = text_query.single_mut();
 
-    text.sections[0].value = format!("{}", slider.get_value().round());
+    text.sections[0].value = format!("{}", slider.value().round());
 }
