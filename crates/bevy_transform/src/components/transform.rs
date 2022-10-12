@@ -328,7 +328,7 @@ impl Transform {
     #[inline]
     #[must_use]
     pub fn mul_transform(&self, transform: Transform) -> Self {
-        let translation = self.mul_vec3(transform.translation);
+        let translation = self.transform_point(transform.translation);
         let rotation = self.rotation * transform.rotation;
         let scale = self.scale * transform.scale;
         Transform {
@@ -338,20 +338,22 @@ impl Transform {
         }
     }
 
-    /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
+    /// Transforms the given `point`, applying scale, rotation and translation.
+    ///
+    /// If this [`Transform`] has a parent, this will transform a `point` that is
+    /// relative to the parent's [`Transform`] into one relative to this [`Transform`].
+    ///
+    /// If this [`Transform`] does not have a parent, this will transform a `point`
+    /// that is in global space into one relative to this [`Transform`].
+    ///
+    /// If you want to transform a `point` in global space to the local space of this [`Transform`],
+    /// consider using [`GlobalTransform::transform_point()`] instead.
     #[inline]
-    pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
-        value = self.scale * value;
-        value = self.rotation * value;
-        value += self.translation;
-        value
-    }
-
-    /// Changes the `scale` of this [`Transform`], multiplying the current `scale` by
-    /// `scale_factor`.
-    #[inline]
-    pub fn apply_non_uniform_scale(&mut self, scale_factor: Vec3) {
-        self.scale *= scale_factor;
+    pub fn transform_point(&self, mut point: Vec3) -> Vec3 {
+        point = self.scale * point;
+        point = self.rotation * point;
+        point += self.translation;
+        point
     }
 }
 
@@ -381,6 +383,6 @@ impl Mul<Vec3> for Transform {
     type Output = Vec3;
 
     fn mul(self, value: Vec3) -> Self::Output {
-        self.mul_vec3(value)
+        self.transform_point(value)
     }
 }
