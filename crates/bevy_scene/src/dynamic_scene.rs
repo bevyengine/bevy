@@ -65,12 +65,12 @@ impl DynamicScene {
         let type_registry = registry.read();
 
         for scene_entity in &self.entities {
-            // Fetch the entity with the given entity id from the `entity_map`
-            // or spawn a new entity with a transiently unique id if there is
+            // Fetch the entity with the given entity index from the `entity_map`
+            // or spawn a new entity with a transiently unique index if there is
             // no corresponding entry.
             let entity = *entity_map
                 .entry(bevy_ecs::entity::Entity::from_raw(scene_entity.entity))
-                .or_insert_with(|| world.spawn_empty().id());
+                .or_insert_with(|| world.spawn_empty().index());
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {

@@ -17,7 +17,7 @@ use bevy_utils::{default, HashMap};
 /// # struct ComponentA;
 /// # let mut world = World::default();
 /// # world.init_resource::<AppTypeRegistry>();
-/// # let entity = world.spawn(ComponentA).id();
+/// # let entity = world.spawn(ComponentA).index();
 /// let mut builder = DynamicSceneBuilder::from_world(&world);
 /// builder.extract_entity(entity);
 /// let dynamic_scene = builder.build();
@@ -81,7 +81,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// # let mut world = World::default();
     /// # world.init_resource::<AppTypeRegistry>();
-    /// # let _entity = world.spawn(MyComponent).id();
+    /// # let _entity = world.spawn(MyComponent).index();
     /// let mut query = world.query_filtered::<Entity, With<MyComponent>>();
     ///
     /// let mut builder = DynamicSceneBuilder::from_world(&world);
@@ -92,20 +92,20 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-            if self.scene.contains_key(&entity.id()) {
+            if self.scene.contains_key(&entity.index()) {
                 continue;
             }
 
             let mut entry = DynamicEntity {
-                entity: entity.id(),
+                entity: entity.index(),
                 components: Vec::new(),
             };
 
-            for component_id in self.world.entity(entity).archetype().components() {
+            for component_index in self.world.entity(entity).archetype().components() {
                 let reflect_component = self
                     .world
                     .components()
-                    .get_info(component_id)
+                    .get_info(component_index)
                     .and_then(|info| type_registry.get(info.type_id().unwrap()))
                     .and_then(|registration| registration.data::<ReflectComponent>());
 
@@ -116,7 +116,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 }
             }
 
-            self.scene.insert(entity.id(), entry);
+            self.scene.insert(entity.index(), entry);
         }
 
         drop(type_registry);
@@ -150,14 +150,14 @@ mod tests {
         atr.write().register::<ComponentA>();
         world.insert_resource(atr);
 
-        let entity = world.spawn((ComponentA, ComponentB)).id();
+        let entity = world.spawn((ComponentA, ComponentB)).index();
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
         builder.extract_entity(entity);
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.id());
+        assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -170,7 +170,7 @@ mod tests {
         atr.write().register::<ComponentA>();
         world.insert_resource(atr);
 
-        let entity = world.spawn((ComponentA, ComponentB)).id();
+        let entity = world.spawn((ComponentA, ComponentB)).index();
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
         builder.extract_entity(entity);
@@ -178,7 +178,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.id());
+        assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -195,14 +195,14 @@ mod tests {
         }
         world.insert_resource(atr);
 
-        let entity = world.spawn((ComponentA, ComponentB)).id();
+        let entity = world.spawn((ComponentA, ComponentB)).index();
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
         builder.extract_entity(entity);
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.id());
+        assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
         assert!(scene.entities[0].components[1].represents::<ComponentB>());
@@ -220,9 +220,9 @@ mod tests {
         }
         world.insert_resource(atr);
 
-        let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
-        let entity_a = world.spawn(ComponentA).id();
-        let _entity_b = world.spawn(ComponentB).id();
+        let entity_a_b = world.spawn((ComponentA, ComponentB)).index();
+        let entity_a = world.spawn(ComponentA).index();
+        let _entity_b = world.spawn(ComponentB).index();
 
         let mut query = world.query_filtered::<Entity, With<ComponentA>>();
         let mut builder = DynamicSceneBuilder::from_world(&world);
@@ -232,6 +232,6 @@ mod tests {
         assert_eq!(scene.entities.len(), 2);
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a_b.id(), entity_a.id()]);
+        assert_eq!(scene_entities, [entity_a_b.index(), entity_a.index()]);
     }
 }
