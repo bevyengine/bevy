@@ -75,22 +75,22 @@ impl Slider {
     }
 
     /// Retrieves the slider value
-    pub fn get_value(&self) -> f32 {
+    pub fn value(&self) -> f32 {
         self.value
     }
 
     /// Retrieves the minimum slider value
-    pub fn get_min(&self) -> f32 {
+    pub fn min(&self) -> f32 {
         self.min
     }
 
     /// Retrieves the maximum slider value
-    pub fn get_max(&self) -> f32 {
+    pub fn max(&self) -> f32 {
         self.max
     }
 
     /// Retrieves the slider step
-    pub fn get_step(&self) -> f32 {
+    pub fn step(&self) -> f32 {
         self.step
     }
 }
@@ -140,8 +140,8 @@ pub fn update_slider_value(
         }
 
         if slider_dragged.0 {
-            let max = slider.get_max();
-            let min = slider.get_min();
+            let max = slider.max();
+            let min = slider.min();
 
             slider
                 .set_value(cursor_position.x.clamp(0., 1.) * (max - min) + min)
@@ -163,8 +163,8 @@ pub fn update_slider_handle(
             let slider_width = slider_node.size.x - slider_handle_node.size.x;
 
             slider_handle_style.position.left = Val::Px(
-                (slider.get_value() - slider.get_min()) * slider_width
-                    / (slider.get_max() - slider.get_min()),
+                (slider.value() - slider.min()) * slider_width
+                    / (slider.max() - slider.min()),
             );
         }
     }
