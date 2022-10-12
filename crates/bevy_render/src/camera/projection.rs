@@ -172,11 +172,10 @@ impl Default for PerspectiveProjection {
 #[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
-    /// Manually specify the projection's size.
-    ///
-    /// Ignore window resizing; the image will stretch.
+    /// Manually specify the projection's size, ignoring window resizing; the image will stretch.
+    /// Arguments are in world units
     Fixed { width: f32, height: f32 },
-    /// Match the window size.
+    /// Match the viewport size.
     /// The argument is the number of pixels that equals one world unit.
     WindowSize(f32),
     /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
@@ -214,18 +213,15 @@ pub struct OrthographicProjection {
     pub far: f32,
     /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is the bottom left
     /// and (1, 1) is the top right. This determines where the position of the camera sits inside the viewport.
+    /// Set this to (0.5, 0.5) make scaling affect opposite sides equally, thereby keeping centered objects on each axis centered.
     ///
-    /// This is also the pivot point when resizing the viewport. With a bottom left pivot, the projection will expand
+    /// When the projection scales due to viewport resizing (assuming `scaling_mode` is not set to `Fixed`), the position
+    /// of the camera doesn't change, and since `viewport_origin` specifies the point on the viewport where the camera sits,
+    /// this point will always remain at the same position (relatively on the viewport).
+    ///
+    /// Consequently, this is pivot point when scaling. With a bottom left pivot, the projection will expand
     /// upwards and to the right. With a top right pivot, the projection will expand downwards and to the left.
     /// Values in between will caused the projection to scale proportionally on each axis.
-    ///
-    /// If `scaling_mode` is set to anything other than `ScalingMode::None`, resizing the viewport will also scale the
-    /// projection. When the projection scales, the position of the camera doesn't change, and since `viewport_origin`
-    /// specifies the point on the viewport where the camera sits, this point will always remain at the same position
-    /// (relative to the viewport size; if `viewport_origin` is (0.3, 0.6), objects at (0.3, 0.6) (normalized) on the
-    /// viewport will always remain at (0.3, 0.6) (normalized).
-    ///
-    /// Set this to (0.5, 0.5) make scaling affect opposite sides equally, thereby keeping centered objects on each axis centered.
     pub viewport_origin: (f32, f32),
     /// How the projection will scale when the viewport is resized.
     pub scaling_mode: ScalingMode,
