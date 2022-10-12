@@ -183,7 +183,7 @@ impl ReflectTraits {
 
                     let list_meta = list.nested.iter().next();
                     if let Some(NestedMeta::Meta(Meta::Path(path))) = list_meta {
-                        // This should be the ident of the custom function
+                        // This should be the path of the custom function
                         let trait_func_ident = TraitImpl::Custom(path.clone(), span);
                         match ident.as_str() {
                             DEBUG_ATTR => {
