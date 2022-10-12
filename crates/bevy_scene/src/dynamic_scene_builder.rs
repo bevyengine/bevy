@@ -17,7 +17,7 @@ use bevy_utils::{default, HashMap};
 /// # struct ComponentA;
 /// # let mut world = World::default();
 /// # world.init_resource::<AppTypeRegistry>();
-/// # let entity = world.spawn(ComponentA).index();
+/// # let entity = world.spawn(ComponentA).id();
 /// let mut builder = DynamicSceneBuilder::from_world(&world);
 /// builder.extract_entity(entity);
 /// let dynamic_scene = builder.build();
@@ -81,7 +81,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// # let mut world = World::default();
     /// # world.init_resource::<AppTypeRegistry>();
-    /// # let _entity = world.spawn(MyComponent).index();
+    /// # let _entity = world.spawn(MyComponent).id();
     /// let mut query = world.query_filtered::<Entity, With<MyComponent>>();
     ///
     /// let mut builder = DynamicSceneBuilder::from_world(&world);
