@@ -1,5 +1,6 @@
 mod bundle;
 mod dynamic_scene;
+mod dynamic_scene_builder;
 mod scene;
 mod scene_loader;
 mod scene_spawner;
@@ -7,13 +8,16 @@ pub mod serde;
 
 pub use bundle::*;
 pub use dynamic_scene::*;
+pub use dynamic_scene_builder::*;
 pub use scene::*;
 pub use scene_loader::*;
 pub use scene_spawner::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{DynamicScene, DynamicSceneBundle, Scene, SceneBundle, SceneSpawner};
+    pub use crate::{
+        DynamicScene, DynamicSceneBuilder, DynamicSceneBundle, Scene, SceneBundle, SceneSpawner,
+    };
 }
 
 use bevy_app::prelude::*;
