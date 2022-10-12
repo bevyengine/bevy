@@ -29,6 +29,7 @@ impl Default for Slider {
         Self {
             min: 0.,
             max: 100.,
+            // Don't round up the slider value
             step: 0.,
             value: 0.,
         }
