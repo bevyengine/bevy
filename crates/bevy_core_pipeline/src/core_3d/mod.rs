@@ -228,7 +228,7 @@ pub fn prepare_core_3d_depth_textures(
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, Option<&DepthPrepassSettings>),
+        (Entity, &ExtractedCamera, Option<&PrepassSettings>),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -243,7 +243,7 @@ pub fn prepare_core_3d_depth_textures(
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     let mut usage = TextureUsages::RENDER_ATTACHMENT;
-                    if maybe_prepass.map_or(false, |prepass_settings| prepass_settings.depth_resource) {
+                    if maybe_prepass.map_or(false, |prepass_settings| prepass_settings.output_depth) {
                         usage |= TextureUsages::COPY_SRC;
                     }
                     texture_cache.get(

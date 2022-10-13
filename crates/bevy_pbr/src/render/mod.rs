@@ -1,7 +1,7 @@
-mod depth_prepass;
 mod light;
 mod mesh;
+mod prepass;
 
-pub use depth_prepass::*;
 pub use light::*;
 pub use mesh::*;
+pub use prepass::*;
