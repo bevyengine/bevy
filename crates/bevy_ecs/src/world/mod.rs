@@ -1133,7 +1133,7 @@ impl World {
                     .get_mut(component_id)
                     .map(|info| info.insert_with_ticks(ptr, ticks))
                     .unwrap_or_else(|| {
-                        panic!("resource does not exist: {}", std::any::type_name::<R>())
+                        panic!("No resource of type {} exists in the World.", std::any::type_name::<R>())
                     });
             }
         });
