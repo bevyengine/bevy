@@ -16,7 +16,7 @@ use crate::{
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, WorldQuery},
-    storage::{ResourceInfo, SparseSet, Storages},
+    storage::{ResourceData, SparseSet, Storages},
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -1239,7 +1239,7 @@ impl World {
     unsafe fn initialize_resource_internal(
         &mut self,
         component_id: ComponentId,
-    ) -> &mut ResourceInfo {
+    ) -> &mut ResourceData {
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
         self.storages
             .resources

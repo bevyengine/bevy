@@ -5,12 +5,12 @@ use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 
-pub struct ResourceInfo {
+pub struct ResourceData {
     column: Column,
     component_info: ArchetypeComponentInfo,
 }
 
-impl ResourceInfo {
+impl ResourceData {
     /// Returns true if the resource is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
@@ -102,7 +102,7 @@ impl ResourceInfo {
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Resources {
-    resources: SparseSet<ComponentId, ResourceInfo>,
+    resources: SparseSet<ComponentId, ResourceData>,
 }
 
 impl Resources {
@@ -125,13 +125,13 @@ impl Resources {
 
     /// Gets a read-only [`Ptr`] to a resource, if available.
     #[inline]
-    pub fn get(&self, component_id: ComponentId) -> Option<&ResourceInfo> {
+    pub fn get(&self, component_id: ComponentId) -> Option<&ResourceData> {
         self.resources.get(component_id)
     }
 
     /// Gets a read-only [`Ptr`] to a resource, if available.
     #[inline]
-    pub fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceInfo> {
+    pub fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData> {
         self.resources.get_mut(component_id)
     }
 
@@ -144,13 +144,13 @@ impl Resources {
         component_id: ComponentId,
         components: &Components,
         f: F,
-    ) -> &mut ResourceInfo
+    ) -> &mut ResourceData
     where
         F: FnOnce() -> ArchetypeComponentId,
     {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
-            ResourceInfo {
+            ResourceData {
                 column: Column::with_capacity(component_info, 1),
                 component_info: ArchetypeComponentInfo {
                     archetype_component_id: f(),
