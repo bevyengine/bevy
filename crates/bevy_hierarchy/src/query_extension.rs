@@ -138,7 +138,7 @@ where
     pub fn new(parent_query: &'w Query<'w, 's, Q, F>, entity: Entity) -> Self {
         AncestorIter {
             parent_query,
-            next: parent_query.get(entity).ok().map(|p| p.get()),
+            next: Some(entity),
         }
     }
 }
@@ -150,11 +150,8 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next = self.next?;
-
-        self.next = self.parent_query.get(next).ok().map(|p| p.get());
-
-        Some(next)
+        self.next = self.parent_query.get(self.next?).ok().map(|p| p.get());
+        self.next
     }
 }
 
