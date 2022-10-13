@@ -123,3 +123,70 @@ where
         Some(next)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::{
+        prelude::Component,
+        system::{Query, SystemState, Command},
+        world::World,
+    };
+
+    use crate::{Children, AddChild, query_extension::HierarchyQueryExt, Parent};
+
+    #[derive(Component, PartialEq, Debug)]
+    struct A(usize);
+
+    #[test]
+    fn descendant_iter() {
+        let world = &mut World::new();
+
+        let [a, b, c, d] = std::array::from_fn(|i| world.spawn(A(i)).id());
+
+        AddChild {
+            parent: a,
+            child: b,
+        }.write(world);
+
+        AddChild {
+            parent: a,
+            child: c,
+        }.write(world);
+
+        AddChild {
+            parent: c,
+            child: d,
+        }.write(world);
+
+        let mut system_param = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
+        let (children_query, a_query) = system_param.get(world);
+
+        let result: Vec<_> = a_query.iter_many(children_query.iter_descendants(a)).collect();
+
+        assert_eq!([&A(1), &A(2), &A(3)], result.as_slice());
+    }
+
+    #[test]
+    fn ancestor_iter() {
+        let world = &mut World::new();
+
+        let [a, b, c] = std::array::from_fn(|i| world.spawn(A(i)).id());
+
+        AddChild {
+            parent: a,
+            child: b,
+        }.write(world);
+
+        AddChild {
+            parent: b,
+            child: c,
+        }.write(world);
+
+        let mut system_param = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
+        let (parent_query, a_query) = system_param.get(world);
+
+        let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(c)).collect();
+
+        assert_eq!([&A(1), &A(0)], result.as_slice());
+    }
+}
