@@ -1,7 +1,7 @@
 //! Illustrates how `Timer`s can be used both as resources and components.
 
 use bevy::{log::info, prelude::*};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 fn main() {
     App::new()
