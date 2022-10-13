@@ -12,12 +12,46 @@ use crate::{Children, Parent};
 pub trait HierarchyQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///
+    /// Can only be called on a [`Query`] of [`Children`] (i.e. `Query<&Children>`).
+    ///
     /// Traverses the hierarchy breadth-first.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_hierarchy::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Marker;
+    /// fn system(query: Query<Entity, With<Marker>>, children_query: Query<&Children>) {
+    ///     let entity = query.single();
+    ///     for descendant in children_query.iter_descendants(entity) {
+    ///         // Do something!
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, Q, F>
     where
         Q::ReadOnly: WorldQueryGats<'w, Item = &'w Children>;
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s ancestors.
+    ///
+    /// Can only be called on a [`Query`] of [`Parent`] (i.e. `Query<&Parent>`).
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_hierarchy::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Marker;
+    /// fn system(query: Query<Entity, With<Marker>>, parent_query: Query<&Parent>) {
+    ///     let entity = query.single();
+    ///     for ancestor in parent_query.iter_ancestors(entity) {
+    ///         // Do something!
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
     fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, Q, F>
     where
         Q::ReadOnly: WorldQueryGats<'w, Item = &'w Parent>;
