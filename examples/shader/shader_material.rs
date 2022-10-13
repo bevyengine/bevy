@@ -17,7 +17,7 @@ fn main() {
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        // .add_plugin(DepthPrepassPlugin::<CustomMaterial>::default())
+        .add_plugin(DepthPrepassPlugin::<CustomMaterial>::default())
         .add_plugin(MaterialPlugin::<DepthMaterial>::default())
         .add_plugin(DepthPrepassPlugin::<DepthMaterial>::default())
         .add_startup_system(setup)
@@ -70,9 +70,9 @@ fn setup(
         material: materials.add(CustomMaterial {
             color: Vec3::ONE,
             color_texture: Some(asset_server.load("branding/icon.png")),
-            alpha_mode: AlphaMode::Opaque,
+            alpha_mode: AlphaMode::Blend,
         }),
-        transform: Transform::from_xyz(1.0, 0.5, 0.0),
+        transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
 
@@ -82,9 +82,9 @@ fn setup(
         material: materials.add(CustomMaterial {
             color: Vec3::ONE,
             color_texture: Some(asset_server.load("branding/icon.png")),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: AlphaMode::Opaque,
         }),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
+        transform: Transform::from_xyz(1.0, 0.5, 0.0),
         ..default()
     });
 
