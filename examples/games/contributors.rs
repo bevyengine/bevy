@@ -39,7 +39,7 @@ struct SelectionState {
 impl Default for SelectionState {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
+            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, TimerMode::Repeating),
             has_triggered: false,
         }
     }
