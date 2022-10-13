@@ -2,7 +2,6 @@
 
 use bevy::{
     core_pipeline::core_3d::PrepassSettings,
-    pbr::PrepassPlugin,
     prelude::*,
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
@@ -17,9 +16,7 @@ fn main() {
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        .add_plugin(PrepassPlugin::<CustomMaterial>::default())
         .add_plugin(MaterialPlugin::<DepthMaterial>::default())
-        .add_plugin(PrepassPlugin::<DepthMaterial>::default())
         .add_startup_system(setup)
         .add_system(rotate)
         .run();
