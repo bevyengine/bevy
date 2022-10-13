@@ -277,6 +277,9 @@ impl<'w> EntityMut<'w> {
     }
 
     // TODO: move to BundleInfo
+    /// Removes a [`Bundle`] of components from the entity and returns the bundle.
+    ///
+    /// Returns `None` if the entity does not contain the bundle.
     pub fn remove<T: Bundle>(&mut self) -> Option<T> {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;

@@ -28,7 +28,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
-            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|parent| {
