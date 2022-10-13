@@ -1,6 +1,7 @@
 use crate::Stopwatch;
 use bevy_reflect::prelude::*;
 use bevy_utils::Duration;
+use serde::{Deserialize, Serialize};
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
 ///
@@ -9,8 +10,8 @@ use bevy_utils::Duration;
 /// exceeded, and can still be reset at any given point.
 ///
 /// Paused timers will not have elapsed time increased.
-#[derive(Clone, Debug, Default, Reflect)]
-#[reflect(Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Reflect)]
+#[reflect(Default, Serialize, Deserialize)]
 pub struct Timer {
     stopwatch: Stopwatch,
     duration: Duration,

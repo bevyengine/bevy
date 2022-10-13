@@ -1,6 +1,8 @@
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
+use serde::Deserialize;
+use serde::Serialize;
 
 /// A Stopwatch is a struct that track elapsed time when started.
 ///
@@ -23,8 +25,8 @@ use bevy_utils::Duration;
 /// assert!(stopwatch.paused());
 /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
 /// ```
-#[derive(Clone, Debug, Default, Reflect)]
-#[reflect(Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Reflect)]
+#[reflect(Default, Serialize, Deserialize)]
 pub struct Stopwatch {
     elapsed: Duration,
     paused: bool,
