@@ -1,7 +1,6 @@
 //! Illustrates how `Timer`s can be used both as resources and components.
 
 use bevy::{log::info, prelude::*};
-use serde::{Deserialize, Serialize};
 
 fn main() {
     App::new()
@@ -13,10 +12,10 @@ fn main() {
         .run();
 }
 
-#[derive(Component, Deref, DerefMut, Serialize, Deserialize)]
+#[derive(Component, Deref, DerefMut)]
 pub struct PrintOnCompletionTimer(Timer);
 
-#[derive(Resource, Serialize, Deserialize)]
+#[derive(Resource)]
 pub struct Countdown {
     pub percent_trigger: Timer,
     pub main_timer: Timer,
