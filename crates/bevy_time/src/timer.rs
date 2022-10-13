@@ -173,7 +173,7 @@ impl Timer {
     /// # use bevy_time::*;
     /// let mut timer = Timer::from_seconds(1.0, TimerMode::Repeating);
     /// timer.set_mode(TimerMode::Once);
-    /// assert_ne!(timer.mode(), TimerMode::Repeating);
+    /// assert_eq!(timer.mode(), TimerMode::Once);
     /// ```
     #[inline]
     pub fn set_mode(&mut self, mode: TimerMode) {
@@ -425,7 +425,7 @@ mod tests {
         assert!(!t.finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
-        assert_ne!(t.mode(), TimerMode::Repeating);
+        assert_eq!(t.mode(), TimerMode::Once);
         assert_eq!(t.percent(), 0.025);
         assert_eq!(t.percent_left(), 0.975);
         // Ticking while paused changes nothing
@@ -436,7 +436,7 @@ mod tests {
         assert!(!t.finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
-        assert_ne!(t.mode(), TimerMode::Repeating);
+        assert_eq!(t.mode(), TimerMode::Once);
         assert_eq!(t.percent(), 0.025);
         assert_eq!(t.percent_left(), 0.975);
         // Tick past the end and make sure elapsed doesn't go past 0.0 and other things update
