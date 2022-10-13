@@ -159,11 +159,11 @@ where
 mod tests {
     use bevy_ecs::{
         prelude::Component,
-        system::{Command, Query, SystemState},
+        system::{Commands, Query, SystemState},
         world::World,
     };
 
-    use crate::{query_extension::HierarchyQueryExt, AddChild, Children, Parent};
+    use crate::{query_extension::HierarchyQueryExt, BuildChildren, Children, Parent};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -174,26 +174,17 @@ mod tests {
 
         let [a, b, c, d] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        AddChild {
-            parent: a,
-            child: b,
-        }
-        .write(world);
+        let mut system_state = SystemState::<Commands>::new(world);
+        let mut commands = system_state.get_mut(world);
 
-        AddChild {
-            parent: a,
-            child: c,
-        }
-        .write(world);
+        commands.entity(a).add_child(b);
+        commands.entity(a).add_child(c);
+        commands.entity(c).add_child(d);
 
-        AddChild {
-            parent: c,
-            child: d,
-        }
-        .write(world);
+        system_state.apply(world);
 
-        let mut system_param = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
-        let (children_query, a_query) = system_param.get(world);
+        let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
+        let (children_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query
             .iter_many(children_query.iter_descendants(a))
@@ -208,20 +199,16 @@ mod tests {
 
         let [a, b, c] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        AddChild {
-            parent: a,
-            child: b,
-        }
-        .write(world);
+        let mut system_state = SystemState::<Commands>::new(world);
+        let mut commands = system_state.get_mut(world);
 
-        AddChild {
-            parent: b,
-            child: c,
-        }
-        .write(world);
+        commands.entity(a).add_child(b);
+        commands.entity(b).add_child(c);
 
-        let mut system_param = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
-        let (parent_query, a_query) = system_param.get(world);
+        system_state.apply(world);
+
+        let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
+        let (parent_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(c)).collect();
 
