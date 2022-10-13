@@ -5,6 +5,7 @@ use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 
+/// The type-erased backing storage and metadata for a single resource within a [`World`].
 pub struct ResourceData {
     column: Column,
     component_info: ArchetypeComponentInfo,
