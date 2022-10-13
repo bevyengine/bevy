@@ -71,6 +71,15 @@ impl<'w> DynamicSceneBuilder<'w> {
         self.extract_entities(std::iter::once(entity))
     }
 
+    pub fn remove_empty_entities(&mut self) -> &mut Self {
+        self.extracted_scene = self
+            .extracted_scene
+            .drain_filter(|_, entity| !entity.components.is_empty())
+            .collect();
+
+        self
+    }
+
     /// Extract entities from the builder's [`World`].
     ///
     /// Re-extracting an entity that was already extracted will have no effect.
@@ -270,5 +279,23 @@ mod tests {
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
         assert_eq!(scene_entities, [entity_a_b.index(), entity_a.index()]);
+    }
+
+    #[test]
+    fn remove_componentless_entity() {
+        let mut world = World::default();
+
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<ComponentA>();
+        world.insert_resource(atr);
+
+        let entity = world.spawn(ComponentB).id();
+
+        let mut builder = DynamicSceneBuilder::from_world(&world);
+        builder.extract_entity(entity);
+        builder.remove_empty_entities();
+        let scene = builder.build();
+
+        assert_eq!(scene.entities.len(), 0);
     }
 }
