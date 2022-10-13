@@ -566,8 +566,8 @@ bitflags::bitflags! {
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
         const TRANSPARENT_MAIN_PASS       = (1 << 0);
-        const DEPTH_PREPASS               = (1 << 1);
-        const DEPTH_PREPASS_NORMALS       = (1 << 2);
+        const PREPASS_DEPTH               = (1 << 1);
+        const PREPASS_NORMALS             = (1 << 2);
         const ALPHA_MASK                  = (1 << 3);
         const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
@@ -681,7 +681,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // For the opaque and alpha mask passes, fragments that are closer will replace
             // the current fragment value in the output and the depth is written to the
             // depth buffer
-            depth_write_enabled = !key.contains(MeshPipelineKey::DEPTH_PREPASS);
+            depth_write_enabled = !key.contains(MeshPipelineKey::PREPASS_DEPTH);
         }
 
         Ok(RenderPipelineDescriptor {
@@ -714,7 +714,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled,
-                depth_compare: if key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+                depth_compare: if key.contains(MeshPipelineKey::PREPASS_DEPTH) {
                     CompareFunction::Equal
                 } else {
                     CompareFunction::GreaterEqual
@@ -866,11 +866,11 @@ pub fn queue_mesh_view_bind_groups(
         for (entity, view_shadow_bindings, view_cluster_bindings, maybe_prepass_textures) in &views
         {
             let depth_view = if let Some(ViewPrepassTextures {
-                depth: Some(depth_prepass),
+                depth: Some(prepass_depth_texture),
                 ..
             }) = &maybe_prepass_textures
             {
-                &depth_prepass.default_view
+                &prepass_depth_texture.default_view
             } else {
                 &fallback_depths
                     .image_for_samplecount(msaa.samples)
@@ -878,11 +878,11 @@ pub fn queue_mesh_view_bind_groups(
             };
 
             let normal_view = if let Some(ViewPrepassTextures {
-                normal: Some(normal_prepass),
+                normals: Some(prepass_normals_texture),
                 ..
             }) = &maybe_prepass_textures
             {
-                &normal_prepass.default_view
+                &prepass_normals_texture.default_view
             } else {
                 &fallback_images
                     .image_for_samplecount(msaa.samples)

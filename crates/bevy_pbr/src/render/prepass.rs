@@ -1,6 +1,6 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
-use bevy_core_pipeline::{core_3d::DepthPrepassSettings, prelude::Camera3d};
+use bevy_core_pipeline::{core_3d::PrepassSettings, prelude::Camera3d};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryState, With},
@@ -42,7 +42,7 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_utils::{
-    tracing::{error, info},
+    tracing::{error, warn},
     FloatOrd, HashMap,
 };
 
@@ -55,32 +55,32 @@ use std::{hash::Hash, marker::PhantomData};
 
 pub mod draw_3d_graph {
     pub mod node {
-        /// Label for the depth prepass node.
-        pub const DEPTH_PREPASS: &str = "depth_prepass";
+        /// Label for the prepass node.
+        pub const PREPASS: &str = "prepass";
     }
 }
-pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
+pub const PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-pub const DEPTH_PREPASS_SHADER_HANDLE: HandleUntyped =
+pub const PREPASS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17179930919397780179);
 
-pub struct DepthPrepassPlugin<M: Material>(PhantomData<M>);
+pub struct PrepassPlugin<M: Material>(PhantomData<M>);
 
-impl<M: Material> Default for DepthPrepassPlugin<M> {
+impl<M: Material> Default for PrepassPlugin<M> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<M: Material> Plugin for DepthPrepassPlugin<M>
+impl<M: Material> Plugin for PrepassPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
             app,
-            DEPTH_PREPASS_SHADER_HANDLE,
-            "depth_prepass.wgsl",
+            PREPASS_SHADER_HANDLE,
+            "prepass.wgsl",
             Shader::from_wgsl
         );
 
@@ -90,39 +90,33 @@ where
         };
 
         render_app
-            .add_system_to_stage(
-                RenderStage::Extract,
-                extract_core_3d_camera_depth_prepass_phase,
-            )
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_normal_textures)
-            .add_system_to_stage(RenderStage::Queue, queue_depth_prepass_view_bind_group::<M>)
-            .add_system_to_stage(RenderStage::Queue, queue_depth_prepass_material_meshes::<M>)
+            .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_prepass_phase)
+            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_prepass_textures)
+            .add_system_to_stage(RenderStage::Queue, queue_prepass_view_bind_group::<M>)
+            .add_system_to_stage(RenderStage::Queue, queue_prepass_material_meshes::<M>)
+            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<OpaquePrepass>)
             .add_system_to_stage(
                 RenderStage::PhaseSort,
-                sort_phase_system::<OpaqueDepthPrepass>,
+                sort_phase_system::<AlphaMaskPrepass>,
             )
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                sort_phase_system::<AlphaMaskDepthPrepass>,
-            )
-            .init_resource::<DepthPrepassPipeline<M>>()
-            .init_resource::<DrawFunctions<OpaqueDepthPrepass>>()
-            .init_resource::<DrawFunctions<AlphaMaskDepthPrepass>>()
-            .init_resource::<DepthPrepassViewBindGroup>()
-            .init_resource::<SpecializedMeshPipelines<DepthPrepassPipeline<M>>>();
+            .init_resource::<PrepassPipeline<M>>()
+            .init_resource::<DrawFunctions<OpaquePrepass>>()
+            .init_resource::<DrawFunctions<AlphaMaskPrepass>>()
+            .init_resource::<PrepassViewBindGroup>()
+            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
 
-        let depth_prepass_node = DepthPrepassNode::new(&mut render_app.world);
+        let prepass_node = PrepassNode::new(&mut render_app.world);
         render_app
-            .add_render_command::<OpaqueDepthPrepass, DrawDepth>()
-            .add_render_command::<AlphaMaskDepthPrepass, DrawDepth>();
+            .add_render_command::<OpaquePrepass, DrawPrepass>()
+            .add_render_command::<AlphaMaskPrepass, DrawPrepass>();
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
             .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::DEPTH_PREPASS, depth_prepass_node);
+        draw_3d_graph.add_node(draw_3d_graph::node::PREPASS, prepass_node);
         draw_3d_graph
             .add_node_edge(
-                draw_3d_graph::node::DEPTH_PREPASS,
+                draw_3d_graph::node::PREPASS,
                 bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
             )
             .unwrap();
@@ -130,15 +124,15 @@ where
             .add_slot_edge(
                 draw_3d_graph.input_node().unwrap().id,
                 bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::DEPTH_PREPASS,
-                DepthPrepassNode::IN_VIEW,
+                draw_3d_graph::node::PREPASS,
+                PrepassNode::IN_VIEW,
             )
             .unwrap();
     }
 }
 
 #[derive(Resource)]
-pub struct DepthPrepassPipeline<M: Material> {
+pub struct PrepassPipeline<M: Material> {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
     pub skinned_mesh_layout: BindGroupLayout,
@@ -148,7 +142,7 @@ pub struct DepthPrepassPipeline<M: Material> {
     _marker: PhantomData<M>,
 }
 
-impl<M: Material> FromWorld for DepthPrepassPipeline<M> {
+impl<M: Material> FromWorld for PrepassPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let asset_server = world.resource::<AssetServer>();
@@ -167,7 +161,7 @@ impl<M: Material> FromWorld for DepthPrepassPipeline<M> {
                     count: None,
                 },
             ],
-            label: Some("depth_prepass_view_layout"),
+            label: Some("prepass_view_layout"),
         });
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
@@ -193,7 +187,7 @@ impl<M: Material> FromWorld for DepthPrepassPipeline<M> {
     }
 }
 
-impl<M: Material> SpecializedMeshPipeline for DepthPrepassPipeline<M> {
+impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M> {
     type Key = MeshPipelineKey;
 
     fn specialize(
@@ -212,7 +206,7 @@ impl<M: Material> SpecializedMeshPipeline for DepthPrepassPipeline<M> {
 
         let mut vertex_attributes = vec![Mesh::ATTRIBUTE_POSITION.at_shader_location(0)];
 
-        if key.contains(MeshPipelineKey::DEPTH_PREPASS_NORMALS) {
+        if key.contains(MeshPipelineKey::PREPASS_NORMALS) {
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
             shader_defs.push(String::from("OUTPUT_NORMALS"));
         }
@@ -240,14 +234,14 @@ impl<M: Material> SpecializedMeshPipeline for DepthPrepassPipeline<M> {
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        let fragment = if key.contains(MeshPipelineKey::DEPTH_PREPASS_NORMALS)
+        let fragment = if key.contains(MeshPipelineKey::PREPASS_NORMALS)
             || key.contains(MeshPipelineKey::ALPHA_MASK)
         {
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
                 handle.clone()
             } else {
-                info!("no frag");
-                DEPTH_PREPASS_SHADER_HANDLE.typed::<Shader>()
+                warn!("Missing Material::prepass_fragment_shader() for material with UUID {}. Rendering may be incorrect.", M::TYPE_UUID);
+                PREPASS_SHADER_HANDLE.typed::<Shader>()
             };
 
             Some(FragmentState {
@@ -267,8 +261,8 @@ impl<M: Material> SpecializedMeshPipeline for DepthPrepassPipeline<M> {
         let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
             handle.clone()
         } else {
-            info!("no vert");
-            DEPTH_PREPASS_SHADER_HANDLE.typed::<Shader>()
+            warn!("Missing Material::prepass_vertex_shader() for material with UUID {}. Rendering may be incorrect.", M::TYPE_UUID);
+            PREPASS_SHADER_HANDLE.typed::<Shader>()
         };
 
         Ok(RenderPipelineDescriptor {
@@ -292,7 +286,7 @@ impl<M: Material> SpecializedMeshPipeline for DepthPrepassPipeline<M> {
             },
             depth_stencil: Some(DepthStencilState {
                 // FIXME: Same as main pass
-                format: DEPTH_PREPASS_FORMAT,
+                format: PREPASS_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -312,21 +306,21 @@ impl<M: Material> SpecializedMeshPipeline for DepthPrepassPipeline<M> {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("depth_prepass_pipeline".into()),
+            label: Some("prepass_pipeline".into()),
         })
     }
 }
 
-pub fn extract_core_3d_camera_depth_prepass_phase(
+pub fn extract_core_3d_camera_prepass_phase(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(Entity, &Camera, &DepthPrepassSettings), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(Entity, &Camera, &PrepassSettings), With<Camera3d>>>,
 ) {
-    for (entity, camera, depth_prepass_settings) in cameras_3d.iter() {
+    for (entity, camera, prepass_settings) in cameras_3d.iter() {
         if camera.is_active {
             commands.get_or_spawn(entity).insert((
-                RenderPhase::<OpaqueDepthPrepass>::default(),
-                RenderPhase::<AlphaMaskDepthPrepass>::default(),
-                depth_prepass_settings.clone(),
+                RenderPhase::<OpaquePrepass>::default(),
+                RenderPhase::<AlphaMaskPrepass>::default(),
+                prepass_settings.clone(),
             ));
         }
     }
@@ -335,26 +329,26 @@ pub fn extract_core_3d_camera_depth_prepass_phase(
 #[derive(Component)]
 pub struct ViewPrepassTextures {
     pub depth: Option<CachedTexture>,
-    pub normal: Option<CachedTexture>,
+    pub normals: Option<CachedTexture>,
     pub size: Extent3d,
 }
 
-pub fn prepare_core_3d_normal_textures(
+pub fn prepare_core_3d_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, &DepthPrepassSettings),
+        (Entity, &ExtractedCamera, &PrepassSettings),
         (
-            With<RenderPhase<OpaqueDepthPrepass>>,
-            With<RenderPhase<AlphaMaskDepthPrepass>>,
+            With<RenderPhase<OpaquePrepass>>,
+            With<RenderPhase<AlphaMaskPrepass>>,
         ),
     >,
 ) {
     let mut depth_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
-    for (entity, camera, depth_prepass_settings) in &views_3d {
+    for (entity, camera, prepass_settings) in &views_3d {
         if let Some(physical_target_size) = camera.physical_target_size {
             let size = Extent3d {
                 depth_or_array_layers: 1,
@@ -362,7 +356,7 @@ pub fn prepare_core_3d_normal_textures(
                 height: physical_target_size.y,
             };
 
-            let cached_depth_texture = match depth_prepass_settings.depth_resource {
+            let cached_depth_texture = match prepass_settings.output_depth {
                 true => Some(
                     depth_textures
                         .entry(camera.target.clone())
@@ -386,7 +380,7 @@ pub fn prepare_core_3d_normal_textures(
                 ),
                 false => None,
             };
-            let cached_normal_texture = match depth_prepass_settings.output_normals {
+            let cached_normals_texture = match prepass_settings.output_normals {
                 true => Some(
                     normal_textures
                         .entry(camera.target.clone())
@@ -394,7 +388,7 @@ pub fn prepare_core_3d_normal_textures(
                             texture_cache.get(
                                 &render_device,
                                 TextureDescriptor {
-                                    label: Some("view_normal_texture"),
+                                    label: Some("view_normals_texture"),
                                     size,
                                     mip_level_count: 1,
                                     sample_count: msaa.samples,
@@ -411,7 +405,7 @@ pub fn prepare_core_3d_normal_textures(
             };
             commands.entity(entity).insert(ViewPrepassTextures {
                 depth: cached_depth_texture,
-                normal: cached_normal_texture,
+                normals: cached_normals_texture,
                 size,
             });
         }
@@ -419,35 +413,35 @@ pub fn prepare_core_3d_normal_textures(
 }
 
 #[derive(Default, Resource)]
-pub struct DepthPrepassViewBindGroup {
+pub struct PrepassViewBindGroup {
     bind_group: Option<BindGroup>,
 }
 
-pub fn queue_depth_prepass_view_bind_group<M: Material>(
+pub fn queue_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
-    depth_prepass_pipeline: Res<DepthPrepassPipeline<M>>,
+    prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
-    mut depth_prepass_view_bind_group: ResMut<DepthPrepassViewBindGroup>,
+    mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        depth_prepass_view_bind_group.bind_group =
+        prepass_view_bind_group.bind_group =
             Some(render_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,
                     resource: view_binding,
                 }],
-                label: Some("depth_prepass_view_bind_group"),
-                layout: &depth_prepass_pipeline.view_layout,
+                label: Some("prepass_view_bind_group"),
+                layout: &prepass_pipeline.view_layout,
             }));
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn queue_depth_prepass_material_meshes<M: Material>(
-    opaque_draw_functions: Res<DrawFunctions<OpaqueDepthPrepass>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMaskDepthPrepass>>,
-    depth_prepass_pipeline: Res<DepthPrepassPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<DepthPrepassPipeline<M>>>,
+pub fn queue_prepass_material_meshes<M: Material>(
+    opaque_draw_functions: Res<DrawFunctions<OpaquePrepass>>,
+    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMaskPrepass>>,
+    prepass_pipeline: Res<PrepassPipeline<M>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
@@ -456,27 +450,30 @@ pub fn queue_depth_prepass_material_meshes<M: Material>(
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
-        &DepthPrepassSettings,
-        &mut RenderPhase<OpaqueDepthPrepass>,
-        &mut RenderPhase<AlphaMaskDepthPrepass>,
+        &PrepassSettings,
+        &mut RenderPhase<OpaquePrepass>,
+        &mut RenderPhase<AlphaMaskPrepass>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let opaque_draw_depth = opaque_draw_functions.read().get_id::<DrawDepth>().unwrap();
-    let alpha_mask_draw_depth = alpha_mask_draw_functions
+    let opaque_draw_prepass = opaque_draw_functions
         .read()
-        .get_id::<DrawDepth>()
+        .get_id::<DrawPrepass>()
         .unwrap();
-    for (view, visible_entities, depth_prepass_settings, mut opaque_phase, mut alpha_mask_phase) in
+    let alpha_mask_draw_prepass = alpha_mask_draw_functions
+        .read()
+        .get_id::<DrawPrepass>()
+        .unwrap();
+    for (view, visible_entities, prepass_settings, mut opaque_phase, mut alpha_mask_phase) in
         &mut views
     {
         let rangefinder = view.rangefinder3d();
 
         let mut view_key =
-            MeshPipelineKey::DEPTH_PREPASS | MeshPipelineKey::from_msaa_samples(msaa.samples);
-        if depth_prepass_settings.output_normals {
-            view_key |= MeshPipelineKey::DEPTH_PREPASS_NORMALS;
+            MeshPipelineKey::PREPASS_DEPTH | MeshPipelineKey::from_msaa_samples(msaa.samples);
+        if prepass_settings.output_normals {
+            view_key |= MeshPipelineKey::PREPASS_NORMALS;
         }
 
         for visible_entity in &visible_entities.entities {
@@ -497,7 +494,7 @@ pub fn queue_depth_prepass_material_meshes<M: Material>(
 
                         let pipeline_id = pipelines.specialize(
                             &mut pipeline_cache,
-                            &depth_prepass_pipeline,
+                            &prepass_pipeline,
                             key,
                             &mesh.layout,
                         );
@@ -513,17 +510,17 @@ pub fn queue_depth_prepass_material_meshes<M: Material>(
                             + material.properties.depth_bias;
                         match alpha_mode {
                             AlphaMode::Opaque => {
-                                opaque_phase.add(OpaqueDepthPrepass {
+                                opaque_phase.add(OpaquePrepass {
                                     entity: *visible_entity,
-                                    draw_function: opaque_draw_depth,
+                                    draw_function: opaque_draw_prepass,
                                     pipeline_id,
                                     distance,
                                 });
                             }
                             AlphaMode::Mask(_) => {
-                                alpha_mask_phase.add(AlphaMaskDepthPrepass {
+                                alpha_mask_phase.add(AlphaMaskPrepass {
                                     entity: *visible_entity,
-                                    draw_function: alpha_mask_draw_depth,
+                                    draw_function: alpha_mask_draw_prepass,
                                     pipeline_id,
                                     distance,
                                 });
@@ -537,14 +534,14 @@ pub fn queue_depth_prepass_material_meshes<M: Material>(
     }
 }
 
-pub struct OpaqueDepthPrepass {
+pub struct OpaquePrepass {
     pub distance: f32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
-impl PhaseItem for OpaqueDepthPrepass {
+impl PhaseItem for OpaquePrepass {
     type SortKey = FloatOrd;
 
     #[inline]
@@ -563,27 +560,27 @@ impl PhaseItem for OpaqueDepthPrepass {
     }
 }
 
-impl EntityPhaseItem for OpaqueDepthPrepass {
+impl EntityPhaseItem for OpaquePrepass {
     fn entity(&self) -> Entity {
         self.entity
     }
 }
 
-impl CachedRenderPipelinePhaseItem for OpaqueDepthPrepass {
+impl CachedRenderPipelinePhaseItem for OpaquePrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline_id
     }
 }
 
-pub struct AlphaMaskDepthPrepass {
+pub struct AlphaMaskPrepass {
     pub distance: f32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
-impl PhaseItem for AlphaMaskDepthPrepass {
+impl PhaseItem for AlphaMaskPrepass {
     type SortKey = FloatOrd;
 
     #[inline]
@@ -602,25 +599,25 @@ impl PhaseItem for AlphaMaskDepthPrepass {
     }
 }
 
-impl EntityPhaseItem for AlphaMaskDepthPrepass {
+impl EntityPhaseItem for AlphaMaskPrepass {
     fn entity(&self) -> Entity {
         self.entity
     }
 }
 
-impl CachedRenderPipelinePhaseItem for AlphaMaskDepthPrepass {
+impl CachedRenderPipelinePhaseItem for AlphaMaskPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline_id
     }
 }
 
-pub struct DepthPrepassNode {
+pub struct PrepassNode {
     main_view_query: QueryState<
         (
             &'static ExtractedCamera,
-            &'static RenderPhase<OpaqueDepthPrepass>,
-            &'static RenderPhase<AlphaMaskDepthPrepass>,
+            &'static RenderPhase<OpaquePrepass>,
+            &'static RenderPhase<AlphaMaskPrepass>,
             &'static ViewDepthTexture,
             &'static ViewPrepassTextures,
         ),
@@ -628,7 +625,7 @@ pub struct DepthPrepassNode {
     >,
 }
 
-impl DepthPrepassNode {
+impl PrepassNode {
     pub const IN_VIEW: &'static str = "view";
 
     pub fn new(world: &mut World) -> Self {
@@ -638,9 +635,9 @@ impl DepthPrepassNode {
     }
 }
 
-impl Node for DepthPrepassNode {
+impl Node for PrepassNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(DepthPrepassNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(PrepassNode::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -656,22 +653,20 @@ impl Node for DepthPrepassNode {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         if let Ok((
             camera,
-            opaque_depth_prepass_phase,
-            alpha_mask_depth_prepass_phase,
+            opaque_prepass_phase,
+            alpha_mask_prepass_phase,
             view_depth_texture,
             view_prepass_textures,
         )) = self.main_view_query.get_manual(world, view_entity)
         {
-            if opaque_depth_prepass_phase.items.is_empty()
-                && alpha_mask_depth_prepass_phase.items.is_empty()
-            {
+            if opaque_prepass_phase.items.is_empty() && alpha_mask_prepass_phase.items.is_empty() {
                 return Ok(());
             }
 
             let mut color_attachments = vec![];
-            if let Some(view_normal_texture) = &view_prepass_textures.normal {
+            if let Some(view_normals_texture) = &view_prepass_textures.normals {
                 color_attachments.push(Some(RenderPassColorAttachment {
-                    view: &view_normal_texture.default_view,
+                    view: &view_normals_texture.default_view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK.into()),
@@ -683,7 +678,7 @@ impl Node for DepthPrepassNode {
             {
                 // Set up the pass descriptor with the depth attachment and maybe colour attachment
                 let pass_descriptor = RenderPassDescriptor {
-                    label: Some("depth_prepass"),
+                    label: Some("prepass"),
                     color_attachments: &color_attachments,
                     depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                         view: &view_depth_texture.view,
@@ -706,11 +701,11 @@ impl Node for DepthPrepassNode {
                 {
                     // Run the depth prepass, sorted front-to-back
                     #[cfg(feature = "trace")]
-                    let _opaque_depth_prepass_span = info_span!("opaque_depth_prepass").entered();
-                    let draw_functions = world.resource::<DrawFunctions<OpaqueDepthPrepass>>();
+                    let _opaque_prepass_span = info_span!("opaque_prepass").entered();
+                    let draw_functions = world.resource::<DrawFunctions<OpaquePrepass>>();
 
                     let mut draw_functions = draw_functions.write();
-                    for item in &opaque_depth_prepass_phase.items {
+                    for item in &opaque_prepass_phase.items {
                         let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                         draw_function.draw(world, &mut tracked_pass, view_entity, item);
                     }
@@ -719,12 +714,11 @@ impl Node for DepthPrepassNode {
                 {
                     // Run the depth prepass, sorted front-to-back
                     #[cfg(feature = "trace")]
-                    let _alpha_mask_depth_prepass_span =
-                        info_span!("alpha_mask_depth_prepass").entered();
-                    let draw_functions = world.resource::<DrawFunctions<AlphaMaskDepthPrepass>>();
+                    let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
+                    let draw_functions = world.resource::<DrawFunctions<AlphaMaskPrepass>>();
 
                     let mut draw_functions = draw_functions.write();
-                    for item in &alpha_mask_depth_prepass_phase.items {
+                    for item in &alpha_mask_prepass_phase.items {
                         let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
                         draw_function.draw(world, &mut tracked_pass, view_entity, item);
                     }
@@ -745,7 +739,7 @@ impl Node for DepthPrepassNode {
     }
 }
 
-pub type DrawDepth = (
+pub type DrawPrepass = (
     SetItemPipeline,
     SetDepthViewBindGroup<0>,
     SetMeshBindGroup<1>,
@@ -754,22 +748,19 @@ pub type DrawDepth = (
 
 pub struct SetDepthViewBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetDepthViewBindGroup<I> {
-    type Param = (
-        SRes<DepthPrepassViewBindGroup>,
-        SQuery<Read<ViewUniformOffset>>,
-    );
+    type Param = (SRes<PrepassViewBindGroup>, SQuery<Read<ViewUniformOffset>>);
     #[inline]
     fn render<'w>(
         view: Entity,
         _item: Entity,
-        (depth_prepass_view_bind_group, view_query): SystemParamItem<'w, '_, Self::Param>,
+        (prepass_view_bind_group, view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let view_uniform_offset = view_query.get(view).unwrap();
-        let depth_prepass_view_bind_group = depth_prepass_view_bind_group.into_inner();
+        let prepass_view_bind_group = prepass_view_bind_group.into_inner();
         pass.set_bind_group(
             I,
-            depth_prepass_view_bind_group.bind_group.as_ref().unwrap(),
+            prepass_view_bind_group.bind_group.as_ref().unwrap(),
             &[view_uniform_offset.offset],
         );
 
