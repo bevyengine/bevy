@@ -125,7 +125,7 @@ impl Column {
     }
 
     #[inline]
-    #[must_use = "The returned pointer should be used to dropped the removed component"]
+    #[must_use = "The returned pointer should be used to drop the removed component"]
     pub(crate) fn swap_remove_and_forget(
         &mut self,
         row: usize,
