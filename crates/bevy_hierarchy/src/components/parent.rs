@@ -11,7 +11,7 @@ use std::ops::Deref;
 /// This component should only be present on entities that actually have a parent entity.
 ///
 /// See [`HierarchyQueryExt`] for hierarchy related methods on [`Query`].
-/// 
+///
 /// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
 /// [`Query`]: bevy_ecs::system::Query
 #[derive(Component, Debug, Eq, PartialEq, Reflect)]
