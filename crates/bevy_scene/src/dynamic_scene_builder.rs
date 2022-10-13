@@ -31,9 +31,9 @@ use std::collections::BTreeMap;
 /// let dynamic_scene = builder.build();
 /// ```
 pub struct DynamicSceneBuilder<'w> {
-    entities: BTreeMap<u32, DynamicEntity>,
+    extracted_scene: BTreeMap<u32, DynamicEntity>,
     type_registry: AppTypeRegistry,
-    world: &'w World,
+    original_world: &'w World,
 }
 
 impl<'w> DynamicSceneBuilder<'w> {
@@ -41,9 +41,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// All components registered in that world's [`AppTypeRegistry`] resource will be extracted.
     pub fn from_world(world: &'w World) -> Self {
         Self {
-            entities: default(),
+            extracted_scene: default(),
             type_registry: world.resource::<AppTypeRegistry>().clone(),
-            world,
+            original_world: world,
         }
     }
 
@@ -51,16 +51,16 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Only components registered in the given [`AppTypeRegistry`] will be extracted.
     pub fn from_world_with_type_registry(world: &'w World, type_registry: AppTypeRegistry) -> Self {
         Self {
-            entities: default(),
+            extracted_scene: default(),
             type_registry,
-            world,
+            original_world: world,
         }
     }
 
     /// Consume the builder, producing a [`DynamicScene`].
     pub fn build(self) -> DynamicScene {
         DynamicScene {
-            entities: self.entities.into_values().collect(),
+            entities: self.extracted_scene.into_values().collect(),
         }
     }
 
@@ -102,7 +102,7 @@ impl<'w> DynamicSceneBuilder<'w> {
         for entity in entities {
             let index = entity.index();
 
-            if self.entities.contains_key(&index) {
+            if self.extracted_scene.contains_key(&index) {
                 continue;
             }
 
@@ -111,21 +111,22 @@ impl<'w> DynamicSceneBuilder<'w> {
                 components: Vec::new(),
             };
 
-            for component_id in self.world.entity(entity).archetype().components() {
+            for component_id in self.original_world.entity(entity).archetype().components() {
                 let reflect_component = self
-                    .world
+                    .original_world
                     .components()
                     .get_info(component_id)
                     .and_then(|info| type_registry.get(info.type_id().unwrap()))
                     .and_then(|registration| registration.data::<ReflectComponent>());
 
                 if let Some(reflect_component) = reflect_component {
-                    if let Some(component) = reflect_component.reflect(self.world, entity) {
+                    if let Some(component) = reflect_component.reflect(self.original_world, entity)
+                    {
                         entry.components.push(component.clone_value());
                     }
                 }
             }
-            self.entities.insert(index, entry);
+            self.extracted_scene.insert(index, entry);
         }
 
         drop(type_registry);
