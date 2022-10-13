@@ -177,7 +177,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn set_mode(&mut self, mode: TimerMode) {
-        if !self.mode.repeating() && mode.repeating() && self.finished {
+        if self.mode != TimerMode::Repeating && mode == TimerMode::Repeating && self.finished {
             self.stopwatch.reset();
             self.finished = self.just_finished();
         }
@@ -204,13 +204,13 @@ impl Timer {
     pub fn tick(&mut self, delta: Duration) -> &Self {
         if self.paused() {
             self.times_finished_this_tick = 0;
-            if self.mode.repeating() {
+            if self.mode == TimerMode::Repeating {
                 self.finished = false;
             }
             return self;
         }
 
-        if !self.mode.repeating() && self.finished() {
+        if self.mode != TimerMode::Repeating && self.finished() {
             self.times_finished_this_tick = 0;
             return self;
         }
@@ -219,7 +219,7 @@ impl Timer {
         self.finished = self.elapsed() >= self.duration();
 
         if self.finished() {
-            if self.mode.repeating() {
+            if self.mode == TimerMode::Repeating {
                 self.times_finished_this_tick =
                     (self.elapsed().as_nanos() / self.duration().as_nanos()) as u32;
                 // Duration does not have a modulo
@@ -408,12 +408,6 @@ pub enum TimerMode {
     Once,
     /// Reset when finished.
     Repeating,
-}
-
-impl TimerMode {
-    pub fn repeating(self) -> bool {
-        self == Self::Repeating
-    }
 }
 
 #[cfg(test)]
