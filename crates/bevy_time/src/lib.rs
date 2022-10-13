@@ -9,7 +9,7 @@ pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
 
-use bevy_ecs::system::{Local, Res, ResMut};
+use bevy_ecs::system::{Res, ResMut};
 use bevy_utils::{tracing::warn, Duration, Instant};
 use crossbeam_channel::{Receiver, Sender};
 
