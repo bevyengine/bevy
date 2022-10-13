@@ -20,6 +20,7 @@ mod valid_parent_check_plugin;
 pub use valid_parent_check_plugin::*;
 
 mod query_extension;
+pub use query_extension::*;
 
 #[doc(hidden)]
 pub mod prelude {
