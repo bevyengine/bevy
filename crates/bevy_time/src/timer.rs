@@ -162,8 +162,8 @@ impl Timer {
     /// assert!(timer.repeating());
     /// ```
     #[inline]
-    pub fn repeating(&self) -> bool {
-        self.mode.repeating()
+    pub fn mode(&self) -> TimerMode {
+        self.mode
     }
 
     /// Sets whether the timer is repeating or not.
@@ -176,16 +176,12 @@ impl Timer {
     /// assert!(!timer.repeating());
     /// ```
     #[inline]
-    pub fn set_repeating(&mut self, repeating: bool) {
-        if !self.mode.repeating() && repeating && self.finished {
+    pub fn set_mode(&mut self, mode: TimerMode) {
+        if !self.mode.repeating() && mode.repeating() && self.finished {
             self.stopwatch.reset();
             self.finished = self.just_finished();
         }
-        self.mode = if repeating {
-            TimerMode::Repeating
-        } else {
-            TimerMode::Once
-        };
+        self.mode = mode;
     }
 
     /// Advance the timer by `delta` seconds.
@@ -208,13 +204,13 @@ impl Timer {
     pub fn tick(&mut self, delta: Duration) -> &Self {
         if self.paused() {
             self.times_finished_this_tick = 0;
-            if self.repeating() {
+            if self.mode.repeating() {
                 self.finished = false;
             }
             return self;
         }
 
-        if !self.repeating() && self.finished() {
+        if !self.mode.repeating() && self.finished() {
             self.times_finished_this_tick = 0;
             return self;
         }
@@ -223,7 +219,7 @@ impl Timer {
         self.finished = self.elapsed() >= self.duration();
 
         if self.finished() {
-            if self.repeating() {
+            if self.mode.repeating() {
                 self.times_finished_this_tick =
                     (self.elapsed().as_nanos() / self.duration().as_nanos()) as u32;
                 // Duration does not have a modulo
@@ -404,10 +400,11 @@ impl Timer {
 }
 
 /// Specifies [`Timer`] behavior.
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect)]
 #[reflect(Default)]
 pub enum TimerMode {
     /// Run once and stop.
+    #[default]
     Once,
     /// Reset when finished.
     Repeating,
@@ -415,13 +412,7 @@ pub enum TimerMode {
 
 impl TimerMode {
     pub fn repeating(self) -> bool {
-        matches!(self, Self::Repeating)
-    }
-}
-
-impl Default for TimerMode {
-    fn default() -> Self {
-        Self::Once
+        self == Self::Repeating
     }
 }
 
