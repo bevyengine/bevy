@@ -8,6 +8,11 @@ fn fragment(
     @builtin(sample_index) sample_index: u32,
     #import bevy_pbr::mesh_vertex_output
 ) -> @location(0) vec4<f32> {
-    let depth = prepass_depth(frag_coord, sample_index);
-    return vec4<f32>(depth, depth, depth, 1.0);
+    if frag_coord.y < 300.0 {
+            let depth = prepass_normal(frag_coord, sample_index);
+            return vec4<f32>(depth, 1.0);
+        } else {
+            let depth = prepass_depth(frag_coord, sample_index);
+            return vec4<f32>(depth, depth, depth, 1.0);
+        }
 }

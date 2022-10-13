@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{core_3d::DepthPrepassSettings, prelude::Camera3d};
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -28,10 +28,10 @@ use bevy_render::{
         ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
         Extent3d, FragmentState, FrontFace, LoadOp, MultisampleState, Operations, PipelineCache,
         PolygonMode, PrimitiveState, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-        RenderPassDescriptor, RenderPipelineDescriptor, Shader, ShaderStages, ShaderType,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilState, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages, VertexState,
+        RenderPassDescriptor, RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages,
+        ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureUsages, VertexState,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
@@ -41,14 +41,17 @@ use bevy_render::{
     },
     Extract, RenderApp, RenderStage,
 };
-use bevy_utils::{tracing::error, FloatOrd, HashMap};
+use bevy_utils::{
+    tracing::{error, info},
+    FloatOrd, HashMap,
+};
 
 use crate::{
     AlphaMode, DrawMesh, Material, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
     SetMeshBindGroup,
 };
 
-use std::hash::Hash;
+use std::{hash::Hash, marker::PhantomData};
 
 pub mod draw_3d_graph {
     pub mod node {
@@ -61,9 +64,18 @@ pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 pub const DEPTH_PREPASS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17179930919397780179);
 
-pub struct DepthPrepassPlugin;
+pub struct DepthPrepassPlugin<M: Material>(PhantomData<M>);
 
-impl Plugin for DepthPrepassPlugin {
+impl<M: Material> Default for DepthPrepassPlugin<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<M: Material> Plugin for DepthPrepassPlugin<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
             app,
@@ -83,7 +95,8 @@ impl Plugin for DepthPrepassPlugin {
                 extract_core_3d_camera_depth_prepass_phase,
             )
             .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_normal_textures)
-            .add_system_to_stage(RenderStage::Queue, queue_depth_prepass_view_bind_group)
+            .add_system_to_stage(RenderStage::Queue, queue_depth_prepass_view_bind_group::<M>)
+            .add_system_to_stage(RenderStage::Queue, queue_depth_prepass_material_meshes::<M>)
             .add_system_to_stage(
                 RenderStage::PhaseSort,
                 sort_phase_system::<OpaqueDepthPrepass>,
@@ -92,11 +105,11 @@ impl Plugin for DepthPrepassPlugin {
                 RenderStage::PhaseSort,
                 sort_phase_system::<AlphaMaskDepthPrepass>,
             )
-            .init_resource::<DepthPrepassPipeline>()
+            .init_resource::<DepthPrepassPipeline<M>>()
             .init_resource::<DrawFunctions<OpaqueDepthPrepass>>()
             .init_resource::<DrawFunctions<AlphaMaskDepthPrepass>>()
             .init_resource::<DepthPrepassViewBindGroup>()
-            .init_resource::<SpecializedMeshPipelines<DepthPrepassPipeline>>();
+            .init_resource::<SpecializedMeshPipelines<DepthPrepassPipeline<M>>>();
 
         let depth_prepass_node = DepthPrepassNode::new(&mut render_app.world);
         render_app
@@ -125,15 +138,20 @@ impl Plugin for DepthPrepassPlugin {
 }
 
 #[derive(Resource)]
-pub struct DepthPrepassPipeline {
+pub struct DepthPrepassPipeline<M: Material> {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
     pub skinned_mesh_layout: BindGroupLayout,
+    pub material_layout: BindGroupLayout,
+    pub material_vertex_shader: Option<Handle<Shader>>,
+    pub material_fragment_shader: Option<Handle<Shader>>,
+    _marker: PhantomData<M>,
 }
 
-impl FromWorld for DepthPrepassPipeline {
+impl<M: Material> FromWorld for DepthPrepassPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
+        let asset_server = world.resource::<AssetServer>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -159,11 +177,23 @@ impl FromWorld for DepthPrepassPipeline {
             view_layout,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
             skinned_mesh_layout,
+            material_vertex_shader: match M::prepass_vertex_shader() {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            },
+            material_fragment_shader: match M::prepass_fragment_shader() {
+                ShaderRef::Default => None,
+                ShaderRef::Handle(handle) => Some(handle),
+                ShaderRef::Path(path) => Some(asset_server.load(path)),
+            },
+            material_layout: M::bind_group_layout(render_device),
+            _marker: PhantomData,
         }
     }
 }
 
-impl SpecializedMeshPipeline for DepthPrepassPipeline {
+impl<M: Material> SpecializedMeshPipeline for DepthPrepassPipeline<M> {
     type Key = MeshPipelineKey;
 
     fn specialize(
@@ -176,8 +206,8 @@ impl SpecializedMeshPipeline for DepthPrepassPipeline {
 
         if key.contains(MeshPipelineKey::ALPHA_MASK) {
             shader_defs.push(String::from("ALPHA_MASK"));
-            // // FIXME: This needs to be implemented per-material!
-            // bind_group_layout.push(self.material_layout);
+            // FIXME: This needs to be implemented per-material!
+            bind_group_layout.push(self.material_layout.clone());
         }
 
         let mut vertex_attributes = vec![Mesh::ATTRIBUTE_POSITION.at_shader_location(0)];
@@ -213,8 +243,15 @@ impl SpecializedMeshPipeline for DepthPrepassPipeline {
         let fragment = if key.contains(MeshPipelineKey::DEPTH_PREPASS_NORMALS)
             || key.contains(MeshPipelineKey::ALPHA_MASK)
         {
+            let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
+                handle.clone()
+            } else {
+                info!("no frag");
+                DEPTH_PREPASS_SHADER_HANDLE.typed::<Shader>()
+            };
+
             Some(FragmentState {
-                shader: DEPTH_PREPASS_SHADER_HANDLE.typed::<Shader>(),
+                shader: frag_shader_handle,
                 entry_point: "fragment".into(),
                 shader_defs: shader_defs.clone(),
                 targets: vec![Some(ColorTargetState {
@@ -227,9 +264,16 @@ impl SpecializedMeshPipeline for DepthPrepassPipeline {
             None
         };
 
+        let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
+            handle.clone()
+        } else {
+            info!("no vert");
+            DEPTH_PREPASS_SHADER_HANDLE.typed::<Shader>()
+        };
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: DEPTH_PREPASS_SHADER_HANDLE.typed::<Shader>(),
+                shader: vert_shader_handle,
                 entry_point: "vertex".into(),
                 shader_defs,
                 buffers: vec![vertex_buffer_layout],
@@ -379,9 +423,9 @@ pub struct DepthPrepassViewBindGroup {
     bind_group: Option<BindGroup>,
 }
 
-pub fn queue_depth_prepass_view_bind_group(
+pub fn queue_depth_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
-    depth_prepass_pipeline: Res<DepthPrepassPipeline>,
+    depth_prepass_pipeline: Res<DepthPrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
     mut depth_prepass_view_bind_group: ResMut<DepthPrepassViewBindGroup>,
 ) {
@@ -402,10 +446,8 @@ pub fn queue_depth_prepass_view_bind_group(
 pub fn queue_depth_prepass_material_meshes<M: Material>(
     opaque_draw_functions: Res<DrawFunctions<OpaqueDepthPrepass>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMaskDepthPrepass>>,
-    // material_pipeline: Res<MaterialPipeline<M>>,
-    depth_prepass_pipeline: Res<DepthPrepassPipeline>,
-    // mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<DepthPrepassPipeline>>,
+    depth_prepass_pipeline: Res<DepthPrepassPipeline<M>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<DepthPrepassPipeline<M>>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,

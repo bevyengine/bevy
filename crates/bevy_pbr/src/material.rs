@@ -1,6 +1,6 @@
 use crate::{
-    queue_depth_prepass_material_meshes, AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey,
-    MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup,
+    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
+    SetMeshViewBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -135,6 +135,19 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
         0.0
     }
 
+    /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
+    /// will be used.
+    fn prepass_vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the default prepass fragment shader
+    /// will be used.
+    #[allow(unused_variables)]
+    fn prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     #[allow(unused_variables)]
@@ -180,7 +193,6 @@ where
                     RenderStage::Prepare,
                     prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
                 )
-                .add_system_to_stage(RenderStage::Queue, queue_depth_prepass_material_meshes::<M>)
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
         }
     }

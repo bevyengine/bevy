@@ -2,6 +2,7 @@
 
 use bevy::{
     core_pipeline::core_3d::DepthPrepassSettings,
+    pbr::DepthPrepassPlugin,
     prelude::*,
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
@@ -16,7 +17,9 @@ fn main() {
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<CustomMaterial>::default())
+        // .add_plugin(DepthPrepassPlugin::<CustomMaterial>::default())
         .add_plugin(MaterialPlugin::<DepthMaterial>::default())
+        .add_plugin(DepthPrepassPlugin::<DepthMaterial>::default())
         .add_startup_system(setup)
         .add_system(rotate)
         .run();
@@ -42,10 +45,10 @@ fn setup(
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Quad {
             flip: false,
-            size: Vec2::new(3.0, 3.0),
+            size: Vec2::new(2.0, 2.0),
         })),
         material: depth_materials.add(DepthMaterial {}),
-        transform: Transform::from_xyz(0.0, 1.0, 2.0)
+        transform: Transform::from_xyz(-1.0, 1.0, 2.0)
             .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         ..default()
     });
@@ -109,18 +112,6 @@ fn setup(
     ));
 }
 
-/// The Material trait is very configurable, but comes with sensible defaults for all methods.
-/// You only need to implement functions for features that need non-default behavior. See the Material api docs for details!
-impl Material for CustomMaterial {
-    fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material.wgsl".into()
-    }
-
-    fn alpha_mode(&self) -> AlphaMode {
-        self.alpha_mode
-    }
-}
-
 // This is the struct that will be passed to your shader
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
 #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
@@ -131,6 +122,22 @@ pub struct CustomMaterial {
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,
     alpha_mode: AlphaMode,
+}
+
+/// The Material trait is very configurable, but comes with sensible defaults for all methods.
+/// You only need to implement functions for features that need non-default behavior. See the Material api docs for details!
+impl Material for CustomMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/custom_material.wgsl".into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode {
+        self.alpha_mode
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        "shaders/red.wgsl".into()
+    }
 }
 
 #[derive(Component)]
