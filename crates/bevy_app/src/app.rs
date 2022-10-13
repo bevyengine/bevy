@@ -136,8 +136,6 @@ impl App {
 
     /// Advances the execution of the [`Schedule`] by one cycle.
     ///
-    /// By default, [`Time`](bevy_time::Time) is updated automatically. See [`TimeUpdateStrategy`](bevy_time::TimeUpdateStrategy) to alter this behavior.
-    ///
     /// This method also updates sub apps.
     ///
     /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
