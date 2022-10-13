@@ -782,6 +782,16 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "entity_blueprint"
+path = "examples/ecs/entity_blueprint.rs"
+
+[package.metadata.example.entity_blueprint]
+name = "Entity Blueprint"
+description = "Shows how to create an entity from a blueprint"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 

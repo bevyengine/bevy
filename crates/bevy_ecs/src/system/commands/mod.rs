@@ -2,6 +2,7 @@ mod command_queue;
 mod parallel_scope;
 
 use crate::{
+    blueprint::EntityBlueprint,
     bundle::Bundle,
     entity::{Entities, Entity},
     world::{FromWorld, World},
@@ -240,6 +241,15 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn spawn<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
         let mut e = self.spawn_empty();
         e.insert(bundle);
+        e
+    }
+
+    pub fn spawn_blueprint<'a, T: EntityBlueprint>(
+        &'a mut self,
+        blueprint: T,
+    ) -> EntityCommands<'w, 's, 'a> {
+        let mut e = self.spawn_empty();
+        blueprint.build(&mut e);
         e
     }
 
