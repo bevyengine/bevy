@@ -388,13 +388,18 @@ impl Table {
     }
 
     #[inline]
-    pub fn capacity(&self) -> usize {
-        self.entities.capacity()
+    pub fn component_count(&self) -> usize {
+        self.columns.len()
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
+    pub fn entity_count(&self) -> usize {
         self.entities.len()
+    }
+
+    #[inline]
+    pub fn entity_capacity(&self) -> usize {
+        self.entities.capacity()
     }
 
     #[inline]
