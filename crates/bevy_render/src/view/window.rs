@@ -144,6 +144,8 @@ pub struct WindowSurfaces {
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
+/// This will not handle [virtual windows](bevy_window::Window::new_virtual).
+///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
 /// the performance bottleneck. This can be seen in profiles as multiple prepare-stage systems all
 /// taking an unusually long time to complete, and all finishing at about the same time as the
@@ -173,79 +175,78 @@ pub fn prepare_windows(
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
 ) {
-    for window in windows
-        .windows
-        .values_mut()
-        // value of raw_handle is only None in synthetic tests
-        .filter(|x| x.raw_handle.is_some())
-    {
-        let window_surfaces = window_surfaces.deref_mut();
-        let surface_data = window_surfaces
-            .surfaces
-            .entry(window.id)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                let surface = render_instance
-                    .create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
-                let format = *surface
-                    .get_supported_formats(&render_adapter)
-                    .get(0)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No supported formats found for surface {:?} on adapter {:?}",
-                            surface, render_adapter
-                        )
+    for window in windows.windows.values_mut() {
+        if let Some(handle) = &window.handle {
+            let window_surfaces = window_surfaces.deref_mut();
+            let surface_data =
+                window_surfaces
+                    .surfaces
+                    .entry(window.id)
+                    .or_insert_with(|| unsafe {
+                        // NOTE: On some OSes this MUST be called from the main thread.
+                        let surface = render_instance
+                            .create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
+                        let format = *surface
+                            .get_supported_formats(&render_adapter)
+                            .get(0)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "No supported formats found for surface {:?} on adapter {:?}",
+                                    surface, render_adapter
+                                )
+                            });
+                        SurfaceData { surface, format }
                     });
-                SurfaceData { surface, format }
-            });
 
-        let surface_configuration = wgpu::SurfaceConfiguration {
-            format: surface_data.format,
-            width: window.physical_width,
-            height: window.physical_height,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            present_mode: match window.present_mode {
-                PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
-            },
-            alpha_mode: match window.alpha_mode {
-                CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
-                CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
-                CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
-                CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
-                CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
-            },
-        };
+            let surface_configuration = wgpu::SurfaceConfiguration {
+                format: surface_data.format,
+                width: window.physical_width,
+                height: window.physical_height,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                present_mode: match window.present_mode {
+                    PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                    PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+                    PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                    PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                    PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+                },
+                alpha_mode: match window.alpha_mode {
+                    CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
+                    CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
+                    CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
+                    CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
+                    CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
+                },
+            };
 
-        // Do the initial surface configuration if it hasn't been configured yet. Or if size or
-        // present mode changed.
-        let frame = if window_surfaces.configured_windows.insert(window.id)
-            || window.size_changed
-            || window.present_mode_changed
-        {
-            render_device.configure_surface(&surface_data.surface, &surface_configuration);
-            surface_data
-                .surface
-                .get_current_texture()
-                .expect("Error configuring surface")
-        } else {
-            match surface_data.surface.get_current_texture() {
-                Ok(swap_chain_frame) => swap_chain_frame,
-                Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(&surface_data.surface, &surface_configuration);
-                    surface_data
-                        .surface
-                        .get_current_texture()
-                        .expect("Error reconfiguring surface")
+            // Do the initial surface configuration if it hasn't been configured yet. Or if size or
+            // present mode changed.
+            let frame = if window_surfaces.configured_windows.insert(window.id)
+                || window.size_changed
+                || window.present_mode_changed
+            {
+                render_device.configure_surface(&surface_data.surface, &surface_configuration);
+                surface_data
+                    .surface
+                    .get_current_texture()
+                    .expect("Error configuring surface")
+            } else {
+                match surface_data.surface.get_current_texture() {
+                    Ok(swap_chain_frame) => swap_chain_frame,
+                    Err(wgpu::SurfaceError::Outdated) => {
+                        render_device
+                            .configure_surface(&surface_data.surface, &surface_configuration);
+                        surface_data
+                            .surface
+                            .get_current_texture()
+                            .expect("Error reconfiguring surface")
+                    }
+                    err => err.expect("Failed to acquire next swap chain texture!"),
                 }
-                err => err.expect("Failed to acquire next swap chain texture!"),
-            }
-        };
+            };
 
-        window.swap_chain_texture = Some(TextureView::from(frame));
-        window.swap_chain_texture_format = Some(surface_data.format);
+            window.swap_chain_texture = Some(TextureView::from(frame));
+            window.swap_chain_texture_format = Some(surface_data.format);
+        }
     }
 }
