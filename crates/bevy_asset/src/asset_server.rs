@@ -10,8 +10,13 @@ use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
-use parking_lot::{Mutex, RwLock};
-use std::{path::Path, sync::Arc};
+use parking_lot::{Mutex, RwLock, RwLockReadGuard};
+use std::{
+    collections::{HashSet, VecDeque},
+    ops::Deref,
+    path::Path,
+    sync::Arc,
+};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an `AssetServer`.
@@ -239,37 +244,76 @@ impl AssetServer {
             .cloned()
     }
 
-    /// Gets the load state of an asset from the provided handle.
-    pub fn get_load_state<H: Into<HandleId>>(&self, handle: H) -> LoadState {
+    /// Gets the source info of an asset from the provided handle.
+    pub fn get_source_info<'a, H: Into<HandleId>>(
+        &'a self,
+        handle: H,
+    ) -> Option<impl Deref<Target = SourceInfo> + 'a> {
         match handle.into() {
             HandleId::AssetPathId(id) => {
                 let asset_sources = self.server.asset_sources.read();
-                asset_sources
-                    .get(&id.source_path_id())
-                    .map_or(LoadState::NotLoaded, |info| info.load_state)
+                RwLockReadGuard::try_map(asset_sources, |asset_sources| {
+                    asset_sources.get(&id.source_path_id())
+                })
+                .ok()
             }
-            HandleId::Id(_, _) => LoadState::NotLoaded,
+            HandleId::Id(_, _) => None,
         }
+    }
+
+    /// Gets the load state of an asset from the provided handle.
+    pub fn get_load_state<H: Into<HandleId>>(&self, handle: H) -> LoadState {
+        self.get_source_info(handle)
+            .map_or(LoadState::NotLoaded, |info| info.load_state)
     }
 
     /// Gets the overall load state of a group of assets from the provided handles.
     ///
     /// This method will only return [`LoadState::Loaded`] if all assets in the
-    /// group were loaded successfully.
-    pub fn get_group_load_state(&self, handles: impl IntoIterator<Item = HandleId>) -> LoadState {
+    /// group were loaded successfully, including the assets' dependencies if
+    /// `include_dependencies` is set.
+    pub fn get_group_load_state(
+        &self,
+        handles: impl IntoIterator<Item = HandleId>,
+        include_dependencies: bool,
+    ) -> LoadState {
+        let mut queue = VecDeque::from_iter(handles);
+        let mut visited = HashSet::new();
         let mut load_state = LoadState::Loaded;
-        for handle_id in handles {
-            match handle_id {
-                HandleId::AssetPathId(id) => match self.get_load_state(id) {
-                    LoadState::Loaded => continue,
-                    LoadState::Loading => {
-                        load_state = LoadState::Loading;
-                    }
-                    LoadState::Failed => return LoadState::Failed,
-                    LoadState::NotLoaded => return LoadState::NotLoaded,
-                    LoadState::Unloaded => return LoadState::Unloaded,
-                },
-                HandleId::Id(_, _) => return LoadState::NotLoaded,
+
+        while let Some(handle_id) = queue.pop_front() {
+            visited.insert(handle_id);
+
+            if visited.contains(&handle_id) {
+                continue;
+            }
+
+            let source_info = if let Some(source_info) = self.get_source_info(handle_id) {
+                source_info
+            } else {
+                return LoadState::NotLoaded;
+            };
+
+            match source_info.load_state {
+                LoadState::Loaded => {}
+                LoadState::Loading => {
+                    load_state = LoadState::Loading;
+                }
+                LoadState::Failed => return LoadState::Failed,
+                LoadState::NotLoaded => return LoadState::NotLoaded,
+                LoadState::Unloaded => return LoadState::Unloaded,
+            }
+
+            if include_dependencies {
+                if let Some(SourceMeta { assets, .. }) = &source_info.meta {
+                    queue.extend(
+                        assets
+                            .iter()
+                            .flat_map(|meta| meta.dependencies.iter())
+                            .map(AssetPathId::from)
+                            .map(HandleId::from),
+                    );
+                }
             }
         }
 
