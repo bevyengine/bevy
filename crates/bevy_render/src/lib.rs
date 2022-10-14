@@ -23,6 +23,7 @@ pub mod texture;
 pub mod view;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
+use bevy_window::AbstractWindowHandle;
 pub use extract_param::Extract;
 
 pub mod prelude {

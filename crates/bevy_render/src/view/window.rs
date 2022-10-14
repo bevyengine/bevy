@@ -8,6 +8,7 @@ use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
+    AbstractWindowHandle
 };
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
@@ -42,7 +43,7 @@ impl Plugin for WindowRenderPlugin {
 pub struct ExtractedWindow {
     /// An entity that contains the components in [`Window`].
     pub entity: Entity,
-    pub handle: RawHandleWrapper,
+    pub handle: AbstractWindowHandle,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -90,7 +91,7 @@ fn extract_windows(
 
         let mut extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
             entity,
-            handle: handle.clone(),
+            handle: AbstractWindowHandle::RawWindowHandle(handle.clone()),
             physical_width: new_width,
             physical_height: new_height,
             present_mode: window.present_mode,
@@ -148,6 +149,8 @@ pub struct WindowSurfaces {
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
+/// This will not handle [virtual windows](bevy_window::AbstractWindowHandle::Virtual).
+///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
 /// the performance bottleneck. This can be seen in profiles as multiple prepare-set systems all
 /// taking an unusually long time to complete, and all finishing at about the same time as the
@@ -179,6 +182,10 @@ pub fn prepare_windows(
     mut msaa: ResMut<Msaa>,
 ) {
     for window in windows.windows.values_mut() {
+        let AbstractWindowHandle::RawWindowHandle(handle) = &window.handle else {
+            continue
+        };
+
         let window_surfaces = window_surfaces.deref_mut();
         let surface_data = window_surfaces
             .surfaces
@@ -187,7 +194,7 @@ pub fn prepare_windows(
                 // NOTE: On some OSes this MUST be called from the main thread.
                 // As of wgpu 0.15, only failable if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
                 let surface = render_instance
-                    .create_surface(&window.handle.get_handle())
+                    .create_surface(&handle.get_handle())
                     .expect("Failed to create wgpu surface");
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;

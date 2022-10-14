@@ -450,6 +450,25 @@ impl WindowPosition {
     }
 }
 
+/// Handle used for creating surfaces in the render plugin
+///
+/// Either a raw handle to an OS window or `Virtual` to signify that there is no corresponding OS window.
+#[derive(Clone, Debug)]
+pub enum AbstractWindowHandle {
+    /// The window corresponds to an operator system window.
+    RawWindowHandle(crate::RawHandleWrapper),
+    /// The window does not to correspond to an operator system window.
+    ///
+    /// It differs from a non-virtual window, in that the caller is responsible
+    /// for creating and presenting surface textures and inserting them into
+    /// [`ExtractedWindow`](https://docs.rs/bevy/*/bevy/render/view/struct.ExtractedWindow.html).
+    Virtual,
+}
+
+/// An operating system or virtual window that can present content and receive user input.
+///
+/// To create a window, use a [`EventWriter<CreateWindow>`](`crate::CreateWindow`).
+///
 /// ## Window Sizes
 ///
 /// There are three sizes associated with a window. The physical size which is
