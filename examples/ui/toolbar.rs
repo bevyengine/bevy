@@ -1,31 +1,30 @@
 //! This example shows a more advanced ui use case of managing a shared state via a set of button
 //! components.
-//! interaction state.
 
 use bevy::ui::Display;
 use bevy::{prelude::*, winit::WinitSettings};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 struct ToolbarState {
-    selected: ButtonTags,
+    selected: ButtonTag,
 }
 
 impl Default for ToolbarState {
     fn default() -> Self {
         Self {
-            selected: ButtonTags::Stop,
+            selected: ButtonTag::Stop,
         }
     }
 }
 
 struct ToolbarEvent {
-    tag: ButtonTags,
+    tag: ButtonTag,
     message: Option<String>,
     interaction: Interaction,
 }
 
 #[derive(Component, Clone, Hash, Debug, Eq, PartialEq)]
-enum ButtonTags {
+enum ButtonTag {
     Play,
     Pause,
     Stop,
@@ -42,10 +41,12 @@ fn main() {
         .add_startup_system(setup)
         .add_state(ToolbarState::default())
         .add_event::<ToolbarEvent>()
-        .add_system(button_interaction_system)
+        // EventReader systems added before event writer
         .add_system(toolbar_state_system)
         .add_system(toolbar_message_system)
         .add_system(toolbar_style_system)
+        // EventWriter system after EventReaders to prevent ordering issues.
+        .add_system(button_interaction_system)
         .run();
 }
 
@@ -55,23 +56,18 @@ const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.4, 0.4, 0.8);
 const SELECTED_BUTTON: Color = Color::rgb(0.35, 0.35, 0.75);
 
-/// System: Manages the click interaction and styling of all the button elements
-///
-/// Help wanted: I had to remove `Changed<Interaction>` from the query so that
-/// the buttons that weren't clicked would update.
-///
-/// Is there a way of listening to changes in `ResMut<State<ToolbarState>>`?
+/// Manages the click interaction 
 fn button_interaction_system(
-    mut interaction_query: Query<(&Interaction, &ButtonTags), (Changed<Interaction>, With<Button>)>,
+    mut interaction_query: Query<(&Interaction, &ButtonTag), (Changed<Interaction>, With<Button>)>,
     mut ev_toolbar_button: EventWriter<ToolbarEvent>,
 ) {
     for (interaction, button_tag) in &mut interaction_query {
         match *interaction {
             Interaction::Clicked => {
                 let message = match button_tag {
-                    ButtonTags::Stop => None,
-                    ButtonTags::Play => Some("Playing...".to_string()),
-                    ButtonTags::Pause => Some("Pause...".to_string()),
+                    ButtonTag::Stop => None,
+                    ButtonTag::Play => Some("Playing...".to_string()),
+                    ButtonTag::Pause => Some("Pause...".to_string()),
                 };
 
                 ev_toolbar_button.send(ToolbarEvent {
@@ -80,14 +76,7 @@ fn button_interaction_system(
                     interaction: interaction.clone(),
                 });
             }
-            Interaction::Hovered => {
-                ev_toolbar_button.send(ToolbarEvent {
-                    tag: button_tag.clone(),
-                    message: None,
-                    interaction: interaction.clone(),
-                });
-            }
-            Interaction::None => {
+            Interaction::Hovered | Interaction::None => {
                 ev_toolbar_button.send(ToolbarEvent {
                     tag: button_tag.clone(),
                     message: None,
@@ -98,6 +87,7 @@ fn button_interaction_system(
     }
 }
 
+/// Commits the last selected button to ToolbarState
 fn toolbar_state_system(
     mut ev_toolbar_button: EventReader<ToolbarEvent>,
     mut toolbar_state: ResMut<State<ToolbarState>>,
@@ -116,42 +106,30 @@ fn toolbar_state_system(
     }
 }
 
+/// Manages the background colour / display of the toolbar buttons
 fn toolbar_style_system(
     mut ev_toolbar_button: EventReader<ToolbarEvent>,
-    mut style_query: Query<(&mut Style, &mut UiColor, &ButtonTags), With<Button>>,
+    mut style_query: Query<(&mut Style, &mut UiColor, &ButtonTag), With<Button>>,
     toolbar_state: Res<State<ToolbarState>>,
 ) {
     for ev in ev_toolbar_button.iter() {
         for (mut style, mut color, tag) in &mut style_query {
-            // Update button colours
-            let this_button = ev.tag.clone() == tag.clone();
-            let hovered = this_button && ev.interaction == Interaction::Hovered;
-            let clicked = this_button && ev.interaction == Interaction::Clicked;
-            let selected = tag.clone() == toolbar_state.current().selected;
+            // If this button is the button that the event is referring to
+            let is_event_button = &ev.tag == tag;
+            // If this button is the currently selected button
+            let selected = tag == &toolbar_state.current().selected;
 
-            // println!(
-            //     "Checking {:?} hovered?: {:?} clicked: {:?} selected: {:?}",
-            //     tag, hovered, clicked, selected
-            // );
+            *color = match (is_event_button, selected, ev.interaction) {
+                (_, true, _) => SELECTED_BUTTON.into(),
+                (true, _, Interaction::Clicked) => PRESSED_BUTTON.into(),
+                (true, _, Interaction::Hovered) => HOVERED_BUTTON.into(),
+                (_, _, _) => NORMAL_BUTTON.into(),
+            };
+            println!("{:?} {:?}", tag, color);
 
-            if selected {
-                if clicked {
-                    *color = PRESSED_BUTTON.into();
-                } else {
-                    *color = SELECTED_BUTTON.into();
-                }
-            } else {
-                if clicked {
-                    *color = PRESSED_BUTTON.into();
-                } else if hovered {
-                    *color = HOVERED_BUTTON.into();
-                } else {
-                    *color = NORMAL_BUTTON.into();
-                }
-            }
-
-            if tag.clone() == ButtonTags::Stop
-                && toolbar_state.current().selected == ButtonTags::Stop
+            // Hide stop button if not currently playing / paused
+            if *tag == ButtonTag::Stop
+                && toolbar_state.current().selected == ButtonTag::Stop
             {
                 style.display = Display::None;
             } else {
@@ -161,7 +139,7 @@ fn toolbar_style_system(
     }
 }
 
-/// System: Show and hide the toolbar status message when there is a message avaliable
+/// Show and hide the toolbar status message when there is a message avaliable
 fn toolbar_message_system(
     mut ev_toolbar_button: EventReader<ToolbarEvent>,
     mut message_el_query: Query<(&mut Text, &mut Style), With<ToolbarMessage>>,
@@ -170,7 +148,7 @@ fn toolbar_message_system(
     for ev in ev_toolbar_button.iter() {
         if ev.interaction == Interaction::Clicked {
             if let Some(message) = ev.message.clone() {
-                message_text.sections[0].value = message.clone();
+                message_text.sections[0].value = message;
                 message_style.display = Display::Flex;
             } else {
                 message_style.display = Display::None;
@@ -189,7 +167,7 @@ fn create_toolbar_button(
     parent: &mut ChildBuilder,
     asset_server: &Res<AssetServer>,
     title: &str,
-    tag: ButtonTags,
+    tag: ButtonTag,
 ) {
     parent
         .spawn_bundle(ButtonBundle {
@@ -247,8 +225,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             height: Val::Auto,
                         },
                         padding: UiRect {
-                            left: Val::Px(5.),
-                            right: Val::Px(5.),
+                            left: Val::Px(3.),
+                            right: Val::Px(3.),
                             top: Val::Px(3.),
                             bottom: Val::Px(3.),
                         },
@@ -260,9 +238,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    create_toolbar_button(parent, &asset_server, "play", ButtonTags::Play);
-                    create_toolbar_button(parent, &asset_server, "pause", ButtonTags::Pause);
-                    create_toolbar_button(parent, &asset_server, "stop", ButtonTags::Stop);
+                    create_toolbar_button(parent, &asset_server, "play", ButtonTag::Play);
+                    create_toolbar_button(parent, &asset_server, "pause", ButtonTag::Pause);
+                    create_toolbar_button(parent, &asset_server, "stop", ButtonTag::Stop);
 
                     parent
                         .spawn_bundle(TextBundle::from_section(
