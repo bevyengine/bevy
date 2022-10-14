@@ -559,8 +559,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
     /// This can only be called for read-only queries.
     ///
-    ///  For permutations of size `K` of query returning `N` results, you will get:
-    /// - if `K == N`: one permutation of all query results
+    ///  For combinations of size `K` of query returning `N` results, you will get:
+    /// - if `K == N`: one combination of all query results
     /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
     ///
@@ -585,8 +585,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Iterates over all possible combinations of `K` query results for the given [`World`]
     /// without repetition.
     ///
-    ///  For permutations of size `K` of query returning `N` results, you will get:
-    /// - if `K == N`: one permutation of all query results
+    ///  For combinations of size `K` of query returning `N` results, you will get:
+    /// - if `K == N`: one combination of all query results
     /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
     #[inline]
