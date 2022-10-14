@@ -93,7 +93,6 @@ fn toolbar_state_system(
     for ev in ev_toolbar_button.iter() {
         if ev.interaction == Interaction::Clicked {
             if ev.tag != toolbar_state.current().selected {
-                println!("Toolbar state: Setting {:?} as selected", ev.tag);
                 toolbar_state
                     .set(ToolbarState {
                         selected: ev.tag.clone(),
@@ -123,7 +122,6 @@ fn toolbar_style_system(
                 (true, _, Interaction::Hovered) => HOVERED_BUTTON.into(),
                 (_, _, _) => NORMAL_BUTTON.into(),
             };
-            println!("{:?} {:?}", tag, color);
 
             // Hide stop button if not currently playing / paused
             if *tag == ButtonTag::Stop && toolbar_state.current().selected == ButtonTag::Stop {
