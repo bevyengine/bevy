@@ -9,7 +9,10 @@ use crate::{
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
-use bevy_utils::{Duration, HashMap, HashSet, Instant};
+use bevy_utils::{Duration, Instant};
+use bevy_utils::{HashMap, HashSet};
+#[cfg(any(unix, windows))]
+use std::ffi::OsString;
 use std::{
     any::Any,
     borrow::Cow,
@@ -19,6 +22,7 @@ use std::{
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
     ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
+    path::PathBuf,
 };
 
 impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -38,6 +42,7 @@ impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(PathBuf(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(Result<T: Clone + Reflect + 'static, E: Clone + Reflect + 'static>());
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
 impl_reflect_value!(Range<T: Clone + Send + Sync + 'static>());
@@ -60,6 +65,11 @@ impl_reflect_value!(NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
+
+// Only for platforms that can serialize it as in serde:
+// https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
+#[cfg(any(unix, windows))]
+impl_reflect_value!(OsString(Debug, Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -682,6 +692,13 @@ impl<T: FromReflect> Enum for Option<T> {
         }
     }
 
+    fn variant_index(&self) -> usize {
+        match self {
+            None => 0,
+            Some(..) => 1,
+        }
+    }
+
     #[inline]
     fn variant_type(&self) -> VariantType {
         match self {
@@ -844,12 +861,13 @@ impl<T: FromReflect> Typed for Option<T> {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| {
-            let none_variant = VariantInfo::Unit(UnitVariantInfo::new_static("None"));
-            let some_variant = VariantInfo::Tuple(TupleVariantInfo::new_static(
-                "Some",
-                &[UnnamedField::new::<T>(0)],
-            ));
-            TypeInfo::Enum(EnumInfo::new::<Self>(&[none_variant, some_variant]))
+            let none_variant = VariantInfo::Unit(UnitVariantInfo::new("None"));
+            let some_variant =
+                VariantInfo::Tuple(TupleVariantInfo::new("Some", &[UnnamedField::new::<T>(0)]));
+            TypeInfo::Enum(EnumInfo::new::<Self>(
+                "Option",
+                &[none_variant, some_variant],
+            ))
         })
     }
 }
@@ -889,18 +907,19 @@ mod tests {
         Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
         VariantType,
     };
-    use bevy_utils::{HashMap, Instant};
+    use bevy_utils::HashMap;
+    use bevy_utils::{Duration, Instant};
     use std::f32::consts::{PI, TAU};
 
     #[test]
     fn can_serialize_duration() {
         let mut type_registry = TypeRegistry::default();
-        type_registry.register::<std::time::Duration>();
+        type_registry.register::<Duration>();
 
         let reflect_serialize = type_registry
-            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<std::time::Duration>())
+            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<Duration>())
             .unwrap();
-        let _serializable = reflect_serialize.get_serializable(&std::time::Duration::ZERO);
+        let _serializable = reflect_serialize.get_serializable(&Duration::ZERO);
     }
 
     #[test]

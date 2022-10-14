@@ -29,7 +29,7 @@ fn setup(
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // cube
-    commands.spawn().insert_bundle(MaterialMeshBundle {
+    commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Icosphere {
             radius: 0.5,
             subdivisions: 5,
@@ -48,7 +48,7 @@ fn setup(
 
     // light
     commands
-        .spawn_bundle(PointLightBundle {
+        .spawn(PointLightBundle {
             point_light: PointLight {
                 color: Color::WHITE,
                 intensity: 300.0,
@@ -60,7 +60,7 @@ fn setup(
         .insert(Move);
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-1.0, 1.25, 2.5).looking_at(Vec3::Y * 0.25, Vec3::Y),
         ..default()
     });

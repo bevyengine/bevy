@@ -4,7 +4,7 @@ pub mod window;
 pub use visibility::*;
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsages,
+    TextureUsages,
 };
 pub use window::*;
 
@@ -15,13 +15,13 @@ use crate::{
     rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, TextureCache},
+    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
+    texture::TextureCache,
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat4, UVec4, Vec3, Vec4};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -81,8 +81,8 @@ impl Default for Msaa {
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
-    pub width: u32,
-    pub height: u32,
+    // uvec4(origin.x, origin.y, width, height)
+    pub viewport: UVec4,
 }
 
 impl ExtractedView {
@@ -101,8 +101,8 @@ pub struct ViewUniform {
     projection: Mat4,
     inverse_projection: Mat4,
     world_position: Vec3,
-    width: f32,
-    height: f32,
+    // viewport(x_origin, y_origin, width, height)
+    viewport: Vec4,
 }
 
 #[derive(Resource, Default)]
@@ -163,8 +163,7 @@ fn prepare_view_uniforms(
                 projection,
                 inverse_projection,
                 world_position: camera.transform.translation(),
-                width: camera.width as f32,
-                height: camera.height as f32,
+                viewport: camera.viewport.as_vec4(),
             }),
         };
 
@@ -183,6 +182,7 @@ fn prepare_view_targets(
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
+    texture_format: Res<RenderTextureFormat>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera)>,
 ) {
@@ -206,7 +206,7 @@ fn prepare_view_targets(
                                     mip_level_count: 1,
                                     sample_count: msaa.samples,
                                     dimension: TextureDimension::D2,
-                                    format: TextureFormat::bevy_default(),
+                                    format: **texture_format,
                                     usage: TextureUsages::RENDER_ATTACHMENT,
                                 },
                             )

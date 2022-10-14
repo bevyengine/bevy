@@ -1,5 +1,6 @@
 #import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::mesh_vertex_output
+#import bevy_pbr::utils
 
 @group(1) @binding(0)
 var texture: texture_2d<f32>;
@@ -13,7 +14,7 @@ fn fragment(
 ) -> @location(0) vec4<f32> {
     let view = bevy_pbr::mesh_view_bindings::view;
     // Get screen position with coordinates from 0 to 1
-    let uv = mesh.clip_position.xy / vec2<f32>(view.width, view.height);
+    let uv = bevy_pbr::utils::coords_to_viewport_uv(mesh.clip_position.xy, view.viewport);
     let offset_strength = 0.02;
 
     // Sample each color channel with an arbitrary shift

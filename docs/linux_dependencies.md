@@ -92,6 +92,9 @@ sudo pacman -S libx11 pkgconf alsa-lib
 
 Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
 
+Note that for Intel GPUs, Vulkan drivers are not installed by default, you must also install
+the `vulkan-intel` for bevy to work.
+
 ## Void
 
 ```bash
@@ -106,7 +109,7 @@ Add a `shell.nix` file to the root of the project containing:
 { pkgs ? import <nixpkgs> {} }:
 with pkgs; mkShell rec {
   nativeBuildInputs = [
-    pkgconfig
+    pkg-config
     llvmPackages.bintools # To use lld linker
   ];
   buildInputs = [

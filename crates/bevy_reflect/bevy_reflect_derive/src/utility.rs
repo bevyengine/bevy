@@ -1,6 +1,8 @@
 //! General-purpose utility functions for internal usage within this crate.
 
+use crate::field_attributes::ReflectIgnoreBehavior;
 use bevy_macro_utils::BevyManifest;
+use bit_set::BitSet;
 use proc_macro2::{Ident, Span};
 use syn::{Member, Path};
 
@@ -95,4 +97,40 @@ impl<T> ResultSifter<T> {
             Ok(self.items)
         }
     }
+}
+
+/// Converts an iterator over ignore behaviour of members to a bitset of ignored members.
+///
+/// Takes into account the fact that always ignored (non-reflected) members are skipped.
+///
+/// # Example
+/// ```rust,ignore
+/// pub struct HelloWorld {
+///     reflected_field: u32      // index: 0
+///
+///     #[reflect(ignore)]
+///     non_reflected_field: u32  // index: N/A (not 1!)
+///
+///     #[reflect(skip_serializing)]
+///     non_serialized_field: u32 // index: 1
+/// }
+/// ```
+/// Would convert to the `0b01` bitset (i.e second field is NOT serialized)
+///
+pub(crate) fn members_to_serialization_denylist<T>(member_iter: T) -> BitSet<u32>
+where
+    T: Iterator<Item = ReflectIgnoreBehavior>,
+{
+    let mut bitset = BitSet::default();
+
+    member_iter.fold(0, |next_idx, member| match member {
+        ReflectIgnoreBehavior::IgnoreAlways => next_idx,
+        ReflectIgnoreBehavior::IgnoreSerialization => {
+            bitset.insert(next_idx);
+            next_idx + 1
+        }
+        ReflectIgnoreBehavior::None => next_idx + 1,
+    });
+
+    bitset
 }

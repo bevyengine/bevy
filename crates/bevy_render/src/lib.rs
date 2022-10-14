@@ -5,6 +5,7 @@ pub mod color;
 pub mod extract_component;
 mod extract_param;
 pub mod extract_resource;
+pub mod globals;
 pub mod mesh;
 pub mod primitives;
 pub mod rangefinder;
@@ -18,6 +19,8 @@ mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
+use bevy_core::FrameCount;
+use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
 
 pub mod prelude {
@@ -33,7 +36,10 @@ pub mod prelude {
     };
 }
 
+use globals::GlobalsPlugin;
 pub use once_cell;
+use prelude::ComputedVisibility;
+use wgpu::TextureFormat;
 
 use crate::{
     camera::CameraPlugin,
@@ -42,8 +48,8 @@ use crate::{
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
-    texture::ImagePlugin,
+    renderer::{render_system, RenderInstance, RenderTextureFormat},
+    texture::{BevyDefault, ImagePlugin},
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -152,14 +158,26 @@ impl Plugin for RenderPlugin {
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue, adapter_info) = futures_lite::future::block_on(
-                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
+            let (device, queue, adapter_info, render_adapter, available_texture_formats) =
+                futures_lite::future::block_on(renderer::initialize_renderer(
+                    &instance,
+                    &options,
+                    &request_adapter_options,
+                ));
+            let texture_format = RenderTextureFormat(
+                available_texture_formats
+                    .get(0)
+                    .cloned()
+                    .unwrap_or_else(TextureFormat::bevy_default),
             );
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
+                .insert_resource(render_adapter.clone())
+                .insert_resource(available_texture_formats.clone())
+                .insert_resource(texture_format.clone())
                 .init_resource::<ScratchMainWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
@@ -194,13 +212,16 @@ impl Plugin for RenderPlugin {
                     RenderStage::Render,
                     SystemStage::parallel()
                         .with_system(PipelineCache::process_pipeline_queue_system)
-                        .with_system(render_system.exclusive_system().at_end()),
+                        .with_system(render_system.at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .init_resource::<RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
+                .insert_resource(render_adapter)
+                .insert_resource(available_texture_formats)
+                .insert_resource(texture_format)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server);
@@ -315,13 +336,16 @@ impl Plugin for RenderPlugin {
             });
         }
 
-        app.add_plugin(WindowRenderPlugin)
+        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
+            .add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
             // NOTE: Load this after renderer initialization so that it knows about the supported
             // compressed texture formats
-            .add_plugin(ImagePlugin);
+            .add_plugin(ImagePlugin)
+            .add_plugin(GlobalsPlugin)
+            .add_plugin(FrameCountPlugin);
     }
 }
 
@@ -354,4 +378,23 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     // so that in future, pipelining will be able to do this too without any code relying on it.
     // see <https://github.com/bevyengine/bevy/issues/5082>
     extract.apply_buffers(running_world);
+}
+
+pub struct FrameCountPlugin;
+impl Plugin for FrameCountPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.add_system(update_frame_count);
+
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_system_to_stage(RenderStage::Extract, extract_frame_count);
+        }
+    }
+}
+
+fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+    frame_count.0 = frame_count.0.wrapping_add(1);
+}
+
+fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCount>>) {
+    commands.insert_resource(**frame_count);
 }

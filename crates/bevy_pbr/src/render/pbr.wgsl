@@ -87,6 +87,8 @@ fn fragment(
         pbr_input.V = pbr_functions::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
         output_color = pbr_functions::tone_mapping(pbr_functions::pbr(pbr_input));
+    } else {
+        output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
     }
 
     return output_color;

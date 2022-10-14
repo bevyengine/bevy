@@ -688,25 +688,8 @@ impl PipelineCache {
 
         for id in waiting_pipelines {
             let pipeline = &mut pipelines[id];
-            match &pipeline.state {
-                CachedPipelineState::Ok(_) => continue,
-                CachedPipelineState::Queued => {}
-                CachedPipelineState::Err(err) => {
-                    match err {
-                        PipelineCacheError::ShaderNotLoaded(_)
-                        | PipelineCacheError::ShaderImportNotYetAvailable => { /* retry */ }
-                        // shader could not be processed ... retrying won't help
-                        PipelineCacheError::ProcessShaderError(err) => {
-                            let error_detail = err.emit_to_string(&self.shader_cache.composer);
-                            error!("failed to process shader:\n{}", error_detail);
-                            continue;
-                        }
-                        PipelineCacheError::CreateShaderModule(description) => {
-                            error!("failed to create shader module: {}", description);
-                            continue;
-                        }
-                    }
-                }
+            if matches!(pipeline.state, CachedPipelineState::Ok(_)) {
+                continue;
             }
 
             pipeline.state = match &pipeline.descriptor {
@@ -718,8 +701,24 @@ impl PipelineCache {
                 }
             };
 
-            if let CachedPipelineState::Err(_) = pipeline.state {
-                self.waiting_pipelines.insert(id);
+            if let CachedPipelineState::Err(err) = &pipeline.state {
+                match err {
+                    PipelineCacheError::ShaderNotLoaded(_)
+                    | PipelineCacheError::ShaderImportNotYetAvailable => {
+                        // retry
+                        self.waiting_pipelines.insert(id);
+                    }
+                    // shader could not be processed ... retrying won't help
+                    PipelineCacheError::ProcessShaderError(err) => {
+                        let error_detail = err.emit_to_string(&self.shader_cache.composer);
+                        error!("failed to process shader:\n{}", error_detail);
+                        continue;
+                    }
+                    PipelineCacheError::CreateShaderModule(description) => {
+                        error!("failed to create shader module: {}", description);
+                        continue;
+                    }
+                }
             }
         }
 

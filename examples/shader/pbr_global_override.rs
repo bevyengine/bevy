@@ -30,7 +30,7 @@ fn setup(
         .push(asset_server.load("shaders/global_light_override.wgsl"));
 
     // ground plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
@@ -43,7 +43,7 @@ fn setup(
     // left wall
     let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
     transform.rotate_z(std::f32::consts::FRAC_PI_2);
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
         material: materials.add(StandardMaterial {
@@ -56,7 +56,7 @@ fn setup(
     // back (right) wall
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
     transform.rotate_x(std::f32::consts::FRAC_PI_2);
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::new(5.0, 0.15, 5.0))),
         transform,
         material: materials.add(StandardMaterial {
@@ -69,7 +69,7 @@ fn setup(
 
     // cube
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(StandardMaterial {
                 base_color: Color::PINK,
@@ -81,7 +81,7 @@ fn setup(
         .insert(Movable);
     // sphere
     commands
-        .spawn_bundle(PbrBundle {
+        .spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius: 0.5,
                 ..default()
@@ -103,7 +103,7 @@ fn setup(
 
     // red point light
     commands
-        .spawn_bundle(PointLightBundle {
+        .spawn(PointLightBundle {
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
@@ -115,7 +115,7 @@ fn setup(
             ..default()
         })
         .with_children(|builder| {
-            builder.spawn_bundle(PbrBundle {
+            builder.spawn(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::UVSphere {
                     radius: 0.1,
                     ..default()
@@ -131,7 +131,7 @@ fn setup(
 
     // green spot light
     commands
-        .spawn_bundle(PointLightBundle {
+        .spawn(PointLightBundle {
             transform: Transform::from_xyz(-1.0, 2.0, 0.0)
                 .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             point_light: PointLight {
@@ -143,7 +143,7 @@ fn setup(
             ..default()
         })
         .with_children(|builder| {
-            builder.spawn_bundle(PbrBundle {
+            builder.spawn(PbrBundle {
                 transform: Transform::from_rotation(Quat::from_rotation_x(
                     std::f32::consts::PI / 2.0,
                 )),
@@ -162,7 +162,7 @@ fn setup(
 
     // blue point light
     commands
-        .spawn_bundle(PointLightBundle {
+        .spawn(PointLightBundle {
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(0.0, 4.0, 0.0),
             point_light: PointLight {
@@ -174,7 +174,7 @@ fn setup(
             ..default()
         })
         .with_children(|builder| {
-            builder.spawn_bundle(PbrBundle {
+            builder.spawn(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::UVSphere {
                     radius: 0.1,
                     ..default()
@@ -190,7 +190,7 @@ fn setup(
 
     // directional 'sun' light
     const HALF_SIZE: f32 = 10.0;
-    commands.spawn_bundle(DirectionalLightBundle {
+    commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             // Configure the projection to better fit the scene
             shadow_projection: OrthographicProjection {
@@ -214,7 +214,7 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

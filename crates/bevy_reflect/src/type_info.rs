@@ -37,10 +37,10 @@ use std::any::{Any, TypeId};
 ///     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
 ///     CELL.get_or_set(|| {
 ///       let fields = [
-///         NamedField::new::<usize, _>("foo"),
-///         NamedField::new::<(f32, f32), _>("bar"),
+///         NamedField::new::<usize >("foo"),
+///         NamedField::new::<(f32, f32) >("bar"),
 ///       ];
-///       let info = StructInfo::new::<Self>(&fields);
+///       let info = StructInfo::new::<Self>("MyStruct", &fields);
 ///       TypeInfo::Struct(info)
 ///     })
 ///   }

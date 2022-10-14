@@ -7,6 +7,7 @@ use raw_window_handle::RawWindowHandle;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
 #[reflect_value(PartialEq, Hash)]
 /// A unique ID for a [`Window`].
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowId(Uuid);
 
 /// Presentation mode for a window.
@@ -18,12 +19,15 @@ pub struct WindowId(Uuid);
 /// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
 /// `Fifo`.
 ///
-/// `Immediate` or `Mailbox` will gracefully fallback to `Fifo` when unavailable.
+/// `AutoVsync` or `AutoNoVsync` will gracefully fallback to `Fifo` when unavailable.
 ///
-/// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor::present_mode)
-/// or updated on a [`Window`](Window::set_present_mode).
+/// `Immediate` or `Mailbox` will panic if not supported by the platform.
+///
+/// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor) using [`WindowDescriptor::present_mode`](WindowDescriptor::present_mode)
+/// or updated on a [`Window`](Window) using [`set_present_mode`](Window::set_present_mode).
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
@@ -36,16 +40,14 @@ pub enum PresentMode {
     AutoNoVsync = 1,
     /// The presentation engine does **not** wait for a vertical blanking period and
     /// the request is presented immediately. This is a low-latency presentation mode,
-    /// but visible tearing may be observed. Will fallback to `Fifo` if unavailable on the
-    /// selected platform and backend. Not optimal for mobile.
+    /// but visible tearing may be observed. Not optimal for mobile.
     ///
     /// Selecting this variant will panic if not supported, it is preferred to use
     /// [`PresentMode::AutoNoVsync`].
     Immediate = 2,
     /// The presentation engine waits for the next vertical blanking period to update
     /// the current image, but frames may be submitted without delay. This is a low-latency
-    /// presentation mode and visible tearing will **not** be observed. Will fallback to `Fifo`
-    /// if unavailable on the selected platform and backend. Not optimal for mobile.
+    /// presentation mode and visible tearing will **not** be observed. Not optimal for mobile.
     ///
     /// Selecting this variant will panic if not supported, it is preferred to use
     /// [`PresentMode::AutoNoVsync`].
@@ -95,7 +97,8 @@ impl Default for WindowId {
 /// Please note that if the window is resizable, then when the window is
 /// maximized it may have a size outside of these limits. The functionality
 /// required to disable maximizing is not yet exposed by winit.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowResizeConstraints {
     pub min_width: f32,
     pub min_height: f32,
@@ -215,6 +218,7 @@ pub struct Window {
 /// Bevy apps don't interact with this `enum` directly. Instead, they should use the methods on [`Window`].
 /// This `enum` is meant for authors of windowing plugins. See the documentation on [`crate::WindowPlugin`] for more information.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum WindowCommand {
     /// Set the window's [`WindowMode`].
     SetWindowMode {
@@ -272,11 +276,12 @@ pub enum WindowCommand {
     SetMinimized {
         minimized: bool,
     },
-    /// Set the window's position on the screen.
+    /// Set the window's position on the selected monitor.
     SetPosition {
+        monitor_selection: MonitorSelection,
         position: IVec2,
     },
-    /// Modifies the position of the window to be in the center of the current monitor
+    /// Sets the position of the window to be in the center of the selected monitor.
     Center(MonitorSelection),
     /// Set the window's [`WindowResizeConstraints`]
     SetResizeConstraints {
@@ -287,6 +292,7 @@ pub enum WindowCommand {
 
 /// Defines the way a window is displayed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum WindowMode {
     /// Creates a window that uses the given size.
     Windowed,
@@ -416,12 +422,9 @@ impl Window {
             .push(WindowCommand::SetMinimized { minimized });
     }
 
-    /// Modifies the position of the window in physical pixels.
+    /// Sets the `position` of the window on the selected `monitor` in physical pixels.
     ///
-    /// Note that the top-left hand corner of the desktop is not necessarily the same as the screen.
-    /// If the user uses a desktop with multiple monitors, the top-left hand corner of the
-    /// desktop is the top-left hand corner of the monitor at the top-left of the desktop. This
-    /// automatically un-maximizes the window if it's maximized.
+    /// This automatically un-maximizes the window if it's maximized.
     ///
     /// # Platform-specific
     ///
@@ -430,9 +433,11 @@ impl Window {
     /// - Web: Sets the top-left coordinates relative to the viewport.
     /// - Android / Wayland: Unsupported.
     #[inline]
-    pub fn set_position(&mut self, position: IVec2) {
-        self.command_queue
-            .push(WindowCommand::SetPosition { position });
+    pub fn set_position(&mut self, monitor: MonitorSelection, position: IVec2) {
+        self.command_queue.push(WindowCommand::SetPosition {
+            monitor_selection: monitor,
+            position,
+        });
     }
 
     /// Modifies the position of the window to be in the center of the current monitor
@@ -745,29 +750,35 @@ impl Window {
 }
 
 /// Defines where window should be placed at on creation.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum WindowPosition {
-    /// Position will be set by the window manager
+    /// The position will be set by the window manager.
     Automatic,
-    /// Window will be centered on the selected monitor
+    /// Center the window on the monitor.
     ///
-    /// Note that this does not account for window decorations.
-    Centered(MonitorSelection),
-    /// The window's top-left corner will be placed at the specified position (in pixels)
+    /// The monitor to center the window on can be selected with the `monitor` field in `WindowDescriptor`.
+    Centered,
+    /// The window's top-left corner will be placed at the specified position in pixels.
     ///
-    /// (0,0) represents top-left corner of screen space.
+    /// (0,0) represents top-left corner of the monitor.
+    ///
+    /// The monitor to position the window on can be selected with the `monitor` field in `WindowDescriptor`.
     At(Vec2),
 }
 
 /// Defines which monitor to use.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum MonitorSelection {
     /// Uses current monitor of the window.
+    ///
+    /// Will fall back to the system default if the window has not yet been created.
     Current,
     /// Uses primary monitor of the system.
     Primary,
     /// Uses monitor with the specified index.
-    Number(usize),
+    Index(usize),
 }
 
 /// Describes the information needed for creating a window.
@@ -778,7 +789,8 @@ pub enum MonitorSelection {
 /// See [`examples/window/window_settings.rs`] for usage.
 ///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Resource, Debug, Clone)]
+#[derive(Resource, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     ///
@@ -789,7 +801,15 @@ pub struct WindowDescriptor {
     /// May vary from the physical height due to different pixel density on different monitors.
     pub height: f32,
     /// The position on the screen that the window will be placed at.
+    ///
+    /// The monitor to place the window on can be selected with the `monitor` field.
+    ///
+    /// Ignored if `mode` is set to something other than [`WindowMode::Windowed`]
+    ///
+    /// `WindowPosition::Automatic` will be overridden with `WindowPosition::At(Vec2::ZERO)` if a specific monitor is selected.
     pub position: WindowPosition,
+    /// The monitor to place the window on.
+    pub monitor: MonitorSelection,
     /// Sets minimum and maximum resize limits.
     pub resize_constraints: WindowResizeConstraints,
     /// Overrides the window's ratio of physical pixels to logical pixels.
@@ -819,6 +839,8 @@ pub struct WindowDescriptor {
     /// Sets whether the window locks the cursor inside its borders when the window has focus.
     pub cursor_locked: bool,
     /// Sets the [`WindowMode`](crate::WindowMode).
+    ///
+    /// The monitor to go fullscreen on can be selected with the `monitor` field.
     pub mode: WindowMode,
     /// Sets whether the background of the window should be transparent.
     ///
@@ -854,6 +876,7 @@ impl Default for WindowDescriptor {
             width: 1280.,
             height: 720.,
             position: WindowPosition::Automatic,
+            monitor: MonitorSelection::Current,
             resize_constraints: WindowResizeConstraints::default(),
             scale_factor_override: None,
             present_mode: PresentMode::Fifo,

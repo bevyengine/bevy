@@ -33,21 +33,21 @@ impl<T: Asset> Debug for AssetEvent<T> {
                     "AssetEvent<{}>::Created",
                     std::any::type_name::<T>()
                 ))
-                .field("handle", &handle.id)
+                .field("handle", &handle.id())
                 .finish(),
             AssetEvent::Modified { handle } => f
                 .debug_struct(&format!(
                     "AssetEvent<{}>::Modified",
                     std::any::type_name::<T>()
                 ))
-                .field("handle", &handle.id)
+                .field("handle", &handle.id())
                 .finish(),
             AssetEvent::Removed { handle } => f
                 .debug_struct(&format!(
                     "AssetEvent<{}>::Removed",
                     std::any::type_name::<T>()
                 ))
-                .field("handle", &handle.id)
+                .field("handle", &handle.id())
                 .finish(),
         }
     }

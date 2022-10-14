@@ -1,5 +1,5 @@
 use bevy_ecs::component::Component;
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
 use bevy_render::color::Color;
 
@@ -15,6 +15,9 @@ pub struct Sprite {
     /// An optional custom size for the sprite that will be used when rendering, instead of the size
     /// of the sprite's image
     pub custom_size: Option<Vec2>,
+    /// An optional rectangle representing the region of the sprite's image to render, instead of
+    /// rendering the full image. This is an easy one-off alternative to using a texture atlas.
+    pub rect: Option<Rect>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
 }
