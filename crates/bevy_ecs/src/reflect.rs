@@ -30,7 +30,7 @@ pub struct ReflectComponent(ReflectComponentFns);
 /// > Usually a [`ReflectComponent`] is created for a type by deriving [`Reflect`]
 /// > and adding the `#[reflect(Component)]` attribute.
 /// > After adding the component to the [`TypeRegistry`][bevy_reflect::TypeRegistry],
-/// > it's [`ReflectComponent`] can then be retrieved when needed.
+/// > its [`ReflectComponent`] can then be retrieved when needed.
 ///
 /// Creating a custom [`ReflectComponent`] may be useful if you need to create new component types
 /// at runtime, for example, for scripting implementations.
@@ -243,7 +243,7 @@ pub struct ReflectResource(ReflectResourceFns);
 /// > Usually a [`ReflectResource`] is created for a type by deriving [`Reflect`]
 /// > and adding the `#[reflect(Resource)]` attribute.
 /// > After adding the component to the [`TypeRegistry`][bevy_reflect::TypeRegistry],
-/// > it's [`ReflectResource`] can then be retrieved when needed.
+/// > its [`ReflectResource`] can then be retrieved when needed.
 ///
 /// Creating a custom [`ReflectResource`] may be useful if you need to create new resource types at
 /// runtime, for example, for scripting implementations.
