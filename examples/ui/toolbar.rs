@@ -56,7 +56,7 @@ const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.4, 0.4, 0.8);
 const SELECTED_BUTTON: Color = Color::rgb(0.35, 0.35, 0.75);
 
-/// Manages the click interaction 
+/// Manages the click interaction
 fn button_interaction_system(
     mut interaction_query: Query<(&Interaction, &ButtonTag), (Changed<Interaction>, With<Button>)>,
     mut ev_toolbar_button: EventWriter<ToolbarEvent>,
@@ -128,9 +128,7 @@ fn toolbar_style_system(
             println!("{:?} {:?}", tag, color);
 
             // Hide stop button if not currently playing / paused
-            if *tag == ButtonTag::Stop
-                && toolbar_state.current().selected == ButtonTag::Stop
-            {
+            if *tag == ButtonTag::Stop && toolbar_state.current().selected == ButtonTag::Stop {
                 style.display = Display::None;
             } else {
                 style.display = Display::Flex;
