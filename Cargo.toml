@@ -1433,6 +1433,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "toolbar"
+path = "examples/ui/toolbar.rs"
+
+[package.metadata.example.toolbar]
+name = "Toolbar"
+description = "Showcases a more advanced UI with conditional rendering, events, and managed state"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "transparency_ui"
 path = "examples/ui/transparency_ui.rs"
 
