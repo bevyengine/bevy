@@ -41,12 +41,10 @@ fn main() {
         .add_startup_system(setup)
         .add_state(ToolbarState::default())
         .add_event::<ToolbarEvent>()
-        // EventReader systems added before event writer
-        .add_system(toolbar_state_system)
-        .add_system(toolbar_message_system)
-        .add_system(toolbar_style_system)
-        // EventWriter system after EventReaders to prevent ordering issues.
         .add_system(button_interaction_system)
+        .add_system(toolbar_state_system.after(button_interaction_system))
+        .add_system(toolbar_message_system.after(button_interaction_system))
+        .add_system(toolbar_style_system.after(toolbar_state_system))
         .run();
 }
 
