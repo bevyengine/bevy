@@ -1438,7 +1438,7 @@ path = "examples/ui/toolbar.rs"
 
 [package.metadata.example.toolbar]
 name = "Toolbar"
-description = "Showcases a more advanced UI with conditional rendering, events and managed state"
+description = "Showcases a more advanced UI with conditional rendering, events, and managed state"
 category = "UI (User Interface)"
 wasm = true
 
