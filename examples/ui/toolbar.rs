@@ -1,25 +1,38 @@
 //! This example shows a more advanced ui use case of managing a shared state via a set of button
 //! components.
 //! interaction state.
+
+use bevy::ui::Display;
+use bevy::{prelude::*, winit::WinitSettings};
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct ToolbarState {
+    selected: ButtonTags,
+}
+
+impl Default for ToolbarState {
+    fn default() -> Self {
+        Self {
+            selected: ButtonTags::Stop,
+        }
+    }
+}
+
+struct ToolbarEvent {
+    tag: ButtonTags,
+    message: Option<String>,
+    interaction: Interaction,
+}
+
 #[derive(Component, Clone, Hash, Debug, Eq, PartialEq)]
 enum ButtonTags {
     Play,
     Pause,
     Stop,
 }
+
 #[derive(Component)]
 struct ToolbarMessage;
-
-/// Help wanted: Is this best practice? Should I group relevant data together
-/// or split the `current_selected` and `message` into their own seperate states?
-#[derive(Hash, Clone, Debug, Eq, PartialEq)]
-struct ToolbarState {
-    current_selected: ButtonTags,
-    message: Option<String>,
-}
-
-use bevy::{prelude::*, winit::WinitSettings};
-use bevy::ui::Display;
 
 fn main() {
     App::new()
@@ -27,12 +40,12 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_startup_system(setup)
+        .add_state(ToolbarState::default())
+        .add_event::<ToolbarEvent>()
         .add_system(button_interaction_system)
+        .add_system(toolbar_state_system)
         .add_system(toolbar_message_system)
-        .add_state(ToolbarState {
-            current_selected: ButtonTags::Stop,
-            message: None,
-        })
+        .add_system(toolbar_style_system)
         .run();
 }
 
@@ -49,68 +62,96 @@ const SELECTED_BUTTON: Color = Color::rgb(0.35, 0.35, 0.75);
 ///
 /// Is there a way of listening to changes in `ResMut<State<ToolbarState>>`?
 fn button_interaction_system(
-    mut interaction_query: Query<
-        (&Interaction, &mut UiColor, &ButtonTags, &mut Style),
-        With<Button>, // HELP: Had to remove Changed<Interaction> to address 
-    >,
-    mut toolbar_state: ResMut<State<ToolbarState>>,
+    mut interaction_query: Query<(&Interaction, &ButtonTags), (Changed<Interaction>, With<Button>)>,
+    mut ev_toolbar_button: EventWriter<ToolbarEvent>,
 ) {
-    for (interaction, mut color, button_tag, mut style) in &mut interaction_query {
-        // Hide Stop button if already stopped
-        if *button_tag == ButtonTags::Stop && toolbar_state.current().current_selected == ButtonTags::Stop {
-            style.display = Display::None;
-        } else {
-            style.display = Display::Flex;
-        }
+    for (interaction, button_tag) in &mut interaction_query {
         match *interaction {
             Interaction::Clicked => {
-                *color = PRESSED_BUTTON.into();
-                match button_tag {
-                    ButtonTags::Play => {
-                        if toolbar_state.current().current_selected != ButtonTags::Play {
-                            toolbar_state
-                                .push(ToolbarState {
-                                    current_selected: ButtonTags::Play,
-                                    message: Some("Playing...".to_string()),
-                                })
-                                .unwrap();
-                        }
-                    }
-                    ButtonTags::Pause => {
-                        if toolbar_state.current().current_selected != ButtonTags::Pause {
-                            toolbar_state
-                                .push(ToolbarState {
-                                    current_selected: ButtonTags::Pause,
-                                    message: Some("Paused...".to_string()),
-                                })
-                                .unwrap();
-                        }
-                    }
-                    ButtonTags::Stop => {
-                        if toolbar_state.current().current_selected != ButtonTags::Stop {
-                            toolbar_state
-                                .push(ToolbarState {
-                                    current_selected: ButtonTags::Stop,
-                                    message: None,
-                                })
-                                .unwrap();
-                        }
-                    }
-                }
+                let message = match button_tag {
+                    ButtonTags::Stop => None,
+                    ButtonTags::Play => Some("Playing...".to_string()),
+                    ButtonTags::Pause => Some("Pause...".to_string()),
+                };
+
+                ev_toolbar_button.send(ToolbarEvent {
+                    tag: button_tag.clone(),
+                    message,
+                    interaction: interaction.clone(),
+                });
             }
             Interaction::Hovered => {
-                if button_tag == &toolbar_state.current().current_selected {
-                    *color = PRESSED_BUTTON.into();
-                } else {
-                    *color = HOVERED_BUTTON.into();
-                }
+                ev_toolbar_button.send(ToolbarEvent {
+                    tag: button_tag.clone(),
+                    message: None,
+                    interaction: interaction.clone(),
+                });
             }
             Interaction::None => {
-                if button_tag == &toolbar_state.current().current_selected {
+                ev_toolbar_button.send(ToolbarEvent {
+                    tag: button_tag.clone(),
+                    message: None,
+                    interaction: interaction.clone(),
+                });
+            }
+        }
+    }
+}
+
+fn toolbar_state_system(
+    mut ev_toolbar_button: EventReader<ToolbarEvent>,
+    mut toolbar_state: ResMut<State<ToolbarState>>,
+) {
+    for ev in ev_toolbar_button.iter() {
+        if ev.interaction == Interaction::Clicked {
+            if ev.tag != toolbar_state.current().selected {
+                println!("Toolbar state: Setting {:?} as selected", ev.tag);
+                toolbar_state.set(ToolbarState {
+                    selected: ev.tag.clone(),
+                }).unwrap();
+            }
+        }
+    }
+}
+
+fn toolbar_style_system(
+    mut ev_toolbar_button: EventReader<ToolbarEvent>,
+    mut style_query: Query<(&mut Style, &mut UiColor, &ButtonTags), With<Button>>,
+    toolbar_state: Res<State<ToolbarState>>,
+) {
+    for ev in ev_toolbar_button.iter() {
+        for (mut style, mut color, tag) in &mut style_query {
+            // Update button colours
+            let this_button = ev.tag.clone() == tag.clone();
+            let hovered = this_button && ev.interaction == Interaction::Hovered;
+            let clicked = this_button && ev.interaction == Interaction::Clicked;
+            let selected = tag.clone() == toolbar_state.current().selected;
+
+            // println!(
+            //     "Checking {:?} hovered?: {:?} clicked: {:?} selected: {:?}",
+            //     tag, hovered, clicked, selected
+            // );
+
+            if selected {
+                if clicked {
+                    *color = PRESSED_BUTTON.into();
+                } else {
                     *color = SELECTED_BUTTON.into();
+                }
+            } else {
+                if clicked {
+                    *color = PRESSED_BUTTON.into();
+                } else if hovered {
+                    *color = HOVERED_BUTTON.into();
                 } else {
                     *color = NORMAL_BUTTON.into();
                 }
+            }
+
+            if tag.clone() == ButtonTags::Stop && toolbar_state.current().selected == ButtonTags::Stop {
+                style.display = Display::None;
+            } else {
+                style.display = Display::Flex;
             }
         }
     }
@@ -118,15 +159,19 @@ fn button_interaction_system(
 
 /// System: Show and hide the toolbar status message when there is a message avaliable
 fn toolbar_message_system(
-    toolbar_state: ResMut<State<ToolbarState>>,
-    mut toolbar_message: Query<(&mut Text, &mut Style), With<ToolbarMessage>>,
+    mut ev_toolbar_button: EventReader<ToolbarEvent>,
+    mut message_el_query: Query<(&mut Text, &mut Style), With<ToolbarMessage>>,
 ) {
-    let (mut toolbar_entity, mut toolbar_style) = toolbar_message.single_mut();
-    if let Some(message) = &toolbar_state.current().message {
-        toolbar_entity.sections[0].value = message.clone();
-        toolbar_style.display = Display::Flex;
-    } else {
-        toolbar_style.display = Display::None;
+    let (mut message_text, mut message_style) = message_el_query.single_mut();
+    for ev in ev_toolbar_button.iter() {
+        if ev.interaction == Interaction::Clicked {
+            if let Some(message) = ev.message.clone() {
+                message_text.sections[0].value = message.clone();
+                message_style.display = Display::Flex;
+            } else {
+                message_style.display = Display::None;
+            }
+        }
     }
 }
 
@@ -175,12 +220,7 @@ fn create_toolbar_button(
         });
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    toolbar_state: Res<State<ToolbarState>>,
-) {
-    let default_message = "".to_string();
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn_bundle(Camera2dBundle::default());
     commands
@@ -202,7 +242,7 @@ fn setup(
                             width: Val::Px(400.),
                             height: Val::Auto,
                         },
-                            padding: UiRect {
+                        padding: UiRect {
                             left: Val::Px(5.),
                             right: Val::Px(5.),
                             top: Val::Px(3.),
@@ -220,14 +260,9 @@ fn setup(
                     create_toolbar_button(parent, &asset_server, "pause", ButtonTags::Pause);
                     create_toolbar_button(parent, &asset_server, "stop", ButtonTags::Stop);
 
-                    let message = match &toolbar_state.current().message {
-                        Some(message) => message,
-                        None => &default_message,
-                    };
-
                     parent
                         .spawn_bundle(TextBundle::from_section(
-                            message,
+                            "".to_string(),
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 14.0,
