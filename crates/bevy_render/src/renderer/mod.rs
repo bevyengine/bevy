@@ -116,7 +116,8 @@ pub struct AvailableTextureFormats(pub Arc<Vec<wgpu::TextureFormat>>);
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/main/docs/linux_dependencies.md";
 
 #[cfg(not(target_os = "linux"))]
-const GPU_NOT_FOUND_ERROR_MESSAGE: &str = "Unable to find a GPU! Make sure you have installed required drivers!";
+const GPU_NOT_FOUND_ERROR_MESSAGE: &str =
+    "Unable to find a GPU! Make sure you have installed required drivers!";
 
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
