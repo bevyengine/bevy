@@ -106,9 +106,11 @@ fn toolbar_state_system(
         if ev.interaction == Interaction::Clicked {
             if ev.tag != toolbar_state.current().selected {
                 println!("Toolbar state: Setting {:?} as selected", ev.tag);
-                toolbar_state.set(ToolbarState {
-                    selected: ev.tag.clone(),
-                }).unwrap();
+                toolbar_state
+                    .set(ToolbarState {
+                        selected: ev.tag.clone(),
+                    })
+                    .unwrap();
             }
         }
     }
@@ -148,7 +150,9 @@ fn toolbar_style_system(
                 }
             }
 
-            if tag.clone() == ButtonTags::Stop && toolbar_state.current().selected == ButtonTags::Stop {
+            if tag.clone() == ButtonTags::Stop
+                && toolbar_state.current().selected == ButtonTags::Stop
+            {
                 style.display = Display::None;
             } else {
                 style.display = Display::Flex;

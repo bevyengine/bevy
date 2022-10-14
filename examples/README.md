@@ -1,5 +1,5 @@
-<!-- MD024 - The Headers from the Platform-Specific Examples should be identical  -->
 <!-- markdownlint-disable-file MD024 -->
+<!-- MD024 - The Headers from the Platform-Specific Examples should be identical  -->
 
 # Examples
 
@@ -311,6 +311,7 @@ Example | Description
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
+[Toolbar](../examples/ui/toolbar.rs) | Showcases a more advanced UI with conditional rendering, events and managed state
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 
