@@ -191,7 +191,7 @@ impl WindowResizeConstraints {
 /// creating `WindowResizeConstraints` or `WindowDescriptor` structures.
 /// values by setting
 ///
-/// ```no_run
+/// ```
 /// # use bevy_utils::default;
 /// # use bevy_window::{Window, WindowCommand, WindowDescriptor, WindowId, WindowResizeConstraints};
 /// # fn compute_window_area(w: &Window) -> f32 {
