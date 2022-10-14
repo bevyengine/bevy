@@ -201,7 +201,7 @@ impl WinitWindows {
             inner_size.height,
             scale_factor,
             position,
-            Some(raw_window_handle),
+            raw_window_handle,
         )
     }
 

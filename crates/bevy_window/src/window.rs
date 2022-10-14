@@ -151,6 +151,21 @@ impl WindowResizeConstraints {
     }
 }
 
+/// Handle used for creating surfaces in the render plugin
+///
+/// Either a raw handle to an OS window or `Virtual` to signify that there is no corresponding OS window.
+#[derive(Clone, Debug)]
+pub enum AbstractWindowHandle {
+    /// The window corresponds to an operator system window.
+    RawWindowHandle(RawWindowHandleWrapper),
+    /// The window does not to correspond to an operator system window.
+    ///
+    /// It differs from a non-virtual window, in that the caller is responsible
+    /// for creating and presenting surface textures and inserting them into
+    /// [`ExtractedWindow`](https://docs.rs/bevy/*/bevy/render/view/struct.ExtractedWindow.html).
+    Virtual,
+}
+
 /// An operating system or virtual window that can present content and receive user input.
 ///
 /// To create a window, use a [`EventWriter<CreateWindow>`](`crate::CreateWindow`).
@@ -259,7 +274,7 @@ pub struct Window {
     cursor_visible: bool,
     cursor_locked: bool,
     physical_cursor_position: Option<DVec2>,
-    raw_window_handle: Option<RawWindowHandleWrapper>,
+    window_handle: AbstractWindowHandle,
     focused: bool,
     mode: WindowMode,
     canvas: Option<String>,
@@ -368,7 +383,7 @@ impl Window {
         physical_height: u32,
         scale_factor: f64,
         position: Option<IVec2>,
-        raw_window_handle: Option<RawWindowHandle>,
+        raw_window_handle: RawWindowHandle,
     ) -> Self {
         Window {
             id,
@@ -388,7 +403,9 @@ impl Window {
             cursor_locked: window_descriptor.cursor_locked,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
-            raw_window_handle: Some(RawWindowHandleWrapper::new(raw_window_handle)),
+            window_handle: AbstractWindowHandle::RawWindowHandle(RawWindowHandleWrapper::new(
+                raw_window_handle,
+            )),
             focused: true,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),
@@ -399,11 +416,7 @@ impl Window {
 
     /// Creates a new virtual [`Window`].
     ///
-    /// This window does not have to correspond to an operator system window.
-    ///
-    /// It differs from a non-virtual window, in that the caller is responsible
-    /// for creating and presenting surface textures and inserting them into
-    /// [`ExtractedWindow`](https://docs.rs/bevy/*/bevy/render/view/struct.ExtractedWindow.html).
+    /// See [`AbstractWindowHandle::Virtual`].
     pub fn new_virtual(
         id: WindowId,
         window_descriptor: &WindowDescriptor,
@@ -430,7 +443,7 @@ impl Window {
             cursor_locked: window_descriptor.cursor_locked,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
-            raw_window_handle: None,
+            window_handle: AbstractWindowHandle::Virtual,
             focused: true,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),
@@ -816,16 +829,9 @@ impl Window {
         self.focused
     }
 
-    /// Get the [`RawWindowHandleWrapper`] corresponding to this window.
-    ///
-    /// A return value of `None` signifies that this is a virtual window and does not
-    /// correspond to an OS window. The creator of the window is responsible
-    /// for creating and presenting surface textures and inserting them into
-    /// [`ExtractedWindow`](https://docs.rs/bevy/*/bevy/render/view/struct.ExtractedWindow.html).
-    ///
-    /// See [`Self::new_virtual`].
-    pub fn raw_window_handle(&self) -> Option<RawWindowHandleWrapper> {
-        self.raw_window_handle.clone()
+    /// Get the [`AbstractWindowHandle`] corresponding to this window.
+    pub fn window_handle(&self) -> AbstractWindowHandle {
+        self.window_handle.clone()
     }
 
     /// The "html canvas" element selector.

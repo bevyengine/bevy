@@ -21,6 +21,7 @@ pub mod view;
 
 use bevy_core::FrameCount;
 use bevy_hierarchy::ValidParentCheckPlugin;
+use bevy_window::AbstractWindowHandle;
 pub use extract_param::Extract;
 
 pub mod prelude {
@@ -144,17 +145,19 @@ impl Plugin for RenderPlugin {
             .register_type::<Color>();
 
         if let Some(backends) = options.backends {
-            let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
-
-            let surface = windows
-                .get_primary()
-                .and_then(|window| window.raw_window_handle())
-                .map(|wrapper| unsafe {
-                    let handle = wrapper.get_handle();
-                    instance.create_surface(&handle)
+            let surface = {
+                let windows = app.world.resource_mut::<bevy_window::Windows>();
+                let raw_handle = windows.get_primary().and_then(|window| unsafe {
+                    match window.window_handle() {
+                        AbstractWindowHandle::RawWindowHandle(handle) => {
+                            Some(instance.create_surface(&handle.get_handle()))
+                        }
+                        AbstractWindowHandle::Virtual => None,
+                    }
                 });
-
+                raw_handle
+            };
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: options.power_preference,
                 compatible_surface: surface.as_ref(),

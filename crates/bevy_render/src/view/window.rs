@@ -6,7 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
+use bevy_window::{AbstractWindowHandle, PresentMode, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 
 /// Token to ensure a system runs on the main thread.
@@ -38,7 +38,7 @@ impl Plugin for WindowRenderPlugin {
 
 pub struct ExtractedWindow {
     pub id: WindowId,
-    pub raw_window_handle: Option<RawWindowHandleWrapper>,
+    pub handle: AbstractWindowHandle,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -83,7 +83,7 @@ fn extract_windows(
                 .entry(window.id())
                 .or_insert(ExtractedWindow {
                     id: window.id(),
-                    raw_window_handle: window.raw_window_handle(),
+                    handle: window.window_handle(),
                     physical_width: new_width,
                     physical_height: new_height,
                     present_mode: window.present_mode(),
@@ -132,7 +132,7 @@ pub struct WindowSurfaces {
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
-/// This will not handle [virtual windows](bevy_window::Window::new_virtual).
+/// This will not handle [virtual windows](bevy_window::AbstractWindowHandle::Virtual).
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
 /// the performance bottleneck. This can be seen in profiles as multiple prepare-stage systems all
@@ -165,58 +165,59 @@ pub fn prepare_windows(
 ) {
     let window_surfaces = window_surfaces.deref_mut();
     for window in windows.windows.values_mut() {
-        if let Some(handle) = &window.handle {
-            let surface = window_surfaces
+        let surface = match &window.handle {
+            AbstractWindowHandle::RawWindowHandle(handle) => window_surfaces
                 .surfaces
                 .entry(window.id)
                 .or_insert_with(|| unsafe {
                     // NOTE: On some OSes this MUST be called from the main thread.
                     render_instance.create_surface(&handle.get_handle())
-                });
+                }),
+            AbstractWindowHandle::Virtual => continue,
+        };
 
-            let swap_chain_descriptor = wgpu::SurfaceConfiguration {
-                format: *surface
-                    .get_supported_formats(&render_adapter)
-                    .get(0)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No supported formats found for surface {:?} on adapter {:?}",
-                            surface, render_adapter
-                        )
-                    }),
-                width: window.physical_width,
-                height: window.physical_height,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                present_mode: match window.present_mode {
-                    PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                    PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                    PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                    PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                    PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
-                },
-            };
+        let swap_chain_descriptor = wgpu::SurfaceConfiguration {
+            format: *surface
+                .get_supported_formats(&render_adapter)
+                .get(0)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "No supported formats found for surface {:?} on adapter {:?}",
+                        surface, render_adapter
+                    )
+                }),
+            width: window.physical_width,
+            height: window.physical_height,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            present_mode: match window.present_mode {
+                PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+                PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+            },
+        };
 
-            // Do the initial surface configuration if it hasn't been configured yet. Or if size or
-            // present mode changed.
-            if window_surfaces.configured_windows.insert(window.id)
-                || window.size_changed
-                || window.present_mode_changed
-            {
-                render_device.configure_surface(surface, &swap_chain_descriptor);
-            }
-
-            let frame = match surface.get_current_texture() {
-                Ok(swap_chain_frame) => swap_chain_frame,
-                Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(surface, &swap_chain_descriptor);
-                    surface
-                        .get_current_texture()
-                        .expect("Error reconfiguring surface")
-                }
-                err => err.expect("Failed to acquire next swap chain texture!"),
-            };
-
-            window.swap_chain_texture = Some(TextureView::from(frame));
+        // Do the initial surface configuration if it hasn't been configured yet. Or if size or
+        // present mode changed.
+        if window_surfaces.configured_windows.insert(window.id)
+            || window.size_changed
+            || window.present_mode_changed
+        {
+            render_device.configure_surface(surface, &swap_chain_descriptor);
         }
+
+        let frame = match surface.get_current_texture() {
+            Ok(swap_chain_frame) => swap_chain_frame,
+            Err(wgpu::SurfaceError::Outdated) => {
+                render_device.configure_surface(surface, &swap_chain_descriptor);
+                surface
+                    .get_current_texture()
+                    .expect("Error reconfiguring surface")
+            }
+            err => err.expect("Failed to acquire next swap chain texture!"),
+        };
+
+        window.swap_chain_texture = Some(TextureView::from(frame));
     }
 }
