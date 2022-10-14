@@ -822,6 +822,16 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "iter_combinations_simple"
+path = "examples/ecs/iter_combinations_simple.rs"
+
+[package.metadata.example.iter_combinations_simple]
+name = "Simple Iter Combinations"
+description = "Shows a simple example of how iter combinations works"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
 
