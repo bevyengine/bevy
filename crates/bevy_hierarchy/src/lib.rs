@@ -16,10 +16,15 @@ pub use child_builder::*;
 mod events;
 pub use events::*;
 
+mod valid_parent_check_plugin;
+pub use valid_parent_check_plugin::*;
+
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{child_builder::*, components::*, hierarchy::*, HierarchyPlugin};
+    pub use crate::{
+        child_builder::*, components::*, hierarchy::*, HierarchyPlugin, ValidParentCheckPlugin,
+    };
 }
 
 use bevy_app::prelude::*;

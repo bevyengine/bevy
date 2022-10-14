@@ -4,7 +4,7 @@ use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    query::{Changed, With, Without, WorldQuery},
+    query::{Changed, ReadOnlyWorldQuery, With, Without},
     system::{Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -130,6 +130,13 @@ without UI components as a child of an entity with UI components, results may be
             .unwrap();
     }
 
+    /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
+    pub fn try_remove_children(&mut self, entity: Entity) {
+        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy.set_children(*taffy_node, &[]).unwrap();
+        }
+    }
+
     pub fn update_window(&mut self, window: &Window) {
         let taffy = &mut self.taffy;
         let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
@@ -216,6 +223,7 @@ pub fn flex_node_system(
         (With<Node>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
+    removed_children: RemovedComponents<Children>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     removed_nodes: RemovedComponents<Node>,
 ) {
@@ -234,7 +242,7 @@ pub fn flex_node_system(
         update_changed(&mut *flex_surface, scale_factor, node_query);
     }
 
-    fn update_changed<F: WorldQuery>(
+    fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
         scaling_factor: f64,
         query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
@@ -262,7 +270,10 @@ pub fn flex_node_system(
         flex_surface.set_window_children(primary_window.id(), root_node_query.iter());
     }
 
-    // update children
+    // update and remove children
+    for entity in &removed_children {
+        flex_surface.try_remove_children(entity);
+    }
     for (entity, children) in &children_query {
         flex_surface.update_children(entity, children);
     }

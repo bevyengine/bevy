@@ -97,20 +97,17 @@ fn star(
     star.set_indices(Some(Indices::U32(indices)));
 
     // We can now spawn the entities for the star and the camera
-    commands.spawn_bundle((
+    commands.spawn((
         // We use a marker component to identify the custom colored meshes
         ColoredMesh2d::default(),
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
-        // These other components are needed for 2d meshes to be rendered
-        Transform::default(),
-        GlobalTransform::default(),
-        Visibility::default(),
-        ComputedVisibility::default(),
+        // This bundle's components are needed for something to be rendered
+        SpatialBundle::VISIBLE_IDENTITY,
     ));
-    commands
-        // And use an orthographic projection
-        .spawn_bundle(Camera2dBundle::default());
+
+    // Spawn the camera
+    commands.spawn(Camera2dBundle::default());
 }
 
 /// A marker component for colored 2d meshes
@@ -275,8 +272,8 @@ impl Plugin for ColoredMesh2dPlugin {
         );
 
         // Register our custom draw function and pipeline, and add our render systems
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-        render_app
+        app.get_sub_app_mut(RenderApp)
+            .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
@@ -294,7 +291,7 @@ pub fn extract_colored_mesh2d(
     query: Extract<Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility) in query.iter() {
+    for (entity, computed_visibility) in &query {
         if !computed_visibility.is_visible() {
             continue;
         }

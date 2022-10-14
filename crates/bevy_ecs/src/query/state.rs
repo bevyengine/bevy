@@ -13,14 +13,14 @@ use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt};
 
-use super::{NopWorldQuery, QueryItem, QueryManyIter, ROQueryItem};
+use super::{NopWorldQuery, QueryItem, QueryManyIter, ROQueryItem, ReadOnlyWorldQuery};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `Q` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
-pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
+pub struct QueryState<Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
     pub(crate) matched_tables: FixedBitSet,
@@ -35,13 +35,24 @@ pub struct QueryState<Q: WorldQuery, F: WorldQuery = ()> {
     pub(crate) filter_state: F::State,
 }
 
-impl<Q: WorldQuery, F: WorldQuery> FromWorld for QueryState<Q, F> {
+impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "QueryState<Q, F> matched_table_ids: {} matched_archetype_ids: {}",
+            self.matched_table_ids.len(),
+            self.matched_archetype_ids.len()
+        )
+    }
+}
+
+impl<Q: WorldQuery, F: ReadOnlyWorldQuery> FromWorld for QueryState<Q, F> {
     fn from_world(world: &mut World) -> Self {
         world.query_filtered()
     }
 }
 
-impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
+impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
     pub fn as_readonly(&self) -> &QueryState<Q::ReadOnly, F::ReadOnly> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `Q::ReadOnly` and `F::ReadOnly`
@@ -71,7 +82,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
     pub(crate) unsafe fn as_transmuted_state<
         NewQ: WorldQuery<State = Q::State>,
-        NewF: WorldQuery<State = F::State>,
+        NewF: ReadOnlyWorldQuery<State = F::State>,
     >(
         &self,
     ) -> &QueryState<NewQ, NewF> {
@@ -79,7 +90,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     }
 }
 
-impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
+impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let fetch_state = Q::init_state(world);
@@ -221,10 +232,10 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// struct A(usize);
     ///
     /// let mut world = World::new();
-    /// let entity_vec: Vec<Entity> = (0..3).map(|i|world.spawn().insert(A(i)).id()).collect();
+    /// let entity_vec: Vec<Entity> = (0..3).map(|i|world.spawn(A(i)).id()).collect();
     /// let entities: [Entity; 3] = entity_vec.try_into().unwrap();
     ///
-    /// world.spawn().insert(A(73));
+    /// world.spawn(A(73));
     ///
     /// let mut query_state = world.query::<&A>();
     ///
@@ -288,10 +299,10 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     ///
     /// let mut world = World::new();
     ///
-    /// let entities: Vec<Entity> = (0..3).map(|i|world.spawn().insert(A(i)).id()).collect();
+    /// let entities: Vec<Entity> = (0..3).map(|i|world.spawn(A(i)).id()).collect();
     /// let entities: [Entity; 3] = entities.try_into().unwrap();
     ///
-    /// world.spawn().insert(A(73));
+    /// world.spawn(A(73));
     ///
     /// let mut query_state = world.query::<&mut A>();
     ///
@@ -306,7 +317,7 @@ impl<Q: WorldQuery, F: WorldQuery> QueryState<Q, F> {
     /// assert_eq!(component_values, [&A(5), &A(6), &A(7)]);
     ///
     /// let wrong_entity = Entity::from_raw(57);
-    /// let invalid_entity = world.spawn().id();
+    /// let invalid_entity = world.spawn_empty().id();
     ///
     /// assert_eq!(query_state.get_many_mut(&mut world, [wrong_entity]).unwrap_err(), QueryEntityError::NoSuchEntity(wrong_entity));
     /// assert_eq!(query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err(), QueryEntityError::QueryDoesNotMatch(invalid_entity));
@@ -1225,7 +1236,7 @@ mod tests {
     fn get_many_unchecked_manual_uniqueness() {
         let mut world = World::new();
 
-        let entities: Vec<Entity> = (0..10).map(|_| world.spawn().id()).collect();
+        let entities: Vec<Entity> = (0..10).map(|_| world.spawn_empty().id()).collect();
 
         let query_state = world.query::<Entity>();
 

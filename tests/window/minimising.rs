@@ -19,7 +19,7 @@ fn main() {
 
 fn minimise_automatically(mut windows: ResMut<Windows>, mut frames: Local<u32>) {
     if *frames == 60 {
-        windows.get_primary_mut().unwrap().set_minimized(true);
+        windows.primary_mut().set_minimized(true);
     } else {
         *frames += 1;
     }
@@ -32,20 +32,20 @@ fn setup_3d(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
     // cube
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 1500.0,
             shadows_enabled: true,
@@ -55,7 +55,7 @@ fn setup_3d(
         ..default()
     });
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -63,7 +63,7 @@ fn setup_3d(
 
 /// A simple 2d scene, taken from the `rect` example
 fn setup_2d(mut commands: Commands) {
-    commands.spawn_bundle(Camera2dBundle {
+    commands.spawn(Camera2dBundle {
         camera: Camera {
             // render the 2d camera after the 3d camera
             priority: 1,
@@ -75,7 +75,7 @@ fn setup_2d(mut commands: Commands) {
         },
         ..default()
     });
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         sprite: Sprite {
             color: Color::rgb(0.25, 0.25, 0.75),
             custom_size: Some(Vec2::new(50.0, 50.0)),

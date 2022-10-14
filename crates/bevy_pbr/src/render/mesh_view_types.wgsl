@@ -8,8 +8,8 @@ struct View {
     projection: mat4x4<f32>,
     inverse_projection: mat4x4<f32>,
     world_position: vec3<f32>,
-    width: f32,
-    height: f32,
+    // viewport(x_origin, y_origin, width, height)
+    viewport: vec4<f32>,
 };
 
 struct PointLight {
@@ -41,7 +41,7 @@ struct DirectionalLight {
 let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
 struct Lights {
-    // NOTE: this array size must be kept in sync with the constants defined bevy_pbr2/src/render/light.rs
+    // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
     directional_lights: array<DirectionalLight, 1u>,
     ambient_color: vec4<f32>,
     // x/y/z dimensions and n_clusters in w
@@ -85,3 +85,14 @@ struct ClusterOffsetsAndCounts {
     data: array<vec4<u32>>,
 };
 #endif
+
+struct Globals {
+    // The time since startup in seconds
+    // Wraps to 0 after 1 hour.
+    time: f32,
+    // The delta time since the previous frame in seconds
+    delta_time: f32,
+    // Frame count since the start of the app.
+    // It wraps to zero when it reaches the maximum value of a u32.
+    frame_count: u32,
+}

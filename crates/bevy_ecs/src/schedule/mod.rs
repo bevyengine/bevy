@@ -3,6 +3,7 @@
 //! When using Bevy ECS, systems are usually not run directly, but are inserted into a
 //!  [`Stage`], which then lives within a [`Schedule`].
 
+mod ambiguity_detection;
 mod executor;
 mod executor_parallel;
 pub mod graph_utils;
@@ -36,7 +37,7 @@ use bevy_utils::HashMap;
 /// In this way, the properties of the child schedule can be set differently from the parent.
 /// For example, it can be set to run only once during app execution, while the parent schedule
 /// runs indefinitely.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Schedule {
     stages: HashMap<StageLabelId, Box<dyn Stage>>,
     stage_order: Vec<StageLabelId>,

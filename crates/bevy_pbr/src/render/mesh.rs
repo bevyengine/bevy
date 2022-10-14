@@ -13,6 +13,7 @@ use bevy_math::{Mat3A, Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, Mesh, MeshVertexBufferLayout,
@@ -20,10 +21,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
+    texture::{DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
@@ -112,7 +111,7 @@ pub struct MeshUniform {
     pub flags: u32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr2/src/render/mesh.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct MeshFlags: u32 {
@@ -229,7 +228,7 @@ pub fn extract_skinned_meshes(
     let mut joints = Vec::with_capacity(*previous_joint_len);
     let mut last_start = 0;
 
-    for (entity, computed_visibility, skin) in query.iter() {
+    for (entity, computed_visibility, skin) in &query {
         if !computed_visibility.is_visible() {
             continue;
         }
@@ -269,8 +268,10 @@ impl FromWorld for MeshPipeline {
             Res<RenderDevice>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
+            Res<RenderTextureFormat>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let (render_device, default_sampler, render_queue, first_available_texture_format) =
+            system_state.get_mut(world);
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
@@ -383,6 +384,16 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                BindGroupLayoutEntry {
+                    binding: 9,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
+                    },
+                    count: None,
+                },
             ],
             label: Some("mesh_view_layout"),
         });
@@ -427,7 +438,7 @@ impl FromWorld for MeshPipeline {
                 Extent3d::default(),
                 TextureDimension::D2,
                 &[255u8; 4],
-                TextureFormat::bevy_default(),
+                first_available_texture_format.0,
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
@@ -469,6 +480,7 @@ impl FromWorld for MeshPipeline {
                 ),
             }
         };
+
         MeshPipeline {
             view_layout,
             mesh_layout,
@@ -554,12 +566,19 @@ impl SpecializedMeshPipeline for MeshPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut vertex_attributes = vec![
-            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
-            Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
-        ];
-
         let mut shader_defs = Vec::new();
+        let mut vertex_attributes = Vec::new();
+
+        if layout.contains(Mesh::ATTRIBUTE_POSITION) {
+            shader_defs.push(String::from("VERTEX_POSITIONS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
+        }
+
+        if layout.contains(Mesh::ATTRIBUTE_NORMAL) {
+            shader_defs.push(String::from("VERTEX_NORMALS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push(String::from("VERTEX_UVS"));
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
@@ -617,7 +636,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: self.dummy_white_gpu_image.texture_format,
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -764,11 +783,13 @@ pub fn queue_mesh_view_bind_groups(
     global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+    globals_buffer: Res<GlobalsBuffer>,
 ) {
-    if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
+    if let (Some(view_binding), Some(light_binding), Some(point_light_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
+        globals_buffer.buffer.binding(),
     ) {
         for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -814,6 +835,10 @@ pub fn queue_mesh_view_bind_groups(
                     BindGroupEntry {
                         binding: 8,
                         resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
+                    },
+                    BindGroupEntry {
+                        binding: 9,
+                        resource: globals.clone(),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),

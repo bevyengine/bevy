@@ -39,7 +39,7 @@ pub struct DefaultTaskPoolOptions {
     /// If the number of physical cores is less than min_total_threads, force using
     /// min_total_threads
     pub min_total_threads: usize,
-    /// If the number of physical cores is grater than max_total_threads, force using
+    /// If the number of physical cores is greater than max_total_threads, force using
     /// max_total_threads
     pub max_total_threads: usize,
 
@@ -94,8 +94,8 @@ impl DefaultTaskPoolOptions {
 
     /// Inserts the default thread pools into the given resource map based on the configured values
     pub fn create_default_pools(&self) {
-        let total_threads =
-            bevy_tasks::logical_core_count().clamp(self.min_total_threads, self.max_total_threads);
+        let total_threads = bevy_tasks::available_parallelism()
+            .clamp(self.min_total_threads, self.max_total_threads);
         trace!("Assigning {} cores to default task pools", total_threads);
 
         let mut remaining_threads = total_threads;

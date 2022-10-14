@@ -14,71 +14,124 @@ use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
 use std::{any::TypeId, collections::HashMap};
 
-/// An ordered collection of [`Component`]s.
+/// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
-/// Commonly used for spawning entities and adding and removing components in bulk. This
-/// trait is automatically implemented for tuples of components: `(ComponentA, ComponentB)`
-/// is a very convenient shorthand when working with one-off collections of components. Note
-/// that both the unit type `()` and `(ComponentA, )` are valid bundles. The unit bundle is
-/// particularly useful for spawning multiple empty entities by using
-/// [`Commands::spawn_batch`](crate::system::Commands::spawn_batch).
+/// Implementors of the `Bundle` trait are called 'bundles'.
 ///
-/// # Examples
+/// Each bundle represents a static set of [`Component`] types.
+/// Currently, bundles can only contain one of each [`Component`], and will
+/// panic once initialised if this is not met.
 ///
-/// Typically, you will simply use `#[derive(Bundle)]` when creating your own `Bundle`. Each
-/// struct field is a component:
+/// ## Insertion
 ///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # #[derive(Component)]
-/// # struct ComponentA;
-/// # #[derive(Component)]
-/// # struct ComponentB;
-/// # #[derive(Component)]
-/// # struct ComponentC;
-/// #
-/// #[derive(Bundle)]
-/// struct MyBundle {
-///     a: ComponentA,
-///     b: ComponentB,
-///     c: ComponentC,
-/// }
-/// ```
+/// The primary use for bundles is to add a useful collection of components to an entity.
 ///
-/// You can nest bundles using the `#[bundle]` attribute:
+/// Adding a value of bundle to an entity will add the components from the set it
+/// represents to the entity.
+/// The values of these components are taken from the bundle.
+/// If an entity already had one of these components, the entity's original component value
+/// will be overwritten.
+///
+/// Importantly, bundles are only their constituent set of components.
+/// You **should not** use bundles as a unit of behaviour.
+/// The behaviour of your app can only be considered in terms of components, as systems,
+/// which drive the behaviour of a `bevy` application, operate on combinations of
+/// components.
+///
+/// This rule is also important because multiple bundles may contain the same component type,
+/// calculated in different ways &mdash; adding both of these bundles to one entity
+/// would create incoherent behaviour.
+/// This would be unexpected if bundles were treated as an abstraction boundary, as
+/// the abstraction would be unmaintainable for these cases.
+/// For example, both `Camera3dBundle` and `Camera2dBundle` contain the `CameraRenderGraph`
+/// component, but specifying different render graphs to use.
+/// If the bundles were both added to the same entity, only one of these two bundles would work.
+///
+/// For this reason, There is intentionally no [`Query`] to match whether an entity
+/// contains the components of a bundle.
+/// Queries should instead only select the components they logically operate on.
+///
+/// ## Removal
+///
+/// Bundles are also used when removing components from an entity.
+///
+/// Removing a bundle from an entity will remove any of its components attached
+/// to the entity from the entity.
+/// That is, if the entity does not have all the components of the bundle, those
+/// which are present will be removed.
+///
+/// # Implementors
+///
+/// Every type which implements [`Component`] also implements `Bundle`, since
+/// [`Component`] types can be added to or removed from an entity.
+///
+/// Additionally, [Tuples](`tuple`) of bundles are also [`Bundle`] (with up to 15 bundles).
+/// These bundles contain the items of the 'inner' bundles.
+/// This is a convenient shorthand which is primarily used when spawning entities.
+/// For example, spawning an entity using the bundle `(SpriteBundle {...}, PlayerMarker)`
+/// will spawn an entity with components required for a 2d sprite, and the `PlayerMarker` component.
+///
+/// [`unit`], otherwise known as [`()`](`unit`), is a [`Bundle`] containing no components (since it
+/// can also be considered as the empty tuple).
+/// This can be useful for spawning large numbers of empty entities using
+/// [`World::spawn_batch`](crate::world::World::spawn_batch).
+///
+/// Tuple bundles can be nested, which can be used to create an anonymous bundle with more than
+/// 15 items.
+/// However, in most cases where this is required, the derive macro [`derive@Bundle`] should be
+/// used instead.
+/// The derived `Bundle` implementation contains the items of its fields, which all must
+/// implement `Bundle`.
+/// As explained above, this includes any [`Component`] type, and other derived bundles:
+///
 /// ```
 /// # use bevy_ecs::{component::Component, bundle::Bundle};
 ///
 /// #[derive(Component)]
-/// struct X(i32);
+/// struct XPosition(i32);
 /// #[derive(Component)]
-/// struct Y(u64);
-/// #[derive(Component)]
-/// struct Z(String);
+/// struct YPosition(i32);
 ///
 /// #[derive(Bundle)]
-/// struct A {
-///     x: X,
-///     y: Y,
+/// struct PositionBundle {
+///     // A bundle can contain components
+///     x: XPosition,
+///     y: YPosition,
 /// }
 ///
 /// #[derive(Bundle)]
-/// struct B {
-///     #[bundle]
-///     a: A,
-///     z: Z,
+/// struct NamedPointBundle {
+///     // Or other bundles
+///     a: PositionBundle,
+///     // In addition to more components
+///     z: PointName,
 /// }
+///
+/// #[derive(Component)]
+/// struct PointName(String);
 /// ```
 ///
 /// # Safety
 ///
-/// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
-/// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
-/// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
-///   [`Bundle::component_ids`].
+/// Manual implementations of this trait are unsupported.
+/// That is, there is no safe way to implement this trait, and you must not do so.
+/// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`](derive@Bundle).
+///
+///
+/// [`Query`]: crate::system::Query
+// Some safety points:
+// - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
+// bundle, in the _exact_ order that [`Bundle::get_components`] is called.
+// - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
+//   [`Bundle::component_ids`].
 pub unsafe trait Bundle: Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
-    fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId>;
+    #[doc(hidden)]
+    fn component_ids(
+        components: &mut Components,
+        storages: &mut Storages,
+        ids: &mut impl FnMut(ComponentId),
+    );
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's [`Component`]s
@@ -86,52 +139,83 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// # Safety
     /// Caller must return data for each component in the bundle, in the order of this bundle's
     /// [`Component`]s
-    unsafe fn from_components<T, F>(ctx: &mut T, func: F) -> Self
+    #[doc(hidden)]
+    unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
     where
-        F: FnMut(&mut T) -> OwningPtr<'_>,
+        // Ensure that the `OwningPtr` is used correctly
+        F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized;
 
-    /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This will
-    /// [`std::mem::forget`] the bundle fields, so callers are responsible for dropping the fields
-    /// if that is desirable.
-    fn get_components(self, func: impl FnMut(OwningPtr<'_>));
+    /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
+    /// ownership of the component values to `func`.
+    #[doc(hidden)]
+    fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>));
+}
+
+// SAFETY:
+// - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
+// - `Bundle::get_components` is called exactly once for C.
+// - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
+unsafe impl<C: Component> Bundle for C {
+    fn component_ids(
+        components: &mut Components,
+        storages: &mut Storages,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        ids(components.init_component::<C>(storages));
+    }
+
+    unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
+    where
+        // Ensure that the `OwningPtr` is used correctly
+        F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
+        Self: Sized,
+    {
+        // Safety: The id given in `component_ids` is for `Self`
+        func(ctx).read()
+    }
+
+    fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
+        OwningPtr::make(self, func);
+    }
 }
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
         // SAFETY:
-        // - `Bundle::component_ids` returns the `ComponentId`s for each component type in the
+        // - `Bundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `Bundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
-        unsafe impl<$($name: Component),*> Bundle for ($($name,)*) {
+        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
-            fn component_ids(components: &mut Components, storages: &mut Storages) -> Vec<ComponentId> {
-                vec![$(components.init_component::<$name>(storages)),*]
+            fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
+                $(<$name as Bundle>::component_ids(components, storages, ids);)*
             }
 
             #[allow(unused_variables, unused_mut)]
             #[allow(clippy::unused_unit)]
-            unsafe fn from_components<T, F>(ctx: &mut T, mut func: F) -> Self
+            unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
-                #[allow(non_snake_case)]
-                ($(func(ctx).read::<$name>(),)*)
+                // Rust guarantees that tuple calls are evaluated 'left to right'.
+                // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
+                ($(<$name as Bundle>::from_components(ctx, func),)*)
             }
 
             #[allow(unused_variables, unused_mut)]
-            fn get_components(self, mut func: impl FnMut(OwningPtr<'_>)) {
+            fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
-                    OwningPtr::make($name, &mut func);
+                    $name.get_components(&mut *func);
                 )*
             }
         }
     }
 }
 
-all_tuples!(tuple_impl, 0, 15, C);
+all_tuples!(tuple_impl, 0, 15, B);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct BundleId(usize);
@@ -279,7 +363,7 @@ impl BundleInfo {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        bundle.get_components(|component_ptr| {
+        bundle.get_components(&mut |component_ptr| {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
@@ -601,7 +685,8 @@ impl Bundles {
     ) -> &'a BundleInfo {
         let bundle_infos = &mut self.bundle_infos;
         let id = self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let component_ids = T::component_ids(components, storages);
+            let mut component_ids = Vec::new();
+            T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             // SAFETY: T::component_id ensures info was created
             let bundle_info = unsafe {

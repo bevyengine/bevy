@@ -97,7 +97,6 @@ struct CollisionSound(Handle<AudioSource>);
 struct WallBundle {
     // You can nest bundles inside of other bundles like this
     // Allowing you to compose their functionality
-    #[bundle]
     sprite_bundle: SpriteBundle,
     collider: Collider,
 }
@@ -179,7 +178,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     // Sound
     let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
@@ -188,10 +187,8 @@ fn setup(
     // Paddle
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
 
-    commands
-        .spawn()
-        .insert(Paddle)
-        .insert_bundle(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(0.0, paddle_y, 0.0),
                 scale: PADDLE_SIZE,
@@ -202,23 +199,25 @@ fn setup(
                 ..default()
             },
             ..default()
-        })
-        .insert(Collider);
+        },
+        Paddle,
+        Collider,
+    ));
 
     // Ball
-    commands
-        .spawn()
-        .insert(Ball)
-        .insert_bundle(MaterialMesh2dBundle {
+    commands.spawn((
+        MaterialMesh2dBundle {
             mesh: meshes.add(shape::Circle::default().into()).into(),
             material: materials.add(ColorMaterial::from(BALL_COLOR)),
             transform: Transform::from_translation(BALL_STARTING_POSITION).with_scale(BALL_SIZE),
             ..default()
-        })
-        .insert(Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED));
+        },
+        Ball,
+        Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED),
+    ));
 
     // Scoreboard
-    commands.spawn_bundle(
+    commands.spawn(
         TextBundle::from_sections([
             TextSection::new(
                 "Score: ",
@@ -246,10 +245,10 @@ fn setup(
     );
 
     // Walls
-    commands.spawn_bundle(WallBundle::new(WallLocation::Left));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Right));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Bottom));
-    commands.spawn_bundle(WallBundle::new(WallLocation::Top));
+    commands.spawn(WallBundle::new(WallLocation::Left));
+    commands.spawn(WallBundle::new(WallLocation::Right));
+    commands.spawn(WallBundle::new(WallLocation::Bottom));
+    commands.spawn(WallBundle::new(WallLocation::Top));
 
     // Bricks
     // Negative scales result in flipped sprites / meshes,
@@ -291,10 +290,8 @@ fn setup(
             );
 
             // brick
-            commands
-                .spawn()
-                .insert(Brick)
-                .insert_bundle(SpriteBundle {
+            commands.spawn((
+                SpriteBundle {
                     sprite: Sprite {
                         color: BRICK_COLOR,
                         ..default()
@@ -305,8 +302,10 @@ fn setup(
                         ..default()
                     },
                     ..default()
-                })
-                .insert(Collider);
+                },
+                Brick,
+                Collider,
+            ));
         }
     }
 }

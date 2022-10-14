@@ -303,11 +303,11 @@ pub enum FlexDirection {
     /// Same way as text direction along the main axis
     #[default]
     Row,
-    /// Flex from bottom to top
+    /// Flex from top to bottom
     Column,
     /// Opposite way as text direction along the main axis
     RowReverse,
-    /// Flex from top to bottom
+    /// Flex from bottom to top
     ColumnReverse,
 }
 
@@ -375,18 +375,21 @@ pub struct CalculatedSize {
     pub size: Size,
 }
 
-/// The color of the node
+/// The background color of the node
+///
+/// This serves as the "fill" color.
+/// When combined with [`UiImage`], tints the provided texture.
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiColor(pub Color);
+pub struct BackgroundColor(pub Color);
 
-impl From<Color> for UiColor {
+impl From<Color> for BackgroundColor {
     fn from(color: Color) -> Self {
         Self(color)
     }
 }
 
-/// The image of the node
+/// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
 pub struct UiImage(pub Handle<Image>);

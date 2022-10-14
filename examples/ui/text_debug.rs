@@ -24,8 +24,8 @@ struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(
         TextBundle::from_section(
             "This is\ntext with\nline breaks\nin the top left",
             TextStyle {
@@ -35,7 +35,6 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
         )
         .with_style(Style {
-            align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
             position: UiRect {
                 top: Val::Px(5.0),
@@ -45,7 +44,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         }),
     );
-    commands.spawn_bundle(TextBundle::from_section(
+    commands.spawn(TextBundle::from_section(
             "This text is very long, has a limited width, is centred, is positioned in the top right and is also coloured pink.",
             TextStyle {
                 font: font.clone(),
@@ -55,7 +54,6 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         )
         .with_text_alignment(TextAlignment::CENTER)
         .with_style(Style {
-            align_self: AlignSelf::FlexEnd,
             position_type: PositionType::Absolute,
             position: UiRect {
                 top: Val::Px(5.0),
@@ -69,65 +67,63 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
     );
-    commands
-        .spawn_bundle(
-            TextBundle::from_sections([
-                TextSection::new(
-                    "This text changes in the bottom right",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::WHITE,
-                    },
-                ),
-                TextSection::new(
-                    "\nThis text changes in the bottom right - ",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::RED,
-                    },
-                ),
-                TextSection::from_style(TextStyle {
+    commands.spawn((
+        TextBundle::from_sections([
+            TextSection::new(
+                "This text changes in the bottom right",
+                TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    color: Color::ORANGE_RED,
-                }),
-                TextSection::new(
-                    " fps, ",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::YELLOW,
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: font.clone(),
-                    font_size: 30.0,
-                    color: Color::GREEN,
-                }),
-                TextSection::new(
-                    " ms/frame",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::BLUE,
-                    },
-                ),
-            ])
-            .with_style(Style {
-                align_self: AlignSelf::FlexEnd,
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    bottom: Val::Px(5.0),
-                    right: Val::Px(15.0),
-                    ..default()
+                    color: Color::WHITE,
                 },
-                ..default()
+            ),
+            TextSection::new(
+                "\nThis text changes in the bottom right - ",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::RED,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: font.clone(),
+                font_size: 30.0,
+                color: Color::ORANGE_RED,
             }),
-        )
-        .insert(TextChanges);
-    commands.spawn_bundle(
+            TextSection::new(
+                " fps, ",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::YELLOW,
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: font.clone(),
+                font_size: 30.0,
+                color: Color::GREEN,
+            }),
+            TextSection::new(
+                " ms/frame",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 30.0,
+                    color: Color::BLUE,
+                },
+            ),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                bottom: Val::Px(5.0),
+                right: Val::Px(15.0),
+                ..default()
+            },
+            ..default()
+        }),
+        TextChanges,
+    ));
+    commands.spawn(
         TextBundle::from_section(
             "This\ntext has\nline breaks and also a set width in the bottom left",
             TextStyle {

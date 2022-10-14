@@ -21,6 +21,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.9.0-dev" }
 
 async-channel = "1.4"
+event-listener = "2.5"
 thread_local = "1.1.4"
 fixedbitset = "0.4"
 fxhash = "0.2"

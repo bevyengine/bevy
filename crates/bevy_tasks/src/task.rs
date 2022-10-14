@@ -14,6 +14,7 @@ use std::{
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
 /// Wraps `async_executor::Task`
 #[derive(Debug)]
+#[must_use = "Tasks are canceled when dropped, use `.detach()` to run them in the background."]
 pub struct Task<T>(async_executor::Task<T>);
 
 impl<T> Task<T> {
