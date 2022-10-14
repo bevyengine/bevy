@@ -132,6 +132,8 @@ pub struct WindowSurfaces {
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
+/// This will not handle [virtual windows](bevy_window::Window::new_virtual).
+///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
 /// the performance bottleneck. This can be seen in profiles as multiple prepare-stage systems all
 /// taking an unusually long time to complete, and all finishing at about the same time as the
@@ -161,64 +163,60 @@ pub fn prepare_windows(
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
 ) {
-    for window in windows
-        .windows
-        .values_mut()
-        // value of raw_winndow_handle only None if synthetic test
-        .filter(|x| x.raw_window_handle.is_some())
-    {
-        let window_surfaces = window_surfaces.deref_mut();
-        let surface = window_surfaces
-            .surfaces
-            .entry(window.id)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                render_instance
-                    .create_surface(&window.raw_window_handle.as_ref().unwrap().get_handle())
-            });
+    let window_surfaces = window_surfaces.deref_mut();
+    for window in windows.windows.values_mut() {
+        if let Some(handle) = &window.handle {
+            let surface = window_surfaces
+                .surfaces
+                .entry(window.id)
+                .or_insert_with(|| unsafe {
+                    // NOTE: On some OSes this MUST be called from the main thread.
+                    render_instance.create_surface(&handle.get_handle())
+                });
 
-        let swap_chain_descriptor = wgpu::SurfaceConfiguration {
-            format: *surface
-                .get_supported_formats(&render_adapter)
-                .get(0)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "No supported formats found for surface {:?} on adapter {:?}",
-                        surface, render_adapter
-                    )
-                }),
-            width: window.physical_width,
-            height: window.physical_height,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            present_mode: match window.present_mode {
-                PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
-            },
-        };
+            let swap_chain_descriptor = wgpu::SurfaceConfiguration {
+                format: *surface
+                    .get_supported_formats(&render_adapter)
+                    .get(0)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "No supported formats found for surface {:?} on adapter {:?}",
+                            surface, render_adapter
+                        )
+                    }),
+                width: window.physical_width,
+                height: window.physical_height,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                present_mode: match window.present_mode {
+                    PresentMode::Fifo => wgpu::PresentMode::Fifo,
+                    PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
+                    PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                    PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                    PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+                },
+            };
 
-        // Do the initial surface configuration if it hasn't been configured yet. Or if size or
-        // present mode changed.
-        if window_surfaces.configured_windows.insert(window.id)
-            || window.size_changed
-            || window.present_mode_changed
-        {
-            render_device.configure_surface(surface, &swap_chain_descriptor);
-        }
-
-        let frame = match surface.get_current_texture() {
-            Ok(swap_chain_frame) => swap_chain_frame,
-            Err(wgpu::SurfaceError::Outdated) => {
+            // Do the initial surface configuration if it hasn't been configured yet. Or if size or
+            // present mode changed.
+            if window_surfaces.configured_windows.insert(window.id)
+                || window.size_changed
+                || window.present_mode_changed
+            {
                 render_device.configure_surface(surface, &swap_chain_descriptor);
-                surface
-                    .get_current_texture()
-                    .expect("Error reconfiguring surface")
             }
-            err => err.expect("Failed to acquire next swap chain texture!"),
-        };
 
-        window.swap_chain_texture = Some(TextureView::from(frame));
+            let frame = match surface.get_current_texture() {
+                Ok(swap_chain_frame) => swap_chain_frame,
+                Err(wgpu::SurfaceError::Outdated) => {
+                    render_device.configure_surface(surface, &swap_chain_descriptor);
+                    surface
+                        .get_current_texture()
+                        .expect("Error reconfiguring surface")
+                }
+                err => err.expect("Failed to acquire next swap chain texture!"),
+            };
+
+            window.swap_chain_texture = Some(TextureView::from(frame));
+        }
     }
 }

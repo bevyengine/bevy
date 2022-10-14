@@ -151,7 +151,7 @@ impl WindowResizeConstraints {
     }
 }
 
-/// An operating system window that can present content and receive user input.
+/// An operating system or virtual window that can present content and receive user input.
 ///
 /// To create a window, use a [`EventWriter<CreateWindow>`](`crate::CreateWindow`).
 ///
@@ -388,7 +388,7 @@ impl Window {
             cursor_locked: window_descriptor.cursor_locked,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
-            raw_window_handle: raw_window_handle.map(RawWindowHandleWrapper::new),
+            raw_window_handle: Some(RawWindowHandleWrapper::new(raw_window_handle)),
             focused: true,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),
@@ -396,6 +396,49 @@ impl Window {
             command_queue: Vec::new(),
         }
     }
+
+    /// Creates a new virtual [`Window`].
+    ///
+    /// This window does not have to correspond to an operator system window.
+    ///
+    /// It differs from a non-virtual window, in that the caller is responsible
+    /// for creating and presenting surface textures and inserting them into
+    /// [`ExtractedWindow`](https://docs.rs/bevy/*/bevy/render/view/struct.ExtractedWindow.html).
+    pub fn new_virtual(
+        id: WindowId,
+        window_descriptor: &WindowDescriptor,
+        physical_width: u32,
+        physical_height: u32,
+        scale_factor: f64,
+        position: Option<IVec2>,
+    ) -> Self {
+        Window {
+            id,
+            requested_width: window_descriptor.width,
+            requested_height: window_descriptor.height,
+            position,
+            physical_width,
+            physical_height,
+            resize_constraints: window_descriptor.resize_constraints,
+            scale_factor_override: window_descriptor.scale_factor_override,
+            backend_scale_factor: scale_factor,
+            title: window_descriptor.title.clone(),
+            present_mode: window_descriptor.present_mode,
+            resizable: window_descriptor.resizable,
+            decorations: window_descriptor.decorations,
+            cursor_visible: window_descriptor.cursor_visible,
+            cursor_locked: window_descriptor.cursor_locked,
+            cursor_icon: CursorIcon::Default,
+            physical_cursor_position: None,
+            raw_window_handle: None,
+            focused: true,
+            mode: window_descriptor.mode,
+            canvas: window_descriptor.canvas.clone(),
+            fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
+            command_queue: Vec::new(),
+        }
+    }
+
     /// Get the window's [`WindowId`].
     #[inline]
     pub fn id(&self) -> WindowId {
@@ -772,11 +815,17 @@ impl Window {
     pub fn is_focused(&self) -> bool {
         self.focused
     }
-    /// Get the [`RawWindowHandleWrapper`] corresponding to this window if set.
+
+    /// Get the [`RawWindowHandleWrapper`] corresponding to this window.
     ///
-    /// During normal use, this can be safely unwrapped; the value should only be [`None`] when synthetically constructed for tests.
+    /// A return value of `None` signifies that this is a virtual window and does not
+    /// correspond to an OS window. The creator of the window is responsible
+    /// for creating and presenting surface textures and inserting them into
+    /// [`ExtractedWindow`](https://docs.rs/bevy/*/bevy/render/view/struct.ExtractedWindow.html).
+    ///
+    /// See [`Self::new_virtual`].
     pub fn raw_window_handle(&self) -> Option<RawWindowHandleWrapper> {
-        self.raw_window_handle.as_ref().cloned()
+        self.raw_window_handle.clone()
     }
 
     /// The "html canvas" element selector.
