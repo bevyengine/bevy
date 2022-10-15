@@ -58,6 +58,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     }
 
     /// Consume the builder, producing a [`DynamicScene`].
+    ///
+    /// To make sure the dynamic scene doesn't contain entities without any components, call
+    /// [`Self::remove_empty_entities`] before building the scene.
     pub fn build(self) -> DynamicScene {
         DynamicScene {
             entities: self.extracted_scene.into_values().collect(),
