@@ -15,17 +15,22 @@ mod type_uuid;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
+    #[cfg(feature = "bevy_math")]
+    mod rect;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     mod std;
 
     #[cfg(feature = "glam")]
     pub use self::glam::*;
+    #[cfg(feature = "bevy_math")]
+    pub use self::rect::*;
     #[cfg(feature = "smallvec")]
     pub use self::smallvec::*;
     pub use self::std::*;
 }
 
+mod enums;
 pub mod serde;
 pub mod std_traits;
 pub mod utility;
@@ -34,12 +39,13 @@ pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
+        reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
         ReflectSerialize, Struct, TupleStruct,
     };
 }
 
 pub use array::*;
+pub use enums::*;
 pub use fields::*;
 pub use impls::*;
 pub use list::*;
@@ -87,11 +93,11 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::blacklisted_name, clippy::approx_constant)]
+#[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
-    use ::serde::de::DeserializeSeed;
+    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
@@ -102,7 +108,7 @@ mod tests {
     use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer};
+    use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
 
     #[test]
     fn reflect_struct() {
@@ -182,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::blacklisted_name)]
+    #[allow(clippy::disallowed_types)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -353,6 +359,7 @@ mod tests {
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
+        map.insert(3usize, 4i8);
         foo_patch.insert("d", map);
 
         let mut bar_patch = DynamicStruct::default();
@@ -394,6 +401,7 @@ mod tests {
         let mut hash_map = HashMap::default();
         hash_map.insert(1, 1);
         hash_map.insert(2, 3);
+        hash_map.insert(3, 4);
 
         let mut hash_map_baz = HashMap::default();
         hash_map_baz.insert(1, Bar { x: 7 });
@@ -416,6 +424,7 @@ mod tests {
 
         let mut hash_map = HashMap::default();
         hash_map.insert(2, 3);
+        hash_map.insert(3, 4);
 
         let expected_new_foo = Foo {
             a: 2,
@@ -446,7 +455,8 @@ mod tests {
             h: [u32; 2],
         }
 
-        #[derive(Reflect)]
+        #[derive(Reflect, Serialize, Deserialize)]
+        #[reflect(Serialize, Deserialize)]
         struct Bar {
             x: u32,
         }
@@ -467,18 +477,23 @@ mod tests {
 
         let mut registry = TypeRegistry::default();
         registry.register::<u32>();
-        registry.register::<isize>();
-        registry.register::<usize>();
-        registry.register::<Bar>();
-        registry.register::<String>();
         registry.register::<i8>();
         registry.register::<i32>();
+        registry.register::<usize>();
+        registry.register::<isize>();
+        registry.register::<Foo>();
+        registry.register::<Bar>();
+        registry.register::<String>();
+        registry.register::<Vec<isize>>();
+        registry.register::<HashMap<usize, i8>>();
+        registry.register::<(i32, Vec<isize>, Bar)>();
+        registry.register::<[u32; 2]>();
 
         let serializer = ReflectSerializer::new(&foo, &registry);
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
 
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
@@ -490,7 +505,6 @@ mod tests {
         #[derive(Reflect, Clone, Debug, PartialEq)]
         struct Bar {
             y: u8,
-            z: ::glam::Mat4,
         }
 
         #[derive(Reflect, Clone, Debug, PartialEq)]
@@ -499,26 +513,43 @@ mod tests {
             s: String,
             b: Bar,
             u: usize,
-            t: (Vec3, String),
+            t: ([f32; 3], String),
         }
 
         let foo = Foo {
             x: 123,
             s: "String".to_string(),
-            b: Bar {
-                y: 255,
-                z: ::glam::Mat4::from_cols_array(&[
-                    0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
-                    15.0,
-                ]),
-            },
+            b: Bar { y: 255 },
             u: 1111111111111,
-            t: (Vec3::new(3.0, 2.0, 1.0), "Tuple String".to_string()),
+            t: ([3.0, 2.0, 1.0], "Tuple String".to_string()),
         };
 
         let foo2: Box<dyn Reflect> = Box::new(foo.clone());
 
         assert_eq!(foo, *foo2.downcast::<Foo>().unwrap());
+    }
+
+    #[test]
+    fn should_drain_fields() {
+        let array_value: Box<dyn Array> = Box::new([123_i32, 321_i32]);
+        let fields = array_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let list_value: Box<dyn List> = Box::new(vec![123_i32, 321_i32]);
+        let fields = list_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let tuple_value: Box<dyn Tuple> = Box::new((123_i32, 321_i32));
+        let fields = tuple_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
+        let fields = map_value.drain();
+        assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());
     }
 
     #[test]
@@ -679,10 +710,6 @@ mod tests {
             panic!("Expected `TypeInfo::TupleStruct`");
         }
 
-        let value: &dyn Reflect = &MyTupleStruct(123, 321, MyStruct { foo: 123, bar: 321 });
-        let info = value.get_type_info();
-        assert!(info.is::<MyTupleStruct>());
-
         // Tuple
         type MyTuple = (u32, f32, String);
 
@@ -833,8 +860,10 @@ mod tests {
             map: HashMap<i32, f32>,
             a_struct: SomeStruct,
             a_tuple_struct: SomeTupleStruct,
+            enum_unit: SomeEnum,
+            enum_tuple: SomeEnum,
+            enum_struct: SomeEnum,
             custom: CustomDebug,
-            unknown: Option<String>,
             #[reflect(ignore)]
             #[allow(dead_code)]
             ignored: isize,
@@ -843,6 +872,13 @@ mod tests {
         #[derive(Reflect)]
         struct SomeStruct {
             foo: String,
+        }
+
+        #[derive(Reflect)]
+        enum SomeEnum {
+            A,
+            B(usize),
+            C { value: i32 },
         }
 
         #[derive(Reflect)]
@@ -869,8 +905,10 @@ mod tests {
                 foo: String::from("A Struct!"),
             },
             a_tuple_struct: SomeTupleStruct(String::from("A Tuple Struct!")),
+            enum_unit: SomeEnum::A,
+            enum_tuple: SomeEnum::B(123),
+            enum_struct: SomeEnum::C { value: 321 },
             custom: CustomDebug,
-            unknown: Some(String::from("Enums aren't supported yet :(")),
             ignored: 321,
         };
 
@@ -897,8 +935,14 @@ bevy_reflect::tests::should_reflect_debug::Test {
     a_tuple_struct: bevy_reflect::tests::should_reflect_debug::SomeTupleStruct(
         "A Tuple Struct!",
     ),
+    enum_unit: A,
+    enum_tuple: B(
+        123,
+    ),
+    enum_struct: C {
+        value: 321,
+    },
     custom: Cool debug!,
-    unknown: Reflect(core::option::Option<alloc::string::String>),
 }"#;
 
         assert_eq!(expected, format!("\n{:#?}", reflected));
@@ -918,23 +962,38 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let result = ron::to_string(&ser).expect("Failed to serialize to string");
+            let config = PrettyConfig::default()
+                .new_line(String::from("\n"))
+                .indentor(String::from("    "));
+            let output = to_string_pretty(&ser, config).unwrap();
+            let expected = r#"
+{
+    "glam::f32::vec3::Vec3": (
+        x: 12.0,
+        y: 3.0,
+        z: -6.9,
+    ),
+}"#;
 
-            assert_eq!(
-                result,
-                r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
-            );
+            assert_eq!(expected, format!("\n{}", output));
         }
 
         #[test]
         fn vec3_deserialization() {
-            let data = r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#;
+            let data = r#"
+{
+    "glam::f32::vec3::Vec3": (
+        x: 12.0,
+        y: 3.0,
+        z: -6.9,
+    ),
+}"#;
 
             let mut registry = TypeRegistry::default();
             registry.add_registration(Vec3::get_type_registration());
             registry.add_registration(f32::get_type_registration());
 
-            let de = ReflectDeserializer::new(&registry);
+            let de = UntypedReflectDeserializer::new(&registry);
 
             let mut deserializer =
                 ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");

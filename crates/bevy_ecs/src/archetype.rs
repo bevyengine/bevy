@@ -49,7 +49,7 @@ pub struct AddBundle {
 /// state of the archetype graph.
 ///
 /// Note: This type only contains edges the [`World`] has already traversed.
-/// If any of functions return `None`, it doesn't mean there is guarenteed
+/// If any of functions return `None`, it doesn't mean there is guaranteed
 /// not to be a result of adding or removing that bundle, but rather that
 /// operation that has moved an entity along that edge has not been performed
 /// yet.
@@ -396,13 +396,13 @@ impl Archetypes {
 
     #[inline]
     pub fn empty(&self) -> &Archetype {
-        // SAFE: empty archetype always exists
+        // SAFETY: empty archetype always exists
         unsafe { self.archetypes.get_unchecked(ArchetypeId::EMPTY.index()) }
     }
 
     #[inline]
     pub(crate) fn empty_mut(&mut self) -> &mut Archetype {
-        // SAFE: empty archetype always exists
+        // SAFETY: empty archetype always exists
         unsafe {
             self.archetypes
                 .get_unchecked_mut(ArchetypeId::EMPTY.index())

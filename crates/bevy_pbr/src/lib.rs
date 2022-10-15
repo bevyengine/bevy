@@ -20,8 +20,11 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        bundle::{DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle},
-        light::{AmbientLight, DirectionalLight, PointLight},
+        bundle::{
+            DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
+            SpotLightBundle,
+        },
+        light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
     };
@@ -123,8 +126,12 @@ impl Plugin for PbrPlugin {
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<PointLight>()
+            .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .register_type::<AmbientLight>()
+            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<PointLightShadowMap>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
@@ -135,7 +142,7 @@ impl Plugin for PbrPlugin {
                 // NOTE: Clusters need to have been added before update_clusters is run so
                 // add as an exclusive system
                 add_clusters
-                    .exclusive_system()
+                    .at_start()
                     .label(SimulationLightSystems::AddClusters),
             )
             .add_system_to_stage(
@@ -143,19 +150,29 @@ impl Plugin for PbrPlugin {
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
+                    .after(VisibilitySystems::CheckVisibility)
                     .after(CameraUpdateSystem)
                     .after(ModifiesWindows),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_directional_light_frusta
-                    .label(SimulationLightSystems::UpdateDirectionalLightFrusta)
+                    .label(SimulationLightSystems::UpdateLightFrusta)
+                    // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
+                    .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_point_light_frusta
-                    .label(SimulationLightSystems::UpdatePointLightFrusta)
+                    .label(SimulationLightSystems::UpdateLightFrusta)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::AssignLightsToClusters),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_spot_light_frusta
+                    .label(SimulationLightSystems::UpdateLightFrusta)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
@@ -165,8 +182,7 @@ impl Plugin for PbrPlugin {
                     .label(SimulationLightSystems::CheckLightVisibility)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CalculateBounds)
-                    .after(SimulationLightSystems::UpdateDirectionalLightFrusta)
-                    .after(SimulationLightSystems::UpdatePointLightFrusta)
+                    .after(SimulationLightSystems::UpdateLightFrusta)
                     // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                     // because that resets entity ComputedVisibility for the first view
                     // which would override any results from this otherwise
@@ -203,7 +219,7 @@ impl Plugin for PbrPlugin {
                 // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
                 // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
                 render::prepare_lights
-                    .exclusive_system()
+                    .at_start()
                     .label(RenderLightSystems::PrepareLights),
             )
             .add_system_to_stage(

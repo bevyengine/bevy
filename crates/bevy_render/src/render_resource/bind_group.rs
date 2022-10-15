@@ -91,14 +91,14 @@ impl Deref for BindGroup {
 ///
 /// ```wgsl
 /// struct CoolMaterial {
-///     color: vec4<f32>;
+///     color: vec4<f32>,
 /// };
 ///
-/// [[group(1), binding(0)]]
+/// @group(1) @binding(0)
 /// var<uniform> material: CoolMaterial;
-/// [[group(1), binding(1)]]
+/// @group(1) @binding(1)
 /// var color_texture: texture_2d<f32>;
-/// [[group(1), binding(2)]]
+/// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
@@ -165,11 +165,11 @@ impl Deref for BindGroup {
 /// In WGSL shaders, the binding would look like this:
 /// ```wgsl
 /// struct CoolMaterial {
-///     color: vec4<f32>;
-///     roughness: f32;
+///     color: vec4<f32>,
+///     roughness: f32,
 /// };
 ///
-/// [[group(1), binding(0)]]
+/// @group(1) @binding(0)
 /// var<uniform> material: CoolMaterial;
 /// ```
 ///

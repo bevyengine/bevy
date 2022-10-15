@@ -1,18 +1,16 @@
 use crate::{
     render_resource::TextureView,
-    renderer::{RenderDevice, RenderInstance},
-    texture::BevyDefault,
-    RenderApp, RenderStage, RenderWorld,
+    renderer::{RenderAdapter, RenderDevice, RenderInstance},
+    Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
-use wgpu::TextureFormat;
 
 /// Token to ensure a system runs on the main thread.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
@@ -46,9 +44,10 @@ pub struct ExtractedWindow {
     pub present_mode: PresentMode,
     pub swap_chain_texture: Option<TextureView>,
     pub size_changed: bool,
+    pub present_mode_changed: bool,
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct ExtractedWindows {
     pub windows: HashMap<WindowId, ExtractedWindow>,
 }
@@ -68,16 +67,16 @@ impl DerefMut for ExtractedWindows {
 }
 
 fn extract_windows(
-    mut render_world: ResMut<RenderWorld>,
-    mut closed: EventReader<WindowClosed>,
-    windows: Res<Windows>,
+    mut extracted_windows: ResMut<ExtractedWindows>,
+    mut closed: Extract<EventReader<WindowClosed>>,
+    windows: Extract<Res<Windows>>,
 ) {
-    let mut extracted_windows = render_world.get_resource_mut::<ExtractedWindows>().unwrap();
     for window in windows.iter() {
         let (new_width, new_height) = (
             window.physical_width().max(1),
             window.physical_height().max(1),
         );
+        let new_present_mode = window.present_mode();
 
         let mut extracted_window =
             extracted_windows
@@ -90,12 +89,14 @@ fn extract_windows(
                     present_mode: window.present_mode(),
                     swap_chain_texture: None,
                     size_changed: false,
+                    present_mode_changed: false,
                 });
 
         // NOTE: Drop the swap chain frame here
         extracted_window.swap_chain_texture = None;
         extracted_window.size_changed = new_width != extracted_window.physical_width
             || new_height != extracted_window.physical_height;
+        extracted_window.present_mode_changed = new_present_mode != extracted_window.present_mode;
 
         if extracted_window.size_changed {
             debug!(
@@ -108,13 +109,21 @@ fn extract_windows(
             extracted_window.physical_width = new_width;
             extracted_window.physical_height = new_height;
         }
+
+        if extracted_window.present_mode_changed {
+            debug!(
+                "Window Present Mode changed from {:?} to {:?}",
+                extracted_window.present_mode, new_present_mode
+            );
+            extracted_window.present_mode = new_present_mode;
+        }
     }
     for closed_window in closed.iter() {
         extracted_windows.remove(&closed_window.id);
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct WindowSurfaces {
     surfaces: HashMap<WindowId, wgpu::Surface>,
     /// List of windows that we have already called the initial `configure_surface` for
@@ -150,6 +159,7 @@ pub fn prepare_windows(
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
+    render_adapter: Res<RenderAdapter>,
 ) {
     let window_surfaces = window_surfaces.deref_mut();
     for window in windows.windows.values_mut() {
@@ -162,7 +172,15 @@ pub fn prepare_windows(
             });
 
         let swap_chain_descriptor = wgpu::SurfaceConfiguration {
-            format: TextureFormat::bevy_default(),
+            format: *surface
+                .get_supported_formats(&render_adapter)
+                .get(0)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "No supported formats found for surface {:?} on adapter {:?}",
+                        surface, render_adapter
+                    )
+                }),
             width: window.physical_width,
             height: window.physical_height,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -170,11 +188,17 @@ pub fn prepare_windows(
                 PresentMode::Fifo => wgpu::PresentMode::Fifo,
                 PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
                 PresentMode::Immediate => wgpu::PresentMode::Immediate,
+                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
         };
 
-        // Do the initial surface configuration if it hasn't been configured yet
-        if window_surfaces.configured_windows.insert(window.id) || window.size_changed {
+        // Do the initial surface configuration if it hasn't been configured yet. Or if size or
+        // present mode changed.
+        if window_surfaces.configured_windows.insert(window.id)
+            || window.size_changed
+            || window.present_mode_changed
+        {
             render_device.configure_surface(surface, &swap_chain_descriptor);
         }
 

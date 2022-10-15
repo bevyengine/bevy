@@ -59,7 +59,7 @@ pub trait Struct: Reflect {
     /// Returns the number of fields in the struct.
     fn field_len(&self) -> usize;
 
-    /// Returns an iterator over the values of the struct's fields.
+    /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter;
 
     /// Clones the struct into a [`DynamicStruct`].
@@ -69,10 +69,11 @@ pub trait Struct: Reflect {
 /// A container for compile-time struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
+    name: &'static str,
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[NamedField]>,
-    field_indices: HashMap<Cow<'static, str>, usize>,
+    field_indices: HashMap<&'static str, usize>,
 }
 
 impl StructInfo {
@@ -80,19 +81,18 @@ impl StructInfo {
     ///
     /// # Arguments
     ///
+    /// * `name`: The name of this struct (_without_ generics or lifetimes)
     /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<T: Reflect>(fields: &[NamedField]) -> Self {
+    pub fn new<T: Reflect>(name: &'static str, fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
-            .map(|(index, field)| {
-                let name = field.name().clone();
-                (name, index)
-            })
+            .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
 
         Self {
+            name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
@@ -125,6 +125,15 @@ impl StructInfo {
     /// The total number of fields in this struct.
     pub fn field_len(&self) -> usize {
         self.fields.len()
+    }
+
+    /// The name of the struct.
+    ///
+    /// This does _not_ include any generics or lifetimes.
+    ///
+    /// For example, `foo::bar::Baz<'a, T>` would simply be `Baz`.
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     /// The [type name] of the struct.
@@ -275,6 +284,11 @@ impl DynamicStruct {
         } else {
             self.insert_boxed(name, Box::new(value));
         }
+    }
+
+    /// Gets the index of the field with the given name.
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.field_indices.get(name).copied()
     }
 }
 
@@ -437,6 +451,8 @@ impl Typed for DynamicStruct {
 /// - For each field in `a`, `b` contains a field with the same name and
 ///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
@@ -452,8 +468,9 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     for (i, value) in struct_value.iter_fields().enumerate() {
         let name = struct_value.name_at(i).unwrap();
         if let Some(field_value) = a.field(name) {
-            if let Some(false) | None = field_value.reflect_partial_eq(value) {
-                return Some(false);
+            let eq_result = field_value.reflect_partial_eq(value);
+            if let failed @ (Some(false) | None) = eq_result {
+                return failed;
             }
         } else {
             return Some(false);

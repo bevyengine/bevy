@@ -4,7 +4,7 @@
 //! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
 //! for more details.
 
-use bevy::{prelude::*, window::WindowDescriptor};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -23,8 +23,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
         ..default()
     });

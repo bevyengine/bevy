@@ -78,7 +78,7 @@ impl ResourceData {
     ) {
         if self.is_present() {
             self.column.replace_untracked(0, value);
-            *self.column.get_ticks_unchecked_mut(0) = change_ticks;
+            *self.column.get_ticks_unchecked(0).deref_mut() = change_ticks;
         } else {
             self.column.push(value, change_ticks);
         }

@@ -25,7 +25,7 @@ use bevy_render::{
         DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem, RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_utils::FloatOrd;
 use std::ops::Range;
@@ -46,7 +46,10 @@ impl Plugin for Core2dPlugin {
             .init_resource::<DrawFunctions<Transparent2d>>()
             .add_system_to_stage(RenderStage::Extract, extract_core_2d_camera_phases)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
-            .add_system_to_stage(RenderStage::PhaseSort, batch_phase_system::<Transparent2d>);
+            .add_system_to_stage(
+                RenderStage::PhaseSort,
+                batch_phase_system::<Transparent2d>.after(sort_phase_system::<Transparent2d>),
+            );
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -123,9 +126,9 @@ impl BatchedPhaseItem for Transparent2d {
 
 pub fn extract_core_2d_camera_phases(
     mut commands: Commands,
-    cameras_2d: Query<(Entity, &Camera), With<Camera2d>>,
+    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
 ) {
-    for (entity, camera) in cameras_2d.iter() {
+    for (entity, camera) in &cameras_2d {
         if camera.is_active {
             commands
                 .get_or_spawn(entity)

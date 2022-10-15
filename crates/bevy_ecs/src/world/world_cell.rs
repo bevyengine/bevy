@@ -187,7 +187,7 @@ impl<'w> WorldCell<'w> {
             .world
             .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrow::new(
-            // SAFE: ComponentId matches TypeId
+            // SAFETY: ComponentId matches TypeId
             unsafe { self.world.get_resource_with_id(component_id)? },
             archetype_component_id,
             self.access.clone(),
@@ -220,7 +220,7 @@ impl<'w> WorldCell<'w> {
             .world
             .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrowMut::new(
-            // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
+            // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
             unsafe {
                 self.world
                     .get_resource_unchecked_mut_with_id(component_id)?
@@ -256,7 +256,7 @@ impl<'w> WorldCell<'w> {
             .world
             .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrow::new(
-            // SAFE: ComponentId matches TypeId
+            // SAFETY: ComponentId matches TypeId
             unsafe { self.world.get_non_send_with_id(component_id)? },
             archetype_component_id,
             self.access.clone(),
@@ -289,7 +289,7 @@ impl<'w> WorldCell<'w> {
             .world
             .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrowMut::new(
-            // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
+            // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
             unsafe {
                 self.world
                     .get_non_send_unchecked_mut_with_id(component_id)?
@@ -322,40 +322,47 @@ impl<'w> WorldCell<'w> {
 #[cfg(test)]
 mod tests {
     use super::BASE_ACCESS;
-    use crate::world::World;
+    use crate as bevy_ecs;
+    use crate::{system::Resource, world::World};
     use std::any::TypeId;
+
+    #[derive(Resource)]
+    struct A(u32);
+
+    #[derive(Resource)]
+    struct B(u64);
 
     #[test]
     fn world_cell() {
         let mut world = World::default();
-        world.insert_resource(1u32);
-        world.insert_resource(1u64);
+        world.insert_resource(A(1));
+        world.insert_resource(B(1));
         let cell = world.cell();
         {
-            let mut a = cell.resource_mut::<u32>();
-            assert_eq!(1, *a);
-            *a = 2;
+            let mut a = cell.resource_mut::<A>();
+            assert_eq!(1, a.0);
+            a.0 = 2;
         }
         {
-            let a = cell.resource::<u32>();
-            assert_eq!(2, *a, "ensure access is dropped");
+            let a = cell.resource::<A>();
+            assert_eq!(2, a.0, "ensure access is dropped");
 
-            let b = cell.resource::<u32>();
+            let a2 = cell.resource::<A>();
             assert_eq!(
-                2, *b,
+                2, a2.0,
                 "ensure multiple immutable accesses can occur at the same time"
             );
         }
         {
-            let a = cell.resource_mut::<u32>();
+            let a = cell.resource_mut::<A>();
             assert_eq!(
-                2, *a,
+                2, a.0,
                 "ensure both immutable accesses are dropped, enabling a new mutable access"
             );
 
-            let b = cell.resource::<u64>();
+            let b = cell.resource::<B>();
             assert_eq!(
-                1, *b,
+                1, b.0,
                 "ensure multiple non-conflicting mutable accesses can occur at the same time"
             );
         }
@@ -364,13 +371,13 @@ mod tests {
     #[test]
     fn world_access_reused() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         {
             let cell = world.cell();
             {
-                let mut a = cell.resource_mut::<u32>();
-                assert_eq!(1, *a);
-                *a = 2;
+                let mut a = cell.resource_mut::<A>();
+                assert_eq!(1, a.0);
+                a.0 = 2;
             }
         }
 
@@ -396,38 +403,38 @@ mod tests {
     #[should_panic]
     fn world_cell_double_mut() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         let cell = world.cell();
-        let _value_a = cell.resource_mut::<u32>();
-        let _value_b = cell.resource_mut::<u32>();
+        let _value_a = cell.resource_mut::<A>();
+        let _value_b = cell.resource_mut::<A>();
     }
 
     #[test]
     #[should_panic]
     fn world_cell_ref_and_mut() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         let cell = world.cell();
-        let _value_a = cell.resource::<u32>();
-        let _value_b = cell.resource_mut::<u32>();
+        let _value_a = cell.resource::<A>();
+        let _value_b = cell.resource_mut::<A>();
     }
 
     #[test]
     #[should_panic]
     fn world_cell_mut_and_ref() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         let cell = world.cell();
-        let _value_a = cell.resource_mut::<u32>();
-        let _value_b = cell.resource::<u32>();
+        let _value_a = cell.resource_mut::<A>();
+        let _value_b = cell.resource::<A>();
     }
 
     #[test]
     fn world_cell_ref_and_ref() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         let cell = world.cell();
-        let _value_a = cell.resource::<u32>();
-        let _value_b = cell.resource::<u32>();
+        let _value_a = cell.resource::<A>();
+        let _value_b = cell.resource::<A>();
     }
 }
