@@ -292,13 +292,15 @@ mod tests {
         atr.write().register::<ComponentA>();
         world.insert_resource(atr);
 
-        let entity = world.spawn(ComponentB).id();
+        let entity_a = world.spawn(ComponentA).id();
+        let entity_b = world.spawn(ComponentB).id();
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
-        builder.extract_entity(entity);
+        builder.extract_entities([entity_a, entity_b].into_iter());
         builder.remove_empty_entities();
         let scene = builder.build();
 
-        assert_eq!(scene.entities.len(), 0);
+        assert_eq!(scene.entities.len(), 1);
+        assert_eq!(scene.entities[0].entity, entity_a.id());
     }
 }
