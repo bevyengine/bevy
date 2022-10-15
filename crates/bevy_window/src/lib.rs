@@ -84,7 +84,7 @@ impl Plugin for WindowPlugin {
             .add_event::<RequestRedraw>()
             .add_event::<CursorEntered>()
             .add_event::<CursorLeft>()
-            .add_event::<TouchInput>()
+            .add_event::<event::TouchInput>()
             .add_event::<ReceivedCharacter>()
             .add_event::<WindowFocused>()
             .add_event::<WindowScaleFactorChanged>()

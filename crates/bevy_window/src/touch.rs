@@ -1,4 +1,3 @@
-pub use super::event::TouchInput;
 use super::WindowId;
 use bevy_ecs::event::EventReader;
 use bevy_ecs::system::{ResMut, Resource};
@@ -42,6 +41,8 @@ pub struct TouchInput {
     pub force: Option<ForceTouch>,
     /// The unique identifier of the finger.
     pub id: u64,
+    /// The id of the window that was touched.
+    pub window_id: WindowId,
 }
 
 /// A force description of a [`Touch`](crate::touch::Touch) input.

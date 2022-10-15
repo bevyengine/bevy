@@ -24,8 +24,8 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
-    ReceivedCharacter, RequestRedraw, TouchInput, WindowBackendScaleFactorChanged,
+    touch::TouchInput, CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop,
+    ModifiesWindows, ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowClosed, WindowCreated, WindowESC, WindowFocused, WindowMoved,
     WindowResized, WindowScaleFactorChanged, Windows,
 };

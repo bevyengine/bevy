@@ -22,7 +22,10 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-pub use bevy_window::{CursorMoved, TouchInput, Touches};
+pub use bevy_window::{
+    touch::{TouchInput, Touches},
+    CursorMoved,
+};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use prelude::Gamepads;
