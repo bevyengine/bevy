@@ -1,49 +1,7 @@
 use std::path::PathBuf;
 
-use super::touch::{ForceTouch, TouchPhase};
 use super::{WindowDescriptor, WindowId};
 use bevy_math::{IVec2, Vec2};
-
-/// A touch input event.
-///
-/// ## Logic
-///
-/// Every time the user touches the screen, a new [`TouchPhase::Started`] event with an unique
-/// identifier for the finger is generated. When the finger is lifted, the [`TouchPhase::Ended`]
-/// event is generated with the same finger id.
-///
-/// After a [`TouchPhase::Started`] event has been emitted, there may be zero or more [`TouchPhase::Moved`]
-/// events when the finger is moved or the touch pressure changes.
-///
-/// The finger id may be reused by the system after an [`TouchPhase::Ended`] event. The user
-/// should assume that a new [`TouchPhase::Started`] event received with the same id has nothing
-/// to do with the old finger and is a new finger.
-///
-/// A [`TouchPhase::Cancelled`] event is emitted when the system has canceled tracking this
-/// touch, such as when the window loses focus, or on iOS if the user moves the
-/// device against their face.
-///
-/// ## Note
-///
-/// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
-/// It is available to the end user and can be used for game logic.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct TouchInput {
-    /// The phase of the touch input.
-    pub phase: TouchPhase,
-    /// The position of the finger on the touchscreen.
-    pub position: Vec2,
-    /// Describes how hard the screen was pressed.
-    ///
-    /// May be [`None`] if the platform does not support pressure sensitivity.
-    /// This feature is only available on **iOS** 9.0+ and **Windows** 8+.
-    pub force: Option<ForceTouch>,
-    /// The unique identifier of the finger.
-    pub id: u64,
-    /// The id of the window that was touched.
-    pub window_id: WindowId,
-}
 
 /// An event reporting that the ESC key has been pressed
 /// while the current window is in focus.
