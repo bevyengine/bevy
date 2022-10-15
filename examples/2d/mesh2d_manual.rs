@@ -102,15 +102,12 @@ fn star(
         ColoredMesh2d::default(),
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
-        // These other components are needed for 2d meshes to be rendered
-        Transform::default(),
-        GlobalTransform::default(),
-        Visibility::default(),
-        ComputedVisibility::default(),
+        // This bundle's components are needed for something to be rendered
+        SpatialBundle::VISIBLE_IDENTITY,
     ));
-    commands
-        // And use an orthographic projection
-        .spawn(Camera2dBundle::default());
+
+    // Spawn the camera
+    commands.spawn(Camera2dBundle::default());
 }
 
 /// A marker component for colored 2d meshes
@@ -275,8 +272,8 @@ impl Plugin for ColoredMesh2dPlugin {
         );
 
         // Register our custom draw function and pipeline, and add our render systems
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-        render_app
+        app.get_sub_app_mut(RenderApp)
+            .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()

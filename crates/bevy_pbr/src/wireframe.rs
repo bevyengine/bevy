@@ -36,7 +36,8 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<WireframeConfig>()
+        app.register_type::<Wireframe>()
+            .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
             .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 

@@ -5,6 +5,45 @@ use bevy_ecs::system::{ResMut, Resource};
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
 
+/// A touch input event.
+///
+/// ## Logic
+///
+/// Every time the user touches the screen, a new [`TouchPhase::Started`] event with an unique
+/// identifier for the finger is generated. When the finger is lifted, the [`TouchPhase::Ended`]
+/// event is generated with the same finger id.
+///
+/// After a [`TouchPhase::Started`] event has been emitted, there may be zero or more [`TouchPhase::Moved`]
+/// events when the finger is moved or the touch pressure changes.
+///
+/// The finger id may be reused by the system after an [`TouchPhase::Ended`] event. The user
+/// should assume that a new [`TouchPhase::Started`] event received with the same id has nothing
+/// to do with the old finger and is a new finger.
+///
+/// A [`TouchPhase::Cancelled`] event is emitted when the system has canceled tracking this
+/// touch, such as when the window loses focus, or on iOS if the user moves the
+/// device against their face.
+///
+/// ## Note
+///
+/// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
+/// It is available to the end user and can be used for game logic.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct TouchInput {
+    /// The phase of the touch input.
+    pub phase: TouchPhase,
+    /// The position of the finger on the touchscreen.
+    pub position: Vec2,
+    /// Describes how hard the screen was pressed.
+    ///
+    /// May be [`None`] if the platform does not support pressure sensitivity.
+    /// This feature is only available on **iOS** 9.0+ and **Windows** 8+.
+    pub force: Option<ForceTouch>,
+    /// The unique identifier of the finger.
+    pub id: u64,
+}
+
 /// A force description of a [`Touch`](crate::touch::Touch) input.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -271,12 +310,22 @@ impl Touches {
                 }
             }
             TouchPhase::Ended => {
-                self.just_released.insert(event.id, event.into());
-                self.pressed.remove_entry(&event.id);
+                // if touch `just_released`, add related event to it
+                // the event position info is inside `pressed`, so use it unless not found
+                if let Some((_, v)) = self.pressed.remove_entry(&event.id) {
+                    self.just_released.insert(event.id, v);
+                } else {
+                    self.just_released.insert(event.id, event.into());
+                }
             }
             TouchPhase::Cancelled => {
-                self.just_cancelled.insert(event.id, event.into());
-                self.pressed.remove_entry(&event.id);
+                // if touch `just_cancelled`, add related event to it
+                // the event position info is inside `pressed`, so use it unless not found
+                if let Some((_, v)) = self.pressed.remove_entry(&event.id) {
+                    self.just_cancelled.insert(event.id, v);
+                } else {
+                    self.just_cancelled.insert(event.id, event.into());
+                }
             }
         };
     }
@@ -406,8 +455,8 @@ mod test {
         touches.update();
         touches.process_touch_event(&cancel_touch_event);
 
-        assert!(touches.just_cancelled.get(&cancel_touch_event.id).is_some());
-        assert!(touches.pressed.get(&cancel_touch_event.id).is_none());
+        assert!(touches.just_cancelled.get(&touch_event.id).is_some());
+        assert!(touches.pressed.get(&touch_event.id).is_none());
 
         // Test ending an event
 
@@ -415,16 +464,20 @@ mod test {
             phase: TouchPhase::Ended,
             position: Vec2::splat(4.0),
             force: None,
-            id: 4,
             window_id: WindowId::primary(),
+            id: touch_event.id,
         };
 
         touches.update();
         touches.process_touch_event(&touch_event);
+        touches.process_touch_event(&moved_touch_event);
         touches.process_touch_event(&end_touch_event);
 
         assert!(touches.just_released.get(&touch_event.id).is_some());
         assert!(touches.pressed.get(&touch_event.id).is_none());
+        let touch = touches.just_released.get(&touch_event.id).unwrap();
+        // Make sure the position is updated from TouchPhase::Moved and TouchPhase::Ended
+        assert!(touch.previous_position != touch.position);
     }
 
     #[test]

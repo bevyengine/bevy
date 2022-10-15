@@ -31,7 +31,7 @@ Controls:
     Q           - down
     L           - animate light direction
     U           - toggle shadows
-    C           - cycle through cameras
+    C           - cycle through the camera controller and any cameras loaded from the scene
     5/6         - decrease/increase shadow projection width
     7/8         - decrease/increase shadow projection height
     9/0         - decrease/increase shadow projection near/far
@@ -226,7 +226,7 @@ fn setup_scene_after_load(
             // correct bounds. However, it could very well be rotated and so we first convert to
             // a Sphere, and then back to an Aabb to find the conservative min and max points.
             let sphere = Sphere {
-                center: Vec3A::from(transform.mul_vec3(Vec3::from(aabb.center))),
+                center: Vec3A::from(transform.transform_point(Vec3::from(aabb.center))),
                 radius: transform.radius_vec3a(aabb.half_extents),
             };
             let aabb = Aabb::from(sphere);

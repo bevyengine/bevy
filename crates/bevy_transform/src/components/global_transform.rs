@@ -3,7 +3,7 @@ use std::ops::Mul;
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 
 /// Describe the position of an entity relative to the reference frame.
 ///
@@ -32,7 +32,7 @@ use bevy_reflect::{FromReflect, Reflect};
 ///
 /// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
-#[reflect(Component, PartialEq)]
+#[reflect(Component, Default, PartialEq)]
 pub struct GlobalTransform(Affine3A);
 
 macro_rules! impl_local_axis {
@@ -142,14 +142,17 @@ impl GlobalTransform {
         (self.0.matrix3 * extents).length()
     }
 
-    /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
+    /// Transforms the given `point`, applying shear, scale, rotation and translation.
+    ///
+    /// This moves `point` into the local space of this [`GlobalTransform`].
     #[inline]
-    pub fn mul_vec3(&self, v: Vec3) -> Vec3 {
-        self.0.transform_point3(v)
+    pub fn transform_point(&self, point: Vec3) -> Vec3 {
+        self.0.transform_point3(point)
     }
 
     /// Multiplies `self` with `transform` component by component, returning the
     /// resulting [`GlobalTransform`]
+    #[inline]
     pub fn mul_transform(&self, transform: Transform) -> Self {
         Self(self.0 * transform.compute_affine())
     }
@@ -202,6 +205,6 @@ impl Mul<Vec3> for GlobalTransform {
 
     #[inline]
     fn mul(self, value: Vec3) -> Self::Output {
-        self.mul_vec3(value)
+        self.transform_point(value)
     }
 }

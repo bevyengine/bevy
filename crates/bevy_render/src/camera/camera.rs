@@ -17,7 +17,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, ParamSet, Query, Res},
 };
-use bevy_math::{Mat4, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
@@ -212,9 +212,36 @@ impl Camera {
         Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size)
     }
 
+    /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
+    ///
+    /// The resulting ray starts on the near plane of the camera.
+    ///
+    /// If the camera's projection is orthographic the direction of the ray is always equal to `camera_transform.forward()`.
+    ///
+    /// To get the world space coordinates with Normalized Device Coordinates, you should use
+    /// [`ndc_to_world`](Self::ndc_to_world).
+    pub fn viewport_to_world(
+        &self,
+        camera_transform: &GlobalTransform,
+        viewport_position: Vec2,
+    ) -> Option<Ray> {
+        let target_size = self.logical_viewport_size()?;
+        let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+
+        let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
+        // Using EPSILON because passing an ndc with Z = 0 returns NaNs.
+        let world_far_plane = self.ndc_to_world(camera_transform, ndc.extend(f32::EPSILON))?;
+
+        Some(Ray {
+            origin: world_near_plane,
+            direction: (world_far_plane - world_near_plane).normalize(),
+        })
+    }
+
     /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
     ///
-    /// Values returned will be between -1.0 and 1.0 when the position is within the viewport.
+    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
+    /// and between 0.0 and 1.0 on the Z axis.
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     pub fn world_to_ndc(
@@ -222,16 +249,29 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Option<Vec3> {
-        // Build a transform to convert from world to NDC using camera data
+        // Build a transformation matrix to convert from world space to NDC using camera data
         let world_to_ndc: Mat4 =
             self.computed.projection_matrix * camera_transform.compute_matrix().inverse();
         let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
 
-        if !ndc_space_coords.is_nan() {
-            Some(ndc_space_coords)
-        } else {
-            None
-        }
+        (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
+    }
+
+    /// Given a position in Normalized Device Coordinates,
+    /// use the camera's viewport to compute the world space position.
+    ///
+    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
+    /// and between 0.0 and 1.0 on the Z axis.
+    /// To get the world space coordinates with the viewport position, you should use
+    /// [`world_to_viewport`](Self::world_to_viewport).
+    pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
+        // Build a transformation matrix to convert from NDC to world space using camera data
+        let ndc_to_world =
+            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+
+        let world_space_coords = ndc_to_world.project_point3(ndc);
+
+        (!world_space_coords.is_nan()).then_some(world_space_coords)
     }
 }
 

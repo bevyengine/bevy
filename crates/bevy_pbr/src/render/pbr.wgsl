@@ -89,6 +89,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
 
         output_color = tone_mapping(pbr(pbr_input));
+    } else {
+        output_color = alpha_discard(material, output_color);
     }
 
     return output_color;

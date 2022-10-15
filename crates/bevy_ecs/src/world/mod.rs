@@ -1149,7 +1149,13 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+    pub fn resource_scope<
+        R: 'static, /* The resource doesn't need to be Send nor Sync. */
+        U,
+    >(
+        &mut self,
+        f: impl FnOnce(&mut World, Mut<R>) -> U,
+    ) -> U {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
@@ -1157,6 +1163,13 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
+
+        // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
+        let component_info = self.components().get_info(component_id).unwrap();
+        if !component_info.is_send_and_sync() {
+            self.validate_non_send_access::<R>();
+        }
+
         let (ptr, mut ticks) = {
             let resource_archetype = self.archetypes.resource_mut();
             let unique_components = resource_archetype.unique_components_mut();
