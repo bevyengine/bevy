@@ -559,6 +559,16 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
     /// This can only be called for read-only queries.
     ///
+    /// A combination is a description of the number of possible arrangements in a collection of
+    /// items where the order of the selection does not matter.
+    ///
+    /// The size of the items array output by each iteration of the loop is parameterized by K.
+    /// The number of total items output is defined as N.
+    ///
+    /// For example, given the list [1, 2, 3, 4], where K is 2, the combinations without repeats are
+    /// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]
+    /// And N, in this case, would be 6.
+    ///
     ///  For combinations of size `K` of query returning `N` results, you will get:
     /// - if `K == N`: one combination of all query results
     /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
