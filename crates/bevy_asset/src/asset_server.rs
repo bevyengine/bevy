@@ -245,10 +245,10 @@ impl AssetServer {
     }
 
     /// Gets the source info of an asset from the provided handle.
-    pub fn get_source_info<'a, H: Into<HandleId>>(
-        &'a self,
+    pub fn get_source_info<H: Into<HandleId>>(
+        &self,
         handle: H,
-    ) -> Option<impl Deref<Target = SourceInfo> + 'a> {
+    ) -> Option<impl Deref<Target = SourceInfo> + '_> {
         match handle.into() {
             HandleId::AssetPathId(id) => {
                 let asset_sources = self.server.asset_sources.read();
@@ -282,9 +282,8 @@ impl AssetServer {
         let mut load_state = LoadState::Loaded;
 
         while let Some(handle_id) = queue.pop_front() {
-            visited.insert(handle_id);
-
-            if visited.contains(&handle_id) {
+            if !visited.insert(handle_id) {
+                // Continue if `visited` already contained `handle_id`
                 continue;
             }
 
