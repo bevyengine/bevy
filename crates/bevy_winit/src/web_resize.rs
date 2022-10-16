@@ -58,12 +58,43 @@ impl Default for CanvasParentResizeEventChannel {
     }
 }
 
+fn get_size_element(element: &HtmlCanvasElement) -> Option<LogicalSize<f32>> {
+    let parent_element = element.parent_element()?;
+    let rect = parent_element.get_bounding_client_rect();
+    return Some(winit::dpi::LogicalSize::new(
+        rect.width() as f32,
+        rect.height() as f32,
+    ));
+}
+
 impl CanvasParentResizeEventChannel {
     pub(crate) fn listen_to_selector(&self, window_id: WindowId, selector: &str) {
         let sender = self.sender.clone();
         let owned_selector = selector.to_string();
         let resize = move || {
             if let Some(size) = get_size(&owned_selector) {
+                sender.send(ResizeEvent { size, window_id }).unwrap();
+            }
+        };
+
+        // ensure resize happens on startup
+        resize();
+
+        let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |_: web_sys::Event| {
+            resize();
+        }) as Box<dyn FnMut(_)>);
+        let window = web_sys::window().unwrap();
+
+        window
+            .add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref())
+            .unwrap();
+        closure.forget();
+    }
+
+    pub(crate) fn listen_to_element(&self, window_id: WindowId, element: HtmlCanvasElement) {
+        let sender = self.sender.clone();
+        let resize = move || {
+            if let Some(size) = get_size_element(&element) {
                 sender.send(ResizeEvent { size, window_id }).unwrap();
             }
         };

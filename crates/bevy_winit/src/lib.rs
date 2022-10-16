@@ -24,9 +24,9 @@ use bevy_utils::{
     Instant,
 };
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
-    ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
-    WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
+    AbstractWindowHandle, CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop,
+    ModifiesWindows, ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged,
+    WindowCloseRequested, WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
     WindowScaleFactorChanged, Windows,
 };
 
@@ -709,12 +709,16 @@ fn handle_create_window_events(
         {
             let channel = world.resource_mut::<web_resize::CanvasParentResizeEventChannel>();
             if create_window_event.descriptor.fit_canvas_to_parent {
-                let selector = if let Some(selector) = &create_window_event.descriptor.canvas {
-                    selector
+                if let AbstractWindowHandle::HtmlCanvas(canvas) = window.window_handle {
+                    // PROBLEM: this path is unreachable, because we're always creating the window
+                    // based on the raw window handle above.
+                    channel.listen_to_element(create_window_event.id, canvas.clone());
                 } else {
-                    web_resize::WINIT_CANVAS_SELECTOR
-                };
-                channel.listen_to_selector(create_window_event.id, selector);
+                    channel.listen_to_selector(
+                        create_window_event.id,
+                        web_resize::WINIT_CANVAS_SELECTOR,
+                    );
+                }
             }
         }
     }
