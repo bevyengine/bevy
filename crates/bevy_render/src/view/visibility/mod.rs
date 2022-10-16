@@ -28,29 +28,34 @@ use crate::{
 /// This is done by setting the values of their [`ComputedVisibility`] component.
 #[derive(Component, Clone, Reflect, Debug)]
 #[reflect(Component, Default)]
-pub struct Visibility {
-    /// Indicates whether this entity is visible. Hidden values will propagate down the entity hierarchy.
-    /// If this entity is hidden, all of its descendants will be hidden as well. See [`Children`] and [`Parent`] for
-    /// hierarchy info.
-    pub is_visible: bool,
+pub enum Visibility {
+    Visible,
+    Invisible,
 }
 
 impl Default for Visibility {
     fn default() -> Self {
-        Visibility::VISIBLE
+        Self::Visible
     }
 }
 
 impl Visibility {
-    /// A [`Visibility`], set as visible.
-    pub const VISIBLE: Self = Visibility { is_visible: true };
-
-    /// A [`Visibility`], set as invisible.
-    pub const INVISIBLE: Self = Visibility { is_visible: false };
+    /// Whether this entity is visible.
+    #[inline]
+    pub const fn is_visible(&self) -> bool {
+        match self {
+            Self::Visible => true,
+            Self::Invisible => false,
+        }
+    }
 
     /// Toggle the visibility.
+    #[inline]
     pub fn toggle(&mut self) {
-        self.is_visible = !self.is_visible;
+        *self = match self {
+            Self::Visible => Self::Invisible,
+            Self::Invisible => Self::Visible,
+        }
     }
 }
 
@@ -271,7 +276,7 @@ fn visibility_propagate_system(
     children_query: Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
 ) {
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible;
+        computed_visibility.is_visible_in_hierarchy = visibility.is_visible();
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
         computed_visibility.is_visible_in_view = false;
         if let Some(children) = children {
@@ -304,7 +309,7 @@ fn propagate_recursive(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible && parent_visible;
+        computed_visibility.is_visible_in_hierarchy = visibility.is_visible() && parent_visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
         computed_visibility.is_visible_in_view = false;
         computed_visibility.is_visible_in_hierarchy
@@ -433,10 +438,7 @@ mod test {
 
         let root1 = app
             .world
-            .spawn((
-                Visibility { is_visible: false },
-                ComputedVisibility::default(),
-            ))
+            .spawn((Visibility::Invisible, ComputedVisibility::default()))
             .id();
         let root1_child1 = app
             .world
@@ -444,10 +446,7 @@ mod test {
             .id();
         let root1_child2 = app
             .world
-            .spawn((
-                Visibility { is_visible: false },
-                ComputedVisibility::default(),
-            ))
+            .spawn((Visibility::Invisible, ComputedVisibility::default()))
             .id();
         let root1_child1_grandchild1 = app
             .world
@@ -478,10 +477,7 @@ mod test {
             .id();
         let root2_child2 = app
             .world
-            .spawn((
-                Visibility { is_visible: false },
-                ComputedVisibility::default(),
-            ))
+            .spawn((Visibility::Invisible, ComputedVisibility::default()))
             .id();
         let root2_child1_grandchild1 = app
             .world
