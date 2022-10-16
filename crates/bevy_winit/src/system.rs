@@ -20,7 +20,7 @@ use winit::{
 };
 
 #[cfg(target_arch = "wasm32")]
-use crate::web_resize::{CanvasParentResizeEventChannel, WINIT_CANVAS_SELECTOR};
+use crate::web_resize::CanvasParentResizeEventChannel;
 use crate::{
     accessibility::{AccessKitAdapters, WinitActionHandlers},
     converters::{self, convert_window_level},
@@ -93,13 +93,19 @@ pub(crate) fn create_window<'a>(
 
         #[cfg(target_arch = "wasm32")]
         {
+            use bevy_window::AbstractHandlePlaceholder;
+
             if window.fit_canvas_to_parent {
-                let selector = if let Some(selector) = &window.canvas {
-                    selector
-                } else {
-                    WINIT_CANVAS_SELECTOR
-                };
-                event_channel.listen_to_selector(entity, selector);
+                // We ignore other two variants.
+                match &window.handle {
+                    AbstractHandlePlaceholder::RawHandle(_) => (),
+                    AbstractHandlePlaceholder::HtmlCanvas(canvas) => {
+                        event_channel.listen_to_element(entity, canvas.clone());
+                    }
+                    AbstractHandlePlaceholder::OffscreenCanvas(_) => {
+                        todo!()
+                    }
+                }
             }
         }
 

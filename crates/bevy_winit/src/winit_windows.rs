@@ -120,21 +120,15 @@ impl WinitWindows {
 
         #[cfg(target_arch = "wasm32")]
         {
-            use wasm_bindgen::JsCast;
+            use bevy_window::AbstractHandlePlaceholder;
             use winit::platform::web::WindowBuilderExtWebSys;
 
-            if let Some(selector) = &window.canvas {
-                let window = web_sys::window().unwrap();
-                let document = window.document().unwrap();
-                let canvas = document
-                    .query_selector(&selector)
-                    .expect("Cannot query for canvas element.");
-                if let Some(canvas) = canvas {
-                    let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
-                    winit_window_builder = winit_window_builder.with_canvas(canvas);
-                } else {
-                    panic!("Cannot find element: {}.", selector);
+            match &window.handle {
+                AbstractHandlePlaceholder::RawHandle(_) => todo!(),
+                AbstractHandlePlaceholder::HtmlCanvas(canvas) => {
+                    winit_window_builder = winit_window_builder.with_canvas(Some(canvas.clone()));
                 }
+                AbstractHandlePlaceholder::OffscreenCanvas(_) => todo!(),
             }
 
             winit_window_builder =
