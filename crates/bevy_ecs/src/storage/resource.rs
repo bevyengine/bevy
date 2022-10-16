@@ -129,7 +129,7 @@ impl Resources {
         self.resources.is_empty()
     }
 
-    /// Gets a read-only [`Ptr`] to a resource, if available.
+    /// Gets read-only access to a resource, if it exists.
     #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<&ResourceData> {
         self.resources.get(component_id)
