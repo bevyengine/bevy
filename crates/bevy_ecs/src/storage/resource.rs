@@ -135,7 +135,7 @@ impl Resources {
         self.resources.get(component_id)
     }
 
-    /// Gets a read-only [`Ptr`] to a resource, if available.
+    /// Gets mutable access to a resource, if it exists.
     #[inline]
     pub fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData> {
         self.resources.get_mut(component_id)
