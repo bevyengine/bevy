@@ -107,7 +107,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut ids);
         });
         field_get_components.push(quote! {
-            self.#field.get_components(&mut *func);
+            self.#field.get_components(&mut func);
         });
         field_from_components.push(quote! {
             #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
@@ -139,7 +139,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             #[allow(unused_variables)]
-            fn get_components(self, func: &mut impl FnMut(#ecs_path::ptr::OwningPtr<'_>)) {
+            fn get_components(self, mut func: impl FnMut(#ecs_path::ptr::OwningPtr<'_>)) {
                 #(#field_get_components)*
             }
         }

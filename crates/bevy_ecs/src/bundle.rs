@@ -149,7 +149,7 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>));
+    fn get_components(self, func: impl FnMut(OwningPtr<'_>));
 }
 
 // SAFETY:
@@ -175,7 +175,7 @@ unsafe impl<C: Component> Bundle for C {
         func(ctx).read()
     }
 
-    fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
+    fn get_components(self, func: impl FnMut(OwningPtr<'_>)) {
         OwningPtr::make(self, func);
     }
 }
@@ -205,11 +205,11 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables, unused_mut)]
-            fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
+            fn get_components(self, mut func: impl FnMut(OwningPtr<'_>)) {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
-                    $name.get_components(&mut *func);
+                    $name.get_components(&mut func);
                 )*
             }
         }
@@ -364,7 +364,7 @@ impl BundleInfo {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        bundle.get_components(&mut |component_ptr| {
+        bundle.get_components(|component_ptr| {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
