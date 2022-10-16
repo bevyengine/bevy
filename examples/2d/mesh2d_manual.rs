@@ -103,7 +103,7 @@ fn star(
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
-        SpatialBundle::VISIBLE_IDENTITY,
+        SpatialBundle::INHERITED_IDENTITY,
     ));
 
     // Spawn the camera
