@@ -216,11 +216,23 @@ where
 
 /// An iterator over `K`-sized combinations of query items without repetition.
 ///
+/// A combination is a description of the number of possible arrangements in a collection of
+/// items where the order of the selection does not matter.
+///
+/// The size of the items array output by each iteration of the loop is parameterized by `K`.
+/// The number of total items input to the function is defined as `N`.
+///
+/// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
+/// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
+/// And in this case, `N` would be defined as 4 since the size of the input list is 4.
+///
 /// In this context, a combination is an unordered subset of `K` elements.
 /// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`] (called `N`):
 /// - if `K = N`, only one combination exists,
 /// - if `K < N`, there are <sub>N</sub>C<sub>K</sub> combinations (see the [performance section] of `Query`),
 /// - if `K > N`, there are no combinations.
+///
+/// The output combination is not guaranteed to have any order of iteration.
 ///
 /// # Usage
 ///
