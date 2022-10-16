@@ -130,7 +130,7 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     fn component_ids(
         components: &mut Components,
         storages: &mut Storages,
-        ids: &mut impl FnMut(ComponentId),
+        ids: impl FnMut(ComponentId),
     );
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
@@ -160,7 +160,7 @@ unsafe impl<C: Component> Bundle for C {
     fn component_ids(
         components: &mut Components,
         storages: &mut Storages,
-        ids: &mut impl FnMut(ComponentId),
+        mut ids: impl FnMut(ComponentId),
     ) {
         ids(components.init_component::<C>(storages));
     }
@@ -188,8 +188,9 @@ macro_rules! tuple_impl {
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
-            fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, storages, ids);)*
+            #[allow(unused_mut)]
+            fn component_ids(components: &mut Components, storages: &mut Storages, mut ids: impl FnMut(ComponentId)){
+                $(<$name as Bundle>::component_ids(components, storages, &mut ids);)*
             }
 
             #[allow(unused_variables, unused_mut)]

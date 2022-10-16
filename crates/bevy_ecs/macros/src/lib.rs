@@ -104,7 +104,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_from_components = Vec::new();
     for (field_type, field) in field_type.iter().zip(field.iter()) {
         field_component_ids.push(quote! {
-        <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+        <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut ids);
         });
         field_get_components.push(quote! {
             self.#field.get_components(&mut *func);
@@ -123,7 +123,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
-                ids: &mut impl FnMut(#ecs_path::component::ComponentId)
+                mut ids: impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_component_ids)*
             }
