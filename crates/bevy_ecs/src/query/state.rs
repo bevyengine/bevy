@@ -574,7 +574,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
     ///
-    /// The iter_combinations method does not guarantee order of iteration.
+    /// The `iter_combinations` method does not guarantee order of iteration.
     ///
     /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
     /// write-queries.
@@ -612,7 +612,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
     ///
-    /// The iter_combinations_mut method does not guarantee order of iteration.
+    /// The `iter_combinations_mut` method does not guarantee order of iteration.
     #[inline]
     pub fn iter_combinations_mut<'w, 's, const K: usize>(
         &'s mut self,
