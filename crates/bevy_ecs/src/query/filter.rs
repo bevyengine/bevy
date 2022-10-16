@@ -120,7 +120,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     fn matches_component_set(
         &id: &ComponentId,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        set_contains_id: impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(id)
     }
@@ -227,7 +227,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn matches_component_set(
         &id: &ComponentId,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        set_contains_id: impl Fn(ComponentId) -> bool,
     ) -> bool {
         !set_contains_id(id)
     }
@@ -413,9 +413,9 @@ macro_rules! impl_query_filter_tuple {
                 ($($filter::init_state(world),)*)
             }
 
-            fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(_state: &Self::State, _set_contains_id: impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = _state;
-                false $(|| $filter::matches_component_set($filter, _set_contains_id))*
+                false $(|| $filter::matches_component_set($filter, &_set_contains_id))*
             }
         }
 
@@ -553,7 +553,7 @@ macro_rules! impl_tick_filter {
                 world.init_component::<T>()
             }
 
-            fn matches_component_set(&id: &ComponentId, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(&id: &ComponentId, set_contains_id: impl Fn(ComponentId) -> bool) -> bool {
                 set_contains_id(id)
             }
         }

@@ -321,8 +321,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     }
                 }
 
-                fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
-                    true #(&& <#field_types>::matches_component_set(&state.#field_idents, _set_contains_id))*
+                fn matches_component_set(state: &Self::State, _set_contains_id: impl Fn(#path::component::ComponentId) -> bool) -> bool {
+                    true #(&& <#field_types>::matches_component_set(&state.#field_idents, &_set_contains_id))*
                 }
             }
         }

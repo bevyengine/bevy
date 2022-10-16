@@ -432,7 +432,7 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     fn init_state(world: &mut World) -> Self::State;
     fn matches_component_set(
         state: &Self::State,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        set_contains_id: impl Fn(ComponentId) -> bool,
     ) -> bool;
 }
 
@@ -538,7 +538,7 @@ unsafe impl WorldQuery for Entity {
 
     fn matches_component_set(
         _state: &Self::State,
-        _set_contains_id: &impl Fn(ComponentId) -> bool,
+        _set_contains_id: impl Fn(ComponentId) -> bool,
     ) -> bool {
         true
     }
@@ -686,7 +686,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     fn matches_component_set(
         &state: &ComponentId,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        set_contains_id: impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(state)
     }
@@ -881,7 +881,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     fn matches_component_set(
         &state: &ComponentId,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        set_contains_id: impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(state)
     }
@@ -1019,7 +1019,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
     fn matches_component_set(
         _state: &T::State,
-        _set_contains_id: &impl Fn(ComponentId) -> bool,
+        _set_contains_id: impl Fn(ComponentId) -> bool,
     ) -> bool {
         true
     }
@@ -1274,7 +1274,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
 
     fn matches_component_set(
         &id: &ComponentId,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        set_contains_id: impl Fn(ComponentId) -> bool,
     ) -> bool {
         set_contains_id(id)
     }
@@ -1378,9 +1378,9 @@ macro_rules! impl_tuple_fetch {
                 ($($name::init_state(_world),)*)
             }
 
-            fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(state: &Self::State, _set_contains_id: impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = state;
-                true $(&& $name::matches_component_set($name, _set_contains_id))*
+                true $(&& $name::matches_component_set($name, &_set_contains_id))*
             }
         }
 
@@ -1519,9 +1519,9 @@ macro_rules! impl_anytuple_fetch {
                 ($($name::init_state(_world),)*)
             }
 
-            fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+            fn matches_component_set(_state: &Self::State, _set_contains_id: impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
-                false $(|| $name::matches_component_set($name, _set_contains_id))*
+                false $(|| $name::matches_component_set($name, &_set_contains_id))*
             }
         }
 
@@ -1600,7 +1600,7 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
 
     fn matches_component_set(
         state: &Self::State,
-        set_contains_id: &impl Fn(ComponentId) -> bool,
+        set_contains_id: impl Fn(ComponentId) -> bool,
     ) -> bool {
         Q::matches_component_set(state, set_contains_id)
     }
