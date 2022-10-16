@@ -216,8 +216,8 @@ where
 
 /// An iterator over `K`-sized combinations of query items without repetition.
 ///
-/// A combination is a description of the number of possible arrangements in a collection of
-/// items where the order of the selection does not matter.
+/// A combination describes the number of possible arrangements of a collection of
+/// items where order does not matter.
 ///
 /// The size of the items array output by each iteration of the loop is parameterized by `K`.
 /// The number of total items input to the function is defined as `N`.
