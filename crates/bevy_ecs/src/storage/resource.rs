@@ -6,6 +6,8 @@ use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
+///
+/// [`World`]: crate::world::World
 pub struct ResourceData {
     column: Column,
     component_info: ArchetypeComponentInfo,
@@ -40,6 +42,7 @@ impl ResourceData {
     pub fn get_ticks(&self) -> Option<&ComponentTicks> {
         self.column
             .get_ticks(0)
+            // SAFETY: If the first row exists, a valid ticks value has been written.
             .map(|ticks| unsafe { ticks.deref() })
     }
 
@@ -48,6 +51,8 @@ impl ResourceData {
     pub fn get_ticks_mut(&mut self) -> Option<&mut ComponentTicks> {
         self.column
             .get_ticks(0)
+            // SAFETY: If the first row exists, a valid ticks value has been written.
+            // This function has exclusvie access to the underlying column.
             .map(|ticks| unsafe { ticks.deref_mut() })
     }
 

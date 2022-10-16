@@ -122,7 +122,7 @@ impl Column {
         &mut self,
         row: usize,
     ) -> Option<(OwningPtr<'_>, ComponentTicks)> {
-        (row > self.data.len()).then(|| {
+        (row < self.data.len()).then(|| {
             // SAFETY: The row was length checked before this.
             let data = unsafe { self.data.swap_remove_and_forget_unchecked(row) };
             let ticks = self.ticks.swap_remove(row).into_inner();
@@ -198,9 +198,9 @@ impl Column {
 
     #[inline]
     pub fn get(&self, row: usize) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
-        // SAFETY: The row is length checked before fetching the pointer. This is being
-        // accessed through a read-only reference to the column.
         (row < self.data.len())
+            // SAFETY: The row is length checked before fetching the pointer. This is being
+            // accessed through a read-only reference to the column.
             .then(|| unsafe { (self.data.get_unchecked(row), self.ticks.get_unchecked(row)) })
     }
 

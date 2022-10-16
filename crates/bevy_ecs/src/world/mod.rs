@@ -786,7 +786,7 @@ impl World {
     #[allow(unused_unsafe)]
     pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFE: the resource is of type R and the value is returned back to the caller.
+        // SAFETY: the resource is of type R and the value is returned back to the caller.
         unsafe {
             let (ptr, _) = self.storages.resources.get_mut(component_id)?.remove()?;
             Some(ptr.read::<R>())
@@ -1169,7 +1169,7 @@ impl World {
             .and_then(|info| info.remove())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
-        // SAFE: pointer is of type R
+        // SAFETY: pointer is of type R
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
@@ -1448,7 +1448,7 @@ impl World {
         };
 
         Some(MutUntyped {
-            // SAFE: This function has exclusive access to the world so nothing aliases `ptr`.
+            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
             value: unsafe { ptr.assert_unique() },
             ticks,
         })

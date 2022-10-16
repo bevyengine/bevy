@@ -381,10 +381,7 @@ mod tests {
             }
         }
 
-        let u32_component_id = world
-            .components
-            .get_resource_id(TypeId::of::<u32>())
-            .unwrap();
+        let u32_component_id = world.components.get_resource_id(TypeId::of::<A>()).unwrap();
         let u32_archetype_component_id = world
             .get_resource_archetype_component_id(u32_component_id)
             .unwrap();
