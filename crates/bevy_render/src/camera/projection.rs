@@ -172,7 +172,7 @@ impl Default for PerspectiveProjection {
 #[derive(Debug, Clone, Reflect, FromReflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
-    /// Manually specify the projection's size, ignoring window resizing; the image will stretch.
+    /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
     /// Arguments are in world units
     Fixed { width: f32, height: f32 },
     /// Match the viewport size.
@@ -212,12 +212,12 @@ pub struct OrthographicProjection {
     /// Objects further than this will not be rendered.
     pub far: f32,
     /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is the bottom left
-    /// and (1, 1) is the top right. This determines where the position of the camera sits inside the viewport.
-    /// Set this to (0.5, 0.5) make scaling affect opposite sides equally, thereby keeping centered objects on each axis centered.
+    /// and (1, 1) is the top right. This determines where the camera's position sits inside the viewport.
+    /// Set this to (0.5, 0.5) to make scaling affect opposite sides equally, thereby keeping centered objects on each axis centered.
     ///
     /// When the projection scales due to viewport resizing (assuming `scaling_mode` is not set to `Fixed`), the position
     /// of the camera doesn't change, and since `viewport_origin` specifies the point on the viewport where the camera sits,
-    /// this point will always remain at the same position (relatively on the viewport).
+    /// this point will always remain at the same position (relative on the viewport).
     ///
     /// Consequently, this is pivot point when scaling. With a bottom left pivot, the projection will expand
     /// upwards and to the right. With a top right pivot, the projection will expand downwards and to the left.
@@ -250,7 +250,7 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        let (frustum_width, frustum_height) = match self.scaling_mode {
+        let (projection_width, projection_height) = match self.scaling_mode {
             ScalingMode::WindowSize(pixel_scale) => (width / pixel_scale, height / pixel_scale),
             ScalingMode::AutoMin {
                 min_width,
@@ -285,13 +285,13 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        let origin_x = frustum_width * self.viewport_origin.0;
-        let origin_y = frustum_height * self.viewport_origin.1;
+        let origin_x = projection_width * self.viewport_origin.0;
+        let origin_y = projection_height * self.viewport_origin.1;
 
         self.left = -origin_x * self.scale;
         self.bottom = -origin_y * self.scale;
-        self.right = (frustum_width - origin_x) * self.scale;
-        self.top = (frustum_height - origin_y) * self.scale;
+        self.right = (projection_width - origin_x) * self.scale;
+        self.top = (projection_height - origin_y) * self.scale;
     }
 
     fn far(&self) -> f32 {
@@ -318,7 +318,7 @@ impl Default for OrthographicProjection {
 impl OrthographicProjection {
     /// Create a new `OrthographicProjection` with default values.
     ///
-    /// Use its other methods to modify its properties, or modify them after creation if `mut`.
+    /// Use its other methods to modify its properties, or modify them after creation.
     ///
     /// ```
     /// use bevy_render::camera::{OrthographicProjection, ScalingMode};
