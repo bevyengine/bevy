@@ -139,6 +139,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             #[allow(unused_variables)]
+            #[allow(unused_mut)]
             fn get_components(self, mut func: impl FnMut(#ecs_path::ptr::OwningPtr<'_>)) {
                 #(#field_get_components)*
             }
