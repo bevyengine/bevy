@@ -1,9 +1,11 @@
 use criterion::criterion_group;
 
 mod commands;
+mod spawn;
 mod world_get;
 
 use commands::*;
+use spawn::*;
 use world_get::*;
 
 criterion_group!(
@@ -21,6 +23,7 @@ criterion_group!(
     world_query_get,
     world_query_iter,
     world_query_for_each,
+    world_spawn,
     query_get_component_simple,
     query_get_component,
     query_get,

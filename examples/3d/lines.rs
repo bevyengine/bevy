@@ -27,7 +27,7 @@ fn setup(
     mut materials: ResMut<Assets<LineMaterial>>,
 ) {
     // Spawn a list of lines with start and end points for each lines
-    commands.spawn().insert_bundle(MaterialMeshBundle {
+    commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(LineList {
             lines: vec![
                 (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
@@ -42,7 +42,7 @@ fn setup(
     });
 
     // Spawn a line strip that goes from point to point
-    commands.spawn().insert_bundle(MaterialMeshBundle {
+    commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(LineStrip {
             points: vec![
                 Vec3::ZERO,
@@ -56,7 +56,7 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

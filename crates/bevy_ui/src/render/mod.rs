@@ -5,14 +5,14 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, OrthographicProjection, WindowOrigin},
+    camera::Camera,
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -161,7 +161,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 
 pub struct ExtractedUiNode {
     pub transform: Mat4,
-    pub color: Color,
+    pub background_color: Color,
     pub rect: Rect,
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
@@ -180,7 +180,7 @@ pub fn extract_uinodes(
         Query<(
             &Node,
             &GlobalTransform,
-            &UiColor,
+            &BackgroundColor,
             &UiImage,
             &ComputedVisibility,
             Option<&CalculatedClip>,
@@ -203,7 +203,7 @@ pub fn extract_uinodes(
         }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
-            color: color.0,
+            background_color: color.0,
             rect: Rect {
                 min: Vec2::ZERO,
                 max: uinode.size,
@@ -243,16 +243,12 @@ pub fn extract_default_ui_camera_view<T: Component>(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
-            let mut projection = OrthographicProjection {
-                far: UI_CAMERA_FAR,
-                window_origin: WindowOrigin::BottomLeft,
-                ..Default::default()
-            };
-            projection.update(logical_size.x, logical_size.y);
+            // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
+            let projection_matrix =
+                Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
             let default_camera_view = commands
-                .spawn()
-                .insert(ExtractedView {
-                    projection: projection.get_projection_matrix(),
+                .spawn(ExtractedView {
+                    projection: projection_matrix,
                     transform: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
@@ -266,7 +262,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     ),
                 })
                 .id();
-            commands.get_or_spawn(entity).insert_bundle((
+            commands.get_or_spawn(entity).insert((
                 DefaultCameraView(default_camera_view),
                 RenderPhase::<TransparentUi>::default(),
             ));
@@ -329,7 +325,7 @@ pub fn extract_text_uinodes(
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 transform: extracted_transform,
-                color,
+                background_color: color,
                 rect,
                 image: texture,
                 atlas_size,
@@ -399,7 +395,7 @@ pub fn prepare_uinodes(
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
-                commands.spawn_bundle((UiBatch {
+                commands.spawn((UiBatch {
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
@@ -465,24 +461,23 @@ pub fn prepare_uinodes(
             }
         }
 
-        // Clip UVs (Note: y is reversed in UV space)
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
         let uvs = [
             Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x,
-                uinode_rect.max.y - positions_diff[0].y,
-            ),
-            Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x,
-                uinode_rect.max.y - positions_diff[1].y,
+                uinode_rect.min.x + positions_diff[3].x,
+                uinode_rect.min.y - positions_diff[3].y,
             ),
             Vec2::new(
                 uinode_rect.max.x + positions_diff[2].x,
                 uinode_rect.min.y - positions_diff[2].y,
             ),
             Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x,
-                uinode_rect.min.y - positions_diff[3].y,
+                uinode_rect.max.x + positions_diff[1].x,
+                uinode_rect.max.y - positions_diff[1].y,
+            ),
+            Vec2::new(
+                uinode_rect.min.x + positions_diff[0].x,
+                uinode_rect.max.y - positions_diff[0].y,
             ),
         ]
         .map(|pos| pos / atlas_extent);
@@ -491,7 +486,7 @@ pub fn prepare_uinodes(
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
-                color: extracted_uinode.color.as_linear_rgba_f32(),
+                color: extracted_uinode.background_color.as_linear_rgba_f32(),
             });
         }
 
@@ -501,11 +496,11 @@ pub fn prepare_uinodes(
 
     // if start != end, there is one last batch to process
     if start != end {
-        commands.spawn_bundle((UiBatch {
+        commands.spawn(UiBatch {
             range: start..end,
             image: current_batch_handle,
             z: last_z,
-        },));
+        });
     }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);

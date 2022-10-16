@@ -96,48 +96,47 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let texture = asset_server.load("branding/icon.png");
 
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands
-        .spawn_bundle(
-            TextBundle::from_sections([
-                TextSection::new(
-                    "Bird Count: ",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 0.0),
-                    },
-                ),
-                TextSection::from_style(TextStyle {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn((
+        TextBundle::from_sections([
+            TextSection::new(
+                "Bird Count: ",
+                TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 40.0,
-                    color: Color::rgb(0.0, 1.0, 1.0),
-                }),
-                TextSection::new(
-                    "\nAverage FPS: ",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.0, 1.0, 0.0),
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 40.0,
-                    color: Color::rgb(0.0, 1.0, 1.0),
-                }),
-            ])
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(5.0),
-                    ..default()
+                    color: Color::rgb(0.0, 1.0, 0.0),
                 },
-                ..default()
+            ),
+            TextSection::from_style(TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 40.0,
+                color: Color::rgb(0.0, 1.0, 1.0),
             }),
-        )
-        .insert(StatsText);
+            TextSection::new(
+                "\nAverage FPS: ",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 40.0,
+                    color: Color::rgb(0.0, 1.0, 0.0),
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 40.0,
+                color: Color::rgb(0.0, 1.0, 1.0),
+            }),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
+                ..default()
+            },
+            ..default()
+        }),
+        StatsText,
+    ));
 
     commands.insert_resource(BirdTexture(texture));
     commands.insert_resource(BirdScheduled {
@@ -191,8 +190,8 @@ fn spawn_birds(
 
     for count in 0..spawn_count {
         let bird_z = (counter.count + count) as f32 * 0.00001;
-        commands
-            .spawn_bundle(SpriteBundle {
+        commands.spawn((
+            SpriteBundle {
                 texture: texture.clone(),
                 transform: Transform {
                     translation: Vec3::new(bird_x, bird_y, bird_z),
@@ -204,14 +203,15 @@ fn spawn_birds(
                     ..default()
                 },
                 ..default()
-            })
-            .insert(Bird {
+            },
+            Bird {
                 velocity: Vec3::new(
                     rng.gen::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
                     0.,
                     0.,
                 ),
-            });
+            },
+        ));
     }
     counter.count += spawn_count;
 }

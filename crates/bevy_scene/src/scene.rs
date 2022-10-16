@@ -54,7 +54,7 @@ impl Scene {
                 let entity = *instance_info
                     .entity_map
                     .entry(*scene_entity)
-                    .or_insert_with(|| world.spawn().id());
+                    .or_insert_with(|| world.spawn_empty().id());
                 for component_id in archetype.components() {
                     let component_info = self
                         .world

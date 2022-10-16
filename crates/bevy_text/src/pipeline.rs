@@ -34,7 +34,7 @@ impl TextPipeline {
         let brush = &mut self.brush;
         *self
             .map_font_id
-            .entry(handle.id)
+            .entry(handle.id())
             .or_insert_with(|| brush.add_font(handle.clone(), font.font.clone()))
     }
 

@@ -2,6 +2,8 @@ use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
 
+const SECONDS_PER_HOUR: u64 = 60 * 60;
+
 /// Tracks elapsed time since the last update and since the App has started
 #[derive(Resource, Reflect, FromReflect, Debug, Clone)]
 #[reflect(Resource)]
@@ -13,6 +15,10 @@ pub struct Time {
     seconds_since_startup: f64,
     time_since_startup: Duration,
     startup: Instant,
+    /// The maximum period before [`Time::seconds_since_startup_wrapped_f32`] wraps to 0
+    ///
+    /// Defaults to 1 hour
+    pub wrap_period: Duration,
 }
 
 impl Default for Time {
@@ -25,6 +31,7 @@ impl Default for Time {
             seconds_since_startup: 0.0,
             time_since_startup: Duration::from_secs(0),
             delta_seconds: 0.0,
+            wrap_period: Duration::from_secs(SECONDS_PER_HOUR),
         }
     }
 }
@@ -122,9 +129,26 @@ impl Time {
     }
 
     /// The time from startup to the last update in seconds
+    ///
+    /// If you intend to cast this to an `f32` value, note that this value is monotonically increasing,
+    /// and that its precision as an `f32` will noticeably degrade over time (in a matter of hours).
+    /// If that precision loss is unacceptable, you should use [`Time::seconds_since_startup_wrapped_f32`],
+    /// which will return the time from startup modulo a wrapping period.
     #[inline]
     pub fn seconds_since_startup(&self) -> f64 {
         self.seconds_since_startup
+    }
+
+    /// The time from startup to the last update, modulo the [`Time::wrap_period`], in seconds.
+    ///
+    /// Time from startup is a monotonically increasing value and so its precision when read as an `f32`
+    /// will noticeably degrade over time, which causes issues for some uses, e.g. shaders.
+    /// This method avoids noticeable degradation by limiting the values to a much smaller range.
+    ///
+    /// The default wrapping period is one hour.
+    #[inline]
+    pub fn seconds_since_startup_wrapped_f32(&self) -> f32 {
+        (self.seconds_since_startup % self.wrap_period.as_secs_f64()) as f32
     }
 
     /// The [`Instant`] the app was started
@@ -170,6 +194,7 @@ mod tests {
         assert_eq!(time.seconds_since_startup(), 0.0);
         assert_eq!(time.time_since_startup(), Duration::from_secs(0));
         assert_eq!(time.delta_seconds(), 0.0);
+        assert_eq!(time.seconds_since_startup_wrapped_f32(), 0.0);
 
         // Update `time` and check results
         let first_update_instant = Instant::now();
@@ -188,7 +213,11 @@ mod tests {
             time.time_since_startup(),
             (first_update_instant - start_instant)
         );
-        assert_eq!(time.delta_seconds, 0.0);
+        assert_eq!(time.delta_seconds(), 0.0);
+        assert_float_eq(
+            time.seconds_since_startup_wrapped_f32(),
+            time.seconds_since_startup() as f32,
+        );
 
         // Update `time` again and check results
         let second_update_instant = Instant::now();
@@ -210,5 +239,38 @@ mod tests {
             (second_update_instant - start_instant)
         );
         assert_eq!(time.delta_seconds(), time.delta().as_secs_f32());
+        assert_float_eq(
+            time.seconds_since_startup_wrapped_f32(),
+            time.seconds_since_startup() as f32,
+        );
+    }
+
+    #[test]
+    fn update_wrapping() {
+        let start_instant = Instant::now();
+
+        let mut time = Time {
+            startup: start_instant,
+            wrap_period: Duration::from_secs(3),
+            ..Default::default()
+        };
+
+        assert_eq!(time.seconds_since_startup_wrapped_f32(), 0.0);
+
+        time.update_with_instant(start_instant + Duration::from_secs(1));
+        assert_float_eq(time.seconds_since_startup_wrapped_f32(), 1.0);
+
+        time.update_with_instant(start_instant + Duration::from_secs(2));
+        assert_float_eq(time.seconds_since_startup_wrapped_f32(), 2.0);
+
+        time.update_with_instant(start_instant + Duration::from_secs(3));
+        assert_float_eq(time.seconds_since_startup_wrapped_f32(), 0.0);
+
+        time.update_with_instant(start_instant + Duration::from_secs(4));
+        assert_float_eq(time.seconds_since_startup_wrapped_f32(), 1.0);
+    }
+
+    fn assert_float_eq(a: f32, b: f32) {
+        assert!((a - b).abs() <= f32::EPSILON, "{a} != {b}");
     }
 }

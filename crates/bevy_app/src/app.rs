@@ -3,7 +3,7 @@ pub use bevy_derive::AppLabel;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::{Event, Events},
-    prelude::{FromWorld, IntoExclusiveSystem},
+    prelude::FromWorld,
     schedule::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
@@ -70,10 +70,30 @@ pub struct App {
     sub_apps: HashMap<AppLabelId, SubApp>,
 }
 
+impl Debug for App {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "App {{ sub_apps: ")?;
+        f.debug_map()
+            .entries(self.sub_apps.iter().map(|(k, v)| (k, v)))
+            .finish()?;
+        write!(f, "}}")
+    }
+}
+
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
 struct SubApp {
     app: App,
     runner: Box<dyn Fn(&mut World, &mut App)>,
+}
+
+impl Debug for SubApp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SubApp {{ app: ")?;
+        f.debug_map()
+            .entries(self.app.sub_apps.iter().map(|(k, v)| (k, v)))
+            .finish()?;
+        write!(f, "}}")
+    }
 }
 
 impl Default for App {
@@ -84,7 +104,7 @@ impl Default for App {
 
         app.add_default_stages()
             .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
+            .add_system_to_stage(CoreStage::Last, World::clear_trackers);
 
         #[cfg(feature = "bevy_ci_testing")]
         {

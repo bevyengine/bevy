@@ -38,23 +38,24 @@ fn setup(
 ) {
     // Add a cube to visualize translation.
     let entity_spawn = Vec3::ZERO;
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_translation(entity_spawn),
             ..default()
-        })
-        .insert(Movable::new(entity_spawn));
+        },
+        Movable::new(entity_spawn),
+    ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(entity_spawn, Vec3::Y),
         ..default()
     });
 
     // Add a light source for better 3d visibility.
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_translation(Vec3::ONE * 3.0),
         ..default()
     });

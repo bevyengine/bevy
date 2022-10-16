@@ -467,7 +467,7 @@ pub fn add_clusters(
         // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
         commands
             .entity(entity)
-            .insert_bundle((Clusters::default(), config));
+            .insert((Clusters::default(), config));
     }
 }
 

@@ -291,6 +291,17 @@ where
 }
 
 impl<'w, T: Resource> Res<'w, T> {
+    // no it shouldn't clippy
+    #[allow(clippy::should_implement_trait)]
+    pub fn clone(this: &Self) -> Self {
+        Self {
+            value: this.value,
+            ticks: this.ticks,
+            last_change_tick: this.last_change_tick,
+            change_tick: this.change_tick,
+        }
+    }
+
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_change_tick, self.change_tick)
@@ -680,7 +691,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// // .add_system(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
-pub struct Local<'a, T: FromWorld + Send + 'static>(&'a mut T);
+pub struct Local<'a, T: FromWorld + Send + 'static>(pub(crate) &'a mut T);
 
 // SAFETY: Local only accesses internal state
 unsafe impl<T: Send + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
@@ -712,7 +723,7 @@ impl<'a, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'a, T> {
 
 /// The [`SystemParamState`] of [`Local<T>`].
 #[doc(hidden)]
-pub struct LocalState<T: Send + 'static>(SyncCell<T>);
+pub struct LocalState<T: Send + 'static>(pub(crate) SyncCell<T>);
 
 impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     type Fetch = LocalState<T>;

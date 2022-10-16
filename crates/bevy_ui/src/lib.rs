@@ -1,7 +1,7 @@
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
-//! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
+//! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/>)
 mod flex;
 mod focus;
 mod geometry;
@@ -27,7 +27,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    schedule::{ParallelSystemDescriptorCoercion, SystemLabel},
+    schedule::{IntoSystemDescriptor, SystemLabel},
     system::Resource,
 };
 use bevy_input::InputSystem;
@@ -90,7 +90,7 @@ impl Plugin for UiPlugin {
             .register_type::<Size>()
             .register_type::<UiRect>()
             .register_type::<Style>()
-            .register_type::<UiColor>()
+            .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()

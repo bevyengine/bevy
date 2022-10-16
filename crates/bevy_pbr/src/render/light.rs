@@ -163,7 +163,7 @@ impl GpuPointLights {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.frag!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
@@ -184,7 +184,7 @@ pub struct GpuDirectionalLight {
     shadow_normal_bias: f32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.frag!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct DirectionalLightFlags: u32 {
@@ -394,7 +394,7 @@ pub fn extract_clusters(
     views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
 ) {
     for (entity, clusters) in &views {
-        commands.get_or_spawn(entity).insert_bundle((
+        commands.get_or_spawn(entity).insert((
             ExtractedClustersPointLights {
                 data: clusters.lights.clone(),
             },
@@ -564,7 +564,7 @@ pub fn extract_lights(
             largest_dimension / directional_light_shadow_map.size as f32;
         // TODO: As above
         let render_visible_entities = visible_entities.clone();
-        commands.get_or_spawn(entity).insert_bundle((
+        commands.get_or_spawn(entity).insert((
             ExtractedDirectionalLight {
                 color: directional_light.color,
                 illuminance: directional_light.illuminance,
@@ -1013,8 +1013,7 @@ pub fn prepare_lights(
                         });
 
                 let view_light_entity = commands
-                    .spawn()
-                    .insert_bundle((
+                    .spawn((
                         ShadowView {
                             depth_texture_view,
                             pass_name: format!(
@@ -1073,8 +1072,7 @@ pub fn prepare_lights(
                     });
 
             let view_light_entity = commands
-                .spawn()
-                .insert_bundle((
+                .spawn((
                     ShadowView {
                         depth_texture_view,
                         pass_name: format!("shadow pass spot light {}", light_index,),
@@ -1157,8 +1155,7 @@ pub fn prepare_lights(
                         });
 
                 let view_light_entity = commands
-                    .spawn()
-                    .insert_bundle((
+                    .spawn((
                         ShadowView {
                             depth_texture_view,
                             pass_name: format!("shadow pass directional light {}", i),
@@ -1212,7 +1209,7 @@ pub fn prepare_lights(
                 array_layer_count: None,
             });
 
-        commands.entity(entity).insert_bundle((
+        commands.entity(entity).insert((
             ViewShadowBindings {
                 point_light_depth_texture: point_light_depth_texture.texture,
                 point_light_depth_texture_view,

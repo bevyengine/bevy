@@ -44,7 +44,7 @@ pub fn close_on_esc(
 ) {
     // TODO: Track this in e.g. a resource to ensure consistent behaviour across similar systems
     for event in focused_events.iter() {
-        *focused = event.focused.then(|| event.id);
+        *focused = event.focused.then_some(event.id);
     }
 
     if let Some(focused) = &*focused {

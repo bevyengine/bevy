@@ -262,7 +262,7 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
     let mut cam = Camera2dBundle::default();
 
     cam.transform.translation.z = 100.0;
-    commands.spawn_bundle(cam);
+    commands.spawn(cam);
 
     let result = match cfg.test_case {
         TestCase::Tree {
@@ -367,13 +367,7 @@ fn spawn_tree(
     }
 
     // insert root
-    ents.push(
-        commands
-            .spawn()
-            .insert(root_transform)
-            .insert(GlobalTransform::default())
-            .id(),
-    );
+    ents.push(commands.spawn(TransformBundle::from(root_transform)).id());
 
     let mut result = InsertResult::default();
     let mut rng = rand::thread_rng();
@@ -399,7 +393,7 @@ fn spawn_tree(
 
         // insert child
         let child_entity = {
-            let mut cmd = commands.spawn();
+            let mut cmd = commands.spawn_empty();
 
             // check whether or not to update this node
             let update = (rng.gen::<f32>() <= update_filter.probability)
@@ -419,7 +413,7 @@ fn spawn_tree(
             };
 
             // only insert the components necessary for the transform propagation
-            cmd.insert(transform).insert(GlobalTransform::default());
+            cmd.insert(TransformBundle::from(transform));
 
             cmd.id()
         };
