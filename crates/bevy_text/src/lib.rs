@@ -56,6 +56,11 @@ impl Default for TextSettings {
     }
 }
 
+pub enum TextType {
+    Ui,
+    Text2D,
+}
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Font>()

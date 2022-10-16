@@ -8,7 +8,9 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_text::{Font, FontAtlasSet, Text, TextError, TextLayoutInfo, TextPipeline, TextSettings};
+use bevy_text::{
+    Font, FontAtlasSet, Text, TextError, TextLayoutInfo, TextPipeline, TextSettings, TextType,
+};
 use bevy_window::Windows;
 
 #[derive(Debug, Default)]
@@ -118,6 +120,7 @@ pub fn text_system(
                 &mut *texture_atlases,
                 &mut *textures,
                 text_settings.as_ref(),
+                TextType::Ui,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
