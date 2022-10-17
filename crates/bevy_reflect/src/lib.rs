@@ -948,6 +948,48 @@ bevy_reflect::tests::should_reflect_debug::Test {
         assert_eq!(expected, format!("\n{:#?}", reflected));
     }
 
+    #[test]
+    fn multiple_reflect_lists() {
+        #[derive(Hash, PartialEq, Reflect)]
+        #[reflect(Debug, Hash)]
+        #[reflect(PartialEq)]
+        struct Foo(i32);
+
+        impl Debug for Foo {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(f, "Foo")
+            }
+        }
+
+        let foo = Foo(123);
+        let foo: &dyn Reflect = &foo;
+
+        assert!(foo.reflect_hash().is_some());
+        assert_eq!(Some(true), foo.reflect_partial_eq(foo));
+        assert_eq!("Foo".to_string(), format!("{foo:?}"));
+    }
+
+    #[test]
+    fn multiple_reflect_value_lists() {
+        #[derive(Clone, Hash, PartialEq, Reflect)]
+        #[reflect_value(Debug, Hash)]
+        #[reflect_value(PartialEq)]
+        struct Foo(i32);
+
+        impl Debug for Foo {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(f, "Foo")
+            }
+        }
+
+        let foo = Foo(123);
+        let foo: &dyn Reflect = &foo;
+
+        assert!(foo.reflect_hash().is_some());
+        assert_eq!(Some(true), foo.reflect_partial_eq(foo));
+        assert_eq!("Foo".to_string(), format!("{foo:?}"));
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
