@@ -100,6 +100,7 @@ impl Val {
         }
     }
 
+    /// Adds `rhs` to `self` and assigns the result to `self` (see [`Val::try_add`])
     pub fn try_add_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
         *self = self.try_add(rhs)?;
         Ok(())
@@ -117,6 +118,7 @@ impl Val {
         }
     }
 
+    /// Subtracts `rhs` from `self` and assigns the result to `self` (see [`Val::try_sub`])
     pub fn try_sub_assign(&mut self, rhs: Val) -> Result<(), ValArithmeticError> {
         *self = self.try_sub(rhs)?;
         Ok(())
