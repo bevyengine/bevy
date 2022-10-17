@@ -1,6 +1,5 @@
 use crate::archetype::ArchetypeComponentId;
-use crate::archetype::ArchetypeComponentInfo;
-use crate::component::{ComponentId, ComponentTicks, Components, StorageType};
+use crate::component::{ComponentId, ComponentTicks, Components};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use std::cell::UnsafeCell;
@@ -10,7 +9,7 @@ use std::cell::UnsafeCell;
 /// [`World`]: crate::world::World
 pub struct ResourceData {
     column: Column,
-    component_info: ArchetypeComponentInfo,
+    id: ArchetypeComponentId,
 }
 
 impl ResourceData {
@@ -20,9 +19,10 @@ impl ResourceData {
         !self.column.is_empty()
     }
 
+    /// Gets the [`ArchetypeComponentId`] for the resource.
     #[inline]
-    pub(crate) fn component_info(&self) -> &ArchetypeComponentInfo {
-        &self.component_info
+    pub fn id(&self) -> ArchetypeComponentId {
+        self.id
     }
 
     /// Gets a read-only pointer to the underlying resource, if available.
@@ -156,10 +156,7 @@ impl Resources {
             let component_info = components.get_info(component_id).unwrap();
             ResourceData {
                 column: Column::with_capacity(component_info, 1),
-                component_info: ArchetypeComponentInfo {
-                    archetype_component_id: f(),
-                    storage_type: StorageType::Table,
-                },
+                id: f(),
             }
         })
     }

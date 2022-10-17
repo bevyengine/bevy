@@ -993,7 +993,7 @@ impl World {
         component_id: ComponentId,
     ) -> Option<ArchetypeComponentId> {
         let resource = self.storages.resources.get(component_id)?;
-        Some(resource.component_info().archetype_component_id)
+        Some(resource.id())
     }
 
     /// For a given batch of ([Entity], [Bundle]) pairs, either spawns each [Entity] with the given
