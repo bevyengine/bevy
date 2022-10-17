@@ -112,7 +112,7 @@ pub struct Resources {
 }
 
 impl Resources {
-    /// The total number of resoruces stored in the [`World`]
+    /// The total number of resources stored in the [`World`]
     ///
     /// [`World`]: crate::world::World
     #[inline]
