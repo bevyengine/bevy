@@ -108,28 +108,65 @@ pub(crate) enum EnumVariantFields<'a> {
     Unit,
 }
 
+/// The method in which the type should be reflected.
+#[derive(PartialEq, Eq)]
+enum ReflectMode {
+    /// Reflect the type normally, providing information about all fields/variants.
+    Normal,
+    /// Reflect the type as a value.
+    Value,
+}
+
 impl<'a> ReflectDerive<'a> {
     pub fn from_input(input: &'a DeriveInput) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used
-        let mut force_reflect_value = false;
+        let mut reflect_mode = None;
 
         for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
             match attribute {
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                    if !matches!(reflect_mode, None | Some(ReflectMode::Normal)) {
+                        return Err(syn::Error::new(
+                            meta_list.span(),
+                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
+                        ));
+                    }
+
+                    reflect_mode = Some(ReflectMode::Normal);
+                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                    traits = traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
-                    force_reflect_value = true;
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                    if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
+                        return Err(syn::Error::new(
+                            meta_list.span(),
+                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
+                        ));
+                    }
+
+                    reflect_mode = Some(ReflectMode::Value);
+                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                    traits = traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
-                    force_reflect_value = true;
+                    if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
+                        return Err(syn::Error::new(
+                            path.span(),
+                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
+                        ));
+                    }
+
+                    reflect_mode = Some(ReflectMode::Value);
                 }
                 _ => continue,
             }
         }
-        if force_reflect_value {
+
+        // Use normal reflection if unspecified
+        let reflect_mode = reflect_mode.unwrap_or(ReflectMode::Normal);
+
+        if reflect_mode == ReflectMode::Value {
             return Ok(Self::Value(ReflectMeta::new(
                 &input.ident,
                 &input.generics,
