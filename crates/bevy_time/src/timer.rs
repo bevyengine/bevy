@@ -10,6 +10,7 @@ use bevy_utils::Duration;
 ///
 /// Paused timers will not have elapsed time increased.
 #[derive(Clone, Debug, Default, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub struct Timer {
     stopwatch: Stopwatch,
@@ -401,6 +402,7 @@ impl Timer {
 
 /// Specifies [`Timer`] behavior.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub enum TimerMode {
     /// Run once and stop.
