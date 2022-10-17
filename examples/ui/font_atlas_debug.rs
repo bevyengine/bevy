@@ -26,7 +26,7 @@ impl Default for State {
         Self {
             atlas_count: 0,
             handle: Handle::default(),
-            timer: Timer::from_seconds(0.05, true),
+            timer: Timer::from_seconds(0.05, TimerMode::Repeating),
         }
     }
 }

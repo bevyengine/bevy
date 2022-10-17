@@ -206,7 +206,7 @@ pub fn extract_uinodes(
             background_color: color.0,
             rect: Rect {
                 min: Vec2::ZERO,
-                max: uinode.size,
+                max: uinode.calculated_size,
             },
             image,
             atlas_size: None,
@@ -292,11 +292,11 @@ pub fn extract_text_uinodes(
             continue;
         }
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if uinode.size == Vec2::ZERO {
+        if uinode.calculated_size == Vec2::ZERO {
             continue;
         }
         let text_glyphs = &text_layout_info.glyphs;
-        let alignment_offset = (uinode.size / -2.0).extend(0.0);
+        let alignment_offset = (uinode.calculated_size / -2.0).extend(0.0);
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
