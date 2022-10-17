@@ -187,6 +187,59 @@ impl WindowResizeConstraints {
 ///     }
 /// }
 /// ```
+/// To test code that uses `Window`s, one can test it with varying `Window` parameters by
+/// creating `WindowResizeConstraints` or `WindowDescriptor` structures.
+/// values by setting
+///
+/// ```
+/// # use bevy_utils::default;
+/// # use bevy_window::{Window, WindowCommand, WindowDescriptor, WindowId, WindowResizeConstraints};
+/// # fn compute_window_area(w: &Window) -> f32 {
+/// #   w.width() * w.height()
+/// # }
+/// # fn grow_window_to_text_size(_window: &mut Window, _text: &str) {}
+/// # fn set_new_title(window: &mut Window, text: String) { window.set_title(text); }
+/// # fn a_window_resize_test() {
+/// let resize_constraints = WindowResizeConstraints {
+///                             min_width: 400.0,
+///                             min_height: 300.0,
+///                             max_width: 1280.0,
+///                             max_height: 1024.0,
+/// };
+/// let window_descriptor = WindowDescriptor {
+///     width: 800.0,
+///     height: 600.0,
+///     resizable: true,
+///     resize_constraints,
+///     ..default()
+/// };
+/// let mut window = Window::new(
+///    WindowId::new(),
+///    &window_descriptor,
+///    100, // physical_width
+///    100, // physical_height
+///    1.0, // scale_factor
+///    None, None);
+///
+/// let area = compute_window_area(&window);
+/// assert_eq!(area, 100.0 * 100.0);
+///
+/// grow_window_to_text_size(&mut window, "very long text that does not wrap");
+/// assert_eq!(window.physical_width(), window.requested_width() as u32);
+/// grow_window_to_text_size(&mut window, "very long text that does wrap, creating a maximum width window");
+/// assert_eq!(window.physical_width(), window.requested_width() as u32);
+///
+/// set_new_title(&mut window, "new title".to_string());
+/// let mut found_command = false;
+/// for command in window.drain_commands() {
+///     if command == (WindowCommand::SetTitle{ title: "new title".to_string() }) {
+///         found_command = true;
+///         break;
+///     }
+/// }
+/// assert_eq!(found_command, true);
+/// }
+/// ```
 #[derive(Debug)]
 pub struct Window {
     id: WindowId,
@@ -206,7 +259,7 @@ pub struct Window {
     cursor_visible: bool,
     cursor_locked: bool,
     physical_cursor_position: Option<DVec2>,
-    raw_window_handle: RawWindowHandleWrapper,
+    raw_window_handle: Option<RawWindowHandleWrapper>,
     focused: bool,
     mode: WindowMode,
     canvas: Option<String>,
@@ -217,7 +270,7 @@ pub struct Window {
 ///
 /// Bevy apps don't interact with this `enum` directly. Instead, they should use the methods on [`Window`].
 /// This `enum` is meant for authors of windowing plugins. See the documentation on [`crate::WindowPlugin`] for more information.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum WindowCommand {
     /// Set the window's [`WindowMode`].
@@ -315,7 +368,7 @@ impl Window {
         physical_height: u32,
         scale_factor: f64,
         position: Option<IVec2>,
-        raw_window_handle: RawWindowHandle,
+        raw_window_handle: Option<RawWindowHandle>,
     ) -> Self {
         Window {
             id,
@@ -335,7 +388,7 @@ impl Window {
             cursor_locked: window_descriptor.cursor_locked,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
-            raw_window_handle: RawWindowHandleWrapper::new(raw_window_handle),
+            raw_window_handle: raw_window_handle.map(RawWindowHandleWrapper::new),
             focused: true,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),
@@ -719,9 +772,11 @@ impl Window {
     pub fn is_focused(&self) -> bool {
         self.focused
     }
-    /// Get the [`RawWindowHandleWrapper`] corresponding to this window
-    pub fn raw_window_handle(&self) -> RawWindowHandleWrapper {
-        self.raw_window_handle.clone()
+    /// Get the [`RawWindowHandleWrapper`] corresponding to this window if set.
+    ///
+    /// During normal use, this can be safely unwrapped; the value should only be [`None`] when synthetically constructed for tests.
+    pub fn raw_window_handle(&self) -> Option<RawWindowHandleWrapper> {
+        self.raw_window_handle.as_ref().cloned()
     }
 
     /// The "html canvas" element selector.

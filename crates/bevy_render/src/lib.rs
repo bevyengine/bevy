@@ -144,14 +144,21 @@ impl Plugin for RenderPlugin {
             .register_type::<Color>();
 
         if let Some(backends) = options.backends {
+            let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
             let surface = {
-                let windows = app.world.resource_mut::<bevy_window::Windows>();
-                let raw_handle = windows.get_primary().map(|window| unsafe {
-                    let handle = window.raw_window_handle().get_handle();
-                    instance.create_surface(&handle)
-                });
-                raw_handle
+                if let Some(window) = windows.get_primary() {
+                    if let Some(raw_window_handle) = window.raw_window_handle() {
+                        unsafe {
+                            let handle = raw_window_handle.get_handle();
+                            Some(instance.create_surface(&handle))
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
             };
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: options.power_preference,
