@@ -42,12 +42,7 @@ impl DynamicScene {
         let mut builder =
             DynamicSceneBuilder::from_world_with_type_registry(world, type_registry.clone());
 
-        builder.extract_entities(
-            world
-                .archetypes()
-                .iter()
-                .flat_map(|archetype| archetype.entities().iter().copied()),
-        );
+        builder.extract_entities(world.iter_entities());
 
         builder.build()
     }
