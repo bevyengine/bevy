@@ -8,7 +8,8 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment, TextSettings, TextType,
+    error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment, TextSettings,
+    YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -55,7 +56,7 @@ impl GlyphBrush {
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
-        text_type: TextType,
+        y_axis_orientation: YAxisOrientation,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
             return Ok(Vec::new());
@@ -89,6 +90,7 @@ impl GlyphBrush {
         }
         min_x = min_x.floor();
         min_y = min_y.floor();
+        max_y = max_y.floor();
 
         let mut positioned_glyphs = Vec::new();
         for sg in glyphs {
@@ -126,9 +128,9 @@ impl GlyphBrush {
 
                 let x = bounds.min.x + size.x / 2.0 - min_x;
 
-                let y = match text_type {
-                    TextType::Text2D => max_y - bounds.max.y + size.y / 2.0,
-                    TextType::Ui => bounds.min.y + size.y / 2.0 - min_y,
+                let y = match y_axis_orientation {
+                    YAxisOrientation::BottomToTop => max_y - bounds.max.y + size.y / 2.0,
+                    YAxisOrientation::TopToBottom => bounds.min.y + size.y / 2.0 - min_y,
                 };
 
                 let position = adjust.position(Vec2::new(x, y));

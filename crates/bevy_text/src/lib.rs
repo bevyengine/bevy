@@ -56,9 +56,12 @@ impl Default for TextSettings {
     }
 }
 
-pub enum TextType {
-    Ui,
-    Text2D,
+/// Text is rendered for two different view projections, normal Text2DBundle is rendered with a
+/// BottomToTop YAxis, and UI is rendered with a TopToBottom YAxis. This matters for text because of
+/// the glyph positioning is different in either layout.
+pub enum YAxisOrientation {
+    TopToBottom,
+    BottomToTop,
 }
 
 impl Plugin for TextPlugin {
