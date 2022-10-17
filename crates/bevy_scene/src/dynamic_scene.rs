@@ -50,14 +50,15 @@ impl DynamicScene {
     /// Write the dynamic entities and their corresponding components to the given world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
-    /// or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
-    pub fn write_to_world(
+    /// in the provided [`AppTypeRegistry`] resource, or doesn't reflect the
+    /// [`Component`](bevy_ecs::component::Component) trait.
+    pub fn write_to_world_with(
         &self,
         world: &mut World,
         entity_map: &mut EntityMap,
+        type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.resource::<AppTypeRegistry>().clone();
-        let type_registry = registry.read();
+        let type_registry = type_registry.read();
 
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
@@ -97,6 +98,20 @@ impl DynamicScene {
         }
 
         Ok(())
+    }
+
+    /// Write the dynamic entities and their corresponding components to the given world.
+    ///
+    /// This method will return a [`SceneSpawnError`] if a type either is not registered
+    /// in the world's [`AppTypeRegistry`] resource, or doesn't reflect the
+    /// [`Component`](bevy_ecs::component::Component) trait.
+    pub fn write_to_world(
+        &self,
+        world: &mut World,
+        entity_map: &mut EntityMap,
+    ) -> Result<(), SceneSpawnError> {
+        let registry = world.resource::<AppTypeRegistry>().clone();
+        self.write_to_world_with(world, entity_map, &registry)
     }
 
     // TODO: move to AssetSaver when it is implemented
