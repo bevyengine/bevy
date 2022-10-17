@@ -308,9 +308,9 @@ fn mouse_scroll(
         for (mut scrolling_list, mut style, children, uinode) in &mut query_list {
             let items_height: f32 = children
                 .iter()
-                .map(|entity| query_item.get(*entity).unwrap().size.y)
+                .map(|entity| query_item.get(*entity).unwrap().size().y)
                 .sum();
-            let panel_height = uinode.size.y;
+            let panel_height = uinode.size().y;
             let max_scroll = (items_height - panel_height).max(0.);
             let dy = match mouse_wheel_event.unit {
                 MouseScrollUnit::Line => mouse_wheel_event.y * 20.,
