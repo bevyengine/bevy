@@ -220,7 +220,7 @@ where
 /// items where order does not matter.
 ///
 /// K is the number of items that make up each subset, and the number of items returned by the iterator.
-/// The number of total items input to the function is defined as `N`.
+/// `N` is the number of total entities returned by the query.
 ///
 /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
 /// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
