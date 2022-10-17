@@ -157,17 +157,14 @@ impl EnumInfo {
             .map(|(index, variant)| (variant.name(), index))
             .collect::<HashMap<_, _>>();
 
-        let variant_names = variants
-            .iter()
-            .map(|variant| variant.name())
-            .collect::<Vec<_>>();
+        let variant_names = variants.iter().map(|variant| variant.name()).collect();
 
         Self {
             name,
             type_name: std::any::type_name::<TEnum>(),
             type_id: TypeId::of::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
-            variant_names: variant_names.into_boxed_slice(),
+            variant_names,
             variant_indices,
             #[cfg(feature = "documentation")]
             docs: None,

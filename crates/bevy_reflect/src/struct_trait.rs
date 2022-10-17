@@ -94,14 +94,14 @@ impl StructInfo {
             .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
 
-        let field_names = fields.iter().map(|field| field.name()).collect::<Vec<_>>();
+        let field_names = fields.iter().map(|field| field.name()).collect();
 
         Self {
             name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
-            field_names: field_names.into_boxed_slice(),
+            field_names,
             field_indices,
             #[cfg(feature = "documentation")]
             docs: None,
