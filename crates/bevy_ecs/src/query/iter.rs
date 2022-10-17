@@ -219,7 +219,7 @@ where
 /// A combination is an arrangement of a collection of
 /// items where order does not matter.
 ///
-/// The size of the items array output by each iteration of the loop is parameterized by `K`.
+/// K is the number of items that make up each subset, and the number of items returned by the iterator.
 /// The number of total items input to the function is defined as `N`.
 ///
 /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
