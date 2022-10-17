@@ -13,7 +13,7 @@ fn main() {
         .insert_resource(TargetScale {
             start_scale: 1.0,
             target_scale: 1.0,
-            target_time: Timer::new(Duration::from_millis(SCALE_TIME), false),
+            target_time: Timer::new(Duration::from_millis(SCALE_TIME), TimerMode::Once),
         })
         .add_startup_system(setup)
         .add_system(apply_scaling.label(ApplyScaling))

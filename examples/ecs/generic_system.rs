@@ -51,13 +51,13 @@ fn main() {
 
 fn setup_system(mut commands: Commands) {
     commands.spawn((
-        PrinterTick(Timer::from_seconds(1.0, true)),
+        PrinterTick(Timer::from_seconds(1.0, TimerMode::Repeating)),
         TextToPrint("I will print until you press space.".to_string()),
         MenuClose,
     ));
 
     commands.spawn((
-        PrinterTick(Timer::from_seconds(1.0, true)),
+        PrinterTick(Timer::from_seconds(1.0, TimerMode::Repeating)),
         TextToPrint("I will always print".to_string()),
         LevelUnload,
     ));

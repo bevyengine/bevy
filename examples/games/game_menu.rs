@@ -96,7 +96,7 @@ mod splash {
             OnSplashScreen,
         ));
         // Insert the timer as a resource
-        commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, false)));
+        commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, TimerMode::Once)));
     }
 
     // Tick the timer, and change state when finished
@@ -215,7 +215,7 @@ mod game {
                 );
             });
         // Spawn a 5 seconds timer to trigger going back to the menu
-        commands.insert_resource(GameTimer(Timer::from_seconds(5.0, false)));
+        commands.insert_resource(GameTimer(Timer::from_seconds(5.0, TimerMode::Once)));
     }
 
     // Tick the timer, and change state when finished
