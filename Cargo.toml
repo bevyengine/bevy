@@ -1548,6 +1548,13 @@ path = "tests/window/minimising.rs"
 hidden = true
 
 [[example]]
+name = "virtual"
+path = "examples/window/virtual.rs"
+
+[package.metadata.example.virtual]
+hidden = true
+
+[[example]]
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
 
