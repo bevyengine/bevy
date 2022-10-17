@@ -321,7 +321,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
     ///         // adds a single component to the entity
     ///         entity_commands.insert(Label("hello world"));
-    ///     }      
+    ///     }
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
@@ -564,6 +564,8 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 
     /// Adds a [`Bundle`] of components to the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
     ///
     /// # Panics
     ///
