@@ -8,7 +8,7 @@ use std::{
 };
 
 /// Represents a path to an asset in the file system.
-#[derive(Debug, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     path: Cow<'a, Path>,
     label: Option<Cow<'a, str>>,
