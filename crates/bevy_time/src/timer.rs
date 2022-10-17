@@ -402,6 +402,7 @@ impl Timer {
 
 /// Specifies [`Timer`] behavior.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub enum TimerMode {
     /// Run once and stop.
