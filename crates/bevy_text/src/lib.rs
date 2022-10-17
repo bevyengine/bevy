@@ -57,7 +57,7 @@ impl Default for TextSettings {
 }
 
 /// Text is rendered for two different view projections, normal `Text2DBundle` is rendered with a
-/// `BottomToTop` y axis, and UI is rendered with a `TopToBottom` y axis. This matters for text because of
+/// `BottomToTop` y axis, and UI is rendered with a `TopToBottom` y axis. This matters for text because
 /// the glyph positioning is different in either layout.
 pub enum YAxisOrientation {
     TopToBottom,
