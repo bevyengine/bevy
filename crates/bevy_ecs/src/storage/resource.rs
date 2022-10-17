@@ -149,10 +149,8 @@ impl Resources {
         &mut self,
         component_id: ComponentId,
         components: &Components,
-        f: F,
-    ) -> &mut ResourceData
-    where
-        F: FnOnce() -> ArchetypeComponentId,
+        f: impl FnOnce() -> ArchetypeComponentId,
+    ) -> &mut ResourceData,
     {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
