@@ -559,11 +559,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
     /// This can only be called for read-only queries.
     ///
-    /// A combination describes the number of possible arrangements of a collection of
-    /// items where order does not matter.
+    /// A combination is an arrangement of a collection of items where order does not matter.
     ///
-    /// The size of the items array output by each iteration of the loop is parameterized by `K`.
-    /// The number of total items input to the function is defined as `N`.
+    /// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
+    /// `N` is the number of total entities output by query.
     ///
     /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
     /// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
@@ -597,11 +596,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
     /// This can only be called for read-only queries.
     ///
-    /// A combination describes the number of possible arrangements of a collection of
-    /// items where order does not matter.
+    /// A combination is an arrangement of a collection of items where order does not matter.
     ///
-    /// The size of the items array output by each iteration of the loop is parameterized by `K`.
-    /// The number of total items input to the function is defined as `N`.
+    /// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
+    /// `N` is the number of total entities output by query.
     ///
     /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
     /// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
