@@ -112,6 +112,12 @@ pub struct RenderTextureFormat(pub wgpu::TextureFormat);
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct AvailableTextureFormats(pub Arc<Vec<wgpu::TextureFormat>>);
 
+const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
+    "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
+} else {
+    "Unable to find a GPU! Make sure you have installed required drivers!"
+};
+
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
@@ -128,7 +134,7 @@ pub async fn initialize_renderer(
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
-        .expect("Unable to find a GPU! Make sure you have installed required drivers!");
+        .expect(GPU_NOT_FOUND_ERROR_MESSAGE);
 
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
