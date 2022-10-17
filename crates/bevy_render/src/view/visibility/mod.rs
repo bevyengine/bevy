@@ -26,16 +26,16 @@ use crate::{
 
 /// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
 /// This is done by setting the values of their [`ComputedVisibility`] component.
-#[derive(Component, Clone, Reflect, Debug)]
+#[derive(Component, Clone, Reflect, Debug, PartialEq, Eq)]
 #[reflect(Component, Default)]
 pub enum Visibility {
-    Visible,
-    Invisible,
+    Shown,
+    Hidden,
 }
 
 impl Default for Visibility {
     fn default() -> Self {
-        Self::Visible
+        Self::Shown
     }
 }
 
@@ -44,8 +44,8 @@ impl Visibility {
     #[inline]
     pub const fn is_visible(&self) -> bool {
         match self {
-            Self::Visible => true,
-            Self::Invisible => false,
+            Self::Shown => true,
+            Self::Hidden => false,
         }
     }
 
@@ -53,8 +53,8 @@ impl Visibility {
     #[inline]
     pub fn toggle(&mut self) {
         *self = match self {
-            Self::Visible => Self::Invisible,
-            Self::Invisible => Self::Visible,
+            Self::Shown => Self::Hidden,
+            Self::Hidden => Self::Shown,
         }
     }
 }
@@ -69,13 +69,13 @@ pub struct ComputedVisibility {
 
 impl Default for ComputedVisibility {
     fn default() -> Self {
-        Self::INVISIBLE
+        Self::HIDDEN
     }
 }
 
 impl ComputedVisibility {
     /// A [`ComputedVisibility`], set as invisible.
-    pub const INVISIBLE: Self = ComputedVisibility {
+    pub const HIDDEN: Self = ComputedVisibility {
         is_visible_in_hierarchy: false,
         is_visible_in_view: false,
     };
@@ -438,7 +438,7 @@ mod test {
 
         let root1 = app
             .world
-            .spawn((Visibility::Invisible, ComputedVisibility::default()))
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
             .id();
         let root1_child1 = app
             .world
@@ -446,7 +446,7 @@ mod test {
             .id();
         let root1_child2 = app
             .world
-            .spawn((Visibility::Invisible, ComputedVisibility::default()))
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
             .id();
         let root1_child1_grandchild1 = app
             .world
@@ -477,7 +477,7 @@ mod test {
             .id();
         let root2_child2 = app
             .world
-            .spawn((Visibility::Invisible, ComputedVisibility::default()))
+            .spawn((Visibility::Hidden, ComputedVisibility::default()))
             .id();
         let root2_child1_grandchild1 = app
             .world
