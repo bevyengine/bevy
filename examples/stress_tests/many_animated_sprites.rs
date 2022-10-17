@@ -61,7 +61,7 @@ fn setup(
             let translation = (position * tile_size).extend(rng.gen::<f32>());
             let rotation = Quat::from_rotation_z(rng.gen::<f32>());
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
-            let mut timer = Timer::from_seconds(0.1, true);
+            let mut timer = Timer::from_seconds(0.1, TimerMode::Repeating);
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
             commands.spawn((
@@ -118,7 +118,7 @@ struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(1.0, true))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }
 
