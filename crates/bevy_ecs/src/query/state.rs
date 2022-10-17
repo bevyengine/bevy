@@ -925,7 +925,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 Q::set_table(&mut fetch, &self.fetch_state, table);
                 F::set_table(&mut filter, &self.filter_state, table);
 
-                for table_index in 0..table.len() {
+                for table_index in 0..table.entity_count() {
                     if !F::table_filter_fetch(&mut filter, table_index) {
                         continue;
                     }
@@ -984,9 +984,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
                     let mut offset = 0;
-                    while offset < table.len() {
+                    while offset < table.entity_count() {
                         let func = func.clone();
-                        let len = batch_size.min(table.len() - offset);
+                        let len = batch_size.min(table.entity_count() - offset);
                         let task = async move {
                             let mut fetch = Q::init_fetch(
                                 world,
