@@ -47,6 +47,11 @@ impl Visibility {
 
     /// A [`Visibility`], set as invisible.
     pub const INVISIBLE: Self = Visibility { is_visible: false };
+
+    /// Toggle the visibility.
+    pub fn toggle(&mut self) {
+        self.is_visible = !self.is_visible;
+    }
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
