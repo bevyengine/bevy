@@ -2,6 +2,56 @@ use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_utils::{tracing::info, HashMap, HashSet};
+use thiserror::Error;
+
+/// Errors that occur when setting axis settings for gamepad input.
+#[derive(Error, Debug, PartialEq)]
+pub enum AxisSettingsError {
+    /// The given parameter `livezone_lowerbound` was not in range -1.0..=0.0.
+    #[error("invalid livezone_lowerbound {0}, expected value [-1.0..=0.0]")]
+    LiveZoneLowerBoundOutOfRange(f32),
+    /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
+    #[error("invalid deadzone_lowerbound {0}, expected value [-1.0..=0.0]")]
+    DeadZoneLowerBoundOutOfRange(f32),
+    /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
+    #[error("invalid deadzone_upperbound {0}, expected value [0.0..=1.0]")]
+    DeadZoneUpperBoundOutOfRange(f32),
+    /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
+    #[error("invalid livezone_upperbound {0}, expected value [0.0..=1.0]")]
+    LiveZoneUpperBoundOutOfRange(f32),
+    /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
+    #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", .livezone_lowerbound, .deadzone_lowerbound)]
+    LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+        livezone_lowerbound: f32,
+        deadzone_lowerbound: f32,
+    },
+    ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
+    #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", .livezone_upperbound, .deadzone_upperbound)]
+    DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+        livezone_upperbound: f32,
+        deadzone_upperbound: f32,
+    },
+    /// The given parameter was not in range 0.0..=2.0.
+    #[error("invalid threshold {0}, expected 0.0 <= threshold <= 2.0")]
+    Threshold(f32),
+}
+
+/// Errors that occur when setting button settings for gamepad input.
+#[derive(Error, Debug, PartialEq)]
+pub enum ButtonSettingsError {
+    /// The given parameter was not in range 0.0..=2.0.
+    #[error("invalid release_threshold {0}, expected value [0.0..=1.0]")]
+    ReleaseThresholdOutOfRange(f32),
+    /// The given parameter was not in range 0.0..=2.0.
+    #[error("invalid press_threshold {0}, expected [0.0..=1.0]")]
+    PressThresholdOutOfRange(f32),
+    /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
+    #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", .release_threshold, .press_threshold)]
+    ReleaseThresholdGreaterThanPressThreshold {
+        press_threshold: f32,
+        release_threshold: f32,
+    },
+}
 
 /// A gamepad with an associated `ID`.
 ///
@@ -154,7 +204,7 @@ impl GamepadEvent {
 ///     button_inputs: ResMut<Input<GamepadButton>>,
 /// ) {
 ///     let gamepad = gamepads.iter().next().unwrap();
-///     let gamepad_button= GamepadButton::new(gamepad, GamepadButtonType::South);
+///     let gamepad_button = GamepadButton::new(gamepad, GamepadButtonType::South);
 ///
 ///     my_resource.0 = button_inputs.pressed(gamepad_button);
 /// }
@@ -473,47 +523,158 @@ impl GamepadSettings {
     }
 }
 
-/// Settings for a [`GamepadButton`].
+/// Manages settings for gamepad buttons.
 ///
-/// ## Usage
+/// It is used inside of [`GamepadSettings`] to define the threshold for a gamepad button
+/// to be considered pressed or released. A button is considered pressed if the `press_threshold`
+/// value is surpassed and released if the `release_threshold` value is undercut.
 ///
-/// It is used inside of the [`GamepadSettings`] to define the threshold for a gamepad button
-/// to be considered pressed or released. A button is considered pressed if the `press`
-/// value is surpassed and released if the `release` value is undercut.
-///
-/// ## Updating
-///
-/// The current value of a button is received through the [`GamepadEvent`]s or [`GamepadEventRaw`]s.
+/// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
 #[derive(Debug, Clone)]
 pub struct ButtonSettings {
-    /// The threshold for the button to be considered as pressed.
-    pub press: f32,
-    /// The threshold for the button to be considered as released.
-    pub release: f32,
+    press_threshold: f32,
+    release_threshold: f32,
 }
 
 impl Default for ButtonSettings {
     fn default() -> Self {
         ButtonSettings {
-            press: 0.75,
-            release: 0.65,
+            press_threshold: 0.75,
+            release_threshold: 0.65,
         }
     }
 }
 
 impl ButtonSettings {
+    /// Creates a new [`ButtonSettings`] instance.
+    ///
+    /// # Parameters
+    ///
+    /// + `press_threshold` is the button input value above which the button is considered pressed.
+    /// + `release_threshold` is the button input value below which the button is considered released.
+    ///
+    /// Restrictions:
+    /// + `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
+    ///
+    /// # Errors
+    ///
+    /// If the restrictions are not met, returns one of
+    /// `GamepadSettingsError::ButtonReleaseThresholdOutOfRange`,
+    /// `GamepadSettingsError::ButtonPressThresholdOutOfRange`, or
+    /// `GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold`.
+    pub fn new(
+        press_threshold: f32,
+        release_threshold: f32,
+    ) -> Result<ButtonSettings, ButtonSettingsError> {
+        if !(0.0..=1.0).contains(&release_threshold) {
+            Err(ButtonSettingsError::ReleaseThresholdOutOfRange(
+                release_threshold,
+            ))
+        } else if !(0.0..=1.0).contains(&press_threshold) {
+            Err(ButtonSettingsError::PressThresholdOutOfRange(
+                press_threshold,
+            ))
+        } else if release_threshold > press_threshold {
+            Err(
+                ButtonSettingsError::ReleaseThresholdGreaterThanPressThreshold {
+                    press_threshold,
+                    release_threshold,
+                },
+            )
+        } else {
+            Ok(ButtonSettings {
+                press_threshold,
+                release_threshold,
+            })
+        }
+    }
+
     /// Returns `true` if the button is pressed.
     ///
-    /// A button is considered pressed if the `value` passed is greater than or equal to the `press` threshold.
+    /// A button is considered pressed if the `value` passed is greater than or equal to the press threshold.
     fn is_pressed(&self, value: f32) -> bool {
-        value >= self.press
+        value >= self.press_threshold
     }
 
     /// Returns `true` if the button is released.
     ///
-    /// A button is considered released if the `value` passed is lower than or equal to the `release` threshold.
+    /// A button is considered released if the `value` passed is lower than or equal to the release threshold.
     fn is_released(&self, value: f32) -> bool {
-        value <= self.release
+        value <= self.release_threshold
+    }
+
+    /// Get the button input threshold above which the button is considered pressed.
+    pub fn press_threshold(&self) -> f32 {
+        self.press_threshold
+    }
+
+    /// Try to set the button input threshold above which the button is considered pressed.
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is outside the range [release threshold..=1.0], returns either
+    /// `GamepadSettingsError::ButtonPressThresholdOutOfRange` or
+    /// `GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold`.
+    pub fn try_set_press_threshold(&mut self, value: f32) -> Result<(), ButtonSettingsError> {
+        if (self.release_threshold..=1.0).contains(&value) {
+            self.press_threshold = value;
+            Ok(())
+        } else if !(0.0..1.0).contains(&value) {
+            Err(ButtonSettingsError::PressThresholdOutOfRange(value))
+        } else {
+            Err(
+                ButtonSettingsError::ReleaseThresholdGreaterThanPressThreshold {
+                    press_threshold: value,
+                    release_threshold: self.release_threshold,
+                },
+            )
+        }
+    }
+
+    /// Try to set the button input threshold above which the button is considered pressed.
+    /// If the value passed is outside the range [release threshold..=1.0], the value will not be changed.
+    ///
+    /// Returns the new value of the press threshold.
+    pub fn set_press_threshold(&mut self, value: f32) -> f32 {
+        self.try_set_press_threshold(value).ok();
+        self.press_threshold
+    }
+
+    /// Get the button input threshold below which the button is considered released.
+    pub fn release_threshold(&self) -> f32 {
+        self.release_threshold
+    }
+
+    /// Try to set the button input threshold below which the button is considered released.
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is outside the range [0.0..=press threshold], returns
+    /// `ButtonSettingsError::ReleaseThresholdOutOfRange` or
+    /// `ButtonSettingsError::ReleaseThresholdGreaterThanPressThreshold`.
+    pub fn try_set_release_threshold(&mut self, value: f32) -> Result<(), ButtonSettingsError> {
+        if (0.0..=self.press_threshold).contains(&value) {
+            self.release_threshold = value;
+            Ok(())
+        } else if !(0.0..1.0).contains(&value) {
+            Err(ButtonSettingsError::ReleaseThresholdOutOfRange(value))
+        } else {
+            Err(
+                ButtonSettingsError::ReleaseThresholdGreaterThanPressThreshold {
+                    press_threshold: self.press_threshold,
+                    release_threshold: value,
+                },
+            )
+        }
+    }
+
+    /// Try to set the button input threshold below which the button is considered released. If the
+    /// value passed is outside the range [0.0..=press threshold], the value will not be changed.
+    ///
+    /// Returns the new value of the release threshold.
+    pub fn set_release_threshold(&mut self, value: f32) -> f32 {
+        self.try_set_release_threshold(value).ok();
+        self.release_threshold
     }
 }
 
@@ -521,66 +682,300 @@ impl ButtonSettings {
 ///
 /// It is used inside of the [`GamepadSettings`] to define the sensitivity range and
 /// threshold for an axis.
+/// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
+/// Values that are lower than `livezone_lowerbound` will be rounded down to -1.0.
+/// Values that are in-between `deadzone_lowerbound` and `deadzone_upperbound` will be rounded
+/// to 0.0.
+/// Otherwise, values will not be rounded.
 ///
-/// ## Logic
-///
-/// - Values that are in-between `negative_low` and `positive_low` will be rounded to 0.0.
-/// - Values that are higher than or equal to `positive_high` will be rounded to 1.0.
-/// - Values that are lower than or equal to `negative_high` will be rounded to -1.0.
-/// - Otherwise, values will not be rounded.
-///
-/// The valid range is from -1.0 to 1.0, inclusive.
-///
-/// ## Updating
-///
-/// The current value of an axis is received through the [`GamepadEvent`]s or [`GamepadEventRaw`]s.
+/// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone)]
 pub struct AxisSettings {
-    /// The positive high value at which to apply rounding.
-    pub positive_high: f32,
-    /// The positive low value at which to apply rounding.
-    pub positive_low: f32,
-    /// The negative high value at which to apply rounding.
-    pub negative_high: f32,
-    /// The negative low value at which to apply rounding.
-    pub negative_low: f32,
-    /// The threshold defining the minimum difference between the old and new values to apply the changes.
-    pub threshold: f32,
+    /// Values that are higher than `livezone_upperbound` will be rounded up to -1.0.
+    livezone_upperbound: f32,
+    /// Positive values that are less than `deadzone_upperbound` will be rounded down to 0.0.
+    deadzone_upperbound: f32,
+    /// Negative values that are greater than `deadzone_lowerbound` will be rounded up to 0.0.
+    deadzone_lowerbound: f32,
+    /// Values that are lower than `livezone_lowerbound` will be rounded down to -1.0.
+    livezone_lowerbound: f32,
+    /// `threshold` defines the minimum difference between old and new values to apply the changes.
+    threshold: f32,
 }
 
 impl Default for AxisSettings {
     fn default() -> Self {
         AxisSettings {
-            positive_high: 0.95,
-            positive_low: 0.05,
-            negative_high: -0.95,
-            negative_low: -0.05,
+            livezone_upperbound: 0.95,
+            deadzone_upperbound: 0.05,
+            deadzone_lowerbound: -0.05,
+            livezone_lowerbound: -0.95,
             threshold: 0.01,
         }
     }
 }
 
 impl AxisSettings {
-    /// Filters the `new_value` according to the specified settings.
+    /// Creates a new `AxisSettings` instance.
     ///
-    /// If the `new_value` is:
-    /// - in-between `negative_low` and `positive_low` it will be rounded to 0.0.
-    /// - higher than or equal to `positive_high` it will be rounded to 1.0.
-    /// - lower than or equal to `negative_high` it will be rounded to -1.0.
-    /// - Otherwise it will not be rounded.
+    /// # Arguments
     ///
-    /// If the difference between the calculated value and the `old_value` is lower or
-    /// equal to the `threshold`, [`None`] will be returned.
-    fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
-        let new_value = if new_value <= self.positive_low && new_value >= self.negative_low {
-            0.0
-        } else if new_value >= self.positive_high {
-            1.0
-        } else if new_value <= self.negative_high {
-            -1.0
+    /// + `livezone_lowerbound` - the value below which inputs will be rounded down to -1.0.
+    /// + `deadzone_lowerbound` - the value above which negative inputs will be rounded up to 0.0.
+    /// + `deadzone_upperbound` - the value below which positive inputs will be rounded down to 0.0.
+    /// + `livezone_upperbound` - the value above which inputs will be rounded up to 1.0.
+    /// + `threshold` - the minimum value by which input must change before the change is registered.
+    ///
+    /// Restrictions:
+    /// + `-1.0 <= ``livezone_lowerbound`` <= ``deadzone_lowerbound`` <= 0.0 <= ``deadzone_upperbound`` <=
+    /// ``livezone_upperbound`` <= 1.0`
+    /// + `0.0 <= ``threshold`` <= 2.0`
+    ///
+    /// # Errors
+    ///
+    /// Returns an `AxisSettingsError` if any restrictions on the zone values are not met.
+    /// If the zone restrictions are met, but the ``threshold`` value restrictions are not met,
+    /// returns `AxisSettingsError::Threshold`.
+    pub fn new(
+        livezone_lowerbound: f32,
+        deadzone_lowerbound: f32,
+        deadzone_upperbound: f32,
+        livezone_upperbound: f32,
+        threshold: f32,
+    ) -> Result<AxisSettings, AxisSettingsError> {
+        if !(-1.0..=0.0).contains(&livezone_lowerbound) {
+            Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(
+                livezone_lowerbound,
+            ))
+        } else if !(-1.0..=0.0).contains(&deadzone_lowerbound) {
+            Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(
+                deadzone_lowerbound,
+            ))
+        } else if !(-1.0..=0.0).contains(&deadzone_upperbound) {
+            Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(
+                deadzone_upperbound,
+            ))
+        } else if !(-1.0..=0.0).contains(&livezone_upperbound) {
+            Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(
+                livezone_upperbound,
+            ))
+        } else if livezone_lowerbound > deadzone_lowerbound {
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+                    livezone_lowerbound,
+                    deadzone_lowerbound,
+                },
+            )
+        } else if deadzone_upperbound > livezone_upperbound {
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+                    livezone_upperbound,
+                    deadzone_upperbound,
+                },
+            )
+        } else if !(0.0..=2.0).contains(&threshold) {
+            Err(AxisSettingsError::Threshold(threshold))
         } else {
-            new_value
-        };
+            Ok(Self {
+                livezone_lowerbound,
+                deadzone_lowerbound,
+                deadzone_upperbound,
+                livezone_upperbound,
+                threshold,
+            })
+        }
+    }
+
+    /// Get the value above which inputs will be rounded up to 1.0.
+    pub fn livezone_upperbound(&self) -> f32 {
+        self.livezone_upperbound
+    }
+
+    /// Try to set the value above which inputs will be rounded up to 1.0.
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is less than the dead zone upper bound,
+    /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
+    /// If the value passsed is not in range [0.0..=1.0], returns `AxisSettingsError::LiveZoneUpperBoundOutOfRange`.
+    pub fn try_set_livezone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
+        if !(0.0..=1.0).contains(&value) {
+            Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(value))
+        } else if value < self.deadzone_upperbound {
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+                    livezone_upperbound: value,
+                    deadzone_upperbound: self.deadzone_upperbound,
+                },
+            )
+        } else {
+            self.livezone_upperbound = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the value above which inputs will be rounded up to 1.0.
+    /// If the value is less than `deadzone_upperbound` or greater than 1.0,
+    /// the value will not be changed.
+    /// Returns the new value of `livezone_upperbound`.
+    pub fn set_livezone_upperbound(&mut self, value: f32) -> f32 {
+        self.try_set_livezone_upperbound(value).ok();
+        self.livezone_upperbound
+    }
+
+    /// Get the value below which positive inputs will be rounded down to 0.0.
+    pub fn deadzone_upperbound(&self) -> f32 {
+        self.deadzone_upperbound
+    }
+
+    /// Try to set the value below which positive inputs will be rounded down to 0.0.
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is greater than the live zone upper bound,
+    /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
+    /// If the value passsed is not in range [0.0..=1.0], returns `AxisSettingsError::DeadZoneUpperBoundOutOfRange`.
+    pub fn try_set_deadzone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
+        if !(0.0..=1.0).contains(&value) {
+            Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(value))
+        } else if self.livezone_upperbound < value {
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+                    livezone_upperbound: self.livezone_upperbound,
+                    deadzone_upperbound: value,
+                },
+            )
+        } else {
+            self.deadzone_upperbound = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the value below which positive inputs will be rounded down to 0.0.
+    /// If the value passed is negative or greater than `livezone_upperbound`,
+    /// the value will not be changed.
+    ///
+    /// Returns the new value of `deadzone_upperbound`.
+    pub fn set_deadzone_upperbound(&mut self, value: f32) -> f32 {
+        self.try_set_deadzone_upperbound(value).ok();
+        self.deadzone_upperbound
+    }
+
+    /// Get the value above which negative inputs will be rounded up to 0.0.
+    pub fn livezone_lowerbound(&self) -> f32 {
+        self.livezone_lowerbound
+    }
+
+    /// Try to set the value above which negative inputs will be rounded up to 0.0.
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is less than the dead zone lower bound,
+    /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
+    /// If the value passsed is not in range [-1.0..=0.0], returns `AxisSettingsError::LiveZoneLowerBoundOutOfRange`.
+    pub fn try_set_livezone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
+        if !(-1.0..=0.0).contains(&value) {
+            Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(value))
+        } else if value > self.deadzone_lowerbound {
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+                    livezone_lowerbound: value,
+                    deadzone_lowerbound: self.deadzone_lowerbound,
+                },
+            )
+        } else {
+            self.livezone_lowerbound = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the value above which negative inputs will be rounded up to 0.0.
+    /// If the value passed is positive or less than `deadzone_lowerbound`,
+    /// the value will not be changed.
+    ///
+    /// Returns the new value of `livezone_lowerbound`.
+    pub fn set_livezone_lowerbound(&mut self, value: f32) -> f32 {
+        self.try_set_livezone_lowerbound(value).ok();
+        self.livezone_lowerbound
+    }
+
+    /// Get the value below which inputs will be rounded down to -1.0.
+    pub fn deadzone_lowerbound(&self) -> f32 {
+        self.deadzone_lowerbound
+    }
+
+    /// Try to set the value below which inputs will be rounded down to -1.0.
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is less than the live zone lower bound,
+    /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
+    /// If the value passsed is not in range [-1.0..=0.0], returns `AxisSettingsError::DeadZoneLowerBoundOutOfRange`.
+    pub fn try_set_deadzone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
+        if !(-1.0..=0.0).contains(&value) {
+            Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(value))
+        } else if self.livezone_lowerbound > value {
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+                    livezone_lowerbound: self.livezone_lowerbound,
+                    deadzone_lowerbound: value,
+                },
+            )
+        } else {
+            self.deadzone_lowerbound = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the value below which inputs will be rounded down to -1.0.
+    /// If the value passed is less than -1.0 or greater than `livezone_lowerbound`,
+    /// the value will not be changed.
+    ///
+    /// Returns the new value of `deadzone_lowerbound`.
+    pub fn set_deadzone_lowerbound(&mut self, value: f32) -> f32 {
+        self.try_set_deadzone_lowerbound(value).ok();
+        self.deadzone_lowerbound
+    }
+
+    /// Get the minimum value by which input must change before the change is registered.
+    pub fn threshold(&self) -> f32 {
+        self.threshold
+    }
+
+    /// Try to set the minimum value by which input must change before the change is registered.
+    ///
+    /// # Errors
+    ///
+    /// If the value passed is not within [0.0..=2.0], returns `GamepadSettingsError::AxisThreshold`.
+    pub fn try_set_threshold(&mut self, value: f32) -> Result<(), AxisSettingsError> {
+        if !(0.0..=2.0).contains(&value) {
+            Err(AxisSettingsError::Threshold(value))
+        } else {
+            self.threshold = value;
+            Ok(())
+        }
+    }
+
+    /// Try to set the minimum value by which input must change before the changes will be applied.
+    /// If the value passed is not within [0.0..=2.0], the value will not be changed.
+    ///
+    /// Returns the new value of threshold.
+    pub fn set_threshold(&mut self, value: f32) -> f32 {
+        self.try_set_threshold(value).ok();
+        self.threshold
+    }
+
+    fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
+        let new_value =
+            if self.deadzone_lowerbound <= new_value && new_value <= self.deadzone_upperbound {
+                0.0
+            } else if new_value >= self.livezone_upperbound {
+                1.0
+            } else if new_value <= self.livezone_lowerbound {
+                -1.0
+            } else {
+                new_value
+            };
 
         if let Some(old_value) = old_value {
             if (new_value - old_value).abs() <= self.threshold {
@@ -798,6 +1193,8 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
 
 #[cfg(test)]
 mod tests {
+    use crate::gamepad::{AxisSettingsError, ButtonSettingsError};
+
     use super::{AxisSettings, ButtonAxisSettings, ButtonSettings};
 
     fn test_button_axis_settings_filter(
@@ -949,7 +1346,11 @@ mod tests {
             let settings = ButtonSettings::default();
             let actual = settings.is_pressed(value);
 
-            assert_eq!(expected, actual, "Testing is pressed for value: {}", value);
+            assert_eq!(
+                expected, actual,
+                "testing ButtonSettings::is_pressed() for value: {}",
+                value
+            );
         }
     }
 
@@ -971,7 +1372,153 @@ mod tests {
             let settings = ButtonSettings::default();
             let actual = settings.is_released(value);
 
-            assert_eq!(expected, actual, "Testing is released for value: {}", value);
+            assert_eq!(
+                expected, actual,
+                "testing ButtonSettings::is_released() for value: {}",
+                value
+            );
         }
+    }
+
+    #[test]
+    fn test_new_button_settings_given_valid_parameters() {
+        let cases = [
+            (1.0, 0.0),
+            (1.0, 1.0),
+            (1.0, 0.9),
+            (0.9, 0.9),
+            (0.9, 0.0),
+            (0.0, 0.0),
+        ];
+
+        for (press_threshold, release_threshold) in cases {
+            let bs = ButtonSettings::new(press_threshold, release_threshold);
+            match bs {
+                Ok(button_settings) => {
+                    assert_eq!(button_settings.press_threshold, press_threshold);
+                    assert_eq!(button_settings.release_threshold, release_threshold);
+                }
+                Err(_) => {
+                    panic!(
+                        "ButtonSettings::new({}, {}) should be valid ",
+                        press_threshold, release_threshold
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_new_button_settings_given_invalid_parameters() {
+        let cases = [
+            (1.1, 0.0),
+            (1.1, 1.0),
+            (1.0, 1.1),
+            (-1.0, 0.9),
+            (-1.0, 0.0),
+            (-1.0, -0.4),
+            (0.9, 1.0),
+            (0.0, 0.1),
+        ];
+
+        for (press_threshold, release_threshold) in cases {
+            let bs = ButtonSettings::new(press_threshold, release_threshold);
+            match bs {
+                Ok(_) => {
+                    panic!(
+                        "ButtonSettings::new({}, {}) should be invalid",
+                        press_threshold, release_threshold
+                    );
+                }
+                Err(err_code) => match err_code {
+                    ButtonSettingsError::PressThresholdOutOfRange(_press_threshold) => {}
+                    ButtonSettingsError::ReleaseThresholdGreaterThanPressThreshold {
+                        press_threshold: _press_threshold,
+                        release_threshold: _release_threshold,
+                    } => {}
+                    ButtonSettingsError::ReleaseThresholdOutOfRange(_release_threshold) => {}
+                },
+            }
+        }
+    }
+
+    #[test]
+    fn test_try_out_of_range_axis_settings() {
+        let mut axis_settings = AxisSettings::default();
+        assert_eq!(
+            Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(-2.0)),
+            axis_settings.try_set_livezone_lowerbound(-2.0)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(0.1)),
+            axis_settings.try_set_livezone_lowerbound(0.1)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(-2.0)),
+            axis_settings.try_set_deadzone_lowerbound(-2.0)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(0.1)),
+            axis_settings.try_set_deadzone_lowerbound(0.1)
+        );
+
+        assert_eq!(
+            Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(-0.1)),
+            axis_settings.try_set_deadzone_upperbound(-0.1)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(1.1)),
+            axis_settings.try_set_deadzone_upperbound(1.1)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(-0.1)),
+            axis_settings.try_set_livezone_upperbound(-0.1)
+        );
+        assert_eq!(
+            Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(1.1)),
+            axis_settings.try_set_livezone_upperbound(1.1)
+        );
+
+        axis_settings.set_livezone_lowerbound(-0.7);
+        axis_settings.set_deadzone_lowerbound(-0.3);
+        assert_eq!(
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+                    livezone_lowerbound: -0.1,
+                    deadzone_lowerbound: -0.3,
+                }
+            ),
+            axis_settings.try_set_livezone_lowerbound(-0.1)
+        );
+        assert_eq!(
+            Err(
+                AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+                    livezone_lowerbound: -0.7,
+                    deadzone_lowerbound: -0.9
+                }
+            ),
+            axis_settings.try_set_deadzone_lowerbound(-0.9)
+        );
+
+        axis_settings.set_deadzone_upperbound(0.3);
+        axis_settings.set_livezone_upperbound(0.7);
+        assert_eq!(
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+                    deadzone_upperbound: 0.8,
+                    livezone_upperbound: 0.7
+                }
+            ),
+            axis_settings.try_set_deadzone_upperbound(0.8)
+        );
+        assert_eq!(
+            Err(
+                AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+                    deadzone_upperbound: 0.3,
+                    livezone_upperbound: 0.1
+                }
+            ),
+            axis_settings.try_set_livezone_upperbound(0.1)
+        );
     }
 }
