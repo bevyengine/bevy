@@ -146,20 +146,15 @@ impl Plugin for RenderPlugin {
         if let Some(backends) = options.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
-            let surface = {
-                if let Some(window) = windows.get_primary() {
-                    if let Some(raw_window_handle) = window.raw_window_handle() {
-                        unsafe {
-                            let handle = raw_window_handle.get_handle();
-                            Some(instance.create_surface(&handle))
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            };
+
+            let surface = windows
+                .get_primary()
+                .and_then(|window| window.raw_window_handle())
+                .map(|wrapper| unsafe {
+                    let handle = wrapper.get_handle();
+                    instance.create_surface(&handle)
+                });
+
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: options.power_preference,
                 compatible_surface: surface.as_ref(),
