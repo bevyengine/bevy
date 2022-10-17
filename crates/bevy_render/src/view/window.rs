@@ -171,6 +171,7 @@ pub fn prepare_windows(
                 render_instance.create_surface(&window.handle.get_handle())
             });
 
+        // Creates a closure to avoid calling this logic unnecessarily
         let create_swap_chain_descriptor = || wgpu::SurfaceConfiguration {
             format: *surface
                 .get_supported_formats(&render_adapter)
