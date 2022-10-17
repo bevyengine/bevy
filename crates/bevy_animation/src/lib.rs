@@ -243,6 +243,7 @@ pub fn animation_player(
                             .keyframe_timestamps
                             .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
                         {
+                            Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
                             Ok(i) => i,
                             Err(0) => continue, // this curve isn't started yet
                             Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
