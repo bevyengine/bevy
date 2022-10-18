@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, FlipImage};
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, FlipImage, Node, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -191,7 +191,7 @@ pub fn extract_uinodes(
     >,
 ) {
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility,  flip_image, clip) in uinode_query.iter() {
+    for (uinode, transform, color, image, visibility, flip_image, clip) in uinode_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
@@ -204,12 +204,11 @@ pub fn extract_uinodes(
         if color.0.a() == 0.0 {
             continue;
         }
-        let (flip_x, flip_y) = 
-            if let Some(flip) = flip_image {
-                (flip.x_axis, flip.y_axis)
-            } else {
-                (false, false)
-            };
+        let (flip_x, flip_y) = if let Some(flip) = flip_image {
+            (flip.x_axis, flip.y_axis)
+        } else {
+            (false, false)
+        };
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
             background_color: color.0,
@@ -501,7 +500,6 @@ pub fn prepare_uinodes(
         if extracted_uinode.flip_y {
             uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
         }
-
 
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
