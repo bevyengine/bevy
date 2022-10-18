@@ -348,7 +348,7 @@ pub enum WindowCommand {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum CursorGrabMode {
-    /// The cursor can freely leave the window
+    /// The cursor can freely leave the window.
     None,
     /// The cursor is confined to the window area.
     Confined,
