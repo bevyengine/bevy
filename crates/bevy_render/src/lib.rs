@@ -146,7 +146,7 @@ impl Plugin for RenderPlugin {
         if let Some(backends) = options.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
-            
+
             let surface = windows
                 .get_primary()
                 .and_then(|window| window.raw_handle())
@@ -154,7 +154,7 @@ impl Plugin for RenderPlugin {
                     let handle = wrapper.get_handle();
                     instance.create_surface(&handle)
                 });
-            
+
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: options.power_preference,
                 compatible_surface: surface.as_ref(),
