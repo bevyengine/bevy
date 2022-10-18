@@ -368,7 +368,7 @@ impl RenderTarget {
 ///
 /// ## World Resources
 ///
-/// [`Res<Assets<Image>>`] -- For cameras that render to an image, this resource is used to
+/// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
 /// inspect information about the render target. This system will not access any other image assets.
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
