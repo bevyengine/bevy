@@ -194,21 +194,33 @@ impl Plugin for VisibilityPlugin {
             update_frusta::<OrthographicProjection>
                 .label(UpdateOrthographicFrusta)
                 .after(camera_system::<OrthographicProjection>)
-                .after(TransformSystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate)
+                // We assume that no camera will have more than one projection component,
+                // so these systems will run independently of one another.
+                .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                .ambiguous_with(update_frusta::<Projection>),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             update_frusta::<PerspectiveProjection>
                 .label(UpdatePerspectiveFrusta)
                 .after(camera_system::<PerspectiveProjection>)
-                .after(TransformSystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate)
+                // We assume that no camera will have more than one projection component,
+                // so these systems will run independently of one another.
+                .ambiguous_with(update_frusta::<OrthographicProjection>)
+                .ambiguous_with(update_frusta::<Projection>),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             update_frusta::<Projection>
                 .label(UpdateProjectionFrusta)
                 .after(camera_system::<Projection>)
-                .after(TransformSystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate)
+                // We assume that no camera will have more than one projection component,
+                // so these systems will run independently of one another.
+                .ambiguous_with(update_frusta::<OrthographicProjection>)
+                .ambiguous_with(update_frusta::<PerspectiveProjection>),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
