@@ -594,7 +594,6 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
-    /// This can only be called for read-only queries.
     ///
     /// A combination is an arrangement of a collection of items where order does not matter.
     ///
