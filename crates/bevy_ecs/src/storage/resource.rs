@@ -36,7 +36,10 @@ impl ResourceData {
     pub fn get_ticks(&self) -> Option<&ComponentTicks> {
         self.column
             .get_ticks(0)
-            // SAFETY: If the first row exists, a valid ticks value has been written.
+            // SAFETY: 
+            //  - This borrow's lifetime is bounded by the lifetime on self.
+            //  - A read-only borrow on self can only exist while a mutable borrow doesn't 
+            //    exist.
             .map(|ticks| unsafe { ticks.deref() })
     }
 
