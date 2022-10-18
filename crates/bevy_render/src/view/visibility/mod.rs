@@ -197,6 +197,7 @@ impl Plugin for VisibilityPlugin {
                 .after(TransformSystem::TransformPropagate)
                 // We assume that no camera will have more than one projection component,
                 // so these systems will run independently of one another.
+                // FIXME: Add an archetype invariant for this, when that is supported.
                 .ambiguous_with(update_frusta::<PerspectiveProjection>)
                 .ambiguous_with(update_frusta::<Projection>),
         )
