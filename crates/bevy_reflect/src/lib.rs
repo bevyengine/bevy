@@ -835,6 +835,160 @@ mod tests {
         assert!(info.is::<MyDynamic>());
     }
 
+    #[cfg(feature = "documentation")]
+    mod docstrings {
+        use super::*;
+
+        #[test]
+        fn should_not_contain_docs() {
+            // Regular comments do not count as doc comments,
+            // and are therefore not reflected.
+            #[derive(Reflect)]
+            struct SomeStruct;
+
+            let info = <SomeStruct as Typed>::type_info();
+            assert_eq!(None, info.docs());
+
+            /*
+             * Block comments do not count as doc comments,
+             * and are therefore not reflected.
+             */
+            #[derive(Reflect)]
+            struct SomeOtherStruct;
+
+            let info = <SomeOtherStruct as Typed>::type_info();
+            assert_eq!(None, info.docs());
+        }
+
+        #[test]
+        fn should_contain_docs() {
+            /// Some struct.
+            ///
+            /// # Example
+            ///
+            /// ```ignore
+            /// let some_struct = SomeStruct;
+            /// ```
+            #[derive(Reflect)]
+            struct SomeStruct;
+
+            let info = <SomeStruct as Typed>::type_info();
+            assert_eq!(
+                Some(" Some struct.\n\n # Example\n\n ```ignore\n let some_struct = SomeStruct;\n ```"),
+                info.docs()
+            );
+
+            #[doc = "The compiler automatically converts `///`-style comments into `#[doc]` attributes."]
+            #[doc = "Of course, you _could_ use the attribute directly if you wanted to."]
+            #[doc = "Both will be reflected."]
+            #[derive(Reflect)]
+            struct SomeOtherStruct;
+
+            let info = <SomeOtherStruct as Typed>::type_info();
+            assert_eq!(
+                Some("The compiler automatically converts `///`-style comments into `#[doc]` attributes.\nOf course, you _could_ use the attribute directly if you wanted to.\nBoth will be reflected."),
+                info.docs()
+            );
+
+            /// Some tuple struct.
+            #[derive(Reflect)]
+            struct SomeTupleStruct(usize);
+
+            let info = <SomeTupleStruct as Typed>::type_info();
+            assert_eq!(Some(" Some tuple struct."), info.docs());
+
+            /// Some enum.
+            #[derive(Reflect)]
+            enum SomeEnum {
+                Foo,
+            }
+
+            let info = <SomeEnum as Typed>::type_info();
+            assert_eq!(Some(" Some enum."), info.docs());
+
+            #[derive(Clone)]
+            struct SomePrimitive;
+            impl_reflect_value!(
+                /// Some primitive for which we have attributed custom documentation.
+                SomePrimitive
+            );
+
+            let info = <SomePrimitive as Typed>::type_info();
+            assert_eq!(
+                Some(" Some primitive for which we have attributed custom documentation."),
+                info.docs()
+            );
+        }
+
+        #[test]
+        fn fields_should_contain_docs() {
+            #[derive(Reflect)]
+            struct SomeStruct {
+                /// The name
+                name: String,
+                /// The index
+                index: usize,
+                // Not documented...
+                data: Vec<i32>,
+            }
+
+            let info = <SomeStruct as Typed>::type_info();
+            if let TypeInfo::Struct(info) = info {
+                let mut fields = info.iter();
+                assert_eq!(Some(" The name"), fields.next().unwrap().docs());
+                assert_eq!(Some(" The index"), fields.next().unwrap().docs());
+                assert_eq!(None, fields.next().unwrap().docs());
+            } else {
+                panic!("expected struct info");
+            }
+        }
+
+        #[test]
+        fn variants_should_contain_docs() {
+            #[derive(Reflect)]
+            enum SomeEnum {
+                // Not documented...
+                Nothing,
+                /// Option A
+                A(
+                    /// Index
+                    usize,
+                ),
+                /// Option B
+                B {
+                    /// Name
+                    name: String,
+                },
+            }
+
+            let info = <SomeEnum as Typed>::type_info();
+            if let TypeInfo::Enum(info) = info {
+                let mut variants = info.iter();
+                assert_eq!(None, variants.next().unwrap().docs());
+
+                let variant = variants.next().unwrap();
+                assert_eq!(Some(" Option A"), variant.docs());
+                if let VariantInfo::Tuple(variant) = variant {
+                    let field = variant.field_at(0).unwrap();
+                    assert_eq!(Some(" Index"), field.docs());
+                } else {
+                    panic!("expected tuple variant")
+                }
+
+                let variant = variants.next().unwrap();
+                assert_eq!(Some(" Option B"), variant.docs());
+                if let VariantInfo::Struct(variant) = variant {
+                    let field = variant.field_at(0).unwrap();
+                    assert_eq!(Some(" Name"), field.docs());
+                } else {
+                    panic!("expected struct variant")
+                }
+            } else {
+                panic!("expected enum info");
+            }
+        }
+    }
+
     #[test]
     fn as_reflect() {
         trait TestTrait: Reflect {}
