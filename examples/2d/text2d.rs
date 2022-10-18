@@ -19,8 +19,10 @@ fn main() {
 
 #[derive(Component)]
 struct AnimateTranslation;
+
 #[derive(Component)]
 struct AnimateRotation;
+
 #[derive(Component)]
 struct AnimateScale;
 
