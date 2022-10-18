@@ -720,7 +720,7 @@ fn handle_create_window_events(
     }
 }
 
-/// Map `bevy_window::CursorGrabMode` to `winit::window::CursorGrabMode`.
+/// Map [`bevy_window::CursorGrabMode`] to [`winit::window::CursorGrabMode`].
 fn winit_grab_mode(mode: bevy_window::CursorGrabMode) -> winit::window::CursorGrabMode {
     match mode {
         bevy_window::CursorGrabMode::None => winit::window::CursorGrabMode::None,
