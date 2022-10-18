@@ -210,7 +210,6 @@ impl Plugin for VisibilityPlugin {
                 // We assume that no camera will have more than one projection component,
                 // so these systems will run independently of one another.
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                .ambiguous_with(update_frusta::<OrthographicProjection>)
                 .ambiguous_with(update_frusta::<Projection>),
         )
         .add_system_to_stage(
@@ -218,12 +217,7 @@ impl Plugin for VisibilityPlugin {
             update_frusta::<Projection>
                 .label(UpdateProjectionFrusta)
                 .after(camera_system::<Projection>)
-                .after(TransformSystem::TransformPropagate)
-                // We assume that no camera will have more than one projection component,
-                // so these systems will run independently of one another.
-                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                .ambiguous_with(update_frusta::<OrthographicProjection>)
-                .ambiguous_with(update_frusta::<PerspectiveProjection>),
+                .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
