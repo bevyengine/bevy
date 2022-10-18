@@ -92,6 +92,7 @@ impl Plugin for UiPlugin {
             .register_type::<Style>()
             .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
+            .register_type::<FlipImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .register_type::<widget::ImageMode>()
