@@ -11,6 +11,7 @@ use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 use std::cell::Cell;
+use std::ops::Not;
 use thread_local::ThreadLocal;
 
 use crate::{
@@ -26,7 +27,7 @@ use crate::{
 
 /// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
 /// This is done by setting the values of their [`ComputedVisibility`] component.
-#[derive(Component, Clone, Reflect, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq)]
 #[reflect(Component, Default)]
 pub enum Visibility {
     Shown,
@@ -39,23 +40,29 @@ impl Default for Visibility {
     }
 }
 
+impl Not for Visibility {
+    type Output = Visibility;
+
+    #[inline]
+    fn not(self) -> Visibility {
+        match self {
+            Visibility::Shown => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Shown,
+        }
+    }
+}
+
 impl Visibility {
     /// Whether this entity is visible.
     #[inline]
     pub const fn is_visible(&self) -> bool {
-        match self {
-            Self::Shown => true,
-            Self::Hidden => false,
-        }
+        matches!(self, Self::Shown)
     }
 
     /// Toggle the visibility.
     #[inline]
     pub fn toggle(&mut self) {
-        *self = match self {
-            Self::Shown => Self::Hidden,
-            Self::Hidden => Self::Shown,
-        }
+        *self = !*self;
     }
 }
 
