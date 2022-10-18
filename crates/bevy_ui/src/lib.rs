@@ -119,10 +119,12 @@ impl Plugin for UiPlugin {
                 CoreStage::PostUpdate,
                 widget::image_node_system
                     .before(UiSystem::Flex)
-                    // Potential conflict: `Assets<Image>`
+                    // Potential conflicts: `Assets<Image>`
                     // They run independently since `widget::image_node_system` will only ever observe
-                    // its own UiImage, and `widget::text_system` will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(bevy_text::update_text2d_layout),
+                    // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(bevy_text::update_text2d_layout)
+                    .ambiguous_with(widget::text_system),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
