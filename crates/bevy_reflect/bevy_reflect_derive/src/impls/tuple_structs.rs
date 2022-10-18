@@ -35,15 +35,46 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
         });
 
+    #[cfg(feature = "documentation")]
+    let field_generator = {
+        let docs = reflect_struct
+            .active_fields()
+            .map(|field| quote::ToTokens::to_token_stream(&field.doc));
+        quote! {
+            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents).with_docs(#docs) ,)*
+        }
+    };
+
+    #[cfg(not(feature = "documentation"))]
+    let field_generator = {
+        quote! {
+            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents) ,)*
+        }
+    };
+
     let string_name = struct_name.to_string();
+
+    #[cfg(feature = "documentation")]
+    let info_generator = {
+        let doc = reflect_struct.meta().doc();
+        quote! {
+           #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields).with_docs(#doc)
+        }
+    };
+
+    #[cfg(not(feature = "documentation"))]
+    let info_generator = {
+        quote! {
+            #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields)
+        }
+    };
+
     let typed_impl = impl_typed(
         struct_name,
         reflect_struct.meta().generics(),
         quote! {
-            let fields = [
-                #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents),)*
-            ];
-            let info = #bevy_reflect_path::TupleStructInfo::new::<Self>(#string_name, &fields);
+            let fields = [#field_generator];
+            let info = #info_generator;
             #bevy_reflect_path::TypeInfo::TupleStruct(info)
         },
         bevy_reflect_path,

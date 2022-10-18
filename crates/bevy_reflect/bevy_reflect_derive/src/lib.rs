@@ -16,6 +16,8 @@ extern crate proc_macro;
 
 mod container_attributes;
 mod derive_data;
+#[cfg(feature = "documentation")]
+mod documentation;
 mod enum_utility;
 mod field_attributes;
 mod from_reflect;
@@ -95,11 +97,16 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
-    impls::impl_value(&ReflectMeta::new(
+    let meta = ReflectMeta::new(
         &def.type_name,
         &def.generics,
         def.traits.unwrap_or_default(),
-    ))
+    );
+
+    #[cfg(feature = "documentation")]
+    let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
+
+    impls::impl_value(&meta)
 }
 
 /// A replacement for `#[derive(Reflect)]` to be used with foreign types which

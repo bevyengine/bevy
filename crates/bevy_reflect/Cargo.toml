@@ -10,7 +10,11 @@ keywords = ["bevy"]
 readme = "README.md"
 
 [features]
+default = []
+# Provides Bevy-related reflection implementations
 bevy = ["glam", "smallvec", "bevy_math"]
+# When enabled, allows documentation comments to be accessed via reflection
+documentation = ["bevy_reflect_derive/documentation"]
 
 [dependencies]
 # bevy
@@ -31,3 +35,8 @@ glam = { version = "0.21", features = ["serde"], optional = true }
 
 [dev-dependencies]
 ron = "0.8.0"
+
+[[example]]
+name = "reflect_docs"
+path = "examples/reflect_docs.rs"
+required-features = ["documentation"]

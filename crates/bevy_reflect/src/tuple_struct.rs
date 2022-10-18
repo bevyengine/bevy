@@ -53,6 +53,8 @@ pub struct TupleStructInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl TupleStructInfo {
@@ -69,7 +71,15 @@ impl TupleStructInfo {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this struct.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// Get the field at the given index.
@@ -111,6 +121,12 @@ impl TupleStructInfo {
     /// Check if the given type matches the tuple struct type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this struct, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 
