@@ -117,7 +117,12 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::image_node_system.before(UiSystem::Flex),
+                widget::image_node_system
+                    .before(UiSystem::Flex)
+                    // Potential conflict: `Assets<Image>`
+                    // They run independently since `widget::image_node_system` will only ever observe
+                    // its own UiImage, and `widget::text_system` will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(bevy_text::update_text2d_layout),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
