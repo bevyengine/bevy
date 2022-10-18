@@ -197,7 +197,7 @@ impl Plugin for VisibilityPlugin {
                 .after(TransformSystem::TransformPropagate)
                 // We assume that no camera will have more than one projection component,
                 // so these systems will run independently of one another.
-                // FIXME: Add an archetype invariant for this, when that is supported.
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(update_frusta::<PerspectiveProjection>)
                 .ambiguous_with(update_frusta::<Projection>),
         )
@@ -209,6 +209,7 @@ impl Plugin for VisibilityPlugin {
                 .after(TransformSystem::TransformPropagate)
                 // We assume that no camera will have more than one projection component,
                 // so these systems will run independently of one another.
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(update_frusta::<OrthographicProjection>)
                 .ambiguous_with(update_frusta::<Projection>),
         )
@@ -220,6 +221,7 @@ impl Plugin for VisibilityPlugin {
                 .after(TransformSystem::TransformPropagate)
                 // We assume that no camera will have more than one projection component,
                 // so these systems will run independently of one another.
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(update_frusta::<OrthographicProjection>)
                 .ambiguous_with(update_frusta::<PerspectiveProjection>),
         )

@@ -34,7 +34,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     .label(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monormophizations.
-                    // FIXME: Add an archetype invariant for this, when that is supported.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             )
             .add_system_to_stage(
@@ -44,6 +44,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     .after(ModifiesWindows)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monormophizations.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             );
     }
