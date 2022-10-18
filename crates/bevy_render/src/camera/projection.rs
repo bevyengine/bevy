@@ -19,24 +19,23 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
     }
 }
 
+/// Label for [`camera_system<T>`], shared accross all `T`.
+///
+/// [`camera_system<T>`]: crate::camera::camera_system
 #[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
-        // Label for `camera_system<T>`, shared across all monomorphizations.
-        #[derive(SystemLabel)]
-        struct GenericCameraSystem;
-
         app.register_type::<T>()
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
                 crate::camera::camera_system::<T>
+                    .label(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monormophizations.
                     // FIXME: Add an archetype invariant for this, when that is supported.
-                    .label(GenericCameraSystem)
-                    .ambiguous_with(GenericCameraSystem),
+                    .ambiguous_with(CameraUpdateSystem),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -45,8 +44,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     .after(ModifiesWindows)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monormophizations.
-                    .label(GenericCameraSystem)
-                    .ambiguous_with(GenericCameraSystem),
+                    .ambiguous_with(CameraUpdateSystem),
             );
     }
 }
