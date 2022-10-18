@@ -109,7 +109,11 @@ impl Plugin for UiPlugin {
                     // In practice, they run independently since `bevy_render::camera_update_system`
                     // will only ever observe its own render target, and `widget::text_system`
                     // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem),
+                    .ambiguous_with(CameraUpdateSystem)
+                    // Potential conflict: `Assets<Image>`
+                    // Since both systems will only ever insert new [`Image`] assets,
+                    // they will never observe each other's effects.
+                    .ambiguous_with(bevy_text::update_text2d_layout),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
