@@ -50,6 +50,9 @@ impl ResourceData {
     ///
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
+    ///
+    /// The underlying type must be [`Send`] or be inserted from the main thread.
+    /// This can be validated with [`World::validate_non_send_access_untyped`].
     #[inline]
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
@@ -59,6 +62,14 @@ impl ResourceData {
         }
     }
 
+    /// Inserts a value into the resource with a pre-existing change tick. If a
+    /// value is already present it will be replaced.
+    ///
+    /// # Safety
+    /// `value` must be valid for the underlying type for the resource.
+    ///
+    /// The underlying type must be [`Send`] or be inserted from the main thread.
+    /// This can be validated with [`World::validate_non_send_access_untyped`].
     #[inline]
     pub(crate) unsafe fn insert_with_ticks(
         &mut self,
@@ -74,14 +85,25 @@ impl ResourceData {
     }
 
     /// Removes a value from the resource, if present.
+    ///
+    /// # Safety
+    /// The underlying type must be [`Send`] or be removed from the main thread.
+    /// This can be validated with [`World::validate_non_send_access_untyped`].
+    ///
+    /// The removed value must be used or dropped.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
-    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+    pub(crate) unsafe fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
         self.column.swap_remove_and_forget(0)
     }
 
+    /// Removes a value from the resource, if present, and drops it.
+    ///
+    /// # Safety
+    /// The underlying type must be [`Send`] or be removed from the main thread.
+    /// This can be validated with [`World::validate_non_send_access_untyped`].
     #[inline]
-    pub(crate) fn remove_and_drop(&mut self) {
+    pub(crate) unsafe fn remove_and_drop(&mut self) {
         self.column.clear();
     }
 }

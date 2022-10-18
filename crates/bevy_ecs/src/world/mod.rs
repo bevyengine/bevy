@@ -1166,7 +1166,8 @@ impl World {
             .storages
             .resources
             .get_mut(component_id)
-            .and_then(|info| info.remove())
+            // SAFETY: The type R is Send and Sync or we've already validated that we're on the main thread.
+            .and_then(|info| unsafe { info.remove() })
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: pointer is of type R
@@ -1463,10 +1464,13 @@ impl World {
         if !info.is_send_and_sync() {
             self.validate_non_send_access_untyped(info.name());
         }
-        self.storages
-            .resources
-            .get_mut(component_id)?
-            .remove_and_drop();
+        // SAFETY: The underlying type is Send and Sync or we've already validated we're on the main thread
+        unsafe {
+            self.storages
+                .resources
+                .get_mut(component_id)?
+                .remove_and_drop();
+        }
         Some(())
     }
 
