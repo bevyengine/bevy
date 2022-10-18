@@ -656,7 +656,7 @@ impl Window {
         self.command_queue
             .push(WindowCommand::SetDecorations { decorations });
     }
-    /// Get whether or how the cursor is grabed.
+    /// Get whether or how the cursor is grabbed.
     ///
     /// ## Platform-specific
     ///
@@ -666,7 +666,7 @@ impl Window {
     pub fn cursor_grab_mode(&self) -> CursorGrabMode {
         self.cursor_grab_mode
     }
-    /// Set whether and how the cursor is grabed.
+    /// Set whether and how the cursor is grabbed.
     ///
     /// This doesn't hide the cursor. For that, use [`set_cursor_visibility`](Window::set_cursor_visibility)
     ///
