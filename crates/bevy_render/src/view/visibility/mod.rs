@@ -433,7 +433,7 @@ mod test {
 
     use super::*;
 
-    use bevy_hierarchy::BuildWorldChildren;
+    use bevy_hierarchy::HierarchyCommands;
 
     #[test]
     fn visibility_propagation() {
@@ -469,13 +469,13 @@ mod test {
 
         app.world
             .entity_mut(root1)
-            .push_children(&[root1_child1, root1_child2]);
+            .add_children(&[root1_child1, root1_child2]);
         app.world
             .entity_mut(root1_child1)
-            .push_children(&[root1_child1_grandchild1]);
+            .add_children(&[root1_child1_grandchild1]);
         app.world
             .entity_mut(root1_child2)
-            .push_children(&[root1_child2_grandchild1]);
+            .add_children(&[root1_child2_grandchild1]);
 
         let root2 = app
             .world
@@ -503,13 +503,13 @@ mod test {
 
         app.world
             .entity_mut(root2)
-            .push_children(&[root2_child1, root2_child2]);
+            .add_children(&[root2_child1, root2_child2]);
         app.world
             .entity_mut(root2_child1)
-            .push_children(&[root2_child1_grandchild1]);
+            .add_child(root2_child1_grandchild1);
         app.world
             .entity_mut(root2_child2)
-            .push_children(&[root2_child2_grandchild1]);
+            .add_child(root2_child2_grandchild1);
 
         app.update();
 

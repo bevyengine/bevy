@@ -10,8 +10,8 @@ pub use components::*;
 mod hierarchy;
 pub use hierarchy::*;
 
-mod child_builder;
-pub use child_builder::*;
+mod commands;
+pub use commands::*;
 
 mod events;
 pub use events::*;
@@ -26,7 +26,7 @@ pub use query_extension::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        child_builder::*, components::*, hierarchy::*, query_extension::*, HierarchyPlugin,
+        commands::*, components::*, hierarchy::*, query_extension::*, HierarchyPlugin,
         ValidParentCheckPlugin,
     };
 }

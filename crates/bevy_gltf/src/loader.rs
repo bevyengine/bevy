@@ -5,7 +5,7 @@ use bevy_asset::{
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
-use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
+use bevy_hierarchy::{HierachyEntityMutExt, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{

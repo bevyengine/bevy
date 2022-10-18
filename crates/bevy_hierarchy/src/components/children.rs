@@ -12,10 +12,10 @@ use std::ops::Deref;
 
 /// Contains references to the child entities of this entity.
 ///
-/// See [`HierarchyQueryExt`] for hierarchy related methods on [`Query`].
+/// Only present on entities that have children..
 ///
-/// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
-/// [`Query`]: bevy_ecs::system::Query
+/// See [`HierarchyQueryExt`](crate::query_extension::HierarchyQueryExt)
+/// for hierarchy related methods on [Query](bevy_ecs::system::Query).
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
@@ -44,6 +44,11 @@ impl Children {
     /// Constructs a [`Children`] component with the given entities.
     pub(crate) fn from_entities(entities: &[Entity]) -> Self {
         Self(SmallVec::from_slice(entities))
+    }
+
+    /// Constructs a [`Children`] component with the given entity.
+    pub(crate) fn from_entity(entity: Entity) -> Self {
+        Self(SmallVec::from_slice(&[entity]))
     }
 
     /// Swaps the child at `a_index` with the child at `b_index`.
