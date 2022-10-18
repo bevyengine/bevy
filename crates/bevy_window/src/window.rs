@@ -399,7 +399,7 @@ impl Window {
             cursor_grab_mode: window_descriptor.cursor_grab_mode,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
-            raw_handle: raw_handle.map(RawHandleWrapper::new),
+            raw_handle,
             focused: true,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),

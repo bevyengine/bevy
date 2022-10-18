@@ -83,7 +83,7 @@ fn extract_windows(
                 .entry(window.id())
                 .or_insert(ExtractedWindow {
                     id: window.id(),
-                    handle: window.raw_handle(),
+                    raw_handle: window.raw_handle(),
                     physical_width: new_width,
                     physical_height: new_height,
                     present_mode: window.present_mode(),
@@ -165,7 +165,7 @@ pub fn prepare_windows(
         .windows
         .values_mut()
         // value of raw_winndow_handle only None if synthetic test
-        .filter(|x| x.raw_window_handle.is_some())
+        .filter(|x| x.raw_handle.is_some())
     {
         let window_surfaces = window_surfaces.deref_mut();
         let surface = window_surfaces
@@ -173,8 +173,7 @@ pub fn prepare_windows(
             .entry(window.id)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                render_instance
-                    .create_surface(&window.raw_window_handle.as_ref().unwrap().get_handle())
+                render_instance.create_surface(&window.raw_handle.as_ref().unwrap().get_handle())
             });
 
         let swap_chain_descriptor = wgpu::SurfaceConfiguration {
