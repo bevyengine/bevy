@@ -169,7 +169,7 @@ pub enum AbstractWindowHandle {
     /// [`ExtractedWindow`](https://docs.rs/bevy/*/bevy/render/view/struct.ExtractedWindow.html).
     Virtual,
     #[cfg(target_arch = "wasm32")]
-    HtmlCanvas(web_sys::HtmlCanvasElement),
+    HtmlCanvas(HtmlCanvasElement),
     #[cfg(target_arch = "wasm32")]
     OffscreenCanvas(web_sys::OffscreenCanvas),
 }
@@ -290,6 +290,7 @@ pub struct Window {
     window_handle: AbstractWindowHandle,
     focused: bool,
     mode: WindowMode,
+    #[cfg(target_arch = "wasm32")]
     fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
 }
@@ -420,6 +421,7 @@ impl Window {
             )),
             focused: true,
             mode: window_descriptor.mode,
+            #[cfg(target_arch = "wasm32")]
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
         }
@@ -457,6 +459,7 @@ impl Window {
             window_handle: AbstractWindowHandle::Virtual,
             focused: true,
             mode: window_descriptor.mode,
+            #[cfg(target_arch = "wasm32")]
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
         }
@@ -948,6 +951,7 @@ impl Window {
     /// feature, ensure the parent's size is not affected by its children.
     ///
     /// This value has no effect on non-web platforms.
+    #[cfg(target_arch = "wasm32")]
     #[inline]
     pub fn fit_canvas_to_parent(&self) -> bool {
         self.fit_canvas_to_parent
@@ -985,6 +989,15 @@ pub enum MonitorSelection {
     /// Uses monitor with the specified index.
     Index(usize),
 }
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SendSyncCanvas(pub HtmlCanvasElement);
+
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for SendSyncCanvas {}
+#[cfg(target_arch = "wasm32")]
+unsafe impl Sync for SendSyncCanvas {}
 
 /// Describes the information needed for creating a window.
 ///
@@ -1056,6 +1069,8 @@ pub struct WindowDescriptor {
     /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
     /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
     pub transparent: bool,
+    #[cfg(target_arch = "wasm32")]
+    pub canvas: Option<SendSyncCanvas>,
     /// Whether or not to fit the canvas element's size to its parent element's size.
     ///
     /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
@@ -1063,6 +1078,7 @@ pub struct WindowDescriptor {
     /// feature, ensure the parent's size is not affected by its children.
     ///
     /// This value has no effect on non-web platforms.
+    #[cfg(target_arch = "wasm32")]
     pub fit_canvas_to_parent: bool,
 }
 
@@ -1083,7 +1099,33 @@ impl Default for WindowDescriptor {
             cursor_visible: true,
             mode: WindowMode::Windowed,
             transparent: false,
+            #[cfg(target_arch = "wasm32")]
+            canvas: None,
+            #[cfg(target_arch = "wasm32")]
             fit_canvas_to_parent: false,
         }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl WindowDescriptor {
+    pub fn set_canvas_from_selector(
+        &mut self,
+        selector: &str,
+    ) -> Result<bool, wasm_bindgen::JsValue> {
+        Ok(web_sys::window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .query_selector(selector)?
+            .and_then(|element| element.dyn_into().ok())
+            .map(|canvas| {
+                self.canvas = Some(SendSyncCanvas(canvas));
+                true
+            })
+            .unwrap_or(false))
+    }
+    pub fn set_canvas(&mut self, canvas: HtmlCanvasElement) {
+        self.canvas = Some(SendSyncCanvas(canvas));
     }
 }

@@ -23,10 +23,12 @@ use bevy_utils::{
     tracing::{error, info, trace, warn},
     Instant,
 };
+#[cfg(target_arch = "wasm32")]
+use bevy_window::SendSyncCanvas;
 use bevy_window::{
-    AbstractWindowHandle, CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop,
-    ModifiesWindows, ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged,
-    WindowCloseRequested, WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
+    ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
+    WindowClosed, WindowCreated, WindowFocused, WindowMoved, WindowResized,
     WindowScaleFactorChanged, Windows,
 };
 
@@ -686,6 +688,22 @@ fn handle_create_window_events(
     #[cfg(not(any(target_os = "windows", target_feature = "x11")))]
     let mut window_resized_events = world.resource_mut::<Events<WindowResized>>();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
+        #[cfg(target_arch = "wasm32")]
+        let window = if let Some(SendSyncCanvas(canvas)) = &create_window_event.descriptor.canvas {
+            winit_windows.create_window_with_canvas(
+                event_loop,
+                create_window_event.id,
+                &create_window_event.descriptor,
+                canvas.clone(),
+            )
+        } else {
+            winit_windows.create_window(
+                event_loop,
+                create_window_event.id,
+                &create_window_event.descriptor,
+            )
+        };
+        #[cfg(not(target_arch = "wasm32"))]
         let window = winit_windows.create_window(
             event_loop,
             create_window_event.id,
@@ -709,7 +727,7 @@ fn handle_create_window_events(
         {
             let channel = world.resource_mut::<web_resize::CanvasParentResizeEventChannel>();
             if create_window_event.descriptor.fit_canvas_to_parent {
-                if let AbstractWindowHandle::HtmlCanvas(canvas) = window.window_handle {
+                if let Some(SendSyncCanvas(canvas)) = &create_window_event.descriptor.canvas {
                     // PROBLEM: this path is unreachable, because we're always creating the window
                     // based on the raw window handle above.
                     channel.listen_to_element(create_window_event.id, canvas.clone());

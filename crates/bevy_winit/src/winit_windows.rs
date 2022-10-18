@@ -25,9 +25,16 @@ impl WinitWindows {
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
     ) -> Window {
-        Self::create_window_internal(event_loop, window_id, window_descriptor, None)
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.create_window_internal(event_loop, window_id, window_descriptor, None)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.create_window_internal(event_loop, window_id, window_descriptor)
+        }
     }
-    #[cfg(target_wasm = "wasm32")]
+    #[cfg(target_arch = "wasm32")]
     pub fn create_window_with_canvas(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
@@ -35,9 +42,9 @@ impl WinitWindows {
         window_descriptor: &WindowDescriptor,
         canvas: web_sys::HtmlCanvasElement,
     ) -> Window {
-        Self::create_window_internal(event_loop, window_id, window_descriptor, Some(canvas))
+        self.create_window_internal(event_loop, window_id, window_descriptor, Some(canvas))
     }
-    #[cfg(target_wasm = "wasm32")]
+    #[cfg(target_arch = "wasm32")]
     pub fn create_window_with_selector(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
@@ -52,7 +59,7 @@ impl WinitWindows {
         let canvas = document.query_selector(selector)?;
         Ok(canvas.map(|canvas| {
             let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
-            Self::create_window_internal(event_loop, window_id, window_descriptor, canvas)
+            self.create_window_internal(event_loop, window_id, window_descriptor, canvas)
         }))
     }
     fn create_window_internal(
@@ -60,7 +67,7 @@ impl WinitWindows {
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
-        #[cfg(target_wasm = "wasm32")] canvas: Option<web_sys::HtmlCanvasElement>,
+        #[cfg(target_arch = "wasm32")] canvas: Option<web_sys::HtmlCanvasElement>,
     ) -> Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
@@ -130,10 +137,10 @@ impl WinitWindows {
         #[allow(unused_mut)]
         let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);
 
-        #[cfg(target_wasm = "wasm32")]
+        #[cfg(target_arch = "wasm32")]
         if let Some(canvas) = canvas {
             use winit::platform::web::WindowBuilderExtWebSys;
-            winit_window_builder = winit_window_builder.with_canvas(canvas);
+            winit_window_builder = winit_window_builder.with_canvas(Some(canvas));
         }
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();

@@ -58,7 +58,7 @@ impl Default for CanvasParentResizeEventChannel {
     }
 }
 
-fn get_size_element(element: &HtmlCanvasElement) -> Option<LogicalSize<f32>> {
+fn get_size_element(element: &web_sys::HtmlCanvasElement) -> Option<LogicalSize<f32>> {
     let parent_element = element.parent_element()?;
     let rect = parent_element.get_bounding_client_rect();
     return Some(winit::dpi::LogicalSize::new(
@@ -91,7 +91,11 @@ impl CanvasParentResizeEventChannel {
         closure.forget();
     }
 
-    pub(crate) fn listen_to_element(&self, window_id: WindowId, element: HtmlCanvasElement) {
+    pub(crate) fn listen_to_element(
+        &self,
+        window_id: WindowId,
+        element: web_sys::HtmlCanvasElement,
+    ) {
         let sender = self.sender.clone();
         let resize = move || {
             if let Some(size) = get_size_element(&element) {
