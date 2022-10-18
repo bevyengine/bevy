@@ -12,7 +12,7 @@ pub mod entity;
 pub mod update;
 pub mod widget;
 
-use bevy_render::extract_component::ExtractComponentPlugin;
+use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
@@ -104,7 +104,12 @@ impl Plugin for UiPlugin {
                 CoreStage::PostUpdate,
                 widget::text_system
                     .before(UiSystem::Flex)
-                    .after(ModifiesWindows),
+                    .after(ModifiesWindows)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `widget::text_system`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
