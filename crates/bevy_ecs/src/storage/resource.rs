@@ -1,7 +1,7 @@
 use crate::archetype::ArchetypeComponentId;
 use crate::component::{ComponentId, ComponentTicks, Components};
 use crate::storage::{Column, SparseSet};
-use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
@@ -31,12 +31,6 @@ impl ResourceData {
         self.column.get_data(0)
     }
 
-    /// Gets a mutable pointer to the underlying resource, if available.
-    #[inline]
-    pub fn get_data_mut(&mut self) -> Option<PtrMut<'_>> {
-        self.column.get_data_mut(0)
-    }
-
     /// Gets a read-only reference to the change ticks of the underlying resource, if available.
     #[inline]
     pub fn get_ticks(&self) -> Option<&ComponentTicks> {
@@ -44,16 +38,6 @@ impl ResourceData {
             .get_ticks(0)
             // SAFETY: If the first row exists, a valid ticks value has been written.
             .map(|ticks| unsafe { ticks.deref() })
-    }
-
-    /// Gets a mutable reference to the change ticks of the underlying resource, if available.
-    #[inline]
-    pub fn get_ticks_mut(&mut self) -> Option<&mut ComponentTicks> {
-        self.column
-            .get_ticks(0)
-            // SAFETY: If the first row exists, a valid ticks value has been written.
-            // This function has exclusvie access to the underlying column.
-            .map(|ticks| unsafe { ticks.deref_mut() })
     }
 
     #[inline]
@@ -67,7 +51,7 @@ impl ResourceData {
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
     #[inline]
-    pub unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
+    pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
             self.column.replace(0, value, change_tick);
         } else {
@@ -92,7 +76,7 @@ impl ResourceData {
     /// Removes a value from the resource, if present.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
-    pub fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
         self.column.swap_remove_and_forget(0)
     }
 
@@ -137,7 +121,7 @@ impl Resources {
 
     /// Gets mutable access to a resource, if it exists.
     #[inline]
-    pub fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData> {
+    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData> {
         self.resources.get_mut(component_id)
     }
 
@@ -145,13 +129,12 @@ impl Resources {
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
-    pub fn initialize_with<F>(
+    pub(crate) fn initialize_with(
         &mut self,
         component_id: ComponentId,
         components: &Components,
         f: impl FnOnce() -> ArchetypeComponentId,
-    ) -> &mut ResourceData,
-    {
+    ) -> &mut ResourceData {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
             ResourceData {
@@ -161,7 +144,7 @@ impl Resources {
         })
     }
 
-    pub fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for info in self.resources.values_mut() {
             info.column.check_change_ticks(change_tick);
         }
