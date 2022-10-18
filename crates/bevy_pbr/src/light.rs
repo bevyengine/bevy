@@ -1416,7 +1416,11 @@ pub fn update_directional_light_frusta(
             &mut Frustum,
             &ComputedVisibility,
         ),
-        Or<(Changed<GlobalTransform>, Changed<DirectionalLight>)>,
+        (
+            Or<(Changed<GlobalTransform>, Changed<DirectionalLight>)>,
+            // Prevents this query from conflicting with camera queries.
+            Without<Camera>,
+        ),
     >,
 ) {
     for (transform, directional_light, mut frustum, visibility) in &mut views {
