@@ -24,16 +24,24 @@ pub struct CameraUpdateSystem;
 
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
+        // Label for `camera_system<T>`, shared across all monomorphizations.
+        #[derive(SystemLabel)]
+        struct GenericCameraSystem;
+
         app.register_type::<T>()
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                crate::camera::camera_system::<T>,
+                crate::camera::camera_system::<T>
+                    .label(GenericCameraSystem)
+                    .ambiguous_with(GenericCameraSystem),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
-                    .after(ModifiesWindows),
+                    .label(GenericCameraSystem)
+                    .after(ModifiesWindows)
+                    .ambiguous_with(GenericCameraSystem),
             );
     }
 }
