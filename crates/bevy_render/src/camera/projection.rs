@@ -32,6 +32,8 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
                 crate::camera::camera_system::<T>
+                    // We assume that each camera will only have one projection,
+                    // so we can ignore ambiguities with all other monormophizations.
                     .label(GenericCameraSystem)
                     .ambiguous_with(GenericCameraSystem),
             )
@@ -39,8 +41,10 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
-                    .label(GenericCameraSystem)
                     .after(ModifiesWindows)
+                    // We assume that each camera will only have one projection,
+                    // so we can ignore ambiguities with all other monormophizations.
+                    .label(GenericCameraSystem)
                     .ambiguous_with(GenericCameraSystem),
             );
     }
