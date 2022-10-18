@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage,
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, FlipImage,
 };
 use bevy_ecs::{
     bundle::Bundle,
@@ -81,6 +81,8 @@ pub struct ImageBundle {
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
+    /// Whether the image should be flipped along its x and y axes.
+    pub flip_image: FlipImage,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node

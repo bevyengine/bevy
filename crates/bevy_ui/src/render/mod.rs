@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage};
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, FlipImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -166,6 +166,8 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub flip_x: bool,
+    pub flip_y: bool,
 }
 
 #[derive(Resource, Default)]
@@ -183,12 +185,13 @@ pub fn extract_uinodes(
             &BackgroundColor,
             &UiImage,
             &ComputedVisibility,
+            Option<&FlipImage>,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
+    for (uinode, transform, color, image, visibility,  flip_image, clip) in uinode_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
@@ -201,6 +204,12 @@ pub fn extract_uinodes(
         if color.0.a() == 0.0 {
             continue;
         }
+        let (flip_x, flip_y) = 
+            if let Some(flip) = flip_image {
+                (flip.x_axis, flip.y_axis)
+            } else {
+                (false, false)
+            };
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
             background_color: color.0,
@@ -211,6 +220,8 @@ pub fn extract_uinodes(
             image,
             atlas_size: None,
             clip: clip.map(|clip| clip.clip),
+            flip_x,
+            flip_y,
         });
     }
 }
@@ -330,6 +341,8 @@ pub fn extract_text_uinodes(
                 image: texture,
                 atlas_size,
                 clip: clip.map(|clip| clip.clip),
+                flip_x: false,
+                flip_y: false,
             });
         }
     }
@@ -462,7 +475,7 @@ pub fn prepare_uinodes(
         }
 
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-        let uvs = [
+        let mut uvs = [
             Vec2::new(
                 uinode_rect.min.x + positions_diff[3].x,
                 uinode_rect.min.y - positions_diff[3].y,
@@ -481,6 +494,14 @@ pub fn prepare_uinodes(
             ),
         ]
         .map(|pos| pos / atlas_extent);
+
+        if extracted_uinode.flip_x {
+            uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+        }
+        if extracted_uinode.flip_y {
+            uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
+        }
+
 
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {

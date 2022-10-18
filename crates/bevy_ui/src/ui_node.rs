@@ -409,6 +409,16 @@ impl Default for UiImage {
     }
 }
 
+/// Controls whether image is flipped along the x and y axes.
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct FlipImage {
+    /// Flip the image along the x-axis
+    pub x_axis: bool,
+    /// Flip the image along the y-axis
+    pub y_axis: bool,
+}
+
 impl From<Handle<Image>> for UiImage {
     fn from(handle: Handle<Image>) -> Self {
         Self(handle)
