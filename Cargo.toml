@@ -1474,7 +1474,7 @@ wasm = true
 
 [[example]]
 name = "ui_scaling"
-path = "examples/ui/scaling.rs"
+path = "examples/ui/ui_scaling.rs"
 
 [package.metadata.example.ui_scaling]
 name = "UI Scaling"
