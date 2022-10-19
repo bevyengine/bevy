@@ -1,7 +1,7 @@
 use crate::{DynamicEntity, DynamicScene};
 use anyhow::Result;
 use bevy_reflect::{
-    serde::{ReflectDeserializer, ReflectSerializer},
+    serde::{ReflectSerializer, UntypedReflectDeserializer},
     Reflect, TypeRegistry, TypeRegistryArc,
 };
 use serde::{
@@ -71,7 +71,7 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_seq(Some(self.components.len()))?;
-        for component in self.components.iter() {
+        for component in self.components {
             state.serialize_element(&ReflectSerializer::new(
                 &**component,
                 &*self.registry.read(),
@@ -242,7 +242,9 @@ impl<'a, 'de> Visitor<'de> for ComponentSeqVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let mut dynamic_properties = Vec::new();
-        while let Some(entity) = seq.next_element_seed(ReflectDeserializer::new(self.registry))? {
+        while let Some(entity) =
+            seq.next_element_seed(UntypedReflectDeserializer::new(self.registry))?
+        {
             dynamic_properties.push(entity);
         }
 

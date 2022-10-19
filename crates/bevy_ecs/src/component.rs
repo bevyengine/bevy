@@ -145,19 +145,14 @@ mod sealed {
 /// #[component(storage = "SparseSet")]
 /// struct A;
 /// ```
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub enum StorageType {
     /// Provides fast and cache-friendly iteration, but slower addition and removal of components.
     /// This is the default storage type.
+    #[default]
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
-}
-
-impl Default for StorageType {
-    fn default() -> Self {
-        StorageType::Table
-    }
 }
 
 #[derive(Debug)]
@@ -299,7 +294,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -336,7 +331,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -347,7 +342,7 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -479,7 +474,7 @@ impl Components {
 
     #[inline]
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_resource::<T>()
@@ -489,7 +484,7 @@ impl Components {
 
     #[inline]
     pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())

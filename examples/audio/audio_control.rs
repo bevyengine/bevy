@@ -23,6 +23,7 @@ fn setup(
     commands.insert_resource(MusicController(handle));
 }
 
+#[derive(Resource)]
 struct MusicController(Handle<AudioSink>);
 
 fn update_speed(

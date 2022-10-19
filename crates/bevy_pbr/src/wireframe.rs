@@ -6,6 +6,7 @@ use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::Extract;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -35,7 +36,9 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl
         );
 
-        app.init_resource::<WireframeConfig>()
+        app.register_type::<Wireframe>()
+            .register_type::<WireframeConfig>()
+            .init_resource::<WireframeConfig>()
             .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -49,8 +52,8 @@ impl Plugin for WireframePlugin {
     }
 }
 
-fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wireframe>>) {
-    for entity in query.iter() {
+fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<Wireframe>>>) {
+    for entity in &query {
         commands.get_or_spawn(entity).insert(Wireframe);
     }
 }
@@ -60,12 +63,14 @@ fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wirefram
 #[reflect(Component, Default)]
 pub struct Wireframe;
 
-#[derive(Debug, Clone, Default, ExtractResource)]
+#[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
     pub global: bool,
 }
 
+#[derive(Resource)]
 pub struct WireframePipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
@@ -116,9 +121,8 @@ fn queue_wireframes(
         .get_id::<DrawWireframes>()
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, visible_entities, mut opaque_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
+    for (view, visible_entities, mut opaque_phase) in &mut views {
+        let rangefinder = view.rangefinder3d();
 
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
@@ -142,7 +146,7 @@ fn queue_wireframes(
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
-                        distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                        distance: rangefinder.distance(&mesh_uniform.transform),
                     });
                 }
             };

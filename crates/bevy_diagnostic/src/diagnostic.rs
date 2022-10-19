@@ -1,3 +1,4 @@
+use bevy_ecs::system::Resource;
 use bevy_log::warn;
 use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
 use std::{borrow::Cow, collections::VecDeque};
@@ -154,7 +155,7 @@ impl Diagnostic {
 }
 
 /// A collection of [Diagnostic]s
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct Diagnostics {
     // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
     // runs when all diagnostics are inserted in the same order.
