@@ -7,8 +7,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
-    AbstractWindowHandle, CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed,
-    WindowId, Windows,
+    AbstractWindowHandle, CompositeAlphaMode, PresentMode, WindowClosed, WindowId, Windows,
 };
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
@@ -184,8 +183,7 @@ pub fn prepare_windows(
                 .entry(window.id)
                 .or_insert_with(|| unsafe {
                     // NOTE: On some OSes this MUST be called from the main thread.
-                    let surface = render_instance
-                        .create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
+                    let surface = render_instance.create_surface(&handle.get_handle());
                     let format = *surface
                         .get_supported_formats(&render_adapter)
                         .get(0)
@@ -199,24 +197,6 @@ pub fn prepare_windows(
                 }),
             AbstractWindowHandle::Virtual => continue,
         };
-        let surface_data = window_surfaces
-            .surfaces
-            .entry(window.id)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                let surface = render_instance
-                    .create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
-                let format = *surface
-                    .get_supported_formats(&render_adapter)
-                    .get(0)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "No supported formats found for surface {:?} on adapter {:?}",
-                            surface, render_adapter
-                        )
-                    });
-                SurfaceData { surface, format }
-            });
 
         let surface_configuration = wgpu::SurfaceConfiguration {
             format: surface_data.format,
@@ -267,17 +247,4 @@ pub fn prepare_windows(
         window.swap_chain_texture = Some(TextureView::from(frame));
         window.swap_chain_texture_format = Some(surface_data.format);
     }
-
-    let frame = match surface.get_current_texture() {
-        Ok(swap_chain_frame) => swap_chain_frame,
-        Err(wgpu::SurfaceError::Outdated) => {
-            render_device.configure_surface(surface, &swap_chain_descriptor);
-            surface
-                .get_current_texture()
-                .expect("Error reconfiguring surface")
-        }
-        err => err.expect("Failed to acquire next swap chain texture!"),
-    };
-
-    window.swap_chain_texture = Some(TextureView::from(frame));
 }

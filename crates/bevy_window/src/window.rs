@@ -185,7 +185,7 @@ impl WindowResizeConstraints {
 #[derive(Clone, Debug)]
 pub enum AbstractWindowHandle {
     /// The window corresponds to an operator system window.
-    RawWindowHandle(RawWindowHandleWrapper),
+    RawWindowHandle(RawHandleWrapper),
     /// The window does not to correspond to an operator system window.
     ///
     /// It differs from a non-virtual window, in that the caller is responsible
@@ -256,13 +256,13 @@ pub enum AbstractWindowHandle {
 ///     resize_constraints,
 ///     ..default()
 /// };
-/// let mut window = Window::new(
+/// let mut window = Window::new_virtual(
 ///    WindowId::new(),
 ///    &window_descriptor,
 ///    100, // physical_width
 ///    100, // physical_height
 ///    1.0, // scale_factor
-///    None, None);
+///    None);
 ///
 /// let area = compute_window_area(&window);
 /// assert_eq!(area, 100.0 * 100.0);
@@ -482,7 +482,7 @@ impl Window {
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
-            cursor_locked: window_descriptor.cursor_locked,
+            cursor_grab_mode: window_descriptor.cursor_grab_mode,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
             window_handle: AbstractWindowHandle::Virtual,
@@ -491,6 +491,7 @@ impl Window {
             canvas: window_descriptor.canvas.clone(),
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
+            alpha_mode: window_descriptor.alpha_mode,
         }
     }
 
