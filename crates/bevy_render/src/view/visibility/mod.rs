@@ -472,10 +472,10 @@ mod test {
             .add_children(&[root1_child1, root1_child2]);
         app.world
             .entity_mut(root1_child1)
-            .add_children(&[root1_child1_grandchild1]);
+            .add_child(root1_child1_grandchild1);
         app.world
             .entity_mut(root1_child2)
-            .add_children(&[root1_child2_grandchild1]);
+            .add_child(root1_child2_grandchild1);
 
         let root2 = app
             .world

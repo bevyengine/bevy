@@ -130,7 +130,7 @@ fn setup(
             .id();
 
         // Set joint_1 as a child of joint_0.
-        commands.entity(joint_0).push_children(&[joint_1]);
+        commands.entity(joint_0).add_child(joint_1);
 
         // Each joint in this vector corresponds to each inverse bindpose matrix in `SkinnedMeshInverseBindposes`.
         let joint_entities = vec![joint_0, joint_1];

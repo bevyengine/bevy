@@ -179,7 +179,7 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
             let world = unsafe { self.world_mut() };
             for child in children.0 {
                 world.entity_mut(child).remove::<Parent>();
-                push_event(world, HierarchyEvent::ChildRemoved { child, parent })
+                push_event(world, HierarchyEvent::ChildRemoved { child, parent });
             }
         }
         self
@@ -726,7 +726,7 @@ mod tests {
     fn assert_children(world: &mut World, parent: Entity, children: Option<&[Entity]>) {
         assert_eq!(
             world.get::<Children>(parent).map(|c| c.0.clone()),
-            children.map(|c| SmallVec::from_slice(c))
+            children.map(SmallVec::from_slice)
         );
     }
 
@@ -1018,7 +1018,7 @@ mod tests {
                     parent: a,
                 },
             ],
-        )
+        );
     }
 
     #[test]
