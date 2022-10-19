@@ -111,20 +111,20 @@ pub struct PerspectiveProjection {
 
     /// The aspect ratio (width divided by height) of the viewing frustum.
     ///
-    /// Bevy's [`camera_system`](crate::camera::camera_system) automatically updates this
-    /// value when the aspect ratio of the associated window changes.
+    /// Defaults to a value of `1.0`. Bevy's [`camera_system`](crate::camera::camera_system)
+    /// automatically updates this value when the aspect ratio of the associated window changes.
     pub aspect_ratio: f32,
 
     /// The distance from the camera in world units of the viewing frustum's near plane.
     ///
     /// Objects closer to the camera than this value will not be visible. Defaults to a value of
-    /// `1000.0`.
+    /// `0.1`.
     pub near: f32,
 
     /// The distance from the camera in world units of the viewing frustum's far plane.
     ///
     /// Objects farther from the camera than this value will not be visible. Defaults to a value of
-    /// `1.0`.
+    /// `1000.0`.
     pub far: f32,
 }
 
