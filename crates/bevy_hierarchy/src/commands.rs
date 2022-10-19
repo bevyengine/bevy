@@ -71,6 +71,9 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
     }
 
     fn add_children(&mut self, children: &[Entity]) -> &mut Self {
+        if children.is_empty() {
+            return self;
+        }
         let parent = self.id();
         {
             // SAFETY: parent entity is not modified and its location is updated manually
@@ -116,6 +119,9 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
     }
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        if children.is_empty() {
+            return self;
+        }
         let parent = self.id();
         {
             // SAFETY: parent entity is not modified and its location is updated manually
@@ -787,6 +793,9 @@ mod tests {
 
         let [a, b, c, d, e] = std::array::from_fn(|_| world.spawn_empty().id());
 
+        world.entity_mut(a).add_children(&[]);
+        assert_children(world, a, None);
+
         world.entity_mut(a).add_children(&[b, c]);
 
         assert_children(world, a, Some(&[b, c]));
@@ -876,6 +885,9 @@ mod tests {
         world.insert_resource(Events::<HierarchyEvent>::default());
 
         let [a, b, c, d, e] = std::array::from_fn(|_| world.spawn_empty().id());
+
+        world.entity_mut(a).insert_children(0, &[]);
+        assert_children(world, a, None);
 
         world.entity_mut(a).insert_children(5, &[b, c]);
 
