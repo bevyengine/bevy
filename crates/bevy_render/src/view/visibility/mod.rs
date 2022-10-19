@@ -58,7 +58,7 @@ bitflags::bitflags! {
     #[derive(Reflect)]
     struct ComputedVisibilityFlags: u8 {
         const VISIBLE_IN_VIEW = 1 << 1;
-        const VISIBLE_IN_HIERARCHY = 1 << 1;
+        const VISIBLE_IN_HIERARCHY = 1 << 2;
     }
 }
 
@@ -397,9 +397,7 @@ pub fn check_visibility(
                     }
                 }
 
-                computed_visibility
-                    .flags
-                    .insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
+                computed_visibility.set_visible_in_view();
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
@@ -421,9 +419,7 @@ pub fn check_visibility(
                     return;
                 }
 
-                computed_visibility
-                    .flags
-                    .insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
+                computed_visibility.set_visible_in_view();
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
