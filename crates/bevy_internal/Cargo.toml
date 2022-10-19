@@ -100,4 +100,4 @@ bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.9.0-dev" }
 [target.'cfg(target_os = "android")'.dependencies]
 # This version *must* be the same as the version used by winit,
 # or Android will break: https://github.com/rust-windowing/winit#android
-ndk-glue = {version = "0.5", features = ["logger"]}
+ndk-glue = {version = "0.7", features = ["logger"]}

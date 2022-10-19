@@ -4,7 +4,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{CursorGrabMode, PresentMode},
 };
 
 fn main() {
@@ -54,7 +54,10 @@ fn change_title(time: Res<Time>, mut windows: ResMut<Windows>) {
 fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     let window = windows.primary_mut();
     if input.just_pressed(KeyCode::Space) {
-        window.set_cursor_lock_mode(!window.cursor_locked());
+        window.set_cursor_grab_mode(match window.cursor_grab_mode() {
+            CursorGrabMode::None => CursorGrabMode::Locked,
+            CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,
+        });
         window.set_cursor_visibility(!window.cursor_visible());
     }
 }

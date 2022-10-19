@@ -6,7 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
+use bevy_window::{PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 
 /// Token to ensure a system runs on the main thread.
@@ -38,7 +38,7 @@ impl Plugin for WindowRenderPlugin {
 
 pub struct ExtractedWindow {
     pub id: WindowId,
-    pub raw_window_handle: Option<RawWindowHandleWrapper>,
+    pub raw_handle: Option<RawHandleWrapper>,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -83,7 +83,7 @@ fn extract_windows(
                 .entry(window.id())
                 .or_insert(ExtractedWindow {
                     id: window.id(),
-                    raw_window_handle: window.raw_window_handle(),
+                    raw_handle: window.raw_handle(),
                     physical_width: new_width,
                     physical_height: new_height,
                     present_mode: window.present_mode(),
@@ -164,8 +164,8 @@ pub fn prepare_windows(
     for window in windows
         .windows
         .values_mut()
-        // value of raw_winndow_handle only None if synthetic test
-        .filter(|x| x.raw_window_handle.is_some())
+        // value of raw_handle is only None in synthetic tests
+        .filter(|x| x.raw_handle.is_some())
     {
         let window_surfaces = window_surfaces.deref_mut();
         let surface = window_surfaces
@@ -173,8 +173,7 @@ pub fn prepare_windows(
             .entry(window.id)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                render_instance
-                    .create_surface(&window.raw_window_handle.as_ref().unwrap().get_handle())
+                render_instance.create_surface(&window.raw_handle.as_ref().unwrap().get_handle())
             });
 
         let swap_chain_descriptor = wgpu::SurfaceConfiguration {
@@ -197,6 +196,7 @@ pub fn prepare_windows(
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                 PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
+            alpha_mode: wgpu::CompositeAlphaMode::Auto,
         };
 
         // Do the initial surface configuration if it hasn't been configured yet. Or if size or

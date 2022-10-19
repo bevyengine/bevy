@@ -2,7 +2,6 @@ use bevy_ecs::system::Resource;
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
-use raw_window_handle::RawWindowHandle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
 #[reflect_value(PartialEq, Hash)]
@@ -76,7 +75,7 @@ impl WindowId {
 use crate::CursorIcon;
 use std::fmt;
 
-use crate::raw_window_handle::RawWindowHandleWrapper;
+use crate::raw_handle::RawHandleWrapper;
 
 impl fmt::Display for WindowId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -257,9 +256,9 @@ pub struct Window {
     decorations: bool,
     cursor_icon: CursorIcon,
     cursor_visible: bool,
-    cursor_locked: bool,
+    cursor_grab_mode: CursorGrabMode,
     physical_cursor_position: Option<DVec2>,
-    raw_window_handle: Option<RawWindowHandleWrapper>,
+    raw_handle: Option<RawHandleWrapper>,
     focused: bool,
     mode: WindowMode,
     canvas: Option<String>,
@@ -306,8 +305,8 @@ pub enum WindowCommand {
         decorations: bool,
     },
     /// Set whether or not the cursor's position is locked.
-    SetCursorLockMode {
-        locked: bool,
+    SetCursorGrabMode {
+        grab_mode: CursorGrabMode,
     },
     /// Set the cursor's [`CursorIcon`].
     SetCursorIcon {
@@ -343,6 +342,20 @@ pub enum WindowCommand {
     Close,
 }
 
+/// Defines if and how the cursor is grabbed.
+///
+/// Use this enum with [`Window::set_cursor_grab_mode`] to grab the cursor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub enum CursorGrabMode {
+    /// The cursor can freely leave the window.
+    None,
+    /// The cursor is confined to the window area.
+    Confined,
+    /// The cursor is locked inside the window area to a certain position.
+    Locked,
+}
+
 /// Defines the way a window is displayed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -368,7 +381,7 @@ impl Window {
         physical_height: u32,
         scale_factor: f64,
         position: Option<IVec2>,
-        raw_window_handle: Option<RawWindowHandle>,
+        raw_handle: Option<RawHandleWrapper>,
     ) -> Self {
         Window {
             id,
@@ -385,10 +398,10 @@ impl Window {
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
-            cursor_locked: window_descriptor.cursor_locked,
+            cursor_grab_mode: window_descriptor.cursor_grab_mode,
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
-            raw_window_handle: raw_window_handle.map(RawWindowHandleWrapper::new),
+            raw_handle,
             focused: true,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),
@@ -645,34 +658,34 @@ impl Window {
         self.command_queue
             .push(WindowCommand::SetDecorations { decorations });
     }
-    /// Get whether or not the cursor is locked.
+    /// Get whether or how the cursor is grabbed.
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`macOS`** doesn't support cursor grab, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
     /// - **`iOS/Android`** don't have cursors.
     #[inline]
-    pub fn cursor_locked(&self) -> bool {
-        self.cursor_locked
+    pub fn cursor_grab_mode(&self) -> CursorGrabMode {
+        self.cursor_grab_mode
     }
-    /// Set whether or not the cursor is locked.
+    /// Set whether and how the cursor is grabbed.
     ///
     /// This doesn't hide the cursor. For that, use [`set_cursor_visibility`](Window::set_cursor_visibility)
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`macOS`** doesn't support cursor grab, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
     /// - **`iOS/Android`** don't have cursors.
-    pub fn set_cursor_lock_mode(&mut self, lock_mode: bool) {
-        self.cursor_locked = lock_mode;
+    pub fn set_cursor_grab_mode(&mut self, grab_mode: CursorGrabMode) {
+        self.cursor_grab_mode = grab_mode;
         self.command_queue
-            .push(WindowCommand::SetCursorLockMode { locked: lock_mode });
+            .push(WindowCommand::SetCursorGrabMode { grab_mode });
     }
     /// Get whether or not the cursor is visible.
     ///
     /// ## Platform-specific
     ///
-    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
+    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_grab_mode`](Window::set_cursor_grab_mode).
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     #[inline]
@@ -683,7 +696,7 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
+    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_grab_mode`](Window::set_cursor_grab_mode).
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     pub fn set_cursor_visibility(&mut self, visible_mode: bool) {
@@ -772,11 +785,11 @@ impl Window {
     pub fn is_focused(&self) -> bool {
         self.focused
     }
-    /// Get the [`RawWindowHandleWrapper`] corresponding to this window if set.
+    /// Get the [`RawHandleWrapper`] corresponding to this window if set.
     ///
     /// During normal use, this can be safely unwrapped; the value should only be [`None`] when synthetically constructed for tests.
-    pub fn raw_window_handle(&self) -> Option<RawWindowHandleWrapper> {
-        self.raw_window_handle.as_ref().cloned()
+    pub fn raw_handle(&self) -> Option<RawHandleWrapper> {
+        self.raw_handle.as_ref().cloned()
     }
 
     /// The "html canvas" element selector.
@@ -891,8 +904,8 @@ pub struct WindowDescriptor {
     pub decorations: bool,
     /// Sets whether the cursor is visible when the window has focus.
     pub cursor_visible: bool,
-    /// Sets whether the window locks the cursor inside its borders when the window has focus.
-    pub cursor_locked: bool,
+    /// Sets whether and how the window grabs the cursor.
+    pub cursor_grab_mode: CursorGrabMode,
     /// Sets the [`WindowMode`](crate::WindowMode).
     ///
     /// The monitor to go fullscreen on can be selected with the `monitor` field.
@@ -937,7 +950,7 @@ impl Default for WindowDescriptor {
             present_mode: PresentMode::Fifo,
             resizable: true,
             decorations: true,
-            cursor_locked: false,
+            cursor_grab_mode: CursorGrabMode::None,
             cursor_visible: true,
             mode: WindowMode::Windowed,
             transparent: false,

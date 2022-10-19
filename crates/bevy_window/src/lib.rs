@@ -1,12 +1,12 @@
 #[warn(missing_docs)]
 mod cursor;
 mod event;
-mod raw_window_handle;
+mod raw_handle;
 mod system;
 mod window;
 mod windows;
 
-pub use crate::raw_window_handle::*;
+pub use crate::raw_handle::*;
 pub use cursor::*;
 pub use event::*;
 pub use system::*;
