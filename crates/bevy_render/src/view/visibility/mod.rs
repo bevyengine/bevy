@@ -25,13 +25,18 @@ use crate::{
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 
-/// If an entity is hidden in this way, all [`Children`] (and all of their children and so on) who are set to
-/// `Inherited` will also be hidden.
+/// If an entity is hidden in this way, all [`Children`] (and all of their children and so on) who
+/// are set to `Inherited` will also be hidden.
 /// This is done by setting the values of their [`ComputedVisibility`] component.
+///
+/// A root-level entity that is set to `Inherited` will be visible, and as such will cause any of
+/// its [`Children`] entities which are set to `Inherited` to also be visible.
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq)]
 #[reflect(Component, Default)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
+    ///
+    /// A root-level entity that is set to `Inherited` will be visible.
     Inherited,
     /// An entity with `Visibility::Hidden` will be unconditionally hidden, and will also cause any
     /// of its [`Children`] which are set to `Visibility::Inherited` to also be hidden.
