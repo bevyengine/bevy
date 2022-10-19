@@ -35,7 +35,7 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
 #[derive(Debug, Clone, Resource, Reflect)]
-#[reflect_value(Default)]
+#[reflect(Default)]
 pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
