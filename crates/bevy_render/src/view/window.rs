@@ -6,7 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use bevy_window::{PresentMode, RawWindowHandleWrapper, WindowClosed, WindowId, Windows};
+use bevy_window::{AbstractWindowHandle, PresentMode, WindowClosed, WindowId, Windows};
 use std::ops::{Deref, DerefMut};
 
 /// Token to ensure a system runs on the main thread.
@@ -38,7 +38,7 @@ impl Plugin for WindowRenderPlugin {
 
 pub struct ExtractedWindow {
     pub id: WindowId,
-    pub raw_window_handle: Option<RawWindowHandleWrapper>,
+    pub handle: AbstractWindowHandle,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -83,7 +83,7 @@ fn extract_windows(
                 .entry(window.id())
                 .or_insert(ExtractedWindow {
                     id: window.id(),
-                    raw_window_handle: window.raw_window_handle(),
+                    handle: window.window_handle(),
                     physical_width: new_width,
                     physical_height: new_height,
                     present_mode: window.present_mode(),
@@ -132,6 +132,8 @@ pub struct WindowSurfaces {
 
 /// Creates and (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
+/// This will not handle [virtual windows](bevy_window::AbstractWindowHandle::Virtual).
+///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
 /// the performance bottleneck. This can be seen in profiles as multiple prepare-stage systems all
 /// taking an unusually long time to complete, and all finishing at about the same time as the
@@ -161,21 +163,28 @@ pub fn prepare_windows(
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
 ) {
-    for window in windows
-        .windows
-        .values_mut()
-        // value of raw_winndow_handle only None if synthetic test
-        .filter(|x| x.raw_window_handle.is_some())
-    {
-        let window_surfaces = window_surfaces.deref_mut();
-        let surface = window_surfaces
-            .surfaces
-            .entry(window.id)
-            .or_insert_with(|| unsafe {
-                // NOTE: On some OSes this MUST be called from the main thread.
-                render_instance
-                    .create_surface(&window.raw_window_handle.as_ref().unwrap().get_handle())
-            });
+    let window_surfaces = window_surfaces.deref_mut();
+    for window in windows.windows.values_mut() {
+        let surface = match &window.handle {
+            AbstractWindowHandle::RawWindowHandle(handle) => window_surfaces
+                .surfaces
+                .entry(window.id)
+                .or_insert_with(|| unsafe {
+                    // NOTE: On some OSes this MUST be called from the main thread.
+                    render_instance.create_surface(&handle.get_handle())
+                }),
+            #[cfg(target_arch = "wasm32")]
+            AbstractWindowHandle::HtmlCanvas(canvas) => window_surfaces
+                .surfaces
+                .entry(window.id)
+                .or_insert_with(|| render_instance.create_surface_from_canvas(canvas)),
+            #[cfg(target_arch = "wasm32")]
+            AbstractWindowHandle::OffscreenCanvas(canvas) => window_surfaces
+                .surfaces
+                .entry(window.id)
+                .or_insert_with(|| render_instance.create_surface_from_offscreen_canvas(canvas)),
+            AbstractWindowHandle::Virtual => continue,
+        };
 
         let swap_chain_descriptor = wgpu::SurfaceConfiguration {
             format: *surface

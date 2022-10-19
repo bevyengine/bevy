@@ -25,6 +25,50 @@ impl WinitWindows {
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
     ) -> Window {
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.create_window_internal(event_loop, window_id, window_descriptor, None)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.create_window_internal(event_loop, window_id, window_descriptor)
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    pub fn create_window_with_canvas(
+        &mut self,
+        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        window_id: WindowId,
+        window_descriptor: &WindowDescriptor,
+        canvas: web_sys::HtmlCanvasElement,
+    ) -> Window {
+        self.create_window_internal(event_loop, window_id, window_descriptor, Some(canvas))
+    }
+    #[cfg(target_arch = "wasm32")]
+    pub fn create_window_with_selector(
+        &mut self,
+        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        window_id: WindowId,
+        window_descriptor: &WindowDescriptor,
+        selector: &str,
+    ) -> Result<Option<Window>, wasm_bindgen::JsValue> {
+        use wasm_bindgen::JsCast;
+
+        let window = web_sys::window().unwrap();
+        let document = window.document().unwrap();
+        let canvas = document.query_selector(selector)?;
+        Ok(canvas.map(|canvas| {
+            let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
+            self.create_window_internal(event_loop, window_id, window_descriptor, canvas)
+        }))
+    }
+    fn create_window_internal(
+        &mut self,
+        event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
+        window_id: WindowId,
+        window_descriptor: &WindowDescriptor,
+        #[cfg(target_arch = "wasm32")] canvas: Option<web_sys::HtmlCanvasElement>,
+    ) -> Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
         let &WindowDescriptor {
@@ -94,23 +138,9 @@ impl WinitWindows {
         let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);
 
         #[cfg(target_arch = "wasm32")]
-        {
-            use wasm_bindgen::JsCast;
+        if let Some(canvas) = canvas {
             use winit::platform::web::WindowBuilderExtWebSys;
-
-            if let Some(selector) = &window_descriptor.canvas {
-                let window = web_sys::window().unwrap();
-                let document = window.document().unwrap();
-                let canvas = document
-                    .query_selector(&selector)
-                    .expect("Cannot query for canvas element.");
-                if let Some(canvas) = canvas {
-                    let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
-                    winit_window_builder = winit_window_builder.with_canvas(canvas);
-                } else {
-                    panic!("Cannot find element: {}.", selector);
-                }
-            }
+            winit_window_builder = winit_window_builder.with_canvas(Some(canvas));
         }
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
@@ -174,16 +204,14 @@ impl WinitWindows {
         {
             use winit::platform::web::WindowExtWebSys;
 
-            if window_descriptor.canvas.is_none() {
-                let canvas = winit_window.canvas();
+            let canvas = winit_window.canvas();
 
-                let window = web_sys::window().unwrap();
-                let document = window.document().unwrap();
-                let body = document.body().unwrap();
+            let window = web_sys::window().unwrap();
+            let document = window.document().unwrap();
+            let body = document.body().unwrap();
 
-                body.append_child(&canvas)
-                    .expect("Append canvas to HTML body.");
-            }
+            body.append_child(&canvas)
+                .expect("Append canvas to HTML body.");
         }
 
         let position = winit_window
@@ -201,7 +229,7 @@ impl WinitWindows {
             inner_size.height,
             scale_factor,
             position,
-            Some(raw_window_handle),
+            raw_window_handle,
         )
     }
 
