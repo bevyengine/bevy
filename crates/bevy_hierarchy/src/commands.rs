@@ -148,13 +148,18 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
     }
 
     fn remove_child(&mut self, child: Entity) -> &mut Self {
-        let parent = self.id();
-        {
-            // SAFETY: This doesn't change the parent's location
-            let world = unsafe { self.world_mut() };
-            remove_child(world, parent, child);
-            world.entity_mut(child).remove::<Parent>();
-            push_event(world, HierarchyEvent::ChildRemoved { child, parent });
+        if let Some(mut children) = self.get_mut::<Children>() {
+            if let Some(i) = children.iter().position(|e| *e == child) {
+                children.0.remove(i);
+                if children.is_empty() {
+                    self.remove::<Children>();
+                }
+                let parent = self.id();
+                // SAFETY: This doesn't change the parent's location
+                let world = unsafe { self.world_mut() };
+                world.entity_mut(child).remove::<Parent>();
+                push_event(world, HierarchyEvent::ChildRemoved { child, parent });
+            }
         }
         self
     }
@@ -927,7 +932,7 @@ mod tests {
         let world = &mut World::new();
         world.insert_resource(Events::<HierarchyEvent>::default());
 
-        let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
+        let [a, b, c, e] = std::array::from_fn(|_| world.spawn_empty().id());
 
         world.entity_mut(a).add_children(&[b, c]).remove_child(b);
 
@@ -943,6 +948,9 @@ mod tests {
             }],
         );
 
+        world.entity_mut(e).remove_child(c);
+        assert_eq!(world.get::<Parent>(c), Some(&Parent(a)));
+
         world.entity_mut(a).remove_child(c);
         assert_children(world, a, None);
     }
@@ -952,7 +960,7 @@ mod tests {
         let world = &mut World::new();
         world.insert_resource(Events::<HierarchyEvent>::default());
 
-        let [a, b, c, d] = std::array::from_fn(|_| world.spawn_empty().id());
+        let [a, b, c, d, e] = std::array::from_fn(|_| world.spawn_empty().id());
 
         world
             .entity_mut(a)
@@ -978,6 +986,9 @@ mod tests {
             ],
         );
 
+        world.entity_mut(e).remove_children(&[c]);
+        assert_eq!(world.get::<Parent>(c), Some(&Parent(a)));
+
         world.entity_mut(a).remove_children(&[c]);
         assert_children(world, a, None);
     }
@@ -989,10 +1000,7 @@ mod tests {
 
         let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
 
-        world
-            .entity_mut(a)
-            .add_children(&[b, c])
-            .clear_children();
+        world.entity_mut(a).add_children(&[b, c]).clear_children();
 
         assert_children(world, a, None);
         assert_eq!(world.get::<Parent>(b), None);
