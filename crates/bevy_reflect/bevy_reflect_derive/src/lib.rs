@@ -38,8 +38,8 @@ use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 use type_uuid::TypeUuidDef;
 
-pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
-pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
+pub(crate) const REFLECT_ATTRIBUTE_NAME: &str = "reflect";
+pub(crate) const REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 
 /// The main derive macro used by `bevy_reflect` for deriving its `Reflect` trait.
 ///

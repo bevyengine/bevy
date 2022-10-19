@@ -4,15 +4,18 @@
 //! as opposed to an entire struct or enum. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
-use crate::REFLECT_ATTRIBUTE_NAME;
+use crate::{REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
+use proc_macro2::Span;
 use quote::ToTokens;
 use syn::spanned::Spanned;
-use syn::{Attribute, Lit, Meta, NestedMeta};
+use syn::{Attribute, Lit, Meta, NestedMeta, Path};
 
-pub(crate) static IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
-pub(crate) static IGNORE_ALL_ATTR: &str = "ignore";
+pub(crate) const DEFAULT_ATTR: &str = "default";
+pub(crate) const IGNORE_ALL_ATTR: &str = "ignore";
+pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
 
-pub(crate) static DEFAULT_ATTR: &str = "default";
+// The attributes allowed on a field (in alphabetical order)
+const ALLOWED_FIELD_ATTRS: &[&str] = &[DEFAULT_ATTR, IGNORE_ALL_ATTR, IGNORE_SERIALIZATION_ATTR];
 
 /// Stores data about if the field should be visible via the Reflect and serialization interfaces
 ///
@@ -70,21 +73,44 @@ pub(crate) enum DefaultBehavior {
 }
 
 /// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).
-pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr, syn::Error> {
+pub(crate) fn parse_field_attrs(
+    attrs: &[Attribute],
+    is_variant: bool,
+) -> Result<ReflectFieldAttr, syn::Error> {
     let mut args = ReflectFieldAttr::default();
     let mut errors: Option<syn::Error> = None;
 
-    let attrs = attrs
-        .iter()
-        .filter(|a| a.path.is_ident(REFLECT_ATTRIBUTE_NAME));
+    let mut combine_error = |err| {
+        if let Some(ref mut error) = errors {
+            error.combine(err);
+        } else {
+            errors = Some(err);
+        }
+    };
+
     for attr in attrs {
+        let attr_ident = match attr.path.get_ident() {
+            Some(ident) => ident.to_string(),
+            None => continue,
+        };
+
+        match attr_ident.as_str() {
+            REFLECT_ATTRIBUTE_NAME => {}
+            REFLECT_VALUE_ATTRIBUTE_NAME => combine_error(syn::Error::new(
+                attr.path.span(),
+                format!(
+                    "cannot use `{}` on a {}. Did you mean to use `{}`?",
+                    REFLECT_VALUE_ATTRIBUTE_NAME,
+                    if is_variant { "variant" } else { "field" },
+                    REFLECT_ATTRIBUTE_NAME
+                ),
+            )),
+            _ => continue,
+        }
+
         let meta = attr.parse_meta()?;
-        if let Err(err) = parse_meta(&mut args, &meta) {
-            if let Some(ref mut error) = errors {
-                error.combine(err);
-            } else {
-                errors = Some(err);
-            }
+        if let Err(err) = parse_meta(&mut args, &meta, is_variant) {
+            combine_error(err);
         }
     }
 
@@ -96,27 +122,39 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
 }
 
 /// Recursively parses attribute metadata for things like `#[reflect(ignore)]` and `#[reflect(default = "foo")]`
-fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
+fn parse_meta(
+    args: &mut ReflectFieldAttr,
+    meta: &Meta,
+    is_variant: bool,
+) -> Result<(), syn::Error> {
     match meta {
+        // Handles `#[reflect(skip_serializing)]`
         Meta::Path(path) if path.is_ident(IGNORE_SERIALIZATION_ATTR) => {
+            deny_variant_attr(path.span(), IGNORE_SERIALIZATION_ATTR, is_variant)?;
+
             (args.ignore == ReflectIgnoreBehavior::None)
                 .then(|| args.ignore = ReflectIgnoreBehavior::IgnoreSerialization)
-                .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
+                .ok_or_else(|| syn::Error::new_spanned(path, format!("only one of [\"{IGNORE_ALL_ATTR}\", \"{IGNORE_SERIALIZATION_ATTR}\"] is allowed")))
         }
+        // Handles `#[reflect(ignore)]`
         Meta::Path(path) if path.is_ident(IGNORE_ALL_ATTR) => {
+            deny_variant_attr(path.span(), IGNORE_ALL_ATTR, is_variant)?;
+
             (args.ignore == ReflectIgnoreBehavior::None)
                 .then(|| args.ignore = ReflectIgnoreBehavior::IgnoreAlways)
-                .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
+                .ok_or_else(|| syn::Error::new_spanned(path, format!("only one of [\"{IGNORE_ALL_ATTR}\", \"{IGNORE_SERIALIZATION_ATTR}\"] is allowed")))
         }
+        // Handles `#[reflect(default)]`
         Meta::Path(path) if path.is_ident(DEFAULT_ATTR) => {
+            deny_variant_attr(path.span(), DEFAULT_ATTR, is_variant)?;
+
             args.default = DefaultBehavior::Default;
             Ok(())
         }
-        Meta::Path(path) => Err(syn::Error::new(
-            path.span(),
-            format!("unknown attribute parameter: {}", path.to_token_stream()),
-        )),
+        // Handles `#[reflect(default = "foo")]`
         Meta::NameValue(pair) if pair.path.is_ident(DEFAULT_ATTR) => {
+            deny_variant_attr(pair.path.span(), DEFAULT_ATTR, is_variant)?;
+
             let lit = &pair.lit;
             match lit {
                 Lit::Str(lit_str) => {
@@ -131,23 +169,54 @@ fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error
                 }
             }
         }
-        Meta::NameValue(pair) => {
-            let path = &pair.path;
-            Err(syn::Error::new(
-                path.span(),
-                format!("unknown attribute parameter: {}", path.to_token_stream()),
-            ))
-        }
-        Meta::List(list) if !list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
-            Err(syn::Error::new(list.path.span(), "unexpected property"))
-        }
+        // Handles `#[reflect(ignore, default = "foo", ...)]`
         Meta::List(list) => {
             for nested in &list.nested {
                 if let NestedMeta::Meta(meta) = nested {
-                    parse_meta(args, meta)?;
+                    parse_meta(args, meta, is_variant)?;
                 }
             }
             Ok(())
         }
+        // === Invalid Attribute === //
+        Meta::Path(path) => Err(unknown_attr(path, is_variant)),
+        Meta::NameValue(pair) => {
+            let path = &pair.path;
+            Err(unknown_attr(path, is_variant))
+        }
+    }
+}
+
+/// Returns the generated error for an unknown attribute.
+fn unknown_attr(path: &Path, is_variant: bool) -> syn::Error {
+    if is_variant {
+        syn::Error::new(
+            path.span(),
+            format!(
+                "unknown variant attribute: \"{}\" (note: variants do not currently support any reflect attributes)",
+                path.to_token_stream(),
+            ),
+        )
+    } else {
+        syn::Error::new(
+            path.span(),
+            format!(
+                "unknown field attribute: \"{}\", expected one of {:?}",
+                path.to_token_stream(),
+                ALLOWED_FIELD_ATTRS
+            ),
+        )
+    }
+}
+
+/// Returns an error for the given attribute if `is_variant` is true.
+fn deny_variant_attr(span: Span, attr: &str, is_variant: bool) -> Result<(), syn::Error> {
+    if is_variant {
+        Err(syn::Error::new(
+            span,
+            format!("cannot use reflect attribute \"{}\" on enum variant", attr),
+        ))
+    } else {
+        Ok(())
     }
 }

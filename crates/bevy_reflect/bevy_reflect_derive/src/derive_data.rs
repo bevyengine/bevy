@@ -229,7 +229,7 @@ impl<'a> ReflectDerive<'a> {
             .iter()
             .enumerate()
             .map(|(index, field)| -> Result<StructField, syn::Error> {
-                let attrs = parse_field_attrs(&field.attrs)?;
+                let attrs = parse_field_attrs(&field.attrs, false)?;
                 Ok(StructField {
                     index,
                     attrs,
@@ -262,7 +262,7 @@ impl<'a> ReflectDerive<'a> {
                 };
                 Ok(EnumVariant {
                     fields,
-                    attrs: parse_field_attrs(&variant.attrs)?,
+                    attrs: parse_field_attrs(&variant.attrs, true)?,
                     data: variant,
                     index,
                     #[cfg(feature = "documentation")]
