@@ -149,7 +149,7 @@ impl Plugin for RenderPlugin {
 
             let surface = windows
                 .get_primary()
-                .and_then(|window| window.raw_window_handle())
+                .and_then(|window| window.raw_handle())
                 .map(|wrapper| unsafe {
                     let handle = wrapper.get_handle();
                     instance.create_surface(&handle)
