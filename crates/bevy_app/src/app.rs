@@ -54,6 +54,7 @@ pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
 ///    println!("hello world");
 /// }
 /// ```
+#[must_use = "An unused app cannot be run. Please use run with App::run or use a custom loop."]
 pub struct App {
     /// The main ECS [`World`] of the [`App`].
     /// This stores and provides access to all the main data of the application.
