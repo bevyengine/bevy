@@ -54,11 +54,19 @@ impl Visibility {
     }
 }
 
+bitflags::bitflags! {
+    #[derive(Reflect)]
+    struct ComputedVisibilityFlags: u8 {
+        const VISIBLE_IN_VIEW = 1 << 1;
+        const VISIBLE_IN_HIERARCHY = 1 << 1;
+    }
+}
+
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
 #[reflect(Component, Default)]
 pub struct ComputedVisibility {
-    mask: u8,
+    flags: ComputedVisibilityFlags
 }
 
 impl Default for ComputedVisibility {
@@ -68,14 +76,9 @@ impl Default for ComputedVisibility {
 }
 
 impl ComputedVisibility {
-    const INVISIBLE_MASK: u8 = 0;
-    const VISIBLE_MASK: u8 = Self::VISIBLE_IN_HIERARCHY | Self::VISIBLE_IN_VIEW;
-    const VISIBLE_IN_VIEW: u8 = 1 << 1;
-    const VISIBLE_IN_HIERARCHY: u8 = 1 << 2;
-
     /// A [`ComputedVisibility`], set as invisible.
     pub const INVISIBLE: Self = ComputedVisibility {
-        mask: Self::INVISIBLE_MASK,
+        flags: ComputedVisibilityFlags::empty(),
     };
 
     /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
@@ -84,7 +87,7 @@ impl ComputedVisibility {
     /// [`CoreStage::Update`] stage will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
-        (self.mask & Self::VISIBLE_MASK) != 0
+        self.flags.is_all()
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
@@ -93,7 +96,7 @@ impl ComputedVisibility {
     /// [`VisibilitySystems::VisibilityPropagate`] system label.
     #[inline]
     pub fn is_visible_in_hierarchy(&self) -> bool {
-        (self.mask & Self::VISIBLE_IN_HIERARCHY) != 0
+        self.flags.contains(ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY)
     }
 
     /// Whether this entity is visible in _any_ view (Cameras, Lights, etc). Each entity type (and view type) should choose how to set this
@@ -105,7 +108,7 @@ impl ComputedVisibility {
     /// Other entities might just set this to `true` every frame.
     #[inline]
     pub fn is_visible_in_view(&self) -> bool {
-        (self.mask & Self::VISIBLE_IN_VIEW) != 0
+        self.flags.contains(ComputedVisibilityFlags::VISIBLE_IN_VIEW)
     }
 
     /// Sets `is_visible_in_view` to `true`. This is not reversible for a given frame, as it encodes whether or not this is visible in
@@ -114,7 +117,7 @@ impl ComputedVisibility {
     /// label. Don't call this unless you are defining a custom visibility system. For normal user-defined entity visibility, see [`Visibility`].
     #[inline]
     pub fn set_visible_in_view(&mut self) {
-        self.mask |= Self::VISIBLE_IN_VIEW;
+        self.flags.insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
     }
 }
 
@@ -275,10 +278,10 @@ fn visibility_propagate_system(
 ) {
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.mask = if visibility.is_visible {
-            ComputedVisibility::VISIBLE_IN_HIERARCHY
+        computed_visibility.flags = if visibility.is_visible {
+            ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY
         } else {
-            ComputedVisibility::INVISIBLE_MASK
+            ComputedVisibilityFlags::empty()
         };
         if let Some(children) = children {
             for child in children.iter() {
@@ -312,10 +315,10 @@ fn propagate_recursive(
         );
         let visible_in_hierarchy = visibility.is_visible && parent_visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.mask = if visible_in_hierarchy {
-            ComputedVisibility::VISIBLE_IN_HIERARCHY
+        computed_visibility.flags = if visible_in_hierarchy {
+            ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY
         } else {
-            ComputedVisibility::INVISIBLE_MASK
+            ComputedVisibilityFlags::empty()
         };
         visible_in_hierarchy
     };
@@ -391,7 +394,7 @@ pub fn check_visibility(
                     }
                 }
 
-                computed_visibility.mask |= ComputedVisibility::VISIBLE_IN_VIEW;
+                computed_visibility.flags.insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
@@ -413,7 +416,7 @@ pub fn check_visibility(
                     return;
                 }
 
-                computed_visibility.mask = ComputedVisibility::VISIBLE_IN_VIEW;
+                computed_visibility.flags.insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
