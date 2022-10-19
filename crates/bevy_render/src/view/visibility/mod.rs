@@ -30,13 +30,13 @@ use crate::{
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq)]
 #[reflect(Component, Default)]
 pub enum Visibility {
-    Shown,
+    Inherited,
     Hidden,
 }
 
 impl Default for Visibility {
     fn default() -> Self {
-        Self::Shown
+        Self::Inherited
     }
 }
 
@@ -46,29 +46,33 @@ impl Not for Visibility {
     #[inline]
     fn not(self) -> Visibility {
         match self {
-            Visibility::Shown => Visibility::Hidden,
-            Visibility::Hidden => Visibility::Shown,
+            Visibility::Inherited => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Inherited,
         }
     }
 }
 
 impl Visibility {
-    /// Whether this entity is visible.
+    /// Whether this entity is Inherited.
     #[inline]
-    pub const fn is_visible(&self) -> bool {
-        matches!(self, Self::Shown)
+    pub const fn is_inherited(&self) -> bool {
+        matches!(self, Self::Inherited)
     }
 
-    /// Toggle the visibility.
+    /// Toggle the visibility state between Inherited and Hidden.
     #[inline]
     pub fn toggle(&mut self) {
         *self = !*self;
     }
 
-    /// Set the visibility using a boolean expression.
+    /// Set the visibility to either Inherited or Hidden using a boolean expression.
     #[inline]
-    pub fn set(&mut self, shown: bool) {
-        *self = if shown { Self::Shown } else { Self::Hidden }
+    pub fn set(&mut self, inherited: bool) {
+        *self = if inherited {
+            Self::Inherited
+        } else {
+            Self::Hidden
+        }
     }
 }
 
@@ -289,7 +293,7 @@ fn visibility_propagate_system(
     children_query: Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
 ) {
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible();
+        computed_visibility.is_visible_in_hierarchy = visibility.is_inherited();
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
         computed_visibility.is_visible_in_view = false;
         if let Some(children) = children {
@@ -322,7 +326,7 @@ fn propagate_recursive(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        computed_visibility.is_visible_in_hierarchy = visibility.is_visible() && parent_visible;
+        computed_visibility.is_visible_in_hierarchy = visibility.is_inherited() && parent_visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
         computed_visibility.is_visible_in_view = false;
         computed_visibility.is_visible_in_hierarchy
