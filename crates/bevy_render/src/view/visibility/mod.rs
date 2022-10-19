@@ -47,11 +47,16 @@ impl Visibility {
 
     /// A [`Visibility`], set as invisible.
     pub const INVISIBLE: Self = Visibility { is_visible: false };
+
+    /// Toggle the visibility.
+    pub fn toggle(&mut self) {
+        self.is_visible = !self.is_visible;
+    }
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct ComputedVisibility {
     is_visible_in_hierarchy: bool,
     is_visible_in_view: bool,

@@ -28,7 +28,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
-            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|parent| {
@@ -49,7 +48,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn(NodeBundle {
                             style: Style {
                                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                                align_items: AlignItems::FlexEnd,
                                 ..default()
                             },
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -77,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        flex_direction: FlexDirection::ColumnReverse,
+                        flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         ..default()
@@ -110,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                flex_direction: FlexDirection::ColumnReverse,
+                                flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Center,
                                 size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
                                 overflow: Overflow::Hidden,
@@ -125,12 +123,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .spawn((
                                     NodeBundle {
                                         style: Style {
-                                            flex_direction: FlexDirection::ColumnReverse,
+                                            flex_direction: FlexDirection::Column,
                                             flex_grow: 1.0,
                                             max_size: Size::UNDEFINED,
                                             ..default()
                                         },
-                                        background_color: Color::NONE.into(),
                                         ..default()
                                     },
                                     ScrollingList::default(),
@@ -163,7 +160,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
                         });
                 });
-            // absolute positioning
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -200,7 +196,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    background_color: Color::NONE.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -280,10 +275,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center,
-                        align_items: AlignItems::FlexEnd,
+                        align_items: AlignItems::FlexStart,
                         ..default()
                     },
-                    background_color: Color::NONE.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -314,9 +308,9 @@ fn mouse_scroll(
         for (mut scrolling_list, mut style, children, uinode) in &mut query_list {
             let items_height: f32 = children
                 .iter()
-                .map(|entity| query_item.get(*entity).unwrap().size.y)
+                .map(|entity| query_item.get(*entity).unwrap().size().y)
                 .sum();
-            let panel_height = uinode.size.y;
+            let panel_height = uinode.size().y;
             let max_scroll = (items_height - panel_height).max(0.);
             let dy = match mouse_wheel_event.unit {
                 MouseScrollUnit::Line => mouse_wheel_event.y * 20.,

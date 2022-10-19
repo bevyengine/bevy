@@ -17,7 +17,10 @@ struct BonusSpawnTimer(Timer);
 fn main() {
     App::new()
         .init_resource::<Game>()
-        .insert_resource(BonusSpawnTimer(Timer::from_seconds(5.0, true)))
+        .insert_resource(BonusSpawnTimer(Timer::from_seconds(
+            5.0,
+            TimerMode::Repeating,
+        )))
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
         .add_startup_system(setup_cameras)
@@ -98,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.score = 0;
     game.player.i = BOARD_SIZE_I / 2;
     game.player.j = BOARD_SIZE_J / 2;
-    game.player.move_cooldown = Timer::from_seconds(0.3, false);
+    game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
 
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 10.0, 4.0),
@@ -383,7 +386,6 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|parent| {
