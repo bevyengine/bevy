@@ -15,22 +15,20 @@ mod pretty;
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[clap(short, long, value_parser, default_value_t = 0.0)]
+    #[arg(short, long, default_value_t = 0.0)]
     /// Filter spans that have an average shorther than the threshold
     threshold: f32,
 
-    #[clap(short, long, value_parser)]
+    #[arg(short, long)]
     /// Filter spans by name matching the pattern
     pattern: Option<Regex>,
 
-    #[clap(short, long, value_parser)]
+    #[arg(short, long)]
     /// Simplify system names
     short: bool,
 
-    #[clap(value_parser)]
     trace: String,
     /// Optional, second trace to compare
-    #[clap(value_parser)]
     second_trace: Option<String>,
 }
 
