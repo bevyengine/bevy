@@ -116,15 +116,6 @@ impl ComputedVisibility {
     pub fn set_visible_in_view(&mut self) {
         self.mask |= Self::VISIBLE_IN_VIEW;
     }
-
-    #[inline(always)]
-    fn set(&mut self, mask: u8, state: bool) {
-        if state {
-            self.mask |= mask;
-        } else {
-            self.mask &= !mask;
-        }
-    }
 }
 
 /// A [`Bundle`] of the [`Visibility`] and [`ComputedVisibility`]
@@ -283,12 +274,12 @@ fn visibility_propagate_system(
     children_query: Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
 ) {
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
-        computed_visibility.set(
-            ComputedVisibility::VISIBLE_IN_HIERARCHY,
-            visibility.is_visible,
-        );
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.mask &= !ComputedVisibility::VISIBLE_IN_VIEW;
+        computed_visibility.mask = if visibility.is_visible {
+            ComputedVisibility::VISIBLE_IN_HIERARCHY
+        } else {
+            ComputedVisibility::INVISIBLE_MASK
+        };
         if let Some(children) = children {
             for child in children.iter() {
                 let _ = propagate_recursive(
@@ -320,12 +311,12 @@ fn propagate_recursive(
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
         let visible_in_hierarchy = visibility.is_visible && parent_visible;
-        computed_visibility.set(
-            ComputedVisibility::VISIBLE_IN_HIERARCHY,
-            visible_in_hierarchy,
-        );
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.mask &= !ComputedVisibility::VISIBLE_IN_VIEW;
+        computed_visibility.mask = if visible_in_hierarchy {
+            ComputedVisibility::VISIBLE_IN_HIERARCHY
+        } else {
+            ComputedVisibility::INVISIBLE_MASK
+        };
         visible_in_hierarchy
     };
 
