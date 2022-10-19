@@ -1,3 +1,4 @@
+use crate::converters::convert_cursor_grab_mode;
 use bevy_math::{DVec2, IVec2};
 use bevy_utils::HashMap;
 use bevy_window::{
@@ -8,8 +9,6 @@ use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     window::Fullscreen,
 };
-
-use crate::winit_grab_mode;
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -162,7 +161,9 @@ impl WinitWindows {
             }
         }
 
-        match winit_window.set_cursor_grab(winit_grab_mode(window_descriptor.cursor_grab_mode)) {
+        match winit_window
+            .set_cursor_grab(convert_cursor_grab_mode(window_descriptor.cursor_grab_mode))
+        {
             Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
             Err(err) => Err(err).unwrap(),
         }
