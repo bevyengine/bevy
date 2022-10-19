@@ -119,6 +119,15 @@ impl ComputedVisibility {
     pub fn set_visible_in_view(&mut self) {
         self.flags.insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
     }
+
+    #[inline]
+    fn reset(&mut self, visible_in_hierarchy: bool) {
+        self.flags = if visible_in_hierarchy {
+            ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY
+        } else {
+            ComputedVisibilityFlags::empty()
+        };
+    }
 }
 
 /// A [`Bundle`] of the [`Visibility`] and [`ComputedVisibility`]
@@ -278,11 +287,7 @@ fn visibility_propagate_system(
 ) {
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.flags = if visibility.is_visible {
-            ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY
-        } else {
-            ComputedVisibilityFlags::empty()
-        };
+        computed_visibility.reset(visibility.is_visible);
         if let Some(children) = children {
             for child in children.iter() {
                 let _ = propagate_recursive(
@@ -315,11 +320,7 @@ fn propagate_recursive(
         );
         let visible_in_hierarchy = visibility.is_visible && parent_visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.flags = if visible_in_hierarchy {
-            ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY
-        } else {
-            ComputedVisibilityFlags::empty()
-        };
+        computed_visibility.reset(visible_in_hierarchy);
         visible_in_hierarchy
     };
 
