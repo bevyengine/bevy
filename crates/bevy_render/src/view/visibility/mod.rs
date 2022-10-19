@@ -66,7 +66,7 @@ bitflags::bitflags! {
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
 #[reflect(Component, Default)]
 pub struct ComputedVisibility {
-    flags: ComputedVisibilityFlags
+    flags: ComputedVisibilityFlags,
 }
 
 impl Default for ComputedVisibility {
@@ -96,7 +96,8 @@ impl ComputedVisibility {
     /// [`VisibilitySystems::VisibilityPropagate`] system label.
     #[inline]
     pub fn is_visible_in_hierarchy(&self) -> bool {
-        self.flags.contains(ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY)
+        self.flags
+            .contains(ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY)
     }
 
     /// Whether this entity is visible in _any_ view (Cameras, Lights, etc). Each entity type (and view type) should choose how to set this
@@ -108,7 +109,8 @@ impl ComputedVisibility {
     /// Other entities might just set this to `true` every frame.
     #[inline]
     pub fn is_visible_in_view(&self) -> bool {
-        self.flags.contains(ComputedVisibilityFlags::VISIBLE_IN_VIEW)
+        self.flags
+            .contains(ComputedVisibilityFlags::VISIBLE_IN_VIEW)
     }
 
     /// Sets `is_visible_in_view` to `true`. This is not reversible for a given frame, as it encodes whether or not this is visible in
@@ -395,7 +397,9 @@ pub fn check_visibility(
                     }
                 }
 
-                computed_visibility.flags.insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
+                computed_visibility
+                    .flags
+                    .insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
@@ -417,7 +421,9 @@ pub fn check_visibility(
                     return;
                 }
 
-                computed_visibility.flags.insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
+                computed_visibility
+                    .flags
+                    .insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
