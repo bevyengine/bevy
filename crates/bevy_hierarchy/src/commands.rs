@@ -40,7 +40,7 @@ pub trait HierarchyCommands {
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
 
     /// Remove all children.
-    fn remove_all_children(&mut self) -> &mut Self;
+    fn clear_children(&mut self) -> &mut Self;
 
     /// Set the parent.
     ///
@@ -161,7 +161,7 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
         self
     }
 
-    fn remove_all_children(&mut self) -> &mut Self {
+    fn clear_children(&mut self) -> &mut Self {
         let parent = self.id();
         if let Some(children) = self.remove::<Children>() {
             // SAFETY: This doesn't change the parent's location
@@ -428,9 +428,9 @@ impl<'w, 's, 'a> HierarchyCommands for EntityCommands<'w, 's, 'a> {
         self
     }
 
-    fn remove_all_children(&mut self) -> &mut Self {
+    fn clear_children(&mut self) -> &mut Self {
         let parent = self.id();
-        self.commands().add(RemoveAllChildren { parent });
+        self.commands().add(ClearChildren { parent });
         self
     }
 
@@ -676,14 +676,14 @@ impl Command for RemoveChildren {
 }
 
 /// Command that removes all children from an entity, and removes that child's [`Parent`] component.
-pub struct RemoveAllChildren {
+pub struct ClearChildren {
     /// The parent entity to remove the children from.
     pub parent: Entity,
 }
 
-impl Command for RemoveAllChildren {
+impl Command for ClearChildren {
     fn write(self, world: &mut World) {
-        world.entity_mut(self.parent).remove_all_children();
+        world.entity_mut(self.parent).clear_children();
     }
 }
 
@@ -975,7 +975,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_all_children() {
+    fn clear_children() {
         let world = &mut World::new();
         world.insert_resource(Events::<HierarchyEvent>::default());
 
@@ -984,12 +984,12 @@ mod tests {
         world
             .entity_mut(a)
             .add_children(&[b, c])
-            .remove_all_children();
+            .clear_children();
 
         assert_children(world, a, None);
         assert_eq!(world.get::<Parent>(b), None);
         assert_eq!(world.get::<Parent>(c), None);
-        omit_events(world, 2);
+        omit_events(world, 2); // Omit ChildAdded events.
         assert_events(
             world,
             &[
