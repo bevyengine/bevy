@@ -581,12 +581,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut vertex_attributes = Vec::new();
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
-            shader_defs.push(String::from("VERTEX_POSITIONS"));
+            shader_defs.push(String::from("VERTEX_POSITIONS").into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_NORMAL) {
-            shader_defs.push(String::from("VERTEX_NORMALS"));
+            shader_defs.push(String::from("VERTEX_NORMALS").into());
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
