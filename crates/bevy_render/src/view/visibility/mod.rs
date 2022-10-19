@@ -64,6 +64,12 @@ impl Visibility {
     pub fn toggle(&mut self) {
         *self = !*self;
     }
+
+    /// Set the visibility using a boolean expression.
+    #[inline]
+    pub fn set(&mut self, shown: bool) {
+        *self = if shown { Self::Shown } else { Self::Hidden }
+    }
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
@@ -555,5 +561,13 @@ mod test {
             !is_visible(root2_child2_grandchild1),
             "child's invisibility propagates down to grandchild"
         );
+    }
+
+    #[test]
+    fn ensure_visibility_enum_size() {
+        use std::mem;
+        assert_eq!(1, mem::size_of::<Visibility>());
+        assert_eq!(1, mem::size_of::<Option<Visibility>>());
+        assert_eq!(1, mem::size_of::<Option<Option<Visibility>>>());
     }
 }
