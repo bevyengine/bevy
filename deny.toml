@@ -35,16 +35,21 @@ wildcards = "deny"
 highlight = "all"
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-    { name = "ndk-sys", version = "0.3" },              # from rodio v0.16.0
-    { name = "ndk", version = "0.6" },                  # from rodio v0.16.0
-    { name = "ndk-glue", version = "0.6" },             # from rodio v0.16.0
-    { name = "raw-window-handle", version = "0.4" },    # from winit v0.27.4
-    { name = "nix", version = "0.23.1" },               # from alsa v0.6.0
+    { name = "ndk-sys", version = "0.3" },               # from rodio v0.16.0
+    { name = "ndk", version = "0.6" },                   # from rodio v0.16.0
+    { name = "raw-window-handle", version = "0.4" },     # from winit v0.27.4
+    { name = "nix", version = "0.23.1" },                # from alsa v0.6.0
     { name = "windows_aarch64_msvc", version = "0.36" }, # from notify v5.0.0
-    { name = "windows_i686_gnu", version = "0.36" },    # from notify v5.0.0
-    { name = "windows_i686_msvc", version = "0.36" },   # from notify v5.0.0
-    { name = "windows_x86_64_gnu", version = "0.36" },  # from notify v5.0.0
-    { name = "windows_x86_64_msvc", version = "0.36" }, # from notify v5.0.0
+    { name = "windows_i686_gnu", version = "0.36" },     # from notify v5.0.0
+    { name = "windows_i686_msvc", version = "0.36" },    # from notify v5.0.0
+    { name = "windows_x86_64_gnu", version = "0.36" },   # from notify v5.0.0
+    { name = "windows_x86_64_msvc", version = "0.36" },  # from notify v5.0.0
+    { name = "windows-sys", version = "0.36" },          # from notify v5.0.0
+    { name = "windows_aarch64_msvc", version = "0.37" }, # from rodio v0.16.0
+    { name = "windows_i686_gnu", version = "0.37" },     # from rodio v0.16.0
+    { name = "windows_i686_msvc", version = "0.37" },    # from rodio v0.16.0
+    { name = "windows_x86_64_gnu", version = "0.37" },   # from rodio v0.16.0
+    { name = "windows_x86_64_msvc", version = "0.37" },  # from rodio v0.16.0
 ]
 
 [sources]
