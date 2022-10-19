@@ -268,13 +268,17 @@ fn setup_sticks(
     gamepad_settings: Res<GamepadSettings>,
     font: Res<FontHandle>,
 ) {
-    let dead_upper = STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.positive_low;
-    let dead_lower = STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.negative_low;
+    let dead_upper =
+        STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_upperbound();
+    let dead_lower =
+        STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_lowerbound();
     let dead_size = dead_lower.abs() + dead_upper.abs();
     let dead_mid = (dead_lower + dead_upper) / 2.0;
 
-    let live_upper = STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.positive_high;
-    let live_lower = STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.negative_high;
+    let live_upper =
+        STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.livezone_upperbound();
+    let live_lower =
+        STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.livezone_lowerbound();
     let live_size = live_lower.abs() + live_upper.abs();
     let live_mid = (live_lower + live_upper) / 2.0;
 

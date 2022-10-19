@@ -116,9 +116,9 @@ impl Transform {
         }
     }
 
-    /// Updates and returns this [`Transform`] by rotating it so that its unit vector in the
-    /// local `Z` direction is toward `target` and its unit vector in the local `Y` direction
-    /// is toward `up`.
+    /// Updates and returns this [`Transform`] by rotating it so that its unit
+    /// vector in the local negative `Z` direction is toward `target` and its
+    /// unit vector in the local `Y` direction is toward `up`.
     #[inline]
     #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {

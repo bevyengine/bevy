@@ -39,6 +39,9 @@ pub(crate) struct ReflectMeta<'a> {
     generics: &'a Generics,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
+    /// The documentation for this type, if any
+    #[cfg(feature = "documentation")]
+    docs: crate::documentation::Documentation,
 }
 
 /// Struct data used by derive macros for `Reflect` and `FromReflect`.
@@ -86,6 +89,9 @@ pub(crate) struct StructField<'a> {
     pub attrs: ReflectFieldAttr,
     /// The index of this field within the struct.
     pub index: usize,
+    /// The documentation for this field, if any
+    #[cfg(feature = "documentation")]
+    pub doc: crate::documentation::Documentation,
 }
 
 /// Represents a variant on an enum.
@@ -100,6 +106,9 @@ pub(crate) struct EnumVariant<'a> {
     /// The index of this variant within the enum.
     #[allow(dead_code)]
     pub index: usize,
+    /// The documentation for this variant, if any
+    #[cfg(feature = "documentation")]
+    pub doc: crate::documentation::Documentation,
 }
 
 pub(crate) enum EnumVariantFields<'a> {
@@ -108,39 +117,85 @@ pub(crate) enum EnumVariantFields<'a> {
     Unit,
 }
 
+/// The method in which the type should be reflected.
+#[derive(PartialEq, Eq)]
+enum ReflectMode {
+    /// Reflect the type normally, providing information about all fields/variants.
+    Normal,
+    /// Reflect the type as a value.
+    Value,
+}
+
 impl<'a> ReflectDerive<'a> {
     pub fn from_input(input: &'a DeriveInput) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used
-        let mut force_reflect_value = false;
+        let mut reflect_mode = None;
+
+        #[cfg(feature = "documentation")]
+        let mut doc = crate::documentation::Documentation::default();
 
         for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
             match attribute {
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                    if !matches!(reflect_mode, None | Some(ReflectMode::Normal)) {
+                        return Err(syn::Error::new(
+                            meta_list.span(),
+                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
+                        ));
+                    }
+
+                    reflect_mode = Some(ReflectMode::Normal);
+                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                    traits = traits.merge(new_traits)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
-                    force_reflect_value = true;
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                    if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
+                        return Err(syn::Error::new(
+                            meta_list.span(),
+                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
+                        ));
+                    }
+
+                    reflect_mode = Some(ReflectMode::Value);
+                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                    traits = traits.merge(new_traits)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
-                    force_reflect_value = true;
+                    if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
+                        return Err(syn::Error::new(
+                            path.span(),
+                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
+                        ));
+                    }
+
+                    reflect_mode = Some(ReflectMode::Value);
+                }
+                #[cfg(feature = "documentation")]
+                Meta::NameValue(pair) if pair.path.is_ident("doc") => {
+                    if let syn::Lit::Str(lit) = pair.lit {
+                        doc.push(lit.value());
+                    }
                 }
                 _ => continue,
             }
         }
-        if force_reflect_value {
-            return Ok(Self::Value(ReflectMeta::new(
-                &input.ident,
-                &input.generics,
-                traits,
-            )));
+
+        let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
+
+        #[cfg(feature = "documentation")]
+        let meta = meta.with_docs(doc);
+
+        // Use normal reflection if unspecified
+        let reflect_mode = reflect_mode.unwrap_or(ReflectMode::Normal);
+
+        if reflect_mode == ReflectMode::Value {
+            return Ok(Self::Value(meta));
         }
 
         return match &input.data {
             Data::Struct(data) => {
                 let fields = Self::collect_struct_fields(&data.fields)?;
-                let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
                 let reflect_struct = ReflectStruct {
                     meta,
                     serialization_denylist: members_to_serialization_denylist(
@@ -157,7 +212,6 @@ impl<'a> ReflectDerive<'a> {
             }
             Data::Enum(data) => {
                 let variants = Self::collect_enum_variants(&data.variants)?;
-                let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
 
                 let reflect_enum = ReflectEnum { meta, variants };
                 Ok(Self::Enum(reflect_enum))
@@ -179,6 +233,8 @@ impl<'a> ReflectDerive<'a> {
                     index,
                     attrs,
                     data: field,
+                    #[cfg(feature = "documentation")]
+                    doc: crate::documentation::Documentation::from_attributes(&field.attrs),
                 })
             })
             .fold(
@@ -208,6 +264,8 @@ impl<'a> ReflectDerive<'a> {
                     attrs: parse_field_attrs(&variant.attrs)?,
                     data: variant,
                     index,
+                    #[cfg(feature = "documentation")]
+                    doc: crate::documentation::Documentation::from_attributes(&variant.attrs),
                 })
             })
             .fold(
@@ -226,7 +284,15 @@ impl<'a> ReflectMeta<'a> {
             type_name,
             generics,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
+            #[cfg(feature = "documentation")]
+            docs: Default::default(),
         }
+    }
+
+    /// Sets the documentation for this type.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: crate::documentation::Documentation) -> Self {
+        Self { docs, ..self }
     }
 
     /// The registered reflect traits on this struct.
@@ -258,6 +324,12 @@ impl<'a> ReflectMeta<'a> {
             self.generics,
             None,
         )
+    }
+
+    /// The collection of docstrings for this type, if any.
+    #[cfg(feature = "documentation")]
+    pub fn doc(&self) -> &crate::documentation::Documentation {
+        &self.docs
     }
 }
 
