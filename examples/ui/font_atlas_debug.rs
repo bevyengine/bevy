@@ -26,7 +26,7 @@ impl Default for State {
         Self {
             atlas_count: 0,
             handle: Handle::default(),
-            timer: Timer::from_seconds(0.05, true),
+            timer: Timer::from_seconds(0.05, TimerMode::Repeating),
         }
     }
 }
@@ -82,12 +82,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(TextBundle::from_section(
-        "a",
-        TextStyle {
-            font: font_handle,
-            font_size: 60.0,
-            color: Color::YELLOW,
-        },
-    ));
+    commands
+        .spawn(NodeBundle {
+            background_color: Color::NONE.into(),
+            style: Style {
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    bottom: Val::Px(0.0),
+                    ..default()
+                },
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "a",
+                TextStyle {
+                    font: font_handle,
+                    font_size: 60.0,
+                    color: Color::YELLOW,
+                },
+            ));
+        });
 }

@@ -38,7 +38,7 @@ impl Plugin for WindowRenderPlugin {
 
 pub struct ExtractedWindow {
     pub id: WindowId,
-    pub handle: RawWindowHandleWrapper,
+    pub raw_window_handle: Option<RawWindowHandleWrapper>,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -83,7 +83,7 @@ fn extract_windows(
                 .entry(window.id())
                 .or_insert(ExtractedWindow {
                     id: window.id(),
-                    handle: window.raw_window_handle(),
+                    raw_window_handle: window.raw_window_handle(),
                     physical_width: new_width,
                     physical_height: new_height,
                     present_mode: window.present_mode(),
@@ -161,14 +161,20 @@ pub fn prepare_windows(
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
 ) {
-    let window_surfaces = window_surfaces.deref_mut();
-    for window in windows.windows.values_mut() {
+    for window in windows
+        .windows
+        .values_mut()
+        // value of raw_winndow_handle only None if synthetic test
+        .filter(|x| x.raw_window_handle.is_some())
+    {
+        let window_surfaces = window_surfaces.deref_mut();
         let surface = window_surfaces
             .surfaces
             .entry(window.id)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                render_instance.create_surface(&window.handle.get_handle())
+                render_instance
+                    .create_surface(&window.raw_window_handle.as_ref().unwrap().get_handle())
             });
 
         let swap_chain_descriptor = wgpu::SurfaceConfiguration {

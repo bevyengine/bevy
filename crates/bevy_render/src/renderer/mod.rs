@@ -103,7 +103,7 @@ pub struct RenderInstance(pub Instance);
 pub struct RenderAdapterInfo(pub AdapterInfo);
 
 /// The [`TextureFormat`](wgpu::TextureFormat) used for rendering.
-/// Initially it's the first element in `AvailableTextureFormats`.
+/// Initially it's the first element in `AvailableTextureFormats`, or Bevy default format.
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderTextureFormat(pub wgpu::TextureFormat);
 
@@ -111,6 +111,12 @@ pub struct RenderTextureFormat(pub wgpu::TextureFormat);
 /// Will be inserted as a `Resource` after the renderer is initialized.
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct AvailableTextureFormats(pub Arc<Vec<wgpu::TextureFormat>>);
+
+const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
+    "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
+} else {
+    "Unable to find a GPU! Make sure you have installed required drivers!"
+};
 
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
@@ -128,7 +134,7 @@ pub async fn initialize_renderer(
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
-        .expect("Unable to find a GPU! Make sure you have installed required drivers!");
+        .expect(GPU_NOT_FOUND_ERROR_MESSAGE);
 
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
@@ -278,10 +284,6 @@ pub async fn initialize_renderer(
     let mut available_texture_formats = Vec::new();
     if let Some(s) = request_adapter_options.compatible_surface {
         available_texture_formats = s.get_supported_formats(&adapter);
-        if available_texture_formats.is_empty() {
-            info!("{:?}", adapter_info);
-            panic!("No supported texture formats found!");
-        }
     };
     let available_texture_formats = Arc::new(available_texture_formats);
     (
