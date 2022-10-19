@@ -38,6 +38,9 @@ use gamepad::{
     GamepadEvent, GamepadEventRaw, GamepadEventType, GamepadSettings, Gamepads,
 };
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// Adds keyboard and mouse input to an App
 #[derive(Default)]
 pub struct InputPlugin;
