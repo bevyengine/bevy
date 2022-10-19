@@ -804,7 +804,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL),
-                &["TEXTURE".to_string().into()],
+                &["TEXTURE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -1049,7 +1049,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL_NESTED_IFDEF),
-                &["TEXTURE".to_string().into()],
+                &["TEXTURE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -1091,7 +1091,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL_NESTED_IFDEF_ELSE),
-                &["TEXTURE".to_string().into()],
+                &["TEXTURE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -1211,7 +1211,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL_NESTED_IFDEF),
-                &["ATTRIBUTE".to_string().into()],
+                &["ATTRIBUTE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -1253,7 +1253,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL_NESTED_IFDEF),
-                &["TEXTURE".to_string().into(), "ATTRIBUTE".to_string().into()],
+                &["TEXTURE".into(), "ATTRIBUTE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -1300,10 +1300,7 @@ fn in_main_present() { }
         let result = processor
             .process(
                 &Shader::from_wgsl(INPUT),
-                &[
-                    "MAIN_PRESENT".to_string().into(),
-                    "IMPORT_PRESENT".to_string().into(),
-                ],
+                &["MAIN_PRESENT".into(), "IMPORT_PRESENT".into()],
                 &shaders,
                 &import_handles,
             )
@@ -1358,7 +1355,7 @@ fn in_main() { }
         let result = processor
             .process(
                 &Shader::from_wgsl(INPUT),
-                &["DEEP".to_string().into()],
+                &["DEEP".into()],
                 &shaders,
                 &import_handles,
             )
@@ -1416,7 +1413,7 @@ fn baz() { }
         let result = processor
             .process(
                 &Shader::from_wgsl(INPUT),
-                &["FOO".to_string().into()],
+                &["FOO".into()],
                 &shaders,
                 &import_handles,
             )

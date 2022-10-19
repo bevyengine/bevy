@@ -127,9 +127,9 @@ pub enum ShaderDefVal {
     Int(String, i32),
 }
 
-impl From<String> for ShaderDefVal {
-    fn from(key: String) -> Self {
-        ShaderDefVal::Bool(key, true)
+impl From<&str> for ShaderDefVal {
+    fn from(key: &str) -> Self {
+        ShaderDefVal::Bool(key.to_string(), true)
     }
 }
 

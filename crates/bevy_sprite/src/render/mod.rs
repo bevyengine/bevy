@@ -208,7 +208,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         let mut shader_defs = Vec::new();
         if key.contains(SpritePipelineKey::COLORED) {
-            shader_defs.push("COLORED".to_string().into());
+            shader_defs.push("COLORED".into());
         }
 
         if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
