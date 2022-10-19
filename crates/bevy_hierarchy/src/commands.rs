@@ -87,7 +87,7 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
             children_component
                 .0
                 .retain(|value| !children.contains(value));
-            children_component.0.extend(children.iter().cloned());
+            children_component.0.extend_from_slice(children);
         } else {
             self.insert(Children::from_entities(children));
         }
