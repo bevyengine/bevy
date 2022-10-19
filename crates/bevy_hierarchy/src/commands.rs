@@ -289,18 +289,6 @@ impl<'w> WorldChildBuilder<'w> {
     }
 }
 
-pub(crate) fn push_events(world: &mut World, events: SmallVec<[HierarchyEvent; 8]>) {
-    if let Some(mut events_resource) = world.get_resource_mut::<Events<_>>() {
-        events_resource.extend(events);
-    }
-}
-
-pub(crate) fn push_event(world: &mut World, event: HierarchyEvent) {
-    if let Some(mut events_resource) = world.get_resource_mut::<Events<_>>() {
-        events_resource.send(event);
-    }
-}
-
 /// Struct for building children onto an entity
 pub struct ChildBuilder<'w, 's, 'a> {
     commands: &'a mut Commands<'w, 's>,
@@ -453,15 +441,23 @@ impl<'w, 's, 'a> HierarchyCommands for EntityCommands<'w, 's, 'a> {
     }
 }
 
+fn push_events(world: &mut World, events: SmallVec<[HierarchyEvent; 8]>) {
+    if let Some(mut events_resource) = world.get_resource_mut::<Events<_>>() {
+        events_resource.extend(events);
+    }
+}
+
+fn push_event(world: &mut World, event: HierarchyEvent) {
+    if let Some(mut events_resource) = world.get_resource_mut::<Events<_>>() {
+        events_resource.send(event);
+    }
+}
+
 /// Update the [`Parent`] component of the child.
 ///
 /// Returns the previous parent if it had one.
 /// The previous parent could be the same entity as the new parent.
-pub(crate) fn update_parent_component(
-    world: &mut World,
-    child: Entity,
-    parent: Entity,
-) -> Option<Entity> {
+fn update_parent_component(world: &mut World, child: Entity, parent: Entity) -> Option<Entity> {
     let mut child = world.entity_mut(child);
     if let Some(mut parent_component) = child.get_mut::<Parent>() {
         let previous = parent_component.0;
@@ -474,7 +470,7 @@ pub(crate) fn update_parent_component(
 }
 
 /// Add child to parent's [`Children`] component without checking if the child is already parented.
-pub(crate) fn add_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
+fn add_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
     if let Some(mut children) = parent.get_mut::<Children>() {
         children.0.push(child);
@@ -486,7 +482,7 @@ pub(crate) fn add_child_unchecked(world: &mut World, parent: Entity, child: Enti
 /// Update the [`Parent`] components of the children.
 ///
 /// Sends [`HierarchyEvent`]'s.
-pub(crate) fn update_parent_components(world: &mut World, parent: Entity, children: &[Entity]) {
+fn update_parent_components(world: &mut World, parent: Entity, children: &[Entity]) {
     let mut events: SmallVec<[_; 8]> = SmallVec::with_capacity(children.len());
     for &child in children {
         if let Some(previous_parent) = update_parent_component(world, child, parent) {
@@ -510,7 +506,7 @@ pub(crate) fn update_parent_components(world: &mut World, parent: Entity, childr
 /// Remove child from the parent's [`Children`] component.
 ///
 /// Removes the [`Children`] component from the parent if it's empty.
-pub(crate) fn remove_child(world: &mut World, parent: Entity, child: Entity) {
+fn remove_child(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
     if let Some(mut children) = parent.get_mut::<Children>() {
         children.0.retain(|x| *x != child);
@@ -523,7 +519,7 @@ pub(crate) fn remove_child(world: &mut World, parent: Entity, child: Entity) {
 /// Remove children from the parent's [`Children`] component and remove their [`Parent`] component.
 ///
 /// Sends [`HierarchyEvent`]'s.
-pub(crate) fn remove_children(world: &mut World, parent: Entity, children: &[Entity]) {
+fn remove_children(world: &mut World, parent: Entity, children: &[Entity]) {
     let mut events: SmallVec<[_; 8]> = SmallVec::new();
     if let Some(parent_children) = world.get::<Children>(parent) {
         for &child in children {
@@ -561,7 +557,7 @@ pub(crate) fn remove_children(world: &mut World, parent: Entity, children: &[Ent
 /// Does nothing if `child` was already a child of `parent`.
 ///
 /// Sends [`HierarchyEvent`]'s.
-pub(crate) fn set_parent(world: &mut World, child: Entity, parent: Entity) {
+fn set_parent(world: &mut World, child: Entity, parent: Entity) {
     let previous = update_parent_component(world, child, parent);
     if let Some(previous_parent) = previous {
         // Do nothing if the child was already parented to this entity.
