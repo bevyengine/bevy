@@ -90,7 +90,6 @@ fn setup_scene(
     });
 
     // Test ui
-    commands.spawn(Camera2dBundle::default());
     commands
         .spawn(ButtonBundle {
             style: Style {
