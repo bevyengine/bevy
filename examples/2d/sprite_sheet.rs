@@ -49,6 +49,6 @@ fn setup(
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..default()
         },
-        AnimationTimer(Timer::from_seconds(0.1, true)),
+        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
 }

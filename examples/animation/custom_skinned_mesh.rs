@@ -121,17 +121,14 @@ fn setup(
     for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
-            .spawn((
-                Transform::from_xyz(i as f32 * 1.5, 0.0, 0.0),
-                GlobalTransform::IDENTITY,
-            ))
+            .spawn(TransformBundle::from(Transform::from_xyz(
+                i as f32 * 1.5,
+                0.0,
+                0.0,
+            )))
             .id();
         let joint_1 = commands
-            .spawn((
-                AnimatedJoint,
-                Transform::IDENTITY,
-                GlobalTransform::IDENTITY,
-            ))
+            .spawn((AnimatedJoint, TransformBundle::IDENTITY))
             .id();
 
         // Set joint_1 as a child of joint_0.

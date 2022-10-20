@@ -32,8 +32,7 @@ fn main() {
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
         meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-        GlobalTransform::default(),
+        SpatialBundle::VISIBLE_IDENTITY,
         InstanceMaterialData(
             (1..=10)
                 .flat_map(|x| (1..=10).map(move |y| (x as f32 / 10.0, y as f32 / 10.0)))
@@ -44,8 +43,6 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                 })
                 .collect(),
         ),
-        Visibility::default(),
-        ComputedVisibility::default(),
         // NOTE: Frustum culling is done based on the Aabb of the Mesh and the GlobalTransform.
         // As the cube is at the origin, if its Aabb moves outside the view frustum, all the
         // instanced cubes will be culled.
