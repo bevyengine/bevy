@@ -101,11 +101,11 @@ impl<'w> DynamicSceneBuilder<'w> {
                 components: Vec::new(),
             };
 
-            for component_index in self.world.entity(entity).archetype().components() {
+            for component_id in self.world.entity(entity).archetype().components() {
                 let reflect_component = self
                     .world
                     .components()
-                    .get_info(component_index)
+                    .get_info(component_id)
                     .and_then(|info| type_registry.get(info.type_id().unwrap()))
                     .and_then(|registration| registration.data::<ReflectComponent>());
 
