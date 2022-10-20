@@ -281,6 +281,10 @@ impl Time {
     }
 
     /// Returns the exact clock time elapsed since [`startup`](#method.startup), as [`f32`] seconds.
+    ///
+    /// **Note:** This is a monotonically increasing value. It's precision will degrade over time.
+    /// If you need an `f32` but that precision loss is unacceptable,
+    /// use [`raw_elapsed_seconds_wrapped`](#method.raw_elapsed_seconds_wrapped).
     #[inline]
     pub fn raw_elapsed_seconds(&self) -> f32 {
         self.raw_elapsed_seconds
@@ -301,6 +305,9 @@ impl Time {
 
     /// Returns the exact clock time elapsed since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`f32`] seconds.
+    ///
+    /// This method is intended for applications (e.g. shaders) that require an [`f32`] value but
+    /// suffer from the gradual precision loss of [`raw_elapsed_seconds`](#method.raw_elapsed_seconds).
     #[inline]
     pub fn raw_elapsed_seconds_wrapped(&self) -> f32 {
         self.raw_elapsed_seconds_wrapped
