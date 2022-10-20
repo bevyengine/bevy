@@ -210,7 +210,9 @@ pub fn prepare_windows(
 
         let frame = match surface.get_current_texture() {
             Ok(swap_chain_frame) => swap_chain_frame,
-            Err(wgpu::SurfaceError::Outdated) => {
+            // NOTE: `wgpu::SurfaceError::Timeout` can occur when moving a window between monitors
+            // on Linux. Handling it here means we are ignoring it instead of panicking below.
+            Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Timeout) => {
                 render_device.configure_surface(surface, &swap_chain_descriptor);
                 surface
                     .get_current_texture()
