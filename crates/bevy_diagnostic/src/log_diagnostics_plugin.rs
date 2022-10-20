@@ -2,7 +2,7 @@ use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::{debug, info};
-use bevy_time::{Time, Timer};
+use bevy_time::{Time, Timer, TimerMode};
 use bevy_utils::Duration;
 
 /// An App Plugin that logs diagnostics to the console
@@ -32,7 +32,7 @@ impl Default for LogDiagnosticsPlugin {
 impl Plugin for LogDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(LogDiagnosticsState {
-            timer: Timer::new(self.wait_duration, true),
+            timer: Timer::new(self.wait_duration, TimerMode::Repeating),
             filter: self.filter.clone(),
         });
 

@@ -22,3 +22,4 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev" }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }
+thiserror = "1.0"
