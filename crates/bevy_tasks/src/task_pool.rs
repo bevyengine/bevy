@@ -165,9 +165,9 @@ impl TaskPool {
     /// });
     ///
     /// // The ordering of results is non-deterministic if you spawn from within tasks as above.
-    /// // This commented out assert will fail intermittently because the inner spawn can be inserted into
-    /// // the queue before the outer one.
-    /// // assert_eq!(&results[..], &[0, 1]);
+    /// // If you're doing this, you'll have to write your code to not depend on the ordering.
+    /// assert!(results.contains(&0));
+    /// assert!(results.contains(&1));
     ///
     /// // The ordering is deterministic if you only spawn directly from the closure function.
     /// let results = pool.scope(|s| {
