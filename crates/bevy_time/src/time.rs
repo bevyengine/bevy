@@ -408,11 +408,10 @@ impl Time {
     }
 }
 
-fn duration_div_rem(dividend: Duration, divisor: Duration) -> (Duration, Duration) {
+fn duration_div_rem(dividend: Duration, divisor: Duration) -> (u32, Duration) {
     // `Duration` does not have a built-in modulo operation
-    let n = (dividend.as_nanos() / divisor.as_nanos()) as u32;
-    let quotient = n * divisor;
-    let remainder = dividend - quotient;
+    let quotient = (dividend.as_nanos() / divisor.as_nanos()) as u32;
+    let remainder = dividend - (quotient * divisor);
     (quotient, remainder)
 }
 
