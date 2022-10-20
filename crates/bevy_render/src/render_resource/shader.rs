@@ -297,12 +297,24 @@ pub enum ProcessShaderError {
     NotEnoughEndIfs,
     #[error("This Shader's format does not support processing shader defs.")]
     ShaderFormatDoesNotSupportShaderDefs,
-    #[error("This Shader's formatdoes not support imports.")]
+    #[error("This Shader's format does not support imports.")]
     ShaderFormatDoesNotSupportImports,
     #[error("Unresolved import: {0:?}.")]
     UnresolvedImport(ShaderImport),
     #[error("The shader import {0:?} does not match the source file type. Support for this might be added in the future.")]
     MismatchedImportFormat(ShaderImport),
+    #[error("Unknown shader def operator: '{operator}'")]
+    UnknownShaderDefOperator { operator: String },
+    #[error("Unknown shader def: '{shader_def_name}'")]
+    UnknownShaderDef { shader_def_name: String },
+    #[error(
+        "Invalid shader def comparison for '{shader_def_name}': expected {expected}, got {value}"
+    )]
+    InvalidShaderDefComparisonValue {
+        shader_def_name: String,
+        expected: String,
+        value: String,
+    },
 }
 
 pub struct ShaderImportProcessor {
@@ -371,8 +383,7 @@ pub static SHADER_IMPORT_PROCESSOR: Lazy<ShaderImportProcessor> =
 pub struct ShaderProcessor {
     ifdef_regex: Regex,
     ifndef_regex: Regex,
-    ifeq_regex: Regex,
-    ifneq_regex: Regex,
+    ifop_regex: Regex,
     else_regex: Regex,
     endif_regex: Regex,
     def_regex: Regex,
@@ -384,8 +395,7 @@ impl Default for ShaderProcessor {
         Self {
             ifdef_regex: Regex::new(r"^\s*#\s*ifdef\s*([\w|\d|_]+)").unwrap(),
             ifndef_regex: Regex::new(r"^\s*#\s*ifndef\s*([\w|\d|_]+)").unwrap(),
-            ifeq_regex: Regex::new(r"^\s*#\s*if\s*([\w|\d|_]+)\s*==\s*([\w|\d]+)").unwrap(),
-            ifneq_regex: Regex::new(r"^\s*#\s*if\s*([\w|\d|_]+)\s*!=\s*([\w|\d]+)").unwrap(),
+            ifop_regex: Regex::new(r"^\s*#\s*if\s*([\w|\d|_]+)\s*([^\s]*)\s*([\w|\d]+)").unwrap(),
             else_regex: Regex::new(r"^\s*#\s*else").unwrap(),
             endif_regex: Regex::new(r"^\s*#\s*endif").unwrap(),
             def_regex: Regex::new(r"#\s*([\w|\d|_]+)").unwrap(),
@@ -429,46 +439,49 @@ impl ShaderProcessor {
                 scopes.push(
                     *scopes.last().unwrap() && !shader_defs_unique.contains_key(def.as_str()),
                 );
-            } else if let Some(cap) = self.ifeq_regex.captures(line) {
+            } else if let Some(cap) = self.ifop_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                let val = cap.get(2).unwrap();
-                if let Some(def) = shader_defs_unique.get(def.as_str()) {
-                    let new_scope = match def {
-                        ShaderDefVal::Bool(_, def) => val
-                            .as_str()
-                            .parse()
-                            .map(|val: bool| *def == val)
-                            .unwrap_or_default(),
-                        ShaderDefVal::Int(_, def) => val
-                            .as_str()
-                            .parse()
-                            .map(|val: i32| *def == val)
-                            .unwrap_or_default(),
-                    };
-                    scopes.push(*scopes.last().unwrap() && new_scope);
-                } else {
-                    scopes.push(false);
+                let op = cap.get(2).unwrap();
+                let val = cap.get(3).unwrap();
+
+                fn act_on<T: Eq>(a: T, b: T, op: &str) -> Result<bool, ProcessShaderError> {
+                    match op {
+                        "==" => Ok(a == b),
+                        "!=" => Ok(a != b),
+                        _ => Err(ProcessShaderError::UnknownShaderDefOperator {
+                            operator: op.to_string(),
+                        }),
+                    }
                 }
-            } else if let Some(cap) = self.ifneq_regex.captures(line) {
-                let def = cap.get(1).unwrap();
-                let val = cap.get(2).unwrap();
-                if let Some(def) = shader_defs_unique.get(def.as_str()) {
-                    let new_scope = match def {
-                        ShaderDefVal::Bool(_, def) => val
-                            .as_str()
-                            .parse()
-                            .map(|val: bool| *def == val)
-                            .unwrap_or(true),
-                        ShaderDefVal::Int(_, def) => val
-                            .as_str()
-                            .parse()
-                            .map(|val: i32| *def == val)
-                            .unwrap_or(true),
-                    };
-                    scopes.push(*scopes.last().unwrap() && !new_scope);
-                } else {
-                    scopes.push(*scopes.last().unwrap());
-                }
+
+                let def = shader_defs_unique.get(def.as_str()).ok_or(
+                    ProcessShaderError::UnknownShaderDef {
+                        shader_def_name: def.as_str().to_string(),
+                    },
+                )?;
+                let new_scope = match def {
+                    ShaderDefVal::Bool(name, def) => {
+                        let val = val.as_str().parse().map_err(|_| {
+                            ProcessShaderError::InvalidShaderDefComparisonValue {
+                                shader_def_name: name.clone(),
+                                value: val.as_str().to_string(),
+                                expected: "bool".to_string(),
+                            }
+                        })?;
+                        act_on(*def, val, op.as_str())?
+                    }
+                    ShaderDefVal::Int(name, def) => {
+                        let val = val.as_str().parse().map_err(|_| {
+                            ProcessShaderError::InvalidShaderDefComparisonValue {
+                                shader_def_name: name.clone(),
+                                value: val.as_str().to_string(),
+                                expected: "int".to_string(),
+                            }
+                        })?;
+                        act_on(*def, val, op.as_str())?
+                    }
+                };
+                scopes.push(*scopes.last().unwrap() && new_scope);
             } else if self.else_regex.is_match(line) {
                 let mut is_parent_scope_truthy = true;
                 if scopes.len() > 1 {
@@ -1427,6 +1440,54 @@ fn baz() { }
     }
 
     #[test]
+    fn process_shader_def_unknown_operator() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+#if TEXTURE !! true
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+#endif
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        let processor = ShaderProcessor::default();
+
+        let result_missing = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &["TEXTURE".into()],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_missing,
+            Err(ProcessShaderError::UnknownShaderDefOperator {
+                operator: "!!".to_string()
+            })
+        );
+    }
+    #[test]
     fn process_shader_def_equal_int() {
         #[rustfmt::skip]
         const WGSL: &str = r"
@@ -1535,25 +1596,33 @@ fn vertex(
             .unwrap();
         assert_eq!(result_neq.get_wgsl_source().unwrap(), EXPECTED_NEQ);
 
-        let result_missing = processor
-            .process(
-                &Shader::from_wgsl(WGSL),
-                &[],
-                &HashMap::default(),
-                &HashMap::default(),
-            )
-            .unwrap();
-        assert_eq!(result_missing.get_wgsl_source().unwrap(), EXPECTED_NEQ);
+        let result_missing = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &[],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_missing,
+            Err(ProcessShaderError::UnknownShaderDef {
+                shader_def_name: "TEXTURE".to_string()
+            })
+        );
 
-        let result_wrong_type = processor
-            .process(
-                &Shader::from_wgsl(WGSL),
-                &[ShaderDefVal::Bool("TEXTURE".to_string(), true)],
-                &HashMap::default(),
-                &HashMap::default(),
-            )
-            .unwrap();
-        assert_eq!(result_wrong_type.get_wgsl_source().unwrap(), EXPECTED_NEQ);
+        let result_wrong_type = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &[ShaderDefVal::Bool("TEXTURE".to_string(), true)],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_wrong_type,
+            Err(ProcessShaderError::InvalidShaderDefComparisonValue {
+                shader_def_name: "TEXTURE".to_string(),
+                expected: "bool".to_string(),
+                value: "3".to_string()
+            })
+        );
     }
 
     #[test]
@@ -1775,25 +1844,33 @@ fn vertex(
             .unwrap();
         assert_eq!(result_neq.get_wgsl_source().unwrap(), EXPECTED_NEQ);
 
-        let result_missing = processor
-            .process(
-                &Shader::from_wgsl(WGSL),
-                &[],
-                &HashMap::default(),
-                &HashMap::default(),
-            )
-            .unwrap();
-        assert_eq!(result_missing.get_wgsl_source().unwrap(), EXPECTED_EQ);
+        let result_missing = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &[],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_missing,
+            Err(ProcessShaderError::UnknownShaderDef {
+                shader_def_name: "TEXTURE".to_string()
+            })
+        );
 
-        let result_wrong_type = processor
-            .process(
-                &Shader::from_wgsl(WGSL),
-                &[ShaderDefVal::Int("TEXTURE".to_string(), 7)],
-                &HashMap::default(),
-                &HashMap::default(),
-            )
-            .unwrap();
-        assert_eq!(result_wrong_type.get_wgsl_source().unwrap(), EXPECTED_NEQ);
+        let result_wrong_type = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &[ShaderDefVal::Int("TEXTURE".to_string(), 7)],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_wrong_type,
+            Err(ProcessShaderError::InvalidShaderDefComparisonValue {
+                shader_def_name: "TEXTURE".to_string(),
+                expected: "int".to_string(),
+                value: "false".to_string()
+            })
+        );
     }
 
     #[test]
