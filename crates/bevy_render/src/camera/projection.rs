@@ -106,25 +106,29 @@ impl Default for Projection {
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
     ///
-    /// Defaults to a value of π/4 radians.
+    /// Defaults to a value of π/4 radians or 45 degrees.
     pub fov: f32,
 
     /// The aspect ratio (width divided by height) of the viewing frustum.
     ///
-    /// Defaults to a value of `1.0`. Bevy's [`camera_system`](crate::camera::camera_system)
-    /// automatically updates this value when the aspect ratio of the associated window changes.
+    /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
+    /// updates this value when the aspect ratio of the associated window changes.
+    ///
+    /// Defaults to a value of `1.0`.
     pub aspect_ratio: f32,
 
     /// The distance from the camera in world units of the viewing frustum's near plane.
     ///
-    /// Objects closer to the camera than this value will not be visible. Defaults to a value of
-    /// `0.1`.
+    /// Objects closer to the camera than this value will not be visible.
+    ///
+    /// Defaults to a value of `0.1`.
     pub near: f32,
 
     /// The distance from the camera in world units of the viewing frustum's far plane.
     ///
-    /// Objects farther from the camera than this value will not be visible. Defaults to a value of
-    /// `1000.0`.
+    /// Objects farther from the camera than this value will not be visible.
+    ///
+    /// Defaults to a value of `1000.0`.
     pub far: f32,
 }
 
