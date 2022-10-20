@@ -396,7 +396,7 @@ impl Time {
 
     /// Returns `true` if time has been paused.
     #[inline]
-    pub fn paused(&self) -> bool {
+    pub fn is_paused(&self) -> bool {
         self.paused
     }
 }
@@ -661,12 +661,12 @@ mod tests {
         let first_update_instant = Instant::now();
         time.update_with_instant(first_update_instant);
 
-        assert!(!time.paused());
+        assert!(!time.is_paused());
         assert_eq!(time.relative_speed(), 1.0);
 
         time.pause();
 
-        assert!(time.paused());
+        assert!(time.is_paused());
         assert_eq!(time.relative_speed(), 0.0);
 
         let second_update_instant = Instant::now();
@@ -684,7 +684,7 @@ mod tests {
 
         time.unpause();
 
-        assert!(!time.paused());
+        assert!(!time.is_paused());
         assert_eq!(time.relative_speed(), 1.0);
 
         let third_update_instant = Instant::now();
