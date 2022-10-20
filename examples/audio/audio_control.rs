@@ -43,11 +43,7 @@ fn pause(
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         if let Some(sink) = audio_sinks.get(&music_controller.0) {
-            if sink.is_paused() {
-                sink.play();
-            } else {
-                sink.pause();
-            }
+            sink.toggle();
         }
     }
 }

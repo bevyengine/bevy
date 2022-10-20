@@ -177,7 +177,7 @@ impl AudioSink {
     pub fn pause(&self) {
         self.sink.as_ref().unwrap().pause();
     }
-    
+
     /// Toggles the playback of this sink.
     ///
     /// Will pause if playing, and will be resumed if paused.
