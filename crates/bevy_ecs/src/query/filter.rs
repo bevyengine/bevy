@@ -446,7 +446,6 @@ macro_rules! impl_tick_filter {
             entities: Option<ThinSlicePtr<'w, Entity>>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u64,
-            change_tick: u64,
         }
 
         // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
@@ -458,7 +457,7 @@ macro_rules! impl_tick_filter {
                 item
             }
 
-            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u64, change_tick: u64) -> <Self as WorldQueryGats<'w>>::Fetch {
+            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u64, _change_tick: u64) -> <Self as WorldQueryGats<'w>>::Fetch {
                 QueryFetch::<'w, Self> {
                     table_ticks: None,
                     entities: None,
@@ -467,7 +466,6 @@ macro_rules! impl_tick_filter {
                         .then(|| world.storages().sparse_sets.get(id).unwrap()),
                     marker: PhantomData,
                     last_change_tick,
-                    change_tick,
                 }
             }
 
@@ -575,7 +573,6 @@ macro_rules! impl_tick_filter {
                     entities: self.entities.clone(),
                     sparse_set: self.sparse_set.clone(),
                     last_change_tick: self.last_change_tick.clone(),
-                    change_tick: self.change_tick.clone(),
                 }
             }
         }
