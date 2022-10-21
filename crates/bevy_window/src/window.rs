@@ -914,10 +914,7 @@ pub struct WindowDescriptor {
     ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
-    /// - macOS X: Not working as expected.
-    /// - Windows 11: Not working as expected
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
-    /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
+    /// - macOS X: Not working as expected, possibly related to [wgpu #687](https://github.com/gfx-rs/wgpu/issues/687).
     pub transparent: bool,
     /// The "html canvas" element selector.
     ///
