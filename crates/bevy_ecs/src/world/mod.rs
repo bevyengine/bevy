@@ -320,6 +320,16 @@ impl World {
         Some(EntityRef::new(self, entity, location))
     }
 
+    /// Returns an [`Entity`] iterator of current entities.
+    ///
+    /// This is useful in contexts where you only have read-only access to the [`World`].
+    #[inline]
+    pub fn iter_entities(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.archetypes
+            .iter()
+            .flat_map(|archetype| archetype.entities().iter().copied())
+    }
+
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
     /// Returns [`None`] if the `entity` does not exist. Use [`World::entity_mut`] if you don't want
     /// to unwrap the [`EntityMut`] yourself.
@@ -1149,7 +1159,13 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+    pub fn resource_scope<
+        R: 'static, /* The resource doesn't need to be Send nor Sync. */
+        U,
+    >(
+        &mut self,
+        f: impl FnOnce(&mut World, Mut<R>) -> U,
+    ) -> U {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
@@ -1157,6 +1173,13 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
+
+        // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
+        let component_info = self.components().get_info(component_id).unwrap();
+        if !component_info.is_send_and_sync() {
+            self.validate_non_send_access::<R>();
+        }
+
         let (ptr, mut ticks) = {
             let resource_archetype = self.archetypes.resource_mut();
             let unique_components = resource_archetype.unique_components_mut();
@@ -1621,7 +1644,7 @@ mod tests {
         system::Resource,
     };
     use bevy_ecs_macros::Component;
-    use bevy_utils::HashSet;
+    use bevy_utils::{HashMap, HashSet};
     use std::{
         any::TypeId,
         panic,
@@ -1893,5 +1916,74 @@ mod tests {
             to_type_ids(world.inspect_entity(ent6)),
             [Some(baz_id)].into()
         );
+    }
+
+    #[test]
+    fn iterate_entities() {
+        let mut world = World::new();
+        let mut entity_counters = HashMap::new();
+
+        let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
+            entity_counters.clear();
+            for entity in world.iter_entities() {
+                let counter = entity_counters.entry(entity).or_insert(0);
+                *counter += 1;
+            }
+        };
+
+        // Adding one entity and validating iteration
+        let ent0 = world.spawn((Foo, Bar, Baz)).id();
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+        assert_eq!(entity_counters[&ent0], 1);
+        assert_eq!(entity_counters.len(), 1);
+
+        // Spawning three more entities and then validating iteration
+        let ent1 = world.spawn((Foo, Bar)).id();
+        let ent2 = world.spawn((Bar, Baz)).id();
+        let ent3 = world.spawn((Foo, Baz)).id();
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+
+        assert_eq!(entity_counters[&ent0], 1);
+        assert_eq!(entity_counters[&ent1], 1);
+        assert_eq!(entity_counters[&ent2], 1);
+        assert_eq!(entity_counters[&ent3], 1);
+        assert_eq!(entity_counters.len(), 4);
+
+        // Despawning first entity and then validating the iteration
+        assert!(world.despawn(ent0));
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+
+        assert_eq!(entity_counters[&ent1], 1);
+        assert_eq!(entity_counters[&ent2], 1);
+        assert_eq!(entity_counters[&ent3], 1);
+        assert_eq!(entity_counters.len(), 3);
+
+        // Spawning three more entities, despawning three and then validating the iteration
+        let ent4 = world.spawn(Foo).id();
+        let ent5 = world.spawn(Bar).id();
+        let ent6 = world.spawn(Baz).id();
+
+        assert!(world.despawn(ent2));
+        assert!(world.despawn(ent3));
+        assert!(world.despawn(ent4));
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+
+        assert_eq!(entity_counters[&ent1], 1);
+        assert_eq!(entity_counters[&ent5], 1);
+        assert_eq!(entity_counters[&ent6], 1);
+        assert_eq!(entity_counters.len(), 3);
+
+        // Despawning remaining entities and then validating the iteration
+        assert!(world.despawn(ent1));
+        assert!(world.despawn(ent5));
+        assert!(world.despawn(ent6));
+
+        iterate_and_count_entities(&world, &mut entity_counters);
+
+        assert_eq!(entity_counters.len(), 0);
     }
 }

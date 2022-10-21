@@ -130,6 +130,13 @@ without UI components as a child of an entity with UI components, results may be
             .unwrap();
     }
 
+    /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
+    pub fn try_remove_children(&mut self, entity: Entity) {
+        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy.set_children(*taffy_node, &[]).unwrap();
+        }
+    }
+
     pub fn update_window(&mut self, window: &Window) {
         let taffy = &mut self.taffy;
         let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
@@ -216,6 +223,7 @@ pub fn flex_node_system(
         (With<Node>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
+    removed_children: RemovedComponents<Children>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
     removed_nodes: RemovedComponents<Node>,
 ) {
@@ -262,7 +270,10 @@ pub fn flex_node_system(
         flex_surface.set_window_children(primary_window.id(), root_node_query.iter());
     }
 
-    // update children
+    // update and remove children
+    for entity in &removed_children {
+        flex_surface.try_remove_children(entity);
+    }
     for (entity, children) in &children_query {
         flex_surface.update_children(entity, children);
     }
@@ -282,8 +293,8 @@ pub fn flex_node_system(
             to_logical(layout.size.height),
         );
         // only trigger change detection when the new value is different
-        if node.size != new_size {
-            node.size = new_size;
+        if node.calculated_size != new_size {
+            node.calculated_size = new_size;
         }
         let mut new_position = transform.translation;
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);

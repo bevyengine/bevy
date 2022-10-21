@@ -16,7 +16,16 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 #[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in pixels
-    pub size: Vec2,
+    /// automatically calculated by [`super::flex::flex_node_system`]
+    pub(crate) calculated_size: Vec2,
+}
+
+impl Node {
+    /// The calculated node size as width and height in pixels
+    /// automatically calculated by [`super::flex::flex_node_system`]
+    pub fn size(&self) -> Vec2 {
+        self.calculated_size
+    }
 }
 
 /// An enum that describes possible types of value in flexbox layout options
@@ -303,11 +312,11 @@ pub enum FlexDirection {
     /// Same way as text direction along the main axis
     #[default]
     Row,
-    /// Flex from bottom to top
+    /// Flex from top to bottom
     Column,
     /// Opposite way as text direction along the main axis
     RowReverse,
-    /// Flex from top to bottom
+    /// Flex from bottom to top
     ColumnReverse,
 }
 

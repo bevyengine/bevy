@@ -40,7 +40,7 @@ use super::Resource;
 ///     commands.add(AddToCounter(42));
 /// }
 /// ```
-pub trait Command: Send + Sync + 'static {
+pub trait Command: Send + 'static {
     fn write(self, world: &mut World);
 }
 
@@ -167,6 +167,9 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
     /// and returns its corresponding [`EntityCommands`].
+    ///
+    /// This method silently fails by returning `EntityCommands`
+    /// even if the given `Entity` cannot be spawned.
     ///
     /// See [`World::get_or_spawn`] for more details.
     ///
@@ -318,7 +321,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
     ///         // adds a single component to the entity
     ///         entity_commands.insert(Label("hello world"));
-    ///     }      
+    ///     }
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
@@ -562,6 +565,12 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
     /// Adds a [`Bundle`] of components to the entity.
     ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
     /// # Example
     ///
     /// ```
@@ -683,6 +692,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// See [`World::despawn`] for more details.
     ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
     /// # Example
     ///
     /// ```
@@ -707,6 +720,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 
     /// Logs the components of the entity at the info level.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
     pub fn log_components(&mut self) {
         self.commands.add(LogComponents {
             entity: self.entity,

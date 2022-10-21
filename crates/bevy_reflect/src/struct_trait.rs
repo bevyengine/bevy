@@ -74,6 +74,8 @@ pub struct StructInfo {
     type_id: TypeId,
     fields: Box<[NamedField]>,
     field_indices: HashMap<&'static str, usize>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl StructInfo {
@@ -97,7 +99,15 @@ impl StructInfo {
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             field_indices,
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this struct.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// Get the field with the given name.
@@ -151,6 +161,12 @@ impl StructInfo {
     /// Check if the given type matches the struct type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this struct, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 
