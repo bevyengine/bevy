@@ -734,7 +734,7 @@ impl<'a, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'a, T> {
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a Local<'w, T>
+impl<'w, 'a, T: FromWorld + Send + 'static> IntoIterator for &'a Local<'w, T>
 where
     &'a T: IntoIterator,
 {
@@ -747,7 +747,7 @@ where
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a mut Local<'w, T>
+impl<'w, 'a, T: FromWorld + Send + 'static> IntoIterator for &'a mut Local<'w, T>
 where
     &'a mut T: IntoIterator,
 {
