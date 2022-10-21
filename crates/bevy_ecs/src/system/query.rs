@@ -276,8 +276,8 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     pub(crate) world: &'world World,
     pub(crate) state: &'state QueryState<Q, F>,
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
+    pub(crate) last_change_tick: u64,
+    pub(crate) change_tick: u64,
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w, 's, Q, F> {
@@ -297,8 +297,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub(crate) unsafe fn new(
         world: &'w World,
         state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) -> Self {
         Self {
             world,

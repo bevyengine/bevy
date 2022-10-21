@@ -225,15 +225,11 @@ impl System for FixedTimestep {
             .update_archetype_component_access(world);
     }
 
-    fn check_change_tick(&mut self, change_tick: u32) {
-        self.internal_system.check_change_tick(change_tick);
-    }
-
-    fn get_last_change_tick(&self) -> u32 {
+    fn get_last_change_tick(&self) -> u64 {
         self.internal_system.get_last_change_tick()
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+    fn set_last_change_tick(&mut self, last_change_tick: u64) {
         self.internal_system.set_last_change_tick(last_change_tick);
     }
 }

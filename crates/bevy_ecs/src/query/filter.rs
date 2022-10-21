@@ -61,8 +61,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     unsafe fn init_fetch(
         _world: &World,
         _state: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: u64,
+        _change_tick: u64,
     ) {
     }
 
@@ -168,8 +168,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     unsafe fn init_fetch(
         _world: &World,
         _state: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: u64,
+        _change_tick: u64,
     ) {
     }
 
@@ -318,7 +318,7 @@ macro_rules! impl_query_filter_tuple {
 
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
-            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> <Self as WorldQueryGats<'w>>::Fetch {
+            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_change_tick: u64, change_tick: u64) -> <Self as WorldQueryGats<'w>>::Fetch {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
                     fetch: $filter::init_fetch(world, $filter, last_change_tick, change_tick),
@@ -445,8 +445,8 @@ macro_rules! impl_tick_filter {
             marker: PhantomData<T>,
             entities: Option<ThinSlicePtr<'w, Entity>>,
             sparse_set: Option<&'w ComponentSparseSet>,
-            last_change_tick: u32,
-            change_tick: u32,
+            last_change_tick: u64,
+            change_tick: u64,
         }
 
         // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
@@ -458,7 +458,7 @@ macro_rules! impl_tick_filter {
                 item
             }
 
-            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> <Self as WorldQueryGats<'w>>::Fetch {
+            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u64, change_tick: u64) -> <Self as WorldQueryGats<'w>>::Fetch {
                 QueryFetch::<'w, Self> {
                     table_ticks: None,
                     entities: None,
@@ -496,14 +496,14 @@ macro_rules! impl_tick_filter {
             }
 
             unsafe fn table_fetch<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, table_row: usize) -> <Self as WorldQueryGats<'w>>::Item {
-                $is_detected(&*(fetch.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), fetch.last_change_tick, fetch.change_tick)
+                $is_detected(&*(fetch.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), fetch.last_change_tick)
             }
 
             unsafe fn archetype_fetch<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, archetype_index: usize) -> <Self as WorldQueryGats<'w>>::Item {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         let table_row = *fetch.entity_table_rows.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
-                        $is_detected(&*(fetch.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), fetch.last_change_tick, fetch.change_tick)
+                        $is_detected(&*(fetch.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), fetch.last_change_tick)
                     }
                     StorageType::SparseSet => {
                         let entity = *fetch.entities.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
@@ -514,7 +514,7 @@ macro_rules! impl_tick_filter {
                             .map(|ticks| &*ticks.get())
                             .cloned()
                             .unwrap();
-                        $is_detected(&ticks, fetch.last_change_tick, fetch.change_tick)
+                        $is_detected(&ticks, fetch.last_change_tick)
                     }
                 }
             }

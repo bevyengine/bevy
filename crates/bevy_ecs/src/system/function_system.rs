@@ -1,13 +1,12 @@
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
-        SystemParamItem, SystemParamState,
+        ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch, SystemParamItem,
+        SystemParamState,
     },
     world::{World, WorldId},
 };
@@ -23,7 +22,7 @@ pub struct SystemMeta {
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
-    pub(crate) last_change_tick: u32,
+    pub(crate) last_change_tick: u64,
 }
 
 impl SystemMeta {
@@ -143,7 +142,7 @@ pub struct SystemState<Param: SystemParam + 'static> {
 impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
-        meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+        meta.last_change_tick = world.change_tick();
         let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta);
         Self {
             meta,
@@ -411,11 +410,11 @@ where
         out
     }
 
-    fn get_last_change_tick(&self) -> u32 {
+    fn get_last_change_tick(&self) -> u64 {
         self.system_meta.last_change_tick
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+    fn set_last_change_tick(&mut self, last_change_tick: u64) {
         self.system_meta.last_change_tick = last_change_tick;
     }
 
@@ -428,7 +427,7 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
-        self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+        self.system_meta.last_change_tick = world.change_tick();
         self.param_state = Some(<Param::Fetch as SystemParamState>::init(
             world,
             &mut self.system_meta,
@@ -450,14 +449,6 @@ where
         }
     }
 
-    #[inline]
-    fn check_change_tick(&mut self, change_tick: u32) {
-        check_system_change_tick(
-            &mut self.system_meta.last_change_tick,
-            change_tick,
-            self.system_meta.name.as_ref(),
-        );
-    }
     fn default_labels(&self) -> Vec<SystemLabelId> {
         vec![self.func.as_system_label().as_label()]
     }

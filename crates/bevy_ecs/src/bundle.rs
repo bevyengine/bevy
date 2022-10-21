@@ -267,7 +267,7 @@ impl BundleInfo {
         components: &mut Components,
         storages: &'a mut Storages,
         archetype_id: ArchetypeId,
-        change_tick: u32,
+        change_tick: u64,
     ) -> BundleInserter<'a, 'b> {
         let new_archetype_id =
             self.add_bundle_to_archetype(archetypes, storages, components, archetype_id);
@@ -326,7 +326,7 @@ impl BundleInfo {
         archetypes: &'a mut Archetypes,
         components: &mut Components,
         storages: &'a mut Storages,
-        change_tick: u32,
+        change_tick: u64,
     ) -> BundleSpawner<'a, 'b> {
         let new_archetype_id =
             self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY);
@@ -357,7 +357,7 @@ impl BundleInfo {
         add_bundle: &AddBundle,
         entity: Entity,
         table_row: usize,
-        change_tick: u32,
+        change_tick: u64,
         bundle: T,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
@@ -482,7 +482,7 @@ pub(crate) struct BundleInserter<'a, 'b> {
     sparse_sets: &'a mut SparseSets,
     result: InsertBundleResult<'a>,
     archetypes_ptr: *mut Archetype,
-    change_tick: u32,
+    change_tick: u64,
 }
 
 pub(crate) enum InsertBundleResult<'a> {
@@ -618,7 +618,7 @@ pub(crate) struct BundleSpawner<'a, 'b> {
     bundle_info: &'b BundleInfo,
     table: &'a mut Table,
     sparse_sets: &'a mut SparseSets,
-    change_tick: u32,
+    change_tick: u64,
 }
 
 impl<'a, 'b> BundleSpawner<'a, 'b> {

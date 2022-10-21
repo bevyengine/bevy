@@ -4,21 +4,6 @@ use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
 #[cfg(feature = "bevy_reflect")]
 use std::ops::{Deref, DerefMut};
 
-/// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
-///
-/// Change ticks can only be scanned when systems aren't running. Thus, if the threshold is `N`,
-/// the maximum is `2 * N - 1` (i.e. the world ticks `N - 1` times, then `N` times).
-///
-/// If no change is older than `u32::MAX - (2 * N - 1)` following a scan, none of their ages can
-/// overflow and cause false positives.
-// (518,400,000 = 1000 ticks per frame * 144 frames per second * 3600 seconds per hour)
-pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
-
-/// The maximum change tick difference that won't overflow before the next `check_tick` scan.
-///
-/// Changes stop being detected once they become this old.
-pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
-
 /// Types that implement reliable change detection.
 ///
 /// ## Example
@@ -31,7 +16,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// use bevy_ecs::prelude::*;
 ///
 /// #[derive(Resource)]
-/// struct MyResource(u32);
+/// struct MyResource(u64);
 ///
 /// fn my_system(mut resource: ResMut<MyResource>) {
 ///     if resource.is_changed() {
@@ -69,7 +54,7 @@ pub trait DetectChanges {
     /// For comparison, the previous change tick of a system can be read using the
     /// [`SystemChangeTick`](crate::system::SystemChangeTick)
     /// [`SystemParam`](crate::system::SystemParam).
-    fn last_changed(&self) -> u32;
+    fn last_changed(&self) -> u64;
 
     /// Manually sets the change tick recording the previous time this data was mutated.
     ///
@@ -77,7 +62,7 @@ pub trait DetectChanges {
     /// This is a complex and error-prone operation, primarily intended for use with rollback networking strategies.
     /// If you merely want to flag this data as changed, use [`set_changed`](DetectChanges::set_changed) instead.
     /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChanges::bypass_change_detection) instead.
-    fn set_last_changed(&mut self, last_change_tick: u32);
+    fn set_last_changed(&mut self, last_change_tick: u64);
 
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
     ///
@@ -97,14 +82,14 @@ macro_rules! change_detection_impl {
             fn is_added(&self) -> bool {
                 self.ticks
                     .component_ticks
-                    .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .is_added(self.ticks.last_change_tick)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
                 self.ticks
                     .component_ticks
-                    .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .is_changed(self.ticks.last_change_tick)
             }
 
             #[inline]
@@ -115,12 +100,12 @@ macro_rules! change_detection_impl {
             }
 
             #[inline]
-            fn last_changed(&self) -> u32 {
+            fn last_changed(&self) -> u64 {
                 self.ticks.last_change_tick
             }
 
             #[inline]
-            fn set_last_changed(&mut self, last_change_tick: u32) {
+            fn set_last_changed(&mut self, last_change_tick: u64) {
                 self.ticks.last_change_tick = last_change_tick
             }
 
@@ -226,8 +211,8 @@ macro_rules! impl_debug {
 
 pub(crate) struct Ticks<'a> {
     pub(crate) component_ticks: &'a mut ComponentTicks,
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
+    pub(crate) last_change_tick: u64,
+    pub(crate) change_tick: u64,
 }
 
 /// Unique mutable borrow of a [`Resource`].
@@ -333,14 +318,14 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     fn is_added(&self) -> bool {
         self.ticks
             .component_ticks
-            .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+            .is_added(self.ticks.last_change_tick)
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
         self.ticks
             .component_ticks
-            .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+            .is_changed(self.ticks.last_change_tick)
     }
 
     #[inline]
@@ -351,12 +336,12 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     }
 
     #[inline]
-    fn last_changed(&self) -> u32 {
+    fn last_changed(&self) -> u64 {
         self.ticks.last_change_tick
     }
 
     #[inline]
-    fn set_last_changed(&mut self, last_change_tick: u32) {
+    fn set_last_changed(&mut self, last_change_tick: u64) {
         self.ticks.last_change_tick = last_change_tick;
     }
 
@@ -380,9 +365,7 @@ mod tests {
 
     use crate::{
         self as bevy_ecs,
-        change_detection::{
-            ComponentTicks, Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
-        },
+        change_detection::{ComponentTicks, Mut, NonSendMut, ResMut, Ticks},
         component::Component,
         query::ChangeTrackers,
         system::{IntoSystem, Query, System},
@@ -396,90 +379,25 @@ mod tests {
     struct R;
 
     #[test]
-    fn change_expiration() {
-        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
-            query.single().is_changed()
-        }
-
-        fn change_expired(query: Query<ChangeTrackers<C>>) -> bool {
-            query.single().is_changed()
-        }
-
-        let mut world = World::new();
-
-        // component added: 1, changed: 1
-        world.spawn(C);
-
-        let mut change_detected_system = IntoSystem::into_system(change_detected);
-        let mut change_expired_system = IntoSystem::into_system(change_expired);
-        change_detected_system.initialize(&mut world);
-        change_expired_system.initialize(&mut world);
-
-        // world: 1, system last ran: 0, component changed: 1
-        // The spawn will be detected since it happened after the system "last ran".
-        assert!(change_detected_system.run((), &mut world));
-
-        // world: 1 + MAX_CHANGE_AGE
-        let change_tick = world.change_tick.get_mut();
-        *change_tick = change_tick.wrapping_add(MAX_CHANGE_AGE);
-
-        // Both the system and component appeared `MAX_CHANGE_AGE` ticks ago.
-        // Since we clamp things to `MAX_CHANGE_AGE` for determinism,
-        // `ComponentTicks::is_changed` will now see `MAX_CHANGE_AGE > MAX_CHANGE_AGE`
-        // and return `false`.
-        assert!(!change_expired_system.run((), &mut world));
-    }
-
-    #[test]
     fn change_tick_wraparound() {
         fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
             query.single().is_changed()
         }
 
         let mut world = World::new();
-        world.last_change_tick = u32::MAX;
+        world.last_change_tick = u64::MAX;
         *world.change_tick.get_mut() = 0;
 
         // component added: 0, changed: 0
         world.spawn(C);
 
-        // system last ran: u32::MAX
+        // system last ran: u64::MAX
         let mut change_detected_system = IntoSystem::into_system(change_detected);
         change_detected_system.initialize(&mut world);
 
-        // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
+        // Since the world is always ahead, as long as changes can't get older than `u64::MAX` (which we ensure),
         // the wrapping difference will always be positive, so wraparound doesn't matter.
         assert!(change_detected_system.run((), &mut world));
-    }
-
-    #[test]
-    fn change_tick_scan() {
-        let mut world = World::new();
-
-        // component added: 1, changed: 1
-        world.spawn(C);
-
-        // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
-        *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
-        let change_tick = world.change_tick();
-
-        let mut query = world.query::<ChangeTrackers<C>>();
-        for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed);
-            assert!(ticks_since_insert > MAX_CHANGE_AGE);
-            assert!(ticks_since_change > MAX_CHANGE_AGE);
-        }
-
-        // scan change ticks and clamp those at risk of overflow
-        world.check_change_ticks();
-
-        for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed);
-            assert!(ticks_since_insert == MAX_CHANGE_AGE);
-            assert!(ticks_since_change == MAX_CHANGE_AGE);
-        }
     }
 
     #[test]
@@ -561,6 +479,6 @@ mod tests {
         *inner = 64;
         assert!(inner.is_changed());
         // Modifying one field of a component should flag a change for the entire component.
-        assert!(component_ticks.is_changed(last_change_tick, change_tick));
+        assert!(component_ticks.is_changed(last_change_tick));
     }
 }

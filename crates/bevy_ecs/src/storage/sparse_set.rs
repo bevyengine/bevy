@@ -119,7 +119,7 @@ impl ComponentSparseSet {
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
     /// inside the [`ComponentInfo`] given when constructing this sparse set.
-    pub(crate) unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u32) {
+    pub(crate) unsafe fn insert(&mut self, entity: Entity, value: OwningPtr<'_>, change_tick: u64) {
         if let Some(&dense_index) = self.sparse.get(entity.id()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index as usize]);
@@ -232,10 +232,6 @@ impl ComponentSparseSet {
         } else {
             false
         }
-    }
-
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        self.dense.check_change_ticks(change_tick);
     }
 }
 
@@ -422,12 +418,6 @@ impl SparseSets {
     pub fn clear(&mut self) {
         for set in self.sets.values_mut() {
             set.clear();
-        }
-    }
-
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        for set in self.sets.values_mut() {
-            set.check_change_ticks(change_tick);
         }
     }
 }

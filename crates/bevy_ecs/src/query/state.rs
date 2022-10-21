@@ -127,7 +127,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
     #[inline]
-    pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
+    pub fn is_empty(&self, world: &World, last_change_tick: u64, change_tick: u64) -> bool {
         // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
         unsafe {
             self.as_nop()
@@ -396,8 +396,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         entity: Entity,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) -> Result<QueryItem<'w, Q>, QueryEntityError> {
         let location = world
             .entities
@@ -443,8 +443,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         entities: [Entity; N],
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
         // SAFETY: fetch is read-only
         // and world must be validated
@@ -480,8 +480,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         entities: [Entity; N],
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) -> Result<[QueryItem<'w, Q>; N], QueryEntityError> {
         // Verify that all entities are unique
         for i in 0..N {
@@ -702,8 +702,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub(crate) unsafe fn iter_unchecked_manual<'w, 's>(
         &'s self,
         world: &'w World,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) -> QueryIter<'w, 's, Q, F> {
         QueryIter::new(world, self, last_change_tick, change_tick)
     }
@@ -723,8 +723,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s self,
         entities: EntityList,
         world: &'w World,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) -> QueryManyIter<'w, 's, Q, F, EntityList::IntoIter>
     where
         EntityList::Item: Borrow<Entity>,
@@ -746,8 +746,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub(crate) unsafe fn iter_combinations_unchecked_manual<'w, 's, const K: usize>(
         &'s self,
         world: &'w World,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
         QueryCombinationIter::new(world, self, last_change_tick, change_tick)
     }
@@ -910,8 +910,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &self,
         world: &'w World,
         mut func: FN,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
@@ -973,8 +973,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         world: &'w World,
         batch_size: usize,
         func: FN,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
@@ -1186,8 +1186,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     pub unsafe fn get_single_unchecked_manual<'w>(
         &self,
         world: &'w World,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) -> Result<QueryItem<'w, Q>, QuerySingleError> {
         let mut query = self.iter_unchecked_manual(world, last_change_tick, change_tick);
         let first = query.next();

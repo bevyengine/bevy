@@ -1,9 +1,8 @@
-use bevy_utils::tracing::warn;
 use core::fmt::Debug;
 
 use crate::{
-    archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    query::Access, schedule::SystemLabelId, world::World,
+    archetype::ArchetypeComponentId, component::ComponentId, query::Access,
+    schedule::SystemLabelId, world::World,
 };
 use std::borrow::Cow;
 
@@ -59,43 +58,23 @@ pub trait System: Send + Sync + 'static {
     fn initialize(&mut self, _world: &mut World);
     /// Update the system's archetype component [`Access`].
     fn update_archetype_component_access(&mut self, world: &World);
-    fn check_change_tick(&mut self, change_tick: u32);
+
     /// The default labels for the system
     fn default_labels(&self) -> Vec<SystemLabelId> {
         Vec::new()
     }
     /// Gets the system's last change tick
-    fn get_last_change_tick(&self) -> u32;
+    fn get_last_change_tick(&self) -> u64;
     /// Sets the system's last change tick
     /// # Warning
     /// This is a complex and error-prone operation, that can have unexpected consequences on any system relying on this code.
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
-    fn set_last_change_tick(&mut self, last_change_tick: u32);
+    fn set_last_change_tick(&mut self, last_change_tick: u64);
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
-
-pub(crate) fn check_system_change_tick(
-    last_change_tick: &mut u32,
-    change_tick: u32,
-    system_name: &str,
-) {
-    let age = change_tick.wrapping_sub(*last_change_tick);
-    // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
-    // so long as this check always runs before that can happen.
-    if age > MAX_CHANGE_AGE {
-        warn!(
-            "System '{}' has not run for {} ticks. \
-            Changes older than {} ticks will not be detected.",
-            system_name,
-            age,
-            MAX_CHANGE_AGE - 1,
-        );
-        *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
-    }
-}
 
 impl Debug for dyn System<In = (), Out = ()> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
