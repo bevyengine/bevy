@@ -349,7 +349,6 @@ where
     &'a T: IntoIterator,
 {
     type Item = <&'a T as IntoIterator>::Item;
-
     type IntoIter = <&'a T as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -739,7 +738,6 @@ where
     &'a T: IntoIterator,
 {
     type Item = <&'a T as IntoIterator>::Item;
-
     type IntoIter = <&'a T as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -752,7 +750,6 @@ where
     &'a mut T: IntoIterator,
 {
     type Item = <&'a mut T as IntoIterator>::Item;
-
     type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
