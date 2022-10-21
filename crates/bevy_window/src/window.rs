@@ -914,8 +914,8 @@ pub struct WindowDescriptor {
     ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
-    /// - macOS: Not working as expected, possibly related to [wgpu #687](https://github.com/gfx-rs/wgpu/issues/687).
-    /// - Linux (Wayland): Not working as expected, see [bevy #5779](https://github.com/bevyengine/bevy/issues/5779).
+    /// - macOS: Not working as expected. See [Bevy #6330](https://github.com/bevyengine/bevy/issues/6330).
+    /// - Linux (Wayland): Not working as expected. See [Bevy #5779](https://github.com/bevyengine/bevy/issues/5779).
     pub transparent: bool,
     /// The "html canvas" element selector.
     ///
