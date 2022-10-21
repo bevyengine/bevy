@@ -527,13 +527,13 @@ impl ComponentTicks {
     #[inline]
     /// Returns `true` if the component was added after the system last ran.
     pub fn is_added(&self, last_change_tick: u64) -> bool {
-        self.added < last_change_tick
+        self.added > last_change_tick
     }
 
     #[inline]
     /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self, last_change_tick: u64) -> bool {
-        self.changed < last_change_tick
+        self.changed > last_change_tick
     }
 
     pub(crate) fn new(change_tick: u64) -> Self {
