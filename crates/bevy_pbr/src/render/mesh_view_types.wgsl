@@ -61,7 +61,7 @@ struct Lights {
     spot_light_shadowmap_offset: i32,
 };
 
-#if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 struct PointLights {
     data: array<PointLight>,
 };

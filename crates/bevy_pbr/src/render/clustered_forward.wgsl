@@ -29,7 +29,7 @@ fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: b
 // this must match CLUSTER_COUNT_SIZE in light.rs
 let CLUSTER_COUNT_SIZE = 9u;
 fn unpack_offset_and_counts(cluster_index: u32) -> vec3<u32> {
-#if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     return cluster_offsets_and_counts.data[cluster_index].xyz;
 #else
     let offset_and_counts = cluster_offsets_and_counts.data[cluster_index >> 2u][cluster_index & ((1u << 2u) - 1u)];
@@ -44,7 +44,7 @@ fn unpack_offset_and_counts(cluster_index: u32) -> vec3<u32> {
 }
 
 fn get_light_id(index: u32) -> u32 {
-#if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
     return cluster_light_index_lists.data[index];
 #else
     // The index is correct but in cluster_light_index_lists we pack 4 u8s into a u32
