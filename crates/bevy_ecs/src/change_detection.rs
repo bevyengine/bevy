@@ -379,28 +379,6 @@ mod tests {
     struct R;
 
     #[test]
-    fn change_tick_wraparound() {
-        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
-            query.single().is_changed()
-        }
-
-        let mut world = World::new();
-        world.last_change_tick = u64::MAX;
-        *world.change_tick.get_mut() = 0;
-
-        // component added: 0, changed: 0
-        world.spawn(C);
-
-        // system last ran: u64::MAX
-        let mut change_detected_system = IntoSystem::into_system(change_detected);
-        change_detected_system.initialize(&mut world);
-
-        // Since the world is always ahead, as long as changes can't get older than `u64::MAX` (which we ensure),
-        // the wrapping difference will always be positive, so wraparound doesn't matter.
-        assert!(change_detected_system.run((), &mut world));
-    }
-
-    #[test]
     fn mut_from_res_mut() {
         let mut component_ticks = ComponentTicks {
             added: 1,
