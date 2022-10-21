@@ -444,10 +444,14 @@ impl ShaderProcessor {
                 let op = cap.get(2).unwrap();
                 let val = cap.get(3).unwrap();
 
-                fn act_on<T: Eq>(a: T, b: T, op: &str) -> Result<bool, ProcessShaderError> {
+                fn act_on<T: Eq + Ord>(a: T, b: T, op: &str) -> Result<bool, ProcessShaderError> {
                     match op {
                         "==" => Ok(a == b),
                         "!=" => Ok(a != b),
+                        ">" => Ok(a > b),
+                        ">=" => Ok(a >= b),
+                        "<" => Ok(a < b),
+                        "<=" => Ok(a <= b),
                         _ => Err(ProcessShaderError::UnknownShaderDefOperator {
                             operator: op.to_string(),
                         }),
