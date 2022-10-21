@@ -367,9 +367,6 @@ mod tests {
         self as bevy_ecs,
         change_detection::{ComponentTicks, Mut, NonSendMut, ResMut, Ticks},
         component::Component,
-        query::ChangeTrackers,
-        system::{IntoSystem, Query, System},
-        world::World,
     };
 
     #[derive(Component)]
