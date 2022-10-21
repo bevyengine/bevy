@@ -763,6 +763,9 @@ impl World {
     /// `NonSend` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
     /// Systems with `NonSend` resources are always scheduled on the main thread.
+    ///
+    /// # Panics
+    /// Panics if called from thread other than main thread.
     #[inline]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         self.validate_non_send_access::<R>();
