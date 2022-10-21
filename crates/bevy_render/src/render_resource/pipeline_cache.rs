@@ -169,8 +169,8 @@ impl ShaderCache {
                 let mut shader_defs = shader_defs.to_vec();
                 #[cfg(feature = "webgl")]
                 {
-                    shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT").into());
-                    shader_defs.push(String::from("SIXTEEN_BYTE_ALIGNMENT").into());
+                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
                 // 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
