@@ -765,6 +765,7 @@ impl World {
     /// Systems with `NonSend` resources are always scheduled on the main thread.
     ///
     /// # Panics
+    ///
     /// Panics if called from a thread other than the main thread.
     #[inline]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
