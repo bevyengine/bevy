@@ -750,6 +750,10 @@ impl World {
     /// The value given by the [`FromWorld::from_world`] method will be used.
     /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
     /// and those default values will be here instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called from a thread other than the main thread.
     #[inline]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
         if !self.contains_resource::<R>() {
