@@ -266,6 +266,7 @@ where
     type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
+        self.set_changed();
         self.value.into_iter()
     }
 }
@@ -343,6 +344,7 @@ where
     type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
+        self.set_changed();
         self.value.into_iter()
     }
 }
