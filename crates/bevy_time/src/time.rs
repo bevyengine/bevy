@@ -144,7 +144,7 @@ impl Time {
         } else if self.relative_speed != 1.0 {
             raw_delta.mul_f64(self.relative_speed)
         } else {
-            // avoid rounding errors at normal speed
+            // avoid rounding when at normal speed
             raw_delta
         };
 
@@ -177,21 +177,24 @@ impl Time {
     }
 
     /// Returns the [`Instant`] this clock was created.
-    /// Usually represents when the app was started.
+    ///
+    /// This usually represents when the app was started.
     #[inline]
     pub fn startup(&self) -> Instant {
         self.startup
     }
 
     /// Returns the [`Instant`] when [`update`](#method.update) was first called, if it exists.
-    /// Usually represents when the first app update started.
+    ///
+    /// This usually represents when the first app update started.
     #[inline]
     pub fn first_update(&self) -> Option<Instant> {
         self.first_update
     }
 
     /// Returns the [`Instant`] when [`update`](#method.update) was last called, if it exists.
-    /// Usually represents when the current app update started.
+    ///
+    /// This usually represents when the current app update started.
     #[inline]
     pub fn last_update(&self) -> Option<Instant> {
         self.last_update
@@ -337,16 +340,18 @@ impl Time {
     /// Sets the modulus used to calculate [`elapsed_wrapped`](#method.elapsed_wrapped) and
     /// [`raw_elapsed_wrapped`](#method.raw_elapsed_wrapped).
     ///
+    /// **Note:** This will not take effect until the next update.
+    ///
     /// # Panics
     ///
-    /// Panics if `wrap_period` is zero.
+    /// Panics if `wrap_period` is a zero-length duration.
     #[inline]
     pub fn set_wrap_period(&mut self, wrap_period: Duration) {
-        assert!(wrap_period != Duration::ZERO, "division by zero");
+        assert!(!wrap_period.is_zero(), "division by zero");
         self.wrap_period = wrap_period;
     }
 
-    /// Returns the rate this clock advances relative to your system clock, as [`f32`].
+    /// Returns the speed the clock advances relative to your system clock, as [`f32`].
     /// This is known as "time scaling" or "time dilation" in other engines.
     ///
     /// **Note:** This function will return zero when time is paused.
@@ -355,7 +360,7 @@ impl Time {
         self.relative_speed_f64() as f32
     }
 
-    /// Returns the rate this clock advances relative to your system clock, as [`f64`].
+    /// Returns the speed the clock advances relative to your system clock, as [`f64`].
     /// This is known as "time scaling" or "time dilation" in other engines.
     ///
     /// **Note:** This function will return zero when time is paused.
@@ -368,9 +373,11 @@ impl Time {
         }
     }
 
-    /// Sets the rate this clock advances relative to your system clock, given as an [`f32`].
+    /// Sets the speed the clock advances relative to your system clock, given as an [`f32`].
     ///
-    /// For example, if set to `2.0`, this clock will advance twice as fast as your system clock.
+    /// For example, setting this to `2.0` will make the clock advance twice as fast as your system clock.
+    ///
+    /// **Note:** This does not affect the `raw_*` measurements.
     ///
     /// # Panics
     ///
@@ -380,9 +387,11 @@ impl Time {
         self.set_relative_speed_f64(ratio as f64);
     }
 
-    /// Sets the rate this clock advances relative to your system clock, given as an [`f64`].
+    /// Sets the speed the clock advances relative to your system clock, given as an [`f64`].
     ///
-    /// For example, if set to `2.0`, this clock will advance twice as fast as your system clock.
+    /// For example, setting this to `2.0` will make the clock advance twice as fast as your system clock.
+    ///
+    /// **Note:** This does not affect the `raw_*` measurements.
     ///
     /// # Panics
     ///
@@ -394,19 +403,21 @@ impl Time {
         self.relative_speed = ratio;
     }
 
-    /// Stops time, preventing it from advancing until resumed. Does not affect raw measurements.
+    /// Stops the clock, preventing it from advancing until resumed.
+    ///
+    /// **Note:** This does affect the `raw_*` measurements.
     #[inline]
     pub fn pause(&mut self) {
         self.paused = true;
     }
 
-    /// Resumes time if paused.
+    /// Resumes the clock if paused.
     #[inline]
     pub fn unpause(&mut self) {
         self.paused = false;
     }
 
-    /// Returns `true` if time has been paused.
+    /// Returns `true` if the clock is currently paused.
     #[inline]
     pub fn is_paused(&self) -> bool {
         self.paused
