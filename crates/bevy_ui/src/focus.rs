@@ -33,7 +33,7 @@ use smallvec::SmallVec;
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
-#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
     /// The node has been clicked
     Clicked,
@@ -48,7 +48,7 @@ pub enum Interaction {
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
-#[reflect_value(Component, Serialize, Deserialize, PartialEq)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     /// Blocks interaction
     #[default]
@@ -144,7 +144,7 @@ pub fn ui_focus_system(
 
                 let position = global_transform.translation();
                 let ui_position = position.truncate();
-                let extents = node.size / 2.0;
+                let extents = node.calculated_size / 2.0;
                 let mut min = ui_position - extents;
                 let mut max = ui_position + extents;
                 if let Some(clip) = clip {

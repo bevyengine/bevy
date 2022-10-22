@@ -1,7 +1,7 @@
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
 //! Spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
-//! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
+//! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/>)
 mod flex;
 mod focus;
 mod geometry;
@@ -22,11 +22,14 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction};
+    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::{
+    schedule::{IntoSystemDescriptor, SystemLabel},
+    system::Resource,
+};
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
@@ -47,10 +50,27 @@ pub enum UiSystem {
     Focus,
 }
 
+/// The current scale of the UI.
+///
+/// A multiplier to fixed-sized ui values.
+/// **Note:** This will only affect fixed ui values like [`Val::Px`]
+#[derive(Debug, Resource)]
+pub struct UiScale {
+    /// The scale to be applied.
+    pub scale: f64,
+}
+
+impl Default for UiScale {
+    fn default() -> Self {
+        Self { scale: 1.0 }
+    }
+}
+
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<FlexSurface>()
+            .init_resource::<UiScale>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -70,7 +90,7 @@ impl Plugin for UiPlugin {
             .register_type::<Size>()
             .register_type::<UiRect>()
             .register_type::<Style>()
-            .register_type::<UiColor>()
+            .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()

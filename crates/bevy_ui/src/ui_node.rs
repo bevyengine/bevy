@@ -2,7 +2,7 @@ use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     color::Color,
@@ -16,12 +16,21 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 #[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in pixels
-    pub size: Vec2,
+    /// automatically calculated by [`super::flex::flex_node_system`]
+    pub(crate) calculated_size: Vec2,
+}
+
+impl Node {
+    /// The calculated node size as width and height in pixels
+    /// automatically calculated by [`super::flex::flex_node_system`]
+    pub fn size(&self) -> Vec2 {
+        self.calculated_size
+    }
 }
 
 /// An enum that describes possible types of value in flexbox layout options
 #[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Val {
     /// No value defined
     #[default]
@@ -197,9 +206,9 @@ impl Default for Style {
             flex_grow: 0.0,
             flex_shrink: 1.0,
             flex_basis: Val::Auto,
-            size: Size::new(Val::Auto, Val::Auto),
-            min_size: Size::new(Val::Auto, Val::Auto),
-            max_size: Size::new(Val::Auto, Val::Auto),
+            size: Size::AUTO,
+            min_size: Size::AUTO,
+            max_size: Size::AUTO,
             aspect_ratio: Default::default(),
             overflow: Default::default(),
         }
@@ -208,7 +217,7 @@ impl Default for Style {
 
 /// How items are aligned according to the cross axis
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
     /// Items are aligned at the start
     FlexStart,
@@ -225,7 +234,7 @@ pub enum AlignItems {
 
 /// Works like [`AlignItems`] but applies only to a single item
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
     /// Use the value of [`AlignItems`]
     #[default]
@@ -246,7 +255,7 @@ pub enum AlignSelf {
 ///
 /// It only applies if [`FlexWrap::Wrap`] is present and if there are multiple lines of items.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
     /// Each line moves towards the start of the cross axis
     FlexStart,
@@ -269,7 +278,7 @@ pub enum AlignContent {
 ///
 /// For example English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Direction {
     /// Inherit from parent node
     #[default]
@@ -284,7 +293,7 @@ pub enum Direction {
 ///
 /// Part of the [`Style`] component.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Display {
     /// Use Flexbox layout model to determine the position of this [`Node`].
     #[default]
@@ -298,22 +307,22 @@ pub enum Display {
 
 /// Defines how flexbox items are ordered within a flexbox
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum FlexDirection {
     /// Same way as text direction along the main axis
     #[default]
     Row,
-    /// Flex from bottom to top
+    /// Flex from top to bottom
     Column,
     /// Opposite way as text direction along the main axis
     RowReverse,
-    /// Flex from top to bottom
+    /// Flex from bottom to top
     ColumnReverse,
 }
 
 /// Defines how items are aligned according to the main axis
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
     /// Pushed towards the start
     #[default]
@@ -332,7 +341,7 @@ pub enum JustifyContent {
 
 /// Whether to show or hide overflowing items
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect, Serialize, Deserialize)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Overflow {
     /// Show overflowing items
     #[default]
@@ -343,7 +352,7 @@ pub enum Overflow {
 
 /// The strategy used to position this node
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum PositionType {
     /// Relative to all other nodes with the [`PositionType::Relative`] value
     #[default]
@@ -356,7 +365,7 @@ pub enum PositionType {
 
 /// Defines if flexbox items appear on a single line or on multiple lines
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 pub enum FlexWrap {
     /// Single line, will overflow if needed
     #[default]
@@ -375,18 +384,21 @@ pub struct CalculatedSize {
     pub size: Size,
 }
 
-/// The color of the node
+/// The background color of the node
+///
+/// This serves as the "fill" color.
+/// When combined with [`UiImage`], tints the provided texture.
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiColor(pub Color);
+pub struct BackgroundColor(pub Color);
 
-impl From<Color> for UiColor {
+impl From<Color> for BackgroundColor {
     fn from(color: Color) -> Self {
         Self(color)
     }
 }
 
-/// The image of the node
+/// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
 pub struct UiImage(pub Handle<Image>);
@@ -408,5 +420,5 @@ impl From<Handle<Image>> for UiImage {
 #[reflect(Component)]
 pub struct CalculatedClip {
     /// The rect of the clip
-    pub clip: bevy_sprite::Rect,
+    pub clip: Rect,
 }

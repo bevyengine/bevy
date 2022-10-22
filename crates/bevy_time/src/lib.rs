@@ -16,7 +16,7 @@ use crossbeam_channel::{Receiver, Sender};
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
-    pub use crate::{Time, Timer};
+    pub use crate::{Time, Timer, TimerMode};
 }
 
 use bevy_app::prelude::*;
@@ -36,18 +36,20 @@ impl Plugin for TimePlugin {
         app.init_resource::<Time>()
             .init_resource::<FixedTimesteps>()
             .register_type::<Timer>()
+            .register_type::<Time>()
+            .register_type::<Stopwatch>()
             // time system is added as an "exclusive system" to ensure it runs before other systems
             // in CoreStage::First
-            .add_system_to_stage(
-                CoreStage::First,
-                time_system.exclusive_system().at_start().label(TimeSystem),
-            );
+            .add_system_to_stage(CoreStage::First, time_system.at_start().label(TimeSystem));
     }
 }
 
 /// Channel resource used to receive time from render world
+#[derive(Resource)]
 pub struct TimeReceiver(pub Receiver<Instant>);
+
 /// Channel resource used to send time from render world
+#[derive(Resource)]
 pub struct TimeSender(pub Sender<Instant>);
 
 /// Creates channels used for sending time between render world and app world

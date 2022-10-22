@@ -9,8 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::Vec2;
-use bevy_sprite::Rect;
+use bevy_math::Rect;
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// The resolution of `Z` values for UI
@@ -109,18 +108,8 @@ fn update_clipping(
         Overflow::Visible => clip,
         Overflow::Hidden => {
             let node_center = global_transform.translation().truncate();
-            let node_rect = Rect {
-                min: node_center - node.size / 2.,
-                max: node_center + node.size / 2.,
-            };
-            if let Some(clip) = clip {
-                Some(Rect {
-                    min: Vec2::max(clip.min, node_rect.min),
-                    max: Vec2::min(clip.max, node_rect.max),
-                })
-            } else {
-                Some(node_rect)
-            }
+            let node_rect = Rect::from_center_size(node_center, node.calculated_size);
+            Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
         }
     };
 
@@ -135,7 +124,7 @@ fn update_clipping(
 mod tests {
     use bevy_ecs::{
         component::Component,
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::{Schedule, Stage, StageLabel, SystemStage},
         system::{CommandQueue, Commands},
         world::World,
     };
@@ -150,7 +139,7 @@ mod tests {
     struct Label(&'static str);
 
     fn node_with_transform(name: &'static str) -> (Label, Node, Transform) {
-        (Label(name), Node::default(), Transform::identity())
+        (Label(name), Node::default(), Transform::IDENTITY)
     }
 
     fn node_without_transform(name: &'static str) -> (Label, Node) {
@@ -161,47 +150,50 @@ mod tests {
         (transform.translation.z / UI_Z_STEP).round() as u32
     }
 
+    #[derive(StageLabel)]
+    struct Update;
+
     #[test]
     fn test_ui_z_system() {
         let mut world = World::default();
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
-        commands.spawn_bundle(node_with_transform("0"));
+        commands.spawn(node_with_transform("0"));
 
         commands
-            .spawn_bundle(node_with_transform("1"))
+            .spawn(node_with_transform("1"))
             .with_children(|parent| {
                 parent
-                    .spawn_bundle(node_with_transform("1-0"))
+                    .spawn(node_with_transform("1-0"))
                     .with_children(|parent| {
-                        parent.spawn_bundle(node_with_transform("1-0-0"));
-                        parent.spawn_bundle(node_without_transform("1-0-1"));
-                        parent.spawn_bundle(node_with_transform("1-0-2"));
+                        parent.spawn(node_with_transform("1-0-0"));
+                        parent.spawn(node_without_transform("1-0-1"));
+                        parent.spawn(node_with_transform("1-0-2"));
                     });
-                parent.spawn_bundle(node_with_transform("1-1"));
+                parent.spawn(node_with_transform("1-1"));
                 parent
-                    .spawn_bundle(node_without_transform("1-2"))
+                    .spawn(node_without_transform("1-2"))
                     .with_children(|parent| {
-                        parent.spawn_bundle(node_with_transform("1-2-0"));
-                        parent.spawn_bundle(node_with_transform("1-2-1"));
+                        parent.spawn(node_with_transform("1-2-0"));
+                        parent.spawn(node_with_transform("1-2-1"));
                         parent
-                            .spawn_bundle(node_with_transform("1-2-2"))
+                            .spawn(node_with_transform("1-2-2"))
                             .with_children(|_| ());
-                        parent.spawn_bundle(node_with_transform("1-2-3"));
+                        parent.spawn(node_with_transform("1-2-3"));
                     });
-                parent.spawn_bundle(node_with_transform("1-3"));
+                parent.spawn(node_with_transform("1-3"));
             });
 
         commands
-            .spawn_bundle(node_without_transform("2"))
+            .spawn(node_without_transform("2"))
             .with_children(|parent| {
                 parent
-                    .spawn_bundle(node_with_transform("2-0"))
+                    .spawn(node_with_transform("2-0"))
                     .with_children(|_parent| ());
                 parent
-                    .spawn_bundle(node_with_transform("2-1"))
+                    .spawn(node_with_transform("2-1"))
                     .with_children(|parent| {
-                        parent.spawn_bundle(node_with_transform("2-1-0"));
+                        parent.spawn(node_with_transform("2-1-0"));
                     });
             });
         queue.apply(&mut world);
@@ -209,7 +201,7 @@ mod tests {
         let mut schedule = Schedule::default();
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(ui_z_system);
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
         schedule.run(&mut world);
 
         let mut actual_result = world

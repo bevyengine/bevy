@@ -9,7 +9,7 @@
 //! For more advice on working with generic types in Rust, check out <https://doc.rust-lang.org/book/ch10-01-syntax.html>
 //! or <https://doc.rust-lang.org/rust-by-example/generics.html>
 
-use bevy::{ecs::component::Component, prelude::*};
+use bevy::prelude::*;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
@@ -21,7 +21,7 @@ enum AppState {
 struct TextToPrint(String);
 
 #[derive(Component, Deref, DerefMut)]
-struct PrinterTick(bevy::prelude::Timer);
+struct PrinterTick(Timer);
 
 #[derive(Component)]
 struct MenuClose;
@@ -50,19 +50,17 @@ fn main() {
 }
 
 fn setup_system(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(PrinterTick(bevy::prelude::Timer::from_seconds(1.0, true)))
-        .insert(TextToPrint(
-            "I will print until you press space.".to_string(),
-        ))
-        .insert(MenuClose);
+    commands.spawn((
+        PrinterTick(Timer::from_seconds(1.0, TimerMode::Repeating)),
+        TextToPrint("I will print until you press space.".to_string()),
+        MenuClose,
+    ));
 
-    commands
-        .spawn()
-        .insert(PrinterTick(bevy::prelude::Timer::from_seconds(1.0, true)))
-        .insert(TextToPrint("I will always print".to_string()))
-        .insert(LevelUnload);
+    commands.spawn((
+        PrinterTick(Timer::from_seconds(1.0, TimerMode::Repeating)),
+        TextToPrint("I will always print".to_string()),
+        LevelUnload,
+    ));
 }
 
 fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextToPrint)>) {

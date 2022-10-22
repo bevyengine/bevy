@@ -1,5 +1,7 @@
 //! Demonstrates how shadow biases affect shadows in a 3d scene.
 
+use std::f32::consts::PI;
+
 use bevy::{input::mouse::MouseMotion, prelude::*};
 
 fn main() {
@@ -47,7 +49,7 @@ fn setup(
 
     println!("Using DirectionalLight");
 
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(5.0, 5.0, 0.0),
         point_light: PointLight {
             intensity: 0.0,
@@ -61,9 +63,7 @@ fn setup(
         ..default()
     });
 
-    let theta = std::f32::consts::FRAC_PI_4;
-    let light_transform = Mat4::from_euler(EulerRot::ZYX, 0.0, std::f32::consts::FRAC_PI_2, -theta);
-    commands.spawn_bundle(DirectionalLightBundle {
+    commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
             shadow_projection: OrthographicProjection {
@@ -80,21 +80,27 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_matrix(light_transform),
+        transform: Transform::from_rotation(Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            PI / 2.,
+            -PI / 4.,
+        )),
         ..default()
     });
 
     // camera
-    commands
-        .spawn_bundle(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(-1.0, 1.0, 1.0)
                 .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
             ..default()
-        })
-        .insert(CameraController::default());
+        },
+        CameraController::default(),
+    ));
 
     for z_i32 in -spawn_plane_depth as i32..=0 {
-        commands.spawn_bundle(PbrBundle {
+        commands.spawn(PbrBundle {
             mesh: sphere_handle.clone(),
             material: white_handle.clone(),
             transform: Transform::from_xyz(0.0, spawn_height, z_i32 as f32),
@@ -103,7 +109,7 @@ fn setup(
     }
 
     // ground plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane {
             size: 2.0 * spawn_plane_depth,
         })),
@@ -308,16 +314,10 @@ fn camera_controller(
 
         if mouse_delta != Vec2::ZERO {
             // Apply look update
-            let (pitch, yaw) = (
-                (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt).clamp(
-                    -0.99 * std::f32::consts::FRAC_PI_2,
-                    0.99 * std::f32::consts::FRAC_PI_2,
-                ),
-                options.yaw - mouse_delta.x * options.sensitivity * dt,
-            );
-            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, yaw, pitch);
-            options.pitch = pitch;
-            options.yaw = yaw;
+            options.pitch = (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt)
+                .clamp(-PI / 2., PI / 2.);
+            options.yaw -= mouse_delta.x * options.sensitivity * dt;
+            transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
         }
     }
 }

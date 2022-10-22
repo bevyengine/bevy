@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.8.0"
+version = "0.9.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -117,18 +117,18 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 animation = ["bevy_internal/animation"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.8.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.8.0", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0-dev", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0-dev", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.8.0", default-features = false, features = [
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0-dev", default-features = false, features = [
   "webgl",
 ] }
 
 [dev-dependencies]
 anyhow = "1.0.4"
 rand = "0.8.0"
-ron = "0.7.0"
+ron = "0.8.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
@@ -194,11 +194,11 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "shapes"
-path = "examples/2d/shapes.rs"
+name = "2d_shapes"
+path = "examples/2d/2d_shapes.rs"
 
-[package.metadata.example.shapes]
-name = "Shapes"
+[package.metadata.example.2d_shapes]
+name = "2D Shapes"
 description = "Renders a rectangle, circle, and hexagon"
 category = "2D Rendering"
 wasm = true
@@ -276,7 +276,7 @@ wasm = true
 
 [[example]]
 name = "3d_shapes"
-path = "examples/3d/shapes.rs"
+path = "examples/3d/3d_shapes.rs"
 
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
@@ -873,12 +873,12 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "system_chaining"
-path = "examples/ecs/system_chaining.rs"
+name = "system_piping"
+path = "examples/ecs/system_piping.rs"
 
-[package.metadata.example.system_chaining]
-name = "System Chaining"
-description = "Chain two systems together, specifying a return type in a system (such as `Result`)"
+[package.metadata.example.system_piping]
+name = "System Piping"
+description = "Pipe the output of one system into a second, allowing you to handle any errors gracefully"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1341,6 +1341,16 @@ description = "A simple way to view glTF models with Bevy. Just run `cargo run -
 category = "Tools"
 wasm = true
 
+[[example]]
+name = "gamepad_viewer"
+path = "examples/tools/gamepad_viewer.rs"
+
+[package.metadata.example.gamepad_viewer]
+name = "Gamepad Viewer"
+description = "Shows a visualization of gamepad buttons, sticks, and triggers"
+category = "Tools"
+wasm = false
+
 # Transforms
 [[example]]
 name = "global_vs_local_translation"
@@ -1453,6 +1463,16 @@ description = "Illustrates various features of Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "ui_scaling"
+path = "examples/ui/ui_scaling.rs"
+
+[package.metadata.example.ui_scaling]
+name = "UI Scaling"
+description = "Illustrates how to scale the UI"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
@@ -1527,6 +1547,16 @@ path = "tests/window/minimising.rs"
 
 [package.metadata.example.minimising]
 hidden = true
+
+[[example]]
+name = "window_resizing"
+path = "examples/window/window_resizing.rs"
+
+[package.metadata.example.window_resizing]
+name = "Window Resizing"
+description = "Demonstrates resizing and responding to resizing a window"
+category = "Window"
+wasm = true
 
 # Android
 [[example]]

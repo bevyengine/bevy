@@ -99,14 +99,6 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub(crate) unsafe fn get_ticks_unchecked_mut(&mut self, row: usize) -> &mut ComponentTicks {
-        debug_assert!(row < self.len());
-        self.ticks.get_unchecked_mut(row).get_mut()
-    }
-
-    /// # Safety
-    /// index must be in-bounds
-    #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: usize) {
         self.data.swap_remove_and_drop_unchecked(row);
         self.ticks.swap_remove(row);
@@ -270,7 +262,7 @@ impl Table {
         row: usize,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row < self.len());
+        debug_assert!(row < self.entity_count());
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for (component_id, column) in self.columns.iter_mut() {
@@ -302,7 +294,7 @@ impl Table {
         row: usize,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row < self.len());
+        debug_assert!(row < self.entity_count());
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for (component_id, column) in self.columns.iter_mut() {
@@ -333,7 +325,7 @@ impl Table {
         row: usize,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row < self.len());
+        debug_assert!(row < self.entity_count());
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for (component_id, column) in self.columns.iter_mut() {
@@ -396,13 +388,23 @@ impl Table {
     }
 
     #[inline]
-    pub fn capacity(&self) -> usize {
+    pub fn entity_count(&self) -> usize {
+        self.entities.len()
+    }
+
+    #[inline]
+    pub fn component_count(&self) -> usize {
+        self.columns.len()
+    }
+
+    #[inline]
+    pub fn entity_capacity(&self) -> usize {
         self.entities.capacity()
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        self.entities.len()
+    pub fn component_capacity(&self) -> usize {
+        self.columns.capacity()
     }
 
     #[inline]
@@ -573,7 +575,7 @@ mod tests {
             };
         }
 
-        assert_eq!(table.capacity(), 256);
-        assert_eq!(table.len(), 200);
+        assert_eq!(table.entity_capacity(), 256);
+        assert_eq!(table.entity_count(), 200);
     }
 }

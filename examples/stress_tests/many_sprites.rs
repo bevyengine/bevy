@@ -9,9 +9,7 @@
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::Quat,
     prelude::*,
-    render::camera::Camera,
     window::PresentMode,
 };
 
@@ -21,6 +19,7 @@ const CAMERA_SPEED: f32 = 1000.0;
 
 const COLORS: [Color; 3] = [Color::BLUE, Color::WHITE, Color::RED];
 
+#[derive(Resource)]
 struct ColorTint(bool);
 
 fn main() {
@@ -56,10 +55,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
     let sprite_handle = assets.load("branding/icon.png");
 
     // Spawns the camera
-    commands
-        .spawn()
-        .insert_bundle(Camera2dBundle::default())
-        .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
+
+    commands.spawn(Camera2dBundle::default());
 
     // Builds and spawns the sprites
     let mut sprites = vec![];
@@ -106,7 +103,7 @@ struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(1.0, true))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }
 

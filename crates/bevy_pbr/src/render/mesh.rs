@@ -9,10 +9,11 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Mat4, Vec2};
+use bevy_math::{Mat3A, Mat4, Vec2};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, Mesh, MeshVertexBufferLayout,
@@ -20,10 +21,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
+    texture::{DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo},
     view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
@@ -112,11 +111,14 @@ pub struct MeshUniform {
     pub flags: u32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr2/src/render/mesh.wgsl!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct MeshFlags: u32 {
         const SHADOW_RECEIVER            = (1 << 0);
+        // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
+        // then the flag should be set, else it should not be set.
+        const SIGN_DETERMINANT_MODEL_3X3 = (1 << 31);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -143,13 +145,16 @@ pub fn extract_meshes(
 
     for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
         let transform = transform.compute_matrix();
-        let shadow_receiver_flags = if not_receiver.is_some() {
-            MeshFlags::empty().bits
+        let mut flags = if not_receiver.is_some() {
+            MeshFlags::empty()
         } else {
-            MeshFlags::SHADOW_RECEIVER.bits
+            MeshFlags::SHADOW_RECEIVER
         };
+        if Mat3A::from_mat4(transform).determinant().is_sign_positive() {
+            flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+        }
         let uniform = MeshUniform {
-            flags: shadow_receiver_flags,
+            flags: flags.bits,
             transform,
             inverse_transpose_model: transform.inverse().transpose(),
         };
@@ -165,7 +170,7 @@ pub fn extract_meshes(
     commands.insert_or_spawn_batch(not_caster_commands);
 }
 
-#[derive(Debug, Default)]
+#[derive(Resource, Debug, Default)]
 pub struct ExtractedJoints {
     pub buffer: Vec<Mat4>,
 }
@@ -223,7 +228,7 @@ pub fn extract_skinned_meshes(
     let mut joints = Vec::with_capacity(*previous_joint_len);
     let mut last_start = 0;
 
-    for (entity, computed_visibility, skin) in query.iter() {
+    for (entity, computed_visibility, skin) in &query {
         if !computed_visibility.is_visible() {
             continue;
         }
@@ -247,7 +252,7 @@ pub fn extract_skinned_meshes(
     commands.insert_or_spawn_batch(values);
 }
 
-#[derive(Clone)]
+#[derive(Resource, Clone)]
 pub struct MeshPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -263,8 +268,10 @@ impl FromWorld for MeshPipeline {
             Res<RenderDevice>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
+            Res<RenderTextureFormat>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let (render_device, default_sampler, render_queue, first_available_texture_format) =
+            system_state.get_mut(world);
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
@@ -377,6 +384,16 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                BindGroupLayoutEntry {
+                    binding: 9,
+                    visibility: ShaderStages::VERTEX_FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GlobalsUniform::min_size()),
+                    },
+                    count: None,
+                },
             ],
             label: Some("mesh_view_layout"),
         });
@@ -421,7 +438,7 @@ impl FromWorld for MeshPipeline {
                 Extent3d::default(),
                 TextureDimension::D2,
                 &[255u8; 4],
-                TextureFormat::bevy_default(),
+                first_available_texture_format.0,
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
@@ -463,6 +480,7 @@ impl FromWorld for MeshPipeline {
                 ),
             }
         };
+
         MeshPipeline {
             view_layout,
             mesh_layout,
@@ -494,35 +512,36 @@ impl MeshPipeline {
 bitflags::bitflags! {
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
-    /// MSAA uses the highest 6 bits for the MSAA sample count - 1 to support up to 64x MSAA.
+    /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
         const TRANSPARENT_MAIN_PASS       = (1 << 0);
-        const MSAA_RESERVED_BITS          = MeshPipelineKey::MSAA_MASK_BITS << MeshPipelineKey::MSAA_SHIFT_BITS;
-        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = MeshPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << MeshPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
+        const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
+        const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
 
 impl MeshPipelineKey {
-    const MSAA_MASK_BITS: u32 = 0b111111;
-    const MSAA_SHIFT_BITS: u32 = 32 - 6;
+    const MSAA_MASK_BITS: u32 = 0b111;
+    const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
     const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
     const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 = Self::MSAA_SHIFT_BITS - 3;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
-        let msaa_bits = ((msaa_samples - 1) & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        MeshPipelineKey::from_bits(msaa_bits).unwrap()
+        let msaa_bits =
+            (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
+        Self::from_bits(msaa_bits).unwrap()
     }
 
     pub fn msaa_samples(&self) -> u32 {
-        ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS) + 1
+        1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
         let primitive_topology_bits = ((primitive_topology as u32)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
-        MeshPipelineKey::from_bits(primitive_topology_bits).unwrap()
+        Self::from_bits(primitive_topology_bits).unwrap()
     }
 
     pub fn primitive_topology(&self) -> PrimitiveTopology {
@@ -547,12 +566,19 @@ impl SpecializedMeshPipeline for MeshPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut vertex_attributes = vec![
-            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
-            Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
-        ];
-
         let mut shader_defs = Vec::new();
+        let mut vertex_attributes = Vec::new();
+
+        if layout.contains(Mesh::ATTRIBUTE_POSITION) {
+            shader_defs.push(String::from("VERTEX_POSITIONS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
+        }
+
+        if layout.contains(Mesh::ATTRIBUTE_NORMAL) {
+            shader_defs.push(String::from("VERTEX_NORMALS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push(String::from("VERTEX_UVS"));
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
@@ -610,7 +636,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: self.dummy_white_gpu_image.texture_format,
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -651,6 +677,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
     }
 }
 
+#[derive(Resource)]
 pub struct MeshBindGroup {
     pub normal: BindGroup,
     pub skinned: Option<BindGroup>,
@@ -706,6 +733,7 @@ pub fn queue_mesh_bind_group(
 // ignoring the rest, whether they're valid for other dynamic offsets or not. This trick may
 // be supported later in encase, and then we should make use of it.
 
+#[derive(Resource)]
 pub struct SkinnedMeshUniform {
     pub buffer: BufferVec<Mat4>,
 }
@@ -755,11 +783,13 @@ pub fn queue_mesh_view_bind_groups(
     global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+    globals_buffer: Res<GlobalsBuffer>,
 ) {
-    if let (Some(view_binding), Some(light_binding), Some(point_light_binding)) = (
+    if let (Some(view_binding), Some(light_binding), Some(point_light_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
+        globals_buffer.buffer.binding(),
     ) {
         for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -805,6 +835,10 @@ pub fn queue_mesh_view_bind_groups(
                     BindGroupEntry {
                         binding: 8,
                         resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
+                    },
+                    BindGroupEntry {
+                        binding: 9,
+                        resource: globals.clone(),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),
@@ -915,7 +949,7 @@ mod tests {
     use super::MeshPipelineKey;
     #[test]
     fn mesh_key_msaa_samples() {
-        for i in 1..=64 {
+        for i in [1, 2, 4, 8, 16, 32, 64, 128] {
             assert_eq!(MeshPipelineKey::from_msaa_samples(i).msaa_samples(), i);
         }
     }
