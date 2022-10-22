@@ -2,16 +2,18 @@ use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{Duration, Instant};
 
-/// Tracks how much time has advanced (and also how much real time has elapsed) since
-/// the previous app update and since the app was started.
+/// A clock that tracks how much it has advanced (and how much real time has elapsed) since
+/// its previous update and since its creation.
 #[derive(Resource, Reflect, FromReflect, Debug, Clone)]
 #[reflect(Resource)]
 pub struct Time {
     startup: Instant,
     first_update: Option<Instant>,
     last_update: Option<Instant>,
-    relative_speed: f64, // using `f64` instead of `f32` to minimize drift from rounding errors
+    // pausing
     paused: bool,
+    // scaling
+    relative_speed: f64, // using `f64` instead of `f32` to minimize drift from rounding errors
     delta: Duration,
     delta_seconds: f32,
     delta_seconds_f64: f64,
@@ -40,8 +42,8 @@ impl Default for Time {
             startup: Instant::now(),
             first_update: None,
             last_update: None,
-            relative_speed: 1.0,
             paused: false,
+            relative_speed: 1.0,
             delta: Duration::ZERO,
             delta_seconds: 0.0,
             delta_seconds_f64: 0.0,
@@ -174,19 +176,22 @@ impl Time {
         self.last_update = Some(instant);
     }
 
-    /// Returns the [`Instant`] the app was started.
+    /// Returns the [`Instant`] this clock was created.
+    /// Usually represents when the app was started.
     #[inline]
     pub fn startup(&self) -> Instant {
         self.startup
     }
 
     /// Returns the [`Instant`] when [`update`](#method.update) was first called, if it exists.
+    /// Usually represents when the first app update started.
     #[inline]
     pub fn first_update(&self) -> Option<Instant> {
         self.first_update
     }
 
     /// Returns the [`Instant`] when [`update`](#method.update) was last called, if it exists.
+    /// Usually represents when the current app update started.
     #[inline]
     pub fn last_update(&self) -> Option<Instant> {
         self.last_update
@@ -256,31 +261,31 @@ impl Time {
         self.elapsed_seconds_wrapped_f64
     }
 
-    /// Returns the exact clock time elapsed since the last [`update`](#method.update), as a [`Duration`].
+    /// Returns how much real time has elapsed since the last [`update`](#method.update), as a [`Duration`].
     #[inline]
     pub fn raw_delta(&self) -> Duration {
         self.raw_delta
     }
 
-    /// Returns the exact clock time elapsed since the last [`update`](#method.update), as [`f32`] seconds.
+    /// Returns how much real time has elapsed since the last [`update`](#method.update), as [`f32`] seconds.
     #[inline]
     pub fn raw_delta_seconds(&self) -> f32 {
         self.raw_delta_seconds
     }
 
-    /// Returns the exact clock time elapsed since the last [`update`](#method.update), as [`f64`] seconds.
+    /// Returns how much real time has elapsed since the last [`update`](#method.update), as [`f64`] seconds.
     #[inline]
     pub fn raw_delta_seconds_f64(&self) -> f64 {
         self.raw_delta_seconds_f64
     }
 
-    /// Returns the exact clock time elapsed since [`startup`](#method.startup), as [`Duration`].
+    /// Returns how much real time has elapsed since [`startup`](#method.startup), as [`Duration`].
     #[inline]
     pub fn raw_elapsed(&self) -> Duration {
         self.raw_elapsed
     }
 
-    /// Returns the exact clock time elapsed since [`startup`](#method.startup), as [`f32`] seconds.
+    /// Returns how much real time has elapsed since [`startup`](#method.startup), as [`f32`] seconds.
     ///
     /// **Note:** This is a monotonically increasing value. It's precision will degrade over time.
     /// If you need an `f32` but that precision loss is unacceptable,
@@ -290,20 +295,20 @@ impl Time {
         self.raw_elapsed_seconds
     }
 
-    /// Returns the exact clock time elapsed since [`startup`](#method.startup), as [`f64`] seconds.
+    /// Returns how much real time has elapsed since [`startup`](#method.startup), as [`f64`] seconds.
     #[inline]
     pub fn raw_elapsed_seconds_f64(&self) -> f64 {
         self.raw_elapsed_seconds_f64
     }
 
-    /// Returns the exact clock time elapsed since [`startup`](#method.startup) modulo
+    /// Returns how much real time has elapsed since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`Duration`].
     #[inline]
     pub fn raw_elapsed_wrapped(&self) -> Duration {
         self.raw_elapsed_wrapped
     }
 
-    /// Returns the exact clock time elapsed since [`startup`](#method.startup) modulo
+    /// Returns how much real time has elapsed since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`f32`] seconds.
     ///
     /// This method is intended for applications (e.g. shaders) that require an [`f32`] value but
@@ -313,7 +318,7 @@ impl Time {
         self.raw_elapsed_seconds_wrapped
     }
 
-    /// Returns the exact clock time elapsed since [`startup`](#method.startup) modulo
+    /// Returns how much real time has elapsed since [`startup`](#method.startup) modulo
     /// the [`wrap_period`](#method.wrap_period), as [`f64`] seconds.
     #[inline]
     pub fn raw_elapsed_seconds_wrapped_f64(&self) -> f64 {
@@ -341,8 +346,8 @@ impl Time {
         self.wrap_period = wrap_period;
     }
 
-    /// Returns the rate that time advances relative to real time, as [`f32`].
-    /// You might recognize this as "time scaling" or "time dilation" in other engines.
+    /// Returns the rate this clock advances relative to your system clock, as [`f32`].
+    /// This is known as "time scaling" or "time dilation" in other engines.
     ///
     /// **Note:** This function will return zero when time is paused.
     #[inline]
@@ -350,8 +355,8 @@ impl Time {
         self.relative_speed_f64() as f32
     }
 
-    /// Returns the rate that time advances relative to real time, as [`f64`].
-    /// You might recognize this as "time scaling" or "time dilation" in other engines.
+    /// Returns the rate this clock advances relative to your system clock, as [`f64`].
+    /// This is known as "time scaling" or "time dilation" in other engines.
     ///
     /// **Note:** This function will return zero when time is paused.
     #[inline]
@@ -363,9 +368,9 @@ impl Time {
         }
     }
 
-    /// Sets the rate that time advances relative to real time, given as an [`f32`].
+    /// Sets the rate this clock advances relative to your system clock, given as an [`f32`].
     ///
-    /// For example, if set to `2.0`, time will advance twice as fast as your system clock.
+    /// For example, if set to `2.0`, this clock will advance twice as fast as your system clock.
     ///
     /// # Panics
     ///
@@ -375,9 +380,9 @@ impl Time {
         self.set_relative_speed_f64(ratio as f64);
     }
 
-    /// Sets the rate that time advances relative to real time, given as an [`f64`].
+    /// Sets the rate this clock advances relative to your system clock, given as an [`f64`].
     ///
-    /// For example, if set to `2.0`, time will advance twice as fast as your system clock.
+    /// For example, if set to `2.0`, this clock will advance twice as fast as your system clock.
     ///
     /// # Panics
     ///
