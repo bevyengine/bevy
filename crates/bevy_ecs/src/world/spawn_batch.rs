@@ -38,6 +38,7 @@ where
             &mut world.components,
             &mut world.storages,
             *world.change_tick.get_mut(),
+            &world.archetype_invariants,
         );
         spawner.reserve_storage(length);
 

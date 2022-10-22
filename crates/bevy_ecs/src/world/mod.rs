@@ -1,8 +1,10 @@
+mod archetype_invariants;
 mod entity_ref;
 mod spawn_batch;
 mod world_cell;
 
 pub use crate::change_detection::Mut;
+pub use archetype_invariants::*;
 pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
@@ -55,6 +57,7 @@ pub struct World {
     pub(crate) entities: Entities,
     pub(crate) components: Components,
     pub(crate) archetypes: Archetypes,
+    pub(crate) archetype_invariants: ArchetypeInvariants,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
@@ -72,6 +75,7 @@ impl Default for World {
             entities: Default::default(),
             components: Default::default(),
             archetypes: Default::default(),
+            archetype_invariants: Default::default(),
             storages: Default::default(),
             bundles: Default::default(),
             removed_components: Default::default(),
@@ -123,6 +127,12 @@ impl World {
     #[inline]
     pub fn archetypes(&self) -> &Archetypes {
         &self.archetypes
+    }
+
+    /// Retrieves this world's [`ArchetypeInvariants`] collection.
+    #[inline]
+    pub fn archetype_invariants(&self) -> &ArchetypeInvariants {
+        &self.archetype_invariants
     }
 
     /// Retrieves this world's [Components] collection
@@ -460,6 +470,7 @@ impl World {
                 &mut self.components,
                 &mut self.storages,
                 *self.change_tick.get_mut(),
+                &self.archetype_invariants,
             );
 
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
@@ -710,6 +721,43 @@ impl World {
         } else {
             [].iter().cloned()
         }
+    }
+
+    /// Inserts a new [`ArchetypeInvariant`] to the world.
+    ///
+    /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
+    /// This may include empty archetypes- archetypes that contain no entities.
+    #[inline]
+    pub fn add_archetype_invariant<B1: Bundle, B2: Bundle>(
+        &mut self,
+        archetype_invariant: ArchetypeInvariant<B1, B2>,
+    ) {
+        let untyped_invariant = archetype_invariant.into_untyped(self);
+
+        for archetype in &self.archetypes.archetypes {
+            let archetype_components = archetype.components.indices();
+            untyped_invariant.test_archetype(archetype_components, self.components());
+        }
+
+        self.archetype_invariants.add(untyped_invariant);
+    }
+
+    /// Inserts a new [`UntypedArchetypeInvariant`] to the world.
+    ///
+    /// Whenever a new archetype invariant is added, all existing archetypes are re-checked.
+    /// This may include empty archetypes- archetypes that contain no entities.
+    /// Prefer [`add_archetype_invariant`](World::add_archetype_invariant) where possible.
+    #[inline]
+    pub fn add_untyped_archetype_invariant(
+        &mut self,
+        archetype_invariant: UntypedArchetypeInvariant,
+    ) {
+        for archetype in &self.archetypes.archetypes {
+            let archetype_components = archetype.components.indices();
+            archetype_invariant.test_archetype(archetype_components, self.components());
+        }
+
+        self.archetype_invariants.add(archetype_invariant);
     }
 
     /// Inserts a new resource with standard starting values.
@@ -1075,6 +1123,7 @@ impl World {
             &mut self.components,
             &mut self.storages,
             change_tick,
+            &self.archetype_invariants,
         ));
 
         let mut invalid_entities = Vec::new();
@@ -1099,6 +1148,7 @@ impl World {
                                 &mut self.storages,
                                 location.archetype_id,
                                 change_tick,
+                                &self.archetype_invariants,
                             );
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                             unsafe { inserter.insert(entity, location.index, bundle) };
@@ -1118,6 +1168,7 @@ impl World {
                             &mut self.components,
                             &mut self.storages,
                             change_tick,
+                            &self.archetype_invariants,
                         );
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe { spawner.spawn_non_existent(entity, bundle) };

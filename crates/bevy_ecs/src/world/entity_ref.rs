@@ -10,6 +10,8 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::{any::TypeId, cell::UnsafeCell};
 
+use super::archetype_invariants::ArchetypeInvariants;
+
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
 pub struct EntityRef<'w> {
@@ -262,6 +264,7 @@ impl<'w> EntityMut<'w> {
             &mut self.world.storages,
             self.location.archetype_id,
             change_tick,
+            &self.world.archetype_invariants,
         );
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         unsafe {
@@ -289,6 +292,7 @@ impl<'w> EntityMut<'w> {
         let components = &mut self.world.components;
         let entities = &mut self.world.entities;
         let removed_components = &mut self.world.removed_components;
+        let archetype_invariants = &self.world.archetype_invariants;
 
         let bundle_info = self.world.bundles.init_info::<T>(components, storages);
         let old_location = self.location;
@@ -302,6 +306,7 @@ impl<'w> EntityMut<'w> {
                 old_location.archetype_id,
                 bundle_info,
                 false,
+                archetype_invariants,
             )?
         };
 
@@ -422,6 +427,7 @@ impl<'w> EntityMut<'w> {
         let components = &mut self.world.components;
         let entities = &mut self.world.entities;
         let removed_components = &mut self.world.removed_components;
+        let archetype_invariants = &self.world.archetype_invariants;
 
         let bundle_info = self.world.bundles.init_info::<T>(components, storages);
         let old_location = self.location;
@@ -436,6 +442,7 @@ impl<'w> EntityMut<'w> {
                 old_location.archetype_id,
                 bundle_info,
                 true,
+                archetype_invariants,
             )
             .expect("intersections should always return a result")
         };
@@ -788,6 +795,7 @@ unsafe fn remove_bundle_from_archetype(
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
     intersection: bool,
+    archetype_invariants: &ArchetypeInvariants,
 ) -> Option<ArchetypeId> {
     // check the archetype graph to see if the Bundle has been removed from this archetype in the
     // past
@@ -857,6 +865,8 @@ unsafe fn remove_bundle_from_archetype(
             next_table_id,
             next_table_components,
             next_sparse_set_components,
+            archetype_invariants,
+            components,
         );
         Some(new_archetype_id)
     };

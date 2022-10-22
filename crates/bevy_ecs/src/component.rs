@@ -7,6 +7,7 @@ use crate::{
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::OwningPtr;
+use bevy_utils::get_short_name;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -251,6 +252,22 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
+/// Returns the shortened type names of the provided [`ComponentId`]s.
+///
+/// Uses [`get_short_name`] to strip the module paths of the items, resulting in cleaner lists.
+pub fn display_component_id_types<'a, I: Iterator<Item = &'a ComponentId>>(
+    component_ids: I,
+    components: &Components,
+) -> String {
+    component_ids
+        .map(|id| match components.get_info(*id) {
+            Some(info) => get_short_name(info.name()),
+            None => format!("{:?}", id),
+        })
+        .reduce(|acc, s| format!("{}, {}", acc, s))
+        .unwrap_or_default()
+}
+
 pub struct ComponentDescriptor {
     name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
@@ -370,6 +387,9 @@ pub struct Components {
 }
 
 impl Components {
+    /// Adds a new component type to [`Components`].
+    ///
+    /// If the component type is already present, it simply returns its [`ComponentId`].
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
@@ -385,6 +405,7 @@ impl Components {
         ComponentId(*index)
     }
 
+    /// Adds a new component with the provided [`ComponentDescriptor`] to [`Components`].
     pub fn init_component_with_descriptor(
         &mut self,
         storages: &mut Storages,
