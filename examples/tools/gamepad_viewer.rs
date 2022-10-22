@@ -437,7 +437,7 @@ fn setup_connected(mut commands: Commands, font: Res<FontHandle>) {
     commands.spawn((
         TextBundle::from_sections([
             TextSection {
-                value: "Connected Gamepads\n".to_string(),
+                value: "Connected Gamepads:\n".to_string(),
                 style: style.clone(),
             },
             TextSection {
@@ -521,7 +521,7 @@ fn update_connected(
 
     let formatted = gamepads
         .iter()
-        .map(|g| format!("{:?}", g))
+        .map(|g| format!("- {}", gamepads.name(g).unwrap()))
         .collect::<Vec<_>>()
         .join("\n");
 
