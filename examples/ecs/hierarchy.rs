@@ -1,6 +1,6 @@
 //! Creates a hierarchy of parents and children entities.
 
-use std::f32::consts::PI;
+use std::f32::consts::*;
 
 use bevy::prelude::*;
 
@@ -78,12 +78,12 @@ fn rotate(
         }
 
         // To demonstrate removing children, we'll remove a child after a couple of seconds.
-        if time.seconds_since_startup() >= 2.0 && children.len() == 2 {
+        if time.elapsed_seconds() >= 2.0 && children.len() == 2 {
             let child = children.last().unwrap();
             commands.entity(*child).despawn_recursive();
         }
 
-        if time.seconds_since_startup() >= 4.0 {
+        if time.elapsed_seconds() >= 4.0 {
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
             commands.entity(parent).despawn_recursive();

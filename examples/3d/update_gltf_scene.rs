@@ -54,9 +54,9 @@ fn move_scene_entities(
         iter_hierarchy(moved_scene_entity, &children, &mut |entity| {
             if let Ok(mut transform) = transforms.get_mut(entity) {
                 transform.translation = Vec3::new(
-                    offset * time.seconds_since_startup().sin() as f32 / 20.,
+                    offset * time.elapsed_seconds().sin() / 20.,
                     0.,
-                    time.seconds_since_startup().cos() as f32 / 20.,
+                    time.elapsed_seconds().cos() / 20.,
                 );
                 offset += 1.0;
             }

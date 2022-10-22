@@ -1,7 +1,7 @@
 //! Skinned mesh example with mesh and joints data defined in code.
 //! Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
 
-use std::f32::consts::PI;
+use std::f32::consts::*;
 
 use bevy::{
     pbr::AmbientLight,
@@ -162,7 +162,6 @@ fn setup(
 /// Animate the joint marked with [`AnimatedJoint`] component.
 fn joint_animation(time: Res<Time>, mut query: Query<&mut Transform, With<AnimatedJoint>>) {
     for mut transform in &mut query {
-        transform.rotation =
-            Quat::from_rotation_z(PI / 2. * time.time_since_startup().as_secs_f32().sin());
+        transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin());
     }
 }

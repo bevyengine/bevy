@@ -85,7 +85,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        if state.timer.tick(time.delta()).finished() {
+        if state.timer.tick(time.raw_delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().flat_map(|id| {
                     diagnostics
@@ -110,7 +110,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        if state.timer.tick(time.delta()).finished() {
+        if state.timer.tick(time.raw_delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().flat_map(|id| {
                     diagnostics

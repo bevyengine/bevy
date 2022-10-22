@@ -134,6 +134,6 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     for mut sprite in &mut query {
         sprite
             .color
-            .set_b((time.seconds_since_startup() * 0.5).sin() as f32 + 2.0);
+            .set_b((time.elapsed_seconds() * 0.5).sin() as f32 + 2.0);
     }
 }

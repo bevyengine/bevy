@@ -14,7 +14,7 @@ fn main() {
 }
 
 #[derive(Component, Debug)]
-struct MyComponent(f64);
+struct MyComponent(f32);
 
 fn setup(mut commands: Commands) {
     commands.spawn(MyComponent(0.));
@@ -25,7 +25,7 @@ fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)
     for (entity, mut component) in &mut query {
         if rand::thread_rng().gen_bool(0.1) {
             info!("changing component {:?}", entity);
-            component.0 = time.seconds_since_startup();
+            component.0 = time.elapsed_seconds();
         }
     }
 }

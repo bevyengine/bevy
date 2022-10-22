@@ -32,7 +32,7 @@ fn update_speed(
     time: Res<Time>,
 ) {
     if let Some(sink) = audio_sinks.get(&music_controller.0) {
-        sink.set_speed(((time.seconds_since_startup() / 5.0).sin() as f32 + 1.0).max(0.1));
+        sink.set_speed(((time.elapsed_seconds() / 5.0).sin() + 1.0).max(0.1));
     }
 }
 
