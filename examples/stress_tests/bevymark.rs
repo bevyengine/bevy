@@ -29,15 +29,17 @@ struct Bird {
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "BevyMark".to_string(),
-            width: 800.,
-            height: 600.,
-            present_mode: PresentMode::AutoNoVsync,
-            resizable: true,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "BevyMark".to_string(),
+                width: 800.,
+                height: 600.,
+                present_mode: PresentMode::AutoNoVsync,
+                resizable: true,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(BevyCounter {

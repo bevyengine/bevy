@@ -9,14 +9,16 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "I am a window!".to_string(),
-            width: 500.,
-            height: 300.,
-            present_mode: PresentMode::AutoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "I am a window!".to_string(),
+                width: 500.,
+                height: 300.,
+                present_mode: PresentMode::AutoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_system(change_title)
