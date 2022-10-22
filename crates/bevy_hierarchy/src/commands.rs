@@ -9,45 +9,50 @@ use crate::{Children, HierarchyEvent, Parent};
 
 /// Trait defining how to modify the hierarchy.
 pub trait HierarchyCommands {
-    /// Add the child.
+    /// Add the `child` to this entity, at the end of the list.
     ///
-    /// If the child already had a parent it will be removed from that parent.
+    /// If the `child` already had a parent it will be removed from that parent.
     ///
-    /// If the child already belonged to this entity it will be moved to the end of the list of children.
+    /// If the `child` already belonged to this entity, it will still be moved to the end of the list.
     fn add_child(&mut self, child: Entity) -> &mut Self;
 
-    /// Add the children.
+    /// Add the `children` to this entity, at the end of the list.
     ///
-    /// If the children already had parents they will be removed from those parents.
+    /// If the `children` already had parents they will be removed from them.
     ///
-    /// If the children already belonged to this entity they will be moved to the end of the list of children.
+    /// If the `children` already belonged to this entity, they will still be moved to the end of the list.
     fn add_children(&mut self, children: &[Entity]) -> &mut Self;
 
-    /// Insert the child at the given index.
+    /// Add the `child` to this entity, inserted at at the given `index`.
     ///
-    /// If the child already had a parent it will be removed from that parent.
+    /// If the `child` already had a parent it will be removed from that parent.
+    ///
+    /// If the `child` already belonged to this entity, it will still be moved to the `index`.
+    /// 
     fn insert_child(&mut self, index: usize, child: Entity) -> &mut Self;
 
-    /// Insert the children at the given index.
+    /// Add the `children` to this entity, inserted at the given `index`.
     ///
-    /// If the child already had a parent it will be removed from that parent.
+    /// If the `children` already had parents they will be removed from them.
+    ///
+    /// If the `children` already belonged to this entity, they will still be moved to the `index`.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
 
-    /// Remove the child.
+    /// Remove the `child` from this entity.
     fn remove_child(&mut self, child: Entity) -> &mut Self;
 
-    /// Remove the children.
+    /// Remove the `children` from this entity.
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
 
-    /// Remove all children.
+    /// Remove all children from this entity.
     fn clear_children(&mut self) -> &mut Self;
 
-    /// Set the parent.
+    /// Set the `parent` of this entity. This entity will be added to the end of the `parent`'s list of children.
     ///
-    /// If this entity already had a parent it will be removed from that parent.
+    /// If this entity already had a parent it will be removed from it.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
 
-    /// Remove the parent.
+    /// Remove the parent from this entity.
     fn remove_parent(&mut self) -> &mut Self;
 }
 
