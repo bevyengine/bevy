@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
     for mut text in &mut query {
-        let seconds = time.seconds_since_startup() as f32;
+        let seconds = time.elapsed_seconds();
 
         // Update the color of the first and only section.
         text.sections[0].style.color = Color::Rgba {
