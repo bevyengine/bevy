@@ -176,7 +176,7 @@ impl Time {
         self.last_update = Some(instant);
     }
 
-    /// Returns the [`Instant`] this clock was created.
+    /// Returns the [`Instant`] the clock was created.
     ///
     /// This usually represents when the app was started.
     #[inline]
