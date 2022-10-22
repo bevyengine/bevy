@@ -82,19 +82,7 @@ impl Gamepad {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadInfo {
-    name: String,
-}
-
-impl GamepadInfo {
-    /// Creates a new `GamepadInfo` with the specified name.
-    pub fn new(name: impl Into<String>) -> GamepadInfo {
-        GamepadInfo { name: name.into() }
-    }
-
-    /// Returns the name of the gamepad.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    pub name: String,
 }
 
 /// A collection of connected [`Gamepad`]s.
@@ -126,7 +114,7 @@ impl Gamepads {
     }
 
     pub fn name(&self, gamepad: Gamepad) -> Option<&str> {
-        self.gamepads.get(&gamepad).map(|g| g.name())
+        self.gamepads.get(&gamepad).map(|g| g.name.as_str())
     }
 
     /// Registers the `gamepad`, marking it as connected.
@@ -246,7 +234,7 @@ impl GamepadEvent {
 ///
 /// // Send the gamepad connected event to mark our gamepad as connected.
 /// // This updates the `Gamepads` resource accordingly.
-/// let info = GamepadInfo::new("Mock Gamepad");
+/// let info = GamepadInfo { name: "Mock Gamepad".into() };
 /// app.world.send_event(GamepadEventRaw::new(gamepad, GamepadEventType::Connected(info)));
 ///
 /// // Send the gamepad input event to mark the `South` gamepad button as pressed.

@@ -7,7 +7,9 @@ use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
 
 pub fn gilrs_event_startup_system(gilrs: NonSend<Gilrs>, mut events: EventWriter<GamepadEventRaw>) {
     for (id, gamepad) in gilrs.gamepads() {
-        let info = GamepadInfo::new(gamepad.name());
+        let info = GamepadInfo {
+            name: gamepad.name().into(),
+        };
 
         events.send(GamepadEventRaw::new(
             convert_gamepad_id(id),
@@ -26,7 +28,9 @@ pub fn gilrs_event_system(mut gilrs: NonSendMut<Gilrs>, mut events: EventWriter<
         match gilrs_event.event {
             EventType::Connected => {
                 let pad = gilrs.gamepad(gilrs_event.id);
-                let info = GamepadInfo::new(pad.name());
+                let info = GamepadInfo {
+                    name: pad.name().into(),
+                };
 
                 events.send(GamepadEventRaw::new(
                     convert_gamepad_id(gilrs_event.id),
