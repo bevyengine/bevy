@@ -28,7 +28,7 @@ pub trait HierarchyCommands {
     /// If the `child` already had a parent it will be removed from that parent.
     ///
     /// If the `child` already belonged to this entity, it will still be moved to the `index`.
-    /// 
+    ///
     fn insert_child(&mut self, index: usize, child: Entity) -> &mut Self;
 
     /// Add the `children` to this entity, inserted at the given `index`.
@@ -718,7 +718,6 @@ mod tests {
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
         Parent,
     };
-    use smallvec::SmallVec;
 
     use bevy_ecs::{
         entity::Entity,
@@ -729,10 +728,7 @@ mod tests {
     };
 
     fn assert_children(world: &mut World, parent: Entity, children: Option<&[Entity]>) {
-        assert_eq!(
-            world.get::<Children>(parent).map(|c| c.0.clone()),
-            children.map(SmallVec::from_slice)
-        );
+        assert_eq!(world.get::<Children>(parent).map(|c| &**c), children);
     }
 
     fn omit_events(world: &mut World, number: usize) {
