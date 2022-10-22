@@ -10,11 +10,14 @@ fn main() {
         // Adding a plugin group adds all plugins in the group by default
         .add_plugins(HelloWorldPlugins)
         // You can also modify a PluginGroup (such as disabling plugins) like this:
-        // .add_plugins_with(HelloWorldPlugins, |group| {
-        //     group
+        // .add_plugins(
+        //     HelloWorldPlugins
+        //         .build()
         //         .disable::<PrintWorldPlugin>()
-        //         .add_before::<PrintHelloPlugin,
-        // _>(bevy::diagnostic::LogDiagnosticsPlugin::default()) })
+        //         .add_before::<PrintHelloPlugin, _>(
+        //             bevy::diagnostic::LogDiagnosticsPlugin::default(),
+        //         ),
+        // )
         .run();
 }
 
