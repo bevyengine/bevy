@@ -187,3 +187,9 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
         }
     }
 }
+
+impl<'a> From<String> for AssetPath<'a> {
+    fn from(asset_path: String) -> Self {
+        asset_path.into()
+    }
+}
