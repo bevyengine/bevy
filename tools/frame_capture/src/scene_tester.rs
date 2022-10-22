@@ -50,7 +50,7 @@ impl Plugin for SceneTesterPlugin {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct SceneController {
     state: SceneState,
     name: String,
@@ -138,16 +138,14 @@ pub fn setup_test(
     cpu_image.resize(size);
     let cpu_image_handle = images.add(cpu_image);
 
-    commands.spawn().insert(ImageCopier::new(
+    commands.spawn(ImageCopier::new(
         render_target_image_handle.clone(),
         cpu_image_handle.clone(),
         size,
         &render_device,
     ));
 
-    commands
-        .spawn()
-        .insert(ImageToSave(cpu_image_handle.clone()));
+    commands.spawn(ImageToSave(cpu_image_handle.clone()));
 
     scene_controller.state = SceneState::Render(pre_roll_frames);
     scene_controller.name = scene_name;

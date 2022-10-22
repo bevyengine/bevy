@@ -66,6 +66,9 @@ impl Plugin for ImageCopyPlugin {
     }
 }
 
+#[derive(Clone, Default, Resource, Deref, DerefMut)]
+pub struct ImageCopiers(pub Vec<ImageCopier>);
+
 #[derive(Clone, Component)]
 pub struct ImageCopier {
     buffer: Buffer,
@@ -113,7 +116,9 @@ impl ImageCopier {
 }
 
 pub fn image_copy_extract(mut commands: Commands, image_copiers: Extract<Query<&ImageCopier>>) {
-    commands.insert_resource(image_copiers.iter().cloned().collect::<Vec<ImageCopier>>());
+    commands.insert_resource(ImageCopiers(
+        image_copiers.iter().cloned().collect::<Vec<ImageCopier>>(),
+    ));
 }
 
 #[derive(Default)]
@@ -126,7 +131,7 @@ impl render_graph::Node for ImageCopyDriver {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let image_copiers = world.get_resource::<Vec<ImageCopier>>().unwrap();
+        let image_copiers = world.get_resource::<ImageCopiers>().unwrap();
         let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
 
         for image_copier in image_copiers.iter() {
