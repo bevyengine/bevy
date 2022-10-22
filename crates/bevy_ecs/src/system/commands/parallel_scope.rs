@@ -59,7 +59,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ParallelCommandsState {
         state: &'s mut Self,
         _: &crate::system::SystemMeta,
         world: &'w World,
-        _: u32,
+        _: u64,
     ) -> Self::Item {
         ParallelCommands {
             state,

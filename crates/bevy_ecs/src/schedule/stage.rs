@@ -1,6 +1,5 @@
 use crate::{
     self as bevy_ecs,
-    change_detection::CHECK_TICK_THRESHOLD,
     component::ComponentId,
     prelude::IntoSystem,
     schedule::{
@@ -429,16 +428,6 @@ impl SystemStage {
 
     /// Rearranges all systems in topological orders. Systems must be initialized.
     fn rebuild_orders_and_dependencies(&mut self) {
-        // This assertion exists to document that the number of systems in a stage is limited
-        // to guarantee that change detection never yields false positives. However, it's possible
-        // (but still unlikely) to circumvent this by abusing exclusive or chained systems.
-        assert!(
-            self.exclusive_at_start.len()
-                + self.exclusive_before_commands.len()
-                + self.exclusive_at_end.len()
-                + self.parallel.len()
-                < (CHECK_TICK_THRESHOLD as usize)
-        );
         debug_assert!(
             self.uninitialized_run_criteria.is_empty()
                 && self.uninitialized_parallel.is_empty()
@@ -508,37 +497,6 @@ impl SystemStage {
                     system.name()
                 );
             }
-        }
-    }
-
-    /// All system and component change ticks are scanned once the world counter has incremented
-    /// at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
-    /// times since the previous `check_tick` scan.
-    ///
-    /// During each scan, any change ticks older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE)
-    /// are clamped to that age. This prevents false positives from appearing due to overflow.
-    fn check_change_ticks(&mut self, world: &mut World) {
-        let change_tick = world.change_tick();
-        let ticks_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
-
-        if ticks_since_last_check >= CHECK_TICK_THRESHOLD {
-            // Check all system change ticks.
-            for exclusive_system in &mut self.exclusive_at_start {
-                exclusive_system.system_mut().check_change_tick(change_tick);
-            }
-            for exclusive_system in &mut self.exclusive_before_commands {
-                exclusive_system.system_mut().check_change_tick(change_tick);
-            }
-            for exclusive_system in &mut self.exclusive_at_end {
-                exclusive_system.system_mut().check_change_tick(change_tick);
-            }
-            for parallel_system in &mut self.parallel {
-                parallel_system.system_mut().check_change_tick(change_tick);
-            }
-
-            // Check all component change ticks.
-            world.check_change_ticks();
-            self.last_tick_check = change_tick;
         }
     }
 
@@ -863,9 +821,6 @@ impl Stage for SystemStage {
                         }
                     }
                 }
-
-                // Check for old component and system change ticks
-                self.check_change_ticks(world);
 
                 // Evaluate run criteria.
                 let run_criteria = &mut self.run_criteria;

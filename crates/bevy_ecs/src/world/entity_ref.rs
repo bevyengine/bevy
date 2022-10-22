@@ -97,8 +97,8 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(
         &self,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: u64,
+        change_tick: u64,
     ) -> Option<Mut<'w, T>> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {

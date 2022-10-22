@@ -25,7 +25,7 @@ use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
     fmt,
-    sync::atomic::{AtomicU32, Ordering},
+    sync::atomic::{AtomicU64, Ordering},
 };
 mod identifier;
 
@@ -61,8 +61,8 @@ pub struct World {
     /// Access cache used by [WorldCell].
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
-    pub(crate) change_tick: AtomicU32,
-    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: AtomicU64,
+    pub(crate) last_change_tick: u64,
 }
 
 impl Default for World {
@@ -79,7 +79,7 @@ impl Default for World {
             main_thread_validator: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
-            change_tick: AtomicU32::new(1),
+            change_tick: AtomicU64::new(1),
             last_change_tick: 0,
         }
     }
@@ -835,7 +835,7 @@ impl World {
         };
         // SAFETY: resources table always have row 0
         let ticks = unsafe { column.get_ticks_unchecked(0).deref() };
-        ticks.is_added(self.last_change_tick(), self.read_change_tick())
+        ticks.is_added(self.last_change_tick())
     }
 
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
@@ -852,7 +852,7 @@ impl World {
         };
         // SAFETY: resources table always have row 0
         let ticks = unsafe { column.get_ticks_unchecked(0).deref() };
-        ticks.is_changed(self.last_change_tick(), self.read_change_tick())
+        ticks.is_changed(self.last_change_tick())
     }
 
     /// Gets a reference to the resource of the given type
@@ -1424,35 +1424,23 @@ impl World {
     }
 
     #[inline]
-    pub fn increment_change_tick(&self) -> u32 {
+    pub fn increment_change_tick(&self) -> u64 {
         self.change_tick.fetch_add(1, Ordering::AcqRel)
     }
 
     #[inline]
-    pub fn read_change_tick(&self) -> u32 {
+    pub fn read_change_tick(&self) -> u64 {
         self.change_tick.load(Ordering::Acquire)
     }
 
     #[inline]
-    pub fn change_tick(&mut self) -> u32 {
+    pub fn change_tick(&mut self) -> u64 {
         *self.change_tick.get_mut()
     }
 
     #[inline]
-    pub fn last_change_tick(&self) -> u32 {
+    pub fn last_change_tick(&self) -> u64 {
         self.last_change_tick
-    }
-
-    pub fn check_change_ticks(&mut self) {
-        // Iterate over all component change ticks, clamping their age to max age
-        // PERF: parallelize
-        let change_tick = self.change_tick();
-        self.storages.tables.check_change_ticks(change_tick);
-        self.storages.sparse_sets.check_change_ticks(change_tick);
-        let resource_archetype = self.archetypes.resource_mut();
-        for column in resource_archetype.unique_components.values_mut() {
-            column.check_change_ticks(change_tick);
-        }
     }
 
     pub fn clear_entities(&mut self) {
