@@ -78,7 +78,11 @@ impl PluginGroupBuilder {
         }
     }
 
-    /// Sets the value of the given [`Plugin`], if it exists
+    /// Sets the value of the given [`Plugin`], if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the [`Plugin`] does not exist.
     pub fn set<T: Plugin>(mut self, plugin: T) -> Self {
         let entry = self.plugins.get_mut(&TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
