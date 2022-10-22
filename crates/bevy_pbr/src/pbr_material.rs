@@ -3,7 +3,10 @@ use bevy_asset::Handle;
 use bevy_math::Vec4;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, TypeUuid};
 use bevy_render::{
-    color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
+    color::Color,
+    mesh::{Mesh, MeshVertexAttribute, MeshVertexBufferLayout},
+    render_asset::RenderAssets,
+    render_resource::*,
     texture::Image,
 };
 
@@ -440,5 +443,14 @@ impl Material for StandardMaterial {
     #[inline]
     fn depth_bias(&self) -> f32 {
         self.depth_bias
+    }
+
+    #[inline]
+    fn required_vertex_attributes() -> Vec<MeshVertexAttribute> {
+        vec![
+            Mesh::ATTRIBUTE_POSITION,
+            Mesh::ATTRIBUTE_NORMAL,
+            Mesh::ATTRIBUTE_UV_0,
+        ]
     }
 }

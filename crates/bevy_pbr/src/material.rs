@@ -12,7 +12,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    prelude::World,
+    prelude::{Changed, Or, With, World},
     schedule::IntoSystemDescriptor,
     system::{
         lifetimeless::{Read, SQuery, SRes},
@@ -23,7 +23,7 @@ use bevy_ecs::{
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, MeshVertexAttribute, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
@@ -150,6 +150,14 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
+
+    /// Returns a list of vertex attributes required by this `Material`.
+    ///
+    /// The default implementation of this method returns an empty `Vec`.
+    #[inline]
+    fn required_vertex_attributes() -> Vec<MeshVertexAttribute> {
+        Vec::new()
+    }
 }
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
@@ -168,7 +176,8 @@ where
 {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
+            .add_system(verify_material_mesh_attributes::<M>);
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
@@ -312,6 +321,33 @@ impl<M: Material, const I: usize> EntityRenderCommand for SetMaterialBindGroup<M
         let material = materials.into_inner().get(material_handle).unwrap();
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
+    }
+}
+
+pub fn verify_material_mesh_attributes<M: Material>(
+    material_meshes: Query<
+        &Handle<Mesh>,
+        (
+            With<Handle<M>>,
+            Or<(Changed<Handle<M>>, Changed<Handle<Mesh>>)>,
+        ),
+    >,
+    meshes: Res<Assets<Mesh>>,
+) {
+    let required_attributes = M::required_vertex_attributes();
+
+    for mesh_handle in material_meshes.iter() {
+        if let Some(mesh) = meshes.get(mesh_handle) {
+            for attr in &required_attributes {
+                if !mesh.contains_attribute(attr.id()) {
+                    error!(
+                        "Mesh with ID `{:?}` is missing required vertex attribute `{}`",
+                        mesh_handle.id(),
+                        attr.name(),
+                    );
+                };
+            }
+        }
     }
 }
 
