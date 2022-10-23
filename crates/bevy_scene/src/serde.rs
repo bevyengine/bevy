@@ -1,9 +1,9 @@
 use crate::{DynamicEntity, DynamicScene};
 use anyhow::Result;
-use bevy_reflect::{
-    serde::{ReflectSerializer, UntypedReflectDeserializer},
-    Reflect, TypeRegistry, TypeRegistryArc,
-};
+use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
+use bevy_reflect::{serde::UntypedReflectDeserializer, Reflect, TypeRegistry, TypeRegistryArc};
+use bevy_utils::HashSet;
+use serde::ser::SerializeMap;
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
     ser::{SerializeSeq, SerializeStruct},
@@ -100,10 +100,12 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_seq(Some(self.components.len()))?;
+        let mut state = serializer.serialize_map(Some(self.components.len()))?;
         for component in self.components {
-            state
-                .serialize_element(&ReflectSerializer::new(&**component, &self.registry.read()))?;
+            state.serialize_entry(
+                component.type_name(),
+                &TypedReflectSerializer::new(&**component, &*self.registry.read()),
+            )?;
         }
         state.end()
     }
@@ -285,7 +287,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
                         return Err(Error::duplicate_field(ENTITY_FIELD_COMPONENTS));
                     }
 
-                    components = Some(map.next_value_seed(ComponentVecDeserializer {
+                    components = Some(map.next_value_seed(ComponentDeserializer {
                         registry: self.registry,
                     })?);
                 }
@@ -306,32 +308,55 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     }
 }
 
-pub struct ComponentVecDeserializer<'a> {
+pub struct ComponentDeserializer<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for ComponentVecDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for ComponentDeserializer<'a> {
     type Value = Vec<Box<dyn Reflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_seq(ComponentSeqVisitor {
+        deserializer.deserialize_map(ComponentVisitor {
             registry: self.registry,
         })
     }
 }
 
-struct ComponentSeqVisitor<'a> {
+struct ComponentVisitor<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for ComponentSeqVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
     type Value = Vec<Box<dyn Reflect>>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("list of components")
+        formatter.write_str("map of components")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut added = HashSet::new();
+        let mut components = Vec::new();
+        while let Some(key) = map.next_key::<&str>()? {
+            if !added.insert(key) {
+                return Err(Error::custom(format!("duplicate component: `{}`", key)));
+            }
+
+            let registration = self
+                .registry
+                .get_with_name(key)
+                .ok_or_else(|| Error::custom(format!("no registration found for `{}`", key)))?;
+            components.push(
+                map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
+            );
+        }
+
+        Ok(components)
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
