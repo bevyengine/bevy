@@ -1,5 +1,6 @@
 //! Types that enable reflection support.
 
+use crate::bundle::Bundle;
 use crate::{
     change_detection::Mut,
     component::Component,
@@ -8,9 +9,10 @@ use crate::{
     world::{FromWorld, World},
 };
 use bevy_reflect::{
-    impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
-    ReflectSerialize,
+    impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize, ReflectRef,
+    ReflectSerialize, TypeRegistry,
 };
+use std::any::TypeId;
 
 /// A struct used to operate on reflected [`Component`] of a type.
 ///
@@ -220,6 +222,212 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                             ticks: c.ticks,
                         })
                 }
+            },
+        })
+    }
+}
+
+/// A struct used to operate on reflected [`Bundle`] of a type.
+///
+/// A [`ReflectBundle`] for type `T` can be obtained via
+/// [`bevy_reflect::TypeRegistration::data`].
+#[derive(Clone)]
+pub struct ReflectBundle(ReflectBundleFns);
+
+/// The raw function pointers needed to make up a [`ReflectBundle`].
+///
+/// This is used when creating custom implementations of [`ReflectBundle`] with
+/// [`ReflectBundle::new()`].
+///
+/// > **Note:**
+/// > Creating custom implementations of [`ReflectBundle`] is an advanced feature that most users
+/// > will not need.
+/// > Usually a [`ReflectBundle`] is created for a type by deriving [`Reflect`]
+/// > and adding the `#[reflect(Bundle)]` attribute.
+/// > After adding the bundle to the [`TypeRegistry`][bevy_reflect::TypeRegistry],
+/// > its [`ReflectBundle`] can then be retrieved when needed.
+///
+/// Creating a custom [`ReflectBundle`] may be useful if you need to create new bundle types
+/// at runtime, for example, for scripting implementations.
+///
+/// By creating a custom [`ReflectBundle`] and inserting it into a type's
+/// [`TypeRegistration`][bevy_reflect::TypeRegistration],
+/// you can modify the way that reflected bundles of that type will be inserted into the Bevy
+/// world.
+#[derive(Clone)]
+pub struct ReflectBundleFns {
+    /// Function pointer implementing [`ReflectBundle::insert()`].
+    pub insert: fn(&mut World, Entity, &dyn Reflect),
+    /// Function pointer implementing [`ReflectBundle::apply()`].
+    pub apply: fn(&mut World, Entity, &dyn Reflect, &TypeRegistry),
+    /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
+    pub apply_or_insert: fn(&mut World, Entity, &dyn Reflect, &TypeRegistry),
+    /// Function pointer implementing [`ReflectBundle::remove()`].
+    pub remove: fn(&mut World, Entity),
+}
+
+impl ReflectBundleFns {
+    /// Get the default set of [`ReflectComponentFns`] for a specific component type using its
+    /// [`FromType`] implementation.
+    ///
+    /// This is useful if you want to start with the default implementation before overriding some
+    /// of the functions to create a custom implementation.
+    pub fn new<T: Bundle + Reflect + FromWorld>() -> Self {
+        <ReflectBundle as FromType<T>>::from_type().0
+    }
+}
+
+impl ReflectBundle {
+    /// Insert a reflected [`Bundle`] into the entity like [`insert()`](crate::world::EntityMut::insert).
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no such entity.
+    pub fn insert(&self, world: &mut World, entity: Entity, bundle: &dyn Reflect) {
+        (self.0.insert)(world, entity, bundle);
+    }
+
+    /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no [`Bundle`] of the given type or the `entity` does not exist.
+    pub fn apply(
+        &self,
+        world: &mut World,
+        entity: Entity,
+        bundle: &dyn Reflect,
+        registry: &TypeRegistry,
+    ) {
+        (self.0.apply)(world, entity, bundle, registry);
+    }
+
+    /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value or insert a new one if it does not exist.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `entity` does not exist.
+    pub fn apply_or_insert(
+        &self,
+        world: &mut World,
+        entity: Entity,
+        bundle: &dyn Reflect,
+        registry: &TypeRegistry,
+    ) {
+        (self.0.apply_or_insert)(world, entity, bundle, registry);
+    }
+
+    /// Removes this [`Bundle`] type from the entity. Does nothing if it doesn't exist.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no [`Bundle`] of the given type or the `entity` does not exist.
+    pub fn remove(&self, world: &mut World, entity: Entity) {
+        (self.0.remove)(world, entity);
+    }
+
+    /// Create a custom implementation of [`ReflectBundle`].
+    ///
+    /// This is an advanced feature,
+    /// useful for scripting implementations,
+    /// that should not be used by most users
+    /// unless you know what you are doing.
+    ///
+    /// Usually you should derive [`Reflect`] and add the `#[reflect(Bundle)]` component
+    /// to generate a [`ReflectBundle`] implementation automatically.
+    ///
+    /// See [`ReflectComponentFns`] for more information.
+    pub fn new(fns: ReflectBundleFns) -> Self {
+        Self(fns)
+    }
+}
+
+impl<C: Bundle + Reflect + FromWorld> FromType<C> for ReflectBundle {
+    fn from_type() -> Self {
+        ReflectBundle(ReflectBundleFns {
+            insert: |world, entity, reflected_bundle| {
+                let mut bundle = C::from_world(world);
+                bundle.apply(reflected_bundle);
+                world.entity_mut(entity).insert(bundle);
+            },
+            apply: |world, entity, reflected_bundle, registry| {
+                let mut bundle = C::from_world(world);
+                bundle.apply(reflected_bundle);
+
+                if let ReflectRef::Struct(bundle) = bundle.reflect_ref() {
+                    for field in bundle.iter_fields() {
+                        if let Some(reflect_component) =
+                            registry.get_type_data::<ReflectComponent>(field.type_id())
+                        {
+                            reflect_component.apply(world, entity, field);
+                        } else if let Some(reflect_bundle) =
+                            registry.get_type_data::<ReflectBundle>(field.type_id())
+                        {
+                            reflect_bundle.apply(world, entity, field, registry);
+                        } else {
+                            if let Some(id) = world.bundles().get_id(TypeId::of::<C>()) {
+                                let info = world.bundles().get(id).unwrap();
+                                if info.components().is_empty() {
+                                    panic!(
+                                        "no `ReflectComponent` registration found for `{}`",
+                                        field.type_name()
+                                    );
+                                }
+                            };
+
+                            panic!(
+                                "no `ReflectBundle` registration found for `{}`",
+                                field.type_name()
+                            )
+                        }
+                    }
+                } else {
+                    panic!(
+                        "expected bundle `{}` to be named struct",
+                        std::any::type_name::<C>()
+                    );
+                }
+            },
+            apply_or_insert: |world, entity, reflected_bundle, registry| {
+                let mut bundle = C::from_world(world);
+                bundle.apply(reflected_bundle);
+
+                if let ReflectRef::Struct(bundle) = bundle.reflect_ref() {
+                    for field in bundle.iter_fields() {
+                        if let Some(reflect_component) =
+                            registry.get_type_data::<ReflectComponent>(field.type_id())
+                        {
+                            reflect_component.apply_or_insert(world, entity, field);
+                        } else if let Some(reflect_bundle) =
+                            registry.get_type_data::<ReflectBundle>(field.type_id())
+                        {
+                            reflect_bundle.apply_or_insert(world, entity, field, registry);
+                        } else {
+                            if let Some(id) = world.bundles().get_id(TypeId::of::<C>()) {
+                                let info = world.bundles().get(id).unwrap();
+                                if info.components().is_empty() {
+                                    panic!(
+                                        "no `ReflectComponent` registration found for `{}`",
+                                        field.type_name()
+                                    );
+                                }
+                            };
+
+                            panic!(
+                                "no `ReflectBundle` registration found for `{}`",
+                                field.type_name()
+                            )
+                        }
+                    }
+                } else {
+                    panic!(
+                        "expected bundle `{}` to be named struct",
+                        std::any::type_name::<C>()
+                    );
+                }
+            },
+            remove: |world, entity| {
+                world.entity_mut(entity).remove::<C>();
             },
         })
     }

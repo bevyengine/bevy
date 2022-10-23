@@ -1,6 +1,7 @@
 use crate::{serde::SceneSerializer, DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_app::AppTypeRegistry;
+use bevy_ecs::reflect::ReflectBundle;
 use bevy_ecs::{
     entity::EntityMap,
     reflect::{ReflectComponent, ReflectMapEntities},
@@ -29,6 +30,9 @@ pub struct DynamicEntity {
     /// A vector of boxed components that belong to the given entity and
     /// implement the `Reflect` trait.
     pub components: Vec<Box<dyn Reflect>>,
+    /// A vector of boxed bundles that belong to the given entity and
+    /// implement the `Reflect` trait.
+    pub bundles: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicScene {
@@ -67,6 +71,22 @@ impl DynamicScene {
             let entity = *entity_map
                 .entry(bevy_ecs::entity::Entity::from_raw(scene_entity.entity))
                 .or_insert_with(|| world.spawn_empty().id());
+
+            for bundle in &scene_entity.bundles {
+                let registration =
+                    type_registry
+                        .get_with_name(bundle.type_name())
+                        .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                            type_name: bundle.type_name().to_string(),
+                        })?;
+                let reflect_bundle = registration.data::<ReflectBundle>().ok_or_else(|| {
+                    SceneSpawnError::UnregisteredBundle {
+                        type_name: bundle.type_name().to_string(),
+                    }
+                })?;
+
+                reflect_bundle.apply_or_insert(world, entity, &**bundle, &type_registry);
+            }
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {

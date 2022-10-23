@@ -109,6 +109,7 @@ impl<'w> DynamicSceneBuilder<'w> {
             let mut entry = DynamicEntity {
                 entity: index,
                 components: Vec::new(),
+                bundles: Vec::new(),
             };
 
             for component_id in self.world.entity(entity).archetype().components() {

@@ -14,6 +14,7 @@ fn main() {
         }))
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
+        .register_type::<SomeBundle>()
         .add_startup_system(save_scene_system)
         .add_startup_system(load_scene_system)
         .add_startup_system(infotext_system)
@@ -52,6 +53,31 @@ impl FromWorld for ComponentB {
         ComponentB {
             _time_since_startup: time.elapsed(),
             value: "Default Value".to_string(),
+        }
+    }
+}
+
+/// For bundles, you can add `#[reflect(Bundle)]` to enable deserializing entire bundles.
+///
+/// This can be useful when manually creating scene files. Rather than writing out each component in the bundle,
+/// you can simply add the bundle to the `bundles` field of the scene.
+/// You can then modify specific components of that bundle if you need to, or just leave it blank and let it
+/// generate a default instance of that bundle. The choice is yours!
+///
+/// Note: This only works for _deserializing_ scenes. When serializing a scene, the `bundles` field will
+/// not be generated and all of the bundle's components will instead be added to the `components` field.
+#[derive(Reflect, Bundle)]
+#[reflect(Bundle)]
+struct SomeBundle {
+    a: ComponentA,
+    b: ComponentB,
+}
+
+impl FromWorld for SomeBundle {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            a: ComponentA { x: -1.0, y: -1.0 },
+            b: ComponentB::from_world(world),
         }
     }
 }
