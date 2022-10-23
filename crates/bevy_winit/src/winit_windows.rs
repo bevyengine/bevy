@@ -116,6 +116,16 @@ impl WinitWindows {
             }
         }
 
+        #[cfg(target_os = "windows")]
+        {
+            use winit::platform::windows::WindowBuilderExtWindows;
+            
+            if let Some(parent_window_handle) = window_descriptor.parent_window {
+                winit_window_builder =
+                    winit_window_builder.with_parent_window(parent_window_handle);
+            }
+        }
+
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
         if window_descriptor.mode == WindowMode::Windowed {

@@ -935,6 +935,12 @@ pub struct WindowDescriptor {
     ///
     /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
+    /// Parent window handle (HWND).
+    ///
+    /// If set, this selector will be used to create a window as a child window of the parent window.
+    ///
+    /// This value has no effect on non-Windows platforms.
+    pub parent_window: Option<isize>,
 }
 
 impl Default for WindowDescriptor {
@@ -956,6 +962,7 @@ impl Default for WindowDescriptor {
             transparent: false,
             canvas: None,
             fit_canvas_to_parent: false,
+            parent_window: None,
         }
     }
 }
