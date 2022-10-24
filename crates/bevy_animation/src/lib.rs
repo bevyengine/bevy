@@ -115,11 +115,19 @@ impl Default for AnimationPlayer {
 
 impl AnimationPlayer {
     /// Start playing an animation, resetting state of the player
-    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+    pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         *self = Self {
             animation_clip: handle,
             ..Default::default()
         };
+        self
+    }
+
+    /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
+    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+        if self.animation_clip != handle || self.is_paused() {
+            self.start(handle);
+        }
         self
     }
 
