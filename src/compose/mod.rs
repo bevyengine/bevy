@@ -96,7 +96,6 @@
 ///
 /// codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
 ///
-use bit_set::BitSet;
 use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
     files::SimpleFile,
@@ -143,18 +142,18 @@ impl From<ShaderType> for ShaderLanguage {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-struct ModuleKey(BitSet);
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+struct ModuleKey(usize);
 
 impl ModuleKey {
     fn from_members(key: &HashSet<String>, universe: &[String]) -> Self {
-        let mut acc = BitSet::new();
-        for (index, item) in universe.iter().enumerate() {
+        ModuleKey(universe.iter().enumerate().fold(0, |acc, (index, item)| {
             if key.contains(item) {
-                acc.insert(index);
+                acc + (1 << index)
+            } else {
+                acc
             }
-        }
-        ModuleKey(acc)
+        }))
     }
 }
 
