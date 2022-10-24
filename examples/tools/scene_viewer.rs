@@ -45,16 +45,22 @@ Controls:
         color: Color::WHITE,
         brightness: 1.0 / 5.0f32,
     })
-    .insert_resource(AssetServerSettings {
-        asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
-        watch_for_changes: true,
-    })
-    .insert_resource(WindowDescriptor {
-        title: "bevy scene viewer".to_string(),
-        ..default()
-    })
     .init_resource::<CameraTracker>()
-    .add_plugins(DefaultPlugins)
+    .add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                window: WindowDescriptor {
+                    title: "bevy scene viewer".to_string(),
+                    ..default()
+                },
+                ..default()
+            })
+            .set(AssetPlugin {
+                asset_folder: std::env::var("CARGO_MANIFEST_DIR")
+                    .unwrap_or_else(|_| ".".to_string()),
+                watch_for_changes: true,
+            }),
+    )
     .add_startup_system(setup)
     .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
     .add_system_to_stage(CoreStage::PreUpdate, setup_scene_after_load)

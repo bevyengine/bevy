@@ -5,7 +5,7 @@ use bevy::winit::WinitPlugin;
 
 fn main() {
     App::new()
-        .add_plugins_with(DefaultPlugins, |group| group.disable::<WinitPlugin>())
+        .add_plugins(DefaultPlugins.build().disable::<WinitPlugin>())
         .add_system(setup_system)
         .run();
 }

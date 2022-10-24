@@ -20,9 +20,7 @@ fn main() {
             ..default()
         })
         .insert_resource(ClearColor(Color::rgb(0.2, 0.8, 0.2)))
-        .add_plugins_with(DefaultPlugins, |group| {
-            group.disable::<bevy::log::LogPlugin>()
-        })
+        .add_plugins(DefaultPlugins.build().disable::<bevy::log::LogPlugin>())
         .add_system(system2)
         .run();
     println!("Done.");

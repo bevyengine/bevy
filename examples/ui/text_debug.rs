@@ -8,11 +8,13 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_startup_system(infotext_system)
         .add_system(change_text_system)

@@ -8,7 +8,7 @@
 //! fn main() {
 //!    App::new()
 //!         .add_plugins(MinimalPlugins)
-//!         .add_plugin(AssetPlugin)
+//!         .add_plugin(AssetPlugin::default())
 //!         .add_plugin(AudioPlugin)
 //!         .add_startup_system(play_background_audio)
 //!         .run();

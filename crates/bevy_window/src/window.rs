@@ -1,4 +1,3 @@
-use bevy_ecs::system::Resource;
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
@@ -895,7 +894,7 @@ pub enum MonitorSelection {
 /// See [`examples/window/window_settings.rs`] for usage.
 ///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Resource, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.

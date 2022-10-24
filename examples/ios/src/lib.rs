@@ -4,12 +4,14 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 #[bevy_main]
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            resizable: false,
-            mode: WindowMode::BorderlessFullscreen,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                resizable: false,
+                mode: WindowMode::BorderlessFullscreen,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_startup_system(setup_scene)
         .add_startup_system(setup_music)
         .add_system(touch_camera)
