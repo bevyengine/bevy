@@ -14,10 +14,14 @@ use std::{
 };
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[repr(transparent)]
 pub struct ArchetypeId(usize);
 
 impl ArchetypeId {
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
+    /// # Safety:
+    ///
+    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
     pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
 
     #[inline]
