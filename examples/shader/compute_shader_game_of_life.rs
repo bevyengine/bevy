@@ -22,12 +22,14 @@ const WORKGROUP_SIZE: u32 = 8;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(WindowDescriptor {
-            // uncomment for unthrottled FPS
-            // present_mode: bevy::window::PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                // uncomment for unthrottled FPS
+                // present_mode: bevy::window::PresentMode::AutoNoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(GameOfLifeComputePlugin)
         .add_startup_system(setup)
         .run();
