@@ -971,7 +971,7 @@ pub(crate) fn assign_lights_to_clusters(
 
         if config.dynamic_resizing() {
             let mut cluster_index_estimate = 0.0;
-            for light in lights.iter() {
+            for light in &lights {
                 let light_sphere = light.sphere();
 
                 // Check if the light is within the view frustum
@@ -1126,7 +1126,7 @@ pub(crate) fn assign_lights_to_clusters(
         }
 
         let mut update_from_light_intersections = |visible_lights: &mut Vec<Entity>| {
-            for light in lights.iter() {
+            for light in &lights {
                 let light_sphere = light.sphere();
 
                 // Check if the light is within the view frustum
