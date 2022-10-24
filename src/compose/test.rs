@@ -507,6 +507,54 @@ mod test {
         assert_eq!(test_shader(&mut composer), 2.0);
     }
 
+    #[test]
+    fn import_in_decl() {
+        let mut composer = Composer::default();
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/const_in_decl/consts.wgsl"),
+                file_path: "tests/const_in_decl/consts.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/const_in_decl/bind.wgsl"),
+                file_path: "tests/const_in_decl/bind.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        let module = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/const_in_decl/top.wgsl"),
+                file_path: "tests/const_in_decl/top.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        println!("{:#?}", module);
+
+        let info = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::default(),
+        )
+        .validate(&module)
+        .unwrap();
+        let wgsl = naga::back::wgsl::write_string(
+            &module,
+            &info,
+            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+        )
+        .unwrap();
+
+        // println!("{}", wgsl);
+        // let mut f = std::fs::File::create("import_in_decl.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+
+        assert_eq!(wgsl, include_str!("tests/expected/import_in_decl.txt"));
+    }
+
     // actually run a shader and extract the result
     // needs the composer to contain a module called "test_module", with a function called "entry_point" returning an f32.
     fn test_shader(composer: &mut Composer) -> f32 {

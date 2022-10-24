@@ -1024,8 +1024,35 @@ impl Composer {
             }
         }
 
-        let module_ir = module_builder.into_module_with_entrypoints();
+        let mut module_ir = module_builder.into_module_with_entrypoints();
         let mut header_ir: naga::Module = header_builder.into();
+
+        // rescope any imported constants
+        let mut renamed_consts = HashMap::new();
+        for (_, constant) in header_ir.constants.iter_mut() {
+            if let Some(name) = constant.name.as_mut() {
+                if name.contains(DECORATION_PRE) && !name.contains(module_decoration) {
+                    let rename = format!("{}{}", module_decoration, name);
+                    debug!(
+                        "{}: header rename {} -> {}",
+                        module_definition.name, name, rename
+                    );
+                    renamed_consts.insert(name.clone(), rename.clone());
+                    *name = rename;
+                }
+            }
+        }
+        for (_, constant) in module_ir.constants.iter_mut() {
+            if let Some(name) = constant.name.as_mut() {
+                if let Some(rename) = renamed_consts.get(name) {
+                    debug!(
+                        "{}: module rename {} -> {}",
+                        module_definition.name, name, rename
+                    );
+                    *name = rename.clone();
+                }
+            }
+        }
 
         let info =
             naga::valid::Validator::new(naga::valid::ValidationFlags::all(), self.capabilities)
