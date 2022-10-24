@@ -73,7 +73,7 @@ impl Node for MainPass3dNode {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: match camera_3d.clear_color {
                         ClearColorConfig::Default => {
                             LoadOp::Clear(world.resource::<ClearColor>().0.into())
@@ -82,7 +82,7 @@ impl Node for MainPass3dNode {
                         ClearColorConfig::None => LoadOp::Load,
                     },
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
@@ -119,10 +119,10 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The alpha mask pass loads the depth buffer and possibly overwrites it
@@ -158,10 +158,10 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: For the transparent pass we load the depth buffer. There should be no
@@ -202,10 +202,10 @@ impl Node for MainPass3dNode {
             let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_3d"),
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: None,
             };
 

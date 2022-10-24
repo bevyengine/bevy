@@ -5,7 +5,6 @@ use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
 
-use super::image_texture_conversion::image_to_texture;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
@@ -14,7 +13,7 @@ use crate::{
 };
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use std::hash::Hash;
@@ -110,6 +109,7 @@ pub struct Image {
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler_descriptor: ImageSampler,
+    pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -125,7 +125,20 @@ pub enum ImageSampler {
 }
 
 impl ImageSampler {
+    /// Returns an image sampler with `Linear` min and mag filters
+    #[inline]
+    pub fn linear() -> ImageSampler {
+        ImageSampler::Descriptor(Self::linear_descriptor())
+    }
+
+    /// Returns an image sampler with `nearest` min and mag filters
+    #[inline]
+    pub fn nearest() -> ImageSampler {
+        ImageSampler::Descriptor(Self::nearest_descriptor())
+    }
+
     /// Returns a sampler descriptor with `Linear` min and mag filters
+    #[inline]
     pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Linear,
@@ -135,6 +148,7 @@ impl ImageSampler {
     }
 
     /// Returns a sampler descriptor with `Nearest` min and mag filters
+    #[inline]
     pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
         wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Nearest,
@@ -147,6 +161,7 @@ impl ImageSampler {
 /// Global resource for [`Image`] settings.
 ///
 /// Can be set via `insert_resource` during app initialization to change the default settings.
+#[derive(Resource)]
 pub struct ImageSettings {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
     pub default_sampler: wgpu::SamplerDescriptor<'static>,
@@ -175,11 +190,11 @@ impl ImageSettings {
 }
 
 /// A rendering resource for the default image sampler which is set during renderer
-/// intialization.
+/// initialization.
 ///
 /// The [`ImageSettings`] resource can be set during app initialization to change the default
 /// image sampler.
-#[derive(Debug, Clone, Deref, DerefMut)]
+#[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
@@ -202,6 +217,7 @@ impl Default for Image {
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
             sampler_descriptor: ImageSampler::Default,
+            texture_view_descriptor: None,
         }
     }
 }
@@ -325,13 +341,18 @@ impl Image {
         });
     }
 
-    /// Convert a texture from a format to another
-    /// Only a few formats are supported as input and output:
+    /// Convert a texture from a format to another. Only a few formats are
+    /// supported as input and output:
     /// - `TextureFormat::R8Unorm`
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
+    ///
+    /// To get [`Image`] as a [`image::DynamicImage`] see:
+    /// [`Image::try_into_dynamic`].
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::image_texture_conversion::texture_to_image(self)
+        self.clone()
+            .try_into_dynamic()
+            .ok()
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => {
                     Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
@@ -345,9 +366,7 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| {
-                super::image_texture_conversion::image_to_texture(dyn_img, is_srgb)
-            })
+            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb))
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -381,8 +400,11 @@ impl Image {
                 let image_crate_format = format.as_image_crate_format().ok_or_else(|| {
                     TextureError::UnsupportedTextureFormat(format!("{:?}", format))
                 })?;
-                let dyn_img = image::load_from_memory_with_format(buffer, image_crate_format)?;
-                Ok(image_to_texture(dyn_img, is_srgb))
+                let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
+                reader.set_format(image_crate_format);
+                reader.no_limits();
+                let dyn_img = reader.decode()?;
+                Ok(Self::from_dynamic(dyn_img, is_srgb))
             }
         }
     }
@@ -517,8 +539,10 @@ impl TextureFormatPixelInfo for TextureFormat {
             TextureFormat::R16Uint
             | TextureFormat::R16Sint
             | TextureFormat::R16Float
+            | TextureFormat::R16Unorm
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
+            | TextureFormat::Rg16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rgba16Uint
             | TextureFormat::Rgba16Sint
@@ -552,6 +576,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::R8Sint
             | TextureFormat::R16Uint
             | TextureFormat::R16Sint
+            | TextureFormat::R16Unorm
             | TextureFormat::R16Float
             | TextureFormat::R32Uint
             | TextureFormat::R32Sint
@@ -563,6 +588,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::Rg8Sint
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
+            | TextureFormat::Rg16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rg32Uint
             | TextureFormat::Rg32Sint
@@ -665,7 +691,13 @@ impl RenderAsset for Image {
             texture
         };
 
-        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        let texture_view = texture.create_view(
+            image
+                .texture_view_descriptor
+                .or_else(|| Some(TextureViewDescriptor::default()))
+                .as_ref()
+                .unwrap(),
+        );
         let size = Vec2::new(
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
@@ -737,36 +769,7 @@ impl CompressedImageFormats {
             | TextureFormat::EacR11Snorm
             | TextureFormat::EacRg11Unorm
             | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Astc4x4RgbaUnorm
-            | TextureFormat::Astc4x4RgbaUnormSrgb
-            | TextureFormat::Astc5x4RgbaUnorm
-            | TextureFormat::Astc5x4RgbaUnormSrgb
-            | TextureFormat::Astc5x5RgbaUnorm
-            | TextureFormat::Astc5x5RgbaUnormSrgb
-            | TextureFormat::Astc6x5RgbaUnorm
-            | TextureFormat::Astc6x5RgbaUnormSrgb
-            | TextureFormat::Astc6x6RgbaUnorm
-            | TextureFormat::Astc6x6RgbaUnormSrgb
-            | TextureFormat::Astc8x5RgbaUnorm
-            | TextureFormat::Astc8x5RgbaUnormSrgb
-            | TextureFormat::Astc8x6RgbaUnorm
-            | TextureFormat::Astc8x6RgbaUnormSrgb
-            | TextureFormat::Astc10x5RgbaUnorm
-            | TextureFormat::Astc10x5RgbaUnormSrgb
-            | TextureFormat::Astc10x6RgbaUnorm
-            | TextureFormat::Astc10x6RgbaUnormSrgb
-            | TextureFormat::Astc8x8RgbaUnorm
-            | TextureFormat::Astc8x8RgbaUnormSrgb
-            | TextureFormat::Astc10x8RgbaUnorm
-            | TextureFormat::Astc10x8RgbaUnormSrgb
-            | TextureFormat::Astc10x10RgbaUnorm
-            | TextureFormat::Astc10x10RgbaUnormSrgb
-            | TextureFormat::Astc12x10RgbaUnorm
-            | TextureFormat::Astc12x10RgbaUnormSrgb
-            | TextureFormat::Astc12x12RgbaUnorm
-            | TextureFormat::Astc12x12RgbaUnormSrgb => {
-                self.contains(CompressedImageFormats::ASTC_LDR)
-            }
+            TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }
     }
@@ -798,6 +801,6 @@ mod test {
     #[test]
     fn image_default_size() {
         let image = Image::default();
-        assert_eq!(Vec2::new(1.0, 1.0), image.size());
+        assert_eq!(Vec2::ONE, image.size());
     }
 }

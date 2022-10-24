@@ -5,11 +5,11 @@ use wgpu::PrimitiveTopology;
 /// A cylinder with hemispheres at the top and bottom
 #[derive(Debug, Copy, Clone)]
 pub struct Capsule {
-    /// Radius on the xz plane.
+    /// Radius on the `XZ` plane.
     pub radius: f32,
     /// Number of sections in cylinder between hemispheres.
     pub rings: usize,
-    /// Height of the middle cylinder on the y axis, excluding the hemispheres.
+    /// Height of the middle cylinder on the `Y` axis, excluding the hemispheres.
     pub depth: f32,
     /// Number of latitudes, distributed by inclination. Must be even.
     pub latitudes: usize,
@@ -118,7 +118,7 @@ impl From<Capsule> for Mesh {
             // North.
             vs[j] = Vec3::new(0.0, summit, 0.0);
             vts[j] = Vec2::new(s_texture_polar, 1.0);
-            vns[j] = Vec3::new(0.0, 1.0, 0.0);
+            vns[j] = Vec3::Y;
 
             // South.
             let idx = vert_offset_south_cap + j;

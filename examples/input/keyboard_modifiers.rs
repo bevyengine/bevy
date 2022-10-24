@@ -1,9 +1,6 @@
 //! Demonstrates using key modifiers (ctrl, shift).
 
-use bevy::{
-    input::{keyboard::KeyCode, Input},
-    prelude::*,
-};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -12,7 +9,7 @@ fn main() {
         .run();
 }
 
-/// This system prints when Ctrl + Shift + A is pressed
+/// This system prints when `Ctrl + Shift + A` is pressed
 fn keyboard_input_system(input: Res<Input<KeyCode>>) {
     let shift = input.any_pressed([KeyCode::LShift, KeyCode::RShift]);
     let ctrl = input.any_pressed([KeyCode::LControl, KeyCode::RControl]);

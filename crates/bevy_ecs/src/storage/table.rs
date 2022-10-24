@@ -42,7 +42,7 @@ impl Column {
     #[inline]
     pub(crate) fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Column {
-            // SAFE: component_info.drop() is valid for the types that will be inserted.
+            // SAFETY: component_info.drop() is valid for the types that will be inserted.
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             ticks: Vec::with_capacity(capacity),
         }
@@ -86,6 +86,18 @@ impl Column {
             .set_changed(change_tick);
     }
 
+    /// Writes component data to the column at given row.
+    /// Assumes the slot is initialized, calls drop.
+    /// Does not update the Component's ticks.
+    ///
+    /// # Safety
+    /// Assumes data has already been allocated for the given row.
+    #[inline]
+    pub(crate) unsafe fn replace_untracked(&mut self, row: usize, data: OwningPtr<'_>) {
+        debug_assert!(row < self.len());
+        self.data.replace_unchecked(row, data);
+    }
+
     #[inline]
     pub fn len(&self) -> usize {
         self.data.len()
@@ -99,19 +111,27 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub(crate) unsafe fn get_ticks_unchecked_mut(&mut self, row: usize) -> &mut ComponentTicks {
-        debug_assert!(row < self.len());
-        self.ticks.get_unchecked_mut(row).get_mut()
-    }
-
-    /// # Safety
-    /// index must be in-bounds
-    #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: usize) {
         self.data.swap_remove_and_drop_unchecked(row);
         self.ticks.swap_remove(row);
     }
 
+    #[inline]
+    #[must_use = "The returned pointer should be used to drop the removed component"]
+    pub(crate) fn swap_remove_and_forget(
+        &mut self,
+        row: usize,
+    ) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+        (row < self.data.len()).then(|| {
+            // SAFETY: The row was length checked before this.
+            let data = unsafe { self.data.swap_remove_and_forget_unchecked(row) };
+            let ticks = self.ticks.swap_remove(row).into_inner();
+            (data, ticks)
+        })
+    }
+
+    /// # Safety
+    /// index must be in-bounds
     #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed component"]
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
@@ -133,7 +153,7 @@ impl Column {
     ///  - `src_row` must be in bounds for `other`
     ///  - `dst_row` must be in bounds for `self`
     ///  - `other[src_row]` must be initialized to a valid value.
-    ///  - `self[dst_row]` must not be initalized yet.
+    ///  - `self[dst_row]` must not be initialized yet.
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
@@ -176,6 +196,21 @@ impl Column {
         &self.ticks
     }
 
+    #[inline]
+    pub fn get(&self, row: usize) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+        (row < self.data.len())
+            // SAFETY: The row is length checked before fetching the pointer. This is being
+            // accessed through a read-only reference to the column.
+            .then(|| unsafe { (self.data.get_unchecked(row), self.ticks.get_unchecked(row)) })
+    }
+
+    #[inline]
+    pub fn get_data(&self, row: usize) -> Option<Ptr<'_>> {
+        // SAFETY: The row is length checked before fetching the pointer. This is being
+        // accessed through a read-only reference to the column.
+        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked(row) })
+    }
+
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
@@ -185,6 +220,13 @@ impl Column {
         self.data.get_unchecked(row)
     }
 
+    #[inline]
+    pub fn get_data_mut(&mut self, row: usize) -> Option<PtrMut<'_>> {
+        // SAFETY: The row is length checked before fetching the pointer. This is being
+        // accessed through an exclusive reference to the column.
+        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked_mut(row) })
+    }
+
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
@@ -192,6 +234,11 @@ impl Column {
     pub(crate) unsafe fn get_data_unchecked_mut(&mut self, row: usize) -> PtrMut<'_> {
         debug_assert!(row < self.data.len());
         self.data.get_unchecked_mut(row)
+    }
+
+    #[inline]
+    pub fn get_ticks(&self, row: usize) -> Option<&UnsafeCell<ComponentTicks>> {
+        self.ticks.get(row)
     }
 
     /// # Safety
@@ -270,7 +317,7 @@ impl Table {
         row: usize,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row < self.len());
+        debug_assert!(row < self.entity_count());
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for (component_id, column) in self.columns.iter_mut() {
@@ -302,7 +349,7 @@ impl Table {
         row: usize,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row < self.len());
+        debug_assert!(row < self.entity_count());
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for (component_id, column) in self.columns.iter_mut() {
@@ -333,7 +380,7 @@ impl Table {
         row: usize,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row < self.len());
+        debug_assert!(row < self.entity_count());
         let is_last = row == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row));
         for (component_id, column) in self.columns.iter_mut() {
@@ -396,13 +443,23 @@ impl Table {
     }
 
     #[inline]
-    pub fn capacity(&self) -> usize {
+    pub fn entity_count(&self) -> usize {
+        self.entities.len()
+    }
+
+    #[inline]
+    pub fn component_count(&self) -> usize {
+        self.columns.len()
+    }
+
+    #[inline]
+    pub fn entity_capacity(&self) -> usize {
         self.entities.capacity()
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        self.entities.len()
+    pub fn component_capacity(&self) -> usize {
+        self.columns.capacity()
     }
 
     #[inline]
@@ -492,7 +549,7 @@ impl Tables {
             .from_key(component_ids)
             .or_insert_with(|| {
                 let mut table = Table::with_capacity(0, component_ids.len());
-                for component_id in component_ids.iter() {
+                for component_id in component_ids {
                     table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table);
@@ -559,7 +616,7 @@ mod tests {
         table.add_column(components.get_info(component_id).unwrap());
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
-            // SAFE: we allocate and immediately set data afterwards
+            // SAFETY: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);
                 let value: W<usize> = W(row);
@@ -573,7 +630,7 @@ mod tests {
             };
         }
 
-        assert_eq!(table.capacity(), 256);
-        assert_eq!(table.len(), 200);
+        assert_eq!(table.entity_capacity(), 256);
+        assert_eq!(table.entity_count(), 200);
     }
 }

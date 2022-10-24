@@ -30,6 +30,8 @@ pub use bevy_utils::tracing::{
     Level,
 };
 
+use bevy_ecs::prelude::Resource;
+
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
@@ -47,8 +49,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///
 /// You can configure this plugin using the resource [`LogSettings`].
 /// ```no_run
-/// # use bevy_internal::DefaultPlugins;
-/// # use bevy_app::App;
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins};
 /// # use bevy_log::LogSettings;
 /// # use bevy_utils::tracing::Level;
 /// fn main() {
@@ -72,8 +73,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins` with [`App::add_plugins_with`]:
 /// ```no_run
-/// # use bevy_internal::DefaultPlugins;
-/// # use bevy_app::App;
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
 ///     App::new()
@@ -91,6 +91,7 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 pub struct LogPlugin;
 
 /// `LogPlugin` settings
+#[derive(Resource)]
 pub struct LogSettings {
     /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
