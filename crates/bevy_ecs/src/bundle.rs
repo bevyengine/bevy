@@ -82,10 +82,12 @@ use std::{any::TypeId, collections::HashMap};
 /// used instead.
 /// The derived `Bundle` implementation contains the items of its fields, which all must
 /// implement `Bundle`.
-/// As explained above, this includes any [`Component`] type, and other derived bundles:
+/// As explained above, this includes any [`Component`] type, and other derived bundles.
 ///
+/// If you want to add `PhantomData` to your `Bundle` you have to mark it with `#[bundle(ignore)]`.
 /// ```
-/// # use bevy_ecs::{component::Component, bundle::Bundle};
+/// # use std::marker::PhantomData;
+/// use bevy_ecs::{component::Component, bundle::Bundle};
 ///
 /// #[derive(Component)]
 /// struct XPosition(i32);
@@ -99,12 +101,20 @@ use std::{any::TypeId, collections::HashMap};
 ///     y: YPosition,
 /// }
 ///
+/// // You have to implement `Default` for ignored field types in bundle structs.
+/// #[derive(Default)]
+/// struct Other(f32);
+///
 /// #[derive(Bundle)]
-/// struct NamedPointBundle {
+/// struct NamedPointBundle<T: Send + Sync + 'static> {
 ///     // Or other bundles
 ///     a: PositionBundle,
 ///     // In addition to more components
 ///     z: PointName,
+///
+///     // when you need to use `PhantomData` you have to mark it as ignored
+///     #[bundle(ignore)]
+///     _phantom_data: PhantomData<T>
 /// }
 ///
 /// #[derive(Component)]
