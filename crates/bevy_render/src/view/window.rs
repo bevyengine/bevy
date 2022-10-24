@@ -180,7 +180,8 @@ pub fn prepare_windows(
                 render_instance.create_surface(&window.raw_handle.as_ref().unwrap().get_handle())
             });
 
-        let swap_chain_descriptor = wgpu::SurfaceConfiguration {
+        // Creates a closure to avoid calling this logic unnecessarily
+        let create_swap_chain_descriptor = || wgpu::SurfaceConfiguration {
             format: *surface
                 .get_supported_formats(&render_adapter)
                 .get(0)
@@ -211,22 +212,25 @@ pub fn prepare_windows(
 
         // Do the initial surface configuration if it hasn't been configured yet. Or if size or
         // present mode changed.
-        if window_surfaces.configured_windows.insert(window.id)
+        let frame = if window_surfaces.configured_windows.insert(window.id)
             || window.size_changed
             || window.present_mode_changed
         {
-            render_device.configure_surface(surface, &swap_chain_descriptor);
-        }
-
-        let frame = match surface.get_current_texture() {
-            Ok(swap_chain_frame) => swap_chain_frame,
-            Err(wgpu::SurfaceError::Outdated) => {
-                render_device.configure_surface(surface, &swap_chain_descriptor);
-                surface
-                    .get_current_texture()
-                    .expect("Error reconfiguring surface")
+            render_device.configure_surface(surface, &create_swap_chain_descriptor());
+            surface
+                .get_current_texture()
+                .expect("Error configuring surface")
+        } else {
+            match surface.get_current_texture() {
+                Ok(swap_chain_frame) => swap_chain_frame,
+                Err(wgpu::SurfaceError::Outdated) => {
+                    render_device.configure_surface(surface, &create_swap_chain_descriptor());
+                    surface
+                        .get_current_texture()
+                        .expect("Error reconfiguring surface")
+                }
+                err => err.expect("Failed to acquire next swap chain texture!"),
             }
-            err => err.expect("Failed to acquire next swap chain texture!"),
         };
 
         window.swap_chain_texture = Some(TextureView::from(frame));
