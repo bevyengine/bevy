@@ -36,7 +36,8 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<WireframeConfig>()
+        app.register_type::<Wireframe>()
+            .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
             .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 
@@ -52,7 +53,7 @@ impl Plugin for WireframePlugin {
 }
 
 fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<Wireframe>>>) {
-    for entity in query.iter() {
+    for entity in &query {
         commands.get_or_spawn(entity).insert(Wireframe);
     }
 }
@@ -62,13 +63,14 @@ fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<
 #[reflect(Component, Default)]
 pub struct Wireframe;
 
-#[derive(Debug, Clone, Default, ExtractResource, Reflect)]
+#[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
     pub global: bool,
 }
 
+#[derive(Resource)]
 pub struct WireframePipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,

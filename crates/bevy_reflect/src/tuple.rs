@@ -1,9 +1,8 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, FromType, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
+    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectRef, TypeInfo,
+    TypeRegistration, Typed, UnnamedField,
 };
-use serde::Deserialize;
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
@@ -40,6 +39,9 @@ pub trait Tuple: Reflect {
 
     /// Returns an iterator over the values of the tuple's fields.
     fn iter_fields(&self) -> TupleFieldIter;
+
+    /// Drain the fields of this tuple to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
@@ -132,6 +134,8 @@ pub struct TupleInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl TupleInfo {
@@ -146,7 +150,15 @@ impl TupleInfo {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this tuple.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// Get the field at the given index.
@@ -180,10 +192,16 @@ impl TupleInfo {
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+
+    /// The docstring of this tuple, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
+    }
 }
 
 /// A tuple which allows fields to be added at runtime.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct DynamicTuple {
     name: String,
     fields: Vec<Box<dyn Reflect>>,
@@ -252,6 +270,11 @@ impl Tuple for DynamicTuple {
             tuple: self,
             index: 0,
         }
+    }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.fields
     }
 
     #[inline]
@@ -453,6 +476,13 @@ macro_rules! impl_reflect_tuple {
             }
 
             #[inline]
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+                vec![
+                    $(Box::new(self.$index),)*
+                ]
+            }
+
+            #[inline]
             fn clone_dynamic(&self) -> DynamicTuple {
                 let mut dyn_tuple = DynamicTuple {
                     name: String::default(),
@@ -534,11 +564,9 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + Typed + for<'de> Deserialize<'de>),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + Typed),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
-                let mut registration = TypeRegistration::of::<($($name,)*)>();
-                registration.insert::<ReflectDeserialize>(FromType::<($($name,)*)>::from_type());
-                registration
+                TypeRegistration::of::<($($name,)*)>()
             }
         }
 

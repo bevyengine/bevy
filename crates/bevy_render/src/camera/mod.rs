@@ -10,7 +10,7 @@ pub use projection::*;
 use crate::{
     primitives::Aabb,
     render_graph::RenderGraph,
-    view::{ComputedVisibility, Visibility, VisibleEntities},
+    view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -21,14 +21,16 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera>()
+            .register_type::<Viewport>()
+            .register_type::<Option<Viewport>>()
             .register_type::<Visibility>()
             .register_type::<ComputedVisibility>()
             .register_type::<VisibleEntities>()
             .register_type::<WindowOrigin>()
             .register_type::<ScalingMode>()
-            .register_type::<DepthCalculation>()
             .register_type::<Aabb>()
             .register_type::<CameraRenderGraph>()
+            .register_type::<RenderLayers>()
             .add_plugin(CameraProjectionPlugin::<Projection>::default())
             .add_plugin(CameraProjectionPlugin::<OrthographicProjection>::default())
             .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default());

@@ -29,9 +29,12 @@ mod path;
 /// The `bevy_asset` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
+    pub use crate::{
+        AddAsset, AssetEvent, AssetServer, AssetServerSettings, Assets, Handle, HandleUntyped,
+    };
 }
 
+pub use anyhow::Error;
 pub use asset_server::*;
 pub use assets::*;
 pub use bevy_utils::BoxedFuture;
@@ -42,7 +45,10 @@ pub use loader::*;
 pub use path::*;
 
 use bevy_app::{prelude::Plugin, App};
-use bevy_ecs::schedule::{StageLabel, SystemStage};
+use bevy_ecs::{
+    schedule::{StageLabel, SystemStage},
+    system::Resource,
+};
 
 /// The names of asset stages in an [`App`] schedule.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -60,7 +66,10 @@ pub enum AssetStage {
 #[derive(Default)]
 pub struct AssetPlugin;
 
-/// [`AssetServer`] settings.
+/// Settings for the [`AssetServer`].
+///
+/// This resource must be added before the [`AssetPlugin`] or `DefaultPlugins` to take effect.
+#[derive(Resource)]
 pub struct AssetServerSettings {
     /// The base folder where assets are loaded from, relative to the executable.
     pub asset_folder: String,

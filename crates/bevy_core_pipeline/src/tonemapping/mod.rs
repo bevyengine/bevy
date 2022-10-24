@@ -54,6 +54,7 @@ impl Plugin for TonemappingPlugin {
     }
 }
 
+#[derive(Resource)]
 pub struct TonemappingPipeline {
     hdr_texture_bind_group: BindGroupLayout,
     tonemapping_pipeline_id: CachedRenderPipelineId,

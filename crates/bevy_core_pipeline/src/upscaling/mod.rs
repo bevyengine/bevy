@@ -35,6 +35,7 @@ impl Plugin for UpscalingPlugin {
     }
 }
 
+#[derive(Resource)]
 pub struct UpscalingPipeline {
     ldr_texture_bind_group: BindGroupLayout,
 }

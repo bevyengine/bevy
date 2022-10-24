@@ -31,3 +31,17 @@ pub fn get_lit_str(attr_name: Symbol, lit: &syn::Lit) -> syn::Result<&syn::LitSt
         ))
     }
 }
+
+pub fn get_lit_bool(attr_name: Symbol, lit: &syn::Lit) -> syn::Result<bool> {
+    if let syn::Lit::Bool(lit) = lit {
+        Ok(lit.value())
+    } else {
+        Err(syn::Error::new_spanned(
+            lit,
+            format!(
+                "expected {} attribute to be a bool value, `true` or `false`: `{} = ...`",
+                attr_name, attr_name
+            ),
+        ))
+    }
+}

@@ -15,8 +15,11 @@ pub mod prelude {
 }
 
 use crate::{
-    clear_color::ClearColor, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
-    fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE, tonemapping::TonemappingPlugin,
+    clear_color::{ClearColor, ClearColorConfig},
+    core_2d::Core2dPlugin,
+    core_3d::Core3dPlugin,
+    fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
+    tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
@@ -36,6 +39,7 @@ impl Plugin for CorePipelinePlugin {
         );
 
         app.register_type::<ClearColor>()
+            .register_type::<ClearColorConfig>()
             .init_resource::<ClearColor>()
             .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
             .add_plugin(TonemappingPlugin)

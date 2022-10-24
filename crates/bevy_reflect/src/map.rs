@@ -42,6 +42,9 @@ pub trait Map: Reflect {
     /// Returns an iterator over the key-value pairs of the map.
     fn iter(&self) -> MapIter;
 
+    /// Drain the key-value pairs of this map to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>;
+
     /// Clones the map, producing a [`DynamicMap`].
     fn clone_dynamic(&self) -> DynamicMap;
 
@@ -65,6 +68,8 @@ pub struct MapInfo {
     key_type_id: TypeId,
     value_type_name: &'static str,
     value_type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl MapInfo {
@@ -77,7 +82,15 @@ impl MapInfo {
             key_type_id: TypeId::of::<TKey>(),
             value_type_name: std::any::type_name::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this map.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The [type name] of the map.
@@ -129,6 +142,12 @@ impl MapInfo {
     /// Check if the given type matches the value type.
     pub fn value_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.value_type_id
+    }
+
+    /// The docstring of this map, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 
@@ -225,6 +244,10 @@ impl Map for DynamicMap {
                 None
             }
         }
+    }
+
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+        self.values
     }
 }
 

@@ -27,7 +27,7 @@ pub struct SystemMeta {
 }
 
 impl SystemMeta {
-    fn new<T>() -> Self {
+    pub(crate) fn new<T>() -> Self {
         Self {
             name: std::any::type_name::<T>().into(),
             archetype_component_access: Access::default(),
@@ -82,6 +82,7 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
+/// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
 /// #[derive(Component)]
@@ -110,8 +111,9 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
-/// struct CachedSystemState<'w, 's>{
-///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
+/// #[derive(Resource)]
+/// struct CachedSystemState {
+///    event_state: SystemState<EventReader<'static, 'static, MyEvent>>
 /// }
 ///
 /// // Create and store a system state once
@@ -131,7 +133,7 @@ impl SystemMeta {
 ///     };
 /// });
 /// ```
-pub struct SystemState<Param: SystemParam> {
+pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
     world_id: WorldId,
@@ -246,10 +248,9 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 /// # Examples
 ///
 /// ```
-/// use bevy_ecs::system::IntoSystem;
-/// use bevy_ecs::system::Res;
+/// use bevy_ecs::prelude::*;
 ///
-/// fn my_system_function(an_usize_resource: Res<usize>) {}
+/// fn my_system_function(a_usize_local: Local<usize>) {}
 ///
 /// let system = IntoSystem::into_system(my_system_function);
 /// ```
@@ -277,7 +278,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// [`System`]s may take an optional input which they require to be passed to them when they
 /// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
 /// with this `In` type, but only the first param of a function may be tagged as an input. This also
-/// means a system can only have one or zero input paramaters.
+/// means a system can only have one or zero input parameters.
 ///
 /// # Examples
 ///
@@ -387,6 +388,11 @@ where
     }
 
     #[inline]
+    fn is_exclusive(&self) -> bool {
+        false
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
@@ -403,6 +409,14 @@ where
         let out = self.func.run(input, params);
         self.system_meta.last_change_tick = change_tick;
         out
+    }
+
+    fn get_last_change_tick(&self) -> u32 {
+        self.system_meta.last_change_tick
+    }
+
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.system_meta.last_change_tick = last_change_tick;
     }
 
     #[inline]
@@ -450,7 +464,7 @@ where
 }
 
 /// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
-pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
+pub struct SystemTypeIdLabel<T: 'static>(pub(crate) PhantomData<fn() -> T>);
 
 impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
     #[inline]
@@ -485,7 +499,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///
 /// # Example
 ///
-/// To create something like [`ChainSystem`], but in entirely safe code.
+/// To create something like [`PipeSystem`], but in entirely safe code.
 ///
 /// ```rust
 /// use std::num::ParseIntError;
@@ -496,8 +510,8 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// // Unfortunately, we need all of these generics. `A` is the first system, with its
 /// // parameters and marker type required for coherence. `B` is the second system, and
 /// // the other generics are for the input/output types of `A` and `B`.
-/// /// Chain creates a new system which calls `a`, then calls `b` with the output of `a`
-/// pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
+/// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
+/// pub fn pipe<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
 /// ) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
@@ -515,17 +529,18 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     }
 /// }
 ///
-/// // Usage example for `chain`:
+/// // Usage example for `pipe`:
 /// fn main() {
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // chain the `parse_message_system`'s output into the `filter_system`s input
-///     let mut chained_system = IntoSystem::into_system(chain(parse_message, filter));
-///     chained_system.initialize(&mut world);
-///     assert_eq!(chained_system.run((), &mut world), Some(42));
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input
+///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
+///     piped_system.initialize(&mut world);
+///     assert_eq!(piped_system.run((), &mut world), Some(42));
 /// }
 ///
+/// #[derive(Resource)]
 /// struct Message(String);
 ///
 /// fn parse_message(message: Res<Message>) -> Result<usize, ParseIntError> {
@@ -536,7 +551,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-/// [`ChainSystem`]: crate::system::ChainSystem
+/// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
 pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
     fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;

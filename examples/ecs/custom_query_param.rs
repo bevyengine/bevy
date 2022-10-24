@@ -12,10 +12,7 @@
 //!
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
-use bevy::{
-    ecs::{component::Component, query::WorldQuery},
-    prelude::*,
-};
+use bevy::{ecs::query::WorldQuery, prelude::*};
 use std::fmt::Debug;
 
 fn main() {
@@ -115,12 +112,7 @@ struct QueryFilter<T: Component, P: Component> {
 }
 
 fn spawn(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(ComponentA)
-        .insert(ComponentB)
-        .insert(ComponentC)
-        .insert(ComponentD);
+    commands.spawn((ComponentA, ComponentB, ComponentC, ComponentD));
 }
 
 fn print_components_iter_mut(

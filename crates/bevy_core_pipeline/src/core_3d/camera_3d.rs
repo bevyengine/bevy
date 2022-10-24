@@ -23,7 +23,7 @@ pub struct Camera3d {
 
 /// The depth clear operation to perform for the main 3d pass.
 #[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
-#[reflect_value(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
 pub enum Camera3dDepthLoadOp {
     /// Clear with a specified value.
     /// Note that 0.0 is the far plane due to bevy's use of reverse-z projections.

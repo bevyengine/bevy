@@ -22,7 +22,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat4, UVec4, Vec3, Vec4};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 
@@ -58,7 +58,7 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa { samples: 4 })
 ///     .run();
 /// ```
-#[derive(Clone, ExtractResource, Reflect)]
+#[derive(Resource, Clone, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
@@ -81,9 +81,9 @@ impl Default for Msaa {
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
-    pub width: u32,
-    pub height: u32,
     pub hdr: bool,
+    // uvec4(origin.x, origin.y, width, height)
+    pub viewport: UVec4,
 }
 
 impl ExtractedView {
@@ -102,11 +102,11 @@ pub struct ViewUniform {
     projection: Mat4,
     inverse_projection: Mat4,
     world_position: Vec3,
-    width: f32,
-    height: f32,
+    // viewport(x_origin, y_origin, width, height)
+    viewport: Vec4,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct ViewUniforms {
     pub uniforms: DynamicUniformBuffer<ViewUniform>,
 }
@@ -203,8 +203,7 @@ fn prepare_view_uniforms(
                 projection,
                 inverse_projection,
                 world_position: camera.transform.translation(),
-                width: camera.width as f32,
-                height: camera.height as f32,
+                viewport: camera.viewport.as_vec4(),
             }),
         };
 

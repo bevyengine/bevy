@@ -16,6 +16,7 @@ const MAX_VELOCITY: f32 = 750.;
 const BIRD_SCALE: f32 = 0.15;
 const HALF_BIRD_SIZE: f32 = 256. * BIRD_SCALE * 0.5;
 
+#[derive(Resource)]
 struct BevyCounter {
     pub count: usize,
     pub color: Color,
@@ -56,6 +57,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct BirdScheduled {
     wave: usize,
     per_wave: usize,
@@ -83,7 +85,7 @@ fn scheduled_spawner(
     }
 }
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct BirdTexture(Handle<Image>);
 
 #[derive(Component)]
@@ -94,58 +96,40 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let texture = asset_server.load("branding/icon.png");
 
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands
-        .spawn_bundle(TextBundle {
-            text: Text {
-                sections: vec![
-                    TextSection {
-                        value: "Bird Count: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
-                    },
-                    TextSection {
-                        value: "\nAverage FPS: ".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 0.0),
-                        },
-                    },
-                    TextSection {
-                        value: "".to_string(),
-                        style: TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.0, 1.0, 1.0),
-                        },
-                    },
-                ],
-                ..default()
+    let text_section = move |color, value: &str| {
+        TextSection::new(
+            value,
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 40.0,
+                color,
             },
-            style: Style {
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(5.0),
-                    ..default()
-                },
+        )
+    };
+
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn((
+        TextBundle::from_sections([
+            text_section(Color::GREEN, "Bird Count"),
+            text_section(Color::CYAN, ""),
+            text_section(Color::GREEN, "\nFPS (raw): "),
+            text_section(Color::CYAN, ""),
+            text_section(Color::GREEN, "\nFPS (SMA): "),
+            text_section(Color::CYAN, ""),
+            text_section(Color::GREEN, "\nFPS (EMA): "),
+            text_section(Color::CYAN, ""),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(5.0),
+                left: Val::Px(5.0),
                 ..default()
             },
             ..default()
-        })
-        .insert(StatsText);
+        }),
+        StatsText,
+    ));
 
     commands.insert_resource(BirdTexture(texture));
     commands.insert_resource(BirdScheduled {
@@ -199,8 +183,8 @@ fn spawn_birds(
 
     for count in 0..spawn_count {
         let bird_z = (counter.count + count) as f32 * 0.00001;
-        commands
-            .spawn_bundle(SpriteBundle {
+        commands.spawn((
+            SpriteBundle {
                 texture: texture.clone(),
                 transform: Transform {
                     translation: Vec3::new(bird_x, bird_y, bird_z),
@@ -212,14 +196,15 @@ fn spawn_birds(
                     ..default()
                 },
                 ..default()
-            })
-            .insert(Bird {
+            },
+            Bird {
                 velocity: Vec3::new(
                     rng.gen::<f32>() * MAX_VELOCITY - (MAX_VELOCITY * 0.5),
                     0.,
                     0.,
                 ),
-            });
+            },
+        ));
     }
     counter.count += spawn_count;
 }
@@ -265,12 +250,18 @@ fn counter_system(
     let mut text = query.single_mut();
 
     if counter.is_changed() {
-        text.sections[1].value = format!("{}", counter.count);
+        text.sections[1].value = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-        if let Some(average) = fps.average() {
-            text.sections[3].value = format!("{:.2}", average);
+        if let Some(raw) = fps.value() {
+            text.sections[3].value = format!("{raw:.2}");
+        }
+        if let Some(sma) = fps.average() {
+            text.sections[5].value = format!("{sma:.2}");
+        }
+        if let Some(ema) = fps.smoothed() {
+            text.sections[7].value = format!("{ema:.2}");
         }
     };
 }

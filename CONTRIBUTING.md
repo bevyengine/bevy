@@ -119,6 +119,8 @@ PRs are controversial if there is serious design discussion required, or a large
 7. Large-scale code reorganization.
 8. High levels of technical complexity.
 9. Adding a dependency.
+10. Touching licensing information (due to the level of precision required).
+11. Adding root-level files (due to the high level of visibility).
 
 Finally, changes are "relatively uncontroversial" if they are neither trivial or controversial.
 Most PRs should fall into this category.
@@ -222,7 +224,8 @@ This is incredibly valuable, easily distributed work, but requires a bit of guid
 * Accepted RFCs are not documentation: they serve only as a record of accepted decisions.
 
 [docs.rs](https://docs.rs/bevy) is built from out of the last release's documentation, which is written right in-line directly above the code it documents.
-To view the current docs on `main` before you contribute, clone the `bevy` repo, and run `cargo doc --open`.
+To view the current docs on `main` before you contribute, clone the `bevy` repo, and run `cargo doc --open` or go to [dev-docs.bevyengine.org](https://dev-docs.bevyengine.org/),
+which has the latest API reference built from the repo on every commit made to the `main` branch.
 
 ### Writing examples
 

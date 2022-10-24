@@ -166,7 +166,7 @@ impl<'a> OwningPtr<'a> {
         f(Self(ptr, PhantomData))
     }
 
-    //// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
+    /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
     /// Must point to a valid `T`.
@@ -175,7 +175,7 @@ impl<'a> OwningPtr<'a> {
         self.as_ptr().cast::<T>().read()
     }
 
-    //// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
+    /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
     ///
     /// # Safety
     /// Must point to a valid `T`.
@@ -195,7 +195,7 @@ impl<'a> OwningPtr<'a> {
     }
 }
 
-/// Conceptually equilavent to `&'a [T]` but with length information cut out for performance reasons
+/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons
 pub struct ThinSlicePtr<'a, T> {
     ptr: NonNull<T>,
     #[cfg(debug_assertions)]
@@ -208,7 +208,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     /// Indexes the slice without doing bounds checks
     ///
     /// # Safety
-    /// `index` must be inbounds.
+    /// `index` must be in-bounds.
     pub unsafe fn get(self, index: usize) -> &'a T {
         #[cfg(debug_assertions)]
         debug_assert!(index < self.len);

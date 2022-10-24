@@ -17,15 +17,15 @@ fn main() {
         .run();
 }
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct StreamReceiver(Receiver<u32>);
 struct StreamEvent(u32);
 
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 struct LoadedFont(Handle<Font>);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     let (tx, rx) = bounded::<u32>(10);
     std::thread::spawn(move || loop {
@@ -46,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // This system reads from the receiver and sends events to Bevy
-fn read_stream(receiver: ResMut<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
+fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
     for from_stream in receiver.try_iter() {
         events.send(StreamEvent(from_stream));
     }
@@ -62,13 +62,11 @@ fn spawn_text(
         font_size: 20.0,
         color: Color::WHITE,
     };
-    let text_alignment = TextAlignment {
-        vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Center,
-    };
+
     for (per_frame, event) in reader.iter().enumerate() {
-        commands.spawn_bundle(Text2dBundle {
-            text: Text::with_section(format!("{}", event.0), text_style.clone(), text_alignment),
+        commands.spawn(Text2dBundle {
+            text: Text::from_section(event.0.to_string(), text_style.clone())
+                .with_alignment(TextAlignment::CENTER),
             transform: Transform::from_xyz(
                 per_frame as f32 * 100.0 + rand::thread_rng().gen_range(-40.0..40.0),
                 300.0,
