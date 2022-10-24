@@ -1,13 +1,12 @@
 #[cfg(test)]
 mod test {
-    use std::borrow::Cow;
     #[allow(unused_imports)]
     use std::io::Write;
 
     use wgpu::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
         BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePassDescriptor,
-        ComputePipelineDescriptor, Features, ShaderStages,
+        ComputePipelineDescriptor, ShaderStages,
     };
 
     use crate::compose::{
@@ -635,17 +634,13 @@ mod test {
             .enumerate_adapters(wgpu::Backends::all())
             .next()
             .unwrap();
-        let (device, queue) = futures_lite::future::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                features: Features::MAPPABLE_PRIMARY_BUFFERS,
-                ..Default::default()
-            },
-            None,
-        ))
+        let (device, queue) = futures_lite::future::block_on(
+            adapter.request_device(&wgpu::DeviceDescriptor::default(), None),
+        )
         .unwrap();
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            source: wgpu::ShaderSource::Naga(Cow::Owned(module)),
+            source: wgpu::ShaderSource::Naga(module),
             label: None,
         });
 
@@ -659,7 +654,7 @@ mod test {
         let output_buffer = device.create_buffer(&BufferDescriptor {
             label: None,
             size: 4,
-            usage: BufferUsages::MAP_READ | BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::all(),
             mapped_at_creation: false,
         });
 

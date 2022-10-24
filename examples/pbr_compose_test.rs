@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use naga_oil::compose::{
     ComposableModuleDescriptor, Composer, ComposerError, NagaModuleDescriptor,
 };
@@ -183,7 +181,7 @@ fn test_composer_compile(n: usize, composer: &mut Composer) {
             })
             .unwrap();
         let _desc = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            source: wgpu::ShaderSource::Naga(Cow::Owned(module)),
+            source: wgpu::ShaderSource::Naga(module),
             label: None,
         });
     }
