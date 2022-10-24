@@ -99,7 +99,9 @@ fn update_clipping(
             commands.entity(entity).insert(CalculatedClip { clip });
         }
         (Some(clip), Some(mut old_clip)) => {
-            *old_clip = CalculatedClip { clip };
+            if old_clip.clip != clip {
+                *old_clip = CalculatedClip { clip };
+            }
         }
     }
 

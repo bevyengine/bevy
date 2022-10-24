@@ -166,6 +166,7 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub scale_factor: f32,
 }
 
 #[derive(Resource, Default)]
@@ -176,6 +177,7 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
+    windows: Extract<Res<Windows>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -187,6 +189,7 @@ pub fn extract_uinodes(
         )>,
     >,
 ) {
+    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible() {
@@ -211,6 +214,7 @@ pub fn extract_uinodes(
             image,
             atlas_size: None,
             clip: clip.map(|clip| clip.clip),
+            scale_factor,
         });
     }
 }
@@ -330,6 +334,7 @@ pub fn extract_text_uinodes(
                 image: texture,
                 atlas_size,
                 clip: clip.map(|clip| clip.clip),
+                scale_factor,
             });
         }
     }
@@ -464,20 +469,20 @@ pub fn prepare_uinodes(
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
         let uvs = [
             Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x,
-                uinode_rect.min.y - positions_diff[3].y,
+                uinode_rect.min.x + positions_diff[0].x * extracted_uinode.scale_factor,
+                uinode_rect.min.y + positions_diff[0].y * extracted_uinode.scale_factor,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[2].x,
-                uinode_rect.min.y - positions_diff[2].y,
+                uinode_rect.max.x + positions_diff[1].x * extracted_uinode.scale_factor,
+                uinode_rect.min.y + positions_diff[1].y * extracted_uinode.scale_factor,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x,
-                uinode_rect.max.y - positions_diff[1].y,
+                uinode_rect.max.x + positions_diff[2].x * extracted_uinode.scale_factor,
+                uinode_rect.max.y + positions_diff[2].y * extracted_uinode.scale_factor,
             ),
             Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x,
-                uinode_rect.max.y - positions_diff[0].y,
+                uinode_rect.min.x + positions_diff[3].x * extracted_uinode.scale_factor,
+                uinode_rect.max.y + positions_diff[3].y * extracted_uinode.scale_factor,
             ),
         ]
         .map(|pos| pos / atlas_extent);
