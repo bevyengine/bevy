@@ -81,13 +81,17 @@ fn time_system(
     mut time: ResMut<Time>,
     update_strategy: Res<TimeUpdateStrategy>,
     time_recv: Option<Res<TimeReceiver>>,
+    mut has_received_time: Local<bool>,
 ) {
     let new_time = if let Some(time_recv) = time_recv {
         // TODO: Figure out how to handle this when using pipelined rendering.
         if let Ok(new_time) = time_recv.0.try_recv() {
+            *has_received_time = true;
             new_time
         } else {
-            warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
+            if *has_received_time {
+                warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
+            }
             Instant::now()
         }
     } else {
