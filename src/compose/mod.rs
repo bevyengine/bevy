@@ -1517,6 +1517,24 @@ impl Composer {
         let name = name.unwrap_or_default();
         let substituted_source = Self::sanitize_and_substitute_shader_string(source, &imports);
 
+        // make sure imports have been added
+        for (import_name, offset) in imports
+            .iter()
+            .map(|id| (&id.definition.import, id.offset))
+            .chain(additional_imports.iter().map(|ai| (&ai.import, 0)))
+        {
+            if self.module_sets.get(import_name).is_none() {
+                return Err(ComposerError {
+                    inner: ComposerErrorInner::ImportNotFound(import_name.clone(), offset),
+                    source: ErrSource::Constructing {
+                        path: file_path.to_owned(),
+                        source: substituted_source.clone(),
+                        offset: 0,
+                    },
+                });
+            }
+        }
+
         self.ensure_imports(
             imports.iter().map(|import| &import.definition),
             &shader_defs,
