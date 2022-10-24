@@ -8,6 +8,7 @@ struct Enemy {
 
 struct EnemyDied(u32);
 
+#[derive(Resource)]
 struct Score(u32);
 
 fn update_score(mut dead_enemies: EventReader<EnemyDied>, mut score: ResMut<Score>) {
@@ -37,7 +38,7 @@ fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
 
 fn spawn_enemy(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        commands.spawn().insert(Enemy {
+        commands.spawn(Enemy {
             hit_points: 5,
             score_value: 3,
         });
@@ -62,8 +63,7 @@ fn did_hurt_enemy() {
     // Setup test entities
     let enemy_id = app
         .world
-        .spawn()
-        .insert(Enemy {
+        .spawn(Enemy {
             hit_points: 5,
             score_value: 3,
         })
@@ -95,8 +95,7 @@ fn did_despawn_enemy() {
     // Setup test entities
     let enemy_id = app
         .world
-        .spawn()
-        .insert(Enemy {
+        .spawn(Enemy {
             hit_points: 1,
             score_value: 1,
         })

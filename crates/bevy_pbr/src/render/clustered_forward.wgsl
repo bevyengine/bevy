@@ -16,7 +16,7 @@ fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
 }
 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
-    let xy = vec2<u32>(floor(frag_coord * lights.cluster_factors.xy));
+    let xy = vec2<u32>(floor((frag_coord - view.viewport.xy) * lights.cluster_factors.xy));
     let z_slice = view_z_to_z_slice(view_z, is_orthographic);
     // NOTE: Restricting cluster index to avoid undefined behavior when accessing uniform buffer
     // arrays based on the cluster index.

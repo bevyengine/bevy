@@ -43,7 +43,7 @@ pub fn spawn_commands(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut commands = Commands::new(&mut command_queue, &world);
                 for i in 0..entity_count {
-                    let mut entity = commands.spawn();
+                    let mut entity = commands.spawn_empty();
 
                     if black_box(i % 2 == 0) {
                         entity.insert(A);
@@ -87,7 +87,7 @@ pub fn insert_commands(criterion: &mut Criterion) {
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
         for _ in 0..entity_count {
-            entities.push(world.spawn().id());
+            entities.push(world.spawn_empty().id());
         }
 
         bencher.iter(|| {
@@ -95,7 +95,7 @@ pub fn insert_commands(criterion: &mut Criterion) {
             for entity in &entities {
                 commands
                     .entity(*entity)
-                    .insert_bundle((Matrix::default(), Vec3::default()));
+                    .insert((Matrix::default(), Vec3::default()));
             }
             drop(commands);
             command_queue.apply(&mut world);
@@ -106,7 +106,7 @@ pub fn insert_commands(criterion: &mut Criterion) {
         let mut command_queue = CommandQueue::default();
         let mut entities = Vec::new();
         for _ in 0..entity_count {
-            entities.push(world.spawn().id());
+            entities.push(world.spawn_empty().id());
         }
 
         bencher.iter(|| {
@@ -238,7 +238,7 @@ pub fn get_or_spawn(criterion: &mut Criterion) {
             for i in 0..10_000 {
                 commands
                     .get_or_spawn(Entity::from_raw(i))
-                    .insert_bundle((Matrix::default(), Vec3::default()));
+                    .insert((Matrix::default(), Vec3::default()));
             }
             command_queue.apply(&mut world);
         });

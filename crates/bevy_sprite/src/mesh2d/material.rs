@@ -1,14 +1,15 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::{Bundle, World},
-    schedule::ParallelSystemDescriptorCoercion,
+    schedule::IntoSystemDescriptor,
     system::{
         lifetimeless::{Read, SQuery, SRes},
-        Commands, Local, Query, Res, ResMut, SystemParamItem,
+        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::FromWorld,
 };
@@ -87,7 +88,7 @@ use crate::{
 ///
 /// // Spawn an entity using `CustomMaterial`.
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn_bundle(MaterialMesh2dBundle {
+///     commands.spawn(MaterialMesh2dBundle {
 ///         material: materials.add(CustomMaterial {
 ///             color: Color::RED,
 ///             color_texture: asset_server.load("some_image.png"),
@@ -100,14 +101,14 @@ use crate::{
 ///
 /// ```wgsl
 /// struct CustomMaterial {
-///     color: vec4<f32>;
-/// };
+///     color: vec4<f32>,
+/// }
 ///
-/// [[group(1), binding(0)]]
+/// @group(1) @binding(0)
 /// var<uniform> material: CustomMaterial;
-/// [[group(1), binding(1)]]
+/// @group(1) @binding(1)
 /// var color_texture: texture_2d<f32>;
-/// [[group(1), binding(2)]]
+/// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
 pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
@@ -170,6 +171,7 @@ where
 }
 
 /// Render pipeline data for a given [`Material2d`]
+#[derive(Resource)]
 pub struct Material2dPipeline<M: Material2d> {
     pub mesh2d_pipeline: Mesh2dPipeline,
     pub material2d_layout: BindGroupLayout,
@@ -373,6 +375,7 @@ pub struct PreparedMaterial2d<T: Material2d> {
     pub key: T::Data,
 }
 
+#[derive(Resource)]
 struct ExtractedMaterials2d<M: Material2d> {
     extracted: Vec<(Handle<M>, M)>,
     removed: Vec<Handle<M>>,
@@ -388,7 +391,14 @@ impl<M: Material2d> Default for ExtractedMaterials2d<M> {
 }
 
 /// Stores all prepared representations of [`Material2d`] assets for as long as they exist.
-pub type RenderMaterials2d<T> = HashMap<Handle<T>, PreparedMaterial2d<T>>;
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterials2d<T: Material2d>(HashMap<Handle<T>, PreparedMaterial2d<T>>);
+
+impl<T: Material2d> Default for RenderMaterials2d<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 
 /// This system extracts all created or modified assets of the corresponding [`Material2d`] type
 /// into the "render world".

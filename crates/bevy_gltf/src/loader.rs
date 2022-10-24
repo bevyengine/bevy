@@ -465,8 +465,7 @@ async fn load_gltf<'a, 'b>(
         let mut entity_to_skin_index_map = HashMap::new();
 
         world
-            .spawn()
-            .insert_bundle(SpatialBundle::visible_identity())
+            .spawn(SpatialBundle::VISIBLE_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
@@ -705,7 +704,7 @@ fn load_node(
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn_bundle(SpatialBundle::from(Transform::from_matrix(
+    let mut node = world_builder.spawn(SpatialBundle::from(Transform::from_matrix(
         Mat4::from_cols_array_2d(&transform.matrix()),
     )));
 
@@ -748,7 +747,7 @@ fn load_node(
             }
         };
 
-        node.insert_bundle((
+        node.insert((
             projection,
             Camera {
                 is_active: !*active_camera_found,
@@ -787,7 +786,7 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                let mut mesh_entity = parent.spawn_bundle(PbrBundle {
+                let mut mesh_entity = parent.spawn(PbrBundle {
                     mesh: load_context.get_handle(mesh_asset_path),
                     material: load_context.get_handle(material_asset_path),
                     ..Default::default()
@@ -815,7 +814,7 @@ fn load_node(
         if let Some(light) = gltf_node.light() {
             match light.kind() {
                 gltf::khr_lights_punctual::Kind::Directional => {
-                    let mut entity = parent.spawn_bundle(DirectionalLightBundle {
+                    let mut entity = parent.spawn(DirectionalLightBundle {
                         directional_light: DirectionalLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for directional
@@ -835,7 +834,7 @@ fn load_node(
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
-                    let mut entity = parent.spawn_bundle(PointLightBundle {
+                    let mut entity = parent.spawn(PointLightBundle {
                         point_light: PointLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for point lights in
@@ -861,7 +860,7 @@ fn load_node(
                     inner_cone_angle,
                     outer_cone_angle,
                 } => {
-                    let mut entity = parent.spawn_bundle(SpotLightBundle {
+                    let mut entity = parent.spawn(SpotLightBundle {
                         spot_light: SpotLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
@@ -1169,7 +1168,7 @@ mod test {
             GltfNode {
                 children: vec![],
                 mesh: None,
-                transform: bevy_transform::prelude::Transform::identity(),
+                transform: bevy_transform::prelude::Transform::IDENTITY,
             }
         }
     }

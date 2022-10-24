@@ -14,7 +14,10 @@ use std::cell::Cell;
 use thread_local::ThreadLocal;
 
 use crate::{
-    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, Projection},
+    camera::{
+        camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
+        Projection,
+    },
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
@@ -34,20 +37,26 @@ pub struct Visibility {
 
 impl Default for Visibility {
     fn default() -> Self {
-        Self::visible()
+        Visibility::VISIBLE
     }
 }
 
 impl Visibility {
-    /// Creates a new [`Visibility`], set as visible
-    pub const fn visible() -> Self {
-        Self { is_visible: true }
+    /// A [`Visibility`], set as visible.
+    pub const VISIBLE: Self = Visibility { is_visible: true };
+
+    /// A [`Visibility`], set as invisible.
+    pub const INVISIBLE: Self = Visibility { is_visible: false };
+
+    /// Toggle the visibility.
+    pub fn toggle(&mut self) {
+        self.is_visible = !self.is_visible;
     }
 }
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct ComputedVisibility {
     is_visible_in_hierarchy: bool,
     is_visible_in_view: bool,
@@ -55,18 +64,16 @@ pub struct ComputedVisibility {
 
 impl Default for ComputedVisibility {
     fn default() -> Self {
-        Self::not_visible()
+        Self::INVISIBLE
     }
 }
 
 impl ComputedVisibility {
-    /// Creates a new [`ComputedVisibility`], set as not visible
-    pub const fn not_visible() -> Self {
-        Self {
-            is_visible_in_hierarchy: false,
-            is_visible_in_view: false,
-        }
-    }
+    /// A [`ComputedVisibility`], set as invisible.
+    pub const INVISIBLE: Self = ComputedVisibility {
+        is_visible_in_hierarchy: false,
+        is_visible_in_view: false,
+    };
 
     /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
     /// are true. This is the canonical method to call to determine if an entity should be drawn.
@@ -186,18 +193,21 @@ impl Plugin for VisibilityPlugin {
             CoreStage::PostUpdate,
             update_frusta::<OrthographicProjection>
                 .label(UpdateOrthographicFrusta)
+                .after(camera_system::<OrthographicProjection>)
                 .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             update_frusta::<PerspectiveProjection>
                 .label(UpdatePerspectiveFrusta)
+                .after(camera_system::<PerspectiveProjection>)
                 .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             update_frusta::<Projection>
                 .label(UpdateProjectionFrusta)
+                .after(camera_system::<Projection>)
                 .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
@@ -423,34 +433,29 @@ mod test {
 
         let root1 = app
             .world
-            .spawn()
-            .insert_bundle((
+            .spawn((
                 Visibility { is_visible: false },
                 ComputedVisibility::default(),
             ))
             .id();
         let root1_child1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root1_child2 = app
             .world
-            .spawn()
-            .insert_bundle((
+            .spawn((
                 Visibility { is_visible: false },
                 ComputedVisibility::default(),
             ))
             .id();
         let root1_child1_grandchild1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root1_child2_grandchild1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
 
         app.world
@@ -465,31 +470,26 @@ mod test {
 
         let root2 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root2_child1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root2_child2 = app
             .world
-            .spawn()
-            .insert_bundle((
+            .spawn((
                 Visibility { is_visible: false },
                 ComputedVisibility::default(),
             ))
             .id();
         let root2_child1_grandchild1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
         let root2_child2_grandchild1 = app
             .world
-            .spawn()
-            .insert_bundle((Visibility::default(), ComputedVisibility::default()))
+            .spawn((Visibility::default(), ComputedVisibility::default()))
             .id();
 
         app.world

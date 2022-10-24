@@ -1,7 +1,7 @@
 //! Skinned mesh example with mesh and joints data defined in code.
 //! Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
 
-use std::f32::consts::PI;
+use std::f32::consts::*;
 
 use bevy::{
     pbr::AmbientLight,
@@ -39,7 +39,7 @@ fn setup(
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
     // Create a camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -121,17 +121,14 @@ fn setup(
     for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
-            .spawn_bundle((
-                Transform::from_xyz(i as f32 * 1.5, 0.0, 0.0),
-                GlobalTransform::identity(),
-            ))
+            .spawn(TransformBundle::from(Transform::from_xyz(
+                i as f32 * 1.5,
+                0.0,
+                0.0,
+            )))
             .id();
         let joint_1 = commands
-            .spawn_bundle((
-                AnimatedJoint,
-                Transform::identity(),
-                GlobalTransform::identity(),
-            ))
+            .spawn((AnimatedJoint, TransformBundle::IDENTITY))
             .id();
 
         // Set joint_1 as a child of joint_0.
@@ -141,8 +138,8 @@ fn setup(
         let joint_entities = vec![joint_0, joint_1];
 
         // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
-        commands
-            .spawn_bundle(PbrBundle {
+        commands.spawn((
+            PbrBundle {
                 mesh: mesh.clone(),
                 material: materials.add(
                     Color::rgb(
@@ -153,20 +150,18 @@ fn setup(
                     .into(),
                 ),
                 ..default()
-            })
-            .insert(SkinnedMesh {
+            },
+            SkinnedMesh {
                 inverse_bindposes: inverse_bindposes.clone(),
                 joints: joint_entities,
-            });
+            },
+        ));
     }
 }
 
 /// Animate the joint marked with [`AnimatedJoint`] component.
 fn joint_animation(time: Res<Time>, mut query: Query<&mut Transform, With<AnimatedJoint>>) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_axis_angle(
-            Vec3::Z,
-            0.5 * PI * time.time_since_startup().as_secs_f32().sin(),
-        );
+        transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin());
     }
 }

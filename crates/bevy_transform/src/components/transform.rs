@@ -26,35 +26,51 @@ use std::ops::Mul;
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+///
+/// # Examples
+///
+/// - [`transform`]
+/// - [`global_vs_local_translation`]
+///
+/// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
+/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[reflect(Component, Default, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
+    ///
+    /// See the [`translations`] example for usage.
+    ///
+    /// [`translations`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/translation.rs
     pub translation: Vec3,
     /// Rotation of the entity.
+    ///
+    /// See the [`3d_rotation`] example for usage.
+    ///
+    /// [`3d_rotation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs
     pub rotation: Quat,
     /// Scale of the entity.
+    ///
+    /// See the [`scale`] example for usage.
+    ///
+    /// [`scale`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/scale.rs
     pub scale: Vec3,
 }
 
 impl Transform {
+    /// An identity [`Transform`] with no translation, rotation, and a scale of 1 on all axes.
+    pub const IDENTITY: Self = Transform {
+        translation: Vec3::ZERO,
+        rotation: Quat::IDENTITY,
+        scale: Vec3::ONE,
+    };
+
     /// Creates a new [`Transform`] at the position `(x, y, z)`. In 2d, the `z` component
     /// is used for z-ordering elements: higher `z`-value will be in front of lower
     /// `z`-value.
     #[inline]
     pub const fn from_xyz(x: f32, y: f32, z: f32) -> Self {
         Self::from_translation(Vec3::new(x, y, z))
-    }
-
-    /// Creates a new identity [`Transform`], with no translation, rotation, and a scale of 1 on
-    /// all axes.
-    #[inline]
-    pub const fn identity() -> Self {
-        Transform {
-            translation: Vec3::ZERO,
-            rotation: Quat::IDENTITY,
-            scale: Vec3::ONE,
-        }
     }
 
     /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
@@ -76,7 +92,7 @@ impl Transform {
     pub const fn from_translation(translation: Vec3) -> Self {
         Transform {
             translation,
-            ..Self::identity()
+            ..Self::IDENTITY
         }
     }
 
@@ -86,7 +102,7 @@ impl Transform {
     pub const fn from_rotation(rotation: Quat) -> Self {
         Transform {
             rotation,
-            ..Self::identity()
+            ..Self::IDENTITY
         }
     }
 
@@ -96,13 +112,13 @@ impl Transform {
     pub const fn from_scale(scale: Vec3) -> Self {
         Transform {
             scale,
-            ..Self::identity()
+            ..Self::IDENTITY
         }
     }
 
-    /// Updates and returns this [`Transform`] by rotating it so that its unit vector in the
-    /// local `Z` direction is toward `target` and its unit vector in the local `Y` direction
-    /// is toward `up`.
+    /// Updates and returns this [`Transform`] by rotating it so that its unit
+    /// vector in the local negative `Z` direction is toward `target` and its
+    /// unit vector in the local `Y` direction is toward `up`.
     #[inline]
     #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
@@ -205,6 +221,12 @@ impl Transform {
     /// Rotates this [`Transform`] by the given rotation.
     ///
     /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
+    ///
+    /// # Examples
+    ///
+    /// - [`3d_rotation`]
+    ///
+    /// [`3d_rotation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation = rotation * self.rotation;
@@ -306,7 +328,7 @@ impl Transform {
     #[inline]
     #[must_use]
     pub fn mul_transform(&self, transform: Transform) -> Self {
-        let translation = self.mul_vec3(transform.translation);
+        let translation = self.transform_point(transform.translation);
         let rotation = self.rotation * transform.rotation;
         let scale = self.scale * transform.scale;
         Transform {
@@ -316,26 +338,28 @@ impl Transform {
         }
     }
 
-    /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
+    /// Transforms the given `point`, applying scale, rotation and translation.
+    ///
+    /// If this [`Transform`] has a parent, this will transform a `point` that is
+    /// relative to the parent's [`Transform`] into one relative to this [`Transform`].
+    ///
+    /// If this [`Transform`] does not have a parent, this will transform a `point`
+    /// that is in global space into one relative to this [`Transform`].
+    ///
+    /// If you want to transform a `point` in global space to the local space of this [`Transform`],
+    /// consider using [`GlobalTransform::transform_point()`] instead.
     #[inline]
-    pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
-        value = self.scale * value;
-        value = self.rotation * value;
-        value += self.translation;
-        value
-    }
-
-    /// Changes the `scale` of this [`Transform`], multiplying the current `scale` by
-    /// `scale_factor`.
-    #[inline]
-    pub fn apply_non_uniform_scale(&mut self, scale_factor: Vec3) {
-        self.scale *= scale_factor;
+    pub fn transform_point(&self, mut point: Vec3) -> Vec3 {
+        point = self.scale * point;
+        point = self.rotation * point;
+        point += self.translation;
+        point
     }
 }
 
 impl Default for Transform {
     fn default() -> Self {
-        Self::identity()
+        Self::IDENTITY
     }
 }
 
@@ -359,6 +383,6 @@ impl Mul<Vec3> for Transform {
     type Output = Vec3;
 
     fn mul(self, value: Vec3) -> Self::Output {
-        self.mul_vec3(value)
+        self.transform_point(value)
     }
 }

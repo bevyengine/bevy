@@ -15,30 +15,31 @@ fn main() {
 struct MovedScene;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..default()
     });
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(1.05, 0.9, 1.5)
             .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ..default()
     });
 
     // Spawn the scene as a child of this entity at the given transform
-    commands.spawn_bundle(SceneBundle {
+    commands.spawn(SceneBundle {
         transform: Transform::from_xyz(0.0, 0.0, -1.0),
         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
         ..default()
     });
 
     // Spawn a second scene, and add a tag component to be able to target it later
-    commands
-        .spawn_bundle(SceneBundle {
+    commands.spawn((
+        SceneBundle {
             scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
             ..default()
-        })
-        .insert(MovedScene);
+        },
+        MovedScene,
+    ));
 }
 
 // This system will move all entities that are descendants of MovedScene (which will be all entities spawned in the scene)
@@ -53,9 +54,9 @@ fn move_scene_entities(
         iter_hierarchy(moved_scene_entity, &children, &mut |entity| {
             if let Ok(mut transform) = transforms.get_mut(entity) {
                 transform.translation = Vec3::new(
-                    offset * time.seconds_since_startup().sin() as f32 / 20.,
+                    offset * time.elapsed_seconds().sin() / 20.,
                     0.,
-                    time.seconds_since_startup().cos() as f32 / 20.,
+                    time.elapsed_seconds().cos() / 20.,
                 );
                 offset += 1.0;
             }
