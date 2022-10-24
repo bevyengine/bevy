@@ -724,7 +724,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let column = table.get_column(component_id).unwrap();
+        let column = table
+            .get_column(component_id)
+            .unwrap_or_else(|| debug_checked_unreachable());
         fetch.table_data = Some((
             column.get_data_slice().into(),
             column.get_ticks_slice().into(),
@@ -1078,7 +1080,13 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         &id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_ticks = Some(table.get_column(id).unwrap().get_ticks_slice().into());
+        fetch.table_ticks = Some(
+            table
+                .get_column(id)
+                .unwrap_or_else(|| debug_checked_unreachable())
+                .get_ticks_slice()
+                .into(),
+        );
     }
 
     #[inline(always)]
