@@ -1,14 +1,10 @@
 [0m[1m[38;5;9merror[0m[1m: failed to build a valid final module: Function [2] 'func' is invalid[0m
-  [0m[36m┌─[0m tests/error_test/wgsl_valid_err.wgsl:5:2
+  [0m[36m┌─[0m tests/error_test/wgsl_valid_err.wgsl:7:1
   [0m[36m│[0m  
-[0m[36m5[0m [0m[36m│[0m   }
-  [0m[36m│[0m [0m[31m╭[0m[0m[31m─^[0m
-[0m[36m6[0m [0m[36m│[0m [0m[31m│[0m 
-[0m[36m7[0m [0m[36m│[0m [0m[31m│[0m [0m[31mfn func() -> f32 {[0m
+[0m[36m7[0m [0m[36m│[0m [0m[31m╭[0m [0m[31mfn func() -> f32 {[0m
 [0m[36m8[0m [0m[36m│[0m [0m[31m│[0m [0m[31m    return 1u;[0m
-  [0m[36m│[0m [0m[31m│[0m           [0m[31m^^^[0m [0m[31mnaga::Expression [1][0m
-[0m[36m9[0m [0m[36m│[0m [0m[31m│[0m [0m[31m}[0m
-  [0m[36m│[0m [0m[31m╰[0m[0m[31m─^ naga::Function [2][0m
+  [0m[36m│[0m [0m[31m│[0m            [0m[31m^^[0m [0m[31mnaga::Expression [1][0m
+  [0m[36m│[0m [0m[31m╰[0m[0m[31m──────────────^ naga::Function [2][0m
   [0m[36m│[0m  
   [0m[36m=[0m The `return` value Some([1]) does not match the function return value
 
