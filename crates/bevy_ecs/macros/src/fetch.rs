@@ -266,11 +266,11 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
                 /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                 #[inline(always)]
-                unsafe fn fetch<'__w>(&mut self,
+                unsafe fn fetch<'__w>(
                     _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
                     _entity: Entity,
                     _table_row: usize
-                ) -> Self::Item {
+                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Item {
                     Self::Item {
                         #(#field_idents: <#field_types>::fetch(&mut _fetch.#field_idents, _entity, _table_row),)*
                         #(#ignored_field_idents: Default::default(),)*
@@ -279,8 +279,12 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
                 #[allow(unused_variables)]
                 #[inline(always)]
-                unsafe fn filter_fetch(&mut self, _entity: Entity, _table_row: usize) -> bool {
-                    true #(&& <#field_types>::filter_fetch(&mut, _fetch.#field_idents, _entity, _table_row))*
+                unsafe fn filter_fetch<'__w>(
+                    _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
+                    _entity: Entity,
+                    _table_row: usize
+                ) -> bool {
+                    true #(&& <#field_types>::filter_fetch(&mut _fetch.#field_idents, _entity, _table_row))*
                 }
 
                 fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {

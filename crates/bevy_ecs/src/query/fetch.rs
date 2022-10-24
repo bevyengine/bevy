@@ -327,8 +327,8 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
     /// all of the matched components. This is used to select a more efficient "table iterator"
-    /// for "dense" queries. If this returns true, [`Fetch::set_table`] before [`Fetch::fetch`]
-    /// will be called for iterators. If this returns false, [`Fetch::set_archetype`] will be used
+    /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] before [`WorldQuery::fetch`]
+    /// will be called for iterators. If this returns false, [`WorldQuery::set_archetype`] will be used
     /// before [`WorldQuery::fetch`] will be called for iterators.
     const IS_DENSE: bool;
 
@@ -368,12 +368,12 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
 
     /// Fetch [`Self::Item`](`WorldQueryGats::Item`) for either the given `entity` in the current [`Table`],
     /// or for the given `entity` in the current [`Archetype`]. This must always be called after
-    /// [`Fetch::set_table`] with a `table_row` in the range of the current [`Table`] or after
-    /// [`Fetch::set_archetype`]  with a `entity` in the current archetype.
+    /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
+    /// [`WorldQuery::set_archetype`]  with a `entity` in the current archetype.
     ///
     /// # Safety
     ///
-    /// Must always be called _after_ [`Fetch::set_table`] or [`Fetch::set_archetype`]. `entity` and
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
     unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
@@ -383,12 +383,12 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
 
     /// # Safety
     ///
-    /// Must always be called _after_ [`Fetch::set_table`] or [`Fetch::set_archetype`]. `entity` and
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
     #[allow(unused_variables)]
     #[inline(always)]
-    unsafe fn filter_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+    unsafe fn filter_fetch(
+        fetch: &mut <Self as WorldQueryGats<'_>>::Fetch,
         entity: Entity,
         table_index: usize,
     ) -> bool {
@@ -454,8 +454,8 @@ unsafe impl WorldQuery for Entity {
 
     const IS_ARCHETYPAL: bool = true;
 
-    unsafe fn init_fetch<'w>(
-        _world: &'w World,
+    unsafe fn init_fetch(
+        _world: &World,
         _state: &(),
         _last_change_tick: u32,
         _change_tick: u32,
