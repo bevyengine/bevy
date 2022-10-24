@@ -454,21 +454,6 @@ where
     }
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery + ArchetypeFilter, const K: usize>
-    ExactSizeIterator for QueryCombinationIter<'w, 's, Q, F, K>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
-{
-    /// Returns the exact length of the iterator.
-    ///
-    /// **NOTE**: When the iterator length overflows `usize`, this will
-    /// return `usize::MAX`.
-    fn len(&self) -> usize {
-        self.size_hint().0
-    }
-}
-
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> FusedIterator
     for QueryCombinationIter<'w, 's, Q, F, K>
