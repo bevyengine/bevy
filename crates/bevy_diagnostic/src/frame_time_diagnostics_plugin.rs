@@ -25,7 +25,8 @@ impl FrameTimeDiagnosticsPlugin {
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20).with_suffix("ms"));
         diagnostics.add(Diagnostic::new(Self::FPS, "fps", 20));
-        diagnostics.add(Diagnostic::new(Self::FRAME_COUNT, "frame_count", 1));
+        diagnostics
+            .add(Diagnostic::new(Self::FRAME_COUNT, "frame_count", 1).with_smoothing_factor(0.0));
     }
 
     pub fn diagnostic_system(
