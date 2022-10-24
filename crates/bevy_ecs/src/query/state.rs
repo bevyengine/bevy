@@ -983,6 +983,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 let tables = &world.storages().tables;
                 for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
+                    if table.is_empty() {
+                        continue;
+                    }
+
                     let mut offset = 0;
                     while offset < table.entity_count() {
                         let func = func.clone();
@@ -1030,6 +1034,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 for archetype_id in &self.matched_archetype_ids {
                     let mut offset = 0;
                     let archetype = &archetypes[*archetype_id];
+                    if archetype.is_empty() {
+                        continue;
+                    }
+
                     while offset < archetype.len() {
                         let func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
