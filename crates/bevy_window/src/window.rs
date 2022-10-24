@@ -57,6 +57,36 @@ pub enum PresentMode {
     Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
 }
 
+/// Specifies how the alpha channel of the textures should be handled during compositing.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub enum CompositeAlphaMode {
+    /// Chooses either `Opaque` or `Inherit` automatically，depending on the
+    /// `alpha_mode` that the current surface can support.
+    Auto = 0,
+    /// The alpha channel, if it exists, of the textures is ignored in the
+    /// compositing process. Instead, the textures is treated as if it has a
+    /// constant alpha of 1.0.
+    Opaque = 1,
+    /// The alpha channel, if it exists, of the textures is respected in the
+    /// compositing process. The non-alpha channels of the textures are
+    /// expected to already be multiplied by the alpha channel by the
+    /// application.
+    PreMultiplied = 2,
+    /// The alpha channel, if it exists, of the textures is respected in the
+    /// compositing process. The non-alpha channels of the textures are not
+    /// expected to already be multiplied by the alpha channel by the
+    /// application; instead, the compositor will multiply the non-alpha
+    /// channels of the texture by the alpha channel during compositing.
+    PostMultiplied = 3,
+    /// The alpha channel, if it exists, of the textures is unknown for processing
+    /// during compositing. Instead, the application is responsible for setting
+    /// the composite alpha blending mode using native WSI command. If not set,
+    /// then a platform-specific default will be used.
+    Inherit = 4,
+}
+
 impl WindowId {
     /// Creates a new [`WindowId`].
     pub fn new() -> Self {
@@ -264,6 +294,7 @@ pub struct Window {
     canvas: Option<String>,
     fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
+    alpha_mode: CompositeAlphaMode,
 }
 /// A command to be sent to a window.
 ///
@@ -407,6 +438,7 @@ impl Window {
             canvas: window_descriptor.canvas.clone(),
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
+            alpha_mode: window_descriptor.alpha_mode,
         }
     }
     /// Get the window's [`WindowId`].
@@ -614,6 +646,12 @@ impl Window {
     /// Get the window's [`PresentMode`].
     pub fn present_mode(&self) -> PresentMode {
         self.present_mode
+    }
+
+    #[inline]
+    /// Get the window's [`CompositeAlphaMode`].
+    pub fn alpha_mode(&self) -> CompositeAlphaMode {
+        self.alpha_mode
     }
 
     #[inline]
@@ -933,6 +971,8 @@ pub struct WindowDescriptor {
     ///
     /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
+    /// Specifies how the alpha channel of the textures should be handled during compositing.
+    pub alpha_mode: CompositeAlphaMode,
 }
 
 impl Default for WindowDescriptor {
@@ -954,6 +994,7 @@ impl Default for WindowDescriptor {
             transparent: false,
             canvas: None,
             fit_canvas_to_parent: false,
+            alpha_mode: CompositeAlphaMode::Auto,
         }
     }
 }

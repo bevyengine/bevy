@@ -6,7 +6,9 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use bevy_window::{PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows};
+use bevy_window::{
+    CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows,
+};
 use std::ops::{Deref, DerefMut};
 
 /// Token to ensure a system runs on the main thread.
@@ -45,6 +47,7 @@ pub struct ExtractedWindow {
     pub swap_chain_texture: Option<TextureView>,
     pub size_changed: bool,
     pub present_mode_changed: bool,
+    pub alpha_mode: CompositeAlphaMode,
 }
 
 #[derive(Default, Resource)]
@@ -90,6 +93,7 @@ fn extract_windows(
                     swap_chain_texture: None,
                     size_changed: false,
                     present_mode_changed: false,
+                    alpha_mode: window.alpha_mode(),
                 });
 
         // NOTE: Drop the swap chain frame here
@@ -196,7 +200,13 @@ pub fn prepare_windows(
                 PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                 PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
             },
-            alpha_mode: wgpu::CompositeAlphaMode::Auto,
+            alpha_mode: match window.alpha_mode {
+                CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
+                CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
+                CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
+                CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
+                CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
+            },
         };
 
         // Do the initial surface configuration if it hasn't been configured yet. Or if size or
