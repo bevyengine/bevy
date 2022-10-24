@@ -96,35 +96,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let texture = asset_server.load("branding/icon.png");
 
+    let text_section = move |color, value: &str| {
+        TextSection::new(
+            value,
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 40.0,
+                color,
+            },
+        )
+    };
+
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         TextBundle::from_sections([
-            TextSection::new(
-                "Bird Count: ",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 40.0,
-                    color: Color::rgb(0.0, 1.0, 0.0),
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 40.0,
-                color: Color::rgb(0.0, 1.0, 1.0),
-            }),
-            TextSection::new(
-                "\nAverage FPS: ",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 40.0,
-                    color: Color::rgb(0.0, 1.0, 0.0),
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 40.0,
-                color: Color::rgb(0.0, 1.0, 1.0),
-            }),
+            text_section(Color::GREEN, "Bird Count"),
+            text_section(Color::CYAN, ""),
+            text_section(Color::GREEN, "\nFPS (raw): "),
+            text_section(Color::CYAN, ""),
+            text_section(Color::GREEN, "\nFPS (SMA): "),
+            text_section(Color::CYAN, ""),
+            text_section(Color::GREEN, "\nFPS (EMA): "),
+            text_section(Color::CYAN, ""),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -261,8 +254,14 @@ fn counter_system(
     }
 
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-        if let Some(average) = fps.average() {
-            text.sections[3].value = format!("{average:.2}");
+        if let Some(raw) = fps.value() {
+            text.sections[3].value = format!("{raw:.2}");
+        }
+        if let Some(sma) = fps.average() {
+            text.sections[5].value = format!("{sma:.2}");
+        }
+        if let Some(ema) = fps.smoothed() {
+            text.sections[7].value = format!("{ema:.2}");
         }
     };
 }
