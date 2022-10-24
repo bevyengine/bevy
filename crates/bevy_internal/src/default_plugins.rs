@@ -1,4 +1,5 @@
 use bevy_app::{PluginGroup, PluginGroupBuilder};
+use bevy_render::texture::ImagePlugin;
 
 /// This plugin group will add all the default plugins:
 /// * [`LogPlugin`](bevy_log::LogPlugin)
@@ -59,7 +60,11 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_render")]
         {
-            group = group.add(bevy_render::RenderPlugin::default());
+            group = group
+                .add(bevy_render::RenderPlugin::default())
+                // NOTE: Load this after renderer initialization so that it knows about the supported
+                // compressed texture formats
+                .add(ImagePlugin::default());
         }
 
         #[cfg(feature = "bevy_core_pipeline")]

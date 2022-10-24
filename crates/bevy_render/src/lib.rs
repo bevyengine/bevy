@@ -31,7 +31,7 @@ pub mod prelude {
         mesh::{shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{Image, ImageSettings},
+        texture::{Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
@@ -49,7 +49,7 @@ use crate::{
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance, RenderTextureFormat},
-    texture::{BevyDefault, ImagePlugin},
+    texture::BevyDefault,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -348,9 +348,6 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            // NOTE: Load this after renderer initialization so that it knows about the supported
-            // compressed texture formats
-            .add_plugin(ImagePlugin)
             .add_plugin(GlobalsPlugin)
             .add_plugin(FrameCountPlugin);
     }
