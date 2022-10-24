@@ -103,7 +103,7 @@ impl Default for LogPlugin {
 }
 
 impl Plugin for LogPlugin {
-    #[allow(unused_variables)]
+    #[cfg_attr(not(feature = "tracing-chrome"), allow(unused_variables))]
     fn build(&self, app: &mut App) {
         #[cfg(feature = "trace")]
         {
