@@ -605,11 +605,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
+    /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
-    /// This can only return immutable data (mutable data will be cast to an immutable form).
-    /// See [`Self::iter_many_mut`] for queries that contain at least one mutable component.
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
     ///
+    /// # See also
+    ///
+    /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
     pub fn iter_many<'w, 's, EntityList: IntoIterator>(
         &'s mut self,
@@ -631,7 +634,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Returns an iterator over the query results of a list of [`Entity`]'s.
+    /// Returns an iterator over the query items generated from an [`Entity`] list.
+    ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
     #[inline]
     pub fn iter_many_mut<'w, 's, EntityList: IntoIterator>(
         &'s mut self,
@@ -983,6 +989,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 let tables = &world.storages().tables;
                 for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
+                    if table.is_empty() {
+                        continue;
+                    }
+
                     let mut offset = 0;
                     while offset < table.entity_count() {
                         let func = func.clone();
@@ -1030,6 +1040,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 for archetype_id in &self.matched_archetype_ids {
                     let mut offset = 0;
                     let archetype = &archetypes[*archetype_id];
+                    if archetype.is_empty() {
+                        continue;
+                    }
+
                     while offset < archetype.len() {
                         let func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);

@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
     for mut text in &mut query {
-        let seconds = time.seconds_since_startup() as f32;
+        let seconds = time.elapsed_seconds();
 
         // Update the color of the first and only section.
         text.sections[0].style.color = Color::Rgba {
@@ -93,9 +93,9 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
 fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
     for mut text in &mut query {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(average) = fps.average() {
+            if let Some(value) = fps.smoothed() {
                 // Update the value of the second section
-                text.sections[1].value = format!("{average:.2}");
+                text.sections[1].value = format!("{value:.2}");
             }
         }
     }

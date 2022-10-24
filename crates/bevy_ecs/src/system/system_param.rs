@@ -369,9 +369,8 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
         );
         combined_access.add_read(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
-            .get_archetype_component_id(component_id)
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -393,8 +392,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        let column = world
-            .get_populated_resource_column(state.component_id)
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -403,8 +402,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
                 )
             });
         Res {
-            value: column.get_data_ptr().deref::<T>(),
-            ticks: column.get_ticks_unchecked(0).deref(),
+            value: ptr.deref(),
+            ticks: ticks.deref(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -442,10 +441,10 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world
-            .get_populated_resource_column(state.0.component_id)
-            .map(|column| Res {
-                value: column.get_data_ptr().deref::<T>(),
-                ticks: column.get_ticks_unchecked(0).deref(),
+            .get_resource_with_ticks(state.0.component_id)
+            .map(|(ptr, ticks)| Res {
+                value: ptr.deref(),
+                ticks: ticks.deref(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -480,9 +479,8 @@ unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
         }
         combined_access.add_write(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
-            .get_archetype_component_id(component_id)
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -938,9 +936,8 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
         );
         combined_access.add_read(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
-            .get_archetype_component_id(component_id)
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -963,8 +960,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
-        let column = world
-            .get_populated_resource_column(state.component_id)
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -974,8 +971,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
             });
 
         NonSend {
-            value: column.get_data_ptr().deref::<T>(),
-            ticks: column.get_ticks_unchecked(0).read(),
+            value: ptr.deref(),
+            ticks: ticks.read(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -1014,10 +1011,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         world
-            .get_populated_resource_column(state.0.component_id)
-            .map(|column| NonSend {
-                value: column.get_data_ptr().deref::<T>(),
-                ticks: column.get_ticks_unchecked(0).read(),
+            .get_resource_with_ticks(state.0.component_id)
+            .map(|(ptr, ticks)| NonSend {
+                value: ptr.deref(),
+                ticks: ticks.read(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -1054,9 +1051,8 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         }
         combined_access.add_write(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
-            .get_archetype_component_id(component_id)
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -1079,8 +1075,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
-        let column = world
-            .get_populated_resource_column(state.component_id)
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -1089,9 +1085,9 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
                 )
             });
         NonSendMut {
-            value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
+            value: ptr.assert_unique().deref_mut(),
             ticks: Ticks {
-                component_ticks: column.get_ticks_unchecked(0).deref_mut(),
+                component_ticks: ticks.deref_mut(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },
@@ -1128,11 +1124,11 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         world
-            .get_populated_resource_column(state.0.component_id)
-            .map(|column| NonSendMut {
-                value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
+            .get_resource_with_ticks(state.0.component_id)
+            .map(|(ptr, ticks)| NonSendMut {
+                value: ptr.assert_unique().deref_mut(),
                 ticks: Ticks {
-                    component_ticks: column.get_ticks_unchecked(0).deref_mut(),
+                    component_ticks: ticks.deref_mut(),
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
                 },
