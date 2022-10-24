@@ -6,8 +6,7 @@ unmaintained = "deny"
 yanked = "deny"
 notice = "deny"
 ignore = [
-    "RUSTSEC-2020-0056", # from gilrs v0.8.1 - unmaintained - https://github.com/koute/stdweb/issues/403
-    "RUSTSEC-2021-0139" # from ansi_term v0.12.1 - unmaintained - https://github.com/ogham/rust-ansi-term/issues/72
+    "RUSTSEC-2020-0056", # from cpal v0.14.1 - unmaintained - https://github.com/koute/stdweb/issues/403
 ]
 
 [licenses]
@@ -38,7 +37,7 @@ skip = [
     { name = "ndk-sys", version = "0.3" },               # from rodio v0.16.0
     { name = "ndk", version = "0.6" },                   # from rodio v0.16.0
     { name = "raw-window-handle", version = "0.4" },     # from winit v0.27.4
-    { name = "nix", version = "0.23.1" },                # from alsa v0.6.0
+    { name = "nix", version = "0.24" },                  # from cpal v0.14.1
     { name = "windows_aarch64_msvc", version = "0.36" }, # from notify v5.0.0
     { name = "windows_i686_gnu", version = "0.36" },     # from notify v5.0.0
     { name = "windows_i686_msvc", version = "0.36" },    # from notify v5.0.0
