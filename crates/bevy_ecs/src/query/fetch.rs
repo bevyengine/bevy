@@ -285,11 +285,10 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// exactly reflects the results of the following methods:
 ///
 /// - [`matches_component_set`]
-/// - [`archetype_fetch`]
-/// - [`table_fetch`]
+/// - [`fetch`]
 ///
 /// [`Added`]: crate::query::Added
-/// [`archetype_fetch`]: Self::archetype_fetch
+/// [`fetch`]: Self::fetch
 /// [`Changed`]: crate::query::Changed
 /// [`Fetch`]: crate::query::WorldQueryGats::Fetch
 /// [`matches_component_set`]: Self::matches_component_set
@@ -297,7 +296,6 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`Query`]: crate::system::Query
 /// [`ReadOnly`]: Self::ReadOnly
 /// [`State`]: Self::State
-/// [`table_fetch`]: Self::table_fetch
 /// [`update_archetype_component_access`]: Self::update_archetype_component_access
 /// [`update_component_access`]: Self::update_component_access
 /// [`With`]: crate::query::With
@@ -381,7 +379,7 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
         entity: Entity,
         table_index: usize,
-    ) -> Self::Item;
+    ) -> <Self as WorldQueryGats<'w>>::Item;
 
     /// # Safety
     ///
@@ -467,7 +465,7 @@ unsafe impl WorldQuery for Entity {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut EntityFetch,
+        _fetch: &mut EntityFetch,
         _state: &(),
         _archetype: &'w Archetype,
         _table: &Table,
@@ -478,7 +476,11 @@ unsafe impl WorldQuery for Entity {
     unsafe fn set_table<'w>(_fetch: &mut EntityFetch, _state: &(), _table: &'w Table) {}
 
     #[inline(always)]
-    unsafe fn fetch<'w>(_fetch: &mut EntityFetch, entity: Entity, _table_row: usize) -> Self::Item {
+    unsafe fn fetch<'w>(
+        _fetch: &mut EntityFetch,
+        entity: Entity,
+        _table_row: usize,
+    ) -> <Self as WorldQueryGats<'w>>::Item {
         entity
     }
 
@@ -547,7 +549,7 @@ unsafe impl<T: Component> WorldQuery for &T {
                 world
                     .storages()
                     .sparse_sets
-                    .get(state.component_id)
+                    .get(component_id)
                     .unwrap_or_else(|| debug_checked_unreachable())
             }),
         }
@@ -567,7 +569,6 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     #[inline]
     unsafe fn set_table<'w>(
-        &mut self,
         fetch: &mut ReadFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
@@ -583,11 +584,10 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     #[inline(always)]
     unsafe fn fetch<'w>(
-        &mut self,
-        fetch: &mut ReadFetch<'w, T>,
+        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
         entity: Entity,
         table_row: usize,
-    ) -> Self::Item {
+    ) -> <Self as WorldQueryGats<'w>>::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => fetch
                 .table_components
@@ -641,8 +641,6 @@ impl<T> Clone for ReadFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
             table_components: self.table_components,
-            entity_table_rows: self.entity_table_rows,
-            entities: self.entities,
             sparse_set: self.sparse_set,
         }
     }
@@ -700,7 +698,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 world
                     .storages()
                     .sparse_sets
-                    .get(state.component_id)
+                    .get(component_id)
                     .unwrap_or_else(|| debug_checked_unreachable())
             }),
             last_change_tick,
@@ -735,11 +733,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     #[inline(always)]
     unsafe fn fetch<'w>(
-        &mut self,
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
         entity: Entity,
         table_row: usize,
-    ) -> Self::Item {
+    ) -> <Self as WorldQueryGats<'w>>::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let (table_components, table_ticks) = fetch
@@ -809,10 +806,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 impl<T> Clone for WriteFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
-            table_components: self.table_components,
-            table_ticks: self.table_ticks,
-            entities: self.entities,
-            entity_table_rows: self.entity_table_rows,
+            table_data: self.table_data,
             sparse_set: self.sparse_set,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
@@ -876,7 +870,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) {
         fetch.matches = T::matches_component_set(state, &|id| archetype.contains(id));
         if fetch.matches {
-            T::set_archetype(fetch, &state.state, archetype, table);
+            T::set_archetype(&mut fetch.fetch, state, archetype, table);
         }
     }
 
@@ -893,8 +887,10 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
         entity: Entity,
         table_row: usize,
-    ) -> Self::Item {
-        fetch.matches.then(|| T::fetch(fetch, entity, table_row))
+    ) -> <Self as WorldQueryGats<'w>>::Item {
+        fetch
+            .matches
+            .then(|| T::fetch(&mut fetch.fetch, entity, table_row))
     }
 
     fn update_component_access(state: &T::State, access: &mut FilteredAccess<ComponentId>) {
@@ -1045,7 +1041,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
 
     unsafe fn init_fetch<'w>(
         world: &'w World,
-        &id: &ComponentId,
+        &component_id: &ComponentId,
         last_change_tick: u32,
         change_tick: u32,
     ) -> ChangeTrackersFetch<'w, T> {
@@ -1055,7 +1051,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
                 world
                     .storages()
                     .sparse_sets
-                    .get(state.component_id)
+                    .get(component_id)
                     .unwrap_or_else(|| debug_checked_unreachable())
             }),
             marker: PhantomData,
@@ -1090,7 +1086,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
         entity: Entity,
         table_row: usize,
-    ) -> Self::Item {
+    ) -> <Self as WorldQueryGats<'w>>::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => ChangeTrackers {
                 component_ticks: {
@@ -1196,9 +1192,9 @@ macro_rules! impl_tuple_fetch {
                 _archetype: &'w Archetype,
                 _table: &'w Table
             ) {
-                let ($($name,)*) = self;
+                let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name.set_archetype($name, $state, _archetype, _table);)*
+                $($name::set_archetype($name, $state, _archetype, _table);)*
             }
 
             #[inline]
@@ -1211,21 +1207,21 @@ macro_rules! impl_tuple_fetch {
             #[inline(always)]
             #[allow(clippy::unused_unit)]
             unsafe fn fetch<'w>(
-                _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch
+                _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
                 _entity: Entity,
                 _table_row: usize
-            ) -> Self::Item {
-                let ($($name,)*) = self;
+            ) -> <Self as WorldQueryGats<'w>>::Item {
+                let ($($name,)*) = _fetch;
                 ($($name::fetch($name, _entity, _table_row),)*)
             }
 
             #[inline(always)]
-            unsafe fn filter_fetch(
-                _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch
+            unsafe fn filter_fetch<'w>(
+                _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
                 _entity: Entity,
                 _table_row: usize
             ) -> bool {
-                let ($($name,)*) = self;
+                let ($($name,)*) = _fetch;
                 true $(&& $name::filter_fetch($name, _entity, _table_row))*
             }
 
@@ -1307,7 +1303,7 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
                 $(
-                    $name.1 = $name::matches_component_set($name, $state, &|id| _archetype.contains(id));
+                    $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
                     if $name.1 {
                         $name::set_archetype(&mut $name.0, $state, _archetype, _table);
                     }
@@ -1328,14 +1324,14 @@ macro_rules! impl_anytuple_fetch {
 
             #[inline(always)]
             #[allow(clippy::unused_unit)]
-            unsafe fn fetch(
+            unsafe fn fetch<'w>(
                 _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
                 _entity: Entity,
                 _table_row: usize
-            ) -> Self::Item {
-                let ($($name,)*) = &mut self.0;
+            ) -> <Self as WorldQueryGats<'w>>::Item {
+                let ($($name,)*) = _fetch;
                 ($(
-                    $name.1.then(|| $name.0.fetch(_entity, _table_row)),
+                    $name.1.then(|| $name::fetch(&mut $name.0, _entity, _table_row)),
                 )*)
             }
 
@@ -1438,11 +1434,11 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     unsafe fn set_table<'w>(_fetch: &mut (), _state: &Q::State, _table: &Table) {}
 
     #[inline(always)]
-    unsafe fn fetch(
+    unsafe fn fetch<'w>(
         _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
         _entity: Entity,
         _table_row: usize,
-    ) -> Self::Item {
+    ) -> <Self as WorldQueryGats<'w>>::Item {
     }
 
     fn update_component_access(_state: &Q::State, _access: &mut FilteredAccess<ComponentId>) {}

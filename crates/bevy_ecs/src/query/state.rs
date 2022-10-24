@@ -413,22 +413,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
 
-        Q::set_archetype(
-            &mut fetch,
-            &self.fetch_state,
-            archetype,
-            &world.storages().tables,
-        );
-        F::set_archetype(
-            &mut filter,
-            &self.filter_state,
-            archetype,
-            &world.storages().tables,
-        );
-
         let table = &world.storages().tables[archetype.table_id()];
-        fetch.set_archetype(&self.fetch_state, archetype, table);
-        filter.set_archetype(&self.filter_state, archetype, table);
+        Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
+        F::set_archetype(&mut filter, &self.filter_state, archetype, table);
+
         if F::filter_fetch(&mut filter, entity, location.index) {
             Ok(Q::fetch(&mut fetch, entity, location.index))
         } else {
@@ -1035,7 +1023,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 if !F::filter_fetch(&mut filter, *entity, row) {
                                     continue;
                                 }
-                                func(Q::table_fetch(&mut fetch, *entity, row));
+                                func(Q::fetch(&mut fetch, *entity, row));
                             }
                         };
                         #[cfg(feature = "trace")]
@@ -1092,7 +1080,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 ) {
                                     continue;
                                 }
-                                func(Q::archetype_fetch(
+                                func(Q::fetch(
                                     &mut fetch,
                                     archetype_entity.entity,
                                     archetype_entity.table_row,
