@@ -96,7 +96,11 @@ pub struct Camera {
     /// The "target" that this camera will render to.
     #[reflect(ignore)]
     pub target: RenderTarget,
-    /// If this is set to true, the camera will use an intermediate "high dynamic range" render texture.
+    /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
+    /// Warning: we are still working on this feature. If MSAA is enabled, there will be artifacts in
+    /// some cases. When rendering with WebGL, this will crash if MSAA is enabled.
+    /// See <https://github.com/bevyengine/bevy/pull/3425> for details.
+    // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
     pub hdr: bool,
 }
 
@@ -108,7 +112,7 @@ impl Default for Camera {
             viewport: None,
             computed: Default::default(),
             target: Default::default(),
-            hdr: true,
+            hdr: false,
         }
     }
 }
