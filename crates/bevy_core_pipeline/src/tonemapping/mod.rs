@@ -45,12 +45,9 @@ impl Plugin for TonemappingPlugin {
 
         app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
-
-        render_app.init_resource::<TonemappingPipeline>();
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<TonemappingPipeline>();
+        }
     }
 }
 
