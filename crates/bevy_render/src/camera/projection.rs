@@ -33,7 +33,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
-                    // so we can ignore ambiguities with all other monormophizations.
+                    // so we can ignore ambiguities with all other monomorphizations.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             )
@@ -43,7 +43,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     .label(CameraUpdateSystem)
                     .after(ModifiesWindows)
                     // We assume that each camera will only have one projection,
-                    // so we can ignore ambiguities with all other monormophizations.
+                    // so we can ignore ambiguities with all other monomorphizations.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             );
