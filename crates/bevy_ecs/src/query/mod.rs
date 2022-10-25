@@ -88,8 +88,6 @@ mod tests {
             Q: ReadOnlyWorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
-            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter(world);
