@@ -430,7 +430,7 @@ mod tests {
         struct MyAsset;
         let mut app = App::new();
         app.add_plugin(bevy_core::CorePlugin)
-            .add_plugin(crate::AssetPlugin);
+            .add_plugin(crate::AssetPlugin::default());
         app.add_asset::<MyAsset>();
         let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();
         let handle = assets_before.add(MyAsset);

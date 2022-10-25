@@ -24,13 +24,15 @@ fn main() {
             },
             ..default()
         })
-        // Turn off vsync to maximize CPU/GPU usage
-        .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::AutoNoVsync,
-            ..default()
-        })
         .insert_resource(ExampleMode::Game)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                // Turn off vsync to maximize CPU/GPU usage
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
+            ..default()
+        }))
         .add_startup_system(test_setup::setup)
         .add_system(test_setup::cycle_modes)
         .add_system(test_setup::rotate_cube)

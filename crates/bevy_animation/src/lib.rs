@@ -115,11 +115,19 @@ impl Default for AnimationPlayer {
 
 impl AnimationPlayer {
     /// Start playing an animation, resetting state of the player
-    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+    pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         *self = Self {
             animation_clip: handle,
             ..Default::default()
         };
+        self
+    }
+
+    /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
+    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+        if self.animation_clip != handle || self.is_paused() {
+            self.start(handle);
+        }
         self
     }
 
@@ -243,6 +251,7 @@ pub fn animation_player(
                             .keyframe_timestamps
                             .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
                         {
+                            Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
                             Ok(i) => i,
                             Err(0) => continue, // this curve isn't started yet
                             Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished

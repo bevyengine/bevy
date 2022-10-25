@@ -8,7 +8,7 @@ use std::{
 };
 
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::{future, pin};
+use futures_lite::{future, pin, FutureExt};
 
 use crate::Task;
 
@@ -117,9 +117,16 @@ impl TaskPool {
 
                 thread_builder
                     .spawn(move || {
-                        let shutdown_future = ex.run(shutdown_rx.recv());
-                        // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_future).unwrap_err();
+                        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
+                            let tick_forever = async move {
+                                loop {
+                                    local_executor.tick().await;
+                                }
+                            };
+                            let shutdown_future = ex.run(tick_forever.or(shutdown_rx.recv()));
+                            // Use unwrap_err because we expect a Closed error
+                            future::block_on(shutdown_future).unwrap_err();
+                        });
                     })
                     .expect("Failed to spawn thread.")
             })
@@ -164,11 +171,19 @@ impl TaskPool {
     ///     });
     /// });
     ///
-    /// // results are returned in the order the tasks are spawned in.
-    /// // Note: the ordering may become non-deterministic if you spawn from within tasks.
-    /// // the ordering is only guaranteed when tasks are spawned directly from the main closure.
+    /// // The ordering of results is non-deterministic if you spawn from within tasks as above.
+    /// // If you're doing this, you'll have to write your code to not depend on the ordering.
+    /// assert!(results.contains(&0));
+    /// assert!(results.contains(&1));
+    ///
+    /// // The ordering is deterministic if you only spawn directly from the closure function.
+    /// let results = pool.scope(|s| {
+    ///     s.spawn(async { 0  });
+    ///     s.spawn(async { 1 });
+    /// });
     /// assert_eq!(&results[..], &[0, 1]);
-    /// // can access x after scope runs
+    ///
+    /// // You can access x after scope runs, since it was only temporarily borrowed in the scope.
     /// assert_eq!(x, 2);
     /// ```
     ///
@@ -305,6 +320,24 @@ impl TaskPool {
         T: 'static,
     {
         Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+    }
+
+    /// Runs a function with the local executor. Typically used to tick
+    /// the local executor on the main thread as it needs to share time with
+    /// other things.
+    ///
+    /// ```rust
+    /// use bevy_tasks::TaskPool;
+    ///
+    /// TaskPool::new().with_local_executor(|local_executor| {
+    ///     local_executor.try_tick();
+    /// });
+    /// ```
+    pub fn with_local_executor<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&async_executor::LocalExecutor) -> R,
+    {
+        Self::LOCAL_EXECUTOR.with(f)
     }
 }
 

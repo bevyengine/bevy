@@ -57,6 +57,102 @@ mod tests {
 
     #[test]
     fn query_filtered_exactsizeiterator_len() {
+        fn assert_all_sizes_iterator_equal(
+            iterator: impl ExactSizeIterator,
+            expected_size: usize,
+            query_type: &'static str,
+        ) {
+            let len = iterator.len();
+            let size_hint_0 = iterator.size_hint().0;
+            let size_hint_1 = iterator.size_hint().1;
+            // `count` tests that not only it is the expected value, but also
+            // the value is accurate to what the query returns.
+            let count = iterator.count();
+            // This will show up when one of the asserts in this function fails
+            println!(
+                r#"query declared sizes:
+                for query:     {query_type}
+                expected:      {expected_size}
+                len:           {len}
+                size_hint().0: {size_hint_0}
+                size_hint().1: {size_hint_1:?}
+                count():       {count}"#
+            );
+            assert_eq!(len, expected_size);
+            assert_eq!(size_hint_0, expected_size);
+            assert_eq!(size_hint_1, Some(expected_size));
+            assert_eq!(count, expected_size);
+        }
+        fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
+        where
+            Q: ReadOnlyWorldQuery,
+            F: ReadOnlyWorldQuery,
+            F::ReadOnly: ArchetypeFilter,
+            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
+            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
+        {
+            let mut query = world.query_filtered::<Q, F>();
+            let iter = query.iter(world);
+            let query_type = type_name::<QueryState<Q, F>>();
+            assert_all_sizes_iterator_equal(iter, expected_size, query_type);
+        }
+
+        let mut world = World::new();
+        world.spawn((A(1), B(1)));
+        world.spawn((A(2),));
+        world.spawn((A(3),));
+
+        assert_all_sizes_equal::<&A, With<B>>(&mut world, 1);
+        assert_all_sizes_equal::<&A, Without<B>>(&mut world, 2);
+
+        let mut world = World::new();
+        world.spawn((A(1), B(1), C(1)));
+        world.spawn((A(2), B(2)));
+        world.spawn((A(3), B(3)));
+        world.spawn((A(4), C(4)));
+        world.spawn((A(5), C(5)));
+        world.spawn((A(6), C(6)));
+        world.spawn((A(7),));
+        world.spawn((A(8),));
+        world.spawn((A(9),));
+        world.spawn((A(10),));
+
+        // With/Without for B and C
+        assert_all_sizes_equal::<&A, With<B>>(&mut world, 3);
+        assert_all_sizes_equal::<&A, With<C>>(&mut world, 4);
+        assert_all_sizes_equal::<&A, Without<B>>(&mut world, 7);
+        assert_all_sizes_equal::<&A, Without<C>>(&mut world, 6);
+
+        // With/Without (And) combinations
+        assert_all_sizes_equal::<&A, (With<B>, With<C>)>(&mut world, 1);
+        assert_all_sizes_equal::<&A, (With<B>, Without<C>)>(&mut world, 2);
+        assert_all_sizes_equal::<&A, (Without<B>, With<C>)>(&mut world, 3);
+        assert_all_sizes_equal::<&A, (Without<B>, Without<C>)>(&mut world, 4);
+
+        // With/Without Or<()> combinations
+        assert_all_sizes_equal::<&A, Or<(With<B>, With<C>)>>(&mut world, 6);
+        assert_all_sizes_equal::<&A, Or<(With<B>, Without<C>)>>(&mut world, 7);
+        assert_all_sizes_equal::<&A, Or<(Without<B>, With<C>)>>(&mut world, 8);
+        assert_all_sizes_equal::<&A, Or<(Without<B>, Without<C>)>>(&mut world, 9);
+        assert_all_sizes_equal::<&A, (Or<(With<B>,)>, Or<(With<C>,)>)>(&mut world, 1);
+        assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>(&mut world, 6);
+
+        for i in 11..14 {
+            world.spawn((A(i), D(i)));
+        }
+
+        assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, With<D>)>>(&mut world, 9);
+        assert_all_sizes_equal::<&A, Or<(Or<(With<B>, With<C>)>, Without<D>)>>(&mut world, 10);
+
+        // a fair amount of entities
+        for i in 14..20 {
+            world.spawn((C(i), D(i)));
+        }
+        assert_all_sizes_equal::<Entity, (With<C>, With<D>)>(&mut world, 6);
+    }
+
+    #[test]
+    fn query_filtered_combination_size() {
         fn choose(n: usize, k: usize) -> usize {
             if n == 0 || k == 0 || n < k {
                 return 0;
@@ -100,27 +196,24 @@ mod tests {
             assert_combination::<Q, F, 128>(world, choose(expected, 128));
         }
         fn assert_all_sizes_iterator_equal(
-            iterator: impl ExactSizeIterator,
+            iterator: impl Iterator,
             expected_size: usize,
             query_type: &'static str,
         ) {
             let size_hint_0 = iterator.size_hint().0;
             let size_hint_1 = iterator.size_hint().1;
-            let len = iterator.len();
             // `count` tests that not only it is the expected value, but also
             // the value is accurate to what the query returns.
             let count = iterator.count();
             // This will show up when one of the asserts in this function fails
             println!(
                 r#"query declared sizes:
-for query: {query_type}
-expected:      {expected_size}
-len():         {len}
-size_hint().0: {size_hint_0}
-size_hint().1: {size_hint_1:?}
-count():       {count}"#
+                for query:     {query_type}
+                expected:      {expected_size}
+                size_hint().0: {size_hint_0}
+                size_hint().1: {size_hint_1:?}
+                count():       {count}"#
             );
-            assert_eq!(len, expected_size);
             assert_eq!(size_hint_0, expected_size);
             assert_eq!(size_hint_1, Some(expected_size));
             assert_eq!(count, expected_size);

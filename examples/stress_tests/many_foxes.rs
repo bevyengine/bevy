@@ -18,12 +18,14 @@ struct Foxes {
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
-            present_mode: PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(Foxes {
@@ -111,10 +113,7 @@ fn setup(
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
             .spawn((
-                Transform::default(),
-                GlobalTransform::default(),
-                Visibility::default(),
-                ComputedVisibility::default(),
+                SpatialBundle::VISIBLE_IDENTITY,
                 ring_direction,
                 Ring { radius },
             ))
