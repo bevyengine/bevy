@@ -437,10 +437,6 @@ pub type ROQueryFetch<'w, Q> = QueryFetch<'w, <Q as WorldQuery>::ReadOnly>;
 /// The read-only variant of the item type returned when a [`WorldQuery`] is iterated over immutably
 pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as WorldQuery>::ReadOnly>;
 
-#[doc(hidden)]
-#[derive(Clone)]
-pub struct EntityFetch;
-
 /// SAFETY: no component or archetype access
 unsafe impl WorldQuery for Entity {
     type ReadOnly = Self;
@@ -454,30 +450,34 @@ unsafe impl WorldQuery for Entity {
 
     const IS_ARCHETYPAL: bool = true;
 
-    unsafe fn init_fetch(
-        _world: &World,
-        _state: &(),
+    unsafe fn init_fetch<'w>(
+        _world: &'w World,
+        _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
-    ) -> EntityFetch {
-        EntityFetch
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
     }
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        _fetch: &mut EntityFetch,
-        _state: &(),
+        _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        _state: &Self::State,
         _archetype: &'w Archetype,
         _table: &Table,
     ) {
     }
 
     #[inline]
-    unsafe fn set_table<'w>(_fetch: &mut EntityFetch, _state: &(), _table: &'w Table) {}
+    unsafe fn set_table<'w>(
+        _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        _state: &Self::State,
+        _table: &'w Table,
+    ) {
+    }
 
     #[inline(always)]
     unsafe fn fetch<'w>(
-        _fetch: &mut EntityFetch,
+        _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
         entity: Entity,
         _table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item {
@@ -504,7 +504,7 @@ unsafe impl WorldQuery for Entity {
 }
 
 impl<'w> WorldQueryGats<'w> for Entity {
-    type Fetch = EntityFetch;
+    type Fetch = ();
     type Item = Entity;
 }
 
