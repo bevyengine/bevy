@@ -541,7 +541,7 @@ mod tests {
             .spawn((TableStored("def"), A(456), SparseStored(1)))
             .id();
         // this should be skipped
-        // SparseStored(1).spawn().insert("abc");
+        // world.spawn(SparseStored(1));
         let ents = world
             .query::<(Entity, Option<&SparseStored>, &A)>()
             .iter(&world)
