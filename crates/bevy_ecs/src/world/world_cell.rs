@@ -186,9 +186,10 @@ impl<'w> WorldCell<'w> {
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
+        let p = self.world.get_resource_by_id(component_id)?;
         Some(WorldBorrow::new(
             // SAFETY: ComponentId matches TypeId
-            unsafe { self.world.get_resource_with_id(component_id)? },
+            unsafe { p.deref() },
             archetype_component_id,
             self.access.clone(),
         ))
@@ -255,9 +256,10 @@ impl<'w> WorldCell<'w> {
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
+        let p = self.world.get_resource_by_id(component_id)?;
         Some(WorldBorrow::new(
             // SAFETY: ComponentId matches TypeId
-            unsafe { self.world.get_non_send_with_id(component_id)? },
+            unsafe { p.deref() },
             archetype_component_id,
             self.access.clone(),
         ))

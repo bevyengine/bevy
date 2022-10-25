@@ -889,8 +889,10 @@ impl World {
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let p = self.get_resource_by_id(component_id)?;
         // SAFETY: unique world access
-        unsafe { self.get_resource_with_id(component_id) }
+        let r = unsafe { p.deref() };
+        Some(r)
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
@@ -971,8 +973,10 @@ impl World {
     #[inline]
     pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: component id matches type T
-        unsafe { self.get_non_send_with_id(component_id) }
+        let p = self.get_resource_by_id(component_id)?;
+        // SAFETY: component id matches type R
+        let r = unsafe { p.deref() };
+        Some(r)
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
@@ -1249,20 +1253,6 @@ impl World {
 
     /// # Safety
     /// `component_id` must be assigned to a component of type `R`
-    #[inline]
-    pub(crate) unsafe fn get_resource_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&R> {
-        self.storages
-            .resources
-            .get(component_id)?
-            .get_data()
-            .map(|ptr| ptr.deref())
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
     /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
     #[inline]
     pub(crate) unsafe fn get_resource_unchecked_mut_with_id<R>(
@@ -1278,17 +1268,6 @@ impl World {
                 change_tick: self.read_change_tick(),
             },
         })
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
-    #[inline]
-    pub(crate) unsafe fn get_non_send_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&R> {
-        self.validate_non_send_access::<R>();
-        self.get_resource_with_id(component_id)
     }
 
     /// # Safety
