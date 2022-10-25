@@ -71,13 +71,13 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 /// will be ignored.
 ///
 /// If you want to setup your own tracing collector, you should disable this
-/// plugin from `DefaultPlugins` with [`App::add_plugins_with`]:
+/// plugin from `DefaultPlugins`:
 /// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins};
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
 ///     App::new()
-///         .add_plugins_with(DefaultPlugins, |group| group.disable::<LogPlugin>())
+///         .add_plugins(DefaultPlugins.build().disable::<LogPlugin>())
 ///         .run();
 /// }
 /// ```

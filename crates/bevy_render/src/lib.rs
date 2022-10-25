@@ -244,15 +244,20 @@ impl Plugin for RenderPlugin {
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
                     let meta_len = app_world.entities().meta_len();
-                    render_app
-                        .world
-                        .entities()
-                        .reserve_entities(meta_len as u32);
 
-                    // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
-                    // these entities cannot be accessed without spawning directly onto them
-                    // this _only_ works as expected because clear_entities() is called at the end of every frame.
-                    unsafe { render_app.world.entities_mut() }.flush_as_invalid();
+                    assert_eq!(
+                        render_app.world.entities().len(),
+                        0,
+                        "An entity was spawned after the entity list was cleared last frame and before the extract stage began. This is not supported",
+                    );
+
+                    // This is safe given the clear_entities call in the past frame and the assert above
+                    unsafe {
+                        render_app
+                            .world
+                            .entities_mut()
+                            .flush_and_reserve_invalid_assuming_no_entities(meta_len);
+                    }
                 }
 
                 {
