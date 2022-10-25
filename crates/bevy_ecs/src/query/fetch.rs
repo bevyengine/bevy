@@ -327,9 +327,9 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
     /// all of the matched components. This is used to select a more efficient "table iterator"
-    /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] must be used before 
-    /// [`WorldQuery::fetch`] can be called for iterators. If this returns false, 
-    /// [`WorldQuery::set_archetype`] must be used before [`WorldQuery::fetch`] can be called for 
+    /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] must be used before
+    /// [`WorldQuery::fetch`] can be called for iterators. If this returns false,
+    /// [`WorldQuery::set_archetype`] must be used before [`WorldQuery::fetch`] can be called for
     /// iterators.
     const IS_DENSE: bool;
 
