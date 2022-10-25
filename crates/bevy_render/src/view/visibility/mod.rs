@@ -29,12 +29,13 @@ use crate::{
 ///
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
-#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
     ///
     /// A root-level entity that is set to `Inherited` will be visible.
+    #[default]
     Inherited,
     /// An entity with `Visibility::Hidden` will be unconditionally hidden.
     Hidden,
@@ -58,12 +59,6 @@ impl std::cmp::PartialEq<&Visibility> for Visibility {
     #[inline]
     fn eq(&self, other: &&Visibility) -> bool {
         *self == **other
-    }
-}
-
-impl Default for Visibility {
-    fn default() -> Self {
-        Self::Inherited
     }
 }
 
@@ -636,7 +631,7 @@ mod test {
             is_visible(root1_child2_grandchild1),
             "an unconditionally visible child of a hidden parent is visible"
         );
-        assert!(is_visible(root2), "an inheriting root in visible");
+        assert!(is_visible(root2), "an inheriting root is visible");
         assert!(!is_visible(root3), "a hidden root is hidden");
     }
 
