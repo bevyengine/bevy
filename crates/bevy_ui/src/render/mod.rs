@@ -115,6 +115,18 @@ pub fn build_ui_render(app: &mut App) {
                 RunGraphOnViewNode::IN_VIEW,
             )
             .unwrap();
+        graph_2d
+            .add_node_edge(
+                bevy_core_pipeline::core_2d::graph::node::TONEMAPPING,
+                draw_ui_graph::node::UI_PASS,
+            )
+            .unwrap();
+        graph_2d
+            .add_node_edge(
+                draw_ui_graph::node::UI_PASS,
+                bevy_core_pipeline::core_2d::graph::node::UPSCALING,
+            )
+            .unwrap();
     }
 
     if let Some(graph_3d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME) {
@@ -127,6 +139,18 @@ pub fn build_ui_render(app: &mut App) {
             .add_node_edge(
                 bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
                 draw_ui_graph::node::UI_PASS,
+            )
+            .unwrap();
+        graph_3d
+            .add_node_edge(
+                bevy_core_pipeline::core_3d::graph::node::TONEMAPPING,
+                draw_ui_graph::node::UI_PASS,
+            )
+            .unwrap();
+        graph_3d
+            .add_node_edge(
+                draw_ui_graph::node::UI_PASS,
+                bevy_core_pipeline::core_3d::graph::node::UPSCALING,
             )
             .unwrap();
         graph_3d

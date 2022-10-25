@@ -173,6 +173,20 @@ impl ViewTarget {
             },
         }
     }
+
+    pub fn get_unsampled_color_attachment(
+        &self,
+        ops: Operations<Color>,
+    ) -> RenderPassColorAttachment {
+        RenderPassColorAttachment {
+            view: match &self.main_texture {
+                ViewMainTexture::Hdr { hdr_texture, .. } => hdr_texture,
+                ViewMainTexture::Sdr { texture, .. } => texture,
+            },
+            resolve_target: None,
+            ops,
+        }
+    }
 }
 
 #[derive(Component)]
