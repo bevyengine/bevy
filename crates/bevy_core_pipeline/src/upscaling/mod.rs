@@ -5,8 +5,7 @@ pub use node::UpscalingNode;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::BevyDefault;
+use bevy_render::renderer::{RenderDevice, SurfaceTextureFormat};
 use bevy_render::view::ExtractedView;
 use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
@@ -38,11 +37,13 @@ impl Plugin for UpscalingPlugin {
 #[derive(Resource)]
 pub struct UpscalingPipeline {
     ldr_texture_bind_group: BindGroupLayout,
+    surface_texture_format: TextureFormat,
 }
 
 impl FromWorld for UpscalingPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let render_device = render_world.get_resource::<RenderDevice>().unwrap();
+        let render_device = render_world.resource::<RenderDevice>();
+        let surface_texture_format = render_world.resource::<SurfaceTextureFormat>().0;
 
         let ldr_texture_bind_group =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -69,6 +70,7 @@ impl FromWorld for UpscalingPipeline {
 
         UpscalingPipeline {
             ldr_texture_bind_group,
+            surface_texture_format,
         }
     }
 }
@@ -121,7 +123,7 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
                 shader_defs: vec![],
                 entry_point: "fs_main".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: self.surface_texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
