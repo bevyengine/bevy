@@ -12,7 +12,7 @@ pub use task_pool_options::*;
 pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, Name};
+    pub use crate::{CorePlugin, Name, TaskPoolOptions};
 }
 
 use bevy_app::prelude::*;
@@ -29,16 +29,15 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
-pub struct CorePlugin;
+pub struct CorePlugin {
+    /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
+    pub task_pool_options: TaskPoolOptions,
+}
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
         // Setup the default bevy task pools
-        app.world
-            .get_resource::<DefaultTaskPoolOptions>()
-            .cloned()
-            .unwrap_or_default()
-            .create_default_pools();
+        self.task_pool_options.create_default_pools();
 
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system_to_stage(
@@ -118,7 +117,7 @@ mod tests {
     #[test]
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
-        app.add_plugin(CorePlugin);
+        app.add_plugin(CorePlugin::default());
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
         AsyncComputeTaskPool::get()

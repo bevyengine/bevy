@@ -59,7 +59,11 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_render")]
         {
-            group = group.add(bevy_render::RenderPlugin::default());
+            group = group
+                .add(bevy_render::RenderPlugin::default())
+                // NOTE: Load this after renderer initialization so that it knows about the supported
+                // compressed texture formats
+                .add(bevy_render::texture::ImagePlugin::default());
         }
 
         #[cfg(feature = "bevy_core_pipeline")]
