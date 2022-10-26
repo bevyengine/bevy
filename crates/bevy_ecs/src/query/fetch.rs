@@ -327,7 +327,7 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
         change_tick: u32,
     ) -> <Self as WorldQueryGats<'w>>::Fetch;
 
-    /// This function is safe to call if `Self:ReadOnlyWorldQuery` holds.
+    /// While this function can be called for any query, it is always safe to call if `Self: ReadOnlyWorldQuery` holds.
     ///
     /// # Safety
     /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
