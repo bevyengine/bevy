@@ -396,8 +396,12 @@ pub enum WindowCommand {
 /// Defines if and how the cursor is grabbed.
 ///
 /// Use this enum with [`Window::set_cursor_grab_mode`] to grab the cursor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum CursorGrabMode {
     /// The cursor can freely leave the window.
     None,
