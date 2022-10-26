@@ -402,6 +402,7 @@ pub enum WindowCommand {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[reflect(Debug, PartialEq)]
 pub enum CursorGrabMode {
     /// The cursor can freely leave the window.
     None,
