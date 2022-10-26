@@ -442,6 +442,8 @@ mod tests {
     }
 
     #[test]
+    // Don't run on a m1 as they have a 41ns precision
+    // https://github.com/rust-lang/rust/issues/91417
     #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn update_test() {
         let start_instant = Instant::now();
@@ -575,6 +577,8 @@ mod tests {
     }
 
     #[test]
+    // Don't run on a m1 as they have a 41ns precision
+    // https://github.com/rust-lang/rust/issues/91417
     #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn relative_speed_test() {
         let start_instant = Instant::now();
@@ -678,6 +682,8 @@ mod tests {
     }
 
     #[test]
+    // Don't run on a m1 as they have a 41ns precision
+    // https://github.com/rust-lang/rust/issues/91417
     #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn pause_test() {
         let start_instant = Instant::now();
