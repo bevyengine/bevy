@@ -1,7 +1,7 @@
 use crate::{DynamicEntity, DynamicScene};
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{prelude::Entity, reflect::ReflectComponent, world::World};
-use bevy_utils::{default, HashMap};
+use bevy_utils::{default, HashSet};
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities.
 ///
@@ -23,7 +23,8 @@ use bevy_utils::{default, HashMap};
 /// let dynamic_scene = builder.build();
 /// ```
 pub struct DynamicSceneBuilder<'w> {
-    scene: HashMap<u32, DynamicEntity>,
+    entity_set: HashSet<u32>,
+    entities: Vec<DynamicEntity>,
     type_registry: AppTypeRegistry,
     world: &'w World,
 }
@@ -33,7 +34,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// All components registered in that world's [`AppTypeRegistry`] resource will be extracted.
     pub fn from_world(world: &'w World) -> Self {
         Self {
-            scene: default(),
+            entity_set: default(),
+            entities: default(),
             type_registry: world.resource::<AppTypeRegistry>().clone(),
             world,
         }
@@ -43,7 +45,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Only components registered in the given [`AppTypeRegistry`] will be extracted.
     pub fn from_world_with_type_registry(world: &'w World, type_registry: AppTypeRegistry) -> Self {
         Self {
-            scene: default(),
+            entity_set: default(),
+            entities: default(),
             type_registry,
             world,
         }
@@ -52,7 +55,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Consume the builder, producing a [`DynamicScene`].
     pub fn build(self) -> DynamicScene {
         DynamicScene {
-            entities: self.scene.into_values().collect(),
+            entities: self.entities,
         }
     }
 
@@ -92,12 +95,14 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-            if self.scene.contains_key(&entity.id()) {
+            let id = entity.id();
+
+            if !self.entity_set.insert(id) {
                 continue;
             }
 
             let mut entry = DynamicEntity {
-                entity: entity.id(),
+                entity: id,
                 components: Vec::new(),
             };
 
@@ -116,7 +121,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 }
             }
 
-            self.scene.insert(entity.id(), entry);
+            self.entities.push(entry);
         }
 
         drop(type_registry);
