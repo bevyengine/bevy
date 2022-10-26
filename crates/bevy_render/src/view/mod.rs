@@ -1,10 +1,11 @@
 pub mod visibility;
 pub mod window;
 
+use bevy_utils::HashMap;
 pub use visibility::*;
 use wgpu::{
     Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
-    TextureUsages,
+    TextureFormat, TextureUsages,
 };
 pub use window::*;
 
@@ -15,8 +16,8 @@ use crate::{
     rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
-    texture::TextureCache,
+    renderer::{RenderDevice, RenderQueue},
+    texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -24,7 +25,6 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
 
 pub struct ViewPlugin;
 
@@ -81,6 +81,7 @@ impl Default for Msaa {
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
+    pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
 }
@@ -115,21 +116,74 @@ pub struct ViewUniformOffset {
     pub offset: u32,
 }
 
+#[derive(Clone)]
+pub enum ViewMainTexture {
+    Hdr {
+        hdr_texture: TextureView,
+        sampled_hdr_texture: Option<TextureView>,
+
+        ldr_texture: TextureView,
+    },
+    Sdr {
+        texture: TextureView,
+        sampled_texture: Option<TextureView>,
+    },
+}
+
+impl ViewMainTexture {
+    pub fn texture(&self) -> &TextureView {
+        match self {
+            ViewMainTexture::Hdr { hdr_texture, .. } => hdr_texture,
+            ViewMainTexture::Sdr { texture, .. } => texture,
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct ViewTarget {
-    pub view: TextureView,
-    pub sampled_target: Option<TextureView>,
+    pub main_texture: ViewMainTexture,
+    pub out_texture: TextureView,
 }
 
 impl ViewTarget {
+    pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
+
     pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
-        RenderPassColorAttachment {
-            view: self.sampled_target.as_ref().unwrap_or(&self.view),
-            resolve_target: if self.sampled_target.is_some() {
-                Some(&self.view)
-            } else {
-                None
+        let (target, sampled) = match &self.main_texture {
+            ViewMainTexture::Hdr {
+                hdr_texture,
+                sampled_hdr_texture,
+                ..
+            } => (hdr_texture, sampled_hdr_texture),
+            ViewMainTexture::Sdr {
+                texture,
+                sampled_texture,
+            } => (texture, sampled_texture),
+        };
+        match sampled {
+            Some(sampled_target) => RenderPassColorAttachment {
+                view: sampled_target,
+                resolve_target: Some(target),
+                ops,
             },
+            None => RenderPassColorAttachment {
+                view: target,
+                resolve_target: None,
+                ops,
+            },
+        }
+    }
+
+    pub fn get_unsampled_color_attachment(
+        &self,
+        ops: Operations<Color>,
+    ) -> RenderPassColorAttachment {
+        RenderPassColorAttachment {
+            view: match &self.main_texture {
+                ViewMainTexture::Hdr { hdr_texture, .. } => hdr_texture,
+                ViewMainTexture::Sdr { texture, .. } => texture,
+            },
+            resolve_target: None,
             ops,
         }
     }
@@ -182,42 +236,89 @@ fn prepare_view_targets(
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
-    texture_format: Res<RenderTextureFormat>,
     mut texture_cache: ResMut<TextureCache>,
-    cameras: Query<(Entity, &ExtractedCamera)>,
+    cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
 ) {
-    let mut sampled_textures = HashMap::default();
-    for (entity, camera) in &cameras {
+    let mut textures = HashMap::default();
+    for (entity, camera, view) in cameras.iter() {
         if let Some(target_size) = camera.physical_target_size {
             if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
-                let sampled_target = if msaa.samples > 1 {
-                    let sampled_texture = sampled_textures
-                        .entry(camera.target.clone())
-                        .or_insert_with(|| {
-                            texture_cache.get(
+                let size = Extent3d {
+                    width: target_size.x,
+                    height: target_size.y,
+                    depth_or_array_layers: 1,
+                };
+
+                let main_texture = textures
+                    .entry((camera.target.clone(), view.hdr))
+                    .or_insert_with(|| {
+                        let main_texture_format = if view.hdr {
+                            ViewTarget::TEXTURE_FORMAT_HDR
+                        } else {
+                            TextureFormat::bevy_default()
+                        };
+
+                        let main_texture = texture_cache.get(
+                            &render_device,
+                            TextureDescriptor {
+                                label: Some("main_texture"),
+                                size,
+                                mip_level_count: 1,
+                                sample_count: 1,
+                                dimension: TextureDimension::D2,
+                                format: main_texture_format,
+                                usage: TextureUsages::RENDER_ATTACHMENT
+                                    | TextureUsages::TEXTURE_BINDING,
+                            },
+                        );
+
+                        let sampled_main_texture = (msaa.samples > 1).then(|| {
+                            texture_cache
+                                .get(
+                                    &render_device,
+                                    TextureDescriptor {
+                                        label: Some("main_texture_sampled"),
+                                        size,
+                                        mip_level_count: 1,
+                                        sample_count: msaa.samples,
+                                        dimension: TextureDimension::D2,
+                                        format: main_texture_format,
+                                        usage: TextureUsages::RENDER_ATTACHMENT,
+                                    },
+                                )
+                                .default_view
+                        });
+                        if view.hdr {
+                            let ldr_texture = texture_cache.get(
                                 &render_device,
                                 TextureDescriptor {
-                                    label: Some("sampled_color_attachment_texture"),
-                                    size: Extent3d {
-                                        width: target_size.x,
-                                        height: target_size.y,
-                                        depth_or_array_layers: 1,
-                                    },
+                                    label: Some("ldr_texture"),
+                                    size,
                                     mip_level_count: 1,
-                                    sample_count: msaa.samples,
+                                    sample_count: 1,
                                     dimension: TextureDimension::D2,
-                                    format: **texture_format,
-                                    usage: TextureUsages::RENDER_ATTACHMENT,
+                                    format: TextureFormat::bevy_default(),
+                                    usage: TextureUsages::RENDER_ATTACHMENT
+                                        | TextureUsages::TEXTURE_BINDING,
                                 },
-                            )
-                        });
-                    Some(sampled_texture.default_view.clone())
-                } else {
-                    None
-                };
+                            );
+
+                            ViewMainTexture::Hdr {
+                                hdr_texture: main_texture.default_view,
+                                sampled_hdr_texture: sampled_main_texture,
+                                ldr_texture: ldr_texture.default_view,
+                            }
+                        } else {
+                            ViewMainTexture::Sdr {
+                                texture: main_texture.default_view,
+                                sampled_texture: sampled_main_texture,
+                            }
+                        }
+                    });
+
                 commands.entity(entity).insert(ViewTarget {
-                    view: texture_view.clone(),
-                    sampled_target,
+                    main_texture: main_texture.clone(),
+                    out_texture: texture_view.clone(),
                 });
             }
         }

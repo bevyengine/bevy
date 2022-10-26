@@ -1031,6 +1031,7 @@ pub fn prepare_lights(
                             ),
                             transform: view_translation * *view_rotation,
                             projection: cube_face_projection,
+                            hdr: false,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
@@ -1086,6 +1087,7 @@ pub fn prepare_lights(
                         ),
                         transform: spot_view_transform,
                         projection: spot_projection,
+                        hdr: false,
                     },
                     RenderPhase::<Shadow>::default(),
                     LightEntity::Spot { light_entity },
@@ -1169,6 +1171,7 @@ pub fn prepare_lights(
                             ),
                             transform: GlobalTransform::from(view.inverse()),
                             projection,
+                            hdr: false,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Directional { light_entity },

@@ -102,10 +102,10 @@ pub struct RenderInstance(pub Instance);
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderAdapterInfo(pub AdapterInfo);
 
-/// The [`TextureFormat`](wgpu::TextureFormat) used for rendering.
+/// The [`TextureFormat`](wgpu::TextureFormat) used for rendering to window surfaces.
 /// Initially it's the first element in `AvailableTextureFormats`, or Bevy default format.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderTextureFormat(pub wgpu::TextureFormat);
+pub struct SurfaceTextureFormat(pub wgpu::TextureFormat);
 
 /// The available [`TextureFormat`](wgpu::TextureFormat)s on the [`RenderAdapter`].
 /// Will be inserted as a `Resource` after the renderer is initialized.

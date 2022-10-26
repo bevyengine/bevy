@@ -48,7 +48,7 @@ use crate::{
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance, RenderTextureFormat},
+    renderer::{render_system, RenderInstance, SurfaceTextureFormat},
     texture::BevyDefault,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -166,7 +166,7 @@ impl Plugin for RenderPlugin {
                     &options,
                     &request_adapter_options,
                 ));
-            let texture_format = RenderTextureFormat(
+            let texture_format = SurfaceTextureFormat(
                 available_texture_formats
                     .get(0)
                     .cloned()
