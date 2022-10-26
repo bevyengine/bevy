@@ -840,7 +840,7 @@ impl App {
 
     /// Checks if a [`Plugin`] has already been added.
     ///
-    /// This can be used by plugins to check if a plugin dependency they have has already been
+    /// This can be used by plugins to check if a plugin they depend upon has already been
     /// added.
     pub fn is_plugin_added<T>(&self) -> bool
     where
@@ -851,9 +851,11 @@ impl App {
             .any(|p| p.downcast_ref::<T>().is_some())
     }
 
-    /// Returns the plugin of a given type that have been added.
+    /// Returns a vector of references to any plugins of type `T` that have been added.
     ///
-    /// This can be used by plugins to get the settings of already added plugins.
+    /// This can be used to read the settings of any already added plugins.
+    /// This vector will be length zero if no plugins of that type have been added.
+    /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
     ///
     /// ```rust
     /// # use bevy_app::prelude::*;
