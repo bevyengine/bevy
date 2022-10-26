@@ -186,7 +186,6 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
 
-            #[derive(Clone)]
             #[doc(hidden)]
             #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
                 #(#field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Fetch,)*
@@ -236,6 +235,19 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                             ),
                         )*
                         #(#ignored_field_idents: Default::default(),)*
+                    }
+                }
+
+                unsafe fn clone_fetch<'__w>(
+                    _fetch: &<Self as #path::query::WorldQueryGats<'__w>>::Fetch
+                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Fetch {
+                    #fetch_struct_name {
+                        #(
+                            #field_idents: <#field_types>::clone_fetch(& _fetch. #field_idents),
+                        )*
+                        #(
+                            #ignored_field_idents: Default::default(),
+                        )*
                     }
                 }
 

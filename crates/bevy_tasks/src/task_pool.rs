@@ -236,7 +236,7 @@ impl TaskPool {
         // This is guaranteed because we drive all the futures spawned onto the Scope
         // to completion in this function. However, rust has no way of knowing this so we
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
-        let executor: &async_executor::Executor = &*self.executor;
+        let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
         let task_scope_executor = &async_executor::Executor::default();
         let task_scope_executor: &'env async_executor::Executor =
