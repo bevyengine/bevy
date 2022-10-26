@@ -11,7 +11,7 @@ readme = "README.md"
 prune = ["dep:serde", "dep:serde_json", "naga/deserialize", "naga/serialize"]
 
 [dependencies]
-naga = { version = "0.10", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out"] }
+naga = { version = "0.10", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "clone"] }
 tracing = "0.1"
 regex = "1.5"
 regex-syntax = "0.6"
