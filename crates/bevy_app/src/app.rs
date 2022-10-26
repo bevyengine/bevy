@@ -68,6 +68,7 @@ pub struct App {
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
+    plugin_registry: Vec<Box<dyn Plugin>>,
 }
 
 impl Debug for App {
@@ -131,6 +132,7 @@ impl App {
             schedule: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
+            plugin_registry: Vec::default(),
         }
     }
 
@@ -825,9 +827,57 @@ impl App {
     where
         T: Plugin,
     {
+        self.add_boxed_plugin(Box::new(plugin))
+    }
+
+    /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
+    pub(crate) fn add_boxed_plugin(&mut self, plugin: Box<dyn Plugin>) -> &mut Self {
         debug!("added plugin: {}", plugin.name());
         plugin.build(self);
+        self.plugin_registry.push(plugin);
         self
+    }
+
+    /// Checks if a [`Plugin`] has already been added.
+    ///
+    /// This can be used by plugins to check if a plugin they depend upon has already been
+    /// added.
+    pub fn is_plugin_added<T>(&self) -> bool
+    where
+        T: Plugin,
+    {
+        self.plugin_registry
+            .iter()
+            .any(|p| p.downcast_ref::<T>().is_some())
+    }
+
+    /// Returns a vector of references to any plugins of type `T` that have been added.
+    ///
+    /// This can be used to read the settings of any already added plugins.
+    /// This vector will be length zero if no plugins of that type have been added.
+    /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # #[derive(Default)]
+    /// # struct ImagePlugin {
+    /// #    default_sampler: bool,
+    /// # }
+    /// # impl Plugin for ImagePlugin {
+    /// #    fn build(&self, app: &mut App) {}
+    /// # }
+    /// # let mut app = App::new();
+    /// # app.add_plugin(ImagePlugin::default());
+    /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
+    /// ```
+    pub fn get_added_plugins<T>(&self) -> Vec<&T>
+    where
+        T: Plugin,
+    {
+        self.plugin_registry
+            .iter()
+            .filter_map(|p| p.downcast_ref())
+            .collect()
     }
 
     /// Adds a group of [`Plugin`]s.
