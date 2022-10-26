@@ -155,12 +155,12 @@ impl PluginGroupBuilder {
 
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
     /// in the order specified.
-    pub fn finish(self, app: &mut App) {
+    pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
-            if let Some(entry) = self.plugins.get(ty) {
+            if let Some(entry) = self.plugins.remove(ty) {
                 if entry.enabled {
                     debug!("added plugin: {}", entry.plugin.name());
-                    entry.plugin.build(app);
+                    app.add_boxed_plugin(entry.plugin);
                 }
             }
         }
