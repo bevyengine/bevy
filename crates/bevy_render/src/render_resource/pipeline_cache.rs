@@ -16,7 +16,7 @@ use bevy_utils::{
     Entry, HashMap, HashSet,
 };
 use naga::valid::Capabilities;
-use std::{hash::Hash, mem, ops::Deref, sync::Arc};
+use std::{borrow::Cow, hash::Hash, mem, ops::Deref, sync::Arc};
 use thiserror::Error;
 use wgpu::{
     util::make_spirv, BufferBindingType, Features, PipelineLayoutDescriptor, ShaderModule,
@@ -247,7 +247,7 @@ impl ShaderCache {
                             },
                         )?;
 
-                        wgpu::ShaderSource::Naga(naga)
+                        wgpu::ShaderSource::Naga(Cow::Owned(naga))
                     }
                 };
 

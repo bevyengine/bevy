@@ -72,9 +72,9 @@ struct Move;
 fn move_light(mut q: Query<&mut Transform, With<Move>>, time: Res<Time>) {
     for mut t in q.iter_mut() {
         t.translation = Vec3::new(
-            time.seconds_since_startup().sin() as f32 * 1.75,
+            time.elapsed_seconds().sin() * 1.75,
             1.5,
-            time.seconds_since_startup().cos() as f32 * 1.75,
+            time.elapsed_seconds().cos() * 1.75,
         );
     }
 }
