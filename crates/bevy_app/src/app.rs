@@ -848,8 +848,7 @@ impl App {
     {
         self.plugin_registry
             .iter()
-            .find(|p| p.downcast_ref::<T>().is_some())
-            .is_some()
+            .any(|p| p.downcast_ref::<T>().is_some())
     }
 
     /// Returns the plugin of a given type that have been added.
