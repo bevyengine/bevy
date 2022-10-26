@@ -143,6 +143,7 @@ impl ViewMainTexture {
 pub struct ViewTarget {
     pub main_texture: ViewMainTexture,
     pub out_texture: TextureView,
+    pub out_texture_format: TextureFormat,
 }
 
 impl ViewTarget {
@@ -242,7 +243,10 @@ fn prepare_view_targets(
     let mut textures = HashMap::default();
     for (entity, camera, view) in cameras.iter() {
         if let Some(target_size) = camera.physical_target_size {
-            if let Some(texture_view) = camera.target.get_texture_view(&windows, &images) {
+            if let (Some(texture_view), Some(texture_format)) = (
+                camera.target.get_texture_view(&windows, &images),
+                camera.target.get_texture_format(&windows, &images),
+            ) {
                 let size = Extent3d {
                     width: target_size.x,
                     height: target_size.y,
@@ -319,6 +323,7 @@ fn prepare_view_targets(
                 commands.entity(entity).insert(ViewTarget {
                     main_texture: main_texture.clone(),
                     out_texture: texture_view.clone(),
+                    out_texture_format: texture_format,
                 });
             }
         }
