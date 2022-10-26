@@ -25,7 +25,7 @@ fn main() {
     let outside_variable = "bar".to_string();
 
     App::new()
-        .add_plugin(LogPlugin)
+        .add_plugin(LogPlugin::default())
         // we can use a closure as a system
         .add_system(simple_closure)
         // or we can use a more complex closure, and pass an argument to initialize a Local variable.

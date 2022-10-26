@@ -183,8 +183,9 @@ impl<'w> WorldCell<'w> {
     /// Gets a reference to the resource of the given type
     pub fn get_resource<T: Resource>(&self) -> Option<WorldBorrow<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
+        let archetype_component_id = self
+            .world
+            .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrow::new(
             // SAFETY: ComponentId matches TypeId
             unsafe { self.world.get_resource_with_id(component_id)? },
@@ -215,8 +216,9 @@ impl<'w> WorldCell<'w> {
     /// Gets a mutable reference to the resource of the given type
     pub fn get_resource_mut<T: Resource>(&self) -> Option<WorldBorrowMut<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
+        let archetype_component_id = self
+            .world
+            .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrowMut::new(
             // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
             unsafe {
@@ -250,8 +252,9 @@ impl<'w> WorldCell<'w> {
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
     pub fn get_non_send_resource<T: 'static>(&self) -> Option<WorldBorrow<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
+        let archetype_component_id = self
+            .world
+            .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrow::new(
             // SAFETY: ComponentId matches TypeId
             unsafe { self.world.get_non_send_with_id(component_id)? },
@@ -282,8 +285,9 @@ impl<'w> WorldCell<'w> {
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     pub fn get_non_send_resource_mut<T: 'static>(&self) -> Option<WorldBorrowMut<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
+        let archetype_component_id = self
+            .world
+            .get_resource_archetype_component_id(component_id)?;
         Some(WorldBorrowMut::new(
             // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
             unsafe {
@@ -319,7 +323,7 @@ impl<'w> WorldCell<'w> {
 mod tests {
     use super::BASE_ACCESS;
     use crate as bevy_ecs;
-    use crate::{archetype::ArchetypeId, system::Resource, world::World};
+    use crate::{system::Resource, world::World};
     use std::any::TypeId;
 
     #[derive(Resource)]
@@ -377,10 +381,9 @@ mod tests {
             }
         }
 
-        let resource_id = world.components.get_resource_id(TypeId::of::<A>()).unwrap();
-        let resource_archetype = world.archetypes.get(ArchetypeId::RESOURCE).unwrap();
-        let u32_archetype_component_id = resource_archetype
-            .get_archetype_component_id(resource_id)
+        let u32_component_id = world.components.get_resource_id(TypeId::of::<A>()).unwrap();
+        let u32_archetype_component_id = world
+            .get_resource_archetype_component_id(u32_component_id)
             .unwrap();
         assert_eq!(world.archetype_component_access.access.len(), 1);
         assert_eq!(
