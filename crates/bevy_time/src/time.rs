@@ -442,6 +442,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn update_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);
@@ -574,6 +575,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn relative_speed_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);
@@ -676,6 +678,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn pause_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);
