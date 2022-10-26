@@ -1,6 +1,6 @@
 use crate::{Audio, AudioSource, Decodable};
 use bevy_asset::{Asset, Assets};
-use bevy_ecs::world::World;
+use bevy_ecs::system::{NonSend, Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
@@ -43,17 +43,15 @@ where
     Source: Asset + Decodable,
 {
     fn play_source(&self, audio_source: &Source, repeat: bool) -> Option<Sink> {
-        if let Some(stream_handle) = &self.stream_handle {
+        self.stream_handle.as_ref().map(|stream_handle| {
             let sink = Sink::try_new(stream_handle).unwrap();
             if repeat {
                 sink.append(audio_source.decoder().repeat_infinite());
             } else {
                 sink.append(audio_source.decoder());
             }
-            Some(sink)
-        } else {
-            None
-        }
+            sink
+        })
     }
 
     fn try_play_queued(
@@ -68,7 +66,10 @@ where
         while i < len {
             let config = queue.pop_front().unwrap();
             if let Some(audio_source) = audio_sources.get(&config.source_handle) {
-                if let Some(sink) = self.play_source(audio_source, config.repeat) {
+                if let Some(sink) = self.play_source(audio_source, config.settings.repeat) {
+                    sink.set_speed(config.settings.speed);
+                    sink.set_volume(config.settings.volume);
+
                     // don't keep the strong handle. there is no way to return it to the user here as it is async
                     let _ = sinks.set(config.sink_handle, AudioSink { sink: Some(sink) });
                 }
@@ -82,17 +83,14 @@ where
 }
 
 /// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
-pub fn play_queued_audio_system<Source: Asset>(world: &mut World)
-where
-    Source: Decodable,
-{
-    let world = world.cell();
-    let audio_output = world.get_non_send::<AudioOutput<Source>>().unwrap();
-    let mut audio = world.get_resource_mut::<Audio<Source>>().unwrap();
-    let mut sinks = world.get_resource_mut::<Assets<AudioSink>>().unwrap();
-
-    if let Some(audio_sources) = world.get_resource::<Assets<Source>>() {
-        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut *sinks);
+pub fn play_queued_audio_system<Source: Asset + Decodable>(
+    audio_output: NonSend<AudioOutput<Source>>,
+    audio_sources: Option<Res<Assets<Source>>>,
+    mut audio: ResMut<Audio<Source>>,
+    mut sinks: ResMut<Assets<AudioSink>>,
+) {
+    if let Some(audio_sources) = audio_sources {
+        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks);
     };
 }
 
@@ -185,5 +183,12 @@ impl AudioSink {
     /// Sinks can be paused and resumed using [`pause`](Self::pause) and [`play`](Self::play).
     pub fn is_paused(&self) -> bool {
         self.sink.as_ref().unwrap().is_paused()
+    }
+
+    /// Stops the sink.
+    ///
+    /// It won't be possible to restart it afterwards.
+    pub fn stop(&self) {
+        self.sink.as_ref().unwrap().stop();
     }
 }

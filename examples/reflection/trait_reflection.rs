@@ -1,4 +1,6 @@
-use bevy::{prelude::*, reflect::TypeRegistry};
+//! Allows reflection with trait objects.
+
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -25,7 +27,7 @@ pub trait DoThing {
     fn do_thing(&self) -> String;
 }
 
-fn setup(type_registry: Res<TypeRegistry>) {
+fn setup(type_registry: Res<AppTypeRegistry>) {
     // First, lets box our type as a Box<dyn Reflect>
     let reflect_value: Box<dyn Reflect> = Box::new(MyType {
         value: "Hello".to_string(),

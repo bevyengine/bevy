@@ -1,7 +1,6 @@
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
-mod rect;
 mod render;
 mod sprite;
 mod texture_atlas;
@@ -22,7 +21,6 @@ pub mod prelude {
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
-pub use rect::*;
 pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
@@ -30,12 +28,12 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, HandleUntyped};
-use bevy_core_pipeline::Transparent2d;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_phase::AddRenderCommand,
-    render_resource::{Shader, SpecializedPipelines},
+    render_resource::{Shader, SpecializedRenderPipelines},
     RenderApp, RenderStage,
 };
 
@@ -57,6 +55,8 @@ impl Plugin for SpritePlugin {
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
         app.add_asset::<TextureAtlas>()
             .register_type::<Sprite>()
+            .register_type::<Anchor>()
+            .register_type::<Mesh2dHandle>()
             .add_plugin(Mesh2dRenderPlugin)
             .add_plugin(ColorMaterialPlugin);
 
@@ -64,7 +64,7 @@ impl Plugin for SpritePlugin {
             render_app
                 .init_resource::<ImageBindGroups>()
                 .init_resource::<SpritePipeline>()
-                .init_resource::<SpecializedPipelines<SpritePipeline>>()
+                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<SpriteAssetEvents>()

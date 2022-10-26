@@ -2,20 +2,21 @@ use crate::MeshPipeline;
 use crate::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
-use bevy_core_pipeline::Opaque3d;
+use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::mesh::MeshVertexBufferLayout;
-use bevy_render::render_resource::{
-    PolygonMode, RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-    SpecializedMeshPipelines,
-};
+use bevy_render::Extract;
 use bevy_render::{
-    mesh::Mesh,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
-    render_resource::{RenderPipelineCache, Shader},
-    view::{ExtractedView, Msaa},
+    render_resource::{
+        PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+    },
+    view::{ExtractedView, Msaa, VisibleEntities},
     RenderApp, RenderStage,
 };
 use bevy_utils::tracing::error;
@@ -35,7 +36,10 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl
         );
 
-        app.init_resource::<WireframeConfig>();
+        app.register_type::<Wireframe>()
+            .register_type::<WireframeConfig>()
+            .init_resource::<WireframeConfig>()
+            .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -43,35 +47,30 @@ impl Plugin for WireframePlugin {
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
                 .add_system_to_stage(RenderStage::Extract, extract_wireframes)
-                .add_system_to_stage(RenderStage::Extract, extract_wireframe_config)
                 .add_system_to_stage(RenderStage::Queue, queue_wireframes);
         }
     }
 }
 
-fn extract_wireframe_config(mut commands: Commands, wireframe_config: Res<WireframeConfig>) {
-    if wireframe_config.is_added() || wireframe_config.is_changed() {
-        commands.insert_resource(wireframe_config.into_inner().clone());
-    }
-}
-
-fn extract_wireframes(mut commands: Commands, query: Query<Entity, With<Wireframe>>) {
-    for entity in query.iter() {
+fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<Wireframe>>>) {
+    for entity in &query {
         commands.get_or_spawn(entity).insert(Wireframe);
     }
 }
 
 /// Controls whether an entity should rendered in wireframe-mode if the [`WireframePlugin`] is enabled
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Wireframe;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes. If `false`, only meshes with a [Wireframe] component will be rendered.
     pub global: bool,
 }
 
+#[derive(Resource)]
 pub struct WireframePipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
@@ -103,37 +102,35 @@ impl SpecializedMeshPipeline for WireframePipeline {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::type_complexity)]
 fn queue_wireframes(
     opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
-    mut pipeline_cache: ResMut<RenderPipelineCache>,
-    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     msaa: Res<Msaa>,
-    mut material_meshes: QuerySet<(
-        QueryState<(Entity, &Handle<Mesh>, &MeshUniform)>,
-        QueryState<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
+    mut material_meshes: ParamSet<(
+        Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
+        Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
     )>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
+    mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
     let draw_custom = opaque_3d_draw_functions
         .read()
         .get_id::<DrawWireframes>()
         .unwrap();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, mut transparent_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
+    for (view, visible_entities, mut opaque_phase) in &mut views {
+        let rangefinder = view.rangefinder3d();
 
+        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key = MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                        | MeshPipelineKey::from_hdr(view.hdr)
-                        | msaa_key;
-                    let pipeline_id = specialized_pipelines.specialize(
+                    let key = view_key
+                        | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    let pipeline_id = pipelines.specialize(
                         &mut pipeline_cache,
                         &wireframe_pipeline,
                         key,
@@ -146,19 +143,29 @@ fn queue_wireframes(
                             return;
                         }
                     };
-                    transparent_phase.add(Opaque3d {
+                    opaque_phase.add(Opaque3d {
                         entity,
                         pipeline: pipeline_id,
                         draw_function: draw_custom,
-                        distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                        distance: rangefinder.distance(&mesh_uniform.transform),
                     });
                 }
             };
 
         if wireframe_config.global {
-            material_meshes.q0().iter().for_each(add_render_phase);
+            let query = material_meshes.p0();
+            visible_entities
+                .entities
+                .iter()
+                .filter_map(|visible_entity| query.get(*visible_entity).ok())
+                .for_each(add_render_phase);
         } else {
-            material_meshes.q1().iter().for_each(add_render_phase);
+            let query = material_meshes.p1();
+            visible_entities
+                .entities
+                .iter()
+                .filter_map(|visible_entity| query.get(*visible_entity).ok())
+                .for_each(add_render_phase);
         }
     }
 }

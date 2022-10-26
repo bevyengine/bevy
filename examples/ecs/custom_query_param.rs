@@ -1,37 +1,27 @@
-use bevy::{
-    ecs::{component::Component, query::WorldQuery},
-    prelude::*,
-};
-use std::{fmt::Debug, marker::PhantomData};
+//! This example illustrates the usage of the `WorldQuery` derive macro, which allows
+//! defining custom query and filter types.
+//!
+//! While regular tuple queries work great in most of simple scenarios, using custom queries
+//! declared as named structs can bring the following advantages:
+//! - They help to avoid destructuring or using `q.0, q.1, ...` access pattern.
+//! - Adding, removing components or changing items order with structs greatly reduces maintenance
+//!   burden, as you don't need to update statements that destructure tuples, care about order
+//!   of elements, etc. Instead, you can just add or remove places where a certain element is used.
+//! - Named structs enable the composition pattern, that makes query types easier to re-use.
+//! - You can bypass the limit of 15 components that exists for query tuples.
+//!
+//! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
-/// This examples illustrates the usage of the `WorldQuery` derive macro, which allows
-/// defining custom query and filter types.
-///
-/// While regular tuple queries work great in most of simple scenarios, using custom queries
-/// declared as named structs can bring the following advantages:
-/// - They help to avoid destructuring or using `q.0, q.1, ...` access pattern.
-/// - Adding, removing components or changing items order with structs greatly reduces maintenance
-///   burden, as you don't need to update statements that destructure tuples, care about order
-///   of elements, etc. Instead, you can just add or remove places where a certain element is used.
-/// - Named structs enable the composition pattern, that makes query types easier to re-use.
-/// - You can bypass the limit of 15 components that exists for query tuples.
-///
-/// For more details on the `WorldQuery` derive macro, see the trait documentation.
+use bevy::{ecs::query::WorldQuery, prelude::*};
+use std::fmt::Debug;
+
 fn main() {
     App::new()
         .add_startup_system(spawn)
-        .add_system(print_components_read_only.label("print_components_read_only"))
-        .add_system(
-            print_components_iter_mut
-                .label("print_components_iter_mut")
-                .after("print_components_read_only"),
-        )
-        .add_system(
-            print_components_iter
-                .label("print_components_iter")
-                .after("print_components_iter_mut"),
-        )
-        .add_system(print_components_tuple.after("print_components_iter"))
+        .add_system(print_components_read_only)
+        .add_system(print_components_iter_mut.after(print_components_read_only))
+        .add_system(print_components_iter.after(print_components_iter_mut))
+        .add_system(print_components_tuple.after(print_components_iter))
         .run();
 }
 
@@ -48,22 +38,22 @@ struct ComponentZ;
 
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct ReadOnlyCustomQuery<'w, T: Component + Debug, P: Component + Debug> {
+struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
-    a: &'w ComponentA,
-    b: Option<&'w ComponentB>,
-    nested: NestedQuery<'w>,
-    optional_nested: Option<NestedQuery<'w>>,
-    optional_tuple: Option<(&'w ComponentB, &'w ComponentZ)>,
-    generic: GenericQuery<'w, T, P>,
-    empty: EmptyQuery<'w>,
+    a: &'static ComponentA,
+    b: Option<&'static ComponentB>,
+    nested: NestedQuery,
+    optional_nested: Option<NestedQuery>,
+    optional_tuple: Option<(&'static ComponentB, &'static ComponentZ)>,
+    generic: GenericQuery<T, P>,
+    empty: EmptyQuery,
 }
 
 fn print_components_read_only(
     query: Query<ReadOnlyCustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
 ) {
     println!("Print components (read_only):");
-    for e in query.iter() {
+    for e in &query {
         println!("Entity: {:?}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
@@ -82,65 +72,54 @@ fn print_components_read_only(
 // using the `derive` attribute.
 #[derive(WorldQuery)]
 #[world_query(mutable, derive(Debug))]
-struct CustomQuery<'w, T: Component + Debug, P: Component + Debug> {
+struct CustomQuery<T: Component + Debug, P: Component + Debug> {
     entity: Entity,
-    a: &'w mut ComponentA,
-    b: Option<&'w mut ComponentB>,
-    nested: NestedQuery<'w>,
-    optional_nested: Option<NestedQuery<'w>>,
-    optional_tuple: Option<(NestedQuery<'w>, &'w mut ComponentZ)>,
-    generic: GenericQuery<'w, T, P>,
-    empty: EmptyQuery<'w>,
+    a: &'static mut ComponentA,
+    b: Option<&'static mut ComponentB>,
+    nested: NestedQuery,
+    optional_nested: Option<NestedQuery>,
+    optional_tuple: Option<(NestedQuery, &'static mut ComponentZ)>,
+    generic: GenericQuery<T, P>,
+    empty: EmptyQuery,
 }
 
 // This is a valid query as well, which would iterate over every entity.
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct EmptyQuery<'w> {
-    // The derive macro expect a lifetime. As Rust doesn't allow unused lifetimes, we need
-    // to use `PhantomData` as a work around.
-    #[world_query(ignore)]
-    _w: std::marker::PhantomData<&'w ()>,
+struct EmptyQuery {
+    empty: (),
 }
 
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct NestedQuery<'w> {
-    c: &'w ComponentC,
-    d: Option<&'w ComponentD>,
+struct NestedQuery {
+    c: &'static ComponentC,
+    d: Option<&'static ComponentD>,
 }
 
 #[derive(WorldQuery)]
 #[world_query(derive(Debug))]
-struct GenericQuery<'w, T: Component, P: Component> {
-    generic: (&'w T, &'w P),
+struct GenericQuery<T: Component, P: Component> {
+    generic: (&'static T, &'static P),
 }
 
 #[derive(WorldQuery)]
-#[world_query(filter)]
 struct QueryFilter<T: Component, P: Component> {
     _c: With<ComponentC>,
     _d: With<ComponentD>,
     _or: Or<(Added<ComponentC>, Changed<ComponentD>, Without<ComponentZ>)>,
     _generic_tuple: (With<T>, With<P>),
-    #[world_query(ignore)]
-    _tp: PhantomData<(T, P)>,
 }
 
 fn spawn(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(ComponentA)
-        .insert(ComponentB)
-        .insert(ComponentC)
-        .insert(ComponentD);
+    commands.spawn((ComponentA, ComponentB, ComponentC, ComponentD));
 }
 
 fn print_components_iter_mut(
     mut query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
 ) {
     println!("Print components (iter_mut):");
-    for e in query.iter_mut() {
+    for e in &mut query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
         let e: CustomQueryItem<'_, _, _> = e;
         println!("Entity: {:?}", e.entity);
@@ -158,7 +137,7 @@ fn print_components_iter(
     query: Query<CustomQuery<ComponentC, ComponentD>, QueryFilter<ComponentC, ComponentD>>,
 ) {
     println!("Print components (iter):");
-    for e in query.iter() {
+    for e in &query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
         let e: CustomQueryReadOnlyItem<'_, _, _> = e;
         println!("Entity: {:?}", e.entity);
@@ -190,7 +169,7 @@ fn print_components_tuple(
     >,
 ) {
     println!("Print components (tuple):");
-    for (entity, a, b, nested, (generic_c, generic_d)) in query.iter() {
+    for (entity, a, b, nested, (generic_c, generic_d)) in &query {
         println!("Entity: {:?}", entity);
         println!("A: {:?}", a);
         println!("B: {:?}", b);

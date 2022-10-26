@@ -157,7 +157,7 @@ impl VertexBufferLayout {
 }
 
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -166,5 +166,18 @@ pub struct FragmentState {
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
     /// The color state of the render targets.
-    pub targets: Vec<ColorTargetState>,
+    pub targets: Vec<Option<ColorTargetState>>,
+}
+
+/// Describes a compute pipeline.
+#[derive(Clone, Debug)]
+pub struct ComputePipelineDescriptor {
+    pub label: Option<Cow<'static, str>>,
+    pub layout: Option<Vec<BindGroupLayout>>,
+    /// The compiled shader module for this stage.
+    pub shader: Handle<Shader>,
+    pub shader_defs: Vec<String>,
+    /// The name of the entry point in the compiled shader. There must be a
+    /// function with this name in the shader.
+    pub entry_point: Cow<'static, str>,
 }
