@@ -49,7 +49,7 @@ fn setup(
             label: None,
             size,
             dimension: TextureDimension::D2,
-            format: TextureFormat::R16Float,
+            format: TextureFormat::Bgra8UnormSrgb,
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::TEXTURE_BINDING
