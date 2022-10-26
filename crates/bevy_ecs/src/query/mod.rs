@@ -21,7 +21,7 @@ pub(crate) unsafe fn debug_checked_unreachable() -> ! {
 mod tests {
     use super::{ReadOnlyWorldQuery, WorldQuery};
     use crate::prelude::{AnyOf, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, QueryCombinationIter, QueryFetch};
+    use crate::query::{ArchetypeFilter, QueryCombinationIter};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::any::type_name;
@@ -88,8 +88,6 @@ mod tests {
             Q: ReadOnlyWorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
-            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter(world);
@@ -166,8 +164,6 @@ mod tests {
             Q: WorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
-            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter_combinations::<K>(world);
@@ -179,8 +175,6 @@ mod tests {
             Q: WorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
-            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter(world);

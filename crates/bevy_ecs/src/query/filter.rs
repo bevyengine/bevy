@@ -66,6 +66,11 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     ) {
     }
 
+    unsafe fn clone_fetch<'w>(
+        _fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    }
+
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
@@ -173,6 +178,11 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     ) {
     }
 
+    unsafe fn clone_fetch<'w>(
+        _fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    }
+
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
@@ -271,25 +281,12 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
 /// ```
-#[derive(Clone, Copy)]
 pub struct Or<T>(pub T);
 
 #[doc(hidden)]
 pub struct OrFetch<'w, T: WorldQuery> {
     fetch: QueryFetch<'w, T>,
     matches: bool,
-}
-impl<'w, T: WorldQuery> Copy for OrFetch<'w, T> where QueryFetch<'w, T>: Copy {}
-impl<'w, T: WorldQuery> Clone for OrFetch<'w, T>
-where
-    QueryFetch<'w, T>: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            fetch: self.fetch.clone(),
-            matches: self.matches,
-        }
-    }
 }
 
 macro_rules! impl_query_filter_tuple {
@@ -324,6 +321,18 @@ macro_rules! impl_query_filter_tuple {
                     fetch: $filter::init_fetch(world, $filter, last_change_tick, change_tick),
                     matches: false,
                 },)*)
+            }
+
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as WorldQueryGats<'w>>::Fetch {
+                let ($($filter,)*) = &fetch;
+                ($(
+                    OrFetch {
+                        fetch: $filter::clone_fetch(&$filter.fetch),
+                        matches: $filter.matches,
+                    },
+                )*)
             }
 
             #[inline]
@@ -471,6 +480,20 @@ macro_rules! impl_tick_filter {
                 }
             }
 
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as WorldQueryGats<'w>>::Fetch {
+                $fetch_name {
+                    table_ticks: fetch.table_ticks,
+                    entity_table_rows: fetch.entity_table_rows,
+                    entities: fetch.entities,
+                    sparse_set: fetch.sparse_set,
+                    last_change_tick: fetch.last_change_tick,
+                    change_tick: fetch.change_tick,
+                    marker: PhantomData,
+                }
+            }
+
             const IS_DENSE: bool = {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => true,
@@ -565,22 +588,6 @@ macro_rules! impl_tick_filter {
 
         /// SAFETY: read-only access
         unsafe impl<T: Component> ReadOnlyWorldQuery for $name<T> {}
-
-        impl<T> Clone for $fetch_name<'_, T> {
-            fn clone(&self) -> Self {
-                Self {
-                    table_ticks: self.table_ticks.clone(),
-                    entity_table_rows: self.entity_table_rows.clone(),
-                    marker: self.marker.clone(),
-                    entities: self.entities.clone(),
-                    sparse_set: self.sparse_set.clone(),
-                    last_change_tick: self.last_change_tick.clone(),
-                    change_tick: self.change_tick.clone(),
-                }
-            }
-        }
-
-        impl<T> Copy for $fetch_name<'_, T> {}
     };
 }
 
