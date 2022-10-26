@@ -788,7 +788,7 @@ mod test {
 
     fn create_dir_and_file(file: impl AsRef<Path>) -> tempfile::TempDir {
         let asset_dir = tempfile::tempdir().unwrap();
-        std::fs::write(asset_dir.path().join(file), &[]).unwrap();
+        std::fs::write(asset_dir.path().join(file), []).unwrap();
         asset_dir
     }
 
