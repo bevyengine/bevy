@@ -5,8 +5,8 @@ pub use node::UpscalingNode;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_render::renderer::{RenderDevice, SurfaceTextureFormat};
-use bevy_render::view::ExtractedView;
+use bevy_render::renderer::RenderDevice;
+use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
 use bevy_reflect::TypeUuid;
@@ -39,13 +39,11 @@ impl Plugin for UpscalingPlugin {
 #[derive(Resource)]
 pub struct UpscalingPipeline {
     ldr_texture_bind_group: BindGroupLayout,
-    surface_texture_format: TextureFormat,
 }
 
 impl FromWorld for UpscalingPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let render_device = render_world.resource::<RenderDevice>();
-        let surface_texture_format = render_world.resource::<SurfaceTextureFormat>().0;
 
         let ldr_texture_bind_group =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -72,50 +70,26 @@ impl FromWorld for UpscalingPipeline {
 
         UpscalingPipeline {
             ldr_texture_bind_group,
-            surface_texture_format,
         }
     }
 }
 
-#[repr(u8)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub enum UpscalingMode {
-    Filtering = 0,
-    Nearest = 1,
+    Filtering,
+    Nearest,
 }
 
-bitflags::bitflags! {
-    #[repr(transparent)]
-    pub struct UpscalingPipelineKey: u32 {
-        const NONE                         = 0;
-        const UPSCALING_MODE_RESERVED_BITS = UpscalingPipelineKey::UPSCALING_MODE_MASK_BITS << UpscalingPipelineKey::UPSCALING_MODE_SHIFT_BITS;
-    }
-}
-
-impl UpscalingPipelineKey {
-    const UPSCALING_MODE_MASK_BITS: u32 = 0b1111; // enough for 16 different modes
-    const UPSCALING_MODE_SHIFT_BITS: u32 = 32 - 4;
-
-    pub fn from_upscaling_mode(upscaling_mode: UpscalingMode) -> Self {
-        let upscaling_mode_bits = ((upscaling_mode as u32) & Self::UPSCALING_MODE_MASK_BITS)
-            << Self::UPSCALING_MODE_SHIFT_BITS;
-        UpscalingPipelineKey::from_bits(upscaling_mode_bits).unwrap()
-    }
-
-    pub fn upscaling_mode(&self) -> UpscalingMode {
-        let upscaling_mode_bits =
-            (self.bits >> Self::UPSCALING_MODE_SHIFT_BITS) & Self::UPSCALING_MODE_MASK_BITS;
-        match upscaling_mode_bits {
-            0 => UpscalingMode::Filtering,
-            1 => UpscalingMode::Nearest,
-            other => panic!("invalid upscaling mode bits in UpscalingPipelineKey: {other}"),
-        }
-    }
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub struct UpscalingPipelineKey {
+    upscaling_mode: UpscalingMode,
+    texture_format: TextureFormat,
 }
 
 impl SpecializedRenderPipeline for UpscalingPipeline {
     type Key = UpscalingPipelineKey;
 
-    fn specialize(&self, _: Self::Key) -> RenderPipelineDescriptor {
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("upscaling pipeline".into()),
             layout: Some(vec![self.ldr_texture_bind_group.clone()]),
@@ -125,7 +99,7 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
                 shader_defs: vec![],
                 entry_point: "fs_main".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: self.surface_texture_format,
+                    format: key.texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -147,10 +121,13 @@ fn queue_upscaling_bind_groups(
     mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UpscalingPipeline>>,
     upscaling_pipeline: Res<UpscalingPipeline>,
-    view_targets: Query<Entity, With<ExtractedView>>,
+    view_targets: Query<(Entity, &ViewTarget)>,
 ) {
-    for entity in view_targets.iter() {
-        let key = UpscalingPipelineKey::from_upscaling_mode(UpscalingMode::Filtering);
+    for (entity, view_target) in view_targets.iter() {
+        let key = UpscalingPipelineKey {
+            upscaling_mode: UpscalingMode::Filtering,
+            texture_format: view_target.out_texture_format,
+        };
         let pipeline = pipelines.specialize(&mut pipeline_cache, &upscaling_pipeline, key);
 
         commands.entity(entity).insert(UpscalingTarget { pipeline });

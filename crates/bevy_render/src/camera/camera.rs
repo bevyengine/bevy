@@ -24,7 +24,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::{borrow::Cow, ops::Range};
-use wgpu::Extent3d;
+use wgpu::{Extent3d, TextureFormat};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -322,6 +322,22 @@ impl RenderTarget {
                 .and_then(|window| window.swap_chain_texture.as_ref()),
             RenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| &image.texture_view)
+            }
+        }
+    }
+
+    /// Retrieves the [`TextureFormat`] of this render target, if it exists.
+    pub fn get_texture_format<'a>(
+        &self,
+        windows: &'a ExtractedWindows,
+        images: &'a RenderAssets<Image>,
+    ) -> Option<TextureFormat> {
+        match self {
+            RenderTarget::Window(window_id) => windows
+                .get(window_id)
+                .and_then(|window| window.swap_chain_texture_format),
+            RenderTarget::Image(image_handle) => {
+                images.get(image_handle).map(|image| image.texture_format)
             }
         }
     }
