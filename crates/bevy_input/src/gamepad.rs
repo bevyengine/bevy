@@ -2,7 +2,7 @@ use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
-use bevy_utils::{tracing::info, HashMap, HashSet};
+use bevy_utils::{tracing::info, HashMap};
 use thiserror::Error;
 
 /// Errors that occur when setting axis settings for gamepad input.
