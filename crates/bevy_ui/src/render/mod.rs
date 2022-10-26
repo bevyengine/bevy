@@ -125,7 +125,7 @@ pub fn build_ui_render(app: &mut App) {
         );
         graph_3d
             .add_node_edge(
-                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+                bevy_core_pipeline::core_3d::graph::node::TRANSPARENT_PASS,
                 draw_ui_graph::node::UI_PASS,
             )
             .unwrap();
