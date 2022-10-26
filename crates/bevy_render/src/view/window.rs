@@ -199,7 +199,6 @@ pub fn prepare_windows(
                 SurfaceData { surface, format }
             });
 
-        // Creates a closure to avoid calling this logic unnecessarily
         let surface_configuration = wgpu::SurfaceConfiguration {
             format: surface_data.format,
             width: window.physical_width,
