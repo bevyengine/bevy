@@ -250,11 +250,30 @@ mod test {
     }
 
     #[test]
-    fn missing_import() {
+    fn missing_import_in_module() {
         let mut composer = Composer::default();
 
         let error = composer
             .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/error_test/include.wgsl"),
+                file_path: "tests/error_test/include.wgsl",
+                ..Default::default()
+            })
+            .err()
+            .unwrap();
+        let text = error.emit_to_string(&composer);
+        // let mut f = std::fs::File::create("missing_import.txt").unwrap();
+        // f.write_all(text.as_bytes()).unwrap();
+        // drop(f);
+        assert_eq!(text, include_str!("tests/expected/missing_import.txt"));
+    }
+
+    #[test]
+    fn missing_import_in_shader() {
+        let mut composer = Composer::default();
+
+        let error = composer
+            .make_naga_module(NagaModuleDescriptor {
                 source: include_str!("tests/error_test/include.wgsl"),
                 file_path: "tests/error_test/include.wgsl",
                 ..Default::default()
