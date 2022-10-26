@@ -6,14 +6,12 @@ use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 
 fn main() {
     App::new()
-        // This tells the AssetServer to watch for changes to assets.
-        // It enables our scenes to automatically reload in game when we modify their files.
-        // AssetServerSettings must be inserted before the DefaultPlugins are added.
-        .insert_resource(AssetServerSettings {
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            // This tells the AssetServer to watch for changes to assets.
+            // It enables our scenes to automatically reload in game when we modify their files.
             watch_for_changes: true,
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
         .add_startup_system(save_scene_system)
@@ -52,7 +50,7 @@ impl FromWorld for ComponentB {
     fn from_world(world: &mut World) -> Self {
         let time = world.resource::<Time>();
         ComponentB {
-            _time_since_startup: time.time_since_startup(),
+            _time_since_startup: time.elapsed(),
             value: "Default Value".to_string(),
         }
     }

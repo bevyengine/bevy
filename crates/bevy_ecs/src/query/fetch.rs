@@ -327,6 +327,16 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
         change_tick: u32,
     ) -> <Self as WorldQueryGats<'w>>::Fetch;
 
+    /// While this function can be called for any query, it is always safe to call if `Self: ReadOnlyWorldQuery` holds.
+    ///
+    /// # Safety
+    /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
+    /// that the returned value is not used in any way that would cause two `QueryItem<Self>` for the same
+    /// `archetype_index` or `table_row` to be alive at the same time.
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch;
+
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
     /// all of the matched components. This is used to select a more efficient "table iterator"
     /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] and [`WorldQuery::table_fetch`]
@@ -461,7 +471,6 @@ pub type ROQueryFetch<'w, Q> = QueryFetch<'w, <Q as WorldQuery>::ReadOnly>;
 pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as WorldQuery>::ReadOnly>;
 
 #[doc(hidden)]
-#[derive(Clone)]
 pub struct EntityFetch<'w> {
     entities: Option<ThinSlicePtr<'w, Entity>>,
 }
@@ -486,6 +495,14 @@ unsafe impl WorldQuery for Entity {
         _change_tick: u32,
     ) -> EntityFetch<'w> {
         EntityFetch { entities: None }
+    }
+
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        EntityFetch {
+            entities: fetch.entities,
+        }
     }
 
     #[inline]
@@ -595,6 +612,17 @@ unsafe impl<T: Component> WorldQuery for &T {
         }
     }
 
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        ReadFetch {
+            table_components: fetch.table_components,
+            entity_table_rows: fetch.entity_table_rows,
+            entities: fetch.entities,
+            sparse_set: fetch.sparse_set,
+        }
+    }
+
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadFetch<'w, T>,
@@ -692,17 +720,6 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 }
 
-impl<T> Clone for ReadFetch<'_, T> {
-    fn clone(&self) -> Self {
-        Self {
-            table_components: self.table_components,
-            entity_table_rows: self.entity_table_rows,
-            entities: self.entities,
-            sparse_set: self.sparse_set,
-        }
-    }
-}
-
 /// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyWorldQuery for &T {}
 
@@ -758,6 +775,20 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             table_ticks: None,
             last_change_tick,
             change_tick,
+        }
+    }
+
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        WriteFetch {
+            table_components: fetch.table_components,
+            table_ticks: fetch.table_ticks,
+            entities: fetch.entities,
+            entity_table_rows: fetch.entity_table_rows,
+            sparse_set: fetch.sparse_set,
+            last_change_tick: fetch.last_change_tick,
+            change_tick: fetch.change_tick,
         }
     }
 
@@ -887,20 +918,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 }
 
-impl<T> Clone for WriteFetch<'_, T> {
-    fn clone(&self) -> Self {
-        Self {
-            table_components: self.table_components,
-            table_ticks: self.table_ticks,
-            entities: self.entities,
-            entity_table_rows: self.entity_table_rows,
-            sparse_set: self.sparse_set,
-            last_change_tick: self.last_change_tick,
-            change_tick: self.change_tick,
-        }
-    }
-}
-
 impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
     type Fetch = WriteFetch<'w, T>;
     type Item = Mut<'w, T>;
@@ -910,17 +927,6 @@ impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
 pub struct OptionFetch<'w, T: WorldQuery> {
     fetch: <T as WorldQueryGats<'w>>::Fetch,
     matches: bool,
-}
-impl<'w, T: WorldQuery> Clone for OptionFetch<'w, T>
-where
-    <T as WorldQueryGats<'w>>::Fetch: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            fetch: self.fetch.clone(),
-            matches: self.matches,
-        }
-    }
 }
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
@@ -945,6 +951,15 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         OptionFetch {
             fetch: T::init_fetch(world, state, last_change_tick, change_tick),
             matches: false,
+        }
+    }
+
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        OptionFetch {
+            fetch: T::clone_fetch(&fetch.fetch),
+            matches: fetch.matches,
         }
     }
 
@@ -1065,13 +1080,24 @@ impl<'w, T: WorldQuery> WorldQueryGats<'w> for Option<T> {
 /// }
 /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
 /// ```
-#[derive(Clone)]
 pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
     marker: PhantomData<T>,
 }
+
+impl<T: Component> Clone for ChangeTrackers<T> {
+    fn clone(&self) -> Self {
+        Self {
+            component_ticks: self.component_ticks,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
+            marker: PhantomData,
+        }
+    }
+}
+impl<T: Component> Copy for ChangeTrackers<T> {}
 
 impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1111,20 +1137,6 @@ pub struct ChangeTrackersFetch<'w, T> {
     change_tick: u32,
 }
 
-impl<T> Clone for ChangeTrackersFetch<'_, T> {
-    fn clone(&self) -> Self {
-        Self {
-            table_ticks: self.table_ticks,
-            entity_table_rows: self.entity_table_rows,
-            entities: self.entities,
-            sparse_set: self.sparse_set,
-            marker: self.marker,
-            last_change_tick: self.last_change_tick,
-            change_tick: self.change_tick,
-        }
-    }
-}
-
 // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     type ReadOnly = Self;
@@ -1158,6 +1170,20 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
             marker: PhantomData,
             last_change_tick,
             change_tick,
+        }
+    }
+
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        ChangeTrackersFetch {
+            table_ticks: fetch.table_ticks,
+            entity_table_rows: fetch.entity_table_rows,
+            entities: fetch.entities,
+            sparse_set: fetch.sparse_set,
+            marker: fetch.marker,
+            last_change_tick: fetch.last_change_tick,
+            change_tick: fetch.change_tick,
         }
     }
 
@@ -1317,6 +1343,13 @@ macro_rules! impl_tuple_fetch {
                 ($($name::init_fetch(_world, $name, _last_change_tick, _change_tick),)*)
             }
 
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as WorldQueryGats<'w>>::Fetch {
+                let ($($name,)*) = &fetch;
+                ($($name::clone_fetch($name),)*)
+            }
+
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
@@ -1395,7 +1428,6 @@ macro_rules! impl_tuple_fetch {
 /// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
 /// Each of the components in `T` is returned as an `Option`, as with `Option<A>` queries.
 /// Entities are guaranteed to have at least one of the components in `T`.
-#[derive(Clone)]
 pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_anytuple_fetch {
@@ -1425,6 +1457,13 @@ macro_rules! impl_anytuple_fetch {
             unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> <Self as WorldQueryGats<'w>>::Fetch {
                 let ($($name,)*) = state;
                 ($(($name::init_fetch(_world, $name, _last_change_tick, _change_tick), false),)*)
+            }
+
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as WorldQueryGats<'w>>::Fetch {
+                let ($($name,)*) = &fetch;
+                ($(($name::clone_fetch(& $name.0), $name.1),)*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -1557,6 +1596,11 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
         _last_change_tick: u32,
         _change_tick: u32,
     ) {
+    }
+
+    unsafe fn clone_fetch<'w>(
+        _fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
     }
 
     #[inline(always)]

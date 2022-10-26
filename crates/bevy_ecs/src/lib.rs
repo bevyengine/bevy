@@ -238,6 +238,45 @@ mod tests {
                 b: B(2),
             }
         );
+
+        #[derive(Default, Component, PartialEq, Debug)]
+        struct Ignored;
+
+        #[derive(Bundle, PartialEq, Debug)]
+        struct BundleWithIgnored {
+            c: C,
+            #[bundle(ignore)]
+            ignored: Ignored,
+        }
+
+        let mut ids = Vec::new();
+        <BundleWithIgnored as Bundle>::component_ids(
+            &mut world.components,
+            &mut world.storages,
+            &mut |id| {
+                ids.push(id);
+            },
+        );
+
+        assert_eq!(ids, &[world.init_component::<C>(),]);
+
+        let e4 = world
+            .spawn(BundleWithIgnored {
+                c: C,
+                ignored: Ignored,
+            })
+            .id();
+
+        assert_eq!(world.get::<C>(e4).unwrap(), &C);
+        assert_eq!(world.get::<Ignored>(e4), None);
+
+        assert_eq!(
+            world.entity_mut(e4).remove::<BundleWithIgnored>().unwrap(),
+            BundleWithIgnored {
+                c: C,
+                ignored: Ignored,
+            }
+        );
     }
 
     #[test]
@@ -956,11 +995,7 @@ mod tests {
             .components()
             .get_resource_id(TypeId::of::<Num>())
             .unwrap();
-        let archetype_component_id = world
-            .archetypes()
-            .resource()
-            .get_archetype_component_id(resource_id)
-            .unwrap();
+        let archetype_component_id = world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(world.resource::<Num>().0, 123);
         assert!(world.contains_resource::<Num>());
@@ -1023,11 +1058,8 @@ mod tests {
             "resource id does not change after removing / re-adding"
         );
 
-        let current_archetype_component_id = world
-            .archetypes()
-            .resource()
-            .get_archetype_component_id(current_resource_id)
-            .unwrap();
+        let current_archetype_component_id =
+            world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(
             archetype_component_id, current_archetype_component_id,

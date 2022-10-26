@@ -559,10 +559,21 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
     /// This can only be called for read-only queries.
     ///
-    ///  For permutations of size `K` of query returning `N` results, you will get:
-    /// - if `K == N`: one permutation of all query results
+    /// A combination is an arrangement of a collection of items where order does not matter.
+    ///
+    /// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
+    /// `N` is the number of total entities output by query.
+    ///
+    /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
+    /// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
+    /// And in this case, `N` would be defined as 4 since the size of the input list is 4.
+    ///
+    ///  For combinations of size `K` of query taking `N` inputs, you will get:
+    /// - if `K == N`: one combination of all query results
     /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
+    ///
+    /// The `iter_combinations` method does not guarantee order of iteration.
     ///
     /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
     /// write-queries.
@@ -582,13 +593,23 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Iterates over all possible combinations of `K` query results for the given [`World`]
-    /// without repetition.
+    /// Returns an [`Iterator`] over all possible combinations of `K` query results without repetition.
     ///
-    ///  For permutations of size `K` of query returning `N` results, you will get:
-    /// - if `K == N`: one permutation of all query results
+    /// A combination is an arrangement of a collection of items where order does not matter.
+    ///
+    /// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
+    /// `N` is the number of total entities output by query.
+    ///
+    /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
+    /// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
+    /// And in this case, `N` would be defined as 4 since the size of the input list is 4.
+    ///
+    ///  For combinations of size `K` of query taking `N` inputs, you will get:
+    /// - if `K == N`: one combination of all query results
     /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
+    ///
+    /// The `iter_combinations_mut` method does not guarantee order of iteration.
     #[inline]
     pub fn iter_combinations_mut<'w, 's, const K: usize>(
         &'s mut self,
@@ -605,11 +626,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Returns an [`Iterator`] over the query results of a list of [`Entity`]'s.
+    /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
-    /// This can only return immutable data (mutable data will be cast to an immutable form).
-    /// See [`Self::iter_many_mut`] for queries that contain at least one mutable component.
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
     ///
+    /// # See also
+    ///
+    /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
     pub fn iter_many<'w, 's, EntityList: IntoIterator>(
         &'s mut self,
@@ -631,7 +655,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
-    /// Returns an iterator over the query results of a list of [`Entity`]'s.
+    /// Returns an iterator over the query items generated from an [`Entity`] list.
+    ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
     #[inline]
     pub fn iter_many_mut<'w, 's, EntityList: IntoIterator>(
         &'s mut self,
@@ -983,6 +1010,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 let tables = &world.storages().tables;
                 for table_id in &self.matched_table_ids {
                     let table = &tables[*table_id];
+                    if table.is_empty() {
+                        continue;
+                    }
+
                     let mut offset = 0;
                     while offset < table.entity_count() {
                         let func = func.clone();
@@ -1030,6 +1061,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 for archetype_id in &self.matched_archetype_ids {
                     let mut offset = 0;
                     let archetype = &archetypes[*archetype_id];
+                    if archetype.is_empty() {
+                        continue;
+                    }
+
                     while offset < archetype.len() {
                         let func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
