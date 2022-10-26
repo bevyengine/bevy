@@ -72,7 +72,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
 
-/// An [`Iterator`] over [`Query`](crate::system::Query) results of a list of [`Entity`]s.
+/// An [`Iterator`] over the query items generated from an iterator of [`Entity`]s.
+///
+/// Items are returned in the order of the provided iterator.
+/// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
 pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator>
@@ -216,11 +219,21 @@ where
 
 /// An iterator over `K`-sized combinations of query items without repetition.
 ///
-/// In this context, a combination is an unordered subset of `K` elements.
-/// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`] (called `N`):
+/// A combination is an arrangement of a collection of items where order does not matter.
+///
+/// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
+/// `N` is the number of total entities output by the query.
+///
+/// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
+/// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
+/// And in this case, `N` would be defined as 4 since the size of the input list is 4.
+///
+/// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`]:
 /// - if `K = N`, only one combination exists,
 /// - if `K < N`, there are <sub>N</sub>C<sub>K</sub> combinations (see the [performance section] of `Query`),
 /// - if `K > N`, there are no combinations.
+///
+/// The output combination is not guaranteed to have any order of iteration.
 ///
 /// # Usage
 ///
@@ -451,21 +464,6 @@ where
     }
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery + ArchetypeFilter, const K: usize>
-    ExactSizeIterator for QueryCombinationIter<'w, 's, Q, F, K>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
-{
-    /// Returns the exact length of the iterator.
-    ///
-    /// **NOTE**: When the iterator length overflows `usize`, this will
-    /// return `usize::MAX`.
-    fn len(&self) -> usize {
-        self.size_hint().0
-    }
-}
-
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> FusedIterator
     for QueryCombinationIter<'w, 's, Q, F, K>
@@ -587,7 +585,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     Q::set_table(&mut self.fetch, &query_state.fetch_state, table);
                     F::set_table(&mut self.filter, &query_state.filter_state, table);
-                    self.current_len = table.len();
+                    self.current_len = table.entity_count();
                     self.current_index = 0;
                     continue;
                 }

@@ -3,14 +3,24 @@ use bevy_utils::{tracing::debug, tracing::warn, HashMap};
 use std::any::TypeId;
 
 /// Combines multiple [`Plugin`]s into a single unit.
-pub trait PluginGroup {
+pub trait PluginGroup: Sized {
     /// Configures the [`Plugin`]s that are to be added.
-    fn build(&mut self, group: &mut PluginGroupBuilder);
+    fn build(self) -> PluginGroupBuilder;
+    /// Sets the value of the given [`Plugin`], if it exists
+    fn set<T: Plugin>(self, plugin: T) -> PluginGroupBuilder {
+        self.build().set(plugin)
+    }
 }
 
 struct PluginEntry {
     plugin: Box<dyn Plugin>,
     enabled: bool,
+}
+
+impl PluginGroup for PluginGroupBuilder {
+    fn build(self) -> PluginGroupBuilder {
+        self
+    }
 }
 
 /// Facilitates the creation and configuration of a [`PluginGroup`].
@@ -25,7 +35,7 @@ pub struct PluginGroupBuilder {
 
 impl PluginGroupBuilder {
     /// Finds the index of a target [`Plugin`]. Panics if the target's [`TypeId`] is not found.
-    fn index_of<Target: Plugin>(&mut self) -> usize {
+    fn index_of<Target: Plugin>(&self) -> usize {
         let index = self
             .order
             .iter()
@@ -68,9 +78,27 @@ impl PluginGroupBuilder {
         }
     }
 
+    /// Sets the value of the given [`Plugin`], if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the [`Plugin`] does not exist.
+    pub fn set<T: Plugin>(mut self, plugin: T) -> Self {
+        let entry = self.plugins.get_mut(&TypeId::of::<T>()).unwrap_or_else(|| {
+            panic!(
+                "{} does not exist in this PluginGroup",
+                std::any::type_name::<T>(),
+            )
+        });
+        entry.plugin = Box::new(plugin);
+        self
+    }
+
     /// Adds the plugin [`Plugin`] at the end of this [`PluginGroupBuilder`]. If the plugin was
     /// already in the group, it is removed from its previous place.
-    pub fn add<T: Plugin>(&mut self, plugin: T) -> &mut Self {
+    // This is not confusing, clippy!
+    #[allow(clippy::should_implement_trait)]
+    pub fn add<T: Plugin>(mut self, plugin: T) -> Self {
         let target_index = self.order.len();
         self.order.push(TypeId::of::<T>());
         self.upsert_plugin_state(plugin, target_index);
@@ -80,7 +108,7 @@ impl PluginGroupBuilder {
     /// Adds a [`Plugin`] in this [`PluginGroupBuilder`] before the plugin of type `Target`.
     /// If the plugin was already the group, it is removed from its previous place. There must
     /// be a plugin of type `Target` in the group or it will panic.
-    pub fn add_before<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
+    pub fn add_before<Target: Plugin, T: Plugin>(mut self, plugin: T) -> Self {
         let target_index = self.index_of::<Target>();
         self.order.insert(target_index, TypeId::of::<T>());
         self.upsert_plugin_state(plugin, target_index);
@@ -90,7 +118,7 @@ impl PluginGroupBuilder {
     /// Adds a [`Plugin`] in this [`PluginGroupBuilder`] after the plugin of type `Target`.
     /// If the plugin was already the group, it is removed from its previous place. There must
     /// be a plugin of type `Target` in the group or it will panic.
-    pub fn add_after<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
+    pub fn add_after<Target: Plugin, T: Plugin>(mut self, plugin: T) -> Self {
         let target_index = self.index_of::<Target>() + 1;
         self.order.insert(target_index, TypeId::of::<T>());
         self.upsert_plugin_state(plugin, target_index);
@@ -102,7 +130,7 @@ impl PluginGroupBuilder {
     /// [`Plugin`]s within a [`PluginGroup`] are enabled by default. This function is used to
     /// opt back in to a [`Plugin`] after [disabling](Self::disable) it. If there are no plugins
     /// of type `T` in this group, it will panic.
-    pub fn enable<T: Plugin>(&mut self) -> &mut Self {
+    pub fn enable<T: Plugin>(mut self) -> Self {
         let mut plugin_entry = self
             .plugins
             .get_mut(&TypeId::of::<T>())
@@ -116,7 +144,7 @@ impl PluginGroupBuilder {
     /// still be used for ordering with [`add_before`](Self::add_before) or
     /// [`add_after`](Self::add_after), or it can be [re-enabled](Self::enable). If there are no
     /// plugins of type `T` in this group, it will panic.
-    pub fn disable<T: Plugin>(&mut self) -> &mut Self {
+    pub fn disable<T: Plugin>(mut self) -> Self {
         let mut plugin_entry = self
             .plugins
             .get_mut(&TypeId::of::<T>())
@@ -152,7 +180,9 @@ impl PluginGroupBuilder {
 pub struct NoopPluginGroup;
 
 impl PluginGroup for NoopPluginGroup {
-    fn build(&mut self, _: &mut PluginGroupBuilder) {}
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::default()
+    }
 }
 
 #[cfg(test)]
@@ -177,10 +207,10 @@ mod tests {
 
     #[test]
     fn basic_ordering() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add(PluginC);
+        let group = PluginGroupBuilder::default()
+            .add(PluginA)
+            .add(PluginB)
+            .add(PluginC);
 
         assert_eq!(
             group.order,
@@ -194,10 +224,10 @@ mod tests {
 
     #[test]
     fn add_after() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add_after::<PluginA, PluginC>(PluginC);
+        let group = PluginGroupBuilder::default()
+            .add(PluginA)
+            .add(PluginB)
+            .add_after::<PluginA, PluginC>(PluginC);
 
         assert_eq!(
             group.order,
@@ -211,10 +241,10 @@ mod tests {
 
     #[test]
     fn add_before() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add_before::<PluginB, PluginC>(PluginC);
+        let group = PluginGroupBuilder::default()
+            .add(PluginA)
+            .add(PluginB)
+            .add_before::<PluginB, PluginC>(PluginC);
 
         assert_eq!(
             group.order,
@@ -228,11 +258,11 @@ mod tests {
 
     #[test]
     fn readd() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add(PluginC);
-        group.add(PluginB);
+        let group = PluginGroupBuilder::default()
+            .add(PluginA)
+            .add(PluginB)
+            .add(PluginC)
+            .add(PluginB);
 
         assert_eq!(
             group.order,
@@ -246,11 +276,11 @@ mod tests {
 
     #[test]
     fn readd_after() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add(PluginC);
-        group.add_after::<PluginA, PluginC>(PluginC);
+        let group = PluginGroupBuilder::default()
+            .add(PluginA)
+            .add(PluginB)
+            .add(PluginC)
+            .add_after::<PluginA, PluginC>(PluginC);
 
         assert_eq!(
             group.order,
@@ -264,11 +294,11 @@ mod tests {
 
     #[test]
     fn readd_before() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add(PluginC);
-        group.add_before::<PluginB, PluginC>(PluginC);
+        let group = PluginGroupBuilder::default()
+            .add(PluginA)
+            .add(PluginB)
+            .add(PluginC)
+            .add_before::<PluginB, PluginC>(PluginC);
 
         assert_eq!(
             group.order,

@@ -4,6 +4,7 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
+use converters::convert_cursor_grab_mode;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -137,10 +138,10 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_cursor_icon(converters::convert_cursor_icon(icon));
                 }
-                bevy_window::WindowCommand::SetCursorLockMode { locked } => {
+                bevy_window::WindowCommand::SetCursorGrabMode { grab_mode } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window
-                        .set_cursor_grab(locked)
+                        .set_cursor_grab(convert_cursor_grab_mode(grab_mode))
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
                 bevy_window::WindowCommand::SetCursorVisibility { visible } => {

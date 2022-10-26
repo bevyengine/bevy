@@ -31,7 +31,7 @@ pub mod prelude {
         mesh::{shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{Image, ImageSettings},
+        texture::{Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
@@ -49,7 +49,7 @@ use crate::{
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance, RenderTextureFormat},
-    texture::{BevyDefault, ImagePlugin},
+    texture::BevyDefault,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -144,15 +144,17 @@ impl Plugin for RenderPlugin {
             .register_type::<Color>();
 
         if let Some(backends) = options.backends {
+            let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
-            let surface = {
-                let windows = app.world.resource_mut::<bevy_window::Windows>();
-                let raw_handle = windows.get_primary().map(|window| unsafe {
-                    let handle = window.raw_window_handle().get_handle();
+
+            let surface = windows
+                .get_primary()
+                .and_then(|window| window.raw_handle())
+                .map(|wrapper| unsafe {
+                    let handle = wrapper.get_handle();
                     instance.create_surface(&handle)
                 });
-                raw_handle
-            };
+
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: options.power_preference,
                 compatible_surface: surface.as_ref(),
@@ -242,15 +244,20 @@ impl Plugin for RenderPlugin {
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
                     let meta_len = app_world.entities().meta_len();
-                    render_app
-                        .world
-                        .entities()
-                        .reserve_entities(meta_len as u32);
 
-                    // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
-                    // these entities cannot be accessed without spawning directly onto them
-                    // this _only_ works as expected because clear_entities() is called at the end of every frame.
-                    unsafe { render_app.world.entities_mut() }.flush_as_invalid();
+                    assert_eq!(
+                        render_app.world.entities().len(),
+                        0,
+                        "An entity was spawned after the entity list was cleared last frame and before the extract stage began. This is not supported",
+                    );
+
+                    // This is safe given the clear_entities call in the past frame and the assert above
+                    unsafe {
+                        render_app
+                            .world
+                            .entities_mut()
+                            .flush_and_reserve_invalid_assuming_no_entities(meta_len);
+                    }
                 }
 
                 {
@@ -341,9 +348,6 @@ impl Plugin for RenderPlugin {
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            // NOTE: Load this after renderer initialization so that it knows about the supported
-            // compressed texture formats
-            .add_plugin(ImagePlugin)
             .add_plugin(GlobalsPlugin)
             .add_plugin(FrameCountPlugin);
     }

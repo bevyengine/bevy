@@ -83,8 +83,8 @@ pub struct AssetServerInternal {
 /// # use bevy_asset::*;
 /// # use bevy_app::*;
 /// # let mut app = App::new();
-/// // AssetServerSettings must be inserted before adding the AssetPlugin or DefaultPlugins.
-/// app.insert_resource(AssetServerSettings {
+/// // The asset plugin can be configured to watch for asset changes.
+/// app.add_plugin(AssetPlugin {
 ///     watch_for_changes: true,
 ///     ..Default::default()
 /// });
@@ -293,7 +293,7 @@ impl AssetServer {
     /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
     ///
     /// The name of the asset folder is set inside the
-    /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
+    /// [`AssetPlugin`](crate::AssetPlugin). The default name is
     /// `"assets"`.
     ///
     /// The asset is loaded asynchronously, and will generally not be available by the time

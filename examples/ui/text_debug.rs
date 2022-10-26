@@ -8,11 +8,13 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_startup_system(infotext_system)
         .add_system(change_text_system)
@@ -157,16 +159,16 @@ fn change_text_system(
     for mut text in &mut query {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(fps_avg) = fps_diagnostic.average() {
-                fps = fps_avg;
+            if let Some(fps_smoothed) = fps_diagnostic.smoothed() {
+                fps = fps_smoothed;
             }
         }
 
         let mut frame_time = time.delta_seconds_f64();
         if let Some(frame_time_diagnostic) = diagnostics.get(FrameTimeDiagnosticsPlugin::FRAME_TIME)
         {
-            if let Some(frame_time_avg) = frame_time_diagnostic.average() {
-                frame_time = frame_time_avg;
+            if let Some(frame_time_smoothed) = frame_time_diagnostic.smoothed() {
+                frame_time = frame_time_smoothed;
             }
         }
 

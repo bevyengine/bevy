@@ -5,12 +5,14 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            width: 500.,
-            height: 300.,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                width: 500.,
+                height: 300.,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_startup_system(setup)
         .add_system(toggle_override)
         .add_system(change_scale_factor)

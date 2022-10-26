@@ -6,18 +6,17 @@ use xshell::{cmd, Shell};
 #[derive(Parser, Debug)]
 struct Args {
     /// Examples to build
-    #[clap(value_parser)]
     examples: Vec<String>,
 
-    #[clap(short, long, value_parser)]
+    #[arg(short, long)]
     /// Run tests
     test: bool,
 
-    #[clap(short, long, value_parser)]
+    #[arg(short, long)]
     /// Run on the given browsers. By default, chromium, firefox, webkit
     browsers: Vec<String>,
 
-    #[clap(short, long, value_parser)]
+    #[arg(short, long)]
     /// Stop after this number of frames
     frames: Option<usize>,
 }
