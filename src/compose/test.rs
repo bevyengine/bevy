@@ -55,6 +55,50 @@ mod test {
     }
 
     #[test]
+    fn big_shaderdefs() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/big_shaderdefs/mod.wgsl"),
+                file_path: "tests/big_shaderdefs/mod.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let defs = (1..=67).map(|i| format!("a{}", i)).collect::<Vec<String>>();
+
+        let module = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/big_shaderdefs/top.wgsl"),
+                file_path: "tests/big_shaderdefs/top.wgsl",
+                shader_defs: &defs,
+                ..Default::default()
+            })
+            .unwrap();
+
+        let info = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::default(),
+        )
+        .validate(&module)
+        .unwrap();
+        let wgsl = naga::back::wgsl::write_string(
+            &module,
+            &info,
+            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+        )
+        .unwrap();
+
+        // println!("{}", wgsl);
+        // let mut f = std::fs::File::create("big_shaderdefs.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+
+        assert_eq!(wgsl, include_str!("tests/expected/big_shaderdefs.txt"));
+    }
+
+    #[test]
     fn duplicate_import() {
         let mut composer = Composer::default();
 
