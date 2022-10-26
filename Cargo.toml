@@ -11,7 +11,7 @@ readme = "README.md"
 prune = ["dep:serde", "dep:serde_json", "naga/deserialize", "naga/serialize"]
 
 [dependencies]
-naga = { version = "0.9", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out"] }
+naga = { version = "0.10", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out"] }
 tracing = "0.1"
 regex = "1.5"
 regex-syntax = "0.6"
@@ -25,6 +25,6 @@ serde = { version = "1", optional = true }
 serde_json = { version = "1", optional = true }
 
 [dev-dependencies]
-wgpu = { version = "0.13", features=["naga"] }
+wgpu = { version = "0.14", features=["naga"] }
 futures-lite = "1"
 tracing-subscriber = { version = "0.3", features = ["std", "fmt"] }

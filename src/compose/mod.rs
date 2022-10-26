@@ -960,8 +960,21 @@ impl Composer {
                 ));
                 let header_function = naga::Function {
                     name: ep.function.name.clone(),
-                    arguments: ep.function.arguments.to_vec(),
-                    result: ep.function.result.clone(),
+                    arguments: ep
+                        .function
+                        .arguments
+                        .iter()
+                        .cloned()
+                        .map(|arg| naga::FunctionArgument {
+                            name: arg.name,
+                            ty: arg.ty,
+                            binding: None,
+                        })
+                        .collect(),
+                    result: ep.function.result.clone().map(|res| naga::FunctionResult {
+                        ty: res.ty,
+                        binding: None,
+                    }),
                     local_variables: Default::default(),
                     expressions: Default::default(),
                     named_expressions: Default::default(),
@@ -1020,7 +1033,22 @@ impl Composer {
         // // including entry points as vanilla functions if required
         if demote_entrypoints {
             for ep in source_ir.entry_points.iter() {
-                module_builder.import_function(&ep.function, naga::Span::UNDEFINED);
+                let mut f = ep.function.clone();
+                f.arguments = f
+                    .arguments
+                    .into_iter()
+                    .map(|arg| naga::FunctionArgument {
+                        name: arg.name,
+                        ty: arg.ty,
+                        binding: None,
+                    })
+                    .collect();
+                f.result = f.result.map(|res| naga::FunctionResult {
+                    ty: res.ty,
+                    binding: None,
+                });
+
+                module_builder.import_function(&f, naga::Span::UNDEFINED);
                 // todo figure out how to get span info for entrypoints
             }
         }
