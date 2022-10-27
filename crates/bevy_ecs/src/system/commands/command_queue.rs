@@ -47,16 +47,14 @@ impl CommandQueue {
             command.write(world);
         }
 
-        let size = std::mem::size_of::<C>();
-
         let meta = CommandMeta {
-            size,
+            size: std::mem::size_of::<C>(),
             func: write_command::<C>,
         };
 
-        let block_size = std::mem::size_of::<CommandMeta>() + size;
-
         let old_len = self.bytes.len();
+
+        let block_size = std::mem::size_of::<CommandMeta>() + std::mem::size_of::<C>();
         self.bytes.reserve(block_size);
         // SAFETY: The end of the `bytes` vector has enough space for the metadata due to the `.reserve()` call,
         // so we can cast it to a pointer and perform an unaligned write in order to fill the buffer.
@@ -69,7 +67,7 @@ impl CommandQueue {
                 .write_unaligned(meta);
         }
 
-        if size > 0 {
+        if std::mem::size_of::<C>() > 0 {
             // SAFETY: There is enough space after the metadata to store the command,
             // due to the `.reserve()` call above.
             // We will write to the buffer via an unaligned pointer write.
