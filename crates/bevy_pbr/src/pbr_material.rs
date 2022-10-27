@@ -445,8 +445,4 @@ impl Material for StandardMaterial {
     fn depth_bias(&self) -> f32 {
         self.depth_bias
     }
-
-    fn prepass_enabled() -> bool {
-        true
-    }
 }

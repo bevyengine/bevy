@@ -211,12 +211,11 @@ where
         let mut shader_defs = Vec::new();
         shader_defs.push(String::from("PREPASS_DEPTH"));
 
-        // FIXME figure out a way to only add it when necessary
-        // right now the issue is that the group is hardcoded to 1 in the pbr_bindings
-        // but when it's not present then the mesh bind group is now group 1 and everything breaks
-        // if self.material_fragment_shader.is_some() || self.material_vertex_shader.is_some() {
+        // FIXME figure out a way to only add it when necessary. Right now the issue is that the bind group index
+        // is hardcoded to 1 in the pbr_bindings.wgsl, but when it's not present then the mesh bind group is now group 1
+        // and everything breaks.
+        // It should be possible to have configurable bind group index once shader_defs can hold values.
         bind_group_layout.insert(1, self.material_layout.clone());
-        // }
 
         if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
             shader_defs.push(String::from("ALPHA_MASK"));

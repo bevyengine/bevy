@@ -151,12 +151,6 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
         ShaderRef::Default
     }
 
-    /// Controls if this Material is used in the prepass
-    /// You also need to enable the prepass globally using `GlobalMaterialOptions` for this to work
-    fn prepass_enabled() -> bool {
-        true
-    }
-
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     #[allow(unused_variables)]
@@ -171,21 +165,19 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
     }
 }
 
-/// Options that affects all materials
-#[derive(Resource, Default)]
-pub struct GlobalMaterialOptions {
-    // Controls if the prepass will be used when rendering
-    // Disabled by default
-    pub prepass_enabled: bool,
-}
-
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
-pub struct MaterialPlugin<M: Material>(PhantomData<M>);
+pub struct MaterialPlugin<M: Material> {
+    pub prepass_enabled: bool,
+    pub _marker: PhantomData<M>,
+}
 
 impl<M: Material> Default for MaterialPlugin<M> {
     fn default() -> Self {
-        Self(Default::default())
+        Self {
+            prepass_enabled: false,
+            _marker: Default::default(),
+        }
     }
 }
 
@@ -195,8 +187,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
-            .init_resource::<GlobalMaterialOptions>();
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -215,8 +206,7 @@ where
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
         }
 
-        let options = app.world.resource::<GlobalMaterialOptions>();
-        if options.prepass_enabled && M::prepass_enabled() {
+        if self.prepass_enabled {
             app.add_plugin(PrepassPlugin::<M>::default());
         }
     }

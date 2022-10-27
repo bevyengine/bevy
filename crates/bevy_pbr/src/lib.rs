@@ -8,6 +8,7 @@ mod pbr_material;
 mod render;
 
 pub use alpha::*;
+use bevy_utils::default;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;
@@ -76,7 +77,9 @@ pub const SHADOW_SHADER_HANDLE: HandleUntyped =
 
 /// Sets up the entire PBR infrastructure of bevy.
 #[derive(Default)]
-pub struct PbrPlugin;
+pub struct PbrPlugin {
+    pub prepass_enabled: bool,
+}
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
@@ -136,7 +139,10 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
-            .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .add_plugin(MaterialPlugin::<StandardMaterial> {
+                prepass_enabled: self.prepass_enabled,
+                ..default()
+            })
             .register_type::<AmbientLight>()
             .register_type::<DirectionalLightShadowMap>()
             .register_type::<PointLightShadowMap>()

@@ -2,7 +2,7 @@
 
 use bevy::{
     core_pipeline::core_3d::PrepassSettings,
-    pbr::GlobalMaterialOptions,
+    pbr::PbrPlugin,
     prelude::*,
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
@@ -10,17 +10,16 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
-        // The prepass is enabled per material
-        .insert_resource(GlobalMaterialOptions {
-            // the prepass is disabled by default so we need to enable it
+        // To enable the prepass on the StandardMaterial, we need to set it on the PbrPlugin
+        .add_plugins(DefaultPlugins.set(PbrPlugin {
             prepass_enabled: true,
+        }))
+        // The prepass is enabled per material and is disabled by default
+        .add_plugin(MaterialPlugin::<CustomMaterial> {
+            prepass_enabled: true,
+            ..Default::default()
         })
-        // It's important to add the `GlobalMaterialOptions` before the `DefaultPlugins`,
-        // otherwise the StandardMaterial will not use the prepass
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
-        .add_plugin(MaterialPlugin::<DepthMaterial>::default())
+        .add_plugin(MaterialPlugin::<PrepassOutputMaterial>::default())
         .add_startup_system(setup)
         .add_system(rotate)
         .run();
@@ -32,7 +31,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
     mut std_materials: ResMut<Assets<StandardMaterial>>,
-    mut depth_materials: ResMut<Assets<DepthMaterial>>,
+    mut depth_materials: ResMut<Assets<PrepassOutputMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     // plane
@@ -42,19 +41,19 @@ fn setup(
         ..default()
     });
 
-    // depth plane
+    // A plane that shows the output of the depth prepass
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Quad {
             flip: false,
-            size: Vec2::new(2.0, 2.0),
+            size: Vec2::new(1.5, 1.5),
         })),
-        material: depth_materials.add(DepthMaterial {}),
-        transform: Transform::from_xyz(-1.0, 1.0, 2.0)
+        material: depth_materials.add(PrepassOutputMaterial {}),
+        transform: Transform::from_xyz(-0.75, 1.25, 2.0)
             .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         ..default()
     });
 
-    // opaque cube
+    // Opaque cube using the StandardMaterial
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
@@ -65,7 +64,7 @@ fn setup(
         Rotates,
     ));
 
-    // cube with alpha mask
+    // Cube with alpha mask
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: std_materials.add(StandardMaterial {
@@ -78,7 +77,8 @@ fn setup(
         ..default()
     });
 
-    // cube with alpha blending. Should be ignored by the prepass
+    // Cube with alpha blending.
+    // Transparent materials are ignored by the prepass
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: materials.add(CustomMaterial {
@@ -124,10 +124,6 @@ pub struct CustomMaterial {
     alpha_mode: AlphaMode,
 }
 
-/// The Material trait is very configurable, but comes with sensible defaults for all methods.
-/// You only need to implement functions for features that need non-default behavior.
-/// See the Material api docs for details!
-///
 /// Not shown in this example, but if you need to specialize your material, the specialize
 /// function will also be used in the prepass
 impl Material for CustomMaterial {
@@ -156,12 +152,12 @@ fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     }
 }
 
-// This is the struct that will be passed to your shader
+// This shader simply loads the prepass texture and outputs it directly
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
 #[uuid = "0af99895-b96e-4451-bc12-c6b1c1c52750"]
-pub struct DepthMaterial {}
+pub struct PrepassOutputMaterial {}
 
-impl Material for DepthMaterial {
+impl Material for PrepassOutputMaterial {
     fn fragment_shader() -> ShaderRef {
         "shaders/show_depth.wgsl".into()
     }
