@@ -5,7 +5,7 @@ use crate::world::World;
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
-    /// where `T` is some specific type that was used to produce the function pointer `func`.
+    /// where `T` is some specific type that was used to produce this function pointer.
     /// Ensure that `value` is not dropped after calling this fn pointer.
     ///
     /// Returns the size of `T` in bytes.
