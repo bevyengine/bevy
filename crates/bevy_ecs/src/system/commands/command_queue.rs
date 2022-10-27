@@ -12,7 +12,7 @@ struct CommandMeta {
 
 /// A queue of [`Command`]s
 //
-// NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` over a `Vec<Box<dyn Command>>`
+// NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` instead of a `Vec<Box<dyn Command>>`
 // as an optimization. Since commands are used frequently in systems as a way to spawn
 // entities/components/resources, and it's not currently possible to parallelize these
 // due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
