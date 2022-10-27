@@ -160,7 +160,11 @@ impl Plugin for PbrPlugin {
                     .label(SimulationLightSystems::UpdateLightFrusta)
                     // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
                     .after(VisibilitySystems::CheckVisibility)
-                    .after(TransformSystem::TransformPropagate),
+                    .after(TransformSystem::TransformPropagate)
+                    // We assume that no entity will be both a directional light and a spot light,
+                    // so these systems will run indepdently of one another.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(update_spot_light_frusta),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

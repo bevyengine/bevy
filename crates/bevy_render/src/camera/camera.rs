@@ -389,6 +389,11 @@ impl RenderTarget {
 /// the app, as well as the runtime-selected [`Projection`]. The system runs during the
 /// [`CoreStage::PostUpdate`] stage.
 ///
+/// ## World Resources
+///
+/// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
+/// inspect information about the render target. This system will not access any other image assets.
+///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 /// [`Projection`]: crate::camera::Projection

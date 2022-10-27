@@ -2,12 +2,13 @@ use crate::{CalculatedSize, Size, UiImage, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     component::Component,
-    query::With,
+    query::{With, Without},
     reflect::ReflectComponent,
     system::{Query, Res},
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::texture::Image;
+use bevy_text::Text;
 use serde::{Deserialize, Serialize};
 
 /// Describes how to resize the Image node
@@ -22,7 +23,7 @@ pub enum ImageMode {
 /// Updates calculated size of the node based on the image provided
 pub fn image_node_system(
     textures: Res<Assets<Image>>,
-    mut query: Query<(&mut CalculatedSize, &UiImage), With<ImageMode>>,
+    mut query: Query<(&mut CalculatedSize, &UiImage), (With<ImageMode>, Without<Text>)>,
 ) {
     for (mut calculated_size, image) in &mut query {
         if let Some(texture) = textures.get(image) {
