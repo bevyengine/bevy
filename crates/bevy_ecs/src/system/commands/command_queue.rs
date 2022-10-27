@@ -3,7 +3,6 @@ use std::mem::{ManuallyDrop, MaybeUninit};
 use super::Command;
 use crate::world::World;
 
-#[derive(Clone, Copy)]
 struct CommandMeta {
     size: usize,
     func: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World),
@@ -104,7 +103,7 @@ impl CommandQueue {
 
         let mut offset = 0;
         while offset < len {
-            let meta = unsafe { *(ptr.add(offset) as *mut CommandMeta) };
+            let meta = unsafe { std::ptr::read_unaligned(ptr.add(offset) as *mut CommandMeta) };
             let command_offset = offset + std::mem::size_of::<CommandMeta>();
             unsafe {
                 (meta.func)(ptr.add(command_offset), world);
