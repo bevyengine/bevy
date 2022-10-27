@@ -2,6 +2,7 @@ pub mod clear_color;
 pub mod core_2d;
 pub mod core_3d;
 pub mod fullscreen_vertex_shader;
+pub mod prepass;
 pub mod tonemapping;
 pub mod upscaling;
 

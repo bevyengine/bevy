@@ -1,7 +1,7 @@
 //! A shader that uses the depth texture generated in a prepass
 
 use bevy::{
-    core_pipeline::core_3d::PrepassSettings,
+    core_pipeline::prepass::PrepassSettings,
     pbr::PbrPlugin,
     prelude::*,
     reflect::TypeUuid,
@@ -17,7 +17,7 @@ fn main() {
         // The prepass is enabled per material and is disabled by default
         .add_plugin(MaterialPlugin::<CustomMaterial> {
             prepass_enabled: true,
-            ..Default::default()
+            ..default()
         })
         .add_plugin(MaterialPlugin::<PrepassOutputMaterial>::default())
         .add_startup_system(setup)

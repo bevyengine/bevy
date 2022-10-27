@@ -1,6 +1,7 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
+    prepass::PrepassSettings,
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -13,25 +14,6 @@ use bevy_render::{
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-
-/// Add a `PrepassSettings` component to a view to perform a depth and/or normal prepass.
-/// These textures are useful for reducing overdraw in the main pass, and screen-space effects.
-#[derive(Clone, Component)]
-pub struct PrepassSettings {
-    /// If true then depth values will be copied to a separate texture available to the main pass.
-    pub output_depth: bool,
-    /// If true then vertex world normals will be copied to a separate texture available to the main pass.
-    pub output_normals: bool,
-}
-
-impl Default for PrepassSettings {
-    fn default() -> Self {
-        Self {
-            output_depth: true,
-            output_normals: true,
-        }
-    }
-}
 
 use super::Camera3dDepthLoadOp;
 

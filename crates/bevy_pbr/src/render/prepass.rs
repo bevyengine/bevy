@@ -1,9 +1,12 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
-use bevy_core_pipeline::{core_3d::PrepassSettings, prelude::Camera3d};
+use bevy_core_pipeline::{
+    prelude::Camera3d,
+    prepass::{AlphaMaskPrepass, OpaquePrepass, PrepassSettings, ViewPrepassTextures},
+};
 use bevy_ecs::{
-    prelude::{Component, Entity},
-    query::{QueryState, With},
+    prelude::Entity,
+    query::With,
     system::{
         lifetimeless::{Read, SQuery, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
@@ -14,34 +17,28 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
     mesh::MeshVertexBufferLayout,
-    prelude::{Camera, Color, Mesh},
+    prelude::{Camera, Mesh},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
-        DrawFunctions, EntityPhaseItem, EntityRenderCommand, PhaseItem, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
+        sort_phase_system, AddRenderCommand, DrawFunctions, EntityRenderCommand,
+        RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-        Extent3d, FragmentState, FrontFace, LoadOp, MultisampleState, Operations, PipelineCache,
-        PolygonMode, PrimitiveState, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-        RenderPassDescriptor, RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages,
-        ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureUsages, VertexState,
+        BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState,
+        ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, FragmentState,
+        FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
+        RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        StencilFaceState, StencilState, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages, VertexState,
     },
-    renderer::{RenderContext, RenderDevice},
-    texture::{CachedTexture, TextureCache},
-    view::{
-        ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniformOffset, ViewUniforms,
-        VisibleEntities,
-    },
+    renderer::RenderDevice,
+    texture::TextureCache,
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, RenderApp, RenderStage,
 };
-use bevy_utils::{tracing::error, FloatOrd, HashMap};
+use bevy_utils::{tracing::error, HashMap};
 
 use crate::{
     AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline,
@@ -50,12 +47,6 @@ use crate::{
 
 use std::{hash::Hash, marker::PhantomData};
 
-pub mod draw_3d_graph {
-    pub mod node {
-        /// Label for the prepass node.
-        pub const PREPASS: &str = "prepass";
-    }
-}
 pub const PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub const PREPASS_SHADER_HANDLE: HandleUntyped =
@@ -110,31 +101,9 @@ where
             .init_resource::<DrawFunctions<OpaquePrepass>>()
             .init_resource::<DrawFunctions<AlphaMaskPrepass>>()
             .init_resource::<PrepassViewBindGroup>()
-            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
-
-        let prepass_node = PrepassNode::new(&mut render_app.world);
-        render_app
+            .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .add_render_command::<OpaquePrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMaskPrepass, DrawPrepass<M>>();
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
-            .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::PREPASS, prepass_node);
-        draw_3d_graph
-            .add_node_edge(
-                draw_3d_graph::node::PREPASS,
-                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
-                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::PREPASS,
-                PrepassNode::IN_VIEW,
-            )
-            .unwrap();
     }
 }
 
@@ -344,13 +313,6 @@ pub fn extract_core_3d_camera_prepass_phase(
     }
 }
 
-#[derive(Component)]
-pub struct ViewPrepassTextures {
-    pub depth: Option<CachedTexture>,
-    pub normals: Option<CachedTexture>,
-    pub size: Extent3d,
-}
-
 pub fn prepare_core_3d_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -546,211 +508,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             }
         }
-    }
-}
-
-pub struct OpaquePrepass {
-    pub distance: f32,
-    pub entity: Entity,
-    pub pipeline_id: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
-}
-
-impl PhaseItem for OpaquePrepass {
-    type SortKey = FloatOrd;
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
-    }
-
-    #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for OpaquePrepass {
-    fn entity(&self) -> Entity {
-        self.entity
-    }
-}
-
-impl CachedRenderPipelinePhaseItem for OpaquePrepass {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline_id
-    }
-}
-
-pub struct AlphaMaskPrepass {
-    pub distance: f32,
-    pub entity: Entity,
-    pub pipeline_id: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
-}
-
-impl PhaseItem for AlphaMaskPrepass {
-    type SortKey = FloatOrd;
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
-    }
-
-    #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for AlphaMaskPrepass {
-    fn entity(&self) -> Entity {
-        self.entity
-    }
-}
-
-impl CachedRenderPipelinePhaseItem for AlphaMaskPrepass {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline_id
-    }
-}
-
-pub struct PrepassNode {
-    main_view_query: QueryState<
-        (
-            &'static ExtractedCamera,
-            &'static RenderPhase<OpaquePrepass>,
-            &'static RenderPhase<AlphaMaskPrepass>,
-            &'static ViewDepthTexture,
-            &'static ViewPrepassTextures,
-        ),
-        With<ExtractedView>,
-    >,
-}
-
-impl PrepassNode {
-    pub const IN_VIEW: &'static str = "view";
-
-    pub fn new(world: &mut World) -> Self {
-        Self {
-            main_view_query: QueryState::new(world),
-        }
-    }
-}
-
-impl Node for PrepassNode {
-    fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(PrepassNode::IN_VIEW, SlotType::Entity)]
-    }
-
-    fn update(&mut self, world: &mut World) {
-        self.main_view_query.update_archetypes(world);
-    }
-
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        if let Ok((
-            camera,
-            opaque_prepass_phase,
-            alpha_mask_prepass_phase,
-            view_depth_texture,
-            view_prepass_textures,
-        )) = self.main_view_query.get_manual(world, view_entity)
-        {
-            if opaque_prepass_phase.items.is_empty() && alpha_mask_prepass_phase.items.is_empty() {
-                return Ok(());
-            }
-
-            let mut color_attachments = vec![];
-            if let Some(view_normals_texture) = &view_prepass_textures.normals {
-                color_attachments.push(Some(RenderPassColorAttachment {
-                    view: &view_normals_texture.default_view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK.into()),
-                        store: true,
-                    },
-                }));
-            }
-
-            {
-                // Set up the pass descriptor with the depth attachment and maybe colour attachment
-                let pass_descriptor = RenderPassDescriptor {
-                    label: Some("prepass"),
-                    color_attachments: &color_attachments,
-                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                        view: &view_depth_texture.view,
-                        depth_ops: Some(Operations {
-                            load: LoadOp::Clear(0.0),
-                            store: true,
-                        }),
-                        stencil_ops: None,
-                    }),
-                };
-
-                let render_pass = render_context
-                    .command_encoder
-                    .begin_render_pass(&pass_descriptor);
-                let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                if let Some(viewport) = camera.viewport.as_ref() {
-                    tracked_pass.set_camera_viewport(viewport);
-                }
-
-                {
-                    // Run the depth prepass, sorted front-to-back
-                    #[cfg(feature = "trace")]
-                    let _opaque_prepass_span = info_span!("opaque_prepass").entered();
-                    let draw_functions = world.resource::<DrawFunctions<OpaquePrepass>>();
-
-                    let mut draw_functions = draw_functions.write();
-                    for item in &opaque_prepass_phase.items {
-                        let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                        draw_function.draw(world, &mut tracked_pass, view_entity, item);
-                    }
-                }
-
-                {
-                    // Run the depth prepass, sorted front-to-back
-                    #[cfg(feature = "trace")]
-                    let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
-                    let draw_functions = world.resource::<DrawFunctions<AlphaMaskPrepass>>();
-
-                    let mut draw_functions = draw_functions.write();
-                    for item in &alpha_mask_prepass_phase.items {
-                        let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                        draw_function.draw(world, &mut tracked_pass, view_entity, item);
-                    }
-                }
-            }
-
-            if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-                // copy depth buffer to texture
-                render_context.command_encoder.copy_texture_to_texture(
-                    view_depth_texture.texture.as_image_copy(),
-                    prepass_depth_texture.texture.as_image_copy(),
-                    view_prepass_textures.size,
-                );
-            }
-        }
-
-        Ok(())
     }
 }
 
