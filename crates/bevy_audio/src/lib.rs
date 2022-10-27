@@ -35,6 +35,9 @@ pub mod prelude {
 pub use audio::*;
 pub use audio_output::*;
 pub use audio_source::*;
+pub use rodio::cpal::Sample as CpalSample;
+pub use rodio::source::Source;
+pub use rodio::Sample;
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
