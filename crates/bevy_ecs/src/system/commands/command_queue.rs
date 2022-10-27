@@ -110,13 +110,14 @@ impl CommandQueue {
             // Its value will have been fully initialized during any calls to `push`.
             let meta = unsafe { std::ptr::read_unaligned(ptr.add(offset) as *mut CommandMeta) };
             // The bytes just after `meta` are a sequence of unknown bytes representing a type-erased command.
-            let command_ptr = unsafe { ptr.add(offset + std::mem::size_of::<CommandMeta>()) };
+            offset += std::mem::size_of::<CommandMeta>();
+            let command_ptr = unsafe { ptr.add(offset) };
             // SAFETY: The type erased by `command_ptr` must be the same type erased by `meta.func`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
             unsafe {
                 (meta.func)(command_ptr, world);
             }
-            offset += std::mem::size_of::<CommandMeta>() + meta.size;
+            offset += meta.size;
         }
     }
 }
