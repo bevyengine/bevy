@@ -56,6 +56,7 @@ impl CommandQueue {
 
         let block_size = mem::size_of::<CommandMeta>() + mem::size_of::<C>();
         self.bytes.reserve(block_size);
+
         // SAFETY: The end of the `bytes` vector has enough space for the metadata due to the `.reserve()` call,
         // so we can cast it to a pointer and perform an unaligned write in order to fill the buffer.
         // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
