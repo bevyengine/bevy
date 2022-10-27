@@ -62,7 +62,7 @@ impl CommandQueue {
 
         let old_len = self.bytes.len();
         self.bytes.reserve(block_size);
-        // SAFETY: The end of the `bytes` vector has enough space for the metadata,
+        // SAFETY: The end of the `bytes` vector has enough space for the metadata due to the `.reserve()` call,
         // so we can cast it to a pointer and perform an unaligned write in order to fill the buffer.
         unsafe {
             self.bytes
