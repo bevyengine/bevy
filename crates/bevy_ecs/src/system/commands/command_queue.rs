@@ -60,13 +60,13 @@ impl CommandQueue {
 
         // Pointer to the bytes at the end of the buffer.
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
-        let cursor = unsafe { self.bytes.as_mut_ptr().add(old_len) };
+        let ptr = unsafe { self.bytes.as_mut_ptr().add(old_len) };
 
         // SAFETY: The end of the buffer has enough space for the metadata due to the `.reserve()` call,
         // so we can cast it to a pointer and perform an unaligned write in order to fill the buffer.
         // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
         unsafe {
-            cursor.cast::<CommandMeta>().write_unaligned(meta);
+            ptr.cast::<CommandMeta>().write_unaligned(meta);
         }
 
         if mem::size_of::<C>() > 0 {
@@ -75,8 +75,7 @@ impl CommandQueue {
             // We will write to the buffer via an unaligned pointer write.
             // Since the underlying buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
             unsafe {
-                cursor
-                    .add(mem::size_of::<CommandMeta>())
+                ptr.add(mem::size_of::<CommandMeta>())
                     .cast::<C>()
                     .write_unaligned(command);
             }
@@ -98,6 +97,8 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
+        // Cursor that will iterate over the entries in the buffer.
+        // It will alternate between values of type `CommandMeta` and a values of unknown types.
         let mut cursor = self.bytes.as_mut_ptr();
 
         // The address of the end of the buffer.
