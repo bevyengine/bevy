@@ -10,7 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -560,8 +560,8 @@ pub fn extract_lights(
                 directional_light.shadow_projection.top
                     - directional_light.shadow_projection.bottom,
             );
-        let directional_light_texel_size =
-            largest_dimension / directional_light_shadow_map.size as f32;
+        let directional_light_texel_size = transform.radius_vec3a(Vec3A::ONE) * largest_dimension
+            / directional_light_shadow_map.size as f32;
         // TODO: As above
         let render_visible_entities = visible_entities.clone();
         commands.get_or_spawn(entity).insert((
