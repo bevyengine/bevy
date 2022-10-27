@@ -373,3 +373,130 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
         Ok(dynamic_properties)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::serde::SceneDeserializer;
+    use crate::DynamicSceneBuilder;
+    use bevy_app::AppTypeRegistry;
+    use bevy_ecs::entity::EntityMap;
+    use bevy_ecs::prelude::{Component, ReflectComponent, World};
+    use bevy_reflect::Reflect;
+    use serde::de::DeserializeSeed;
+
+    #[derive(Component, Reflect, Default)]
+    #[reflect(Component)]
+    struct Foo(i32);
+    #[derive(Component, Reflect, Default)]
+    #[reflect(Component)]
+    struct Bar(i32);
+    #[derive(Component, Reflect, Default)]
+    #[reflect(Component)]
+    struct Baz(i32);
+
+    fn create_world() -> World {
+        let mut world = World::new();
+        let registry = AppTypeRegistry::default();
+        {
+            let mut registry = registry.write();
+            registry.register::<Foo>();
+            registry.register::<Bar>();
+            registry.register::<Baz>();
+        }
+        world.insert_resource(registry);
+        world
+    }
+
+    #[test]
+    fn should_serialize() {
+        let mut world = create_world();
+
+        let a = world.spawn(Foo(123)).id();
+        let b = world.spawn((Foo(123), Bar(345))).id();
+        let c = world.spawn((Foo(123), Bar(345), Baz(789))).id();
+
+        let mut builder = DynamicSceneBuilder::from_world(&world);
+        builder.extract_entities([a, b, c].into_iter());
+        let scene = builder.build();
+
+        let expected = r#"(
+  entities: [
+    (
+      entity: 0,
+      components: {
+        "bevy_scene::serde::tests::Foo": (123),
+      },
+    ),
+    (
+      entity: 1,
+      components: {
+        "bevy_scene::serde::tests::Foo": (123),
+        "bevy_scene::serde::tests::Bar": (345),
+      },
+    ),
+    (
+      entity: 2,
+      components: {
+        "bevy_scene::serde::tests::Foo": (123),
+        "bevy_scene::serde::tests::Bar": (345),
+        "bevy_scene::serde::tests::Baz": (789),
+      },
+    ),
+  ],
+)"#;
+        let output = scene
+            .serialize_ron(&world.resource::<AppTypeRegistry>().0)
+            .unwrap();
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_deserialize() {
+        let world = create_world();
+
+        let input = r#"(
+  entities: [
+    (
+      entity: 0,
+      components: {
+        "bevy_scene::serde::tests::Foo": (123),
+      },
+    ),
+    (
+      entity: 1,
+      components: {
+        "bevy_scene::serde::tests::Foo": (123),
+        "bevy_scene::serde::tests::Bar": (345),
+      },
+    ),
+    (
+      entity: 2,
+      components: {
+        "bevy_scene::serde::tests::Foo": (123),
+        "bevy_scene::serde::tests::Bar": (345),
+        "bevy_scene::serde::tests::Baz": (789),
+      },
+    ),
+  ],
+)"#;
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let scene_deserializer = SceneDeserializer {
+            type_registry: &world.resource::<AppTypeRegistry>().read(),
+        };
+        let scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
+
+        assert_eq!(
+            3,
+            scene.entities.len(),
+            "expected `entities` to contain 3 entities"
+        );
+
+        let mut map = EntityMap::default();
+        let mut dst_world = create_world();
+        scene.write_to_world(&mut dst_world, &mut map).unwrap();
+
+        assert_eq!(3, dst_world.query::<&Foo>().iter(&dst_world).count());
+        assert_eq!(2, dst_world.query::<&Bar>().iter(&dst_world).count());
+        assert_eq!(1, dst_world.query::<&Baz>().iter(&dst_world).count());
+    }
+}
