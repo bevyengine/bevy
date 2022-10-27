@@ -52,6 +52,7 @@ impl<T: Component> WorldQueryGats<'_> for With<T> {
 unsafe impl<T: Component> WorldQuery for With<T> {
     type ReadOnly = Self;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(
         _: <Self as WorldQueryGats<'wlong>>::Item,
@@ -158,6 +159,7 @@ pub struct Without<T>(PhantomData<T>);
 unsafe impl<T: Component> WorldQuery for Without<T> {
     type ReadOnly = Self;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(
         _: <Self as WorldQueryGats<'wlong>>::Item,
@@ -294,6 +296,7 @@ macro_rules! impl_query_filter_tuple {
         unsafe impl<$($filter: WorldQuery),*> WorldQuery for Or<($($filter,)*)> {
             type ReadOnly = Or<($($filter::ReadOnly,)*)>;
             type State = ($($filter::State,)*);
+            type Config = ($(<$filter as WorldQuery>::Config,)*);
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: super::QueryItem<'wlong, Self>) -> super::QueryItem<'wshort, Self> {
                 item
@@ -450,6 +453,7 @@ macro_rules! impl_tick_filter {
         unsafe impl<T: Component> WorldQuery for $name<T> {
             type ReadOnly = Self;
             type State = ComponentId;
+            type Config = ();
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: super::QueryItem<'wlong, Self>) -> super::QueryItem<'wshort, Self> {
                 item

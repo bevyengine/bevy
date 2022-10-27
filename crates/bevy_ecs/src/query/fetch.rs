@@ -309,6 +309,8 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     /// constructing [`Self::Fetch`](crate::query::WorldQueryGats::Fetch).
     type State: Send + Sync + Sized;
 
+    type Config;
+
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self>;
 
@@ -452,6 +454,7 @@ pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as WorldQuery>::ReadOnly>;
 unsafe impl WorldQuery for Entity {
     type ReadOnly = Self;
     type State = ();
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
@@ -539,6 +542,7 @@ pub struct ReadFetch<'w, T> {
 unsafe impl<T: Component> WorldQuery for &T {
     type ReadOnly = Self;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
         item
@@ -688,6 +692,7 @@ pub struct WriteFetch<'w, T> {
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type ReadOnly = &'__w T;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
         item
@@ -847,6 +852,7 @@ pub struct OptionFetch<'w, T: WorldQuery> {
 unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     type ReadOnly = Option<T::ReadOnly>;
     type State = T::State;
+    type Config = T::Config;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item.map(T::shrink)
@@ -1040,6 +1046,7 @@ pub struct ChangeTrackersFetch<'w, T> {
 unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     type ReadOnly = Self;
     type State = ComponentId;
+    type Config = ();
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
         item
@@ -1200,6 +1207,7 @@ macro_rules! impl_tuple_fetch {
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             type ReadOnly = ($($name::ReadOnly,)*);
             type State = ($($name::State,)*);
+            type Config = ($(<$name as WorldQuery>::Config,)*);
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
                 let ($($name,)*) = item;
@@ -1314,6 +1322,7 @@ macro_rules! impl_anytuple_fetch {
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
             type State = ($($name::State,)*);
+            type Config = ($(<$name as WorldQuery>::Config,)*);
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
                 let ($($name,)*) = item;
@@ -1451,6 +1460,7 @@ pub struct NopWorldQuery<Q: WorldQuery>(PhantomData<Q>);
 unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     type ReadOnly = Self;
     type State = Q::State;
+    type Config = Q::Config;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: ()) {}
 
