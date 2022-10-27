@@ -1297,6 +1297,8 @@ impl fmt::Display for QueryEntityError {
 
 #[cfg(test)]
 mod tests {
+    use bevy_ptr::Ptr;
+
     use crate::{prelude::*, query::QueryEntityError};
 
     #[test]
@@ -1401,6 +1403,38 @@ mod tests {
 
         let mut query_state = world_1.query::<Entity>();
         let _panics = query_state.get_many_mut(&mut world_2, []);
+    }
+
+    use crate as bevy_ecs;
+    use crate::prelude::Component;
+
+    #[derive(Component)]
+    struct TestComponent(u32);
+
+    #[derive(Component)]
+    struct TestComponent2(u32);
+
+    #[test]
+    fn query_state_with_config() {
+        let mut world = World::new();
+
+        let num = 42;
+
+        let component_id = world.init_component::<TestComponent>();
+        world.spawn(TestComponent(num));
+
+        let mut query_state =
+            QueryState::<Ptr<'_>, ()>::new_with_config(&mut world, component_id, ());
+
+        let results: Vec<_> = query_state.iter(&world).collect();
+        match results.as_slice() {
+            [value] => {
+                // SAFETY: correct type, read access
+                let value = unsafe { value.deref::<TestComponent>() };
+                assert_eq!(value.0, num);
+            }
+            _ => panic!("expected to get one result"),
+        }
     }
 }
 
