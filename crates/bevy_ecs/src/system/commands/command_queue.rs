@@ -4,10 +4,10 @@ use super::Command;
 use crate::world::World;
 
 struct CommandMeta {
-    size: usize,
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce the function pointer `func`.
-    func: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World),
+    /// Returns the size of `T` in bytes.
+    func: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World) -> usize,
 }
 
 /// A queue of [`Command`]s
@@ -20,7 +20,7 @@ struct CommandMeta {
 #[derive(Default)]
 pub struct CommandQueue {
     // This contiguously stores a set of alternating objects:
-    // A `CommandMeta`, followed by a sequence of `CommandMeta.size` bytes.
+    // A `CommandMeta`, followed by a sequence of bytes with length specified by the metadata.
     // These bytes hold the data for a type-erased `Command`, and must be passed to
     // the corresponding `CommandMeta.func` to be used.
     bytes: Vec<MaybeUninit<u8>>,
@@ -42,13 +42,16 @@ impl CommandQueue {
         /// SAFETY: This function is only every called when the `command` bytes is the associated
         /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
         /// accesses are safe.
-        unsafe fn write_command<T: Command>(command: *mut MaybeUninit<u8>, world: &mut World) {
+        unsafe fn write_command<T: Command>(
+            command: *mut MaybeUninit<u8>,
+            world: &mut World,
+        ) -> usize {
             let command = command.cast::<T>().read_unaligned();
             command.write(world);
+            mem::size_of::<T>()
         }
 
         let meta = CommandMeta {
-            size: mem::size_of::<C>(),
             func: write_command::<C>,
         };
 
@@ -122,13 +125,11 @@ impl CommandQueue {
             cursor = unsafe { cursor.add(mem::size_of::<CommandMeta>()) };
             // SAFETY: The type currently under the cursor must be the same type erased by `meta.func`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
-            unsafe {
-                (meta.func)(cursor, world);
-            }
+            let size = unsafe { (meta.func)(cursor, world) };
             // Advance the cursor past the command.
             // SAFETY: At this point, it will either point to the next `CommandMeta`,
             // or the cursor will be out of bounds and the loop will end.
-            cursor = unsafe { cursor.add(meta.size) };
+            cursor = unsafe { cursor.add(size) };
         }
     }
 }
