@@ -22,12 +22,12 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
+    renderer::{RenderDevice, RenderQueue},
     texture::{
-        DefaultImageSampler, FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image,
+        BevyDefault, DefaultImageSampler, FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image,
         ImageSampler, TextureFormatPixelInfo,
     },
-    view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;

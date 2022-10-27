@@ -10,10 +10,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(AssetServerSettings {
-            watch_for_changes: true,
-            ..Default::default()
-        })
         .insert_resource(Msaa { samples: 4 })
         // The prepass is enabled per material
         .insert_resource(GlobalMaterialOptions {
@@ -155,8 +151,7 @@ struct Rotates;
 
 fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     for mut t in q.iter_mut() {
-        let rot =
-            (time.seconds_since_startup().sin() * 0.5 + 0.5) as f32 * std::f32::consts::PI * 2.0;
+        let rot = (time.elapsed_seconds().sin() * 0.5 + 0.5) as f32 * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);
     }
 }
