@@ -2,7 +2,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
-    prepass::{AlphaMaskPrepass, OpaquePrepass, PrepassSettings, ViewPrepassTextures},
+    prepass::{AlphaMask3dPrepass, Opaque3dPrepass, PrepassSettings, ViewPrepassTextures},
 };
 use bevy_ecs::{
     prelude::Entity,
@@ -92,18 +92,18 @@ where
             .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_prepass_textures)
             .add_system_to_stage(RenderStage::Queue, queue_prepass_view_bind_group::<M>)
             .add_system_to_stage(RenderStage::Queue, queue_prepass_material_meshes::<M>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<OpaquePrepass>)
+            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3dPrepass>)
             .add_system_to_stage(
                 RenderStage::PhaseSort,
-                sort_phase_system::<AlphaMaskPrepass>,
+                sort_phase_system::<AlphaMask3dPrepass>,
             )
             .init_resource::<PrepassPipeline<M>>()
-            .init_resource::<DrawFunctions<OpaquePrepass>>()
-            .init_resource::<DrawFunctions<AlphaMaskPrepass>>()
+            .init_resource::<DrawFunctions<Opaque3dPrepass>>()
+            .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .add_render_command::<OpaquePrepass, DrawPrepass<M>>()
-            .add_render_command::<AlphaMaskPrepass, DrawPrepass<M>>();
+            .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
+            .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>();
     }
 }
 
@@ -305,8 +305,8 @@ pub fn extract_core_3d_camera_prepass_phase(
     for (entity, camera, prepass_settings) in cameras_3d.iter() {
         if camera.is_active {
             commands.get_or_spawn(entity).insert((
-                RenderPhase::<OpaquePrepass>::default(),
-                RenderPhase::<AlphaMaskPrepass>::default(),
+                RenderPhase::<Opaque3dPrepass>::default(),
+                RenderPhase::<AlphaMask3dPrepass>::default(),
                 prepass_settings.clone(),
             ));
         }
@@ -321,8 +321,8 @@ pub fn prepare_core_3d_prepass_textures(
     views_3d: Query<
         (Entity, &ExtractedCamera, &PrepassSettings),
         (
-            With<RenderPhase<OpaquePrepass>>,
-            With<RenderPhase<AlphaMaskPrepass>>,
+            With<RenderPhase<Opaque3dPrepass>>,
+            With<RenderPhase<AlphaMask3dPrepass>>,
         ),
     >,
 ) {
@@ -412,8 +412,8 @@ pub fn queue_prepass_view_bind_group<M: Material>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_prepass_material_meshes<M: Material>(
-    opaque_draw_functions: Res<DrawFunctions<OpaquePrepass>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMaskPrepass>>,
+    opaque_draw_functions: Res<DrawFunctions<Opaque3dPrepass>>,
+    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     mut pipeline_cache: ResMut<PipelineCache>,
@@ -425,8 +425,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
         &ExtractedView,
         &VisibleEntities,
         &PrepassSettings,
-        &mut RenderPhase<OpaquePrepass>,
-        &mut RenderPhase<AlphaMaskPrepass>,
+        &mut RenderPhase<Opaque3dPrepass>,
+        &mut RenderPhase<AlphaMask3dPrepass>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -488,7 +488,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         + material.properties.depth_bias;
                     match alpha_mode {
                         AlphaMode::Opaque => {
-                            opaque_phase.add(OpaquePrepass {
+                            opaque_phase.add(Opaque3dPrepass {
                                 entity: *visible_entity,
                                 draw_function: opaque_draw_prepass,
                                 pipeline_id,
@@ -496,7 +496,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             });
                         }
                         AlphaMode::Mask(_) => {
-                            alpha_mask_phase.add(AlphaMaskPrepass {
+                            alpha_mask_phase.add(AlphaMask3dPrepass {
                                 entity: *visible_entity,
                                 draw_function: alpha_mask_draw_prepass,
                                 pipeline_id,

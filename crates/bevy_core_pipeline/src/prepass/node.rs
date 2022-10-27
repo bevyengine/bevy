@@ -15,14 +15,14 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-use super::{AlphaMaskPrepass, OpaquePrepass, ViewPrepassTextures};
+use super::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures};
 
 pub struct PrepassNode {
     main_view_query: QueryState<
         (
             &'static ExtractedCamera,
-            &'static RenderPhase<OpaquePrepass>,
-            &'static RenderPhase<AlphaMaskPrepass>,
+            &'static RenderPhase<Opaque3dPrepass>,
+            &'static RenderPhase<AlphaMask3dPrepass>,
             &'static ViewDepthTexture,
             &'static ViewPrepassTextures,
         ),
@@ -107,7 +107,7 @@ impl Node for PrepassNode {
                     // Run the depth prepass, sorted front-to-back
                     #[cfg(feature = "trace")]
                     let _opaque_prepass_span = info_span!("opaque_prepass").entered();
-                    let draw_functions = world.resource::<DrawFunctions<OpaquePrepass>>();
+                    let draw_functions = world.resource::<DrawFunctions<Opaque3dPrepass>>();
 
                     let mut draw_functions = draw_functions.write();
                     for item in &opaque_prepass_phase.items {
@@ -120,7 +120,7 @@ impl Node for PrepassNode {
                     // Run the depth prepass, sorted front-to-back
                     #[cfg(feature = "trace")]
                     let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
-                    let draw_functions = world.resource::<DrawFunctions<AlphaMaskPrepass>>();
+                    let draw_functions = world.resource::<DrawFunctions<AlphaMask3dPrepass>>();
 
                     let mut draw_functions = draw_functions.write();
                     for item in &alpha_mask_prepass_phase.items {

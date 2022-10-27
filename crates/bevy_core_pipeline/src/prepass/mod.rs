@@ -34,14 +34,14 @@ pub struct ViewPrepassTextures {
     pub size: Extent3d,
 }
 
-pub struct OpaquePrepass {
+pub struct Opaque3dPrepass {
     pub distance: f32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
-impl PhaseItem for OpaquePrepass {
+impl PhaseItem for Opaque3dPrepass {
     type SortKey = FloatOrd;
 
     #[inline]
@@ -60,27 +60,27 @@ impl PhaseItem for OpaquePrepass {
     }
 }
 
-impl EntityPhaseItem for OpaquePrepass {
+impl EntityPhaseItem for Opaque3dPrepass {
     fn entity(&self) -> Entity {
         self.entity
     }
 }
 
-impl CachedRenderPipelinePhaseItem for OpaquePrepass {
+impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline_id
     }
 }
 
-pub struct AlphaMaskPrepass {
+pub struct AlphaMask3dPrepass {
     pub distance: f32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
-impl PhaseItem for AlphaMaskPrepass {
+impl PhaseItem for AlphaMask3dPrepass {
     type SortKey = FloatOrd;
 
     #[inline]
@@ -99,13 +99,13 @@ impl PhaseItem for AlphaMaskPrepass {
     }
 }
 
-impl EntityPhaseItem for AlphaMaskPrepass {
+impl EntityPhaseItem for AlphaMask3dPrepass {
     fn entity(&self) -> Entity {
         self.entity
     }
 }
 
-impl CachedRenderPipelinePhaseItem for AlphaMaskPrepass {
+impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline_id
