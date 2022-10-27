@@ -1843,3 +1843,119 @@ impl<'w> WorldQueryGats<'w> for PtrMut<'_> {
     type Fetch = WriteFetchUntyped<'w>;
     type Item = MutUntyped<'w>;
 }
+
+unsafe impl<Q: WorldQuery> WorldQuery for Vec<Q> {
+    type ReadOnly = Vec<Q::ReadOnly>;
+
+    type State = Vec<Q::State>;
+
+    type Config = Vec<Q::Config>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {
+        item.into_iter().map(Q::shrink).collect()
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: &'w World,
+        state: &Self::State,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        state
+            .iter()
+            .map(|state| Q::init_fetch(world, state, last_change_tick, change_tick))
+            .collect()
+    }
+
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        fetch.iter().map(|fetch| Q::clone_fetch(fetch)).collect()
+    }
+
+    const IS_DENSE: bool = Q::IS_DENSE;
+
+    const IS_ARCHETYPAL: bool = Q::IS_ARCHETYPAL;
+
+    unsafe fn set_archetype<'w>(
+        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        for (fetch, state) in fetch.iter_mut().zip(state) {
+            Q::set_archetype(fetch, state, archetype, table);
+        }
+    }
+
+    unsafe fn set_table<'w>(
+        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        state: &Self::State,
+        table: &'w Table,
+    ) {
+        for (fetch, state) in fetch.iter_mut().zip(state) {
+            Q::set_table(fetch, state, table);
+        }
+    }
+
+    unsafe fn fetch<'w>(
+        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        entity: Entity,
+        table_row: usize,
+    ) -> <Self as WorldQueryGats<'w>>::Item {
+        fetch
+            .iter_mut()
+            .map(|fetch| Q::fetch(fetch, entity, table_row))
+            .collect()
+    }
+
+    unsafe fn filter_fetch(
+        fetch: &mut <Self as WorldQueryGats<'_>>::Fetch,
+        entity: Entity,
+        table_row: usize,
+    ) -> bool {
+        fetch
+            .iter_mut()
+            .all(|fetch| Q::filter_fetch(fetch, entity, table_row))
+    }
+
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        for state in state {
+            Q::update_component_access(state, access);
+        }
+    }
+
+    fn update_archetype_component_access(
+        state: &Self::State,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        for state in state {
+            Q::update_archetype_component_access(state, archetype, access);
+        }
+    }
+
+    fn init_state(config: Self::Config, world: &mut World) -> Self::State {
+        config
+            .into_iter()
+            .map(|config| Q::init_state(config, world))
+            .collect()
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        state
+            .iter()
+            .all(|state| Q::matches_component_set(state, set_contains_id))
+    }
+}
+
+/// SAFETY: access is read only
+unsafe impl<Q: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Vec<Q> {}
+
+impl<'w, T: WorldQuery> WorldQueryGats<'w> for Vec<T> {
+    type Fetch = Vec<<T as WorldQueryGats<'w>>::Fetch>;
+    type Item = Vec<<T as WorldQueryGats<'w>>::Item>;
+}

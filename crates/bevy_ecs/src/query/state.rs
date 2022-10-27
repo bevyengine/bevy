@@ -1436,6 +1436,43 @@ mod tests {
             _ => panic!("expected to get one result"),
         }
     }
+
+    #[test]
+    fn query_state_with_config_vec() {
+        let mut world = World::new();
+
+        let num_1 = 42;
+        let num_2 = 43;
+
+        let component_id_1 = world.init_component::<TestComponent>();
+        let component_id_2 = world.init_component::<TestComponent2>();
+
+        world.spawn((TestComponent(num_1), TestComponent2(num_2)));
+
+        let mut query_state = QueryState::<Vec<Ptr<'_>>, ()>::new_with_config(
+            &mut world,
+            vec![component_id_1, component_id_2],
+            (),
+        );
+
+        let results: Vec<_> = query_state.iter(&world).collect();
+        match results.as_slice() {
+            [result] => {
+                match result.as_slice() {
+                    [val_1, val_2] => {
+                        // SAFETY: correct type, read access
+                        let val_1 = unsafe { val_1.deref::<TestComponent>() };
+                        // SAFETY: correct type, read access
+                        let val_2 = unsafe { val_2.deref::<TestComponent2>() };
+                        assert_eq!(val_1.0, num_1);
+                        assert_eq!(val_2.0, num_2);
+                    }
+                    _ => panic!("expected to get two items in query result"),
+                }
+            }
+            _ => panic!("expected to get one result"),
+        }
+    }
 }
 
 /// An error that occurs when evaluating a [`QueryState`] as a single expected resulted via
