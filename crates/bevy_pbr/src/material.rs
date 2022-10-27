@@ -148,6 +148,12 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
         ShaderRef::Default
     }
 
+    /// Controls if this Material is used in the prepass
+    /// You also need to enable the prepass globally using `GlobalMaterialOptions` for this to work
+    fn prepass_enabled() -> bool {
+        true
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
     #[allow(unused_variables)]
@@ -160,6 +166,14 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
+}
+
+/// Options that affects all materials
+#[derive(Resource, Default)]
+pub struct GlobalMaterialOptions {
+    // Controls if the prepass will be used when rendering
+    // Disabled by default
+    pub prepass_enabled: bool,
 }
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
@@ -179,7 +193,8 @@ where
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
-            .add_plugin(PrepassPlugin::<M>::default());
+            .init_resource::<GlobalMaterialOptions>();
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
@@ -195,6 +210,11 @@ where
                     prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
                 )
                 .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
+        }
+
+        let options = app.world.resource::<GlobalMaterialOptions>();
+        if options.prepass_enabled && M::prepass_enabled() {
+            app.add_plugin(PrepassPlugin::<M>::default());
         }
     }
 }
@@ -239,7 +259,7 @@ where
 }
 
 /// Render pipeline data for a given [`Material`].
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct MaterialPipeline<M: Material> {
     pub mesh_pipeline: MeshPipeline,
     pub material_layout: BindGroupLayout,

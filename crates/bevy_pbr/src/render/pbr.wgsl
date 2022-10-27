@@ -11,7 +11,6 @@
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
-    @builtin(sample_index) sample_index: u32,
     #import bevy_pbr::mesh_vertex_output
 };
 
@@ -77,7 +76,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.N = prepare_normal(
             material.flags,
             in.world_normal,
-            // prepass_normal(in.frag_coord, in.sample_index),
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
             in.world_tangent,

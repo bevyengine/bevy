@@ -20,7 +20,7 @@ use bevy_utils::tracing::info_span;
 pub struct PrepassSettings {
     /// If true then depth values will be copied to a separate texture available to the main pass.
     pub output_depth: bool,
-    /// If true then vertex world normals will be copied to a separate texture available to the main pass
+    /// If true then vertex world normals will be copied to a separate texture available to the main pass.
     pub output_normals: bool,
 }
 

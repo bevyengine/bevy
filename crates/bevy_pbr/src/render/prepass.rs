@@ -41,14 +41,11 @@ use bevy_render::{
     },
     Extract, RenderApp, RenderStage,
 };
-use bevy_utils::{
-    tracing::{error, warn},
-    FloatOrd, HashMap,
-};
+use bevy_utils::{tracing::error, FloatOrd, HashMap};
 
 use crate::{
-    AlphaMode, DrawMesh, Material, MeshPipeline, MeshPipelineKey, MeshUniform, RenderMaterials,
-    SetMeshBindGroup,
+    AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline,
+    MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -62,7 +59,10 @@ pub mod draw_3d_graph {
 pub const PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub const PREPASS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17179930919397780179);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 921124473254008983);
+
+pub const PREPASS_BINDINGS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5533152893177403494);
 
 pub struct PrepassPlugin<M: Material>(PhantomData<M>);
 
@@ -81,6 +81,13 @@ where
             app,
             PREPASS_SHADER_HANDLE,
             "prepass.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(
+            app,
+            PREPASS_BINDINGS_SHADER_HANDLE,
+            "prepass_bindings.wgsl",
             Shader::from_wgsl
         );
 
@@ -107,8 +114,8 @@ where
 
         let prepass_node = PrepassNode::new(&mut render_app.world);
         render_app
-            .add_render_command::<OpaquePrepass, DrawPrepass>()
-            .add_render_command::<AlphaMaskPrepass, DrawPrepass>();
+            .add_render_command::<OpaquePrepass, DrawPrepass<M>>()
+            .add_render_command::<AlphaMaskPrepass, DrawPrepass<M>>();
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
@@ -139,6 +146,7 @@ pub struct PrepassPipeline<M: Material> {
     pub material_layout: BindGroupLayout,
     pub material_vertex_shader: Option<Handle<Shader>>,
     pub material_fragment_shader: Option<Handle<Shader>>,
+    pub material_pipeline: MaterialPipeline<M>,
     _marker: PhantomData<M>,
 }
 
@@ -167,7 +175,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
         let mesh_pipeline = world.resource::<MeshPipeline>();
         let skinned_mesh_layout = mesh_pipeline.skinned_mesh_layout.clone();
 
-        Self {
+        PrepassPipeline {
             view_layout,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
             skinned_mesh_layout,
@@ -182,13 +190,17 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
             material_layout: M::bind_group_layout(render_device),
+            material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
             _marker: PhantomData,
         }
     }
 }
 
-impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M> {
-    type Key = MeshPipelineKey;
+impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M>
+where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
+    type Key = MaterialPipelineKey<M>;
 
     fn specialize(
         &self,
@@ -197,18 +209,25 @@ impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M> {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut bind_group_layout = vec![self.view_layout.clone()];
         let mut shader_defs = Vec::new();
+        shader_defs.push(String::from("PREPASS_DEPTH"));
 
-        if key.contains(MeshPipelineKey::ALPHA_MASK) {
+        // FIXME figure out a way to only add it when necessary
+        // right now the issue is that the group is hardcoded to 1 in the pbr_bindings
+        // but when it's not present then the mesh bind group is now group 1 and everything breaks
+        // if self.material_fragment_shader.is_some() || self.material_vertex_shader.is_some() {
+        bind_group_layout.insert(1, self.material_layout.clone());
+        // }
+
+        if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
             shader_defs.push(String::from("ALPHA_MASK"));
-            // FIXME: This needs to be implemented per-material!
-            bind_group_layout.push(self.material_layout.clone());
         }
 
         let mut vertex_attributes = vec![Mesh::ATTRIBUTE_POSITION.at_shader_location(0)];
 
-        if key.contains(MeshPipelineKey::PREPASS_NORMALS) {
+        if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
             shader_defs.push(String::from("OUTPUT_NORMALS"));
+            shader_defs.push(String::from("PREPASS_NORMALS"));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
@@ -227,20 +246,19 @@ impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M> {
             shader_defs.push(String::from("SKINNED"));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
-            bind_group_layout.push(self.skinned_mesh_layout.clone());
+            bind_group_layout.insert(2, self.skinned_mesh_layout.clone());
         } else {
-            bind_group_layout.push(self.mesh_layout.clone());
+            bind_group_layout.insert(2, self.mesh_layout.clone());
         }
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        let fragment = if key.contains(MeshPipelineKey::PREPASS_NORMALS)
-            || key.contains(MeshPipelineKey::ALPHA_MASK)
+        let fragment = if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS)
+            || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
         {
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
                 handle.clone()
             } else {
-                warn!("Missing Material::prepass_fragment_shader() for material with UUID {}. Rendering may be incorrect.", M::TYPE_UUID);
                 PREPASS_SHADER_HANDLE.typed::<Shader>()
             };
 
@@ -261,11 +279,10 @@ impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M> {
         let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
             handle.clone()
         } else {
-            warn!("Missing Material::prepass_vertex_shader() for material with UUID {}. Rendering may be incorrect.", M::TYPE_UUID);
             PREPASS_SHADER_HANDLE.typed::<Shader>()
         };
 
-        Ok(RenderPipelineDescriptor {
+        let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: vert_shader_handle,
                 entry_point: "vertex".into(),
@@ -275,17 +292,15 @@ impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M> {
             fragment,
             layout: Some(bind_group_layout),
             primitive: PrimitiveState {
-                topology: key.primitive_topology(),
+                topology: key.mesh_key.primitive_topology(),
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
-                // FIXME: Should use from material... but that would need specialization
                 cull_mode: None,
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
             },
             depth_stencil: Some(DepthStencilState {
-                // FIXME: Same as main pass
                 format: PREPASS_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
@@ -302,12 +317,16 @@ impl<M: Material> SpecializedMeshPipeline for PrepassPipeline<M> {
                 },
             }),
             multisample: MultisampleState {
-                count: key.msaa_samples(),
+                count: key.mesh_key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
             label: Some("prepass_pipeline".into()),
-        })
+        };
+
+        M::specialize(&self.material_pipeline, &mut descriptor, layout, key)?;
+
+        Ok(descriptor)
     }
 }
 
@@ -459,11 +478,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
 {
     let opaque_draw_prepass = opaque_draw_functions
         .read()
-        .get_id::<DrawPrepass>()
+        .get_id::<DrawPrepass<M>>()
         .unwrap();
     let alpha_mask_draw_prepass = alpha_mask_draw_functions
         .read()
-        .get_id::<DrawPrepass>()
+        .get_id::<DrawPrepass<M>>()
         .unwrap();
     for (view, visible_entities, prepass_settings, mut opaque_phase, mut alpha_mask_phase) in
         &mut views
@@ -495,7 +514,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         let pipeline_id = pipelines.specialize(
                             &mut pipeline_cache,
                             &prepass_pipeline,
-                            key,
+                            MaterialPipelineKey {
+                                mesh_key: key,
+                                bind_group_data: material.key.clone(),
+                            },
                             &mesh.layout,
                         );
                         let pipeline_id = match pipeline_id {
@@ -725,11 +747,11 @@ impl Node for PrepassNode {
                 }
             }
 
-            if let Some(view_depth_texture_resource) = &view_prepass_textures.depth {
+            if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
                 // copy depth buffer to texture
                 render_context.command_encoder.copy_texture_to_texture(
                     view_depth_texture.texture.as_image_copy(),
-                    view_depth_texture_resource.texture.as_image_copy(),
+                    prepass_depth_texture.texture.as_image_copy(),
                     view_prepass_textures.size,
                 );
             }
@@ -739,10 +761,11 @@ impl Node for PrepassNode {
     }
 }
 
-pub type DrawPrepass = (
+pub type DrawPrepass<M> = (
     SetItemPipeline,
     SetDepthViewBindGroup<0>,
-    SetMeshBindGroup<1>,
+    SetMaterialBindGroup<M, 1>,
+    SetMeshBindGroup<2>,
     DrawMesh,
 );
 

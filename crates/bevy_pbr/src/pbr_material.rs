@@ -1,4 +1,7 @@
-use crate::{AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_SHADER_HANDLE};
+use crate::{
+    AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_PREPASS_SHADER_HANDLE,
+    PBR_SHADER_HANDLE,
+};
 use bevy_asset::Handle;
 use bevy_math::Vec4;
 use bevy_reflect::TypeUuid;
@@ -425,6 +428,10 @@ impl Material for StandardMaterial {
         Ok(())
     }
 
+    fn prepass_fragment_shader() -> ShaderRef {
+        PBR_PREPASS_SHADER_HANDLE.typed().into()
+    }
+
     fn fragment_shader() -> ShaderRef {
         PBR_SHADER_HANDLE.typed().into()
     }
@@ -437,5 +444,9 @@ impl Material for StandardMaterial {
     #[inline]
     fn depth_bias(&self) -> f32 {
         self.depth_bias
+    }
+
+    fn prepass_enabled() -> bool {
+        true
     }
 }

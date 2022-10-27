@@ -1,19 +1,4 @@
-#import bevy_pbr::mesh_view_types
-#import bevy_pbr::mesh_types
-
-@group(0) @binding(0)
-var<uniform> view: View;
-
-@group(1) @binding(0)
-var<uniform> mesh: Mesh;
-
-#ifdef SKINNED
-@group(1) @binding(1)
-var<uniform> joint_matrices: SkinnedMesh;
-#import bevy_pbr::skinning
-#endif
-
-// NOTE: Bindings must come before functions that use them!
+#import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
 
 struct Vertex {
@@ -37,7 +22,6 @@ struct Vertex {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-
 #ifdef OUTPUT_NORMALS
     @location(0) world_normal: vec3<f32>,
 #ifdef VERTEX_UVS

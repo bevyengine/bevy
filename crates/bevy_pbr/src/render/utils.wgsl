@@ -15,7 +15,7 @@ fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
         vec3<f32>(1.0)
     );
 
-	return value * mix( vec3<f32>(1.0), rgb, vec3<f32>(saturation));
+    return value * mix(vec3<f32>(1.0), rgb, vec3<f32>(saturation));
 }
 
 fn random1D(s: f32) -> f32 {
@@ -30,6 +30,7 @@ fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> 
     return (position - viewport.xy) / viewport.zw;
 }
 
+#ifndef PREPASS_NORMALS
 fn prepass_normal(frag_coord: vec4<f32>, sample_index: u32) -> vec3<f32> {
 #ifdef MULTISAMPLED
     let normal_sample: vec4<f32> = textureLoad(normal_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
@@ -38,7 +39,9 @@ fn prepass_normal(frag_coord: vec4<f32>, sample_index: u32) -> vec3<f32> {
 #endif
     return normal_sample.xyz * 2.0 - vec3<f32>(1.0);
 }
+#endif
 
+#ifndef PREPASS_DEPTH
 fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
 #ifdef MULTISAMPLED
     let depth_sample: f32 = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
@@ -47,3 +50,4 @@ fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
 #endif
     return depth_sample;
 }
+#endif
