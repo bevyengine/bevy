@@ -87,7 +87,7 @@ impl CommandQueue {
         // due to the call to `.reserve()` above.
         unsafe {
             self.bytes
-                .set_len(old_len + mem::size_of::<CommandMeta>() + mem::size_of::<C>());
+                .set_len(mem::size_of::<CommandMeta>() + mem::size_of::<C>() + old_len);
         }
     }
 
