@@ -52,37 +52,42 @@ impl CommandQueue {
             func: write_command::<C>,
         };
 
+        let old_len = self.bytes.len();
+
         // Reserve enough bytes for both the metadata and the command itself.
         self.bytes
             .reserve(mem::size_of::<CommandMeta>() + mem::size_of::<C>());
 
-        // SAFETY: The end of the `bytes` vector has enough space for the metadata due to the `.reserve()` call,
+        // Pointer to the bytes at the end of the buffer.
+        // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
+        let cursor = unsafe { self.bytes.as_mut_ptr().add(old_len) };
+
+        // SAFETY: The end of the buffer has enough space for the metadata due to the `.reserve()` call,
         // so we can cast it to a pointer and perform an unaligned write in order to fill the buffer.
         // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
         unsafe {
-            let end = self.bytes.len();
-            self.bytes
-                .as_mut_ptr()
-                .add(end)
-                .cast::<CommandMeta>()
-                .write_unaligned(meta);
-            self.bytes.set_len(end + std::mem::size_of::<CommandMeta>());
+            cursor.cast::<CommandMeta>().write_unaligned(meta);
         }
 
         if mem::size_of::<C>() > 0 {
             // SAFETY: There is enough space after the metadata to store the command,
             // due to the `.reserve()` call above.
             // We will write to the buffer via an unaligned pointer write.
-            // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
+            // Since the underlying buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
             unsafe {
-                let end = self.bytes.len();
-                self.bytes
-                    .as_mut_ptr()
-                    .add(end)
+                cursor
+                    .add(mem::size_of::<CommandMeta>())
                     .cast::<C>()
                     .write_unaligned(command);
-                self.bytes.set_len(end + std::mem::size_of::<C>());
             }
+        }
+
+        // Extend the length of the buffer to include the data we just wrote.
+        // SAFETY: The new length is guaranteed to fit in the vector's capacity,
+        // due to the call to `.reserve()` above.
+        unsafe {
+            self.bytes
+                .set_len(old_len + mem::size_of::<CommandMeta>() + mem::size_of::<C>());
         }
     }
 
