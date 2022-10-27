@@ -62,15 +62,14 @@ impl CommandQueue {
 
         let old_len = self.bytes.len();
         self.bytes.reserve(block_size);
-        // SAFETY: The internal `bytes` vector has enough storage for the
-        // metadata (see the call the `reserve` above).
-        // The `src` pointer is trivially valid for reads, since it was obtained from a reference.
+        // SAFETY: The end of the `bytes` vector has enough space for the metadata,
+        // so we can cast it to a pointer and perform an unaligned write in order to fill the buffer.
         unsafe {
-            std::ptr::copy_nonoverlapping(
-                &meta as *const _ as *const MaybeUninit<u8>,
-                self.bytes.as_mut_ptr().add(old_len),
-                std::mem::size_of::<CommandMeta>(),
-            );
+            self.bytes
+                .as_mut_ptr()
+                .add(old_len)
+                .cast::<CommandMeta>()
+                .write_unaligned(meta);
         }
 
         if size > 0 {
