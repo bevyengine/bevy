@@ -1,4 +1,4 @@
-use std::mem::MaybeUninit;
+use std::mem::{self, MaybeUninit};
 
 use super::Command;
 use crate::world::World;
@@ -48,13 +48,13 @@ impl CommandQueue {
         }
 
         let meta = CommandMeta {
-            size: std::mem::size_of::<C>(),
+            size: mem::size_of::<C>(),
             func: write_command::<C>,
         };
 
         let old_len = self.bytes.len();
 
-        let block_size = std::mem::size_of::<CommandMeta>() + std::mem::size_of::<C>();
+        let block_size = mem::size_of::<CommandMeta>() + mem::size_of::<C>();
         self.bytes.reserve(block_size);
         // SAFETY: The end of the `bytes` vector has enough space for the metadata due to the `.reserve()` call,
         // so we can cast it to a pointer and perform an unaligned write in order to fill the buffer.
@@ -67,7 +67,7 @@ impl CommandQueue {
                 .write_unaligned(meta);
         }
 
-        if std::mem::size_of::<C>() > 0 {
+        if mem::size_of::<C>() > 0 {
             // SAFETY: There is enough space after the metadata to store the command,
             // due to the `.reserve()` call above.
             // We will write to the buffer via an unaligned pointer write.
@@ -75,7 +75,7 @@ impl CommandQueue {
             unsafe {
                 self.bytes
                     .as_mut_ptr()
-                    .add(old_len + std::mem::size_of::<CommandMeta>())
+                    .add(old_len + mem::size_of::<CommandMeta>())
                     .cast::<C>()
                     .write_unaligned(command);
             }
@@ -115,7 +115,7 @@ impl CommandQueue {
             // is guaranteed to be in bounds.
             // The pointer might be out of bounds if the command is zero-sized,
             // but it is okay to have a dangling pointer to a ZST.
-            cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
+            cursor = unsafe { cursor.add(mem::size_of::<CommandMeta>()) };
             // SAFETY: The type erased by `command_ptr` must be the same type erased by `meta.func`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
             unsafe {
