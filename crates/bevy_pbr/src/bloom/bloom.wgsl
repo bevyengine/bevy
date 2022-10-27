@@ -1,22 +1,15 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
 struct Uniforms {
-	threshold: f32;
-	knee: f32;
-	scale: f32;
+	threshold: f32,
+	knee: f32,
+	scale: f32,
 };
 
-@group(0) binding(0)
-var org: texture_2d<f32>;
-
-@group(0) binding(1)
-var org_sampler: sampler;
-
-@group(0) binding(2)
-var<uniform> uniforms: Uniforms;
-
-@group(0) binding(3)
-var up: texture_2d<f32>;
+@group(0) @binding(0) var org: texture_2d<f32>;
+@group(0) @binding(1) var org_sampler: sampler;
+@group(0) @binding(2) var<uniform> uniforms: Uniforms;
+@group(0) @binding(3) var up: texture_2d<f32>;
 
 fn quadratic_threshold(color: vec4<f32>, threshold: f32, curve: vec3<f32>) -> vec4<f32> {
     let br = max(max(color.r, color.g), color.b);
