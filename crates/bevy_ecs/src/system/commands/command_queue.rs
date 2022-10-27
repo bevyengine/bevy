@@ -71,7 +71,6 @@ impl CommandQueue {
         }
 
         if size > 0 {
-            let old_len = self.bytes.len();
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     &command as *const _ as *const MaybeUninit<u8>,
@@ -108,7 +107,7 @@ impl CommandQueue {
             // SAFETY: The bytes at `offset` are known to represent a value of type `CommandMeta`,
             // since the buffer alternates between storing `CommandMeta` and unknown bytes.
             // Its value will have been fully initialized during any calls to `push`.
-            let meta = unsafe { std::ptr::read_unaligned(ptr.add(offset) as *mut CommandMeta) };
+            let meta = unsafe { ptr.add(offset).cast::<CommandMeta>().read_unaligned() };
             // The bytes just after `meta` are a sequence of unknown bytes representing a type-erased command.
             offset += std::mem::size_of::<CommandMeta>();
             let command_ptr = unsafe { ptr.add(offset) };
