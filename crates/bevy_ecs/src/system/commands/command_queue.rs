@@ -62,6 +62,9 @@ impl CommandQueue {
 
         let old_len = self.bytes.len();
         self.bytes.reserve(block_size);
+        // SAFETY: The internal `bytes` vector has enough storage for the
+        // metadata (see the call the `reserve` above).
+        // The `src` pointer is trivially valid for reads, since it was obtained from a reference.
         unsafe {
             std::ptr::copy_nonoverlapping(
                 &meta as *const _ as *const MaybeUninit<u8>,
@@ -71,6 +74,11 @@ impl CommandQueue {
         }
 
         if size > 0 {
+            // SAFETY: The internal `bytes` vector has enough storage for the
+            // command (see the call the `reserve` above), the vector has
+            // its length set appropriately and can contain any kind of bytes.
+            // Also `command` is forgotten so that  when `apply` is called
+            // later, a double `drop` does not occur.
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     &command as *const _ as *const MaybeUninit<u8>,
@@ -82,6 +90,8 @@ impl CommandQueue {
             }
         }
 
+        // SAFETY: The capacity is >= the new length, due to the `.reserve(..)` call earlier.
+        // The bytes ranging from `old_len..block_size` have been written to by the `ptr::copy_nonoverlapping` calls.
         unsafe {
             self.bytes.set_len(old_len + block_size);
         }
