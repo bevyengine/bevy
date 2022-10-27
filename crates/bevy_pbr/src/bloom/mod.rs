@@ -8,7 +8,6 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryState, With},
-    schedule::IntoSystemDescriptor,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -63,10 +62,7 @@ impl Plugin for BloomPlugin {
             .init_resource::<BloomUniforms>()
             .add_system_to_stage(RenderStage::Extract, extract_bloom_settings)
             .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
-            .add_system_to_stage(
-                RenderStage::Prepare,
-                prepare_bloom_uniforms.after(prepare_bloom_textures),
-            )
+            .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
             .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
 
         let bloom_node = BloomNode::new(&mut render_app.world);
@@ -459,7 +455,7 @@ impl FromWorld for BloomPipelines {
                 fragment: Some(FragmentState {
                     shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
                     shader_defs: vec![],
-                    entry_point: "up_sample".into(),
+                    entry_point: "up_sample_final".into(),
                     targets: vec![Some(ColorTargetState {
                         format: ViewTarget::TEXTURE_FORMAT_HDR,
                         blend: Some(BlendState {
@@ -506,7 +502,6 @@ struct BloomTextures {
     texture_a: CachedTexture,
     texture_b: CachedTexture,
     mip_count: u32,
-    scale: f32,
 }
 
 impl BloomTextures {
@@ -531,14 +526,13 @@ fn prepare_bloom_textures(
         if let Some(UVec2 {
             x: width,
             y: height,
-        }) = camera.physical_target_size
+        }) = camera.physical_viewport_size
         {
             let min_element = width.min(height) / 2;
             let mut mip_count = 1;
             while min_element / 2u32.pow(mip_count) > 4 {
                 mip_count += 1;
             }
-            let scale = (min_element / 2u32.pow(mip_count)) as f32 / 8.0;
 
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
@@ -570,7 +564,6 @@ fn prepare_bloom_textures(
                 texture_a,
                 texture_b,
                 mip_count,
-                scale,
             });
         }
     }
@@ -596,20 +589,31 @@ fn prepare_bloom_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut bloom_uniforms: ResMut<BloomUniforms>,
-    bloom_query: Query<(Entity, &BloomSettings, &BloomTextures)>,
+    bloom_query: Query<(Entity, &ExtractedCamera, &BloomSettings)>,
 ) {
     bloom_uniforms.uniforms.clear();
 
     let entities = bloom_query
         .iter()
-        .map(|(entity, settings, textures)| {
+        .filter_map(|(entity, camera, settings)| {
+            let size = match camera.physical_viewport_size {
+                Some(size) => size,
+                None => return None,
+            };
+            let min_element = size.x.min(size.y) / 2;
+            let mut mip_count = 1;
+            while min_element / 2u32.pow(mip_count) > 4 {
+                mip_count += 1;
+            }
+            let scale = (min_element / 2u32.pow(mip_count)) as f32 / 8.0;
+
             let uniform = BloomUniform {
                 threshold: settings.threshold,
                 knee: settings.knee,
-                scale: settings.up_sample_scale * textures.scale,
+                scale: settings.up_sample_scale * scale,
             };
             let index = bloom_uniforms.uniforms.push(uniform);
-            (entity, (BloomUniformIndex(index)))
+            Some((entity, (BloomUniformIndex(index))))
         })
         .collect::<Vec<_>>();
     commands.insert_or_spawn_batch(entities);

@@ -6,6 +6,7 @@ use std::{
 
 fn main() {
     App::new()
+        .insert_resource(Msaa { samples: 1 }) // 1. MSAA must be turned off
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(bounce)
@@ -20,13 +21,13 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true, // 1. HDR must be enabled
+                hdr: true, // 2. HDR must be enabled on the camera
                 ..default()
             },
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        BloomSettings::default(), // 2. Enable bloom
+        BloomSettings::default(), // 3. Enable bloom
     ));
 
     let mesh = meshes.add(
