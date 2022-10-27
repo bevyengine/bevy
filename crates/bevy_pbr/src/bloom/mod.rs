@@ -186,13 +186,16 @@ impl Node for BloomNode {
         };
 
         {
+            let view = &BloomTextures::texture_view(&textures.texture_a, 0);
             let mut pre_filter_pass =
                 TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_pre_filter_pass"),
-                        color_attachments: &[Some(
-                            view_target.get_color_attachment(Operations::default()),
-                        )],
+                        color_attachments: &[Some(RenderPassColorAttachment {
+                            view,
+                            resolve_target: None,
+                            ops: Operations::default(),
+                        })],
                         depth_stencil_attachment: None,
                     },
                 ));
