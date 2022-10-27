@@ -3,8 +3,9 @@ use std::mem::{ManuallyDrop, MaybeUninit};
 use super::Command;
 use crate::world::World;
 
+#[derive(Clone, Copy)]
 struct CommandMeta {
-    offset: usize,
+    size: usize,
     func: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World),
 }
 
@@ -17,8 +18,11 @@ struct CommandMeta {
 // preferred to simplicity of implementation.
 #[derive(Default)]
 pub struct CommandQueue {
+    // This contiguously stores a set of alternating objects:
+    // A `CommandMeta`, followed by a sequence of `CommandMeta.size` bytes.
+    // These bytes hold the data for a type-erased `Command`, and must be passed to
+    // the corresponding `CommandMeta.func` to be used.
     bytes: Vec<MaybeUninit<u8>>,
-    metas: Vec<CommandMeta>,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -43,36 +47,43 @@ impl CommandQueue {
         }
 
         let size = std::mem::size_of::<C>();
-        let old_len = self.bytes.len();
 
-        self.metas.push(CommandMeta {
-            offset: old_len,
+        let meta = CommandMeta {
+            size,
             func: write_command::<C>,
-        });
+        };
+
+        let block_size = std::mem::size_of::<CommandMeta>() + size;
 
         // Use `ManuallyDrop` to forget `command` right away, avoiding
         // any use of it after the `ptr::copy_nonoverlapping`.
         let command = ManuallyDrop::new(command);
 
-        if size > 0 {
-            self.bytes.reserve(size);
+        let old_len = self.bytes.len();
+        self.bytes.reserve(block_size);
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                &meta as *const _ as *const MaybeUninit<u8>,
+                self.bytes.as_mut_ptr().add(old_len),
+                std::mem::size_of::<CommandMeta>(),
+            );
+        }
 
-            // SAFETY: The internal `bytes` vector has enough storage for the
-            // command (see the call the `reserve` above), the vector has
-            // its length set appropriately and can contain any kind of bytes.
-            // In case we're writing a ZST and the `Vec` hasn't allocated yet
-            // then `as_mut_ptr` will be a dangling (non null) pointer, and
-            // thus valid for ZST writes.
-            // Also `command` is forgotten so that  when `apply` is called
-            // later, a double `drop` does not occur.
+        if size > 0 {
+            let old_len = self.bytes.len();
             unsafe {
                 std::ptr::copy_nonoverlapping(
-                    &*command as *const C as *const MaybeUninit<u8>,
-                    self.bytes.as_mut_ptr().add(old_len),
+                    &command as *const _ as *const MaybeUninit<u8>,
+                    self.bytes
+                        .as_mut_ptr()
+                        .add(old_len + std::mem::size_of::<CommandMeta>()),
                     size,
-                );
-                self.bytes.set_len(old_len + size);
+                )
             }
+        }
+
+        unsafe {
+            self.bytes.set_len(old_len + block_size);
         }
     }
 
@@ -83,18 +94,22 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
+        let ptr = self.bytes.as_mut_ptr();
+        let len = self.bytes.len();
+
         // SAFETY: In the iteration below, `meta.func` will safely consume and drop each pushed command.
         // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
         // unnecessary allocations.
         unsafe { self.bytes.set_len(0) };
 
-        for meta in self.metas.drain(..) {
-            // SAFETY: The implementation of `write_command` is safe for the according Command type.
-            // It's ok to read from `bytes.as_mut_ptr()` because we just wrote to it in `push`.
-            // The bytes are safely cast to their original type, safely read, and then dropped.
+        let mut offset = 0;
+        while offset < len {
+            let meta = unsafe { *(ptr.add(offset) as *mut CommandMeta) };
+            let command_offset = offset + std::mem::size_of::<CommandMeta>();
             unsafe {
-                (meta.func)(self.bytes.as_mut_ptr().add(meta.offset), world);
+                (meta.func)(ptr.add(command_offset), world);
             }
+            offset += std::mem::size_of::<CommandMeta>() + meta.size;
         }
     }
 }
@@ -203,7 +218,6 @@ mod test {
         // even though the first command panicking.
         // the `bytes`/`metas` vectors were cleared.
         assert_eq!(queue.bytes.len(), 0);
-        assert_eq!(queue.metas.len(), 0);
 
         // Even though the first command panicked, it's still ok to push
         // more commands.
