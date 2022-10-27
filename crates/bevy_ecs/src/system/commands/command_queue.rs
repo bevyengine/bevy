@@ -86,7 +86,7 @@ impl CommandQueue {
                         .as_mut_ptr()
                         .add(old_len + std::mem::size_of::<CommandMeta>()),
                     size,
-                )
+                );
             }
         }
 
