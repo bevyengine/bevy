@@ -119,7 +119,11 @@ impl CommandQueue {
             // since the buffer alternates between storing `CommandMeta` and unknown bytes.
             // Its value will have been fully initialized during any calls to `push`.
             let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
-            // The bytes just after `meta` are a sequence of unknown bytes representing a type-erased command.
+            // Advance to the bytes just after `meta`, which represent a type-erased command.
+            // SAFETY: For most types of `Command`, the pointer immediately following the metadata
+            // is guaranteed to be in bounds.
+            // The pointer might be out of bounds if the command is zero-sized,
+            // but it is okay to have a dangling reference to a ZST.
             cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
             // SAFETY: The type erased by `command_ptr` must be the same type erased by `meta.func`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
@@ -127,8 +131,8 @@ impl CommandQueue {
                 (meta.func)(cursor, world);
             }
             // Advance the cursor past the command.
-            // At this point, it will either point to the next `CommandMeta`, or it will be
-            // out of bounds and the loop will end.
+            // SAFETY: At this point, it will either point to the next `CommandMeta`,
+            // or the cursor will be out of bounds and the loop will end.
             cursor = unsafe { cursor.add(meta.size) };
         }
     }
