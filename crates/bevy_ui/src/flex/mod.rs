@@ -237,9 +237,9 @@ pub fn flex_node_system(
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
     if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
-        update_changed(&mut *flex_surface, scale_factor, full_node_query);
+        update_changed(&mut flex_surface, scale_factor, full_node_query);
     } else {
-        update_changed(&mut *flex_surface, scale_factor, node_query);
+        update_changed(&mut flex_surface, scale_factor, node_query);
     }
 
     fn update_changed<F: ReadOnlyWorldQuery>(
@@ -293,8 +293,8 @@ pub fn flex_node_system(
             to_logical(layout.size.height),
         );
         // only trigger change detection when the new value is different
-        if node.size != new_size {
-            node.size = new_size;
+        if node.calculated_size != new_size {
+            node.calculated_size = new_size;
         }
         let mut new_position = transform.translation;
         new_position.x = to_logical(layout.location.x + layout.size.width / 2.0);

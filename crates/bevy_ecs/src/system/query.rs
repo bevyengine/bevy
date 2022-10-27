@@ -467,6 +467,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Returns an [`Iterator`] over the read-only query items generated from an [`Entity`] list.
     ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
+    ///
     /// # Example
     ///
     /// ```
@@ -518,7 +521,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         }
     }
 
-    /// Returns an [`Iterator`] over the query items generated from an [`Entity`] list.
+    /// Returns an iterator over the query items generated from an [`Entity`] list.
+    ///
+    /// Items are returned in the order of the list of entities.
+    /// Entities that don't match the query are skipped.
     ///
     /// # Examples
     ///

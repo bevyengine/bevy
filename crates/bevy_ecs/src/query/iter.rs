@@ -72,7 +72,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
 
-/// An [`Iterator`] over [`Query`](crate::system::Query) results of a list of [`Entity`]s.
+/// An [`Iterator`] over the query items generated from an iterator of [`Entity`]s.
+///
+/// Items are returned in the order of the provided iterator.
+/// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
 pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator>
@@ -216,11 +219,21 @@ where
 
 /// An iterator over `K`-sized combinations of query items without repetition.
 ///
-/// In this context, a combination is an unordered subset of `K` elements.
-/// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`] (called `N`):
+/// A combination is an arrangement of a collection of items where order does not matter.
+///
+/// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
+/// `N` is the number of total entities output by the query.
+///
+/// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
+/// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
+/// And in this case, `N` would be defined as 4 since the size of the input list is 4.
+///
+/// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`]:
 /// - if `K = N`, only one combination exists,
 /// - if `K < N`, there are <sub>N</sub>C<sub>K</sub> combinations (see the [performance section] of `Query`),
 /// - if `K > N`, there are no combinations.
+///
+/// The output combination is not guaranteed to have any order of iteration.
 ///
 /// # Usage
 ///
@@ -326,11 +339,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[QueryItem<'w, Q>; K]>
-    where
-        QueryFetch<'w, Q>: Clone,
-        QueryFetch<'w, F>: Clone,
-    {
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[QueryItem<'w, Q>; K]> {
         if K == 0 {
             return None;
         }
@@ -341,7 +350,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
                 Some(_) => {
                     // walk forward up to last element, propagating cursor state forward
                     for j in (i + 1)..K {
-                        self.cursors[j] = self.cursors[j - 1].clone();
+                        self.cursors[j] = self.cursors[j - 1].clone_cursor();
                         match self.cursors[j].next(self.tables, self.archetypes, self.query_state) {
                             Some(_) => {}
                             None if i > 0 => continue 'outer,
@@ -367,11 +376,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
 
     /// Get next combination of queried components
     #[inline]
-    pub fn fetch_next(&mut self) -> Option<[QueryItem<'_, Q>; K]>
-    where
-        for<'a> QueryFetch<'a, Q>: Clone,
-        for<'a> QueryFetch<'a, F>: Clone,
-    {
+    pub fn fetch_next(&mut self) -> Option<[QueryItem<'_, Q>; K]> {
         // SAFETY: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
@@ -387,9 +392,6 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
 // multiple times would allow multiple owned references to the same data to exist.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
 {
     type Item = [QueryItem<'w, Q>; K];
 
@@ -451,27 +453,9 @@ where
     }
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery + ArchetypeFilter, const K: usize>
-    ExactSizeIterator for QueryCombinationIter<'w, 's, Q, F, K>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
-{
-    /// Returns the exact length of the iterator.
-    ///
-    /// **NOTE**: When the iterator length overflows `usize`, this will
-    /// return `usize::MAX`.
-    fn len(&self) -> usize {
-        self.size_hint().0
-    }
-}
-
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> FusedIterator
     for QueryCombinationIter<'w, 's, Q, F, K>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
 {
 }
 
@@ -487,17 +471,20 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     phantom: PhantomData<Q>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Clone for QueryIterationCursor<'w, 's, Q, F>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
-{
-    fn clone(&self) -> Self {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, Q, F> {
+    /// This function is safe to call if `(Q, F): ReadOnlyWorldQuery` holds.
+    ///
+    /// # Safety
+    /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
+    /// that the returned value is not used in any way that would cause two `QueryItem<Q>` for the same
+    /// `archetype_index` or `table_row` to be alive at the same time.
+    unsafe fn clone_cursor(&self) -> Self {
         Self {
             table_id_iter: self.table_id_iter.clone(),
             archetype_id_iter: self.archetype_id_iter.clone(),
-            fetch: self.fetch.clone(),
-            filter: self.filter.clone(),
+            // SAFETY: upheld by caller invariants
+            fetch: Q::clone_fetch(&self.fetch),
+            filter: F::clone_fetch(&self.filter),
             current_len: self.current_len,
             current_index: self.current_index,
             phantom: PhantomData,
@@ -587,7 +574,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     Q::set_table(&mut self.fetch, &query_state.fetch_state, table);
                     F::set_table(&mut self.filter, &query_state.filter_state, table);
-                    self.current_len = table.len();
+                    self.current_len = table.entity_count();
                     self.current_index = 0;
                     continue;
                 }

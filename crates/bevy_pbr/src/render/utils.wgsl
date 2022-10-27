@@ -2,10 +2,6 @@
 
 let PI: f32 = 3.141592653589793;
 
-fn saturate(value: f32) -> f32 {
-    return clamp(value, 0.0, 1.0);
-}
-
 fn hsv2rgb(hue: f32, saturation: f32, value: f32) -> vec3<f32> {
     let rgb = clamp(
         abs(

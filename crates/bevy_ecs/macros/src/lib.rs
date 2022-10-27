@@ -12,8 +12,10 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
+    spanned::Spanned,
     token::Comma,
-    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Result, Token, TypeParam,
+    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta, Result,
+    Token, TypeParam,
 };
 
 struct AllTuples {
@@ -80,7 +82,15 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(Bundle)]
+enum BundleFieldKind {
+    Component,
+    Ignore,
+}
+
+const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
+const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
+
+#[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
@@ -89,6 +99,36 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         Ok(fields) => &fields.named,
         Err(e) => return e.into_compile_error().into(),
     };
+
+    let mut field_kind = Vec::with_capacity(named_fields.len());
+
+    'field_loop: for field in named_fields.iter() {
+        for attr in &field.attrs {
+            if attr.path.is_ident(BUNDLE_ATTRIBUTE_NAME) {
+                if let Ok(Meta::List(MetaList { nested, .. })) = attr.parse_meta() {
+                    if let Some(&NestedMeta::Meta(Meta::Path(ref path))) = nested.first() {
+                        if path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
+                            field_kind.push(BundleFieldKind::Ignore);
+                            continue 'field_loop;
+                        }
+
+                        return syn::Error::new(
+                            path.span(),
+                            format!(
+                                "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
+                            ),
+                        )
+                        .into_compile_error()
+                        .into();
+                    }
+
+                    return syn::Error::new(attr.span(), format!("Invalid bundle attribute. Use `#[{BUNDLE_ATTRIBUTE_NAME}({BUNDLE_ATTRIBUTE_IGNORE_NAME})]`")).into_compile_error().into();
+                }
+            }
+        }
+
+        field_kind.push(BundleFieldKind::Component);
+    }
 
     let field = named_fields
         .iter()
@@ -102,16 +142,28 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
-    for (field_type, field) in field_type.iter().zip(field.iter()) {
-        field_component_ids.push(quote! {
-        <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
-        });
-        field_get_components.push(quote! {
-            self.#field.get_components(&mut *func);
-        });
-        field_from_components.push(quote! {
-            #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
-        });
+    for ((field_type, field_kind), field) in
+        field_type.iter().zip(field_kind.iter()).zip(field.iter())
+    {
+        match field_kind {
+            BundleFieldKind::Component => {
+                field_component_ids.push(quote! {
+                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+                });
+                field_get_components.push(quote! {
+                    self.#field.get_components(&mut *func);
+                });
+                field_from_components.push(quote! {
+                    #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                });
+            }
+
+            BundleFieldKind::Ignore => {
+                field_from_components.push(quote! {
+                    #field: ::std::default::Default::default(),
+                });
+            }
+        }
     }
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();

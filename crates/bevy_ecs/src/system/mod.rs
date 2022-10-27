@@ -75,8 +75,8 @@ mod function_system;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
-mod system_chaining;
 mod system_param;
+mod system_piping;
 
 pub use commands::*;
 pub use exclusive_function_system::*;
@@ -84,8 +84,8 @@ pub use exclusive_system_param::*;
 pub use function_system::*;
 pub use query::*;
 pub use system::*;
-pub use system_chaining::*;
 pub use system_param::*;
+pub use system_piping::*;
 
 /// Ensure that a given function is a system
 ///

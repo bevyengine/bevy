@@ -154,3 +154,22 @@ jobs:
         with:
           name: screenshots
           path: .github/start-wasm-example/screenshot-*.png
+
+  build-without-default-features:
+    strategy:
+      matrix:
+        crate: [bevy_ecs, bevy_reflect, bevy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Build
+        run: cargo build -p ${{ matrix.crate }} --no-default-features
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"

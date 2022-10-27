@@ -24,7 +24,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::{borrow::Cow, ops::Range};
-use wgpu::Extent3d;
+use wgpu::{Extent3d, TextureFormat};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -96,6 +96,12 @@ pub struct Camera {
     /// The "target" that this camera will render to.
     #[reflect(ignore)]
     pub target: RenderTarget,
+    /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
+    /// Warning: we are still working on this feature. If MSAA is enabled, there will be artifacts in
+    /// some cases. When rendering with WebGL, this will crash if MSAA is enabled.
+    /// See <https://github.com/bevyengine/bevy/pull/3425> for details.
+    // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
+    pub hdr: bool,
 }
 
 impl Default for Camera {
@@ -106,6 +112,7 @@ impl Default for Camera {
             viewport: None,
             computed: Default::default(),
             target: Default::default(),
+            hdr: false,
         }
     }
 }
@@ -319,6 +326,22 @@ impl RenderTarget {
         }
     }
 
+    /// Retrieves the [`TextureFormat`] of this render target, if it exists.
+    pub fn get_texture_format<'a>(
+        &self,
+        windows: &'a ExtractedWindows,
+        images: &'a RenderAssets<Image>,
+    ) -> Option<TextureFormat> {
+        match self {
+            RenderTarget::Window(window_id) => windows
+                .get(window_id)
+                .and_then(|window| window.swap_chain_texture_format),
+            RenderTarget::Image(image_handle) => {
+                images.get(image_handle).map(|image| image.texture_format)
+            }
+        }
+    }
+
     pub fn get_render_target_info(
         &self,
         windows: &Windows,
@@ -478,6 +501,7 @@ pub fn extract_cameras(
                 ExtractedView {
                     projection: camera.projection_matrix(),
                     transform: *transform,
+                    hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,

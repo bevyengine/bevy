@@ -48,7 +48,7 @@ pub fn extract_resource<R: ExtractResource>(
 ) {
     if let Some(mut target_resource) = target_resource {
         if main_resource.is_changed() {
-            *target_resource = R::extract_resource(&*main_resource);
+            *target_resource = R::extract_resource(&main_resource);
         }
     } else {
         #[cfg(debug_assertions)]
@@ -60,6 +60,6 @@ pub fn extract_resource<R: ExtractResource>(
                 std::any::type_name::<R>()
             );
         }
-        commands.insert_resource(R::extract_resource(&*main_resource));
+        commands.insert_resource(R::extract_resource(&main_resource));
     }
 }

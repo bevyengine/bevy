@@ -23,7 +23,7 @@ use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
     Font, FontAtlasSet, HorizontalAlign, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, VerticalAlign,
+    TextSettings, VerticalAlign, YAxisOrientation,
 };
 
 /// The calculated size of text drawn in 2D scene.
@@ -182,16 +182,18 @@ pub fn update_text2d_layout(
                 ),
                 None => Vec2::new(f32::MAX, f32::MAX),
             };
+
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,
                 scale_factor,
                 text.alignment,
                 text_bounds,
-                &mut *font_atlas_set_storage,
-                &mut *texture_atlases,
-                &mut *textures,
+                &mut font_atlas_set_storage,
+                &mut texture_atlases,
+                &mut textures,
                 text_settings.as_ref(),
+                YAxisOrientation::BottomToTop,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
