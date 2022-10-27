@@ -1,4 +1,4 @@
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::mem::MaybeUninit;
 
 use super::Command;
 use crate::world::World;
@@ -56,14 +56,11 @@ impl CommandQueue {
 
         let block_size = std::mem::size_of::<CommandMeta>() + size;
 
-        // Use `ManuallyDrop` to forget `command` right away, avoiding
-        // any use of it after the `ptr::copy_nonoverlapping`.
-        let command = ManuallyDrop::new(command);
-
         let old_len = self.bytes.len();
         self.bytes.reserve(block_size);
         // SAFETY: The end of the `bytes` vector has enough space for the metadata due to the `.reserve()` call,
         // so we can cast it to a pointer and perform an unaligned write in order to fill the buffer.
+        // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
         unsafe {
             self.bytes
                 .as_mut_ptr()
@@ -73,19 +70,16 @@ impl CommandQueue {
         }
 
         if size > 0 {
-            // SAFETY: The internal `bytes` vector has enough storage for the
-            // command (see the call the `reserve` above), the vector has
-            // its length set appropriately and can contain any kind of bytes.
-            // Also `command` is forgotten so that  when `apply` is called
-            // later, a double `drop` does not occur.
+            // SAFETY: There is enough space after the metadata to store the command,
+            // due to the `.reserve()` call above.
+            // We will write to the buffer via an unaligned pointer write.
+            // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
             unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &command as *const _ as *const MaybeUninit<u8>,
-                    self.bytes
-                        .as_mut_ptr()
-                        .add(old_len + std::mem::size_of::<CommandMeta>()),
-                    size,
-                );
+                self.bytes
+                    .as_mut_ptr()
+                    .add(old_len + std::mem::size_of::<CommandMeta>())
+                    .cast::<C>()
+                    .write_unaligned(command);
             }
         }
 
