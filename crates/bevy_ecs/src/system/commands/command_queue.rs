@@ -5,6 +5,8 @@ use crate::world::World;
 
 struct CommandMeta {
     size: usize,
+    /// SAFETY: The `value` must point to a value of type `T: Command`,
+    /// where `T` is some specific type that was used to produce the function pointer `func`.
     func: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World),
 }
 
@@ -103,10 +105,16 @@ impl CommandQueue {
 
         let mut offset = 0;
         while offset < len {
+            // SAFETY: The bytes at `offset` are known to represent a value of type `CommandMeta`,
+            // since the buffer alternates between storing `CommandMeta` and unknown bytes.
+            // Its value will have been fully initialized during any calls to `push`.
             let meta = unsafe { std::ptr::read_unaligned(ptr.add(offset) as *mut CommandMeta) };
-            let command_offset = offset + std::mem::size_of::<CommandMeta>();
+            // The bytes just after `meta` are a sequence of unknown bytes representing a type-erased command.
+            let command_ptr = unsafe { ptr.add(offset + std::mem::size_of::<CommandMeta>()) };
+            // SAFETY: The type erased by `command_ptr` must be the same type erased by `meta.func`.
+            // We know that they are the same type, since they were stored next to each other by `.push()`.
             unsafe {
-                (meta.func)(ptr.add(command_offset), world);
+                (meta.func)(command_ptr, world);
             }
             offset += std::mem::size_of::<CommandMeta>() + meta.size;
         }
