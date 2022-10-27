@@ -42,7 +42,7 @@ impl CommandQueue {
         /// SAFETY: This function is only every called when the `command` bytes is the associated
         /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
         /// accesses are safe.
-        unsafe fn write_command<T: Command>(
+        unsafe fn write_command_and_get_size<T: Command>(
             command: *mut MaybeUninit<u8>,
             world: &mut World,
         ) -> usize {
@@ -52,7 +52,7 @@ impl CommandQueue {
         }
 
         let meta = CommandMeta {
-            func: write_command::<C>,
+            func: write_command_and_get_size::<C>,
         };
 
         let old_len = self.bytes.len();
