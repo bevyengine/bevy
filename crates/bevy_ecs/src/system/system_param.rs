@@ -137,6 +137,9 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
 
 impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
     for Query<'w, 's, Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
 {
     type Fetch = QueryState<Q, F>;
 }
@@ -151,6 +154,9 @@ unsafe impl<Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> ReadOnlySystemParamFet
 // this QueryState conflicts with any prior access, a panic will occur.
 unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParamState
     for QueryState<Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
 {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let state = QueryState::new(world);
@@ -181,6 +187,9 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
 
 impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParamFetch<'w, 's>
     for QueryState<Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
 {
     type Item = Query<'w, 's, Q, F>;
 
@@ -1654,7 +1663,11 @@ mod tests {
         's,
         Q: WorldQuery + Send + Sync + 'static,
         F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
-    > {
+    >
+    where
+        Q::Config: Default,
+        F::Config: Default,
+    {
         _query: Query<'w, 's, Q, F>,
     }
 }

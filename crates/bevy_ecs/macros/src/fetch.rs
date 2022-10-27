@@ -205,6 +205,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
                 type State = #state_struct_name #user_ty_generics;
+                type Config = ();
 
                 fn shrink<'__wlong: '__wshort, '__wshort>(
                     item: <#struct_name #user_ty_generics as #path::query::WorldQueryGats<'__wlong>>::Item
@@ -313,9 +314,11 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     )*
                 }
 
-                fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
+                fn init_state(_config: Self::Config, world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
                     #state_struct_name {
-                        #(#field_idents: <#field_types>::init_state(world),)*
+                        // TODO: instead of using `Default::default` for the config (and thus failing to compile on query types needing configuration like `Ptr<'_>`)
+                        // we could have a tuple with configuration for each field, or generate a mirror struct with the same field names but storing the configuration values
+                        #(#field_idents: <#field_types>::init_state(Default::default(), world),)*
                         #(#ignored_field_idents: Default::default(),)*
                     }
                 }

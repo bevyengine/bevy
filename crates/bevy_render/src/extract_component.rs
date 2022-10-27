@@ -156,7 +156,11 @@ impl<C, F> ExtractComponentPlugin<C, F> {
     }
 }
 
-impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
+impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C>
+where
+    <C::Query as WorldQuery>::Config: Default,
+    <C::Filter as WorldQuery>::Config: Default,
+{
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
@@ -184,7 +188,10 @@ fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(Entity, C::Query), C::Filter>>,
-) {
+) where
+    <C::Query as WorldQuery>::Config: Default,
+    <C::Filter as WorldQuery>::Config: Default,
+{
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
         values.push((entity, (C::extract_component(query_item),)));
@@ -198,7 +205,10 @@ fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(Entity, &ComputedVisibility, C::Query), C::Filter>>,
-) {
+) where
+    <C::Query as WorldQuery>::Config: Default,
+    <C::Filter as WorldQuery>::Config: Default,
+{
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, query_item) in &query {
         if computed_visibility.is_visible() {

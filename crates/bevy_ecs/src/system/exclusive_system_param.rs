@@ -28,12 +28,18 @@ pub trait ExclusiveSystemParamFetch<'state>: ExclusiveSystemParamState {
 
 impl<'a, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSystemParam
     for &'a mut QueryState<Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
 {
     type Fetch = QueryState<Q, F>;
 }
 
 impl<'s, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSystemParamFetch<'s>
     for QueryState<Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
 {
     type Item = &'s mut QueryState<Q, F>;
 
@@ -44,6 +50,9 @@ impl<'s, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSyst
 
 impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSystemParamState
     for QueryState<Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
 {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         QueryState::new(world)

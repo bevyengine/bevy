@@ -46,7 +46,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> 
     }
 }
 
-impl<Q: WorldQuery, F: ReadOnlyWorldQuery> FromWorld for QueryState<Q, F> {
+impl<Q: WorldQuery, F: ReadOnlyWorldQuery> FromWorld for QueryState<Q, F>
+where
+    <Q as WorldQuery>::Config: Default,
+    <F as WorldQuery>::Config: Default,
+{
     fn from_world(world: &mut World) -> Self {
         world.query_filtered()
     }
@@ -92,9 +96,22 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
 impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
-    pub fn new(world: &mut World) -> Self {
-        let fetch_state = Q::init_state(world);
-        let filter_state = F::init_state(world);
+    pub fn new(world: &mut World) -> Self
+    where
+        <Q as WorldQuery>::Config: Default,
+        <F as WorldQuery>::Config: Default,
+    {
+        QueryState::new_with_config(world, Default::default(), Default::default())
+    }
+
+    /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
+    pub fn new_with_config(
+        world: &mut World,
+        fetch_config: <Q as WorldQuery>::Config,
+        filter_config: <F as WorldQuery>::Config,
+    ) -> Self {
+        let fetch_state = Q::init_state(fetch_config, world);
+        let filter_state = F::init_state(filter_config, world);
 
         let mut component_access = FilteredAccess::default();
         Q::update_component_access(&fetch_state, &mut component_access);

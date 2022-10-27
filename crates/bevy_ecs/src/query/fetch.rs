@@ -419,7 +419,7 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
         access: &mut Access<ArchetypeComponentId>,
     );
 
-    fn init_state(world: &mut World) -> Self::State;
+    fn init_state(config: Self::Config, world: &mut World) -> Self::State;
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -512,7 +512,7 @@ unsafe impl WorldQuery for Entity {
     ) {
     }
 
-    fn init_state(_world: &mut World) {}
+    fn init_state(_config: Self::Config, _world: &mut World) {}
 
     fn matches_component_set(
         _state: &Self::State,
@@ -654,7 +654,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         }
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(_config: Self::Config, world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
 
@@ -825,7 +825,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         }
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(_config: Self::Config, world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
 
@@ -935,8 +935,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         }
     }
 
-    fn init_state(world: &mut World) -> T::State {
-        T::init_state(world)
+    fn init_state(config: Self::Config, world: &mut World) -> T::State {
+        T::init_state(config, world)
     }
 
     fn matches_component_set(
@@ -1172,7 +1172,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         }
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(_config: Self::Config, world: &mut World) -> ComponentId {
         world.init_component::<T>()
     }
 
@@ -1284,8 +1284,9 @@ macro_rules! impl_tuple_fetch {
             }
 
 
-            fn init_state(_world: &mut World) -> Self::State {
-                ($($name::init_state(_world),)*)
+            fn init_state(config: Self::Config, _world: &mut World) -> Self::State {
+                let ($($state,)*) = config;
+                ($($name::init_state($state, _world),)*)
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1432,8 +1433,9 @@ macro_rules! impl_anytuple_fetch {
                 )*
             }
 
-            fn init_state(_world: &mut World) -> Self::State {
-                ($($name::init_state(_world),)*)
+            fn init_state(config: Self::Config, _world: &mut World) -> Self::State {
+                let ($($state,)*) = config;
+                ($($name::init_state($state, _world),)*)
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1511,8 +1513,8 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     ) {
     }
 
-    fn init_state(world: &mut World) -> Self::State {
-        Q::init_state(world)
+    fn init_state(config: Self::Config, world: &mut World) -> Self::State {
+        Q::init_state(config, world)
     }
 
     fn matches_component_set(

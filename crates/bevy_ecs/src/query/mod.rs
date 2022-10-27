@@ -86,8 +86,10 @@ mod tests {
         fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
         where
             Q: ReadOnlyWorldQuery,
+            Q::Config: Default,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
+            F::Config: Default,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter(world);
@@ -162,8 +164,10 @@ mod tests {
         fn assert_combination<Q, F, const K: usize>(world: &mut World, expected_size: usize)
         where
             Q: WorldQuery,
+            Q::Config: Default,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
+            F::Config: Default,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter_combinations::<K>(world);
@@ -173,8 +177,10 @@ mod tests {
         fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
         where
             Q: WorldQuery,
+            Q::Config: Default,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
+            F::Config: Default,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter(world);
