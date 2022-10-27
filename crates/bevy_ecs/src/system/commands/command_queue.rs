@@ -94,29 +94,32 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
-        let ptr = self.bytes.as_mut_ptr();
-        let len = self.bytes.len();
+        let mut cursor = self.bytes.as_mut_ptr();
+
+        // The address of the end of the buffer.
+        let end_addr = cursor as usize + self.bytes.len();
 
         // SAFETY: In the iteration below, `meta.func` will safely consume and drop each pushed command.
         // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
         // unnecessary allocations.
         unsafe { self.bytes.set_len(0) };
 
-        let mut offset = 0;
-        while offset < len {
+        while (cursor as usize) < end_addr {
             // SAFETY: The bytes at `offset` are known to represent a value of type `CommandMeta`,
             // since the buffer alternates between storing `CommandMeta` and unknown bytes.
             // Its value will have been fully initialized during any calls to `push`.
-            let meta = unsafe { ptr.add(offset).cast::<CommandMeta>().read_unaligned() };
+            let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
             // The bytes just after `meta` are a sequence of unknown bytes representing a type-erased command.
-            offset += std::mem::size_of::<CommandMeta>();
-            let command_ptr = unsafe { ptr.add(offset) };
+            cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
             // SAFETY: The type erased by `command_ptr` must be the same type erased by `meta.func`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
             unsafe {
-                (meta.func)(command_ptr, world);
+                (meta.func)(cursor, world);
             }
-            offset += meta.size;
+            // Advance the cursor past the command.
+            // At this point, it will either point to the next `CommandMeta`, or it will be
+            // out of bounds and the loop will end.
+            cursor = unsafe { cursor.add(meta.size) };
         }
     }
 }
