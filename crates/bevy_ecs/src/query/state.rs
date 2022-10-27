@@ -1421,14 +1421,18 @@ mod tests {
         let num = 42;
 
         let component_id = world.init_component::<TestComponent>();
-        world.spawn(TestComponent(num));
+        let spawned_entity = world.spawn(TestComponent(num)).id();
 
-        let mut query_state =
-            QueryState::<Ptr<'_>, ()>::new_with_config(&mut world, component_id, ());
+        let mut query_state = QueryState::<(Entity, Ptr<'_>), ()>::new_with_config(
+            &mut world,
+            ((), component_id),
+            (),
+        );
 
         let results: Vec<_> = query_state.iter(&world).collect();
         match results.as_slice() {
-            [value] => {
+            [(entity, value)] => {
+                assert_eq!(*entity, spawned_entity);
                 // SAFETY: correct type, read access
                 let value = unsafe { value.deref::<TestComponent>() };
                 assert_eq!(value.0, num);
@@ -1447,17 +1451,20 @@ mod tests {
         let component_id_1 = world.init_component::<TestComponent>();
         let component_id_2 = world.init_component::<TestComponent2>();
 
-        world.spawn((TestComponent(num_1), TestComponent2(num_2)));
+        let spawned_entity = world
+            .spawn((TestComponent(num_1), TestComponent2(num_2)))
+            .id();
 
-        let mut query_state = QueryState::<Vec<Ptr<'_>>, ()>::new_with_config(
+        let mut query_state = QueryState::<(Entity, Vec<Ptr<'_>>), ()>::new_with_config(
             &mut world,
-            vec![component_id_1, component_id_2],
+            ((), vec![component_id_1, component_id_2]),
             (),
         );
 
         let results: Vec<_> = query_state.iter(&world).collect();
         match results.as_slice() {
-            [result] => {
+            [(entity, result)] => {
+                assert_eq!(*entity, spawned_entity);
                 match result.as_slice() {
                     [val_1, val_2] => {
                         // SAFETY: correct type, read access
