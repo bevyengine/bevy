@@ -122,6 +122,8 @@ impl CommandQueue {
             cursor = unsafe { cursor.add(mem::size_of::<CommandMeta>()) };
             // SAFETY: The type currently under the cursor must be the same type erased by `meta.func`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
+            // The command will not get double-dropped since the length of the buffer has been reset,
+            // which ensures the bytes will not be read after this function.
             let size = unsafe { (meta.write_command_and_get_size)(cursor, world) };
             // Advance the cursor past the command.
             // SAFETY: At this point, it will either point to the next `CommandMeta`,
