@@ -123,7 +123,7 @@ impl CommandQueue {
             // SAFETY: For most types of `Command`, the pointer immediately following the metadata
             // is guaranteed to be in bounds.
             // The pointer might be out of bounds if the command is zero-sized,
-            // but it is okay to have a dangling reference to a ZST.
+            // but it is okay to have a dangling pointer to a ZST.
             cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
             // SAFETY: The type erased by `command_ptr` must be the same type erased by `meta.func`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
