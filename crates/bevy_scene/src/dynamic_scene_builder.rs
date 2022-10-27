@@ -1,10 +1,18 @@
 use crate::{DynamicEntity, DynamicScene};
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{prelude::Entity, reflect::ReflectComponent, world::World};
-use bevy_utils::{default, HashSet};
+use bevy_utils::default;
+use std::collections::BTreeMap;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities.
 ///
+/// # Entity Order
+///
+/// Extracted entities will always be stored in ascending order based on their [id](Entity::id).
+/// This means that inserting `Entity(1v0)` then `Entity(0v0)` will always result in the entities
+/// being ordered as `[Entity(0v0), Entity(1v0)]`.
+///
+/// # Example
 /// ```
 /// # use bevy_scene::DynamicSceneBuilder;
 /// # use bevy_app::AppTypeRegistry;
@@ -23,8 +31,7 @@ use bevy_utils::{default, HashSet};
 /// let dynamic_scene = builder.build();
 /// ```
 pub struct DynamicSceneBuilder<'w> {
-    entity_set: HashSet<u32>,
-    entities: Vec<DynamicEntity>,
+    entities: BTreeMap<u32, DynamicEntity>,
     type_registry: AppTypeRegistry,
     world: &'w World,
 }
@@ -34,7 +41,6 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// All components registered in that world's [`AppTypeRegistry`] resource will be extracted.
     pub fn from_world(world: &'w World) -> Self {
         Self {
-            entity_set: default(),
             entities: default(),
             type_registry: world.resource::<AppTypeRegistry>().clone(),
             world,
@@ -45,7 +51,6 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Only components registered in the given [`AppTypeRegistry`] will be extracted.
     pub fn from_world_with_type_registry(world: &'w World, type_registry: AppTypeRegistry) -> Self {
         Self {
-            entity_set: default(),
             entities: default(),
             type_registry,
             world,
@@ -55,7 +60,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Consume the builder, producing a [`DynamicScene`].
     pub fn build(self) -> DynamicScene {
         DynamicScene {
-            entities: self.entities,
+            entities: self.entities.into_values().collect(),
         }
     }
 
@@ -97,7 +102,7 @@ impl<'w> DynamicSceneBuilder<'w> {
         for entity in entities {
             let id = entity.id();
 
-            if !self.entity_set.insert(id) {
+            if self.entities.contains_key(&id) {
                 continue;
             }
 
@@ -121,7 +126,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 }
             }
 
-            self.entities.push(entry);
+            self.entities.insert(id, entry);
         }
 
         drop(type_registry);
@@ -211,6 +216,33 @@ mod tests {
         assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
         assert!(scene.entities[0].components[1].represents::<ComponentB>());
+    }
+
+    #[test]
+    fn extract_entity_order() {
+        let mut world = World::default();
+        world.init_resource::<AppTypeRegistry>();
+
+        // Spawn entities in order
+        let entity_a = world.spawn_empty().id();
+        let entity_b = world.spawn_empty().id();
+        let entity_c = world.spawn_empty().id();
+        let entity_d = world.spawn_empty().id();
+
+        let mut builder = DynamicSceneBuilder::from_world(&world);
+
+        // Insert entities out of order
+        builder.extract_entity(entity_b);
+        builder.extract_entities([entity_d, entity_a].into_iter());
+        builder.extract_entity(entity_c);
+
+        let mut entities = builder.build().entities.into_iter();
+
+        // Assert entities are ordered
+        assert_eq!(entity_a.id(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_b.id(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_c.id(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_d.id(), entities.next().map(|e| e.entity).unwrap());
     }
 
     #[test]
