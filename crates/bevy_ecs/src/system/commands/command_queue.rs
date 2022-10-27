@@ -120,7 +120,7 @@ impl CommandQueue {
             // The pointer might be out of bounds if the command is zero-sized,
             // but it is okay to have a dangling pointer to a ZST.
             cursor = unsafe { cursor.add(mem::size_of::<CommandMeta>()) };
-            // SAFETY: The type erased by `command_ptr` must be the same type erased by `meta.func`.
+            // SAFETY: The type currently under the cursor must be the same type erased by `meta.func`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
             unsafe {
                 (meta.func)(cursor, world);
