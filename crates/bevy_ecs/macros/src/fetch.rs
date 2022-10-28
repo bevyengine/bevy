@@ -261,9 +261,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
                     _state: &Self::State,
                     _archetype: &'__w #path::archetype::Archetype,
-                    _tables: &'__w #path::storage::Tables
+                    _table: &'__w #path::storage::Table
                 ) {
-                    #(<#field_types>::set_archetype(&mut _fetch.#field_idents, &_state.#field_idents, _archetype, _tables);)*
+                    #(<#field_types>::set_archetype(&mut _fetch.#field_idents, &_state.#field_idents, _archetype, _table);)*
                 }
 
                 /// SAFETY: we call `set_table` for each member that implements `Fetch`
@@ -276,40 +276,27 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     #(<#field_types>::set_table(&mut _fetch.#field_idents, &_state.#field_idents, _table);)*
                 }
 
-                /// SAFETY: we call `table_fetch` for each member that implements `Fetch`.
-                #[inline]
-                unsafe fn table_fetch<'__w>(
+                /// SAFETY: we call `fetch` for each member that implements `Fetch`.
+                #[inline(always)]
+                unsafe fn fetch<'__w>(
                     _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
+                    _entity: Entity,
                     _table_row: usize
                 ) -> <Self as #path::query::WorldQueryGats<'__w>>::Item {
                     Self::Item {
-                        #(#field_idents: <#field_types>::table_fetch(&mut _fetch.#field_idents, _table_row),)*
+                        #(#field_idents: <#field_types>::fetch(&mut _fetch.#field_idents, _entity, _table_row),)*
                         #(#ignored_field_idents: Default::default(),)*
                     }
                 }
 
-                /// SAFETY: we call `archetype_fetch` for each member that implements `Fetch`.
-                #[inline]
-                unsafe fn archetype_fetch<'__w>(
+                #[allow(unused_variables)]
+                #[inline(always)]
+                unsafe fn filter_fetch<'__w>(
                     _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
-                    _archetype_index: usize
-                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Item {
-                    Self::Item {
-                        #(#field_idents: <#field_types>::archetype_fetch(&mut _fetch.#field_idents, _archetype_index),)*
-                        #(#ignored_field_idents: Default::default(),)*
-                    }
-                }
-
-                #[allow(unused_variables)]
-                #[inline]
-                unsafe fn table_filter_fetch<'__w>(_fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch, _table_row: usize) -> bool {
-                    true #(&& <#field_types>::table_filter_fetch(&mut _fetch.#field_idents, _table_row))*
-                }
-
-                #[allow(unused_variables)]
-                #[inline]
-                unsafe fn archetype_filter_fetch<'__w>(_fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch, _archetype_index: usize) -> bool {
-                    true #(&& <#field_types>::archetype_filter_fetch(&mut _fetch.#field_idents, _archetype_index))*
+                    _entity: Entity,
+                    _table_row: usize
+                ) -> bool {
+                    true #(&& <#field_types>::filter_fetch(&mut _fetch.#field_idents, _entity, _table_row))*
                 }
 
                 fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
