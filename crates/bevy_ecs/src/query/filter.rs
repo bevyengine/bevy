@@ -840,7 +840,7 @@ macro_rules! impl_tick_filter_untyped {
 impl_tick_filter_untyped!(
     /// A filter on a component that only retains results added after the system last ran.
     ///
-    /// Similar to [`Addded`], but instead of providing the component type via a generic type,
+    /// Similar to [`Added`], but instead of providing the component type via a generic type,
     /// it an be supplied through [`WorldQuery::Config`] with [`QueryState::new_with_config`](crate::query::QueryState::new_with_config).
     ///
     /// Note that this means that it cannot be used as a `Query<(), AddedUntyped>`, because there is no way to provide the configuration.
