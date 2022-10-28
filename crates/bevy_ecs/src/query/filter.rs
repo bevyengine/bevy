@@ -476,8 +476,6 @@ macro_rules! impl_tick_filter {
             ) -> <Self as WorldQueryGats<'w>>::Fetch {
                 $fetch_name {
                     table_ticks: fetch.table_ticks,
-                    entity_table_rows: fetch.entity_table_rows,
-                    entities: fetch.entities,
                     sparse_set: fetch.sparse_set,
                     last_change_tick: fetch.last_change_tick,
                     change_tick: fetch.change_tick,

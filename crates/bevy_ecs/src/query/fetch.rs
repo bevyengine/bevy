@@ -470,11 +470,8 @@ unsafe impl WorldQuery for Entity {
     }
 
     unsafe fn clone_fetch<'w>(
-        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+        _fetch: &<Self as WorldQueryGats<'w>>::Fetch,
     ) -> <Self as WorldQueryGats<'w>>::Fetch {
-        EntityFetch {
-            entities: fetch.entities,
-        }
     }
 
     #[inline]
@@ -579,8 +576,6 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> <Self as WorldQueryGats<'w>>::Fetch {
         ReadFetch {
             table_components: fetch.table_components,
-            entity_table_rows: fetch.entity_table_rows,
-            entities: fetch.entities,
             sparse_set: fetch.sparse_set,
         }
     }
@@ -731,10 +726,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         fetch: &<Self as WorldQueryGats<'w>>::Fetch,
     ) -> <Self as WorldQueryGats<'w>>::Fetch {
         WriteFetch {
-            table_components: fetch.table_components,
-            table_ticks: fetch.table_ticks,
-            entities: fetch.entities,
-            entity_table_rows: fetch.entity_table_rows,
+            table_data: fetch.table_data,
             sparse_set: fetch.sparse_set,
             last_change_tick: fetch.last_change_tick,
             change_tick: fetch.change_tick,
@@ -1088,8 +1080,6 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     ) -> <Self as WorldQueryGats<'w>>::Fetch {
         ChangeTrackersFetch {
             table_ticks: fetch.table_ticks,
-            entity_table_rows: fetch.entity_table_rows,
-            entities: fetch.entities,
             sparse_set: fetch.sparse_set,
             marker: fetch.marker,
             last_change_tick: fetch.last_change_tick,
