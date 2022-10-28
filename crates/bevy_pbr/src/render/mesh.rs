@@ -423,7 +423,6 @@ impl FromWorld for MeshPipeline {
         ];
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            // depth texture
             label: Some("mesh_view_layout"),
             entries: &layout_entries,
         });
