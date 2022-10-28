@@ -142,12 +142,11 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
         });
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
-        let skinned_mesh_layout = mesh_pipeline.skinned_mesh_layout.clone();
 
         PrepassPipeline {
             view_layout,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
-            skinned_mesh_layout,
+            skinned_mesh_layout: mesh_pipeline.skinned_mesh_layout.clone(),
             material_vertex_shader: match M::prepass_vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -180,32 +179,34 @@ where
         let mut shader_defs = Vec::new();
         shader_defs.push(String::from("PREPASS_DEPTH"));
 
-        // FIXME figure out a way to only add it when necessary. Right now the issue is that the bind group index
-        // is hardcoded to 1 in the pbr_bindings.wgsl, but when it's not present then the mesh bind group is now group 1
-        // and everything breaks.
-        // It should be possible to have configurable bind group index once shader_defs can hold values.
+        // NOTE: Eventually, it would be nice to only add this when the shaders area overloaded.
+        // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layout.insert(1, self.material_layout.clone());
 
         if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
             shader_defs.push(String::from("ALPHA_MASK"));
         }
 
-        let mut vertex_attributes = vec![Mesh::ATTRIBUTE_POSITION.at_shader_location(0)];
+        let mut vertex_attributes = vec![];
 
-        if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
-            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
-            shader_defs.push(String::from("OUTPUT_NORMALS"));
-            shader_defs.push(String::from("PREPASS_NORMALS"));
+        if layout.contains(Mesh::ATTRIBUTE_POSITION) {
+            shader_defs.push(String::from("VERTEX_POSITIONS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push(String::from("VERTEX_UVS"));
-            vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
+            vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
-        if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
-            shader_defs.push(String::from("VERTEX_TANGENTS"));
-            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
+        if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
+            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
+            shader_defs.push(String::from("PREPASS_NORMALS"));
+
+            if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
+                shader_defs.push(String::from("VERTEX_TANGENTS"));
+                vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
+            }
         }
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
@@ -230,15 +231,20 @@ where
                 PREPASS_SHADER_HANDLE.typed::<Shader>()
             };
 
+            let mut targets = vec![];
+            if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
+                targets.push(Some(ColorTargetState {
+                    format: TextureFormat::Rgb10a2Unorm,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                }));
+            }
+
             Some(FragmentState {
                 shader: frag_shader_handle,
                 entry_point: "fragment".into(),
                 shader_defs: shader_defs.clone(),
-                targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::Rgb10a2Unorm,
-                    blend: Some(BlendState::REPLACE),
-                    write_mask: ColorWrites::ALL,
-                })],
+                targets,
             })
         } else {
             None
@@ -292,6 +298,9 @@ where
             label: Some("prepass_pipeline".into()),
         };
 
+        // This is a bit risky because it's possible to change something that would
+        // break the prepass but be fine in the main pass.
+        // Since this api is pretty low-level it doesn't matter that much, but it is a potential issue.
         M::specialize(&self.material_pipeline, &mut descriptor, layout, key)?;
 
         Ok(descriptor)
@@ -511,16 +520,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
     }
 }
 
-pub type DrawPrepass<M> = (
-    SetItemPipeline,
-    SetDepthViewBindGroup<0>,
-    SetMaterialBindGroup<M, 1>,
-    SetMeshBindGroup<2>,
-    DrawMesh,
-);
-
-pub struct SetDepthViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetDepthViewBindGroup<I> {
+pub struct SetPrepassViewBindGroup<const I: usize>;
+impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
     type Param = (SRes<PrepassViewBindGroup>, SQuery<Read<ViewUniformOffset>>);
     #[inline]
     fn render<'w>(
@@ -540,3 +541,11 @@ impl<const I: usize> EntityRenderCommand for SetDepthViewBindGroup<I> {
         RenderCommandResult::Success
     }
 }
+
+pub type DrawPrepass<M> = (
+    SetItemPipeline,
+    SetPrepassViewBindGroup<0>,
+    SetMaterialBindGroup<M, 1>,
+    SetMeshBindGroup<2>,
+    DrawMesh,
+);

@@ -102,14 +102,16 @@ fn setup(
     });
 
     // camera
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    commands.spawn((Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // You can configure which textures is going to be used by the prepass.
+        prepass_settings: PrepassSettings {
+            // In this case we don't use the normals so we can simply disable it
+            output_normals: false,
             ..default()
         },
-        // You need to add this to any camera that is going to use the prepass
-        PrepassSettings::default(),
-    ));
+        ..default()
+    },));
 }
 
 // This is the struct that will be passed to your shader

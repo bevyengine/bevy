@@ -4,15 +4,16 @@
 struct Vertex {
     @location(0) position: vec3<f32>,
 
-#ifdef OUTPUT_NORMALS
-    @location(1) normal: vec3<f32>,
 #ifdef VERTEX_UVS
-    @location(2) uv: vec2<f32>,
+    @location(1) uv: vec2<f32>,
 #endif // VERTEX_UVS
+
+#ifdef PREPASS_NORMALS
+    @location(2) normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(3) tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // OUTPUT_NORMALS
+#endif // PREPASS_NORMALS
 
 #ifdef SKINNED
     @location(4) joint_indices: vec4<u32>,
@@ -22,15 +23,17 @@ struct Vertex {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-#ifdef OUTPUT_NORMALS
-    @location(0) world_normal: vec3<f32>,
+
 #ifdef VERTEX_UVS
-    @location(1) uv: vec2<f32>,
+    @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS
+
+#ifdef PREPASS_NORMALS
+    @location(1) world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // OUTPUT_NORMALS
+#endif // PREPASS_NORMALS
 }
 
 @vertex
@@ -43,28 +46,28 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var model = mesh.model;
 #endif // SKINNED
 
-    out.clip_position = mesh_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
+    out.clip_position = mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
 
-#ifdef OUTPUT_NORMALS
+#ifdef VERTEX_UVS
+    out.uv = vertex.uv;
+#endif // VERTEX_UVS
+
+#ifdef PREPASS_NORMALS
 #ifdef SKINNED
     out.world_normal = skin_normals(model, vertex.normal);
 #else // SKINNED
     out.world_normal = mesh_normal_local_to_world(vertex.normal);
 #endif // SKINNED
 
-#ifdef VERTEX_UVS
-    out.uv = vertex.uv;
-#endif // VERTEX_UVS
-
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
 #endif // VERTEX_TANGENTS
-#endif // OUTPUT_NORMALS
+#endif // PREPASS_NORMALS
 
     return out;
 }
 
-#ifdef OUTPUT_NORMALS
+#ifdef PREPASS_NORMALS
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @location(0) world_normal: vec3<f32>,
@@ -78,6 +81,6 @@ struct FragmentInput {
 
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.world_normal * 0.5 + vec3<f32>(0.5), 1.0);
+    return vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 }
-#endif // OUTPUT_NORMALS
+#endif // PREPASS_NORMALS
