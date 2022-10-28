@@ -439,22 +439,20 @@ pub fn camera_system<T: CameraProjection + Component>(
         .collect();
 
     for (mut camera, mut camera_projection) in &mut cameras {
+        let viewport_size = camera
+            .viewport
+            .as_ref()
+            .map(|viewport| viewport.physical_size);
+
         if camera
             .target
             .is_changed(&changed_window_ids, &changed_image_handles)
             || camera.is_added()
             || camera_projection.is_changed()
-            || camera.computed.old_viewport_size
-                != camera
-                    .viewport
-                    .as_ref()
-                    .map(|viewport| viewport.physical_size)
+            || camera.computed.old_viewport_size != viewport_size
         {
             camera.computed.target_info = camera.target.get_render_target_info(&windows, &images);
-            camera.computed.old_viewport_size = camera
-                .viewport
-                .as_ref()
-                .map(|viewport| viewport.physical_size);
+            camera.computed.old_viewport_size = viewport_size;
             if let Some(size) = camera.logical_viewport_size() {
                 camera_projection.update(size.x, size.y);
                 camera.computed.projection_matrix = camera_projection.get_projection_matrix();
