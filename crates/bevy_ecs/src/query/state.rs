@@ -440,7 +440,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
-        for (i, entity) in entities.into_iter().enumerate() {
+        for (value, entity) in std::iter::zip(&mut values, entities) {
             // SAFETY: fetch is read-only
             // and world must be validated
             let item = self.as_readonly().get_unchecked_manual(
@@ -449,7 +449,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 last_change_tick,
                 change_tick,
             )?;
-            values[i] = MaybeUninit::new(item);
+            *value = MaybeUninit::new(item);
         }
 
         // SAFETY: Each value has been fully initialized.
@@ -485,9 +485,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
-        for (i, entity) in entities.into_iter().enumerate() {
+        for (value, entity) in std::iter::zip(&mut values, entities) {
             let item = self.get_unchecked_manual(world, entity, last_change_tick, change_tick)?;
-            values[i] = MaybeUninit::new(item);
+            *value = MaybeUninit::new(item);
         }
 
         // SAFETY: Each value has been fully initialized.
