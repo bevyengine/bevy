@@ -466,7 +466,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Fused
 struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
-    entities: &'w [Entity],
+    table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
     fetch: QueryFetch<'w, Q>,
     filter: QueryFetch<'w, F>,
@@ -488,7 +488,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         Self {
             table_id_iter: self.table_id_iter.clone(),
             archetype_id_iter: self.archetype_id_iter.clone(),
-            entities: self.entities,
+            table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
             // SAFETY: upheld by caller invariants
             fetch: Q::clone_fetch(&self.fetch),
@@ -537,7 +537,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         QueryIterationCursor {
             fetch,
             filter,
-            entities: &[],
+            table_entities: &[],
             archetype_entities: &[],
             table_id_iter: query_state.matched_table_ids.iter(),
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
@@ -553,7 +553,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         if self.current_index > 0 {
             let index = self.current_index - 1;
             if Self::IS_DENSE {
-                let entity = self.entities.get_unchecked(index);
+                let entity = self.table_entities.get_unchecked(index);
                 Some(Q::fetch(&mut self.fetch, *entity, index))
             } else {
                 let archetype_entity = self.archetype_entities.get_unchecked(index);
@@ -591,7 +591,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     Q::set_table(&mut self.fetch, &query_state.fetch_state, table);
                     F::set_table(&mut self.filter, &query_state.filter_state, table);
-                    self.entities = table.entities();
+                    self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_index = 0;
                     continue;
@@ -599,7 +599,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
 
                 // SAFETY: set_table was called prior.
                 // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
-                let entity = self.entities.get_unchecked(self.current_index);
+                let entity = self.table_entities.get_unchecked(self.current_index);
                 if !F::filter_fetch(&mut self.filter, *entity, self.current_index) {
                     self.current_index += 1;
                     continue;

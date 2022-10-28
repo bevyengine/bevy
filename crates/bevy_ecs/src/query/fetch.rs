@@ -389,7 +389,7 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
         entity: Entity,
-        table_index: usize,
+        table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item;
 
     /// # Safety
@@ -401,7 +401,7 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     unsafe fn filter_fetch(
         fetch: &mut <Self as WorldQueryGats<'_>>::Fetch,
         entity: Entity,
-        table_index: usize,
+        table_row: usize,
     ) -> bool {
         true
     }
