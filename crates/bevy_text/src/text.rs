@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Font;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct Text {
     pub sections: Vec<TextSection>,
@@ -117,7 +117,7 @@ impl TextSection {
     }
 }
 
-#[derive(Debug, Clone, Copy, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect, FromReflect)]
 pub struct TextAlignment {
     pub vertical: VerticalAlign,
     pub horizontal: HorizontalAlign,
@@ -186,7 +186,7 @@ impl Default for TextAlignment {
 }
 
 /// Describes horizontal alignment preference for positioning & bounds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize, FromReflect)]
 #[reflect(Serialize, Deserialize)]
 pub enum HorizontalAlign {
     /// Leftmost character is immediately to the right of the render position.<br/>
@@ -212,7 +212,7 @@ impl From<HorizontalAlign> for glyph_brush_layout::HorizontalAlign {
 
 /// Describes vertical alignment preference for positioning & bounds. Currently a placeholder
 /// for future functionality.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize, FromReflect)]
 #[reflect(Serialize, Deserialize)]
 pub enum VerticalAlign {
     /// Characters/bounds start underneath the render position and progress downwards.

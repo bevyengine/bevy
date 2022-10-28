@@ -6,13 +6,13 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Query, Res},
 };
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::texture::Image;
 use bevy_text::Text;
 use serde::{Deserialize, Serialize};
 
 /// Describes how to resize the Image node
-#[derive(Component, Debug, Default, Clone, Reflect, Serialize, Deserialize)]
+#[derive(Component, Debug, Default, Clone, Reflect, Serialize, Deserialize, FromReflect)]
 #[reflect(Component, Serialize, Deserialize)]
 pub enum ImageMode {
     /// Keep the aspect ratio of the image

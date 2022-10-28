@@ -1,9 +1,9 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 
 /// An Axis-Aligned Bounding Box
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Aabb {
     pub center: Vec3A,
@@ -126,7 +126,7 @@ impl Plane {
 /// A frustum defined by the 6 containing planes
 /// Planes are ordered left, right, top, bottom, near, far
 /// Normals point into the contained volume
-#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[derive(Component, Clone, Copy, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Frustum {
     #[reflect(ignore)]
@@ -193,7 +193,7 @@ impl Frustum {
     }
 }
 
-#[derive(Component, Debug, Default, Reflect)]
+#[derive(Component, Debug, Default, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct CubemapFrusta {
     #[reflect(ignore)]

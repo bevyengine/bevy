@@ -23,7 +23,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use bevy_transform::components::GlobalTransform;
 
 pub struct ViewPlugin;
@@ -58,7 +58,7 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa { samples: 4 })
 ///     .run();
 /// ```
-#[derive(Resource, Clone, ExtractResource, Reflect)]
+#[derive(Resource, Clone, ExtractResource, Reflect, FromReflect)]
 #[reflect(Resource)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in

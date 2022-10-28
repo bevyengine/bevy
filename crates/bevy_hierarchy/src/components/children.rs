@@ -5,13 +5,13 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use core::slice;
 use smallvec::SmallVec;
 use std::ops::Deref;
 
 /// Contains references to the child entities of this entity
-#[derive(Component, Debug, Reflect)]
+#[derive(Component, Debug, Reflect, FromReflect)]
 #[reflect(Component, MapEntities)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 

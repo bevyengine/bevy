@@ -1,7 +1,6 @@
 use crate::Val;
-use bevy_reflect::Reflect;
+use bevy_reflect::{FromReflect, Reflect};
 use std::ops::{Div, DivAssign, Mul, MulAssign};
-
 /// A type which is commonly used to define positions, margins, paddings and borders.
 ///
 /// # Examples
@@ -119,7 +118,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect, FromReflect)]
 #[reflect(PartialEq)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
@@ -316,7 +315,7 @@ impl UiRect {
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
-#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Reflect, FromReflect)]
 #[reflect(PartialEq)]
 pub struct Size {
     /// The width of the 2-dimensional area.

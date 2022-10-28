@@ -17,7 +17,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
@@ -91,7 +91,7 @@ impl AnimationClip {
 }
 
 /// Animation controls
-#[derive(Component, Reflect)]
+#[derive(Component, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
     paused: bool,

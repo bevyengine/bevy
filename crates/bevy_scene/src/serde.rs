@@ -381,16 +381,16 @@ mod tests {
     use bevy_app::AppTypeRegistry;
     use bevy_ecs::entity::EntityMap;
     use bevy_ecs::prelude::{Component, ReflectComponent, World};
-    use bevy_reflect::Reflect;
+    use bevy_reflect::{FromReflect, Reflect};
     use serde::de::DeserializeSeed;
 
-    #[derive(Component, Reflect, Default)]
+    #[derive(Component, Reflect, FromReflect)]
     #[reflect(Component)]
     struct Foo(i32);
-    #[derive(Component, Reflect, Default)]
+    #[derive(Component, Reflect, FromReflect)]
     #[reflect(Component)]
     struct Bar(i32);
-    #[derive(Component, Reflect, Default)]
+    #[derive(Component, Reflect, FromReflect)]
     #[reflect(Component)]
     struct Baz(i32);
 

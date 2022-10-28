@@ -19,8 +19,8 @@ use std::collections::BTreeMap;
 /// # use bevy_ecs::{
 /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
 /// # };
-/// # use bevy_reflect::Reflect;
-/// # #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
+/// # use bevy_reflect::{Reflect, FromReflect};
+/// # #[derive(Component, Reflect, Default, Eq, PartialEq, Debug, FromReflect)]
 /// # #[reflect(Component)]
 /// # struct ComponentA;
 /// # let mut world = World::default();
@@ -82,8 +82,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// # use bevy_ecs::{
     /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
     /// # };
-    /// # use bevy_reflect::Reflect;
-    /// #[derive(Component, Default, Reflect)]
+    /// # use bevy_reflect::{Reflect, FromReflect};
+    /// #[derive(Component, Reflect, FromReflect)]
     /// #[reflect(Component)]
     /// struct MyComponent;
     ///
@@ -141,14 +141,14 @@ mod tests {
         component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
     };
 
-    use bevy_reflect::Reflect;
+    use bevy_reflect::{FromReflect, Reflect};
 
     use super::DynamicSceneBuilder;
 
-    #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
+    #[derive(Component, Reflect, Eq, PartialEq, Debug, FromReflect)]
     #[reflect(Component)]
     struct ComponentA;
-    #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
+    #[derive(Component, Reflect, Eq, PartialEq, Debug, FromReflect)]
     #[reflect(Component)]
     struct ComponentB;
 
