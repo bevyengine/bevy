@@ -24,7 +24,7 @@ pub struct CommandQueue {
     // This contiguously stores a set of alternating objects:
     // A `CommandMeta`, followed by a sequence of bytes with length specified by the metadata.
     // These bytes hold the data for a type-erased `Command`, and must be passed to
-    // the corresponding `CommandMeta.func` to be used.
+    // the corresponding `CommandMeta.write_command_and_get_size` fn pointer.
     bytes: Vec<MaybeUninit<u8>>,
 }
 
