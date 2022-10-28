@@ -286,13 +286,13 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, maybe_prepass) in &views_3d {
+    for (entity, camera, prepass_settings) in &views_3d {
         if let Some(physical_target_size) = camera.physical_target_size {
             let cached_texture = textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     let mut usage = TextureUsages::RENDER_ATTACHMENT;
-                    if maybe_prepass.map_or(false, |prepass_settings| prepass_settings.output_depth) {
+                    if prepass_settings.map_or(false, |prepass_settings| prepass_settings.output_depth) {
                         usage |= TextureUsages::COPY_SRC;
                     }
                     texture_cache.get(

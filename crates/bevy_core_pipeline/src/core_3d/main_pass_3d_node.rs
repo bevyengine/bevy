@@ -67,7 +67,7 @@ impl Node for MainPass3dNode {
             camera_3d,
             target,
             depth,
-            maybe_prepass_settings,
+            prepass_settings,
         ) = match self.query.get_manual(world, view_entity) {
             Ok(query) => query,
             Err(_) => {
@@ -100,7 +100,7 @@ impl Node for MainPass3dNode {
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
                         // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                        load: match maybe_prepass_settings {
+                        load: match prepass_settings {
                             Some(PrepassSettings {
                                 output_depth: true, ..
                             }) => Camera3dDepthLoadOp::Load,
