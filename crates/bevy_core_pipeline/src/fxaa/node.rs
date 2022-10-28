@@ -84,7 +84,7 @@ impl Node for FXAANode {
             pipeline_id,
             main_texture,
             fxaa_texture,
-            &fxaa_bind_group,
+            fxaa_bind_group,
         );
 
         let pipeline_id = if view.hdr {
@@ -98,7 +98,7 @@ impl Node for FXAANode {
             pipeline_id,
             fxaa_texture,
             main_texture,
-            &fxaa_bind_group,
+            fxaa_bind_group,
         );
 
         Ok(())
