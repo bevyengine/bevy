@@ -193,9 +193,8 @@ impl Default for SpotLight {
 /// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
 ///
 /// ```
-/// # use bevy::prelude::*;
-/// use bevy::pbr::DirectionalLightShadowMap;
-///
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::DirectionalLightShadowMap;
 /// App::new()
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
