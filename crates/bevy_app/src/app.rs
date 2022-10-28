@@ -1,6 +1,5 @@
 use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
@@ -25,7 +24,7 @@ bevy_utils::define_label!(
 
 /// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
 #[cfg(feature = "bevy_reflect")]
-#[derive(Resource, Clone, Deref, DerefMut, Default)]
+#[derive(Resource, Clone, bevy_derive::Deref, bevy_derive::DerefMut, Default)]
 pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
 
 #[allow(clippy::needless_doctest_main)]

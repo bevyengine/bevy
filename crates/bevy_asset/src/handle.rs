@@ -410,6 +410,16 @@ impl Drop for HandleUntyped {
     }
 }
 
+impl<A: Asset> From<Handle<A>> for HandleUntyped {
+    fn from(mut handle: Handle<A>) -> Self {
+        let handle_type = std::mem::replace(&mut handle.handle_type, HandleType::Weak);
+        HandleUntyped {
+            id: handle.id,
+            handle_type,
+        }
+    }
+}
+
 impl From<&HandleUntyped> for HandleId {
     fn from(value: &HandleUntyped) -> Self {
         value.id

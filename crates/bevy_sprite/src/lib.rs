@@ -54,6 +54,7 @@ impl Plugin for SpritePlugin {
         let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
         app.add_asset::<TextureAtlas>()
+            .register_asset_reflect::<TextureAtlas>()
             .register_type::<Sprite>()
             .register_type::<Anchor>()
             .register_type::<Mesh2dHandle>()
