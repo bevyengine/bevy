@@ -324,6 +324,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "fxaa"
+path = "examples/3d/fxaa.rs"
+
+[package.metadata.example.fxaa]
+name = "FXAA"
+description = "Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
