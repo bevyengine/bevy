@@ -62,6 +62,7 @@ impl HandleId {
 
     /// Creates the default id for an asset of type `T`.
     #[inline]
+    #[allow(clippy::should_implement_trait)] // `Default` is not implemented for `HandleId`, the default value depends on the asset type
     pub fn default<T: Asset>() -> Self {
         HandleId::Id(T::TYPE_UUID, 0)
     }
