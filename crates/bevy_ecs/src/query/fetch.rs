@@ -1844,6 +1844,9 @@ impl<'w> WorldQueryGats<'w> for PtrMut<'_> {
     type Item = MutUntyped<'w>;
 }
 
+// SAFETY:
+// - ReadOnly access is a subset of regular access, because `Q::ReadOnly` is a subset of `Q`expect("");
+// - `update_[archetype_]component_access` lists all accesses performed in `archetype_fetch` and `table_fetch`
 unsafe impl<Q: WorldQuery> WorldQuery for Vec<Q> {
     type ReadOnly = Vec<Q::ReadOnly>;
 

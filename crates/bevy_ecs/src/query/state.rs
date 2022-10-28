@@ -1297,7 +1297,7 @@ impl fmt::Display for QueryEntityError {
 
 #[cfg(test)]
 mod tests {
-    use bevy_ptr::Ptr;
+    use bevy_ptr::{Ptr, PtrMut};
 
     use crate::{prelude::*, query::QueryEntityError};
 
@@ -1479,6 +1479,20 @@ mod tests {
             }
             _ => panic!("expected to get one result"),
         }
+    }
+
+    #[test]
+    #[should_panic = "conflicts with a previous access in this query"]
+    fn query_state_with_config_conflicting_access() {
+        let mut world = World::new();
+
+        let component_id = world.init_component::<TestComponent>();
+
+        let mut _query_state = QueryState::<(Entity, Vec<PtrMut<'_>>), ()>::new_with_config(
+            &mut world,
+            ((), vec![component_id, component_id]),
+            (),
+        );
     }
 }
 
