@@ -550,18 +550,15 @@ pub fn extract_lights(
             continue;
         }
 
-        // Calulate the directional light shadow map texel size using the largest x,y dimension of
+        // Calulate the directional light shadow map texel size using the scaled x,y length of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
         // https://catlikecoding.com/unity/tutorials/custom-srp/directional-shadows/
-        let largest_dimension = (directional_light.shadow_projection.right
-            - directional_light.shadow_projection.left)
-            .max(
-                directional_light.shadow_projection.top
-                    - directional_light.shadow_projection.bottom,
-            );
-        let directional_light_texel_size = transform.radius_vec3a(Vec3A::ONE) * largest_dimension
-            / directional_light_shadow_map.size as f32;
+        let directional_light_texel_size = transform.radius_vec3a(Vec3A::new(
+            directional_light.shadow_projection.right - directional_light.shadow_projection.left,
+            directional_light.shadow_projection.top - directional_light.shadow_projection.bottom,
+            0.,
+        )) / directional_light_shadow_map.size as f32;
         // TODO: As above
         let render_visible_entities = visible_entities.clone();
         commands.get_or_spawn(entity).insert((
