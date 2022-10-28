@@ -316,11 +316,11 @@ impl<'a> TrackedRenderPass<'a> {
             .multi_draw_indirect(indirect_buffer, indirect_offset, count);
     }
 
-    /// Disptaches multiple draw calls from the active vertex buffer(s) based on the contents of the `indirect_buffer`.
+    /// Dispatches multiple draw calls from the active vertex buffer(s) based on the contents of the `indirect_buffer`.
     /// The count buffer is read to determine how many draws to issue.
     ///
-    /// The indirect buffer must be long enough to account for `max_count` draws, however only `count` will
-    /// draws will be read. If `count` is greater than `max_count`, `max_count` will be used.
+    /// The indirect buffer must be long enough to account for `max_count` draws, however only `count` elements
+    /// will be read, where `count` is the value read from `count_buffer` capped at `max_count`.
     ///
     /// The active vertex buffers can be set with [`TrackedRenderPass::set_vertex_buffer`].
     ///
@@ -399,8 +399,8 @@ impl<'a> TrackedRenderPass<'a> {
     /// Dispatches multiple draw calls from the active index buffer and the active vertex buffers,
     /// based on the contents of the `indirect_buffer`. The count buffer is read to determine how many draws to issue.
     ///
-    /// The indirect buffer must be long enough to account for `max_count` draws, however only `count` will
-    /// draws will be read. If `count` is greater than `max_count`, `max_count` will be used.
+    /// The indirect buffer must be long enough to account for `max_count` draws, however only `count` elements
+    /// will be read, where `count` is the value read from `count_buffer` capped at `max_count`.
     ///
     /// The active index buffer can be set with [`TrackedRenderPass::set_index_buffer`], while the active
     /// vertex buffers can be set with [`TrackedRenderPass::set_vertex_buffer`].
