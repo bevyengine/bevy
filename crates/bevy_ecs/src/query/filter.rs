@@ -3,7 +3,8 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
     query::{
-        debug_checked_unreachable, Access, FilteredAccess, QueryFetch, WorldQuery, WorldQueryGats,
+        debug_checked_unreachable, fetch::StorageSwitch, Access, FilteredAccess, QueryFetch,
+        WorldQuery, WorldQueryGats,
     },
     storage::{ComponentSparseSet, Table},
     world::World,
@@ -438,10 +439,13 @@ macro_rules! impl_tick_filter {
 
         #[doc(hidden)]
         $(#[$fetch_meta])*
-        pub struct $fetch_name<'w, T> {
-            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+        pub struct $fetch_name<'w, T: Component> {
+            components: StorageSwitch<
+                T,
+                Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+                &'w ComponentSparseSet,
+            >,
             marker: PhantomData<T>,
-            sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
             change_tick: u32,
         }
@@ -457,14 +461,15 @@ macro_rules! impl_tick_filter {
 
             unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> <Self as WorldQueryGats<'w>>::Fetch {
                 QueryFetch::<'w, Self> {
-                    table_ticks: None,
-                    sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
-                        .then(|| {
+                    components: match T::Storage::STORAGE_TYPE {
+                        StorageType::Table => StorageSwitch::new_table(None),
+                        StorageType::SparseSet => StorageSwitch::new_sparse_set(
                             world.storages()
                                  .sparse_sets
                                  .get(id)
                                  .unwrap_or_else(|| debug_checked_unreachable())
-                        }),
+                        ),
+                    },
                     marker: PhantomData,
                     last_change_tick,
                     change_tick,
@@ -475,8 +480,7 @@ macro_rules! impl_tick_filter {
                 fetch: &<Self as WorldQueryGats<'w>>::Fetch,
             ) -> <Self as WorldQueryGats<'w>>::Fetch {
                 $fetch_name {
-                    table_ticks: fetch.table_ticks,
-                    sparse_set: fetch.sparse_set,
+                    components: fetch.components,
                     last_change_tick: fetch.last_change_tick,
                     change_tick: fetch.change_tick,
                     marker: PhantomData,
@@ -498,12 +502,12 @@ macro_rules! impl_tick_filter {
                 &component_id: &ComponentId,
                 table: &'w Table
             ) {
-                fetch.table_ticks = Some(
+                fetch.components = StorageSwitch::new_table(Some(
                     table.get_column(component_id)
                          .unwrap_or_else(|| debug_checked_unreachable())
                          .get_ticks_slice()
                          .into()
-                );
+                ));
             }
 
             #[inline]
@@ -527,7 +531,8 @@ macro_rules! impl_tick_filter {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         $is_detected(&*(
-                            fetch.table_ticks
+                            fetch.components
+                                 .table()
                                  .unwrap_or_else(|| debug_checked_unreachable())
                                  .get(table_row))
                                  .deref(),
@@ -537,8 +542,8 @@ macro_rules! impl_tick_filter {
                     }
                     StorageType::SparseSet => {
                         let ticks = &*fetch
-                            .sparse_set
-                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .components
+                            .sparse_set()
                             .get_ticks(entity)
                             .unwrap_or_else(|| debug_checked_unreachable())
                             .get();

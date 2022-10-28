@@ -10,7 +10,7 @@ use crate::{
 use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use std::{cell::UnsafeCell, marker::PhantomData};
+use std::{cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -528,11 +528,14 @@ impl<'w> WorldQueryGats<'w> for Entity {
 unsafe impl ReadOnlyWorldQuery for Entity {}
 
 #[doc(hidden)]
-pub struct ReadFetch<'w, T> {
-    // T::Storage = TableStorage
-    table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
+pub struct ReadFetch<'w, T: Component> {
+    components: StorageSwitch<
+        T,
+        // T::Storage = TableStorage
+        Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+        // T::Storage = SparseStorage
+        &'w ComponentSparseSet,
+    >,
 }
 
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
@@ -560,14 +563,16 @@ unsafe impl<T: Component> WorldQuery for &T {
         _change_tick: u32,
     ) -> ReadFetch<'w, T> {
         ReadFetch {
-            table_components: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .storages()
-                    .sparse_sets
-                    .get(component_id)
-                    .unwrap_or_else(|| debug_checked_unreachable())
-            }),
+            components: match T::Storage::STORAGE_TYPE {
+                StorageType::Table => StorageSwitch::new_table(None),
+                StorageType::SparseSet => StorageSwitch::new_sparse_set(
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(component_id)
+                        .unwrap_or_else(|| debug_checked_unreachable()),
+                ),
+            },
         }
     }
 
@@ -575,8 +580,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         fetch: &<Self as WorldQueryGats<'w>>::Fetch,
     ) -> <Self as WorldQueryGats<'w>>::Fetch {
         ReadFetch {
-            table_components: fetch.table_components,
-            sparse_set: fetch.sparse_set,
+            components: fetch.components,
         }
     }
 
@@ -598,13 +602,13 @@ unsafe impl<T: Component> WorldQuery for &T {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_components = Some(
+        fetch.components = StorageSwitch::new_table(Some(
             table
                 .get_column(component_id)
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .get_data_slice()
                 .into(),
-        );
+        ));
     }
 
     #[inline(always)]
@@ -615,13 +619,14 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> <Self as WorldQueryGats<'w>>::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => fetch
-                .table_components
+                .components
+                .table()
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .get(table_row)
                 .deref(),
             StorageType::SparseSet => fetch
-                .sparse_set
-                .unwrap_or_else(|| debug_checked_unreachable())
+                .components
+                .sparse_set()
                 .get(entity)
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .deref(),
@@ -671,15 +676,17 @@ impl<'w, T: Component> WorldQueryGats<'w> for &T {
 }
 
 #[doc(hidden)]
-pub struct WriteFetch<'w, T> {
-    // T::Storage = TableStorage
-    table_data: Option<(
-        ThinSlicePtr<'w, UnsafeCell<T>>,
-        ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
-    )>,
-    // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
-
+pub struct WriteFetch<'w, T: Component> {
+    components: StorageSwitch<
+        T,
+        // T::Storage = TableStorage
+        Option<(
+            ThinSlicePtr<'w, UnsafeCell<T>>,
+            ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
+        )>,
+        // T::Storage = SparseStorage
+        &'w ComponentSparseSet,
+    >,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -709,14 +716,16 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         change_tick: u32,
     ) -> WriteFetch<'w, T> {
         WriteFetch {
-            table_data: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .storages()
-                    .sparse_sets
-                    .get(component_id)
-                    .unwrap_or_else(|| debug_checked_unreachable())
-            }),
+            components: match T::Storage::STORAGE_TYPE {
+                StorageType::Table => StorageSwitch::new_table(None),
+                StorageType::SparseSet => StorageSwitch::new_sparse_set(
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(component_id)
+                        .unwrap_or_else(|| debug_checked_unreachable()),
+                ),
+            },
             last_change_tick,
             change_tick,
         }
@@ -726,8 +735,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         fetch: &<Self as WorldQueryGats<'w>>::Fetch,
     ) -> <Self as WorldQueryGats<'w>>::Fetch {
         WriteFetch {
-            table_data: fetch.table_data,
-            sparse_set: fetch.sparse_set,
+            components: fetch.components,
             last_change_tick: fetch.last_change_tick,
             change_tick: fetch.change_tick,
         }
@@ -754,10 +762,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         let column = table
             .get_column(component_id)
             .unwrap_or_else(|| debug_checked_unreachable());
-        fetch.table_data = Some((
+        fetch.components = StorageSwitch::new_table(Some((
             column.get_data_slice().into(),
             column.get_ticks_slice().into(),
-        ));
+        )));
     }
 
     #[inline(always)]
@@ -769,7 +777,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let (table_components, table_ticks) = fetch
-                    .table_data
+                    .components
+                    .table()
                     .unwrap_or_else(|| debug_checked_unreachable());
                 Mut {
                     value: table_components.get(table_row).deref_mut(),
@@ -782,8 +791,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             }
             StorageType::SparseSet => {
                 let (component, component_ticks) = fetch
-                    .sparse_set
-                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .components
+                    .sparse_set()
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_checked_unreachable());
                 Mut {
@@ -1025,12 +1034,14 @@ impl<T: Component> ChangeTrackers<T> {
 }
 
 #[doc(hidden)]
-pub struct ChangeTrackersFetch<'w, T> {
-    // T::Storage = TableStorage
-    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
-
+pub struct ChangeTrackersFetch<'w, T: Component> {
+    components: StorageSwitch<
+        T,
+        // T::Storage = TableStorage
+        Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+        // T::Storage = SparseStorage
+        &'w ComponentSparseSet,
+    >,
     marker: PhantomData<T>,
     last_change_tick: u32,
     change_tick: u32,
@@ -1061,14 +1072,16 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         change_tick: u32,
     ) -> ChangeTrackersFetch<'w, T> {
         ChangeTrackersFetch {
-            table_ticks: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                world
-                    .storages()
-                    .sparse_sets
-                    .get(component_id)
-                    .unwrap_or_else(|| debug_checked_unreachable())
-            }),
+            components: match T::Storage::STORAGE_TYPE {
+                StorageType::Table => StorageSwitch::new_table(None),
+                StorageType::SparseSet => StorageSwitch::new_sparse_set(
+                    world
+                        .storages()
+                        .sparse_sets
+                        .get(component_id)
+                        .unwrap_or_else(|| debug_checked_unreachable()),
+                ),
+            },
             marker: PhantomData,
             last_change_tick,
             change_tick,
@@ -1079,8 +1092,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         fetch: &<Self as WorldQueryGats<'w>>::Fetch,
     ) -> <Self as WorldQueryGats<'w>>::Fetch {
         ChangeTrackersFetch {
-            table_ticks: fetch.table_ticks,
-            sparse_set: fetch.sparse_set,
+            components: fetch.components,
             marker: fetch.marker,
             last_change_tick: fetch.last_change_tick,
             change_tick: fetch.change_tick,
@@ -1105,13 +1117,13 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         &id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_ticks = Some(
+        fetch.components = StorageSwitch::new_table(Some(
             table
                 .get_column(id)
                 .unwrap_or_else(|| debug_checked_unreachable())
                 .get_ticks_slice()
                 .into(),
-        );
+        ));
     }
 
     #[inline(always)]
@@ -1124,7 +1136,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
             StorageType::Table => ChangeTrackers {
                 component_ticks: {
                     let table_ticks = fetch
-                        .table_ticks
+                        .components
+                        .table()
                         .unwrap_or_else(|| debug_checked_unreachable());
                     table_ticks.get(table_row).read()
                 },
@@ -1134,8 +1147,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
             },
             StorageType::SparseSet => ChangeTrackers {
                 component_ticks: *fetch
-                    .sparse_set
-                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .components
+                    .sparse_set()
                     .get_ticks(entity)
                     .unwrap_or_else(|| debug_checked_unreachable())
                     .get(),
@@ -1519,3 +1532,65 @@ impl<'a, Q: WorldQuery> WorldQueryGats<'a> for NopWorldQuery<Q> {
 }
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<Q: WorldQuery> ReadOnlyWorldQuery for NopWorldQuery<Q> {}
+
+// A compile-time checked union of two different types that differs based
+// on the storage type of a given Component.
+pub(super) union StorageSwitch<T: Component, A, B> {
+    table: ManuallyDrop<A>,
+    sparse_set: ManuallyDrop<B>,
+    marker: PhantomData<T>,
+}
+
+impl<T: Component, A, B> StorageSwitch<T, A, B> {
+    pub const fn new_table(table: A) -> Self {
+        Self {
+            table: ManuallyDrop::new(table),
+        }
+    }
+
+    pub const fn new_sparse_set(sparse_set: B) -> Self {
+        Self {
+            sparse_set: ManuallyDrop::new(sparse_set),
+        }
+    }
+}
+
+impl<T: Component, A: Copy, B: Copy> StorageSwitch<T, A, B> {
+    pub fn table(&self) -> A {
+        // SAFETY: The variant of the union is checked at compile time
+        unsafe {
+            match T::Storage::STORAGE_TYPE {
+                StorageType::Table => *self.table,
+                _ => debug_checked_unreachable(),
+            }
+        }
+    }
+
+    pub fn sparse_set(&self) -> B {
+        // SAFETY: The variant of the union is checked at compile time
+        unsafe {
+            match T::Storage::STORAGE_TYPE {
+                StorageType::SparseSet => *self.sparse_set,
+                _ => debug_checked_unreachable(),
+            }
+        }
+    }
+}
+
+impl<T: Component, A: Clone, B: Clone> Clone for StorageSwitch<T, A, B> {
+    fn clone(&self) -> Self {
+        // SAFETY: The variant of the union is checked at compile time
+        unsafe {
+            match T::Storage::STORAGE_TYPE {
+                StorageType::Table => Self {
+                    table: self.table.clone(),
+                },
+                StorageType::SparseSet => Self {
+                    sparse_set: self.sparse_set.clone(),
+                },
+            }
+        }
+    }
+}
+
+impl<T: Component, A: Copy, B: Copy> Copy for StorageSwitch<T, A, B> {}
