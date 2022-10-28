@@ -413,20 +413,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
 
-        Q::set_archetype(
-            &mut fetch,
-            &self.fetch_state,
-            archetype,
-            &world.storages().tables,
-        );
-        F::set_archetype(
-            &mut filter,
-            &self.filter_state,
-            archetype,
-            &world.storages().tables,
-        );
-        if F::archetype_filter_fetch(&mut filter, location.index) {
-            Ok(Q::archetype_fetch(&mut fetch, location.index))
+        let table = &world.storages().tables[archetype.table_id()];
+        Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
+        F::set_archetype(&mut filter, &self.filter_state, archetype, table);
+
+        if F::filter_fetch(&mut filter, entity, location.index) {
+            Ok(Q::fetch(&mut fetch, entity, location.index))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }
@@ -945,34 +937,45 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
 
+        let tables = &world.storages().tables;
         if Q::IS_DENSE && F::IS_DENSE {
-            let tables = &world.storages().tables;
             for table_id in &self.matched_table_ids {
                 let table = &tables[*table_id];
                 Q::set_table(&mut fetch, &self.fetch_state, table);
                 F::set_table(&mut filter, &self.filter_state, table);
 
-                for table_index in 0..table.entity_count() {
-                    if !F::table_filter_fetch(&mut filter, table_index) {
+                let entities = table.entities();
+                for row in 0..table.entity_count() {
+                    let entity = entities.get_unchecked(row);
+                    if !F::filter_fetch(&mut filter, *entity, row) {
                         continue;
                     }
-                    let item = Q::table_fetch(&mut fetch, table_index);
-                    func(item);
+                    func(Q::fetch(&mut fetch, *entity, row));
                 }
             }
         } else {
             let archetypes = &world.archetypes;
-            let tables = &world.storages().tables;
             for archetype_id in &self.matched_archetype_ids {
                 let archetype = &archetypes[*archetype_id];
-                Q::set_archetype(&mut fetch, &self.fetch_state, archetype, tables);
-                F::set_archetype(&mut filter, &self.filter_state, archetype, tables);
+                let table = &tables[archetype.table_id()];
+                Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
+                F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
-                for archetype_index in 0..archetype.len() {
-                    if !F::archetype_filter_fetch(&mut filter, archetype_index) {
+                let entities = archetype.entities();
+                for idx in 0..archetype.len() {
+                    let archetype_entity = entities.get_unchecked(idx);
+                    if !F::filter_fetch(
+                        &mut filter,
+                        archetype_entity.entity,
+                        archetype_entity.table_row,
+                    ) {
                         continue;
                     }
-                    func(Q::archetype_fetch(&mut fetch, archetype_index));
+                    func(Q::fetch(
+                        &mut fetch,
+                        archetype_entity.entity,
+                        archetype_entity.table_row,
+                    ));
                 }
             }
         }
@@ -1033,14 +1036,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                             );
                             let tables = &world.storages().tables;
                             let table = &tables[*table_id];
+                            let entities = table.entities();
                             Q::set_table(&mut fetch, &self.fetch_state, table);
                             F::set_table(&mut filter, &self.filter_state, table);
-                            for table_index in offset..offset + len {
-                                if !F::table_filter_fetch(&mut filter, table_index) {
+                            for row in offset..offset + len {
+                                let entity = entities.get_unchecked(row);
+                                if !F::filter_fetch(&mut filter, *entity, row) {
                                     continue;
                                 }
-                                let item = Q::table_fetch(&mut fetch, table_index);
-                                func(item);
+                                func(Q::fetch(&mut fetch, *entity, row));
                             }
                         };
                         #[cfg(feature = "trace")]
@@ -1083,14 +1087,25 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                             );
                             let tables = &world.storages().tables;
                             let archetype = &world.archetypes[*archetype_id];
-                            Q::set_archetype(&mut fetch, &self.fetch_state, archetype, tables);
-                            F::set_archetype(&mut filter, &self.filter_state, archetype, tables);
+                            let table = &tables[archetype.table_id()];
+                            Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
+                            F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
+                            let entities = archetype.entities();
                             for archetype_index in offset..offset + len {
-                                if !F::archetype_filter_fetch(&mut filter, archetype_index) {
+                                let archetype_entity = entities.get_unchecked(archetype_index);
+                                if !F::filter_fetch(
+                                    &mut filter,
+                                    archetype_entity.entity,
+                                    archetype_entity.table_row,
+                                ) {
                                     continue;
                                 }
-                                func(Q::archetype_fetch(&mut fetch, archetype_index));
+                                func(Q::fetch(
+                                    &mut fetch,
+                                    archetype_entity.entity,
+                                    archetype_entity.table_row,
+                                ));
                             }
                         };
 
