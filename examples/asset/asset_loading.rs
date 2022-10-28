@@ -50,33 +50,33 @@ fn setup(
     });
 
     // monkey
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: monkey_handle,
         material: material_handle.clone(),
         transform: Transform::from_xyz(-3.0, 0.0, 0.0),
         ..default()
     });
     // cube
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: cube_handle,
         material: material_handle.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
         ..default()
     });
     // sphere
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: sphere_handle,
         material: material_handle,
         transform: Transform::from_xyz(3.0, 0.0, 0.0),
         ..default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..default()
     });
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

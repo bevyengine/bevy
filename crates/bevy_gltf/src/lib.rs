@@ -57,7 +57,7 @@ pub struct GltfNode {
     pub transform: bevy_transform::prelude::Transform,
 }
 
-/// A glTF mesh, which may consists of multiple [`GtlfPrimitives`](GltfPrimitive).
+/// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive).
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "8ceaec9a-926a-4f29-8ee3-578a69f42315"]
 pub struct GltfMesh {

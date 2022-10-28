@@ -12,10 +12,10 @@ use bevy_ecs::{
     entity::Entity,
     prelude::Component,
     reflect::ReflectComponent,
-    schedule::ParallelSystemDescriptorCoercion,
+    schedule::IntoSystemDescriptor,
     system::{Query, Res},
 };
-use bevy_hierarchy::{Children, HierarchySystem};
+use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_time::Time;
@@ -115,11 +115,19 @@ impl Default for AnimationPlayer {
 
 impl AnimationPlayer {
     /// Start playing an animation, resetting state of the player
-    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+    pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         *self = Self {
             animation_clip: handle,
             ..Default::default()
         };
+        self
+    }
+
+    /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
+    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+        if self.animation_clip != handle || self.is_paused() {
+            self.start(handle);
+        }
         self
     }
 
@@ -183,7 +191,7 @@ pub fn animation_player(
     mut transforms: Query<&mut Transform>,
     children: Query<&Children>,
 ) {
-    for (entity, mut player) in animation_players.iter_mut() {
+    for (entity, mut player) in &mut animation_players {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
@@ -243,6 +251,7 @@ pub fn animation_player(
                             .keyframe_timestamps
                             .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
                         {
+                            Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
                             Ok(i) => i,
                             Err(0) => continue, // this curve isn't started yet
                             Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
@@ -262,8 +271,8 @@ pub fn animation_player(
                                     rot_end = -rot_end;
                                 }
                                 // Rotations are using a spherical linear interpolation
-                                transform.rotation = Quat::from_array(rot_start.normalize().into())
-                                    .slerp(Quat::from_array(rot_end.normalize().into()), lerp);
+                                transform.rotation =
+                                    rot_start.normalize().slerp(rot_end.normalize(), lerp);
                             }
                             Keyframes::Translation(keyframes) => {
                                 let translation_start = keyframes[step_start];
@@ -295,9 +304,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                animation_player
-                    .before(TransformSystem::TransformPropagate)
-                    .after(HierarchySystem::ParentUpdate),
+                animation_player.before(TransformSystem::TransformPropagate),
             );
     }
 }

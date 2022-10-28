@@ -10,7 +10,7 @@ use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
 use bevy_pbr::{
     AlphaMode, DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle,
-    StandardMaterial,
+    SpotLight, SpotLightBundle, StandardMaterial,
 };
 use bevy_render::{
     camera::{
@@ -22,14 +22,17 @@ use bevy_render::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, Mesh, VertexAttributeValues,
     },
+    prelude::SpatialBundle,
     primitives::{Aabb, Frustum},
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
     renderer::RenderDevice,
-    texture::{CompressedImageFormats, Image, ImageType, TextureError},
+    texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
     view::VisibleEntities,
 };
 use bevy_scene::Scene;
-use bevy_transform::{components::Transform, TransformBundle};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_tasks::IoTaskPool;
+use bevy_transform::components::Transform;
 
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
@@ -258,11 +261,6 @@ async fn load_gltf<'a, 'b>(
                 .map(|v| VertexAttributeValues::Float32x2(v.into_f32().collect()))
             {
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
-            } else {
-                let len = mesh.count_vertices();
-                let uvs = vec![[0.0, 0.0]; len];
-                bevy_log::debug!("missing `TEXCOORD_0` vertex attribute, loading zeroed out UVs");
-                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
             }
 
             if let Some(vertex_attribute) = reader
@@ -366,7 +364,7 @@ async fn load_gltf<'a, 'b>(
                         scale,
                     } => Transform {
                         translation: bevy_math::Vec3::from(translation),
-                        rotation: bevy_math::Quat::from_vec4(rotation.into()),
+                        rotation: bevy_math::Quat::from_array(rotation),
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
@@ -410,8 +408,7 @@ async fn load_gltf<'a, 'b>(
         }
     } else {
         #[cfg(not(target_arch = "wasm32"))]
-        load_context
-            .task_pool()
+        IoTaskPool::get()
             .scope(|scope| {
                 gltf.textures().for_each(|gltf_texture| {
                     let linear_textures = &linear_textures;
@@ -468,15 +465,13 @@ async fn load_gltf<'a, 'b>(
         let mut entity_to_skin_index_map = HashMap::new();
 
         world
-            .spawn()
-            .insert_bundle(TransformBundle::identity())
+            .spawn(SpatialBundle::VISIBLE_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
                         &node,
                         parent,
                         load_context,
-                        &buffer_data,
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
@@ -619,7 +614,7 @@ async fn load_texture<'a>(
             )?
         }
     };
-    texture.sampler_descriptor = texture_sampler(&gltf_texture);
+    texture.sampler_descriptor = ImageSampler::Descriptor(texture_sampler(&gltf_texture));
 
     Ok((texture, texture_label(&gltf_texture)))
 }
@@ -701,14 +696,13 @@ fn load_node(
     gltf_node: &gltf::Node,
     world_builder: &mut WorldChildBuilder,
     load_context: &mut LoadContext,
-    buffer_data: &[Vec<u8>],
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut HashMap<Entity, usize>,
     active_camera_found: &mut bool,
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn_bundle(TransformBundle::from(Transform::from_matrix(
+    let mut node = world_builder.spawn(SpatialBundle::from(Transform::from_matrix(
         Mat4::from_cols_array_2d(&transform.matrix()),
     )));
 
@@ -751,7 +745,7 @@ fn load_node(
             }
         };
 
-        node.insert_bundle((
+        node.insert((
             projection,
             Camera {
                 is_active: !*active_camera_found,
@@ -790,7 +784,7 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                let mut mesh_entity = parent.spawn_bundle(PbrBundle {
+                let mut mesh_entity = parent.spawn(PbrBundle {
                     mesh: load_context.get_handle(mesh_asset_path),
                     material: load_context.get_handle(material_asset_path),
                     ..Default::default()
@@ -818,7 +812,7 @@ fn load_node(
         if let Some(light) = gltf_node.light() {
             match light.kind() {
                 gltf::khr_lights_punctual::Kind::Directional => {
-                    let mut entity = parent.spawn_bundle(DirectionalLightBundle {
+                    let mut entity = parent.spawn(DirectionalLightBundle {
                         directional_light: DirectionalLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for directional
@@ -838,7 +832,7 @@ fn load_node(
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
-                    let mut entity = parent.spawn_bundle(PointLightBundle {
+                    let mut entity = parent.spawn(PointLightBundle {
                         point_light: PointLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for point lights in
@@ -861,9 +855,33 @@ fn load_node(
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Spot {
-                    inner_cone_angle: _inner_cone_angle,
-                    outer_cone_angle: _outer_cone_angle,
-                } => warn!("Spot lights are not yet supported."),
+                    inner_cone_angle,
+                    outer_cone_angle,
+                } => {
+                    let mut entity = parent.spawn(SpotLightBundle {
+                        spot_light: SpotLight {
+                            color: Color::from(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
+                            // candela (lm/sr) which is luminous intensity and we need luminous power.
+                            // For a spot light, we map luminous power = 4 * pi * luminous intensity
+                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                            range: light.range().unwrap_or(20.0),
+                            radius: light.range().unwrap_or(0.0),
+                            inner_angle: inner_cone_angle,
+                            outer_angle: outer_cone_angle,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
+                    }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(super::GltfExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
+                }
             }
         }
 
@@ -873,7 +891,6 @@ fn load_node(
                 &child,
                 parent,
                 load_context,
-                buffer_data,
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
                 active_camera_found,
@@ -1026,8 +1043,7 @@ async fn load_buffers(
                     Err(()) => {
                         // TODO: Remove this and add dep
                         let buffer_path = asset_path.parent().unwrap().join(uri);
-                        let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
-                        buffer_bytes
+                        load_context.read_asset_bytes(buffer_path).await?
                     }
                 };
                 buffer_data.push(buffer_bytes);
@@ -1149,7 +1165,7 @@ mod test {
             GltfNode {
                 children: vec![],
                 mesh: None,
-                transform: bevy_transform::prelude::Transform::identity(),
+                transform: bevy_transform::prelude::Transform::IDENTITY,
             }
         }
     }

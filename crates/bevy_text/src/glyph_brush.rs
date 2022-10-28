@@ -7,7 +7,10 @@ use glyph_brush_layout::{
     FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, SectionText, ToSectionText,
 };
 
-use crate::{error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment};
+use crate::{
+    error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment, TextSettings,
+    YAxisOrientation,
+};
 
 pub struct GlyphBrush {
     fonts: Vec<FontArc>,
@@ -43,6 +46,7 @@ impl GlyphBrush {
         Ok(section_glyphs)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn process_glyphs(
         &self,
         glyphs: Vec<SectionGlyph>,
@@ -51,6 +55,8 @@ impl GlyphBrush {
         fonts: &Assets<Font>,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
+        text_settings: &TextSettings,
+        y_axis_orientation: YAxisOrientation,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
             return Ok(Vec::new());
@@ -71,16 +77,20 @@ impl GlyphBrush {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mut max_y = std::f32::MIN;
         let mut min_x = std::f32::MAX;
+        let mut min_y = std::f32::MAX;
+        let mut max_y = std::f32::MIN;
         for sg in &glyphs {
             let glyph = &sg.glyph;
+
             let scaled_font = sections_data[sg.section_index].3;
-            max_y = max_y.max(glyph.position.y - scaled_font.descent());
             min_x = min_x.min(glyph.position.x);
+            min_y = min_y.min(glyph.position.y - scaled_font.ascent());
+            max_y = max_y.max(glyph.position.y - scaled_font.descent());
         }
-        max_y = max_y.floor();
         min_x = min_x.floor();
+        min_y = min_y.floor();
+        max_y = max_y.floor();
 
         let mut positioned_glyphs = Vec::new();
         for sg in glyphs {
@@ -104,7 +114,12 @@ impl GlyphBrush {
                     .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
                     .map(Ok)
                     .unwrap_or_else(|| {
-                        font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
+                        font_atlas_set.add_glyph_to_atlas(
+                            texture_atlases,
+                            textures,
+                            outlined_glyph,
+                            text_settings,
+                        )
                     })?;
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
@@ -112,7 +127,12 @@ impl GlyphBrush {
                 let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
                 let x = bounds.min.x + size.x / 2.0 - min_x;
-                let y = max_y - bounds.max.y + size.y / 2.0;
+
+                let y = match y_axis_orientation {
+                    YAxisOrientation::BottomToTop => max_y - bounds.max.y + size.y / 2.0,
+                    YAxisOrientation::TopToBottom => bounds.min.y + size.y / 2.0 - min_y,
+                };
+
                 let position = adjust.position(Vec2::new(x, y));
 
                 positioned_glyphs.push(PositionedGlyph {

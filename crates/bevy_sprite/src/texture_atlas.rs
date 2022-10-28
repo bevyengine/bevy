@@ -1,7 +1,7 @@
-use crate::{Anchor, Rect};
+use crate::Anchor;
 use bevy_asset::Handle;
 use bevy_ecs::component::Component;
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{color::Color, texture::Image};
 use bevy_utils::HashMap;
@@ -68,58 +68,47 @@ impl TextureAtlas {
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// `tile_size` by `tile_size` grid-cell is one of the textures in the atlas
+    /// `tile_size` by `tile_size` grid-cell is one of the textures in the
+    /// atlas. Grid cells are separated by some `padding`, and the grid starts
+    /// at `offset` pixels from the top left corner. Resulting `TextureAtlas` is
+    /// indexed left to right, top to bottom.
     pub fn from_grid(
         texture: Handle<Image>,
         tile_size: Vec2,
         columns: usize,
         rows: usize,
+        padding: Option<Vec2>,
+        offset: Option<Vec2>,
     ) -> TextureAtlas {
-        Self::from_grid_with_padding(texture, tile_size, columns, rows, Vec2::ZERO, Vec2::ZERO)
-    }
-
-    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// `tile_size` by `tile_size` grid-cell is one of the textures in the
-    /// atlas. Grid cells are separated by some `padding`, and the grid starts
-    /// at `offset` pixels from the top left corner.
-    pub fn from_grid_with_padding(
-        texture: Handle<Image>,
-        tile_size: Vec2,
-        columns: usize,
-        rows: usize,
-        padding: Vec2,
-        offset: Vec2,
-    ) -> TextureAtlas {
+        let padding = padding.unwrap_or_default();
+        let offset = offset.unwrap_or_default();
         let mut sprites = Vec::new();
-        let mut x_padding = 0.0;
-        let mut y_padding = 0.0;
+        let mut current_padding = Vec2::ZERO;
 
         for y in 0..rows {
             if y > 0 {
-                y_padding = padding.y;
+                current_padding.y = padding.y;
             }
             for x in 0..columns {
                 if x > 0 {
-                    x_padding = padding.x;
+                    current_padding.x = padding.x;
                 }
 
-                let rect_min = Vec2::new(
-                    (tile_size.x + x_padding) * x as f32 + offset.x,
-                    (tile_size.y + y_padding) * y as f32 + offset.y,
-                );
+                let cell = Vec2::new(x as f32, y as f32);
+
+                let rect_min = (tile_size + current_padding) * cell + offset;
 
                 sprites.push(Rect {
                     min: rect_min,
-                    max: Vec2::new(rect_min.x + tile_size.x, rect_min.y + tile_size.y),
+                    max: rect_min + tile_size,
                 });
             }
         }
 
+        let grid_size = Vec2::new(columns as f32, rows as f32);
+
         TextureAtlas {
-            size: Vec2::new(
-                ((tile_size.x + x_padding) * columns as f32) - x_padding,
-                ((tile_size.y + y_padding) * rows as f32) - y_padding,
-            ),
+            size: ((tile_size + current_padding) * grid_size) - current_padding,
             textures: sprites,
             texture,
             texture_handles: None,
