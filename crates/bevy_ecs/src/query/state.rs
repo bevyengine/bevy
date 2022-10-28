@@ -1443,6 +1443,33 @@ mod tests {
     }
 
     #[test]
+    fn query_state_with_config_as_readonly() {
+        let mut world = World::new();
+
+        let num = 42;
+
+        let component_id = world.init_component::<TestComponent>();
+        let spawned_entity = world.spawn(TestComponent(num)).id();
+
+        let mut query_state = QueryState::<(Entity, PtrMut<'_>), ()>::new_with_config(
+            &mut world,
+            ((), component_id),
+            (),
+        );
+
+        let results: Vec<_> = query_state.iter(&world).collect();
+        match results.as_slice() {
+            [(entity, value)] => {
+                assert_eq!(*entity, spawned_entity);
+                // SAFETY: correct type, read access
+                let value = unsafe { value.deref::<TestComponent>() };
+                assert_eq!(value.0, num);
+            }
+            _ => panic!("expected to get one result"),
+        }
+    }
+
+    #[test]
     fn query_state_with_config_vec() {
         let mut world = World::new();
 
