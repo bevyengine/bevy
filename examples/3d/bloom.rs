@@ -30,6 +30,14 @@ fn setup(
         BloomSettings::default(), // 3. Enable bloom
     ));
 
+    let material = materials.add(StandardMaterial {
+        emissive: Color::rgb_linear(5.2, 1.2, 0.8), // 4. Set StandardMaterial::emissive using Color::rgb_linear
+        ..Default::default()
+    });
+    let material_non_emissive = materials.add(StandardMaterial {
+        ..Default::default()
+    });
+
     let mesh = meshes.add(
         shape::Icosphere {
             radius: 0.5,
@@ -37,14 +45,6 @@ fn setup(
         }
         .into(),
     );
-
-    let material = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(1.0, 0.3, 0.2) * 4.0,
-        ..Default::default()
-    });
-    let material_non_emissive = materials.add(StandardMaterial {
-        ..Default::default()
-    });
 
     for x in -10..10 {
         for z in -10..10 {
