@@ -151,7 +151,7 @@ mod tests {
     fn simple_system() {
         fn sys(query: Query<&A>) {
             for a in &query {
-                println!("{:?}", a);
+                println!("{a:?}");
             }
         }
 

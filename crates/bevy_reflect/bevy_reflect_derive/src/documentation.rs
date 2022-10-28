@@ -51,7 +51,7 @@ impl Documentation {
                 .enumerate()
                 .map(|(index, doc)| {
                     if index < len - 1 {
-                        format!("{}\n", doc)
+                        format!("{doc}\n")
                     } else {
                         doc.to_owned()
                     }

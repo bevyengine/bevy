@@ -62,6 +62,7 @@ impl HandleId {
 
     /// Creates the default id for an asset of type `T`.
     #[inline]
+    #[allow(clippy::should_implement_trait)] // `Default` is not implemented for `HandleId`, the default value depends on the asset type
     pub fn default<T: Asset>() -> Self {
         HandleId::Id(T::TYPE_UUID, 0)
     }
@@ -294,7 +295,7 @@ impl<T: Asset> Default for Handle<T> {
 impl<T: Asset> Debug for Handle<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         let name = std::any::type_name::<T>().split("::").last().unwrap();
-        write!(f, "{:?}Handle<{}>({:?})", self.handle_type, name, self.id)
+        write!(f, "{:?}Handle<{name}>({:?})", self.handle_type, self.id)
     }
 }
 

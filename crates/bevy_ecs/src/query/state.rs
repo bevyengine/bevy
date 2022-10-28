@@ -1400,9 +1400,9 @@ impl std::error::Error for QuerySingleError {}
 impl std::fmt::Display for QuerySingleError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {}", query),
+            QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {query}"),
             QuerySingleError::MultipleEntities(query) => {
-                write!(f, "Multiple entities fit the query {}!", query)
+                write!(f, "Multiple entities fit the query {query}!")
             }
         }
     }

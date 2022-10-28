@@ -170,7 +170,7 @@ pub struct DefaultImageSampler(pub(crate) Sampler);
 impl Default for Image {
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size() as usize];
+        let data = vec![255; format.pixel_size()];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
@@ -367,9 +367,9 @@ impl Image {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
             }
             _ => {
-                let image_crate_format = format.as_image_crate_format().ok_or_else(|| {
-                    TextureError::UnsupportedTextureFormat(format!("{:?}", format))
-                })?;
+                let image_crate_format = format
+                    .as_image_crate_format()
+                    .ok_or_else(|| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
                 let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
                 reader.set_format(image_crate_format);
                 reader.no_limits();
