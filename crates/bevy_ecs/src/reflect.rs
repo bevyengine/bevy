@@ -174,7 +174,12 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
             insert: |world, entity, reflected_component| {
-                let component = C::from_reflect(reflected_component).unwrap();
+                let component = C::from_reflect(reflected_component).unwrap_or_else(|| {
+                    panic!(
+                        "failed to convert {reflected_component:?} to a {} using FromReflect",
+                        std::any::type_name::<C>()
+                    )
+                });
                 world.entity_mut(entity).insert(component);
             },
             apply: |world, entity, reflected_component| {
@@ -185,7 +190,12 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
                 if let Some(mut component) = world.get_mut::<C>(entity) {
                     component.apply(reflected_component);
                 } else {
-                    let component = C::from_reflect(reflected_component).unwrap();
+                    let component = C::from_reflect(reflected_component).unwrap_or_else(|| {
+                        panic!(
+                            "failed to convert {reflected_component:?} to a {} using FromReflect",
+                            std::any::type_name::<C>()
+                        )
+                    });
                     world.entity_mut(entity).insert(component);
                 }
             },
@@ -194,7 +204,14 @@ impl<C: Component + Reflect + FromReflect> FromType<C> for ReflectComponent {
             },
             copy: |source_world, destination_world, source_entity, destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
-                let destination_component = C::from_reflect(source_component).unwrap();
+                let destination_component =
+                    C::from_reflect(source_component).unwrap_or_else(|| {
+                        panic!(
+                            "failed to convert {:?} to a {} using FromReflect",
+                            source_component as &dyn Reflect,
+                            std::any::type_name::<C>()
+                        )
+                    });
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);
