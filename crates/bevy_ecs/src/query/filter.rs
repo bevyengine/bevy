@@ -702,7 +702,7 @@ macro_rules! impl_tick_filter_untyped {
 
             unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> <Self as WorldQueryGats<'w>>::Fetch {
                 // SAFETY: component id is checked in `init_state`
-                let info = unsafe { world.components.get_info_unchecked(id) };
+                let info = world.components.get_info_unchecked(id);
                 QueryFetch::<'w, Self> {
                     storage_type: info.storage_type(),
                     table_ticks: None,
