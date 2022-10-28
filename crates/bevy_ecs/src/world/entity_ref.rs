@@ -1108,7 +1108,7 @@ mod tests {
         let mut world = World::new();
         let test_component_id = world.init_component::<TestComponent>();
 
-        let mut entity = world.spawn();
+        let mut entity = world.spawn_empty();
         OwningPtr::make(TestComponent(42), |ptr| {
             // SAFETY: `ptr` matches the component id
             unsafe { entity.insert_by_id(test_component_id, ptr) };
@@ -1123,7 +1123,7 @@ mod tests {
         let test_component_id = world.init_component::<TestComponent>();
         let test_component_2_id = world.init_component::<TestComponent2>();
 
-        let mut entity = world.spawn();
+        let mut entity = world.spawn_empty();
 
         let component_ids = vec![test_component_id, test_component_2_id];
         let test_component_value = TestComponent(42);
