@@ -300,14 +300,20 @@ impl<'a> TrackedRenderPass<'a> {
     ///     // has to be 0, unless [`Features::INDIRECT_FIRST_INSTANCE`] is enabled.
     /// }
     /// ```
-    pub fn multi_draw_indirect(&mut self, indirect_buffer: &'a Buffer, indirect_offset: u64, count: u32) {
+    pub fn multi_draw_indirect(
+        &mut self,
+        indirect_buffer: &'a Buffer,
+        indirect_offset: u64,
+        count: u32,
+    ) {
         trace!(
             "multi draw indirect: {:?} {}, {}x",
             indirect_buffer,
             indirect_offset,
             count
         );
-        self.pass.multi_draw_indirect(indirect_buffer, indirect_offset, count);
+        self.pass
+            .multi_draw_indirect(indirect_buffer, indirect_offset, count);
     }
 
     /// Disptaches multiple draw calls from the active vertex buffer(s) based on the contents of the `indirect_buffer`.
@@ -330,7 +336,14 @@ impl<'a> TrackedRenderPass<'a> {
     ///     // has to be 0, unless [`Features::INDIRECT_FIRST_INSTANCE`] is enabled.
     /// }
     /// ```
-    pub fn multi_draw_indirect_count(&mut self, indirect_buffer: &'a Buffer, indirect_offset: u64, count_buffer: &'a Buffer, count_offset: u64, max_count: u32) {
+    pub fn multi_draw_indirect_count(
+        &mut self,
+        indirect_buffer: &'a Buffer,
+        indirect_offset: u64,
+        count_buffer: &'a Buffer,
+        count_offset: u64,
+        max_count: u32,
+    ) {
         trace!(
             "multi draw indirect count: {:?} {}, ({:?} {})x, max {}x",
             indirect_buffer,
@@ -339,7 +352,13 @@ impl<'a> TrackedRenderPass<'a> {
             count_offset,
             max_count
         );
-        self.pass.multi_draw_indirect_count(indirect_buffer, indirect_offset, count_buffer, count_offset, max_count);
+        self.pass.multi_draw_indirect_count(
+            indirect_buffer,
+            indirect_offset,
+            count_buffer,
+            count_offset,
+            max_count,
+        );
     }
 
     /// Dispatches multiple draw calls from the active index buffer and the active vertex buffers,
@@ -361,14 +380,20 @@ impl<'a> TrackedRenderPass<'a> {
     ///     // has to be 0, unless [`Features::INDIRECT_FIRST_INSTANCE`] is enabled.
     /// }
     /// ```
-    pub fn multi_draw_indexed_indirect(&mut self, indirect_buffer: &'a Buffer, indirect_offset: u64, count: u32) {
+    pub fn multi_draw_indexed_indirect(
+        &mut self,
+        indirect_buffer: &'a Buffer,
+        indirect_offset: u64,
+        count: u32,
+    ) {
         trace!(
             "multi draw indexed indirect: {:?} {}, {}x",
             indirect_buffer,
             indirect_offset,
             count
         );
-        self.pass.multi_draw_indexed_indirect(indirect_buffer, indirect_offset, count);
+        self.pass
+            .multi_draw_indexed_indirect(indirect_buffer, indirect_offset, count);
     }
 
     /// Dispatches multiple draw calls from the active index buffer and the active vertex buffers,
@@ -393,7 +418,14 @@ impl<'a> TrackedRenderPass<'a> {
     ///     // has to be 0, unless [`Features::INDIRECT_FIRST_INSTANCE`] is enabled.
     /// }
     /// ```
-    pub fn multi_draw_indexed_indirect_count(&mut self, indirect_buffer: &'a Buffer, indirect_offset: u64, count_buffer: &'a Buffer, count_offset: u64, max_count: u32) {
+    pub fn multi_draw_indexed_indirect_count(
+        &mut self,
+        indirect_buffer: &'a Buffer,
+        indirect_offset: u64,
+        count_buffer: &'a Buffer,
+        count_offset: u64,
+        max_count: u32,
+    ) {
         trace!(
             "multi draw indexed indirect count: {:?} {}, ({:?} {})x, max {}x",
             indirect_buffer,
@@ -402,7 +434,13 @@ impl<'a> TrackedRenderPass<'a> {
             count_offset,
             max_count
         );
-        self.pass.multi_draw_indexed_indirect_count(indirect_buffer, indirect_offset, count_buffer, count_offset, max_count);
+        self.pass.multi_draw_indexed_indirect_count(
+            indirect_buffer,
+            indirect_offset,
+            count_buffer,
+            count_offset,
+            max_count,
+        );
     }
 
     /// Sets the stencil reference.
