@@ -27,4 +27,5 @@ criterion_group!(
     query_get_component_simple,
     query_get_component,
     query_get,
+    query_get_many2,
 );
