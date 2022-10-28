@@ -106,7 +106,7 @@ impl GlyphBrush {
             let section_data = sections_data[sg.section_index];
             if let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) {
                 let bounds = outlined_glyph.px_bounds();
-                let handle_font_atlas: Handle<FontAtlasSet> = section_data.0.as_weak();
+                let handle_font_atlas: Handle<FontAtlasSet> = section_data.0.cast_weak();
                 let font_atlas_set = font_atlas_set_storage
                     .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
