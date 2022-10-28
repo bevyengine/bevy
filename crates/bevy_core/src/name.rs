@@ -25,7 +25,12 @@ impl FromReflect for Name {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         match reflect.reflect_ref() {
             bevy_reflect::ReflectRef::Struct(strukt) => {
-                let name = Cow::from_reflect(strukt.field("name")?)?;
+                let name = Cow::from_reflect(
+                    strukt
+                        .field("name")
+                        .expect("missing `name` field to construct a `Name`"),
+                )
+                .expect("`name` field is not a Cow<str>");
                 Some(Name::new(name))
             }
             _ => None,
