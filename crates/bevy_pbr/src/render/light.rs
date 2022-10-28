@@ -550,7 +550,7 @@ pub fn extract_lights(
             continue;
         }
 
-        // Calulate the directional light shadow map texel size using the scaled x,y length of
+        // Calculate the directional light shadow map texel size using the scaled x,y length of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
         // https://catlikecoding.com/unity/tutorials/custom-srp/directional-shadows/
