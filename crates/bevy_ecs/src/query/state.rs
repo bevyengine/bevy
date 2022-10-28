@@ -1299,6 +1299,7 @@ impl fmt::Display for QueryEntityError {
 mod tests {
     use bevy_ptr::{Ptr, PtrMut};
 
+    use crate::query::WithUntyped;
     use crate::{prelude::*, query::QueryEntityError};
 
     #[test]
@@ -1493,6 +1494,40 @@ mod tests {
             ((), vec![component_id, component_id]),
             (),
         );
+    }
+
+    #[test]
+    fn query_state_with_config_filter() {
+        let mut world = World::new();
+
+        let component_id_1 = world.init_component::<TestComponent>();
+        let component_id_2 = world.init_component::<TestComponent2>();
+
+        world.spawn((TestComponent(0), TestComponent2(0)));
+        world.spawn(TestComponent(0));
+        world.spawn(TestComponent2(0));
+        world.spawn_empty();
+
+        let mut query_state_1 =
+            QueryState::<(), WithUntyped>::new_with_config(&mut world, (), component_id_1);
+        let mut query_state_2 =
+            QueryState::<(), WithUntyped>::new_with_config(&mut world, (), component_id_2);
+        let mut query_state_both = QueryState::<(), (WithUntyped, WithUntyped)>::new_with_config(
+            &mut world,
+            (),
+            (component_id_1, component_id_2),
+        );
+        let mut query_state_either =
+            QueryState::<(), AnyOf<(WithUntyped, WithUntyped)>>::new_with_config(
+                &mut world,
+                (),
+                (component_id_1, component_id_2),
+            );
+
+        assert_eq!(query_state_1.iter(&world).count(), 2);
+        assert_eq!(query_state_2.iter(&world).count(), 2);
+        assert_eq!(query_state_both.iter(&world).count(), 1);
+        assert_eq!(query_state_either.iter(&world).count(), 3);
     }
 }
 
