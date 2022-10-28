@@ -13,9 +13,8 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::Added,
     reflect::ReflectComponent,
-    system::{Commands, ParamSet, Query, Res},
+    system::{Commands, Query, Res},
 };
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -68,6 +67,8 @@ pub struct RenderTargetInfo {
 pub struct ComputedCameraValues {
     projection_matrix: Mat4,
     target_info: Option<RenderTargetInfo>,
+    // position and size of the `Viewport`
+    old_viewport_size: Option<UVec2>,
 }
 
 /// The defining component for camera entities, storing information about how and what to render
@@ -404,10 +405,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut image_asset_events: EventReader<AssetEvent<Image>>,
     windows: Res<Windows>,
     images: Res<Assets<Image>>,
-    mut queries: ParamSet<(
-        Query<(Entity, &mut Camera, &mut T)>,
-        Query<Entity, Added<Camera>>,
-    )>,
+    mut cameras: Query<(&mut Camera, &mut T)>,
 ) {
     let mut changed_window_ids = Vec::new();
 
@@ -440,18 +438,21 @@ pub fn camera_system<T: CameraProjection + Component>(
         })
         .collect();
 
-    let mut added_cameras = vec![];
-    for entity in &queries.p1() {
-        added_cameras.push(entity);
-    }
-    for (entity, mut camera, mut camera_projection) in &mut queries.p0() {
+    for (mut camera, mut camera_projection) in &mut cameras {
+        let viewport_size = camera
+            .viewport
+            .as_ref()
+            .map(|viewport| viewport.physical_size);
+
         if camera
             .target
             .is_changed(&changed_window_ids, &changed_image_handles)
-            || added_cameras.contains(&entity)
+            || camera.is_added()
             || camera_projection.is_changed()
+            || camera.computed.old_viewport_size != viewport_size
         {
             camera.computed.target_info = camera.target.get_render_target_info(&windows, &images);
+            camera.computed.old_viewport_size = viewport_size;
             if let Some(size) = camera.logical_viewport_size() {
                 camera_projection.update(size.x, size.y);
                 camera.computed.projection_matrix = camera_projection.get_projection_matrix();
