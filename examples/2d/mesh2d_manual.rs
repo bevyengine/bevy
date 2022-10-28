@@ -20,7 +20,7 @@ use bevy::{
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         texture::BevyDefault,
-        view::VisibleEntities,
+        view::{ExtractedView, ViewTarget, VisibleEntities},
         Extract, RenderApp, RenderStage,
     },
     sprite::{
@@ -146,6 +146,11 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
+        let format = match key.contains(Mesh2dPipelineKey::HDR) {
+            true => ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
@@ -161,7 +166,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 shader_defs: Vec::new(),
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -311,19 +316,24 @@ pub fn queue_colored_mesh2d(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<ColoredMesh2d>>,
-    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
+    mut views: Query<(
+        &VisibleEntities,
+        &mut RenderPhase<Transparent2d>,
+        &ExtractedView,
+    )>,
 ) {
     if colored_mesh2d.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, mut transparent_phase) in &mut views {
+    for (visible_entities, mut transparent_phase, view) in &mut views {
         let draw_colored_mesh2d = transparent_draw_functions
             .read()
             .get_id::<DrawColoredMesh2d>()
             .unwrap();
 
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
+        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
+            | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
         for visible_entity in &visible_entities.entities {

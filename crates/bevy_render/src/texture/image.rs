@@ -113,11 +113,11 @@ pub struct Image {
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
-/// [`ImageSampler::Default`], will read the sampler from the [`ImageSettings`] resource at runtime.
+/// [`ImageSampler::Default`], will read the sampler from the [`ImagePlugin`](super::ImagePlugin) at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
 #[derive(Debug, Default, Clone)]
 pub enum ImageSampler {
-    /// Default image sampler, derived from the [`ImageSettings`] resource.
+    /// Default image sampler, derived from the [`ImagePlugin`](super::ImagePlugin) setup.
     #[default]
     Default,
     /// Custom sampler for this image which will override global default.
@@ -158,41 +158,10 @@ impl ImageSampler {
     }
 }
 
-/// Global resource for [`Image`] settings.
-///
-/// Can be set via `insert_resource` during app initialization to change the default settings.
-#[derive(Resource)]
-pub struct ImageSettings {
-    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
-    pub default_sampler: wgpu::SamplerDescriptor<'static>,
-}
-
-impl Default for ImageSettings {
-    fn default() -> Self {
-        ImageSettings::default_linear()
-    }
-}
-
-impl ImageSettings {
-    /// Creates image settings with linear sampling by default.
-    pub fn default_linear() -> ImageSettings {
-        ImageSettings {
-            default_sampler: ImageSampler::linear_descriptor(),
-        }
-    }
-
-    /// Creates image settings with nearest sampling by default.
-    pub fn default_nearest() -> ImageSettings {
-        ImageSettings {
-            default_sampler: ImageSampler::nearest_descriptor(),
-        }
-    }
-}
-
 /// A rendering resource for the default image sampler which is set during renderer
 /// initialization.
 ///
-/// The [`ImageSettings`] resource can be set during app initialization to change the default
+/// The [`ImagePlugin`](super::ImagePlugin) can be set during app initialization to change the default
 /// image sampler.
 #[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
