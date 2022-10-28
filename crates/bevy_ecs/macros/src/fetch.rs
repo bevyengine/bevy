@@ -76,7 +76,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             }
             Ok(())
         })
-        .unwrap_or_else(|_| panic!("Invalid `{}` attribute format", WORLD_QUERY_ATTRIBUTE_NAME));
+        .unwrap_or_else(|_| panic!("Invalid `{WORLD_QUERY_ATTRIBUTE_NAME}` attribute format"));
     }
 
     let path = bevy_ecs_path();
@@ -93,26 +93,26 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
     let struct_name = ast.ident.clone();
     let read_only_struct_name = if fetch_struct_attributes.is_mutable {
-        Ident::new(&format!("{}ReadOnly", struct_name), Span::call_site())
+        Ident::new(&format!("{struct_name}ReadOnly"), Span::call_site())
     } else {
         struct_name.clone()
     };
 
-    let item_struct_name = Ident::new(&format!("{}Item", struct_name), Span::call_site());
+    let item_struct_name = Ident::new(&format!("{struct_name}Item"), Span::call_site());
     let read_only_item_struct_name = if fetch_struct_attributes.is_mutable {
-        Ident::new(&format!("{}ReadOnlyItem", struct_name), Span::call_site())
+        Ident::new(&format!("{struct_name}ReadOnlyItem"), Span::call_site())
     } else {
         item_struct_name.clone()
     };
 
-    let fetch_struct_name = Ident::new(&format!("{}Fetch", struct_name), Span::call_site());
+    let fetch_struct_name = Ident::new(&format!("{struct_name}Fetch"), Span::call_site());
     let read_only_fetch_struct_name = if fetch_struct_attributes.is_mutable {
-        Ident::new(&format!("{}ReadOnlyFetch", struct_name), Span::call_site())
+        Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site())
     } else {
         fetch_struct_name.clone()
     };
 
-    let state_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
+    let state_struct_name = Ident::new(&format!("{struct_name}State"), Span::call_site());
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {
@@ -438,9 +438,7 @@ fn read_world_query_field_info(field: &Field) -> WorldQueryFieldInfo {
                 }
                 Ok(())
             })
-            .unwrap_or_else(|_| {
-                panic!("Invalid `{}` attribute format", WORLD_QUERY_ATTRIBUTE_NAME)
-            });
+            .unwrap_or_else(|_| panic!("Invalid `{WORLD_QUERY_ATTRIBUTE_NAME}` attribute format"));
 
             is_ignored
         });

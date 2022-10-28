@@ -127,7 +127,7 @@ impl<'a> TrackedRenderPass<'a> {
     ) {
         if self
             .state
-            .is_bind_group_set(index as usize, bind_group.id(), dynamic_uniform_indices)
+            .is_bind_group_set(index, bind_group.id(), dynamic_uniform_indices)
         {
             trace!(
                 "set bind_group {} (already set): {:?} ({:?})",
@@ -147,7 +147,7 @@ impl<'a> TrackedRenderPass<'a> {
         self.pass
             .set_bind_group(index as u32, bind_group, dynamic_uniform_indices);
         self.state
-            .set_bind_group(index as usize, bind_group.id(), dynamic_uniform_indices);
+            .set_bind_group(index, bind_group.id(), dynamic_uniform_indices);
     }
 
     /// Assign a vertex buffer to a slot.

@@ -54,7 +54,7 @@ fn main() {
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
-                    println!("{}", span);
+                    println!("{span}");
                 }
                 set_bold(&mut stdout, false);
                 print!("  ");
@@ -71,7 +71,7 @@ fn main() {
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
-                    println!("{}", span);
+                    println!("{span}");
                 }
                 set_bold(&mut stdout, false);
                 print!("  ");
@@ -88,7 +88,7 @@ fn main() {
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
-                    println!("{}", span);
+                    println!("{span}");
                 }
                 set_bold(&mut stdout, false);
                 print!("  ");

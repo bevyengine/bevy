@@ -177,8 +177,8 @@ fn change_text_system(
             fps, frame_time,
         );
 
-        text.sections[2].value = format!("{:.1}", fps);
+        text.sections[2].value = format!("{fps:.1}");
 
-        text.sections[4].value = format!("{:.3}", frame_time);
+        text.sections[4].value = format!("{frame_time:.3}");
     }
 }

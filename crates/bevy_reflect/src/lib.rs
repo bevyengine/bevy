@@ -1099,7 +1099,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
     custom: Cool debug!,
 }"#;
 
-        assert_eq!(expected, format!("\n{:#?}", reflected));
+        assert_eq!(expected, format!("\n{reflected:#?}"));
     }
 
     #[test]
@@ -1171,7 +1171,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
     ),
 }"#;
 
-            assert_eq!(expected, format!("\n{}", output));
+            assert_eq!(expected, format!("\n{output}"));
         }
 
         #[test]

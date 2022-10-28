@@ -104,7 +104,7 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
         for component in self.components {
             state.serialize_entry(
                 component.type_name(),
-                &TypedReflectSerializer::new(&**component, &*self.registry.read()),
+                &TypedReflectSerializer::new(&**component, &self.registry.read()),
             )?;
         }
         state.end()
@@ -344,13 +344,13 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
         let mut components = Vec::new();
         while let Some(key) = map.next_key::<&str>()? {
             if !added.insert(key) {
-                return Err(Error::custom(format!("duplicate component: `{}`", key)));
+                return Err(Error::custom(format!("duplicate component: `{key}`")));
             }
 
             let registration = self
                 .registry
                 .get_with_name(key)
-                .ok_or_else(|| Error::custom(format!("no registration found for `{}`", key)))?;
+                .ok_or_else(|| Error::custom(format!("no registration found for `{key}`")))?;
             components.push(
                 map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
             );

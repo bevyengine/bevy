@@ -135,7 +135,7 @@ pub fn text_system(
                 }
                 Err(e @ TextError::FailedToAddGlyph(_))
                 | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
-                    panic!("Fatal error when processing text: {}.", e);
+                    panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
                     calculated_size.size = Size {

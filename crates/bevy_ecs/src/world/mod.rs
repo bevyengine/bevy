@@ -219,7 +219,7 @@ impl World {
     pub fn entity(&self, entity: Entity) -> EntityRef {
         // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
         self.get_entity(entity)
-            .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity))
+            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"))
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -245,7 +245,7 @@ impl World {
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
         // Lazily evaluate panic!() via unwrap_or_else() to avoid allocation unless failure
         self.get_entity_mut(entity)
-            .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity))
+            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"))
     }
 
     /// Returns the components of an [`Entity`](crate::entity::Entity) through [`ComponentInfo`](crate::component::ComponentInfo).
@@ -254,7 +254,7 @@ impl World {
         let entity_location = self
             .entities()
             .get(entity)
-            .unwrap_or_else(|| panic!("Entity {:?} does not exist", entity));
+            .unwrap_or_else(|| panic!("Entity {entity:?} does not exist"));
 
         let archetype = self
             .archetypes()
@@ -1634,7 +1634,7 @@ mod tests {
             should_panic: bool,
             id: u8,
         ) -> Self {
-            println!("creating component with id {}", id);
+            println!("creating component with id {id}");
             drop_log.lock().unwrap().push(DropLogItem::Create(id));
 
             Self {

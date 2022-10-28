@@ -15,7 +15,7 @@ fn main() {
             info!("Hello from a complex closure! {:?}", value);
 
             // we can modify the value inside the closure. this will be saved between calls.
-            value = format!("{} - updated", value);
+            value = format!("{value} - updated");
 
             // you could also use an outside variable like presented in the inlined closures
             // info!("outside_variable! {:?}", outside_variable);
