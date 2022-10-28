@@ -110,7 +110,7 @@ impl CommandQueue {
         unsafe { self.bytes.set_len(0) };
 
         while (cursor as usize) < end_addr {
-            // SAFETY: The bytes at `offset` are known to represent a value of type `CommandMeta`,
+            // SAFETY: We know that the cursor must point to a value of type `CommandMeta`,
             // since the buffer alternates between storing `CommandMeta` and unknown bytes.
             // Its value will have been fully initialized during any calls to `push`.
             let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
@@ -120,7 +120,8 @@ impl CommandQueue {
             // The pointer might be out of bounds if the command is zero-sized,
             // but it is okay to have a dangling pointer to a ZST.
             cursor = unsafe { cursor.add(mem::size_of::<CommandMeta>()) };
-            // SAFETY: The type currently under the cursor must be the same type erased by `meta.func`.
+            // SAFETY: The type currently under the cursor must be the same type
+            // erased by `meta.write_command_and_get_size`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
             // The command will not get double-dropped since the length of the buffer has been reset,
             // which ensures the bytes will not be read after this function.
