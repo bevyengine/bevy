@@ -403,32 +403,29 @@ pub fn query_get(criterion: &mut Criterion) {
     group.finish();
 }
 
-pub fn query_get_many2(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("query_get_many2");
+pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group(&format!("query_get_many_{N}"));
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{}_calls_table", entity_count), |bencher| {
             let mut world = World::default();
-            let mut entities1: Vec<_> = world
-                .spawn_batch((0..entity_count).map(|_| (Table::default(),)))
+            let mut entity_groups: Vec<_> = (0..entity_count)
+                .map(|_| [(); N].map(|_| world.spawn(Table::default()).id()))
                 .collect();
-            let mut entities2: Vec<_> = world
-                .spawn_batch((0..entity_count).map(|_| (Table::default(),)))
-                .collect();
-            entities1.shuffle(&mut deterministic_rand());
-            entities2.shuffle(&mut deterministic_rand());
+            entity_groups.shuffle(&mut deterministic_rand());
+
             let mut query = SystemState::<Query<&Table>>::new(&mut world);
             let query = query.get(&world);
 
             bencher.iter(|| {
                 let mut count = 0;
-                for [comp_a, comp_b] in std::iter::zip(&entities1, &entities2)
-                    .flat_map(|(&a, &b)| query.get_many([a, b]))
+                for comp in entity_groups
+                    .iter()
+                    .filter_map(|&ids| query.get_many(ids).ok())
                 {
-                    black_box(comp_a);
-                    black_box(comp_b);
+                    black_box(comp);
                     count += 1;
                     black_box(count);
                 }
@@ -437,24 +434,21 @@ pub fn query_get_many2(criterion: &mut Criterion) {
         });
         group.bench_function(format!("{}_calls_sparse", entity_count), |bencher| {
             let mut world = World::default();
-            let mut entities1: Vec<_> = world
-                .spawn_batch((0..entity_count).map(|_| (Sparse::default(),)))
+            let mut entity_groups: Vec<_> = (0..entity_count)
+                .map(|_| [(); N].map(|_| world.spawn(Sparse::default()).id()))
                 .collect();
-            let mut entities2: Vec<_> = world
-                .spawn_batch((0..entity_count).map(|_| (Sparse::default(),)))
-                .collect();
-            entities1.shuffle(&mut deterministic_rand());
-            entities2.shuffle(&mut deterministic_rand());
+            entity_groups.shuffle(&mut deterministic_rand());
+
             let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
             let query = query.get(&world);
 
             bencher.iter(|| {
                 let mut count = 0;
-                for [comp_a, comp_b] in std::iter::zip(&entities1, &entities2)
-                    .flat_map(|(&a, &b)| query.get_many([a, b]))
+                for comp in entity_groups
+                    .iter()
+                    .filter_map(|&ids| query.get_many(ids).ok())
                 {
-                    black_box(comp_a);
-                    black_box(comp_b);
+                    black_box(comp);
                     count += 1;
                     black_box(count);
                 }
@@ -462,6 +456,4 @@ pub fn query_get_many2(criterion: &mut Criterion) {
             });
         });
     }
-
-    group.finish();
 }
