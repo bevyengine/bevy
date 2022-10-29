@@ -6,10 +6,10 @@ use crate::{
         Component, ComponentId, ComponentStorage, ComponentTicks, Components, StorageType,
     },
     entity::{Entities, Entity, EntityLocation},
-    storage::{SparseSet, Storages},
+    storage::Storages,
     world::{Mut, World},
 };
-use bevy_ptr::{OwningPtr, Ptr};
+use bevy_ptr::Ptr;
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
@@ -437,10 +437,12 @@ impl<'w> EntityMut<'w> {
         let result = unsafe {
             T::from_components(storages, &mut |storages| {
                 let component_id = bundle_components.next().unwrap();
-                // SAFETY: entity location is valid and table row is removed below
-                take_component(
+                // SAFETY:
+                // - entity location is valid
+                // - table row is removed below
+                // - `components` comes from the same world as `storages`
+                storages.take_component(
                     components,
-                    storages,
                     removed_components,
                     component_id,
                     entity,
@@ -715,49 +717,6 @@ impl<'w> EntityMut<'w> {
         self.world.components().get_info(component_id)?;
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe { get_mut_by_id(self.world, self.entity, self.location, component_id) }
-    }
-}
-
-// TODO: move to Storages?
-/// Moves component data out of storage.
-///
-/// This function leaves the underlying memory unchanged, but the component behind
-/// returned pointer is semantically owned by the caller and will not be dropped in its original location.
-/// Caller is responsible to drop component data behind returned pointer.
-///
-/// # Safety
-/// - `location` must be within bounds of the given archetype and table and `entity` must exist inside the archetype
-///   and table.
-/// - `component_id` must be valid
-/// - The relevant table row **must be removed** by the caller once all components are taken
-#[inline]
-unsafe fn take_component<'a>(
-    components: &Components,
-    storages: &'a mut Storages,
-    removed_components: &mut SparseSet<ComponentId, Vec<Entity>>,
-    component_id: ComponentId,
-    entity: Entity,
-    location: EntityLocation,
-) -> OwningPtr<'a> {
-    let component_info = components.get_info_unchecked(component_id);
-    let removed_components = removed_components.get_or_insert_with(component_id, Vec::new);
-    removed_components.push(entity);
-    match component_info.storage_type() {
-        StorageType::Table => {
-            let table = &mut storages.tables[location.table_id];
-            // SAFETY: archetypes will always point to valid columns
-            let components = table.get_column_mut(component_id).unwrap();
-            // SAFETY: archetypes only store valid table_rows and the stored component type is T
-            components
-                .get_data_unchecked_mut(location.table_row)
-                .promote()
-        }
-        StorageType::SparseSet => storages
-            .sparse_sets
-            .get_mut(component_id)
-            .unwrap()
-            .remove_and_forget(entity)
-            .unwrap(),
     }
 }
 

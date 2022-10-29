@@ -14,7 +14,7 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, StorageType, TickCells},
     entity::{Entity, EntityLocation},
 };
-use bevy_ptr::Ptr;
+use bevy_ptr::{OwningPtr, Ptr};
 use std::any::TypeId;
 
 /// The raw data stores of a [World](crate::world::World)
@@ -182,6 +182,50 @@ impl Storages {
                 Some(components.get_ticks_unchecked(table_row))
             }
             StorageType::SparseSet => fetch_sparse_set(self, component_id)?.get_ticks(entity),
+        }
+    }
+}
+
+impl Storages {
+    /// Moves component data out of storage.
+    ///
+    /// This function leaves the underlying memory unchanged, but the component behind
+    /// returned pointer is semantically owned by the caller and will not be dropped in its original location.
+    /// Caller is responsible to drop component data behind returned pointer.
+    ///
+    /// # Safety
+    /// - `location` must be within bounds of the given archetype and `entity` must exist inside the `archetype`
+    /// - `component_id` must be valid
+    /// - `components` must come from the same world as `self`
+    /// - The relevant table row **must be removed** by the caller once all components are taken
+    #[inline]
+    pub(crate) unsafe fn take_component<'a>(
+        &'a mut self,
+        components: &Components,
+        removed_components: &mut SparseSet<ComponentId, Vec<Entity>>,
+        component_id: ComponentId,
+        entity: Entity,
+        location: EntityLocation,
+    ) -> OwningPtr<'a> {
+        let component_info = components.get_info_unchecked(component_id);
+        let removed_components = removed_components.get_or_insert_with(component_id, Vec::new);
+        removed_components.push(entity);
+        match component_info.storage_type() {
+            StorageType::Table => {
+                let table = &mut self.tables[location.table_id];
+                // SAFETY: archetypes will always point to valid columns
+                let components = table.get_column_mut(component_id).unwrap();
+                // SAFETY: archetypes only store valid table_rows and the stored component type is T
+                components
+                    .get_data_unchecked_mut(location.table_row)
+                    .promote()
+            }
+            StorageType::SparseSet => self
+                .sparse_sets
+                .get_mut(component_id)
+                .unwrap()
+                .remove_and_forget(entity)
+                .unwrap(),
         }
     }
 }
