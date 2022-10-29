@@ -19,7 +19,6 @@ members = [
   "examples/android",
   "examples/ios",
   "tools/ci",
-  "tools/spancmp",
   "tools/build-example-pages",
   "tools/build-wasm-example",
   "errors",
