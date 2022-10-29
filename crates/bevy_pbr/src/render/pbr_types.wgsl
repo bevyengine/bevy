@@ -22,6 +22,7 @@ let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 128u;
 let STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 256u;
 let STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP: u32       = 512u;
 let STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y: u32              = 1024u;
+let STANDARD_MATERIAL_FLAGS_NO_FOG_BIT: u32                     = 2048u;
 
 // Creates a StandardMaterial with default values
 fn standard_material_new() -> StandardMaterial {
