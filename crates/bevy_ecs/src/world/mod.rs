@@ -1,4 +1,5 @@
 mod entity_ref;
+pub mod interior_mutable_world;
 mod spawn_batch;
 mod world_cell;
 
@@ -32,6 +33,8 @@ use std::{
 mod identifier;
 
 pub use identifier::WorldId;
+
+use self::interior_mutable_world::InteriorMutableWorld;
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -103,6 +106,10 @@ impl World {
     #[inline]
     pub fn id(&self) -> WorldId {
         self.id
+    }
+
+    pub fn as_interior_mutable(&self) -> InteriorMutableWorld<'_> {
+        InteriorMutableWorld::new(self)
     }
 
     /// Retrieves this world's [Entities] collection
@@ -1655,7 +1662,7 @@ impl World {
 }
 
 impl World {
-    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
@@ -1666,7 +1673,7 @@ impl World {
         self.storages.resources.get(component_id)?.get_data()
     }
 
-    /// Gets a resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///
