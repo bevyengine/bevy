@@ -555,7 +555,7 @@ pub fn queue_sprites(
                     {
                         current_batch = new_batch;
                         current_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
-                        current_batch_entity = commands.spawn((current_batch,)).id();
+                        current_batch_entity = commands.spawn(current_batch).id();
 
                         image_bind_groups
                             .values

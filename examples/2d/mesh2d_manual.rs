@@ -300,7 +300,7 @@ pub fn extract_colored_mesh2d(
         if !computed_visibility.is_visible() {
             continue;
         }
-        values.push((entity, (ColoredMesh2d,)));
+        values.push((entity, ColoredMesh2d));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
