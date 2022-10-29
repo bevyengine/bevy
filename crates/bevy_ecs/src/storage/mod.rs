@@ -27,7 +27,7 @@ pub struct Storages {
 }
 
 impl Storages {
-    /// Get a raw pointer to a particular [`Component`] and its [`ComponentTicks`] identified by their [`TypeId`]
+    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`] identified by their [`TypeId`]
     ///
     /// # Safety
     /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
@@ -49,7 +49,7 @@ impl Storages {
         self.get_component_and_ticks(archetypes, component_id, storage_type, entity, location)
     }
 
-    /// Get a raw pointer to a particular [`Component`] and its [`ComponentTicks`]
+    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
     ///
     /// # Safety
     /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
@@ -84,7 +84,7 @@ impl Storages {
         }
     }
 
-    /// Get a raw pointer to a particular [`Component`] on a particular [`Entity`], identified by the component's [`Type`]
+    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`], identified by the component's type
     ///
     /// # Safety
     /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
@@ -105,7 +105,7 @@ impl Storages {
         self.get_component(archetypes, component_id, storage_type, entity, location)
     }
 
-    /// Get a raw pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
+    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
     ///
     /// # Safety
     /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
