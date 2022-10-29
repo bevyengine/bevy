@@ -1,50 +1,109 @@
 //! Entity handling types.
 //!
-//! In Bevy ECS, there is no monolithic data structure for an entity. Instead, the [`Entity`]
-//! `struct` is just a *generational index* (a combination of an ID and a generation). Then,
-//! the `Entity` maps to the specific [`Component`s](crate::component::Component). This way,
-//! entities can have meaningful data attached to it. This is a fundamental design choice
-//! that has been taken to enhance performance and usability.
+//! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
+//!
+//! See [`Entity`] to learn more.
+//!
+//! [component]: crate::component::Component
 //!
 //! # Usage
 //!
-//! Here are links to the methods used to perform common operations
-//! involving entities:
+//! Operations involving entities and their components are performed either from a system by submitting commands,
+//! or from the outside (or from an exclusive system) by directly using [`World`] methods:
 //!
-//! - **Spawning an empty entity:** use [`Commands::spawn`](crate::system::Commands::spawn).
-//! - **Spawning an entity with components:** use
-//!   [`Commands::spawn_bundle`](crate::system::Commands::spawn_bundle).
-//! - **Despawning an entity:** use
-//!   [`EntityCommands::despawn`](crate::system::EntityCommands::despawn).
-//! - **Inserting a component to an entity:** use
-//!   [`EntityCommands::insert`](crate::system::EntityCommands::insert).
-//! - **Adding multiple components to an entity:** use
-//!   [`EntityCommands::insert_bundle`](crate::system::EntityCommands::insert_bundle).
-//! - **Removing a component to an entity:** use
-//!   [`EntityCommands::remove`](crate::system::EntityCommands::remove).
+//! |Operation|Command|Method|
+//! |:---:|:---:|:---:|
+//! |Spawn an entity with components|[`Commands::spawn`]|---|
+//! |Spawn an entity without components|[`Commands::spawn_empty`]|[`World::spawn_empty`]|
+//! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
+//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
+//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
+//!
+//! [`World`]: crate::world::World
+//! [`Commands::spawn`]: crate::system::Commands::spawn
+//! [`Commands::spawn_empty`]: crate::system::Commands::spawn_empty
+//! [`EntityCommands::despawn`]: crate::system::EntityCommands::despawn
+//! [`EntityCommands::insert`]: crate::system::EntityCommands::insert
+//! [`EntityCommands::remove`]: crate::system::EntityCommands::remove
+//! [`World::spawn`]: crate::world::World::spawn
+//! [`World::spawn_empty`]: crate::world::World::spawn_empty
+//! [`World::despawn`]: crate::world::World::despawn
+//! [`EntityMut::insert`]: crate::world::EntityMut::insert
+//! [`EntityMut::remove`]: crate::world::EntityMut::remove
 mod map_entities;
-mod serde;
 
-pub use self::serde::*;
 pub use map_entities::*;
 
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
-use std::{
-    convert::TryFrom,
-    fmt, mem,
-    sync::atomic::{AtomicI64, Ordering},
-};
+use serde::{Deserialize, Serialize};
+use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
 
-/// Lightweight unique ID of an entity.
+#[cfg(target_has_atomic = "64")]
+use std::sync::atomic::AtomicI64 as AtomicIdCursor;
+#[cfg(target_has_atomic = "64")]
+type IdCursor = i64;
+
+/// Most modern platforms support 64-bit atomics, but some less-common platforms
+/// do not. This fallback allows compilation using a 32-bit cursor instead, with
+/// the caveat that some conversions may fail (and panic) at runtime.
+#[cfg(not(target_has_atomic = "64"))]
+use std::sync::atomic::AtomicIsize as AtomicIdCursor;
+#[cfg(not(target_has_atomic = "64"))]
+type IdCursor = isize;
+
+/// Lightweight identifier of an [entity](crate::entity).
 ///
-/// Obtained from [`World::spawn`](crate::world::World::spawn), typically via
-/// [`Commands::spawn`](crate::system::Commands::spawn). Can be stored to refer to an entity in the
-/// future.
+/// The identifier is implemented using a [generational index]: a combination of an ID and a generation.
+/// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
 ///
-/// `Entity` can be a part of a query, e.g. `Query<(Entity, &MyComponent)>`.
-/// Components of a specific entity can be accessed using
-/// [`Query::get`](crate::system::Query::get) and related methods.
-#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
+/// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+///
+/// # Usage
+///
+/// This data type is returned by iterating a `Query` that has `Entity` as part of its query fetch type parameter ([learn more]).
+/// It can also be obtained by calling [`EntityCommands::id`] or [`EntityMut::id`].
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct SomeComponent;
+/// fn setup(mut commands: Commands) {
+///     // Calling `spawn` returns `EntityCommands`.
+///     let entity = commands.spawn(SomeComponent).id();
+/// }
+///
+/// fn exclusive_system(world: &mut World) {
+///     // Calling `spawn` returns `EntityMut`.
+///     let entity = world.spawn(SomeComponent).id();
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(setup);
+/// # bevy_ecs::system::assert_is_system(exclusive_system);
+/// ```
+///
+/// It can be used to refer to a specific entity to apply [`EntityCommands`], or to call [`Query::get`] (or similar methods) to access its components.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct Expired;
+/// #
+/// fn dispose_expired_food(mut commands: Commands, query: Query<Entity, With<Expired>>) {
+///     for food_entity in &query {
+///         commands.entity(food_entity).despawn();
+///     }
+/// }
+/// #
+/// # bevy_ecs::system::assert_is_system(dispose_expired_food);
+/// ```
+///
+/// [learn more]: crate::system::Query#entity-id-access
+/// [`EntityCommands::id`]: crate::system::EntityCommands::id
+/// [`EntityMut::id`]: crate::world::EntityMut::id
+/// [`EntityCommands`]: crate::system::EntityCommands
+/// [`Query::get`]: crate::system::Query::get
+#[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Entity {
     pub(crate) generation: u32,
     pub(crate) id: u32,
@@ -104,7 +163,7 @@ impl Entity {
     ///     }
     /// }
     /// ```
-    pub fn from_raw(id: u32) -> Entity {
+    pub const fn from_raw(id: u32) -> Entity {
         Entity { id, generation: 0 }
     }
 
@@ -121,7 +180,7 @@ impl Entity {
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
-    pub fn from_bits(bits: u64) -> Self {
+    pub const fn from_bits(bits: u64) -> Self {
         Self {
             generation: (bits >> 32) as u32,
             id: bits as u32,
@@ -134,7 +193,7 @@ impl Entity {
     /// with both live and dead entities. Useful for compactly representing entities within a
     /// specific snapshot of the world, such as when serializing.
     #[inline]
-    pub fn id(self) -> u32 {
+    pub const fn id(self) -> u32 {
         self.id
     }
 
@@ -142,7 +201,7 @@ impl Entity {
     /// entity with a given id is despawned. This serves as a "count" of the number of times a
     /// given id has been reused (id, generation) pairs uniquely identify a given Entity.
     #[inline]
-    pub fn generation(self) -> u32 {
+    pub const fn generation(self) -> u32 {
         self.generation
     }
 }
@@ -196,6 +255,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 }
 
 impl<'a> core::iter::ExactSizeIterator for ReserveEntitiesIterator<'a> {}
+impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 #[derive(Debug, Default)]
 pub struct Entities {
@@ -237,7 +297,7 @@ pub struct Entities {
     ///
     /// Once `flush()` is done, `free_cursor` will equal `pending.len()`.
     pending: Vec<u32>,
-    free_cursor: AtomicI64,
+    free_cursor: AtomicIdCursor,
     /// Stores the number of free entities for [`len`](Entities::len)
     len: u32,
 }
@@ -250,8 +310,12 @@ impl Entities {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
         // negative, meaning they are all new IDs to allocate, or a mix of both.
-        let range_end = self.free_cursor.fetch_sub(count as i64, Ordering::Relaxed);
-        let range_start = range_end - count as i64;
+        let range_end = self
+            .free_cursor
+            // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
+            // and use AtomicIsize instead (see note on `IdCursor`).
+            .fetch_sub(IdCursor::try_from(count).unwrap(), Ordering::Relaxed);
+        let range_start = range_end - IdCursor::try_from(count).unwrap();
 
         let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
 
@@ -268,7 +332,7 @@ impl Entities {
             // In this example, we truncate the end to 0, leaving us with `-3..0`.
             // Then we negate these values to indicate how far beyond the end of `meta.end()`
             // to go, yielding `meta.len()+0 .. meta.len()+3`.
-            let base = self.meta.len() as i64;
+            let base = self.meta.len() as IdCursor;
 
             let new_id_end = u32::try_from(base - range_start).expect("too many entities");
 
@@ -305,7 +369,7 @@ impl Entities {
             // and farther beyond `meta.len()`.
             Entity {
                 generation: 0,
-                id: u32::try_from(self.meta.len() as i64 - n).expect("too many entities"),
+                id: u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
             }
         }
     }
@@ -323,7 +387,7 @@ impl Entities {
         self.verify_flushed();
         self.len += 1;
         if let Some(id) = self.pending.pop() {
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             Entity {
                 generation: self.meta[id as usize].generation,
@@ -345,14 +409,14 @@ impl Entities {
 
         let loc = if entity.id as usize >= self.meta.len() {
             self.pending.extend((self.meta.len() as u32)..entity.id);
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta.resize(entity.id as usize + 1, EntityMeta::EMPTY);
             self.len += 1;
             None
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.id) {
             self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.len += 1;
             None
@@ -376,14 +440,14 @@ impl Entities {
 
         let result = if entity.id as usize >= self.meta.len() {
             self.pending.extend((self.meta.len() as u32)..entity.id);
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.meta.resize(entity.id as usize + 1, EntityMeta::EMPTY);
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.id) {
             self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as i64;
+            let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
@@ -418,7 +482,7 @@ impl Entities {
 
         self.pending.push(entity.id);
 
-        let new_free_cursor = self.pending.len() as i64;
+        let new_free_cursor = self.pending.len() as IdCursor;
         *self.free_cursor.get_mut() = new_free_cursor;
         self.len -= 1;
         Some(loc)
@@ -429,7 +493,9 @@ impl Entities {
         self.verify_flushed();
 
         let freelist_size = *self.free_cursor.get_mut();
-        let shortfall = additional as i64 - freelist_size;
+        // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
+        // and use AtomicIsize instead (see note on `IdCursor`).
+        let shortfall = IdCursor::try_from(additional).unwrap() - freelist_size;
         if shortfall > 0 {
             self.meta.reserve(shortfall as usize);
         }
@@ -481,12 +547,12 @@ impl Entities {
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then(|| Entity { generation: 0, id })
+            (idu < self.meta.len() + num_pending).then_some(Entity { generation: 0, id })
         }
     }
 
     fn needs_flush(&mut self) -> bool {
-        *self.free_cursor.get_mut() != self.pending.len() as i64
+        *self.free_cursor.get_mut() != self.pending.len() as IdCursor
     }
 
     /// Allocates space for entities previously reserved with `reserve_entity` or
@@ -496,6 +562,9 @@ impl Entities {
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
     /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
     /// has not been assigned to an [`Archetype`][crate::archetype::Archetype].
+    ///
+    /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
+    /// to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
@@ -537,11 +606,27 @@ impl Entities {
     // Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return None
     // unless they are later populated with a valid archetype.
     pub fn flush_as_invalid(&mut self) {
+        // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
+        // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
         unsafe {
             self.flush(|_entity, location| {
                 location.archetype_id = ArchetypeId::INVALID;
             });
         }
+    }
+
+    /// # Safety
+    ///
+    /// This function is safe if and only if the world this Entities is on has no entities.
+    pub unsafe fn flush_and_reserve_invalid_assuming_no_entities(&mut self, count: usize) {
+        let free_cursor = self.free_cursor.get_mut();
+        *free_cursor = 0;
+        self.meta.reserve(count);
+        // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
+        self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
+        self.meta.set_len(count);
+
+        self.len = count as u32;
     }
 
     /// Accessor for getting the length of the vec in `self.meta`
@@ -561,7 +646,10 @@ impl Entities {
     }
 }
 
+// Safety:
+// This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct EntityMeta {
     pub generation: u32,
     pub location: EntityLocation,
@@ -579,6 +667,7 @@ impl EntityMeta {
 
 /// A location of an entity in an archetype.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct EntityLocation {
     /// The archetype index
     pub archetype_id: ArchetypeId,
@@ -604,6 +693,7 @@ mod tests {
     fn reserve_entity_len() {
         let mut e = Entities::default();
         e.reserve_entity();
+        // SAFETY: entity_location is left invalid
         unsafe { e.flush(|_, _| {}) };
         assert_eq!(e.len(), 1);
     }
@@ -615,6 +705,7 @@ mod tests {
         assert!(entities.contains(e));
         assert!(entities.get(e).is_none());
 
+        // SAFETY: entity_location is left invalid
         unsafe {
             entities.flush(|_entity, _location| {
                 // do nothing ... leaving entity location invalid
@@ -623,5 +714,22 @@ mod tests {
 
         assert!(entities.contains(e));
         assert!(entities.get(e).is_none());
+    }
+
+    #[test]
+    fn entity_const() {
+        const C1: Entity = Entity::from_raw(42);
+        assert_eq!(42, C1.id);
+        assert_eq!(0, C1.generation);
+
+        const C2: Entity = Entity::from_bits(0x0000_00ff_0000_00cc);
+        assert_eq!(0x0000_00cc, C2.id);
+        assert_eq!(0x0000_00ff, C2.generation);
+
+        const C3: u32 = Entity::from_raw(33).id();
+        assert_eq!(33, C3);
+
+        const C4: u32 = Entity::from_bits(0x00dd_00ff_0000_0000).generation();
+        assert_eq!(0x00dd_00ff, C4);
     }
 }

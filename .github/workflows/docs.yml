@@ -54,3 +54,5 @@ jobs:
         with:
           branch: gh-pages
           folder: target/doc
+          single-commit: true
+          force: true
