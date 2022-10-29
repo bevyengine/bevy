@@ -855,8 +855,8 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 
 // SAFETY: EntityLocation must be valid
 #[inline]
-pub(crate) unsafe fn get_mut<'w, T: Component>(
-    world: &'w mut World,
+pub(crate) unsafe fn get_mut<T: Component>(
+    world: &mut World,
     entity: Entity,
     location: EntityLocation,
 ) -> Option<Mut<'_, T>> {
