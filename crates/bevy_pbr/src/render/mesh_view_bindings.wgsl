@@ -43,3 +43,5 @@ var<storage> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
 
 @group(0) @binding(9)
 var<uniform> globals: Globals;
+@group(0) @binding(10)
+var<uniform> fog: Fog;

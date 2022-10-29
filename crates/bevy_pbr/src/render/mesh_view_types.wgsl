@@ -61,6 +61,18 @@ struct Lights {
     spot_light_shadowmap_offset: i32,
 };
 
+struct Fog {
+    mode: u32,
+    color: vec4<f32>,
+    density_or_start: f32,
+    end: f32,
+}
+
+let FOG_MODE_OFF: u32                   = 0u;
+let FOG_MODE_LINEAR: u32                = 1u;
+let FOG_MODE_EXPONENTIAL: u32           = 2u;
+let FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
+
 #ifdef NO_STORAGE_BUFFERS_SUPPORT
 struct PointLights {
     data: array<PointLight, 256u>,

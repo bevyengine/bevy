@@ -239,6 +239,24 @@ fn pbr(
             emissive.rgb * output_color.a,
         output_color.a);
 
+    // fog
+    if (fog.mode != FOG_MODE_OFF) {
+        // `length()` is used here instead of just `view_z` since that produces more
+        // high quality results, especially for denser/smaller fogs. we get a "curved"
+        // fog shape that remains consistent with camera rotation, instead of a "linear"
+        // fog shape that looks a bit fake
+        let distance = length(view.world_position.xyz - in.world_position.xyz);
+        var fog_contrib = vec4<f32>(0.0);
+        if (fog.mode == FOG_MODE_LINEAR) {
+            fog_contrib = linear_fog(distance);
+        } else if (fog.mode == FOG_MODE_EXPONENTIAL) {
+            fog_contrib = exponential_fog(distance);
+        } else if (fog.mode == FOG_MODE_EXPONENTIAL_SQUARED) {
+            fog_contrib = exponential_squared_fog(distance);
+        }
+        output_color = vec4<f32>(mix(output_color.rgb, fog_contrib.rgb, fog_contrib.a), output_color.a);
+    }
+
     output_color = cluster_debug_visualization(
         output_color,
         view_z,

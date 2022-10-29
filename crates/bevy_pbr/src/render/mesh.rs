@@ -1,7 +1,7 @@
 use crate::{
-    GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster,
+    NotShadowReceiver, ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset,
+    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -391,6 +391,17 @@ impl FromWorld for MeshPipeline {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         min_binding_size: Some(GlobalsUniform::min_size()),
+                    },
+                    count: None,
+                },
+                // Fog
+                BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: Some(GpuFog::min_size()),
                     },
                     count: None,
                 },
@@ -800,15 +811,23 @@ pub fn queue_mesh_view_bind_groups(
     shadow_pipeline: Res<ShadowPipeline>,
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
+    fog_meta: Res<FogMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
     globals_buffer: Res<GlobalsBuffer>,
 ) {
-    if let (Some(view_binding), Some(light_binding), Some(point_light_binding), Some(globals)) = (
+    if let (
+        Some(view_binding),
+        Some(light_binding),
+        Some(point_light_binding),
+        Some(globals),
+        Some(fog_binding),
+    ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
+        fog_meta.gpu_fog.binding(),
     ) {
         for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -858,6 +877,10 @@ pub fn queue_mesh_view_bind_groups(
                     BindGroupEntry {
                         binding: 9,
                         resource: globals.clone(),
+                    },
+                    BindGroupEntry {
+                        binding: 10,
+                        resource: fog_binding.clone(),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),
