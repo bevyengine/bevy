@@ -1727,8 +1727,8 @@ impl World {
         // - component_id is valid as checked by the line above
         // - the storage type is accurate as checked by the fetched ComponentInfo
         unsafe {
-            get_component(
-                self,
+            self.storages.get_component(
+                &self.archetypes,
                 component_id,
                 info.storage_type(),
                 entity,
