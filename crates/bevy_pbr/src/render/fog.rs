@@ -14,6 +14,7 @@ use crate::{Fog, FogMode};
 pub struct GpuFog {
     mode: u32,
     color: Vec4,
+    /// for linear fog, `start`; for other modes of fog, `density`.
     density_or_start: f32,
     end: f32,
 }
