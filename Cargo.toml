@@ -38,6 +38,7 @@ default = [
   "vorbis",
   "x11",
   "filesystem_watcher",
+  "bevy_debug_draw",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -69,6 +70,7 @@ bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
 bevy_winit = ["bevy_internal/bevy_winit"]
+bevy_debug_draw = ["bevy_internal/bevy_debug_draw"]
 
 # Tracing features
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]

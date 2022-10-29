@@ -113,6 +113,11 @@ impl PluginGroup for DefaultPlugins {
             group = group.add(bevy_animation::AnimationPlugin::default());
         }
 
+        #[cfg(feature = "bevy_debug_draw")]
+        {
+            group = group.add(bevy_debug_draw::DebugDrawPlugin);
+        }
+
         group
     }
 }
