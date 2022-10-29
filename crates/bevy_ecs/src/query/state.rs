@@ -453,8 +453,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
 
         // SAFETY: Each value has been fully initialized.
-        let values = values.map(|x| x.assume_init());
-        Ok(values)
+        Ok(values.map(|x| x.assume_init()))
     }
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
@@ -491,8 +490,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
 
         // SAFETY: Each value has been fully initialized.
-        let values = values.map(|x| x.assume_init());
-        Ok(values)
+        Ok(values.map(|x| x.assume_init()))
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
