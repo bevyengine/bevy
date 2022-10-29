@@ -1165,7 +1165,7 @@ mod tests {
     }
 
     #[test]
-    fn readonly_query_get_component_fails() {
+    fn readonly_query_get_mut_component_fails() {
         let mut world = World::new();
         let entity = world.spawn(W(42u32)).id();
         run_system(&mut world, move |q: Query<&mut W<u32>>| {
