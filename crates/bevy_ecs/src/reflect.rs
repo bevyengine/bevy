@@ -210,19 +210,14 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .map(|c| c as &dyn Reflect)
             },
             reflect_mut: |world, entity| {
-                // SAFETY: reflect_mut is an unsafe function pointer used by `reflect_unchecked_mut` which promises to never
-                // produce aliasing mutable references, and reflect_mut, which has mutable world access
+                // SAFETY: reflect_mut is an unsafe function pointer used by
+                // 1. `reflect_unchecked_mut` which must be called with an InteriorMutableWorld with access the the component `C` on the `entity`, and
+                // 2. reflect_mut, which has mutable world access
                 unsafe {
-                    // SAFETY: entity access through the InteriorMutableWorld is not implemented yet.
-                    // The following code only accesses the component `C` through the entity `entity`
-                    let world = world.world();
-                    world
-                        .get_entity(entity)?
-                        .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
-                        .map(|c| Mut {
-                            value: c.value as &mut dyn Reflect,
-                            ticks: c.ticks,
-                        })
+                    world.get_entity(entity)?.get_mut::<C>().map(|c| Mut {
+                        value: c.value as &mut dyn Reflect,
+                        ticks: c.ticks,
+                    })
                 }
             },
         })

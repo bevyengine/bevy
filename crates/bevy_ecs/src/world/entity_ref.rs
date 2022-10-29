@@ -135,42 +135,6 @@ impl<'w> EntityRef<'w> {
             )
         }
     }
-
-    /// Gets a mutable reference to the component of type `T` associated with
-    /// this entity without ensuring there are no other borrows active and without
-    /// ensuring that the returned reference will stay valid.
-    ///
-    /// # Safety
-    ///
-    /// - The returned reference must never alias a mutable borrow of this component.
-    /// - The returned reference must not be used after this component is moved which
-    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
-    ///   operation on this world (non-exhaustive list).
-    #[inline]
-    pub unsafe fn get_unchecked_mut<T: Component>(
-        &self,
-        last_change_tick: u32,
-        change_tick: u32,
-    ) -> Option<Mut<'w, T>> {
-        // SAFETY:
-        // - entity location and entity is valid
-        // - returned component is of type T
-        // - the storage type provided is correct for T
-        self.world
-            .get_component_and_ticks_with_type(
-                TypeId::of::<T>(),
-                T::Storage::STORAGE_TYPE,
-                self.entity,
-                self.location,
-            )
-            .map(|(value, ticks)| Mut {
-                // SAFETY:
-                // - returned component is of type T
-                // - Caller guarantees that this reference will not alias.
-                value: value.assert_unique().deref_mut::<T>(),
-                ticks: TicksMut::from_tick_cells(ticks, last_change_tick, change_tick),
-            })
-    }
 }
 
 impl<'w> EntityRef<'w> {
@@ -291,7 +255,23 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: world access is unique, and lifetimes enforce correct usage of returned borrow
-        unsafe { self.get_unchecked_mut::<T>() }
+        unsafe {
+            self.world
+                .get_component_and_ticks_with_type(
+                    TypeId::of::<T>(),
+                    T::Storage::STORAGE_TYPE,
+                    self.entity,
+                    self.location,
+                )
+                .map(|(value, cells)| Mut {
+                    value: value.assert_unique().deref_mut::<T>(),
+                    ticks: TicksMut::from_tick_cells(
+                        cells,
+                        self.world.last_change_tick,
+                        self.world.read_change_tick(),
+                    ),
+                })
+        }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -333,39 +313,6 @@ impl<'w> EntityMut<'w> {
                 self.location,
             )
         }
-    }
-
-    /// Gets a mutable reference to the component of type `T` associated with
-    /// this entity without ensuring there are no other borrows active and without
-    /// ensuring that the returned reference will stay valid.
-    ///
-    /// # Safety
-    ///
-    /// - The returned reference must never alias a mutable borrow of this component.
-    /// - The returned reference must not be used after this component is moved which
-    ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
-    ///   operation on this world (non-exhaustive list).
-    #[inline]
-    pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'_, T>> {
-        // SAFETY:
-        // - entity location and entity is valid
-        // - returned component is of type T
-        // - the storage type provided is correct for T
-        self.world
-            .get_component_and_ticks_with_type(
-                TypeId::of::<T>(),
-                T::Storage::STORAGE_TYPE,
-                self.entity,
-                self.location,
-            )
-            .map(|(value, ticks)| Mut {
-                value: value.assert_unique().deref_mut::<T>(),
-                ticks: TicksMut::from_tick_cells(
-                    ticks,
-                    self.world.last_change_tick(),
-                    self.world.read_change_tick(),
-                ),
-            })
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -712,7 +659,11 @@ impl<'w> EntityMut<'w> {
     }
 }
 
-fn contains_component_with_type(world: &World, type_id: TypeId, location: EntityLocation) -> bool {
+pub(crate) fn contains_component_with_type(
+    world: &World,
+    type_id: TypeId,
+    location: EntityLocation,
+) -> bool {
     if let Some(component_id) = world.components.get_id(type_id) {
         contains_component_with_id(world, component_id, location)
     } else {
@@ -720,7 +671,7 @@ fn contains_component_with_type(world: &World, type_id: TypeId, location: Entity
     }
 }
 
-fn contains_component_with_id(
+pub(crate) fn contains_component_with_id(
     world: &World,
     component_id: ComponentId,
     location: EntityLocation,

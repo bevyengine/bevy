@@ -1,12 +1,13 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, World};
+use super::{entity_ref, Mut, World};
 use crate::{
-    archetype::Archetypes,
+    archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{MutUntyped, TicksMut},
-    component::{ComponentId, Components},
-    entity::Entities,
+    component::{ComponentId, ComponentStorage, ComponentTicks, Components},
+    entity::{Entities, Entity, EntityLocation},
+    prelude::Component,
     storage::Storages,
     system::Resource,
 };
@@ -116,6 +117,18 @@ impl<'w> InteriorMutableWorld<'w> {
     pub fn bundles(&self) -> &'w Bundles {
         &self.0.bundles
     }
+
+    /// Retrieves an [`InteriorMutableEntityRef`] that exposes read and write operations for the given `entity`.
+    /// Similar to the [`InteriorMutableWorld`], you are in charge of making sure that no aliasing rules are violated.
+    pub fn get_entity(&self, entity: Entity) -> Option<InteriorMutableEntityRef<'w>> {
+        let location = self.0.entities.get(entity)?;
+        Some(InteriorMutableEntityRef {
+            world: InteriorMutableWorld(self.0),
+            entity,
+            location,
+        })
+    }
+
     /// Gets a reference to the resource of the given type if it exists
     ///
     /// # Safety
@@ -276,5 +289,207 @@ impl<'w> InteriorMutableWorld<'w> {
                 )
             },
         })
+    }
+}
+
+/// A interior-mutable reference to a particular [`Entity`] and all of its components
+#[derive(Copy, Clone)]
+pub struct InteriorMutableEntityRef<'w> {
+    world: InteriorMutableWorld<'w>,
+    entity: Entity,
+    location: EntityLocation,
+}
+
+impl<'w> InteriorMutableEntityRef<'w> {
+    #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
+    pub fn id(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
+    pub fn location(&self) -> EntityLocation {
+        self.location
+    }
+
+    #[inline]
+    pub fn archetype(&self) -> &Archetype {
+        &self.world.0.archetypes[self.location.archetype_id]
+    }
+
+    #[inline]
+    pub fn world(&self) -> InteriorMutableWorld<'w> {
+        self.world
+    }
+
+    #[inline]
+    pub fn contains<T: Component>(&self) -> bool {
+        self.contains_type_id(TypeId::of::<T>())
+    }
+
+    #[inline]
+    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+        entity_ref::contains_component_with_id(self.world.0, component_id, self.location)
+    }
+
+    #[inline]
+    pub fn contains_type_id(&self, type_id: TypeId) -> bool {
+        entity_ref::contains_component_with_type(self.world.0, type_id, self.location)
+    }
+
+    /// # Safety
+    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    #[inline]
+    pub unsafe fn get<T: Component>(&self) -> Option<&'w T> {
+        // SAFETY:
+        // - entity location is valid
+        // - archetypes and components come from the same world
+        // - world access is immutable, lifetime tied to `&self`
+        unsafe {
+            self.world
+                .0
+                .get_component_with_type(
+                    TypeId::of::<T>(),
+                    T::Storage::STORAGE_TYPE,
+                    self.entity,
+                    self.location,
+                )
+                // SAFETY: returned component is of type T
+                .map(|value| value.deref::<T>())
+        }
+    }
+
+    /// Retrieves the change ticks for the given component. This can be useful for implementing change
+    /// detection in custom runtimes.
+    ///
+    /// # Safety
+    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    #[inline]
+    pub unsafe fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
+        // SAFETY:
+        // - entity location is valid
+        // - archetypes and components come from the same world
+        // - world access is immutable, lifetime tied to `&self`
+        unsafe {
+            self.world.0.get_ticks_with_type(
+                TypeId::of::<T>(),
+                T::Storage::STORAGE_TYPE,
+                self.entity,
+                self.location,
+            )
+        }
+    }
+
+    /// # Safety
+    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    #[inline]
+    pub unsafe fn get_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
+        // SAFETY: same safety requirements
+        unsafe {
+            self.get_mut_using_ticks(
+                self.world.0.last_change_tick(),
+                self.world.0.read_change_tick(),
+            )
+        }
+    }
+
+    /// # Safety
+    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    #[inline]
+    pub(crate) unsafe fn get_mut_using_ticks<T: Component>(
+        &self,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Option<Mut<'w, T>> {
+        // # Safety
+        // - `storage_type` is correct
+        // - `location` is valid
+        // - aliasing rules are ensured by caller
+        unsafe {
+            self.world
+                .0
+                .get_component_and_ticks_with_type(
+                    TypeId::of::<T>(),
+                    T::Storage::STORAGE_TYPE,
+                    self.entity,
+                    self.location,
+                )
+                .map(|(value, cells)| Mut {
+                    value: value.assert_unique().deref_mut::<T>(),
+                    ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+                })
+        }
+    }
+}
+
+impl<'w> InteriorMutableEntityRef<'w> {
+    /// Gets the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`InteriorMutableEntityRef::get`], this returns a raw pointer to the component,
+    /// which is only valid while the `'w` borrow of the lifetime is active.
+    ///
+    /// # Safety
+    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    #[inline]
+    pub unsafe fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+        let info = self.world.0.components.get_info(component_id)?;
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        unsafe {
+            self.world.0.get_component(
+                component_id,
+                info.storage_type(),
+                self.entity,
+                self.location,
+            )
+        }
+    }
+
+    /// Retrieves a mutable untyped reference to the given `entity`'s [Component] of the given [`ComponentId`].
+    /// Returns [None] if the `entity` does not have a [Component] of the given type.
+    ///
+    /// **You should prefer to use the typed API [`InteriorMutableEntityRef::get_mut`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Safety
+    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    #[inline]
+    pub unsafe fn get_mut_by_id(&self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+        let info = self.world.0.components.get_info(component_id)?;
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        unsafe {
+            self.world
+                .0
+                .get_component_and_ticks(
+                    component_id,
+                    info.storage_type(),
+                    self.entity,
+                    self.location,
+                )
+                .map(|(value, cells)| MutUntyped {
+                    // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
+                    value: value.assert_unique(),
+                    ticks: TicksMut::from_tick_cells(
+                        cells,
+                        self.world.0.last_change_tick,
+                        self.world.0.read_change_tick(),
+                    ),
+                })
+        }
     }
 }
