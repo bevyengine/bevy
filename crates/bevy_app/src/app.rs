@@ -932,7 +932,7 @@ impl App {
     /// Panics if one of the plugin in the group was already added to the application.
     pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
         let builder = group.build();
-        builder.finish::<T>(self);
+        builder.finish(self);
         self
     }
 
