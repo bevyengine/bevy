@@ -3,7 +3,7 @@ mod spawn_batch;
 mod world_cell;
 
 pub use crate::change_detection::{Mut, Ref};
-pub use entity_ref::*;
+pub use entity_ref::{EntityMut, EntityRef};
 pub use spawn_batch::*;
 pub use world_cell::*;
 
@@ -564,8 +564,10 @@ impl World {
     /// ```
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        // SAFETY: lifetimes enforce correct usage of returned borrow
-        unsafe { get_mut(self, entity, self.get_entity(entity)?.location()) }
+        // SAFETY:
+        // - lifetimes enforce correct usage of returned borrow
+        // - entity location is checked in `get_entity`
+        unsafe { entity_ref::get_mut(self, entity, self.get_entity(entity)?.location()) }
     }
 
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
@@ -1751,7 +1753,7 @@ impl World {
         self.components().get_info(component_id)?;
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
-            get_mut_by_id(
+            entity_ref::get_mut_by_id(
                 self,
                 entity,
                 self.get_entity(entity)?.location(),

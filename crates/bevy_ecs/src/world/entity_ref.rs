@@ -855,15 +855,18 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 
 // SAFETY: EntityLocation must be valid
 #[inline]
-pub(crate) unsafe fn get_mut<T: Component>(
-    world: &mut World,
+pub(crate) unsafe fn get_mut<'w, T: Component>(
+    world: &'w mut World,
     entity: Entity,
     location: EntityLocation,
 ) -> Option<Mut<'_, T>> {
-    // SAFETY: world access is unique, entity location is valid, and returned component is of type
-    // T, storage type is correct
     let change_tick = world.change_tick();
     let last_change_tick = world.last_change_tick();
+    // SAFETY:
+    // - world access is unique
+    // - entity location is valid
+    // - and returned component is of type T
+    // - archetypes and components comes from the same world
     world
         .storages
         .get_component_and_ticks_with_type(
@@ -875,6 +878,9 @@ pub(crate) unsafe fn get_mut<T: Component>(
             location,
         )
         .map(|(value, ticks)| Mut {
+            // SAFETY:
+            // - world access is unique and ties world lifetime to `Mut` lifetime
+            // - `value` is of type `T`
             value: value.assert_unique().deref_mut::<T>(),
             ticks: TicksMut::from_tick_cells(ticks, last_change_tick, change_tick),
         })
@@ -887,10 +893,15 @@ pub(crate) unsafe fn get_mut_by_id(
     entity: Entity,
     location: EntityLocation,
     component_id: ComponentId,
-) -> Option<MutUntyped> {
+) -> Option<MutUntyped<'_>> {
     let change_tick = world.change_tick();
+    // SAFETY: component_id is valid
     let info = world.components.get_info_unchecked(component_id);
-    // SAFETY: world access is unique, entity location and component_id required to be valid, storage_type is correct
+    // SAFETY:
+    // - world access is unique
+    // - entity location is valid
+    // - and returned component is of type T
+    // - archetypes and components comes from the same world
     world
         .storages
         .get_component_and_ticks(
@@ -901,6 +912,7 @@ pub(crate) unsafe fn get_mut_by_id(
             location,
         )
         .map(|(value, ticks)| MutUntyped {
+            // SAFETY: world access is unique and ties world lifetime to `MutUntyped` lifetime
             value: value.assert_unique(),
             ticks: TicksMut::from_tick_cells(ticks, world.last_change_tick(), change_tick),
         })
