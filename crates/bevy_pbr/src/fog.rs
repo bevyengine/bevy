@@ -17,6 +17,7 @@ use bevy_render::{color::Color, extract_resource::ExtractResource};
 ///
 /// ```
 /// # use bevy_app::prelude::*;
+/// # use bevy_render::prelude::*;
 /// # use bevy_pbr::prelude::*;
 /// App::new()
 ///     .insert_resource(Fog {
