@@ -1,6 +1,6 @@
 use std::any::{Any, TypeId};
 
-use bevy_ecs::world::World;
+use bevy_ecs::world::{interior_mutable_world::InteriorMutableWorld, World};
 use bevy_reflect::{FromReflect, FromType, Reflect, Uuid};
 
 use crate::{Asset, Assets, Handle, HandleId, HandleUntyped};
@@ -18,8 +18,11 @@ pub struct ReflectAsset {
     assets_resource_type_id: TypeId,
 
     get: fn(&World, HandleUntyped) -> Option<&dyn Reflect>,
-    get_mut: fn(&mut World, HandleUntyped) -> Option<&mut dyn Reflect>,
-    get_unchecked_mut: unsafe fn(&World, HandleUntyped) -> Option<&mut dyn Reflect>,
+    // SAFETY:
+    // - may only be called with a [`IteriorMutableWorld`] which can be used to access the corresponding `Assets<T>` resource mutably
+    // - may only be used to access **at most one** access at once
+    get_unchecked_mut:
+        unsafe fn(InteriorMutableWorld<'_>, HandleUntyped) -> Option<&mut dyn Reflect>,
     add: fn(&mut World, &dyn Reflect) -> HandleUntyped,
     set: fn(&mut World, HandleUntyped, &dyn Reflect) -> HandleUntyped,
     len: fn(&World) -> usize,
@@ -54,10 +57,11 @@ impl ReflectAsset {
         world: &'w mut World,
         handle: HandleUntyped,
     ) -> Option<&'w mut dyn Reflect> {
-        (self.get_mut)(world, handle)
+        // SAFETY: unique world access
+        unsafe { (self.get_unchecked_mut)(world.as_interior_mutable(), handle) }
     }
 
-    /// Equivalent of [`Assets::get_mut`], but does not require a mutable reference to the world.
+    /// Equivalent of [`Assets::get_mut`], but works with a [`InteriorMutableWorld`].
     ///
     /// Only use this method when you have ensured that you are the *only* one with access to the [`Assets`] resource of the asset type.
     /// Furthermore, this does *not* allow you to have look up two distinct handles,
@@ -81,12 +85,11 @@ impl ReflectAsset {
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method when you have exclusive access to the world
-    /// (or use a scheduler that enforces unique access to the `Assets` resource).
+    /// * Only call this method if you know that the [`InteriorMutableWorld`] may be used to access the corresponding `Assets<T>`
     /// * Don't call this method more than once in the same scope.
     pub unsafe fn get_unchecked_mut<'w>(
         &self,
-        world: &'w World,
+        world: InteriorMutableWorld<'w>,
         handle: HandleUntyped,
     ) -> Option<&'w mut dyn Reflect> {
         // SAFETY: requirements are deferred to the caller
@@ -140,19 +143,8 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 let asset = assets.get(&handle.typed());
                 asset.map(|asset| asset as &dyn Reflect)
             },
-            get_mut: |world, handle| {
-                let assets = world.resource_mut::<Assets<A>>().into_inner();
-                let asset = assets.get_mut(&handle.typed());
-                asset.map(|asset| asset as &mut dyn Reflect)
-            },
             get_unchecked_mut: |world, handle| {
-                let assets = unsafe {
-                    world
-                        .as_interior_mutable()
-                        .get_resource_mut::<Assets<A>>()
-                        .unwrap()
-                        .into_inner()
-                };
+                let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed());
                 asset.map(|asset| asset as &mut dyn Reflect)
             },
