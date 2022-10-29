@@ -6,8 +6,8 @@ use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 use std::cell::Cell;
@@ -26,7 +26,7 @@ use crate::{
 
 /// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
 /// This is done by setting the values of their [`ComputedVisibility`] component.
-#[derive(Component, Clone, Reflect, Debug)]
+#[derive(Component, Clone, Reflect, FromReflect, Debug)]
 #[reflect(Component, Default)]
 pub struct Visibility {
     /// Indicates whether this entity is visible. Hidden values will propagate down the entity hierarchy.
