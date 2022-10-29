@@ -79,6 +79,8 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     }
 }
 
+/// A space-optimized version of [`SparseArray`] that cannot be changed
+/// after contrusction.
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseArray<I, V = I> {
     values: Box<[Option<V>]>,
@@ -405,6 +407,8 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 }
 
+/// A space-optimized version of [`SparseSet`] that cannot be changed
+/// after contrusction.
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseSet<I, V: 'static> {
     dense: Box<[V]>,

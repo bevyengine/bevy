@@ -262,12 +262,23 @@ impl Column {
     }
 }
 
-pub struct TableBuilder {
+/// A builder type for constructing [`Table`]s.
+///
+///  - Use [`with_capacity`] to initialize the builder.
+///  - Repeatedly call [`add_column`] to add columns for components.
+///  - Finalize with [`build`] to get the constructed [`Table`].
+///
+/// [`with_capacity`]: Self::with_capacity
+/// [`add_column`]: Self::add_column
+/// [`build`]: Self::build
+pub(crate) struct TableBuilder {
     columns: SparseSet<ComponentId, Column>,
     capacity: usize,
 }
 
 impl TableBuilder {
+    /// Creates a blank [`Table`], allocating space for `column_capacity` columns
+    /// with the capacity to hold `capacity` entities worth of components each.
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
@@ -610,7 +621,7 @@ mod tests {
     use crate::{
         component::{ComponentTicks, Components},
         entity::Entity,
-        storage::TableBuilder
+        storage::TableBuilder,
     };
     #[derive(Component)]
     struct W<T>(T);

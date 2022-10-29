@@ -5,7 +5,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
-    storage::{SparseArray, ImmutableSparseSet, SparseSet, SparseSetIndex, TableId},
+    storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
 use std::{
     collections::HashMap,
