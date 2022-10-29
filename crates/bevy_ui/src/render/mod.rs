@@ -425,11 +425,11 @@ pub fn prepare_uinodes(
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
-                commands.spawn((UiBatch {
+                commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
-                },));
+                });
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();

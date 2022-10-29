@@ -115,10 +115,10 @@ fn prepare_uniform_components<C: Component>(
         .map(|(entity, component)| {
             (
                 entity,
-                (DynamicUniformIndex::<C> {
+                DynamicUniformIndex::<C> {
                     index: component_uniforms.uniforms.push(component.clone()),
                     marker: PhantomData,
-                },),
+                },
             )
         })
         .collect::<Vec<_>>();
