@@ -195,7 +195,7 @@ impl Archetype {
             id,
             table_id,
             entities: Vec::new(),
-            components: components.to_immutable(),
+            components: components.into_immutable(),
             table_components,
             sparse_set_components,
             edges: Default::default(),

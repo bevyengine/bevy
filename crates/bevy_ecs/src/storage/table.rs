@@ -295,22 +295,24 @@ impl TableBuilder {
 
     pub fn build(self) -> Table {
         Table {
-            columns: self.columns.to_immutable(),
+            columns: self.columns.into_immutable(),
             entities: Vec::with_capacity(self.capacity),
         }
     }
 }
 
-/// A column-oriented [structure-of-arrays] based storage for [`Component`]s of entities 
+/// A column-oriented [structure-of-arrays] based storage for [`Component`]s of entities
 /// in a [`World`].
-/// 
+///
 /// Conceptually, a `Table` can be thought of as an `HashMap<ComponentId, Column>`, where
 /// each `Column` is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
-/// entity). Fetching components from a table involves fetching the associated column for a 
+/// entity). Fetching components from a table involves fetching the associated column for a
 /// component type (via it's [`ComponentId`]), then fetching the entity's row within that column.
-/// 
+///
 /// [structure-of-arrays]: https://en.wikipedia.org/wiki/AoS_and_SoA#Structure_of_arrays
+/// [`Component`]: crate::component::Component
+/// [`World`]: crate::world::World
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,

@@ -71,7 +71,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values.clear();
     }
 
-    pub(crate) fn to_immutable(self) -> ImmutableSparseArray<I, V> {
+    pub(crate) fn into_immutable(self) -> ImmutableSparseArray<I, V> {
         ImmutableSparseArray {
             values: self.values.into_boxed_slice(),
             marker: PhantomData,
@@ -398,11 +398,11 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         self.indices.iter().zip(self.dense.iter_mut())
     }
 
-    pub(crate) fn to_immutable(self) -> ImmutableSparseSet<I, V> {
+    pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
         ImmutableSparseSet {
             dense: self.dense.into_boxed_slice(),
             indices: self.indices.into_boxed_slice(),
-            sparse: self.sparse.to_immutable(),
+            sparse: self.sparse.into_immutable(),
         }
     }
 }
@@ -429,7 +429,7 @@ impl<I: SparseSetIndex, V> ImmutableSparseSet<I, V> {
 
     pub fn get(&self, index: I) -> Option<&V> {
         self.sparse.get(index).map(|dense_index| {
-            // SAFE: if the sparse index points to something in the dense vec, it exists
+            // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe { self.dense.get_unchecked(*dense_index) }
         })
     }
@@ -437,7 +437,7 @@ impl<I: SparseSetIndex, V> ImmutableSparseSet<I, V> {
     pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
         let dense = &mut self.dense;
         self.sparse.get(index).map(move |dense_index| {
-            // SAFE: if the sparse index points to something in the dense vec, it exists
+            // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe { dense.get_unchecked_mut(*dense_index) }
         })
     }
