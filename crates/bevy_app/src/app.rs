@@ -859,7 +859,7 @@ impl App {
         {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
-            })?
+            })?;
         }
         plugin.build(self);
         self.plugin_registry.push(plugin);
