@@ -59,8 +59,8 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// * also implements `WorldQuery`, or
 /// * is marked with `#[world_query(ignore)]`. Fields decorated with this attribute
-///   will be created with the default value upon realisation, so `Default` has to
-///   be implemented on its type.
+///   must implement [`Default`] and will be initialized to the default value as defined
+///   by the trait.
 ///
 /// The derive macro only supports regular structs (structs with named fields).
 ///
