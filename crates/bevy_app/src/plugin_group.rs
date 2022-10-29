@@ -7,8 +7,8 @@ pub trait PluginGroup: Sized {
     /// Configures the [`Plugin`]s that are to be added.
     fn build(self) -> PluginGroupBuilder;
     /// Configures a name for the [`PluginGroup`] which is primarily used for debugging.
-    fn name() -> &'static str {
-        std::any::type_name::<Self>()
+    fn name() -> String {
+        std::any::type_name::<Self>().to_string()
     }
     /// Sets the value of the given [`Plugin`], if it exists
     fn set<T: Plugin>(self, plugin: T) -> PluginGroupBuilder {
@@ -41,7 +41,7 @@ impl PluginGroupBuilder {
     /// Start a new builder for the [`PluginGroup`].
     pub fn start<PG: PluginGroup>() -> Self {
         Self {
-            group_name: PG::name().to_string(),
+            group_name: PG::name(),
             plugins: Default::default(),
             order: Default::default(),
         }
