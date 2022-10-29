@@ -444,7 +444,7 @@ mod tests {
     fn query_iter_combinations_sparse() {
         let mut world = World::new();
 
-        world.spawn_batch((1..=4).map(|i| Sparse(i)));
+        world.spawn_batch((1..=4).map(Sparse));
 
         let mut query = world.query::<&mut Sparse>();
         let mut combinations = query.iter_combinations_mut(&mut world);
