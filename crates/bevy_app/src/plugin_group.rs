@@ -1,4 +1,4 @@
-use crate::{App, Plugin};
+use crate::{App, AppError, Plugin};
 use bevy_utils::{tracing::debug, tracing::warn, HashMap};
 use std::any::TypeId;
 
@@ -6,6 +6,10 @@ use std::any::TypeId;
 pub trait PluginGroup: Sized {
     /// Configures the [`Plugin`]s that are to be added.
     fn build(self) -> PluginGroupBuilder;
+    /// Configures a name for the [`PluginGroup`] which is primarily used for debugging.
+    fn name() -> &'static str {
+        std::any::type_name::<Self>()
+    }
     /// Sets the value of the given [`Plugin`], if it exists
     fn set<T: Plugin>(self, plugin: T) -> PluginGroupBuilder {
         self.build().set(plugin)
@@ -155,12 +159,24 @@ impl PluginGroupBuilder {
 
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
     /// in the order specified.
-    pub fn finish(mut self, app: &mut App) {
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugin in the group was already added to the application.
+    pub fn finish<T: PluginGroup>(mut self, app: &mut App) {
         for ty in &self.order {
             if let Some(entry) = self.plugins.remove(ty) {
                 if entry.enabled {
                     debug!("added plugin: {}", entry.plugin.name());
-                    app.add_boxed_plugin(entry.plugin);
+                    if let Err(AppError::DuplicatePlugin { plugin_name }) =
+                        app.add_boxed_plugin(entry.plugin)
+                    {
+                        panic!(
+                            "Error adding plugin {} in group {}: plugin was already added in application",
+                            plugin_name,
+                            T::name()
+                        );
+                    }
                 }
             }
         }

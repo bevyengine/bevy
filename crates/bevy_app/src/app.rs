@@ -28,6 +28,10 @@ bevy_utils::define_label!(
 #[derive(Resource, Clone, Deref, DerefMut, Default)]
 pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
 
+pub(crate) enum AppError {
+    DuplicatePlugin { plugin_name: String },
+}
+
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
 ///
@@ -823,15 +827,28 @@ impl App {
     /// # }
     /// App::new().add_plugin(bevy_log::LogPlugin::default());
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the plugin was already added to the application.
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
     where
         T: Plugin,
     {
-        self.add_boxed_plugin(Box::new(plugin))
+        match self.add_boxed_plugin(Box::new(plugin)) {
+            Ok(app) => app,
+            Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
+                "Error adding plugin {}: : plugin was already added in application",
+                plugin_name
+            ),
+        }
     }
 
     /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
-    pub(crate) fn add_boxed_plugin(&mut self, plugin: Box<dyn Plugin>) -> &mut Self {
+    pub(crate) fn add_boxed_plugin(
+        &mut self,
+        plugin: Box<dyn Plugin>,
+    ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
         if plugin.is_unique()
             && self
@@ -840,11 +857,13 @@ impl App {
                 .map(|plugin| plugin.name())
                 .any(|name| name == plugin.name())
         {
-            panic!("Can't add plugin {} twice.", plugin.name());
+            Err(AppError::DuplicatePlugin {
+                plugin_name: plugin.name().to_string(),
+            })?
         }
         plugin.build(self);
         self.plugin_registry.push(plugin);
-        self
+        Ok(self)
     }
 
     /// Checks if a [`Plugin`] has already been added.
@@ -907,9 +926,13 @@ impl App {
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugin in the group was already added to the application.
     pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
         let builder = group.build();
-        builder.finish(self);
+        builder.finish::<T>(self);
         self
     }
 
