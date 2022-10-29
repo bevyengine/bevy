@@ -18,7 +18,6 @@ use crate::{
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
-    ptr::UnsafeCellDeref,
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{Column, ComponentSparseSet, ResourceData, SparseSet, Storages, TableRow},
     system::Resource,
@@ -998,7 +997,7 @@ impl World {
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: unique world access
-        unsafe { self.get_resource_unchecked_mut() }
+        unsafe { self.as_interior_mutable().get_resource_mut() }
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -1029,18 +1028,6 @@ impl World {
         };
         // SAFETY: The underlying type of the resource is `R`.
         unsafe { data.with_type::<R>() }
-    }
-
-    /// Gets a mutable reference to the resource of the given type, if it exists
-    /// Otherwise returns [None]
-    ///
-    /// # Safety
-    /// This will allow aliased mutable access to the given resource type. The caller must ensure
-    /// that there is either only one mutable access or multiple immutable accesses at a time.
-    #[inline]
-    pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        self.get_resource_unchecked_mut_with_id(component_id)
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
@@ -1107,22 +1094,11 @@ impl World {
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: unique world access
-        unsafe { self.get_non_send_resource_unchecked_mut() }
-    }
-
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
-    ///
-    /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
-    ///
-    /// # Safety
-    /// This will allow aliased mutable access to the given non-send resource type. The caller must
-    /// ensure that there is either only one mutable access or multiple immutable accesses at a time.
-    #[inline]
-    pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(&self) -> Option<Mut<'_, R>> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        self.get_non_send_unchecked_mut_with_id(component_id)
+        unsafe {
+            self.as_interior_mutable()
+                .get_non_send_mut_with_id::<R>(component_id)
+        }
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
@@ -1407,25 +1383,6 @@ impl World {
 
     /// # Safety
     /// `component_id` must be assigned to a component of type `R`
-    /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
-    #[inline]
-    pub(crate) unsafe fn get_resource_unchecked_mut_with_id<R>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<Mut<'_, R>> {
-        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
-        Some(Mut {
-            value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut::from_tick_cells(
-                ticks,
-                self.last_change_tick(),
-                self.read_change_tick(),
-            ),
-        })
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
     #[inline]
     pub(crate) unsafe fn get_non_send_with_id<R: 'static>(
         &self,
@@ -1438,30 +1395,6 @@ impl World {
                 .get_data()?
                 .deref::<R>(),
         )
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`.
-    /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
-    #[inline]
-    pub(crate) unsafe fn get_non_send_unchecked_mut_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<Mut<'_, R>> {
-        let (ptr, ticks) = self
-            .storages
-            .non_send_resources
-            .get(component_id)?
-            .get_with_ticks()?;
-        Some(Mut {
-            value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut {
-                added: ticks.added.deref_mut(),
-                changed: ticks.changed.deref_mut(),
-                last_change_tick: self.last_change_tick(),
-                change_tick: self.read_change_tick(),
-            },
-        })
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
@@ -1681,20 +1614,11 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        let change_tick = self.change_tick();
-        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
-
-        let ticks =
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
-
-        Some(MutUntyped {
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
-            value: unsafe { ptr.assert_unique() },
-            ticks,
-        })
+        // SAFETY: unique world access
+        unsafe {
+            self.as_interior_mutable()
+                .get_resource_mut_by_id(component_id)
+        }
     }
 
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.

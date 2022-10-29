@@ -226,7 +226,11 @@ impl<'w> WorldCell<'w> {
             .get_resource_archetype_component_id(component_id)?;
         WorldBorrowMut::try_new(
             // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            || unsafe { self.world.get_resource_unchecked_mut_with_id(component_id) },
+            || unsafe {
+                self.world
+                    .as_interior_mutable()
+                    .get_resource_mut_with_id(component_id)
+            },
             archetype_component_id,
             self.access.clone(),
         )
@@ -292,7 +296,11 @@ impl<'w> WorldCell<'w> {
             .get_non_send_archetype_component_id(component_id)?;
         WorldBorrowMut::try_new(
             // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            || unsafe { self.world.get_non_send_unchecked_mut_with_id(component_id) },
+            || unsafe {
+                self.world
+                    .as_interior_mutable()
+                    .get_non_send_mut_with_id(component_id)
+            },
             archetype_component_id,
             self.access.clone(),
         )

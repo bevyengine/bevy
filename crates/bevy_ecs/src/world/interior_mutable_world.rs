@@ -4,7 +4,7 @@ use super::{Mut, World};
 use crate::{
     archetype::Archetypes,
     bundle::Bundles,
-    change_detection::{MutUntyped, Ticks},
+    change_detection::{MutUntyped, TicksMut},
     component::{ComponentId, Components},
     entity::Entities,
     storage::Storages,
@@ -156,7 +156,7 @@ impl<'w> InteriorMutableWorld<'w> {
         // - component_id is of type `R`
         // - caller ensures aliasing rules
         // - `R` is Send + Sync
-        unsafe { self.0.get_resource_unchecked_mut_with_id(component_id) }
+        unsafe { self.get_resource_mut_with_id(component_id) }
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
@@ -175,18 +175,13 @@ impl<'w> InteriorMutableWorld<'w> {
         &self,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'w>> {
-        let info = self.0.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
-            self.0.validate_non_send_access_untyped(info.name());
-        }
-
         let (ptr, ticks) = self.0.get_resource_with_ticks(component_id)?;
 
         // SAFETY:
         // - index is in-bounds because the column is initialized and non-empty
         // - the caller promises that no other reference to the ticks of the same row can exist at the same time
         let ticks = unsafe {
-            Ticks::from_tick_cells(ticks, self.0.last_change_tick(), self.0.read_change_tick())
+            TicksMut::from_tick_cells(ticks, self.0.last_change_tick(), self.0.read_change_tick())
         };
 
         Some(MutUntyped {
@@ -195,19 +190,67 @@ impl<'w> InteriorMutableWorld<'w> {
             ticks,
         })
     }
+}
 
-    /// Gets a reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
+impl<'w> InteriorMutableWorld<'w> {
+    /// # Safety
+    /// - `component_id` must be assigned to a component of type `R`
+    /// - Caller must ensure this doesn't violate Rust mutability rules for the given resource.
+    /// - resource is either Send+Sync or the main thread is validated
+    ///
+    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
     #[inline]
-    pub unsafe fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
-        self.0.get_non_send_resource::<R>()
+    pub(crate) unsafe fn get_resource_mut_with_id<R>(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<Mut<'w, R>> {
+        let (ptr, ticks) = self.0.get_resource_with_ticks(component_id)?;
+
+        // SAFETY:
+        // - This caller ensures that nothing aliases `ticks`.
+        // - index is in-bounds because the column is initialized and non-empty
+        let ticks = unsafe {
+            TicksMut::from_tick_cells(ticks, self.0.last_change_tick(), self.0.read_change_tick())
+        };
+
+        Some(Mut {
+            // SAFETY: caller ensures aliasing rules, ptr is of type `R`
+            value: unsafe { ptr.assert_unique().deref_mut() },
+            ticks,
+        })
     }
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
+
+    /// # Safety
+    /// - `component_id` must be assigned to a component of type `R`.
+    /// - Caller must ensure this doesn't violate Rust mutability rules for the given resource.
+    ///
+    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
     #[inline]
-    pub unsafe fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'w, R>> {
-        let component_id = self.0.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: safety requirement is deferred to the caller
-        unsafe { self.0.get_non_send_unchecked_mut_with_id(component_id) }
+    pub(crate) unsafe fn get_non_send_mut_with_id<R: 'static>(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<Mut<'w, R>> {
+        let (ptr, ticks) = self
+            .0
+            .storages
+            .non_send_resources
+            .get(component_id)?
+            .get_with_ticks()?;
+        Some(Mut {
+            // SAFETY: caller ensures unique access
+            value: unsafe { ptr.assert_unique().deref_mut() },
+            // SAFETY: caller ensures unique access
+            ticks: unsafe {
+                TicksMut::from_tick_cells(
+                    ticks,
+                    self.0.last_change_tick(),
+                    self.0.read_change_tick(),
+                )
+            },
+        })
     }
 }

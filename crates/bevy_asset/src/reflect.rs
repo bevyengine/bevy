@@ -148,7 +148,8 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             get_unchecked_mut: |world, handle| {
                 let assets = unsafe {
                     world
-                        .get_resource_unchecked_mut::<Assets<A>>()
+                        .as_interior_mutable()
+                        .get_resource_mut::<Assets<A>>()
                         .unwrap()
                         .into_inner()
                 };

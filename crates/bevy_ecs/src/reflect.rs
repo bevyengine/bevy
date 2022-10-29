@@ -385,10 +385,13 @@ impl<C: Resource + Reflect + FromWorld> FromType<C> for ReflectResource {
                 // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a single mutable
                 // reference or multiple immutable ones alive at any given point
                 unsafe {
-                    world.get_resource_unchecked_mut::<C>().map(|res| Mut {
-                        value: res.value as &mut dyn Reflect,
-                        ticks: res.ticks,
-                    })
+                    world
+                        .as_interior_mutable()
+                        .get_resource_mut::<C>()
+                        .map(|res| Mut {
+                            value: res.value as &mut dyn Reflect,
+                            ticks: res.ticks,
+                        })
                 }
             },
             copy: |source_world, destination_world| {
