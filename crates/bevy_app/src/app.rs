@@ -833,6 +833,15 @@ impl App {
     /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
     pub(crate) fn add_boxed_plugin(&mut self, plugin: Box<dyn Plugin>) -> &mut Self {
         debug!("added plugin: {}", plugin.name());
+        if plugin.is_unique()
+            && self
+                .plugin_registry
+                .iter()
+                .map(|plugin| plugin.name())
+                .any(|name| name == plugin.name())
+        {
+            panic!("Can't add plugin {} twice.", plugin.name());
+        }
         plugin.build(self);
         self.plugin_registry.push(plugin);
         self
