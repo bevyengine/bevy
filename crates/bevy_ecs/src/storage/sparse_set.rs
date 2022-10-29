@@ -71,7 +71,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values.clear();
     }
 
-    pub fn to_immutable(self) -> ImmutableSparseArray<I, V> {
+    pub(crate) fn to_immutable(self) -> ImmutableSparseArray<I, V> {
         ImmutableSparseArray {
             values: self.values.into_boxed_slice(),
             marker: PhantomData,
@@ -80,7 +80,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 }
 
 #[derive(Debug)]
-pub struct ImmutableSparseArray<I, V = I> {
+pub(crate) struct ImmutableSparseArray<I, V = I> {
     values: Box<[Option<V>]>,
     marker: PhantomData<I>,
 }
@@ -396,7 +396,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         self.indices.iter().zip(self.dense.iter_mut())
     }
 
-    pub fn to_immutable(self) -> ImmutableSparseSet<I, V> {
+    pub(crate) fn to_immutable(self) -> ImmutableSparseSet<I, V> {
         ImmutableSparseSet {
             dense: self.dense.into_boxed_slice(),
             indices: self.indices.into_boxed_slice(),
@@ -406,7 +406,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 }
 
 #[derive(Debug)]
-pub struct ImmutableSparseSet<I, V: 'static> {
+pub(crate) struct ImmutableSparseSet<I, V: 'static> {
     dense: Box<[V]>,
     indices: Box<[I]>,
     sparse: ImmutableSparseArray<I, usize>,
@@ -416,11 +416,6 @@ impl<I: SparseSetIndex, V> ImmutableSparseSet<I, V> {
     #[inline]
     pub fn len(&self) -> usize {
         self.dense.len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.dense.len() == 0
     }
 
     #[inline]
@@ -453,10 +448,6 @@ impl<I: SparseSetIndex, V> ImmutableSparseSet<I, V> {
 
     pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
         self.dense.iter_mut()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
-        self.indices.iter().zip(self.dense.iter())
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
