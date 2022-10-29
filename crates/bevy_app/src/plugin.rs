@@ -7,9 +7,12 @@ use std::any::Any;
 ///
 /// Plugins configure an [`App`]. When an [`App`] registers a plugin,
 /// the plugin's [`Plugin::build`] function is run. By default, a plugin
-/// can only be added once to an [`App`]. If the plugin may need to be
-/// added twice or more, the function [`is_unique`](Plugin::is_unique)
-/// should be overriden to return `false`.
+/// can only be added once to an [`App`].
+///
+/// If the plugin may need to be added twice or more, the function [`is_unique()`](Self::is_unique)
+/// should be overriden to return `false`. Plugins are considered duplicate if they have the same
+/// [`name()`](Self::name). The default `name()` implementation returns the type name, which means
+/// generic plugins with different type parameters will not be considered duplicates.
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
