@@ -1,11 +1,12 @@
 use bevy::{
     prelude::*,
     render::{
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
         render_resource::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor},
         renderer::{RenderContext, RenderDevice, RenderGraphRunner, RenderQueue},
         view::{ExtractedWindows, ViewTarget},
-        RenderApp, RenderGraphPlugin, RenderStage, extract_resource::{ExtractResource, ExtractResourcePlugin},
+        RenderApp, RenderGraphPlugin, RenderStage,
     },
 };
 
@@ -28,16 +29,13 @@ impl Plugin for RenderGraphTest {
         // the WindowRenderPlugin acquires swapchain images,
         // these need to be dropped again! (done by the TestNode)
         app.add_plugin(bevy::render::view::WindowRenderPlugin);
-        
+
         app.insert_resource(MyTimer(0.0))
             .add_system(timer_advance)
             .add_plugin(ExtractResourcePlugin::<MyTimer>::default());
 
         let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-        render_app.add_system_to_stage(
-            RenderStage::Render,
-            render_system.at_end(),
-        );
+        render_app.add_system_to_stage(RenderStage::Render, render_system.at_end());
 
         let graph = &mut render_app.world.get_resource_mut::<RenderGraph>().unwrap();
         graph.add_node(TestNode::NAME, TestNode);
@@ -69,11 +67,12 @@ impl Node for TestNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let timer = world.resource::<MyTimer>().0;
-        
+
         let color = Color::rgb(
             (timer.sin() * 0.5 + 0.5) as f32,
             ((timer * 0.78).sin() * 0.5 + 0.5) as f32,
-            ((timer * 0.63).sin() * 0.5 + 0.5) as f32);
+            ((timer * 0.63).sin() * 0.5 + 0.5) as f32,
+        );
 
         for (_id, window) in world.resource::<ExtractedWindows>().iter() {
             // NOTE: this is important, otherwise swap chain images are not dropped

@@ -146,10 +146,7 @@ impl Plugin for RenderPlugin {
             // The render app is added in the render graph plugin (if a backend was specified)
             let render_app = app.get_sub_app_mut(RenderApp).unwrap();
             render_app.insert_resource(sender);
-            render_app.add_system_to_stage(
-                RenderStage::Render,
-                render_system.at_end(),
-            );
+            render_app.add_system_to_stage(RenderStage::Render, render_system.at_end());
         }
 
         app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
