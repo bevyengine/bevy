@@ -64,8 +64,8 @@ bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render?/ci_limits"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
-bevy_sprite = ["dep:bevy_sprite", "bevy_debug_draw?/2d"]
-bevy_pbr = ["dep:bevy_pbr", "bevy_debug_draw?/3d"]
+bevy_sprite = ["dep:bevy_sprite", "bevy_debug_draw?/bevy_sprite"]
+bevy_pbr = ["dep:bevy_pbr", "bevy_debug_draw?/bevy_pbr"]
 
 [dependencies]
 # bevy

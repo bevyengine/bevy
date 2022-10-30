@@ -206,6 +206,16 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "2d_debug_draw"
+path = "examples/2d/2d_debug_draw.rs"
+
+[package.metadata.example.2d_debug_draw]
+name = "2D Debug Drawing"
+description = "Simple 2D scene with basic shapes and lighting"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 
@@ -293,6 +303,16 @@ path = "examples/3d/3d_shapes.rs"
 [package.metadata.example.3d_shapes]
 name = "3D Shapes"
 description = "A scene showcasing the built-in 3D shapes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "3d_debug_draw"
+path = "examples/3d/3d_debug_draw.rs"
+
+[package.metadata.example.3d_debug_draw]
+name = "3D Debug Drawing"
+description = "Simple 3D scene with basic shapes and lighting"
 category = "3D Rendering"
 wasm = true
 
