@@ -717,8 +717,7 @@ mod tests {
     use bevy_ecs::{
         entity::Entity,
         prelude::Events,
-        schedule::{Schedule, Stage, StageLabel, SystemStage},
-        system::{CommandQueue, Commands, IntoSystem},
+        system::{CommandQueue, Commands},
         world::World,
     };
 
@@ -745,7 +744,7 @@ mod tests {
         let world = &mut World::new();
         world.insert_resource(Events::<HierarchyEvent>::default());
 
-        let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
+        let [a, b, c, d] = std::array::from_fn(|_| world.spawn_empty().id());
 
         world.entity_mut(a).add_child(b);
 
@@ -770,6 +769,9 @@ mod tests {
                 parent: a,
             }],
         );
+        // Children component should be removed when it's empty.
+        world.entity_mut(d).add_child(b).add_child(c);
+        assert_children(world, a, None);
     }
 
     #[test]
@@ -802,12 +804,12 @@ mod tests {
         );
 
         world.entity_mut(d).add_children(&[b, e, c]);
-
+        // Children component should be removed when it's empty.
+        assert_children(world, a, None);
         assert_children(world, d, Some(&[b, e, c]));
         assert_eq!(world.get::<Parent>(b), Some(&Parent(d)));
         assert_eq!(world.get::<Parent>(e), Some(&Parent(d)));
         assert_eq!(world.get::<Parent>(c), Some(&Parent(d)));
-        assert_children(world, a, None);
         assert_events(
             world,
             &[
@@ -860,7 +862,7 @@ mod tests {
                 parent: a,
             }],
         );
-
+        // Children component should be removed when it's empty.
         world.entity_mut(d).insert_child(0, b).insert_child(0, c);
         assert_children(world, a, None);
     }
@@ -907,7 +909,7 @@ mod tests {
                 parent: a,
             }],
         );
-
+        // Children component should be removed when it's empty.
         world.entity_mut(e).insert_children(0, &[b, c, d]);
         assert_children(world, a, None);
     }
@@ -932,10 +934,10 @@ mod tests {
                 parent: a,
             }],
         );
-
+        // Don't remove the Parent component from another parent's children.
         world.entity_mut(e).remove_child(c);
         assert_eq!(world.get::<Parent>(c), Some(&Parent(a)));
-
+        // Children component should be removed when it's empty.
         world.entity_mut(a).remove_child(c);
         assert_children(world, a, None);
     }
@@ -970,10 +972,10 @@ mod tests {
                 },
             ],
         );
-
+        // Don't remove the Parent component from another parent's children.
         world.entity_mut(e).remove_children(&[c]);
         assert_eq!(world.get::<Parent>(c), Some(&Parent(a)));
-
+        // Children component should be removed when it's empty.
         world.entity_mut(a).remove_children(&[c]);
         assert_children(world, a, None);
     }
