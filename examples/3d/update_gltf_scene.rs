@@ -1,7 +1,7 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, scene::SceneInstance};
 
 fn main() {
     App::new()
@@ -42,16 +42,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-// This system will move all entities that are descendants of MovedScene (which will be all entities spawned in the scene)
+// This system will move all entities that are in the scene instance of MovedScene
 fn move_scene_entities(
     time: Res<Time>,
-    moved_scene: Query<Entity, With<MovedScene>>,
-    children: Query<&Children>,
+    moved_scene: Query<&SceneInstance, With<MovedScene>>,
     mut transforms: Query<&mut Transform>,
+    scene_spawner: Res<SceneSpawner>,
 ) {
-    for moved_scene_entity in &moved_scene {
-        let mut offset = 0.;
-        iter_hierarchy(moved_scene_entity, &children, &mut |entity| {
+    // The `SceneInstance` component is added to the scene root once spawning the scene has started
+    let scene_root = moved_scene.single();
+    let mut offset = 0.0;
+    scene_spawner
+        .iter_instance_entities(**scene_root)
+        .for_each(|entity| {
             if let Ok(mut transform) = transforms.get_mut(entity) {
                 transform.translation = Vec3::new(
                     offset * time.elapsed_seconds().sin() / 20.,
@@ -61,14 +64,4 @@ fn move_scene_entities(
                 offset += 1.0;
             }
         });
-    }
-}
-
-fn iter_hierarchy(entity: Entity, children_query: &Query<&Children>, f: &mut impl FnMut(Entity)) {
-    (f)(entity);
-    if let Ok(children) = children_query.get(entity) {
-        for child in children.iter().copied() {
-            iter_hierarchy(child, children_query, f);
-        }
-    }
 }
