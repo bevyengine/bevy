@@ -159,11 +159,11 @@ where
 mod tests {
     use bevy_ecs::{
         prelude::Component,
-        system::{Commands, Query, SystemState},
+        system::{Query, SystemState},
         world::World,
     };
 
-    use crate::{query_extension::HierarchyQueryExt, BuildChildren, Children, Parent};
+    use crate::{query_extension::HierarchyQueryExt, BuildWorldChildren, Children, Parent};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -174,14 +174,8 @@ mod tests {
 
         let [a, b, c, d] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        let mut system_state = SystemState::<Commands>::new(world);
-        let mut commands = system_state.get_mut(world);
-
-        commands.entity(a).add_child(b);
-        commands.entity(a).add_child(c);
-        commands.entity(c).add_child(d);
-
-        system_state.apply(world);
+        world.entity_mut(a).push_children(&[b, c]);
+        world.entity_mut(c).push_children(&[d]);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
@@ -199,13 +193,8 @@ mod tests {
 
         let [a, b, c] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        let mut system_state = SystemState::<Commands>::new(world);
-        let mut commands = system_state.get_mut(world);
-
-        commands.entity(a).add_child(b);
-        commands.entity(b).add_child(c);
-
-        system_state.apply(world);
+        world.entity_mut(a).push_children(&[b]);
+        world.entity_mut(b).push_children(&[c]);
 
         let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
         let (parent_query, a_query) = system_state.get(world);
