@@ -21,6 +21,6 @@ fn main() {
     println!("Bevy App has exited. We are back in our main function.");
 }
 
-fn system1() {
+fn system() {
     info!("Logging from Bevy App");
 }
