@@ -1,4 +1,6 @@
-use crate::{self as bevy_reflect, ReflectFromPtr};
+#[cfg(not(doctest))]
+use crate as bevy_reflect;
+use crate::ReflectFromPtr;
 use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
     EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,

@@ -1,3 +1,4 @@
+#[cfg(not(doctest))]
 use crate as bevy_reflect;
 use crate::prelude::ReflectDefault;
 use crate::reflect::Reflect;
