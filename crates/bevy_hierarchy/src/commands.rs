@@ -740,17 +740,6 @@ mod tests {
         assert_eq!(events, expected_events);
     }
 
-    fn run_system<Param>(world: &mut World, system: impl IntoSystem<(), (), Param>) {
-        #[derive(StageLabel)]
-        struct UpdateStage;
-
-        let mut schedule = Schedule::default();
-        let mut update = SystemStage::parallel();
-        update.add_system(system);
-        schedule.add_stage(UpdateStage, update);
-        schedule.run(world);
-    }
-
     #[test]
     fn add_child() {
         let world = &mut World::new();
@@ -1108,72 +1097,5 @@ mod tests {
         for child in children {
             assert_eq!(world.get::<Parent>(child), Some(&Parent(parent)));
         }
-    }
-
-    #[test]
-    fn push_and_insert_and_remove_children() {
-        let world = &mut World::new();
-        let [parent, child1, child2, child3, child4] =
-            std::array::from_fn(|_| world.spawn_empty().id());
-
-        run_system(world, move |mut commands: Commands| {
-            commands.entity(parent).add_children(&[child1, child2]);
-        });
-        assert_children(world, parent, Some(&[child1, child2]));
-        assert_eq!(world.get::<Parent>(child1), Some(&Parent(parent)));
-        assert_eq!(world.get::<Parent>(child2), Some(&Parent(parent)));
-
-        run_system(world, move |mut commands: Commands| {
-            commands
-                .entity(parent)
-                .insert_children(1, &[child3, child4]);
-        });
-        assert_children(world, parent, Some(&[child1, child3, child4, child2]));
-        assert_eq!(world.get::<Parent>(child3), Some(&Parent(parent)));
-        assert_eq!(world.get::<Parent>(child4), Some(&Parent(parent)));
-
-        run_system(world, move |mut commands: Commands| {
-            commands.entity(parent).remove_children(&[child1, child4]);
-        });
-        assert_children(world, parent, Some(&[child3, child2]));
-        assert_eq!(world.get::<Parent>(child1), None);
-        assert_eq!(world.get::<Parent>(child4), None);
-    }
-
-    /// Tests what happens when all children are removed from a parent
-    #[test]
-    fn children_removed_when_empty() {
-        let world = &mut World::new();
-        let [parent1, parent2, child] = std::array::from_fn(|_| world.spawn_empty().id());
-
-        // push child into parent1 with `add_child`
-        run_system(world, move |mut commands: Commands| {
-            commands.entity(parent1).add_child(child);
-        });
-        assert_children(world, parent1, Some(&[child]));
-
-        // move only child from parent1 with `add_children`
-        run_system(world, move |mut commands: Commands| {
-            commands.entity(parent2).add_children(&[child]);
-        });
-        assert_children(world, parent1, None);
-
-        // move only child from parent2 with `insert_child`
-        run_system(world, move |mut commands: Commands| {
-            commands.entity(parent1).insert_child(0, child);
-        });
-        assert_children(world, parent2, None);
-
-        // move only child from parent1 with `add_child`
-        run_system(world, move |mut commands: Commands| {
-            commands.entity(parent2).add_child(child);
-        });
-        assert_children(world, parent1, None);
-
-        // remove only child from parent2 with `remove_child`
-        run_system(world, move |mut commands: Commands| {
-            commands.entity(parent2).remove_child(child);
-        });
-        assert_children(world, parent2, None);
     }
 }
