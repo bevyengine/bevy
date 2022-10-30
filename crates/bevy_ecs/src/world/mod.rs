@@ -1943,10 +1943,8 @@ mod tests {
     }
 
     #[test]
-    fn blah() {
-        #[derive(Bundle)]
-        struct EmptyBundle {}
+    fn spawn_empty_bundle() {
         let mut world = World::new();
-        world.spawn(EmptyBundle {});
+        world.spawn(());
     }
 }
