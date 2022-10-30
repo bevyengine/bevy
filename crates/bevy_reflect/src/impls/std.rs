@@ -1,5 +1,5 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr};
+use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
 use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
     EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
@@ -270,6 +270,10 @@ impl<T: FromReflect> Reflect for Vec<T> {
         ReflectMut::List(self)
     }
 
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::List(self)
+    }
+
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(List::clone_dynamic(self))
     }
@@ -434,6 +438,10 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
         ReflectMut::Map(self)
     }
 
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Map(self)
+    }
+
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -567,6 +575,11 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 
     #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Array(self)
+    }
+
+    #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -676,6 +689,10 @@ impl Reflect for Cow<'static, str> {
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Value(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Value(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
@@ -866,6 +883,10 @@ impl<T: FromReflect> Reflect for Option<T> {
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Enum(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Enum(self)
     }
 
     #[inline]
