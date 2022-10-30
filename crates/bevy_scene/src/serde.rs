@@ -6,7 +6,7 @@ use bevy_utils::HashSet;
 use serde::ser::SerializeMap;
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
-    ser::{SerializeSeq, SerializeStruct},
+    ser::SerializeStruct,
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::fmt::Formatter;
@@ -15,7 +15,6 @@ pub const SCENE_STRUCT: &str = "Scene";
 pub const SCENE_ENTITIES: &str = "entities";
 
 pub const ENTITY_STRUCT: &str = "Entity";
-pub const ENTITY_FIELD_ENTITY: &str = "entity";
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
 pub struct SceneSerializer<'a> {
@@ -56,12 +55,15 @@ impl<'a> Serialize for EntitiesSerializer<'a> {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_seq(Some(self.entities.len()))?;
+        let mut state = serializer.serialize_map(Some(self.entities.len()))?;
         for entity in self.entities {
-            state.serialize_element(&EntitySerializer {
-                entity,
-                registry: self.registry,
-            })?;
+            state.serialize_entry(
+                &entity.entity,
+                &EntitySerializer {
+                    entity,
+                    registry: self.registry,
+                },
+            )?;
         }
         state.end()
     }
@@ -77,8 +79,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct(ENTITY_STRUCT, 2)?;
-        state.serialize_field(ENTITY_FIELD_ENTITY, &self.entity.entity)?;
+        let mut state = serializer.serialize_struct(ENTITY_STRUCT, 1)?;
         state.serialize_field(
             ENTITY_FIELD_COMPONENTS,
             &ComponentsSerializer {
@@ -120,7 +121,6 @@ enum SceneField {
 #[derive(Deserialize)]
 #[serde(field_identifier, rename_all = "lowercase")]
 enum EntityField {
-    Entity,
     Components,
 }
 
@@ -167,7 +167,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
                     if entities.is_some() {
                         return Err(Error::duplicate_field(SCENE_ENTITIES));
                     }
-                    entities = Some(map.next_value_seed(SceneEntitySeqDeserializer {
+                    entities = Some(map.next_value_seed(SceneEntitiesDeserializer {
                         type_registry: self.type_registry,
                     })?);
                 }
@@ -184,7 +184,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let entities = seq
-            .next_element_seed(SceneEntitySeqDeserializer {
+            .next_element_seed(SceneEntitiesDeserializer {
                 type_registry: self.type_registry,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
@@ -193,42 +193,44 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
     }
 }
 
-pub struct SceneEntitySeqDeserializer<'a> {
+pub struct SceneEntitiesDeserializer<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneEntitySeqDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a> {
     type Value = Vec<DynamicEntity>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_seq(SceneEntitySeqVisitor {
+        deserializer.deserialize_map(SceneEntitiesVisitor {
             type_registry: self.type_registry,
         })
     }
 }
 
-struct SceneEntitySeqVisitor<'a> {
+struct SceneEntitiesVisitor<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
     type Value = Vec<DynamicEntity>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("list of entities")
+        formatter.write_str("map of entities")
     }
 
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
-        A: SeqAccess<'de>,
+        A: MapAccess<'de>,
     {
         let mut entities = Vec::new();
-        while let Some(entity) = seq.next_element_seed(SceneEntityDeserializer {
-            type_registry: self.type_registry,
-        })? {
+        while let Some(id) = map.next_key::<u32>()? {
+            let entity = map.next_value_seed(SceneEntityDeserializer {
+                id,
+                type_registry: self.type_registry,
+            })?;
             entities.push(entity);
         }
 
@@ -237,6 +239,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisitor<'a> {
 }
 
 pub struct SceneEntityDeserializer<'a> {
+    pub id: u32,
     pub type_registry: &'a TypeRegistry,
 }
 
@@ -249,8 +252,9 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
     {
         deserializer.deserialize_struct(
             ENTITY_STRUCT,
-            &[ENTITY_FIELD_ENTITY, ENTITY_FIELD_COMPONENTS],
+            &[ENTITY_FIELD_COMPONENTS],
             SceneEntityVisitor {
+                id: self.id,
                 registry: self.type_registry,
             },
         )
@@ -258,6 +262,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
 }
 
 struct SceneEntityVisitor<'a> {
+    pub id: u32,
     pub registry: &'a TypeRegistry,
 }
 
@@ -272,16 +277,9 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
-        let mut id = None;
         let mut components = None;
         while let Some(key) = map.next_key()? {
             match key {
-                EntityField::Entity => {
-                    if id.is_some() {
-                        return Err(Error::duplicate_field(ENTITY_FIELD_ENTITY));
-                    }
-                    id = Some(map.next_value::<u32>()?);
-                }
                 EntityField::Components => {
                     if components.is_some() {
                         return Err(Error::duplicate_field(ENTITY_FIELD_COMPONENTS));
@@ -294,15 +292,11 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
             }
         }
 
-        let entity = id
-            .as_ref()
-            .ok_or_else(|| Error::missing_field(ENTITY_FIELD_ENTITY))?;
-
         let components = components
             .take()
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
         Ok(DynamicEntity {
-            entity: *entity,
+            entity: self.id,
             components,
         })
     }
@@ -420,29 +414,26 @@ mod tests {
         let scene = builder.build();
 
         let expected = r#"(
-  entities: [
-    (
-      entity: 0,
+  entities: {
+    0: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    (
-      entity: 1,
+    1: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    (
-      entity: 2,
+    2: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Baz": (789),
       },
     ),
-  ],
+  },
 )"#;
         let output = scene
             .serialize_ron(&world.resource::<AppTypeRegistry>().0)
@@ -455,29 +446,26 @@ mod tests {
         let world = create_world();
 
         let input = r#"(
-  entities: [
-    (
-      entity: 0,
+  entities: {
+    0: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    (
-      entity: 1,
+    1: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    (
-      entity: 2,
+    2: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Baz": (789),
       },
     ),
-  ],
+  },
 )"#;
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let scene_deserializer = SceneDeserializer {
