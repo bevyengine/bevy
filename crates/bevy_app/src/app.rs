@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
@@ -73,6 +73,7 @@ pub struct App {
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
+    plugin_name_added: HashSet<String>,
 }
 
 impl Debug for App {
@@ -137,6 +138,7 @@ impl App {
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
+            plugin_name_added: Default::default(),
         }
     }
 
@@ -850,13 +852,7 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique()
-            && self
-                .plugin_registry
-                .iter()
-                .map(|plugin| plugin.name())
-                .any(|name| name == plugin.name())
-        {
+        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
