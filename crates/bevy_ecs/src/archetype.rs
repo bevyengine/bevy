@@ -35,6 +35,7 @@ impl ArchetypeId {
     }
 }
 
+#[derive(Copy, Clone)]
 pub(crate) enum ComponentStatus {
     Added,
     Mutated,
@@ -43,6 +44,32 @@ pub(crate) enum ComponentStatus {
 pub struct AddBundle {
     pub archetype_id: ArchetypeId,
     pub(crate) bundle_status: Vec<ComponentStatus>,
+}
+
+pub(crate) trait BundleComponentStatus {
+    /// Returns the Bundle's component status for the given "bundle index"
+    ///
+    /// # Safety
+    /// Callers must ensure that index is always a valid bundle index for the
+    /// Bundle associated with this [`BundleComponentStatus`]
+    unsafe fn get_status(&self, index: usize) -> ComponentStatus;
+}
+
+impl BundleComponentStatus for AddBundle {
+    #[inline]
+    unsafe fn get_status(&self, index: usize) -> ComponentStatus {
+        // SAFETY: caller has ensured index is a valid bundle index for this bundle
+        *self.bundle_status.get_unchecked(index)
+    }
+}
+
+pub(crate) struct SpawnBundleStatus;
+
+impl BundleComponentStatus for SpawnBundleStatus {
+    #[inline]
+    unsafe fn get_status(&self, _index: usize) -> ComponentStatus {
+        ComponentStatus::Added
+    }
 }
 
 /// Archetypes and bundles form a graph. Adding or removing a bundle moves

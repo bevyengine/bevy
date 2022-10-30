@@ -1594,6 +1594,7 @@ mod tests {
     use crate::{
         change_detection::DetectChanges,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
+        prelude::Bundle,
         ptr::OwningPtr,
         system::Resource,
     };
@@ -1939,5 +1940,13 @@ mod tests {
         iterate_and_count_entities(&world, &mut entity_counters);
 
         assert_eq!(entity_counters.len(), 0);
+    }
+
+    #[test]
+    fn blah() {
+        #[derive(Bundle)]
+        struct EmptyBundle {}
+        let mut world = World::new();
+        world.spawn(EmptyBundle {});
     }
 }
