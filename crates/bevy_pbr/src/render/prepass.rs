@@ -177,17 +177,19 @@ where
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut bind_group_layout = vec![self.view_layout.clone()];
         let mut shader_defs = Vec::new();
-        shader_defs.push(String::from("PREPASS_DEPTH"));
+        let mut vertex_attributes = Vec::new();
 
         // NOTE: Eventually, it would be nice to only add this when the shaders area overloaded.
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layout.insert(1, self.material_layout.clone());
 
+        if key.mesh_key.contains(MeshPipelineKey::PREPASS_DEPTH) {
+            shader_defs.push(String::from("PREPASS_DEPTH"));
+        }
+
         if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
             shader_defs.push(String::from("ALPHA_MASK"));
         }
-
-        let mut vertex_attributes = vec![];
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push(String::from("VERTEX_POSITIONS"));

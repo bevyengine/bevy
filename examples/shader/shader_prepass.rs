@@ -10,7 +10,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        // To enable the prepass on the StandardMaterial, we need to set it on the PbrPlugin
+        // To enable the prepass on the StandardMaterial, we need to enable it on the PbrPlugin
         .add_plugins(DefaultPlugins.set(PbrPlugin {
             prepass_enabled: true,
         }))

@@ -16,16 +16,15 @@ use bevy_render::{
 };
 use bevy_utils::FloatOrd;
 
-/// Add a `PrepassSettings` component to a camera to perform a depth and/or normal prepass.
-/// These textures are useful for reducing overdraw in the main pass, and screen-space effects.
+/// Add a `PrepassSettings` component to a `Camera` to perform a depth and/or normal prepass.
+/// These textures are useful for various screen-space effects and reducing overdraw in the main pass.
 ///
-/// The textures are automatically added to the default mesh pipeline.
-/// You can also get the raw textures by querying the `ViewPrepassTextures` component on the camera with the `PrepassSettings`.
-///
-/// Defaults to true for both options
+/// The textures are automatically added to the default mesh view bindings. You can also get the raw textures
+/// by querying the `ViewPrepassTextures` component on the camera with the `PrepassSettings`.
 #[derive(Clone, Component)]
 pub struct PrepassSettings {
     /// If true then depth values will be copied to a separate texture available to the main pass.
+    /// This will help reduce overdraw in the main pass.
     pub output_depth: bool,
     /// If true then vertex world normals will be copied to a separate texture available to the main pass.
     pub output_normals: bool,
@@ -35,7 +34,7 @@ impl Default for PrepassSettings {
     fn default() -> Self {
         Self {
             output_depth: true,
-            output_normals: true,
+            output_normals: false,
         }
     }
 }
