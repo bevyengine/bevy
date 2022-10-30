@@ -31,7 +31,7 @@ fn deterministic_rand() -> ChaCha8Rng {
 
 fn setup<T: Component + Default>(entity_count: u32) -> World {
     let mut world = World::default();
-    world.spawn_batch((0..entity_count).map(|_| (T::default(),)));
+    world.spawn_batch((0..entity_count).map(|_| T::default()));
     black_box(world)
 }
 
@@ -308,7 +308,7 @@ pub fn query_get_component(criterion: &mut Criterion) {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = World::default();
             let mut entities: Vec<_> = world
-                .spawn_batch((0..entity_count).map(|_| (Table::default(),)))
+                .spawn_batch((0..entity_count).map(|_| Table::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
             let mut query = SystemState::<Query<&Table>>::new(&mut world);
@@ -330,7 +330,7 @@ pub fn query_get_component(criterion: &mut Criterion) {
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
             let mut world = World::default();
             let mut entities: Vec<_> = world
-                .spawn_batch((0..entity_count).map(|_| (Sparse::default(),)))
+                .spawn_batch((0..entity_count).map(|_| Sparse::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
             let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
@@ -363,7 +363,7 @@ pub fn query_get(criterion: &mut Criterion) {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = World::default();
             let mut entities: Vec<_> = world
-                .spawn_batch((0..entity_count).map(|_| (Table::default(),)))
+                .spawn_batch((0..entity_count).map(|_| Table::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
             let mut query = SystemState::<Query<&Table>>::new(&mut world);

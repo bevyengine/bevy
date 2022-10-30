@@ -208,12 +208,12 @@ fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
 pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
     let max_params = 8;
-    let params = get_idents(|i| format!("P{}", i), max_params);
-    let params_fetch = get_idents(|i| format!("PF{}", i), max_params);
-    let metas = get_idents(|i| format!("m{}", i), max_params);
+    let params = get_idents(|i| format!("P{i}"), max_params);
+    let params_fetch = get_idents(|i| format!("PF{i}"), max_params);
+    let metas = get_idents(|i| format!("m{i}"), max_params);
     let mut param_fn_muts = Vec::new();
     for (i, param) in params.iter().enumerate() {
-        let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
+        let fn_name = Ident::new(&format!("p{i}"), Span::call_site());
         let index = Index::from(i);
         param_fn_muts.push(quote! {
             pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {

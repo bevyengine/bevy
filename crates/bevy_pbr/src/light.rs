@@ -1031,8 +1031,7 @@ pub(crate) fn assign_lights_to_clusters(
                 // this not not guaranteed to be small enough due to overlapped tiles, but
                 // the conservative estimate is more than sufficient to cover the
                 // difference
-                let index_ratio =
-                    ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate as f32;
+                let index_ratio = ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate;
                 let xy_ratio = index_ratio.sqrt();
 
                 requested_cluster_dimensions.x =
@@ -1416,7 +1415,11 @@ pub fn update_directional_light_frusta(
             &mut Frustum,
             &ComputedVisibility,
         ),
-        Or<(Changed<GlobalTransform>, Changed<DirectionalLight>)>,
+        (
+            Or<(Changed<GlobalTransform>, Changed<DirectionalLight>)>,
+            // Prevents this query from conflicting with camera queries.
+            Without<Camera>,
+        ),
     >,
 ) {
     for (transform, directional_light, mut frustum, visibility) in &mut views {

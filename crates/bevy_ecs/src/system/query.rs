@@ -278,6 +278,12 @@ pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     pub(crate) state: &'state QueryState<Q, F>,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
+    // SAFETY: This is used to ensure that `get_component_mut::<C>` properly fails when a Query writes C
+    // and gets converted to a read-only query using `to_readonly`. Without checking this, `get_component_mut` relies on
+    // QueryState's archetype_component_access, which will continue allowing write access to C after being cast to
+    // the read-only variant. This whole situation is confusing and error prone. Ideally this is a temporary hack
+    // until we sort out a cleaner alternative.
+    pub(crate) force_read_only_component_access: bool,
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w, 's, Q, F> {
@@ -301,6 +307,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         change_tick: u32,
     ) -> Self {
         Self {
+            force_read_only_component_access: false,
             world,
             state,
             last_change_tick,
@@ -316,13 +323,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn to_readonly(&self) -> Query<'_, 's, Q::ReadOnly, F::ReadOnly> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
-        unsafe {
-            Query::new(
-                self.world,
-                new_state,
-                self.last_change_tick,
-                self.change_tick,
-            )
+        Query {
+            // SAFETY: this must be set to true or `get_component_mut` will be unsound. See the comments
+            // on this field for more details
+            force_read_only_component_access: true,
+            world: self.world,
+            state: new_state,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
         }
     }
 
@@ -1161,6 +1169,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         &self,
         entity: Entity,
     ) -> Result<Mut<'_, T>, QueryComponentError> {
+        // SAFETY: this check is required to ensure soundness in the case of `to_readonly().get_component_mut()`
+        // See the comments on the `force_read_only_component_access` field for more info.
+        if self.force_read_only_component_access {
+            return Err(QueryComponentError::MissingWriteAccess);
+        }
         let world = self.world;
         let entity_ref = world
             .get_entity(entity)
@@ -1411,7 +1424,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Quer
 }
 
 /// An error that occurs when retrieving a specific [`Entity`]'s component from a [`Query`]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum QueryComponentError {
     MissingReadAccess,
     MissingWriteAccess,

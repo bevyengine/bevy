@@ -12,7 +12,7 @@ pub mod entity;
 pub mod update;
 pub mod widget;
 
-use bevy_render::extract_component::ExtractComponentPlugin;
+use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
@@ -104,11 +104,27 @@ impl Plugin for UiPlugin {
                 CoreStage::PostUpdate,
                 widget::text_system
                     .before(UiSystem::Flex)
-                    .after(ModifiesWindows),
+                    .after(ModifiesWindows)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `widget::text_system`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem)
+                    // Potential conflict: `Assets<Image>`
+                    // Since both systems will only ever insert new [`Image`] assets,
+                    // they will never observe each other's effects.
+                    .ambiguous_with(bevy_text::update_text2d_layout),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::image_node_system.before(UiSystem::Flex),
+                widget::image_node_system
+                    .before(UiSystem::Flex)
+                    // Potential conflicts: `Assets<Image>`
+                    // They run independently since `widget::image_node_system` will only ever observe
+                    // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(bevy_text::update_text2d_layout)
+                    .ambiguous_with(widget::text_system),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

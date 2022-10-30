@@ -578,8 +578,8 @@ async fn load_texture<'a>(
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let mut texture = match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
-            let start = view.offset() as usize;
-            let end = (view.offset() + view.length()) as usize;
+            let start = view.offset();
+            let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
             Image::from_buffer(
                 buffer,
@@ -920,7 +920,7 @@ fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 /// Returns the label for the `material`.
 fn material_label(material: &gltf::Material) -> String {
     if let Some(index) = material.index() {
-        format!("Material{}", index)
+        format!("Material{index}")
     } else {
         "MaterialDefault".to_string()
     }
