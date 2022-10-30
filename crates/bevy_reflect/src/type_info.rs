@@ -1,5 +1,6 @@
 use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
+    WrapperInfo,
 };
 use std::any::{Any, TypeId};
 
@@ -102,6 +103,7 @@ pub enum TypeInfo {
     Array(ArrayInfo),
     Map(MapInfo),
     Enum(EnumInfo),
+    Wrapper(WrapperInfo),
     Value(ValueInfo),
     /// Type information for "dynamic" types whose metadata can't be known at compile-time.
     ///
@@ -120,6 +122,7 @@ impl TypeInfo {
             Self::Array(info) => info.type_id(),
             Self::Map(info) => info.type_id(),
             Self::Enum(info) => info.type_id(),
+            Self::Wrapper(info) => info.type_id(),
             Self::Value(info) => info.type_id(),
             Self::Dynamic(info) => info.type_id(),
         }
@@ -137,6 +140,7 @@ impl TypeInfo {
             Self::Array(info) => info.type_name(),
             Self::Map(info) => info.type_name(),
             Self::Enum(info) => info.type_name(),
+            Self::Wrapper(info) => info.type_name(),
             Self::Value(info) => info.type_name(),
             Self::Dynamic(info) => info.type_name(),
         }
