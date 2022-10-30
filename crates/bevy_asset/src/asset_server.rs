@@ -31,8 +31,8 @@ pub enum AssetServerError {
     },
 
     /// The handle type does not match the type of the loaded asset.
-    #[error("the given type does not match the type of the loaded asset")]
-    IncorrectHandleType,
+    #[error("the given type does not match the type of the loaded asset: {0}")]
+    IncorrectHandleType(Uuid),
 
     /// Encountered an error while processing an asset.
     #[error("encountered an error while loading an asset: {0}")]
@@ -302,6 +302,16 @@ impl AssetServer {
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
+    }
+
+    /// Similar to [`AssetServer::load`] but this version will not panic. Instead, it will
+    /// emit an [`AssetServerError::IncorrectHandleType`] if there's a type mismatch.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn try_load<'a, T: Asset, P: Into<AssetPath<'a>>>(
+        &self,
+        path: P,
+    ) -> Result<Handle<T>, AssetServerError> {
+        self.load_untyped(path).get_typed()
     }
 
     async fn load_async(

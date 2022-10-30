@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     path::{AssetPath, AssetPathId},
-    Asset, Assets,
+    Asset, AssetServerError, Assets,
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{
@@ -371,7 +371,21 @@ impl HandleUntyped {
     /// Create a weak typed [`Handle`] from this handle.
     ///
     /// If this handle is strong and dropped, there is no guarantee that the asset
-    /// will still be available (if only the returned handle is kept)
+    /// will still be available (if only the returned handle is kept).
+    ///
+    /// Emits [`AssetServerError::IncorrectHandleType`] if there's a type mismatch.
+    pub fn get_typed_weak<T: Asset>(&self) -> Result<Handle<T>, AssetServerError> {
+        self.clone_weak().get_typed()
+    }
+
+    /// Create a weak typed [`Handle`] from this handle.
+    ///
+    /// If this handle is strong and dropped, there is no guarantee that the asset
+    /// will still be available (if only the returned handle is kept).
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if the underlying [`Uuid`] types do not match.
     pub fn typed_weak<T: Asset>(&self) -> Handle<T> {
         self.clone_weak().typed()
     }
@@ -380,27 +394,38 @@ impl HandleUntyped {
     ///
     /// The new handle will maintain the Strong or Weak status of the current handle.
     ///
-    /// # Panics
-    ///
-    /// Will panic if type `T` doesn't match this handle's actual asset type.
-    pub fn typed<T: Asset>(mut self) -> Handle<T> {
+    /// Emits [`AssetServerError::IncorrectHandleType`] if there's a type mismatch.
+    pub fn get_typed<T: Asset>(mut self) -> Result<Handle<T>, AssetServerError> {
         if let HandleId::Id(type_uuid, _) = self.id {
-            assert!(
-                T::TYPE_UUID == type_uuid,
-                "Attempted to convert handle to invalid type."
-            );
+            if T::TYPE_UUID != type_uuid {
+                return Err(AssetServerError::IncorrectHandleType(type_uuid));
+            }
         }
+
         let handle_type = match &self.handle_type {
             HandleType::Strong(sender) => HandleType::Strong(sender.clone()),
             HandleType::Weak => HandleType::Weak,
         };
-        // ensure we don't send the RefChange event when "self" is dropped
+
+        // Ensure we don't send the RefChange event when "self" is dropped.
         self.handle_type = HandleType::Weak;
-        Handle {
+
+        Ok(Handle {
             handle_type,
             id: self.id,
             marker: PhantomData::default(),
-        }
+        })
+    }
+
+    /// Converts this handle into a typed [`Handle`] of an [`Asset`] `T`.
+    ///
+    /// The new handle will maintain the Strong or Weak status of the current handle.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if the underlying [`Uuid`] types do not match.
+    pub fn typed<T: Asset>(self) -> Handle<T> {
+        self.get_typed().unwrap()
     }
 }
 
