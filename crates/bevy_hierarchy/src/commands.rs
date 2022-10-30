@@ -60,10 +60,9 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
         {
-            // SAFETY: parent entity is not modified and its location is updated manually
+            // SAFETY: The EntityLocation is updated afterwards.
             let world = unsafe { self.world_mut() };
             set_parent(world, child, parent);
-            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
         if let Some(mut children_component) = self.get_mut::<Children>() {
@@ -81,11 +80,9 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
         }
         let parent = self.id();
         {
-            // SAFETY: parent entity is not modified and its location is updated manually
+            // SAFETY: The EntityLocation is updated afterwards.
             let world = unsafe { self.world_mut() };
             update_parent_components(world, parent, children);
-
-            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
         if let Some(mut children_component) = self.get_mut::<Children>() {
@@ -102,13 +99,11 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
     fn insert_child(&mut self, index: usize, child: Entity) -> &mut Self {
         let parent = self.id();
         {
-            // SAFETY: parent entity is not modified and its location is updated manually
+            // SAFETY: The EntityLocation is updated afterwards.
             let world = unsafe { self.world_mut() };
             set_parent(world, child, parent);
-            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
-
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component.0.retain(|value| child != *value);
             if index < children_component.0.len() {
@@ -129,13 +124,11 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
         }
         let parent = self.id();
         {
-            // SAFETY: parent entity is not modified and its location is updated manually
+            // SAFETY: The EntityLocation is updated afterwards.
             let world = unsafe { self.world_mut() };
             update_parent_components(world, parent, children);
-            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
-
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
                 .0
@@ -160,10 +153,11 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
                     self.remove::<Children>();
                 }
                 let parent = self.id();
-                // SAFETY: This doesn't change the parent's location
+                // SAFETY: The EntityLocation is updated afterwards.
                 let world = unsafe { self.world_mut() };
                 world.entity_mut(child).remove::<Parent>();
                 push_event(world, HierarchyEvent::ChildRemoved { child, parent });
+                self.update_location();
             }
         }
         self
@@ -171,28 +165,30 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        // SAFETY: This doesn't change the parent's location
+        // SAFETY: The EntityLocation is updated afterwards.
         let world = unsafe { self.world_mut() };
         remove_children(world, parent, children);
+        self.update_location();
         self
     }
 
     fn clear_children(&mut self) -> &mut Self {
         let parent = self.id();
         if let Some(children) = self.remove::<Children>() {
-            // SAFETY: This doesn't change the parent's location
+            // SAFETY: The EntityLocation is updated afterwards.
             let world = unsafe { self.world_mut() };
             for child in children.0 {
                 world.entity_mut(child).remove::<Parent>();
                 push_event(world, HierarchyEvent::ChildRemoved { child, parent });
             }
+            self.update_location();
         }
         self
     }
 
     fn set_parent(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        // SAFETY: Not
+        // SAFETY: The EntityLocation is updated afterwards.
         let world = unsafe { self.world_mut() };
         world.entity_mut(parent).add_child(child);
         self.update_location();
@@ -202,11 +198,10 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
     fn remove_parent(&mut self) -> &mut Self {
         let child = self.id();
         if let Some(parent) = self.remove::<Parent>().map(|p| p.get()) {
-            // SAFETY: child entity is not modified and its location is updated manually
+            // SAFETY: The EntityLocation is updated afterwards.
             let world = unsafe { self.world_mut() };
             remove_child(world, parent, child);
             push_event(world, HierarchyEvent::ChildRemoved { child, parent });
-            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
             self.update_location();
         }
         self
