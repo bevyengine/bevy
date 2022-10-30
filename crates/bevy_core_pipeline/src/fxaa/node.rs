@@ -1,36 +1,33 @@
 use std::sync::Mutex;
 
+use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindingResource,
-        CachedRenderPipelineId, FilterMode, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor, SamplerDescriptor, TextureView, TextureViewId,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, Operations,
+        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
+        TextureViewId,
     },
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
 use bevy_utils::default;
 
-use super::{FXAAPipelineBindGroup, FXAAPipelines, FXAATexture, FXAA};
-
-pub struct FXAANode {
+pub struct FxaaNode {
     query: QueryState<
         (
-            &'static ExtractedView,
             &'static ViewTarget,
-            &'static FXAATexture,
-            &'static FXAAPipelines,
-            &'static FXAA,
+            &'static CameraFxaaPipeline,
+            &'static Fxaa,
         ),
         With<ExtractedView>,
     >,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
-impl FXAANode {
+impl FxaaNode {
     pub const IN_VIEW: &'static str = "view";
 
     pub fn new(world: &mut World) -> Self {
@@ -41,9 +38,9 @@ impl FXAANode {
     }
 }
 
-impl Node for FXAANode {
+impl Node for FxaaNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(FXAANode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(FxaaNode::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -58,71 +55,27 @@ impl Node for FXAANode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let pipeline_cache = world.resource::<PipelineCache>();
-        let fxaa_bind_group = world.resource::<FXAAPipelineBindGroup>();
+        let fxaa_pipeline = world.resource::<FxaaPipeline>();
 
-        let (view, target, fxaa_texture, pipelines, fxaa) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(result) => result,
-                Err(_) => return Ok(()),
-            };
+        let (target, pipeline, fxaa) = match self.query.get_manual(world, view_entity) {
+            Ok(result) => result,
+            Err(_) => return Ok(()),
+        };
 
         if !fxaa.enabled {
             return Ok(());
         };
 
-        let main_texture = target.main_texture.texture();
-        let fxaa_texture = &fxaa_texture.output.default_view;
+        let pipeline = pipeline_cache
+            .get_render_pipeline(pipeline.pipeline_id)
+            .unwrap();
 
-        let pipeline_id = if view.hdr {
-            pipelines.to_ldr_pipeline_id
-        } else {
-            pipelines.blit_pipeline_id
-        };
-        self.render_pass(
-            render_context,
-            pipeline_cache,
-            pipeline_id,
-            main_texture,
-            fxaa_texture,
-            fxaa_bind_group,
-        );
-
-        let pipeline_id = if view.hdr {
-            pipelines.fxaa_hdr_pipeline_id
-        } else {
-            pipelines.fxaa_ldr_pipeline_id
-        };
-        self.render_pass(
-            render_context,
-            pipeline_cache,
-            pipeline_id,
-            fxaa_texture,
-            main_texture,
-            fxaa_bind_group,
-        );
-
-        Ok(())
-    }
-}
-
-impl FXAANode {
-    fn render_pass(
-        &self,
-        render_context: &mut RenderContext,
-        pipeline_cache: &PipelineCache,
-        pipeline_id: CachedRenderPipelineId,
-        in_texture: &TextureView,
-        out_texture: &TextureView,
-        bind_group_layout: &BindGroupLayout,
-    ) {
-        let pipeline = match pipeline_cache.get_render_pipeline(pipeline_id) {
-            Some(pipeline) => pipeline,
-            None => return,
-        };
-
+        let post_process = target.post_process_write();
+        let source = post_process.source;
+        let destination = post_process.destination;
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
-            Some((id, bind_group)) if in_texture.id() == *id => bind_group,
+            Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
                     .render_device
@@ -138,11 +91,11 @@ impl FXAANode {
                         .render_device
                         .create_bind_group(&BindGroupDescriptor {
                             label: None,
-                            layout: bind_group_layout,
+                            layout: &fxaa_pipeline.texture_bind_group,
                             entries: &[
                                 BindGroupEntry {
                                     binding: 0,
-                                    resource: BindingResource::TextureView(in_texture),
+                                    resource: BindingResource::TextureView(source),
                                 },
                                 BindGroupEntry {
                                     binding: 1,
@@ -151,7 +104,7 @@ impl FXAANode {
                             ],
                         });
 
-                let (_, bind_group) = cached_bind_group.insert((in_texture.id(), bind_group));
+                let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group
             }
         };
@@ -159,7 +112,7 @@ impl FXAANode {
         let pass_descriptor = RenderPassDescriptor {
             label: Some("fxaa_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                view: out_texture,
+                view: destination,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
@@ -173,5 +126,7 @@ impl FXAANode {
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        Ok(())
     }
 }

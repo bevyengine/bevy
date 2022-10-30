@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::fxaa::{FXAAPlugin, Quality, FXAA},
+    core_pipeline::fxaa::{Fxaa, FxaaPlugin, Quality},
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -12,13 +12,14 @@ use bevy::{
 };
 
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
-        .add_plugin(FXAAPlugin) // Disables MSAA by default.
+    App::new()
+        // Disable MSAA be default
+        .insert_resource(Msaa { samples: 1 })
+        .add_plugins(DefaultPlugins)
+        .add_plugin(FxaaPlugin)
         .add_startup_system(setup)
-        .add_system(toggle_fxaa);
-
-    app.run();
+        .add_system(toggle_fxaa)
+        .run();
 }
 
 /// set up a simple 3D scene
@@ -91,13 +92,13 @@ fn setup(
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         })
-        .insert(FXAA::default());
+        .insert(Fxaa::default());
 
     println!("Toggle with:\n1 - NO AA\n2 - MSAA 4\n3 - FXAA (default)");
     println!("Threshold:\n7 - LOW\n8 - MEDIUM\n9 - HIGH (default)\n0 - ULTRA");
 }
 
-fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut FXAA>, mut msaa: ResMut<Msaa>) {
+fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa: ResMut<Msaa>) {
     let set_no_aa = keys.just_pressed(KeyCode::Key1);
     let set_msaa = keys.just_pressed(KeyCode::Key2);
     let set_fxaa = keys.just_pressed(KeyCode::Key3);

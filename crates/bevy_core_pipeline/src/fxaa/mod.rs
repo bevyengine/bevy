@@ -1,29 +1,26 @@
-use std::borrow::Cow;
-
-use bevy_derive::Deref;
-use bevy_ecs::query::QueryItem;
-use bevy_render::camera::ExtractedCamera;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
-use bevy_render::prelude::Camera;
-use bevy_render::render_graph::RenderGraph;
-use bevy_render::texture::{BevyDefault, CachedTexture, TextureCache};
-use bevy_utils::HashMap;
-
-use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_ecs::prelude::*;
-use bevy_render::renderer::RenderDevice;
-use bevy_render::view::{ExtractedView, Msaa, ViewTarget};
-use bevy_render::{render_resource::*, RenderApp, RenderStage};
-
-use bevy_reflect::TypeUuid;
-
 mod node;
 
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
-use crate::fxaa::node::FXAANode;
-use crate::{core_2d, core_3d};
-#[derive(Clone)]
+use crate::{
+    core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    fxaa::node::FxaaNode,
+};
+use bevy_app::prelude::*;
+use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_derive::Deref;
+use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_reflect::TypeUuid;
+use bevy_render::{
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    prelude::Camera,
+    render_graph::RenderGraph,
+    render_resource::*,
+    renderer::RenderDevice,
+    texture::{BevyDefault, CachedTexture},
+    view::{ExtractedView, ViewTarget},
+    RenderApp, RenderStage,
+};
+
+#[derive(Eq, PartialEq, Hash, Clone, Copy)]
 pub enum Quality {
     Low,
     Medium,
@@ -43,7 +40,7 @@ impl Quality {
 }
 
 #[derive(Component, Clone)]
-pub struct FXAA {
+pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
 
@@ -58,9 +55,9 @@ pub struct FXAA {
     pub edge_threshold_min: Quality,
 }
 
-impl Default for FXAA {
+impl Default for Fxaa {
     fn default() -> Self {
-        FXAA {
+        Fxaa {
             enabled: true,
             edge_threshold: Quality::High,
             edge_threshold_min: Quality::High,
@@ -68,7 +65,7 @@ impl Default for FXAA {
     }
 }
 
-impl FXAA {
+impl Fxaa {
     pub fn get_settings(&self) -> Vec<String> {
         vec![
             format!("EDGE_THRESH_{}", self.edge_threshold.get_str()),
@@ -77,7 +74,7 @@ impl FXAA {
     }
 }
 
-impl ExtractComponent for FXAA {
+impl ExtractComponent for Fxaa {
     type Query = &'static Self;
     type Filter = With<Camera>;
 
@@ -86,39 +83,30 @@ impl ExtractComponent for FXAA {
     }
 }
 
-const LDR_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7112161265414793412);
-
 const FXAA_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4182761465141723543);
-
-const BLIT_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8382381532578979433);
 
 pub const FXAA_NODE_3D: &str = "fxaa_node_3d";
 pub const FXAA_NODE_2D: &str = "fxaa_node_2d";
 
-pub struct FXAAPlugin;
-impl Plugin for FXAAPlugin {
+pub struct FxaaPlugin;
+impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Msaa { samples: 1 }); // Disable MSAA be default
-
-        load_internal_asset!(app, LDR_SHADER_HANDLE, "to_ldr.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, BLIT_SHADER_HANDLE, "blit.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(ExtractComponentPlugin::<FXAA>::default());
+        app.add_plugin(ExtractComponentPlugin::<Fxaa>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
             Err(_) => return,
         };
         render_app
-            .init_resource::<FXAAPipelineBindGroup>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_fxaa_texture);
+            .init_resource::<FxaaPipeline>()
+            .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
+            .add_system_to_stage(RenderStage::Prepare, prepare_fxaa_pipelines);
 
         {
-            let fxaa_node = FXAANode::new(&mut render_app.world);
+            let fxaa_node = FxaaNode::new(&mut render_app.world);
             let mut binding = render_app.world.resource_mut::<RenderGraph>();
             let graph = binding.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
 
@@ -129,20 +117,16 @@ impl Plugin for FXAAPlugin {
                     graph.input_node().unwrap().id,
                     core_3d::graph::input::VIEW_ENTITY,
                     FXAA_NODE_3D,
-                    FXAANode::IN_VIEW,
+                    FxaaNode::IN_VIEW,
                 )
                 .unwrap();
 
             graph
-                .add_node_edge(core_3d::graph::node::MAIN_PASS, FXAA_NODE_3D)
-                .unwrap();
-
-            graph
-                .add_node_edge(FXAA_NODE_3D, core_3d::graph::node::TONEMAPPING)
+                .add_node_edge(core_3d::graph::node::TONEMAPPING, FXAA_NODE_3D)
                 .unwrap();
         }
         {
-            let fxaa_node = FXAANode::new(&mut render_app.world);
+            let fxaa_node = FxaaNode::new(&mut render_app.world);
             let mut binding = render_app.world.resource_mut::<RenderGraph>();
             let graph = binding.get_sub_graph_mut(core_2d::graph::NAME).unwrap();
 
@@ -153,27 +137,25 @@ impl Plugin for FXAAPlugin {
                     graph.input_node().unwrap().id,
                     core_2d::graph::input::VIEW_ENTITY,
                     FXAA_NODE_2D,
-                    FXAANode::IN_VIEW,
+                    FxaaNode::IN_VIEW,
                 )
                 .unwrap();
 
             graph
-                .add_node_edge(core_2d::graph::node::MAIN_PASS, FXAA_NODE_2D)
-                .unwrap();
-
-            graph
-                .add_node_edge(FXAA_NODE_2D, core_2d::graph::node::TONEMAPPING)
+                .add_node_edge(core_2d::graph::node::TONEMAPPING, FXAA_NODE_2D)
                 .unwrap();
         }
     }
 }
 
 #[derive(Resource, Deref)]
-pub struct FXAAPipelineBindGroup(BindGroupLayout);
+pub struct FxaaPipeline {
+    texture_bind_group: BindGroupLayout,
+}
 
-impl FromWorld for FXAAPipelineBindGroup {
+impl FromWorld for FxaaPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let fxaa_texture_bind_group = render_world
+        let texture_bind_group = render_world
             .resource::<RenderDevice>()
             .create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("fxaa_texture_bind_group_layout"),
@@ -197,138 +179,82 @@ impl FromWorld for FXAAPipelineBindGroup {
                 ],
             });
 
-        FXAAPipelineBindGroup(fxaa_texture_bind_group)
-    }
-}
-
-fn fullscreen_vertex_pipeline_descriptor(
-    label: &'static str,
-    bind_group_layout: &BindGroupLayout,
-    shader: HandleUntyped,
-    shader_defs: Vec<String>,
-    entry_point: &'static str,
-    format: TextureFormat,
-) -> RenderPipelineDescriptor {
-    RenderPipelineDescriptor {
-        label: Some(label.into()),
-        layout: Some(vec![bind_group_layout.clone()]),
-        vertex: fullscreen_shader_vertex_state(),
-        fragment: Some(FragmentState {
-            shader: shader.typed(),
-            shader_defs,
-            entry_point: Cow::Borrowed(entry_point),
-            targets: vec![Some(ColorTargetState {
-                format,
-                blend: None,
-                write_mask: ColorWrites::ALL,
-            })],
-        }),
-        primitive: PrimitiveState::default(),
-        depth_stencil: None,
-        multisample: MultisampleState::default(),
+        FxaaPipeline { texture_bind_group }
     }
 }
 
 #[derive(Component)]
-pub struct FXAATexture {
+pub struct FxaaTexture {
     pub output: CachedTexture,
 }
 
 #[derive(Component)]
-pub struct FXAAPipelines {
-    pub fxaa_ldr_pipeline_id: CachedRenderPipelineId,
-    pub fxaa_hdr_pipeline_id: CachedRenderPipelineId,
-    pub to_ldr_pipeline_id: CachedRenderPipelineId,
-    pub blit_pipeline_id: CachedRenderPipelineId,
+pub struct CameraFxaaPipeline {
+    pub pipeline_id: CachedRenderPipelineId,
 }
 
-pub fn prepare_fxaa_texture(
-    mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    mut pipeline_cache: ResMut<PipelineCache>,
-    bind_group: Res<FXAAPipelineBindGroup>,
-    render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedView, &FXAA)>,
-) {
-    let mut output_textures = HashMap::default();
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub struct FxaaPipelineKey {
+    edge_threshold: Quality,
+    edge_threshold_min: Quality,
+    texture_format: TextureFormat,
+}
 
-    for (entity, camera, view, fxaa) in &views {
-        if let Some(physical_target_size) = camera.physical_target_size {
-            let mut texture_descriptor = TextureDescriptor {
-                label: None,
-                size: Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: if view.hdr {
+impl SpecializedRenderPipeline for FxaaPipeline {
+    type Key = FxaaPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        RenderPipelineDescriptor {
+            label: Some("fxaa".into()),
+            layout: Some(vec![self.texture_bind_group.clone()]),
+            vertex: fullscreen_shader_vertex_state(),
+            fragment: Some(FragmentState {
+                shader: FXAA_SHADER_HANDLE.typed(),
+                shader_defs: vec![
+                    format!("EDGE_THRESH_{}", key.edge_threshold.get_str()),
+                    format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()),
+                ],
+                entry_point: "fragment".into(),
+                targets: vec![Some(ColorTargetState {
+                    format: key.texture_format,
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            primitive: PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: MultisampleState::default(),
+        }
+    }
+}
+
+pub fn prepare_fxaa_pipelines(
+    mut commands: Commands,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<FxaaPipeline>>,
+    fxaa_pipeline: Res<FxaaPipeline>,
+    views: Query<(Entity, &ExtractedView, &Fxaa)>,
+) {
+    for (entity, view, fxaa) in &views {
+        if !fxaa.enabled {
+            continue;
+        }
+        let pipeline_id = pipelines.specialize(
+            &mut pipeline_cache,
+            &fxaa_pipeline,
+            FxaaPipelineKey {
+                edge_threshold: fxaa.edge_threshold,
+                edge_threshold_min: fxaa.edge_threshold_min,
+                texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
                     TextureFormat::bevy_default()
                 },
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-            };
+            },
+        );
 
-            texture_descriptor.label = Some("fxaa_view_target_texture");
-
-            let output = output_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
-                .clone();
-
-            let shader_defs = fxaa.get_settings();
-            let fxaa_ldr_descriptor = fullscreen_vertex_pipeline_descriptor(
-                "fxaa ldr pipeline",
-                &bind_group,
-                FXAA_SHADER_HANDLE,
-                shader_defs,
-                "fs_main",
-                TextureFormat::bevy_default(),
-            );
-
-            let mut shader_defs = fxaa.get_settings();
-            shader_defs.push(String::from("TONEMAP"));
-            let fxaa_hdr_descriptor = fullscreen_vertex_pipeline_descriptor(
-                "fxaa hdr pipeline",
-                &bind_group,
-                FXAA_SHADER_HANDLE,
-                shader_defs,
-                "fs_main",
-                ViewTarget::TEXTURE_FORMAT_HDR,
-            );
-
-            let to_ldr_descriptor = fullscreen_vertex_pipeline_descriptor(
-                "to ldr pipeline",
-                &bind_group,
-                LDR_SHADER_HANDLE,
-                vec![],
-                "fs_main",
-                ViewTarget::TEXTURE_FORMAT_HDR,
-            );
-
-            let blit_descriptor = fullscreen_vertex_pipeline_descriptor(
-                "blit pipeline",
-                &bind_group,
-                BLIT_SHADER_HANDLE,
-                vec![],
-                "fs_main",
-                TextureFormat::bevy_default(),
-            );
-
-            let pipelines = FXAAPipelines {
-                fxaa_ldr_pipeline_id: pipeline_cache.queue_render_pipeline(fxaa_ldr_descriptor),
-                fxaa_hdr_pipeline_id: pipeline_cache.queue_render_pipeline(fxaa_hdr_descriptor),
-                to_ldr_pipeline_id: pipeline_cache.queue_render_pipeline(to_ldr_descriptor),
-                blit_pipeline_id: pipeline_cache.queue_render_pipeline(blit_descriptor),
-            };
-
-            commands
-                .entity(entity)
-                .insert(FXAATexture { output })
-                .insert(pipelines);
-        }
+        commands
+            .entity(entity)
+            .insert(CameraFxaaPipeline { pipeline_id });
     }
 }
