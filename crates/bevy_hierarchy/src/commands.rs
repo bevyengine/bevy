@@ -28,7 +28,6 @@ pub trait HierarchyCommands {
     /// If the `child` already had a parent it will be removed from that parent.
     ///
     /// If the `child` already belonged to this entity, it will still be moved to the `index`.
-    ///
     fn insert_child(&mut self, index: usize, child: Entity) -> &mut Self;
 
     /// Add the `children` to this entity, inserted at the given `index`.
