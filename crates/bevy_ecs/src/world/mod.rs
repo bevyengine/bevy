@@ -449,6 +449,9 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityMut {
+        if std::any::TypeId::of::<B>() == std::any::TypeId::of::<()>() {
+            return self.spawn_empty();
+        }
         self.flush();
         let entity = self.entities.alloc();
         let entity_location = {
