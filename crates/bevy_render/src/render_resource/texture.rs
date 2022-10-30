@@ -7,8 +7,22 @@ pub struct TextureId(Uuid);
 
 /// A GPU-accessible texture.
 ///
-/// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
-/// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
+/// Although most-commonly used to store data about surface properties, textures can also be used
+/// as general purpose storage for 1-, 2-, or 3-dimensional data.
+///
+/// It is created by setting up a [`TextureDescriptor`](crate::render_resource::TextureDescriptor)
+/// and then calling [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture) or  
+/// [`RenderDevice::create_texture_with_data`](crate::renderer::RenderDevice::create_texture_with_data).
+///
+/// Note that a closely related data structure is [`Image`](crate::texture::Image). It can be thought of a CPU-side analogue of
+/// [`Texture`](crate::render_resource::Texture), containing the data that will eventually be uploaded to a GPU-side
+/// [`Texture`](crate::render_resource::Texture).
+///
+/// For general information about textures, see the documentation for [`wgpu::Texture`](wgpu::Texture) and the
+/// WebGPU specification entry on [`GPUTexture`]. A [`Texture`] may be converted from and dereferences into a
+/// [`wgpu::Texture`](wgpu::Texture).
+///
+/// [`GPUTexture`]: https://gpuweb.github.io/gpuweb/#texture-interface
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
@@ -22,7 +36,7 @@ impl Texture {
         self.id
     }
 
-    /// Creates a view of this texture.
+    /// Creates a [`TextureView`] of this texture.
     pub fn create_view(&self, desc: &wgpu::TextureViewDescriptor) -> TextureView {
         TextureView::from(self.value.create_view(desc))
     }
@@ -67,10 +81,14 @@ pub enum TextureViewValue {
     },
 }
 
-/// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
+/// Describes a [`Texture`] with the associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
 ///
-/// May be converted from a [`TextureView`](wgpu::TextureView) or [`SurfaceTexture`](wgpu::SurfaceTexture)
-/// or dereferences to a wgpu [`TextureView`](wgpu::TextureView).
+/// It is created by setting up a [`TextureViewDescriptor`](crate::render_resource::TextureViewDescriptor), and
+/// calling the [`create_view`](crate::render_resource::Texture::create_view) method on a
+/// [`Texture`](crate::render_resource::Texture).
+///
+/// Can be converted from [`wgpu::TextureView`](wgpu::TextureView) or wgpu [`wgpu::SurfaceTexture`](wgpu::SurfaceTexture). It can
+/// be dereferenced into a [`wgpu::TextureView`](wgpu::TextureView).
 #[derive(Clone, Debug)]
 pub struct TextureView {
     id: TextureViewId,
@@ -134,8 +152,10 @@ pub struct SamplerId(Uuid);
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
 ///
-/// May be converted from and dereferences to a wgpu [`Sampler`](wgpu::Sampler).
-/// Can be created via [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
+/// It is created by setting up a [`SamplerDescriptor`](crate::render_resource::SamplerDescriptor), and a call to
+/// [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
+///
+/// May be converted from and dereferences into a [`wgpu::Sampler`](wgpu::Sampler).
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
