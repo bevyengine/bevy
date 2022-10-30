@@ -1,11 +1,10 @@
-//! Renders a 2D scene containing pixelated bevy logo in pixel perfect
+//! Renders a 2D scene containing pixelated bevy logo in a pixel perfect style
 
 use bevy::prelude::*;
 
-fn main(){
+fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(ImagePlugin::default_nearest())
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_startup_system(setup)
         .add_system(sprite_movement)
         .run();
