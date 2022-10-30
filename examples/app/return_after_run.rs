@@ -11,12 +11,12 @@ fn main() {
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
-                title: "Close window to return to main function".to_owned(),
+                title: "Close the window to return to the main function".to_owned(),
                 ..default()
             },
             ..default()
         }))
-        .add_system(system1)
+        .add_system(system)
         .run();
     println!("Bevy App has exited. We are back in our main function.");
 }
