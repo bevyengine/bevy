@@ -15,7 +15,7 @@ pub(crate) struct SparseArray<I, V = I> {
 }
 
 /// A space-optimized version of [`SparseArray`] that cannot be changed
-/// after contrusction.
+/// after construction.
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseArray<I, V = I> {
     values: Box<[Option<V>]>,
