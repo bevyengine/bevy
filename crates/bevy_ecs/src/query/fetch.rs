@@ -1533,8 +1533,8 @@ impl<'a, Q: WorldQuery> WorldQueryGats<'a> for NopWorldQuery<Q> {
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<Q: WorldQuery> ReadOnlyWorldQuery for NopWorldQuery<Q> {}
 
-// A compile-time checked union of two different types that differs based
-// on the storage type of a given Component.
+/// A compile-time checked union of two different types that differs based
+/// on the storage type of a given Component.
 pub(super) union StorageSwitch<T: Component, A, B> {
     table: ManuallyDrop<A>,
     sparse_set: ManuallyDrop<B>,
@@ -1542,37 +1542,70 @@ pub(super) union StorageSwitch<T: Component, A, B> {
 }
 
 impl<T: Component, A, B> StorageSwitch<T, A, B> {
-    pub const fn new_table(table: A) -> Self {
-        Self {
-            table: ManuallyDrop::new(table),
+    /// Creates a new [`StorageSwitch`] using a table variant.
+    /// 
+    /// # Panics
+    /// This will panic on debug builds if `T` is not a table component.
+    /// 
+    /// # Safety
+    /// `T` must be a table component.
+    pub const unsafe fn new_table(table: A) -> Self {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => Self {
+                table: ManuallyDrop::new(table),
+            },
+            _ => debug_checked_unreachable(),
         }
     }
 
-    pub const fn new_sparse_set(sparse_set: B) -> Self {
-        Self {
-            sparse_set: ManuallyDrop::new(sparse_set),
+    /// Creates a new [`StorageSwitch`] using a sparse set variant.
+    /// 
+    /// # Panics
+    /// This will panic on debug builds if `T` is not a sparse set component.
+    /// 
+    /// # Safety
+    /// `T` must be a sparse set component.
+    pub const unsafe fn new_sparse_set(sparse_set: B) -> Self {
+        // SAFETY: The variant of the union is checked at compile time
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => Self {
+                sparse_set: ManuallyDrop::new(sparse_set),
+            },
+            _ => debug_checked_unreachable(),
         }
     }
 }
 
 impl<T: Component, A: Copy, B: Copy> StorageSwitch<T, A, B> {
-    pub fn table(&self) -> A {
-        // SAFETY: The variant of the union is checked at compile time
-        unsafe {
-            match T::Storage::STORAGE_TYPE {
-                StorageType::Table => *self.table,
-                _ => debug_checked_unreachable(),
-            }
+    /// Fetches the internal value as a table variant.
+    /// 
+    /// # Panics
+    /// This will panic on debug builds if `T` is not a table component.
+    /// 
+    /// # Safety 
+    /// The [`StorageSwitch`] must be made via [`StorageSwitch::new_table`].
+    pub unsafe fn table(&self) -> A {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => *self.table,
+            // SAFETY: If T::Storage::StorageType is set to table, new_table
+            // would have panicked instead of producing a value.
+            _ => debug_checked_unreachable(),
         }
     }
 
-    pub fn sparse_set(&self) -> B {
-        // SAFETY: The variant of the union is checked at compile time
-        unsafe {
-            match T::Storage::STORAGE_TYPE {
-                StorageType::SparseSet => *self.sparse_set,
-                _ => debug_checked_unreachable(),
-            }
+    /// Fetches the internal value as a sparse set variant.
+    /// 
+    /// # Panics
+    /// This will panic on debug builds if `T` is not a sparse set component.
+    /// 
+    /// # Safety 
+    /// The [`StorageSwitch`] must be made via [`StorageSwitch::new_sparse_set`].
+    pub unsafe fn sparse_set(&self) -> B {
+        match T::Storage::STORAGE_TYPE {
+            StorageType::SparseSet => *self.sparse_set,
+            // SAFETY: If T::Storage::StorageType is set to table, new_sparse_set
+            // would have panicked instead of producing a value.
+            _ => debug_checked_unreachable(),
         }
     }
 }
