@@ -15,7 +15,7 @@ use bevy_render::{
     render_graph::RenderGraph,
     render_resource::*,
     renderer::RenderDevice,
-    texture::{BevyDefault, CachedTexture},
+    texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     RenderApp, RenderStage,
 };
@@ -181,11 +181,6 @@ impl FromWorld for FxaaPipeline {
 
         FxaaPipeline { texture_bind_group }
     }
-}
-
-#[derive(Component)]
-pub struct FxaaTexture {
-    pub output: CachedTexture,
 }
 
 #[derive(Component)]
