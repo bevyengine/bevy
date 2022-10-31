@@ -672,8 +672,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     }
 }
 
-// A compile-time checked union of two different types that differs based
-// whether a fetch is dense or not.
+/// A compile-time checked union of two different types that differs based
+/// whether a fetch is dense or not.
 union QuerySwitch<Q, F, A, B> {
     dense: ManuallyDrop<A>,
     sparse: ManuallyDrop<B>,
@@ -683,19 +683,51 @@ union QuerySwitch<Q, F, A, B> {
 impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     const IS_DENSE: bool = Q::IS_DENSE && F::IS_DENSE;
 
-    pub const fn new_dense(dense: A) -> Self {
-        Self {
-            dense: ManuallyDrop::new(dense),
+    /// Creates a new [`QuerySwitch`] of the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if either `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are not true.
+    ///
+    /// # Safety
+    /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    pub const unsafe fn new_dense(dense: A) -> Self {
+        if Self::IS_DENSE {
+            Self {
+                dense: ManuallyDrop::new(dense),
+            }
+        } else {
+            debug_checked_unreachable()
         }
     }
 
-    pub const fn new_sparse(sparse: B) -> Self {
-        Self {
-            sparse: ManuallyDrop::new(sparse),
+    /// Creates a new [`QuerySwitch`] of the sparse variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if both `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are true.
+    ///
+    /// # Safety
+    /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    pub const unsafe fn new_sparse(sparse: B) -> Self {
+        if !Self::IS_DENSE {
+            Self {
+                sparse: ManuallyDrop::new(sparse),
+            }
+        } else {
+            debug_checked_unreachable()
         }
     }
 
-    pub fn dense(&mut self) -> &mut A {
+    /// Fetches a mutable reference to the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if either `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are not true.
+    ///
+    /// # Safety
+    /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    pub unsafe fn dense(&mut self) -> &mut A {
         // SAFETY: The variant of the union is checked at compile time
         unsafe {
             if Self::IS_DENSE {
@@ -706,7 +738,15 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
         }
     }
 
-    pub fn sparse(&mut self) -> &mut B {
+    /// Fetches a mutable reference to the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if both `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are true.
+    ///
+    /// # Safety
+    /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    pub unsafe fn sparse(&mut self) -> &mut B {
         // SAFETY: The variant of the union is checked at compile time
         unsafe {
             if !Self::IS_DENSE {

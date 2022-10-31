@@ -1543,10 +1543,10 @@ pub(super) union StorageSwitch<T: Component, A, B> {
 
 impl<T: Component, A, B> StorageSwitch<T, A, B> {
     /// Creates a new [`StorageSwitch`] using a table variant.
-    /// 
+    ///
     /// # Panics
     /// This will panic on debug builds if `T` is not a table component.
-    /// 
+    ///
     /// # Safety
     /// `T` must be a table component.
     pub const unsafe fn new_table(table: A) -> Self {
@@ -1559,10 +1559,10 @@ impl<T: Component, A, B> StorageSwitch<T, A, B> {
     }
 
     /// Creates a new [`StorageSwitch`] using a sparse set variant.
-    /// 
+    ///
     /// # Panics
     /// This will panic on debug builds if `T` is not a sparse set component.
-    /// 
+    ///
     /// # Safety
     /// `T` must be a sparse set component.
     pub const unsafe fn new_sparse_set(sparse_set: B) -> Self {
@@ -1578,11 +1578,11 @@ impl<T: Component, A, B> StorageSwitch<T, A, B> {
 
 impl<T: Component, A: Copy, B: Copy> StorageSwitch<T, A, B> {
     /// Fetches the internal value as a table variant.
-    /// 
+    ///
     /// # Panics
     /// This will panic on debug builds if `T` is not a table component.
-    /// 
-    /// # Safety 
+    ///
+    /// # Safety
     /// The [`StorageSwitch`] must be made via [`StorageSwitch::new_table`].
     pub unsafe fn table(&self) -> A {
         match T::Storage::STORAGE_TYPE {
@@ -1594,11 +1594,11 @@ impl<T: Component, A: Copy, B: Copy> StorageSwitch<T, A, B> {
     }
 
     /// Fetches the internal value as a sparse set variant.
-    /// 
+    ///
     /// # Panics
     /// This will panic on debug builds if `T` is not a sparse set component.
-    /// 
-    /// # Safety 
+    ///
+    /// # Safety
     /// The [`StorageSwitch`] must be made via [`StorageSwitch::new_sparse_set`].
     pub unsafe fn sparse_set(&self) -> B {
         match T::Storage::STORAGE_TYPE {
