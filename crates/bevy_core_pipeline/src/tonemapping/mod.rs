@@ -1,29 +1,24 @@
 mod node;
 
-use bevy_ecs::query::QueryItem;
-use bevy_render::camera::Camera;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 pub use node::TonemappingNode;
 
+use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::BevyDefault;
-use bevy_render::{render_resource::*, RenderApp};
-
+use bevy_ecs::query::QueryItem;
 use bevy_reflect::TypeUuid;
-
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_render::camera::Camera;
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::renderer::RenderDevice;
+use bevy_render::view::ViewTarget;
+use bevy_render::{render_resource::*, RenderApp};
 
 const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);
 
 const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
-
-const BLIT_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2982361071241723543);
 
 pub struct TonemappingPlugin;
 
@@ -41,7 +36,6 @@ impl Plugin for TonemappingPlugin {
             "tonemapping_shared.wgsl",
             Shader::from_wgsl
         );
-        load_internal_asset!(app, BLIT_SHADER_HANDLE, "blit.wgsl", Shader::from_wgsl);
 
         app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
 
@@ -53,9 +47,8 @@ impl Plugin for TonemappingPlugin {
 
 #[derive(Resource)]
 pub struct TonemappingPipeline {
-    hdr_texture_bind_group: BindGroupLayout,
+    texture_bind_group: BindGroupLayout,
     tonemapping_pipeline_id: CachedRenderPipelineId,
-    blit_pipeline_id: CachedRenderPipelineId,
 }
 
 impl FromWorld for TonemappingPipeline {
@@ -91,9 +84,9 @@ impl FromWorld for TonemappingPipeline {
             fragment: Some(FragmentState {
                 shader: TONEMAPPING_SHADER_HANDLE.typed(),
                 shader_defs: vec![],
-                entry_point: "fs_main".into(),
+                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: ViewTarget::TEXTURE_FORMAT_HDR,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
@@ -103,29 +96,10 @@ impl FromWorld for TonemappingPipeline {
             multisample: MultisampleState::default(),
         };
 
-        let blit_descriptor = RenderPipelineDescriptor {
-            label: Some("blit pipeline".into()),
-            layout: Some(vec![tonemap_texture_bind_group.clone()]),
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: BLIT_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
-                entry_point: "fs_main".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-        };
         let mut cache = render_world.resource_mut::<PipelineCache>();
         TonemappingPipeline {
-            hdr_texture_bind_group: tonemap_texture_bind_group,
+            texture_bind_group: tonemap_texture_bind_group,
             tonemapping_pipeline_id: cache.queue_render_pipeline(tonemap_descriptor),
-            blit_pipeline_id: cache.queue_render_pipeline(blit_descriptor),
         }
     }
 }
