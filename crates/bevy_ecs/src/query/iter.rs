@@ -1,9 +1,9 @@
 use crate::{
     archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
     entity::{Entities, Entity},
-    prelude::World,
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
     storage::{TableId, TableRow, Tables},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
 
@@ -27,7 +27,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
     pub(crate) unsafe fn new(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
@@ -35,7 +35,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         QueryIter {
             query_state,
             tables: &world.storages().tables,
-            archetypes: &world.archetypes,
+            archetypes: world.archetypes(),
             cursor: QueryIterationCursor::init(world, query_state, last_change_tick, change_tick),
         }
     }
@@ -95,7 +95,7 @@ where
     /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
     pub(crate) unsafe fn new<EntityList: IntoIterator<IntoIter = I>>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
         entity_list: EntityList,
         last_change_tick: u32,
@@ -115,9 +115,9 @@ where
         );
         QueryManyIter {
             query_state,
-            entities: &world.entities,
-            archetypes: &world.archetypes,
-            tables: &world.storages.tables,
+            entities: world.entities(),
+            archetypes: world.archetypes(),
+            tables: &world.storages().tables,
             fetch,
             filter,
             entity_iter: entity_list.into_iter(),
@@ -296,7 +296,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
     /// This does not validate that `world.id()` matches `query_state.world_id`. Calling this on a
     /// `world` with a mismatched [`WorldId`](crate::world::WorldId) is unsound.
     pub(crate) unsafe fn new(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
@@ -328,7 +328,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
         QueryCombinationIter {
             query_state,
             tables: &world.storages().tables,
-            archetypes: &world.archetypes,
+            archetypes: world.archetypes(),
             cursors: array.assume_init(),
         }
     }
@@ -494,7 +494,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     const IS_DENSE: bool = Q::IS_DENSE && F::IS_DENSE;
 
     unsafe fn init_empty(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
@@ -507,7 +507,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     }
 
     unsafe fn init(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,

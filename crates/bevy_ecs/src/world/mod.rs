@@ -1753,6 +1753,9 @@ impl World {
 
 impl fmt::Debug for World {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // NOTE: we can not access any resources or components here
+        // as the debug impl is reused by UnsafeWorldCell
+
         f.debug_struct("World")
             .field("id", &self.id)
             .field("entity_count", &self.entities.len())

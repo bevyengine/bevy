@@ -5,7 +5,7 @@ use crate::{
         BatchingStrategy, QueryCombinationIter, QueryEntityError, QueryIter, QueryManyIter,
         QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery,
     },
-    world::{Mut, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, Mut},
 };
 use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 
@@ -274,7 +274,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
 pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
-    world: &'world World,
+    world: UnsafeWorldCell<'world>,
     state: &'state QueryState<Q, F>,
     last_change_tick: u32,
     change_tick: u32,
@@ -303,15 +303,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// This will create a query that could violate memory safety rules. Make sure that this is only
     /// called in ways that ensure the queries have unique mutable access.
+    /// Specifically, the `state` must only access data allowed by the UnsafeWorldCell.
     #[inline]
     pub(crate) unsafe fn new(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
         force_read_only_component_access: bool,
     ) -> Self {
-        state.validate_world(world);
+        state.validate_world_unsafe_world_cell(world);
 
         Self {
             force_read_only_component_access,
@@ -824,7 +825,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
         unsafe {
             self.state.get_many_read_only_manual(
-                self.world,
+                // SAFETY: by construction this Query contains a QueryState that accesses data allowed by the UnsafeWorldCell
+                self.world.world(),
                 entities,
                 self.last_change_tick,
                 self.change_tick,
@@ -1066,9 +1068,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             .archetype_component_access
             .has_read(archetype_component)
         {
-            entity_ref
-                .get::<T>()
-                .ok_or(QueryComponentError::MissingComponent)
+            unsafe {
+                entity_ref
+                    .get::<T>()
+                    .ok_or(QueryComponentError::MissingComponent)
+            }
         } else {
             Err(QueryComponentError::MissingReadAccess)
         }
@@ -1132,12 +1136,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         if self.force_read_only_component_access {
             return Err(QueryComponentError::MissingWriteAccess);
         }
-        let world = self.world;
-        let entity_ref = world
-            .as_unsafe_world_cell_migration_internal()
+        let entity_ref = self
+            .world
             .get_entity(entity)
             .ok_or(QueryComponentError::NoSuchEntity)?;
-        let component_id = world
+        let component_id = self
+            .world
             .components()
             .get_id(TypeId::of::<T>())
             .ok_or(QueryComponentError::MissingComponent)?;
@@ -1150,9 +1154,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
             .archetype_component_access
             .has_write(archetype_component)
         {
-            entity_ref
-                .get_mut_using_ticks::<T>(self.last_change_tick, self.change_tick)
-                .ok_or(QueryComponentError::MissingComponent)
+            // SAFETY: we just checked that we have write access to `T`, so `self.world` must be allowed to mutably access it by construction
+            unsafe {
+                entity_ref
+                    .get_mut_using_ticks::<T>(self.last_change_tick, self.change_tick)
+                    .ok_or(QueryComponentError::MissingComponent)
+            }
         } else {
             Err(QueryComponentError::MissingWriteAccess)
         }
@@ -1326,8 +1333,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
+        // SAFETY: QueryState::is_empty does not access any resources or components
+        let world = unsafe { self.world.world() };
         self.state
-            .is_empty(self.world, self.last_change_tick, self.change_tick)
+            .is_empty(world, self.last_change_tick, self.change_tick)
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.

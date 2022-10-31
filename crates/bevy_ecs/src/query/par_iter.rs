@@ -1,4 +1,4 @@
-use crate::world::World;
+use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_tasks::ComputeTaskPool;
 use std::ops::Range;
 
@@ -79,7 +79,7 @@ impl BatchingStrategy {
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::iter_mut) methods.
 pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
-    pub(crate) world: &'w World,
+    pub(crate) world: UnsafeWorldCell<'w>,
     pub(crate) state: &'s QueryState<Q, F>,
     pub(crate) batching_strategy: BatchingStrategy,
 }

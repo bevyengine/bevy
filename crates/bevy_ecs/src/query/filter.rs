@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
-    world::World,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -51,7 +51,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     unsafe fn init_fetch(
-        _world: &World,
+        _world: UnsafeWorldCell<'_>,
         _state: &ComponentId,
         _last_change_tick: u32,
         _change_tick: u32,
@@ -153,7 +153,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     unsafe fn init_fetch(
-        _world: &World,
+        _world: UnsafeWorldCell<'_>,
         _state: &ComponentId,
         _last_change_tick: u32,
         _change_tick: u32,
@@ -277,7 +277,7 @@ macro_rules! impl_query_filter_tuple {
 
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
-            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
                     fetch: $filter::init_fetch(world, $filter, last_change_tick, change_tick),
@@ -432,7 +432,7 @@ macro_rules! impl_tick_filter {
                 item
             }
 
-            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
                 Self::Fetch::<'w> {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)

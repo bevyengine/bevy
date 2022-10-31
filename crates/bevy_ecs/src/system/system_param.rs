@@ -230,8 +230,8 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         // SAFETY: QueryState::new populates `component_access` which is used in `impl SystemParamState for QueryState`,
-        // so the scheduler only calls this in systems with access to every component used in the query
-        let world = unsafe { world.world() };
+        // so the scheduler only calls this in systems with access to every component used in the query,
+        // so using `world` for `state` is always allowed.
         Query::new(
             world,
             state,

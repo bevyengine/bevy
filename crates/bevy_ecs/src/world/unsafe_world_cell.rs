@@ -1,6 +1,6 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{Mut, World};
+use super::{Mut, World, WorldId};
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, Archetypes},
     bundle::Bundles,
@@ -10,7 +10,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityLocation},
     prelude::Component,
-    storage::{Column, ComponentSparseSet, TableRow},
+    storage::{Column, ComponentSparseSet, Storages, TableRow},
     system::Resource,
 };
 use bevy_ptr::Ptr;
@@ -78,6 +78,14 @@ pub struct UnsafeWorldCell<'w>(*mut World, PhantomData<(&'w World, &'w UnsafeCel
 unsafe impl Send for UnsafeWorldCell<'_> {}
 // SAFETY: `&World` and `&mut World` are both `Sync`
 unsafe impl Sync for UnsafeWorldCell<'_> {}
+
+impl std::fmt::Debug for UnsafeWorldCell<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // SAFETY: `World` debug impl does not access any resources or components
+        let world = unsafe { self.world() };
+        world.fmt(f)
+    }
+}
 
 impl<'w> UnsafeWorldCell<'w> {
     /// Creates a [`UnsafeWorldCell`] that can be used to access everything immutably
@@ -151,6 +159,13 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { &*self.0 }
     }
 
+    /// Retrieves this [`World`]'s unique ID
+    #[inline]
+    pub fn id(&self) -> WorldId {
+        // SAFETY: only metadata is accessed
+        unsafe { self.world_metadata() }.id()
+    }
+
     /// Retrieves this world's [Entities] collection
     #[inline]
     pub fn entities(self) -> &'w Entities {
@@ -181,6 +196,12 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.bundles
+    }
+
+    // TODO: figure out safety
+    #[inline]
+    pub fn storages(self) -> &'w Storages {
+        &unsafe { self.unsafe_world() }.storages
     }
 
     /// Reads the current change tick of this world.
