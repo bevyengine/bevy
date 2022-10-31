@@ -7,14 +7,10 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
-use bevy_ecs::query::QueryItem;
 use bevy_reflect::TypeUuid;
 use bevy_render::camera::Camera;
-use bevy_render::camera::Camera;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
-use bevy_render::view::ViewTarget;
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, RenderApp};
 
