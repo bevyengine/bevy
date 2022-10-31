@@ -274,7 +274,7 @@ pub struct SparseSet<I, V: 'static> {
 }
 
 /// A space-optimized version of [`SparseSet`] that cannot be changed
-/// after contrusction.
+/// after construction.
 #[derive(Debug)]
 pub(crate) struct ImmutableSparseSet<I, V: 'static> {
     dense: Box<[V]>,
