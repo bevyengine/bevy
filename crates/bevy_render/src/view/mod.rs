@@ -121,7 +121,7 @@ pub struct ViewUniformOffset {
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
-    /// 0 represents `texture_a`, 1 represents `texture_b`
+    /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     main_texture: AtomicUsize,
     out_texture: TextureView,
     out_texture_format: TextureFormat,
