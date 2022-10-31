@@ -6,6 +6,7 @@ use crate::{
     TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter,
     VariantInfo, VariantType,
 };
+use crate::std_traits::ReflectDefault;
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
@@ -25,24 +26,24 @@ use std::{
     path::PathBuf,
 };
 
-impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(char(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(usize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i8(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(PathBuf(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(char(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u128(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(usize(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i128(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(PathBuf(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
 impl_reflect_value!(Result<T: Clone + Reflect + 'static, E: Clone + Reflect + 'static>());
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
 impl_reflect_value!(Range<T: Clone + Send + Sync + 'static>());
@@ -51,7 +52,7 @@ impl_reflect_value!(RangeFrom<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeTo<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeFull());
-impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
 impl_reflect_value!(Instant(Debug, Hash, PartialEq));
 impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
