@@ -65,15 +65,6 @@ fn rgb2luma(rgb: vec3<f32>) -> f32 {
     return sqrt(dot(rgb, vec3<f32>(0.299, 0.587, 0.114)));
 }
 
-// https://gpuopen.com/learn/optimized-reversible-tonemapper-for-resolve/
-fn tonemap(c: vec3<f32>) -> vec3<f32> { 
-    return c * (1.0 / (max(c.r, max(c.g, c.b)) + 1.0)); 
-}
-
-fn tonemap_invert(c: vec3<f32>) -> vec3<f32> { 
-    return c * (1.0 / (1.0 - max(c.r, max(c.g, c.b)))); 
-}
-
 // Performs FXAA post-process anti-aliasing as described in the Nvidia FXAA white paper and the associated shader code.
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
@@ -104,9 +95,6 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // If the luma variation is lower that a threshold (or if we are in a really dark area), we are not on an edge, don't perform any AA.
     if (lumaRange < max(EDGE_THRESHOLD_MIN, lumaMax*EDGE_THRESHOLD_MAX)) {
         var col = centerSample;
-        #ifdef TONEMAP
-            col = vec4(tonemap_invert(col.rgb), col.a);
-        #endif
         return col;
     }
 
@@ -278,8 +266,5 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
     // Read the color at the new UV coordinates, and use it.
     var finalColor = textureSampleLevel(screenTexture, samp, finalUv, 0.0).rgb;
-    #ifdef TONEMAP
-        finalColor = tonemap_invert(finalColor);
-    #endif
     return vec4<f32>(finalColor, centerSample.a);
 }
