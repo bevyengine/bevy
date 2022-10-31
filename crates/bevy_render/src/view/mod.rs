@@ -199,6 +199,7 @@ impl ViewTarget {
 
     /// This will start a new "post process write", which assumes that the caller
     /// will write the [`PostProcessWrite`]'s `source` to the `destination`.
+    ///
     /// `source` is the "current" main texture. This will internally flip this
     /// [`ViewTarget`]'s main texture to the `destination` texture, so the caller
     /// _must_ ensure `source` is copied to `destination`, with or without modifications.
