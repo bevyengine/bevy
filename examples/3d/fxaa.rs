@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::fxaa::{Fxaa, FxaaPlugin, Quality},
+    core_pipeline::fxaa::{Fxaa, Quality},
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -16,7 +16,6 @@ fn main() {
         // Disable MSAA be default
         .insert_resource(Msaa { samples: 1 })
         .add_plugins(DefaultPlugins)
-        .add_plugin(FxaaPlugin)
         .add_startup_system(setup)
         .add_system(toggle_fxaa)
         .run();

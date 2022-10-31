@@ -89,6 +89,7 @@ const FXAA_SHADER_HANDLE: HandleUntyped =
 pub const FXAA_NODE_3D: &str = "fxaa_node_3d";
 pub const FXAA_NODE_2D: &str = "fxaa_node_2d";
 
+/// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;
 impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
