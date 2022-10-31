@@ -2,6 +2,8 @@
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
+#[cfg(feature = "serialize")]
+mod serde;
 mod task_pool_options;
 
 use bevy_ecs::system::Resource;
