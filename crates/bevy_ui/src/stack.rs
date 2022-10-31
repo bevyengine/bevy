@@ -46,10 +46,8 @@ pub fn ui_stack_system(
         );
     }
 
-    *ui_stack = UiStack {
-        uinodes: Vec::<Entity>::with_capacity(total_entry_count),
-    };
-
+    ui_stack.uinodes.clear();
+    ui_stack.uinodes.reserve(total_entry_count);
     fill_stack_recursively(&mut ui_stack.uinodes, &mut global_context);
 }
 
@@ -141,46 +139,46 @@ mod tests {
 
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
-        commands.spawn_bundle(node_with_zindex("0", ZIndex::Global(2)));
+        commands.spawn(node_with_zindex("0", ZIndex::Global(2)));
 
         commands
-            .spawn_bundle(node_with_zindex("1", ZIndex::Local(1)))
+            .spawn(node_with_zindex("1", ZIndex::Local(1)))
             .with_children(|parent| {
                 parent
-                    .spawn_bundle(node_without_zindex("1-0"))
+                    .spawn(node_without_zindex("1-0"))
                     .with_children(|parent| {
-                        parent.spawn_bundle(node_without_zindex("1-0-0"));
-                        parent.spawn_bundle(node_without_zindex("1-0-1"));
-                        parent.spawn_bundle(node_with_zindex("1-0-2", ZIndex::Local(-1)));
+                        parent.spawn(node_without_zindex("1-0-0"));
+                        parent.spawn(node_without_zindex("1-0-1"));
+                        parent.spawn(node_with_zindex("1-0-2", ZIndex::Local(-1)));
                     });
-                parent.spawn_bundle(node_without_zindex("1-1"));
+                parent.spawn(node_without_zindex("1-1"));
                 parent
-                    .spawn_bundle(node_with_zindex("1-2", ZIndex::Global(-1)))
+                    .spawn(node_with_zindex("1-2", ZIndex::Global(-1)))
                     .with_children(|parent| {
-                        parent.spawn_bundle(node_without_zindex("1-2-0"));
-                        parent.spawn_bundle(node_with_zindex("1-2-1", ZIndex::Global(-3)));
+                        parent.spawn(node_without_zindex("1-2-0"));
+                        parent.spawn(node_with_zindex("1-2-1", ZIndex::Global(-3)));
                         parent
-                            .spawn_bundle(node_without_zindex("1-2-2"))
+                            .spawn(node_without_zindex("1-2-2"))
                             .with_children(|_| ());
-                        parent.spawn_bundle(node_without_zindex("1-2-3"));
+                        parent.spawn(node_without_zindex("1-2-3"));
                     });
-                parent.spawn_bundle(node_without_zindex("1-3"));
+                parent.spawn(node_without_zindex("1-3"));
             });
 
         commands
-            .spawn_bundle(node_without_zindex("2"))
+            .spawn(node_without_zindex("2"))
             .with_children(|parent| {
                 parent
-                    .spawn_bundle(node_without_zindex("2-0"))
+                    .spawn(node_without_zindex("2-0"))
                     .with_children(|_parent| ());
                 parent
-                    .spawn_bundle(node_without_zindex("2-1"))
+                    .spawn(node_without_zindex("2-1"))
                     .with_children(|parent| {
-                        parent.spawn_bundle(node_without_zindex("2-1-0"));
+                        parent.spawn(node_without_zindex("2-1-0"));
                     });
             });
 
-        commands.spawn_bundle(node_with_zindex("3", ZIndex::Global(-2)));
+        commands.spawn(node_with_zindex("3", ZIndex::Global(-2)));
 
         queue.apply(&mut world);
 
