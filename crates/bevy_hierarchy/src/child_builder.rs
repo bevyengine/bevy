@@ -632,7 +632,7 @@ mod tests {
     fn push_and_insert_and_remove_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
@@ -693,7 +693,7 @@ mod tests {
     fn push_and_insert_and_remove_children_world() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         world.entity_mut(entities[0]).push_children(&entities[1..3]);
@@ -737,7 +737,7 @@ mod tests {
     fn children_removed_when_empty_world() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),)])
+            .spawn_batch(vec![C(1), C(2), C(3)])
             .collect::<Vec<Entity>>();
 
         let parent1 = entities[0];
@@ -769,7 +769,7 @@ mod tests {
     fn children_removed_when_empty_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),)])
+            .spawn_batch(vec![C(1), C(2), C(3)])
             .collect::<Vec<Entity>>();
 
         let parent1 = entities[0];

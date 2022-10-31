@@ -121,7 +121,7 @@ pub struct ViewUniformOffset {
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
-    /// 0 represents `texture_a`, 1 represents `texture_b`
+    /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     main_texture: AtomicUsize,
     out_texture: TextureView,
     out_texture_format: TextureFormat,
@@ -135,6 +135,8 @@ pub struct PostProcessWrite<'a> {
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
+    /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture`] and resolve to [`Self::main_texture`] if
+    /// the target has sampling enabled. Otherwise it will use [`Self::main_texture`] directly.
     pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
         match &self.main_textures.sampled {
             Some(sampled_texture) => RenderPassColorAttachment {
@@ -146,6 +148,7 @@ impl ViewTarget {
         }
     }
 
+    /// Retrieve an "unsampled" color attachment using [`Self::main_texture`].
     pub fn get_unsampled_color_attachment(
         &self,
         ops: Operations<Color>,
@@ -157,6 +160,7 @@ impl ViewTarget {
         }
     }
 
+    /// The "main" unsampled texture.
     pub fn main_texture(&self) -> &TextureView {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             &self.main_textures.a
@@ -165,26 +169,41 @@ impl ViewTarget {
         }
     }
 
+    /// The "main" sampled texture.
+    pub fn sampled_main_texture(&self) -> Option<&TextureView> {
+        self.main_textures.sampled.as_ref()
+    }
+
     #[inline]
     pub fn main_texture_format(&self) -> TextureFormat {
         self.main_texture_format
     }
 
+    /// Returns `true` if and only if the main texture is [`Self::TEXTURE_FORMAT_HDR`]
     #[inline]
     pub fn is_hdr(&self) -> bool {
         self.main_texture_format == ViewTarget::TEXTURE_FORMAT_HDR
     }
 
+    /// The final texture this view will render to.
     #[inline]
     pub fn out_texture(&self) -> &TextureView {
         &self.out_texture
     }
 
+    /// The format of the final texture this view will render to
     #[inline]
     pub fn out_texture_format(&self) -> TextureFormat {
         self.out_texture_format
     }
 
+    /// This will start a new "post process write", which assumes that the caller
+    /// will write the [`PostProcessWrite`]'s `source` to the `destination`.
+    ///
+    /// `source` is the "current" main texture. This will internally flip this
+    /// [`ViewTarget`]'s main texture to the `destination` texture, so the caller
+    /// _must_ ensure `source` is copied to `destination`, with or without modifications.
+    /// Failing to do so will cause the current main texture information to be lost.
     pub fn post_process_write(&self) -> PostProcessWrite {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b

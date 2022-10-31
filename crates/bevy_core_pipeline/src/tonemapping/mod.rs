@@ -1,21 +1,22 @@
 mod node;
 
-use bevy_ecs::query::QueryItem;
-use bevy_render::camera::Camera;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
-use bevy_render::view::ViewTarget;
 pub use node::TonemappingNode;
 
+use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::BevyDefault;
-use bevy_render::{render_resource::*, RenderApp};
-
+use bevy_ecs::query::QueryItem;
+use bevy_ecs::query::QueryItem;
 use bevy_reflect::TypeUuid;
-
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_render::camera::Camera;
+use bevy_render::camera::Camera;
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::renderer::RenderDevice;
+use bevy_render::view::ViewTarget;
+use bevy_render::view::ViewTarget;
+use bevy_render::{render_resource::*, RenderApp};
 
 const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);

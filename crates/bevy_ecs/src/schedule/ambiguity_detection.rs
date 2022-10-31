@@ -101,7 +101,7 @@ impl SystemStage {
                     last_segment_kind = Some(segment);
                 }
 
-                writeln!(string, " -- {:?} and {:?}", system_a, system_b).unwrap();
+                writeln!(string, " -- {system_a:?} and {system_b:?}").unwrap();
 
                 if !conflicts.is_empty() {
                     writeln!(string, "    conflicts: {conflicts:?}").unwrap();

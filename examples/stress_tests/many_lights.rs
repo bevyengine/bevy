@@ -102,7 +102,7 @@ fn setup(
         mesh,
         material,
         transform: Transform {
-            translation: Vec3::new(0.0, RADIUS as f32, 0.0),
+            translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
         },

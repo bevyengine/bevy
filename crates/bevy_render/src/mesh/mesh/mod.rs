@@ -114,8 +114,8 @@ impl Mesh {
         let values_format = VertexFormat::from(&values);
         if values_format != attribute.format {
             panic!(
-                "Failed to insert attribute. Invalid attribute format for {}. Given format is {:?} but expected {:?}",
-                attribute.name, values_format, attribute.format
+                "Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}",
+                attribute.name, attribute.format
             );
         }
 
@@ -240,7 +240,7 @@ impl Mesh {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 assert_eq!(previous_vertex_count, attribute_len,
-                        "{:?} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute_id, attribute_len, previous_vertex_count);
+                        "{attribute_id:?} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh.");
             }
             vertex_count = Some(attribute_len);
         }

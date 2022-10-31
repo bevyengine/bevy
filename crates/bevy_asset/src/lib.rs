@@ -25,6 +25,7 @@ mod info;
 mod io;
 mod loader;
 mod path;
+mod reflect;
 
 /// The `bevy_asset` prelude.
 pub mod prelude {
@@ -43,6 +44,7 @@ pub use info::*;
 pub use io::*;
 pub use loader::*;
 pub use path::*;
+pub use reflect::*;
 
 use bevy_app::{prelude::Plugin, App};
 use bevy_ecs::schedule::{StageLabel, SystemStage};

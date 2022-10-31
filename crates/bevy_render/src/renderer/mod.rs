@@ -44,7 +44,7 @@ pub fn render_system(world: &mut World) {
             }
         }
 
-        panic!("Error running render graph: {}", e);
+        panic!("Error running render graph: {e}");
     }
 
     {
