@@ -48,7 +48,9 @@ fn update_clipping(
             commands.entity(entity).insert(CalculatedClip { clip });
         }
         (Some(clip), Some(mut old_clip)) => {
-            *old_clip = CalculatedClip { clip };
+            if old_clip.clip != clip {
+                *old_clip = CalculatedClip { clip };
+            }
         }
     }
 
@@ -57,7 +59,7 @@ fn update_clipping(
         Overflow::Visible => clip,
         Overflow::Hidden => {
             let node_center = global_transform.translation().truncate();
-            let node_rect = Rect::from_center_size(node_center, node.size);
+            let node_rect = Rect::from_center_size(node_center, node.calculated_size);
             Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
         }
     };

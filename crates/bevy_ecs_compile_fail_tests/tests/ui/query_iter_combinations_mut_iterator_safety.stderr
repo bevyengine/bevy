@@ -15,9 +15,9 @@ error[E0277]: the trait bound `&mut A: ReadOnlyWorldQuery` is not satisfied
              (F0, F1, F2, F3, F4)
              (F0, F1, F2, F3, F4, F5)
              (F0, F1, F2, F3, F4, F5, F6)
-           and 49 others
+           and $N others
    = note: `ReadOnlyWorldQuery` is implemented for `&A`, but not for `&mut A`
-   = note: required because of the requirements on the impl of `Iterator` for `QueryCombinationIter<'_, '_, &mut A, (), {_: usize}>`
+   = note: required because of the requirements on the impl of `Iterator` for `QueryCombinationIter<'_, '_, &mut A, (), _>`
 note: required by a bound in `is_iterator`
   --> tests/ui/query_iter_combinations_mut_iterator_safety.rs:13:19
    |

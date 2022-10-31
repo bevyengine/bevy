@@ -63,7 +63,7 @@ struct Cubemap {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // directional 'sun' light
-    commands.spawn_bundle(DirectionalLightBundle {
+    commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 32000.0,
             ..default()
@@ -75,12 +75,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let skybox_handle = asset_server.load(CUBEMAPS[0].0);
     // camera
-    commands
-        .spawn_bundle(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
-        })
-        .insert(CameraController::default());
+        },
+        CameraController::default(),
+    ));
 
     // ambient light
     // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
@@ -97,16 +98,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-const CUBEMAP_SWAP_DELAY: f64 = 3.0;
+const CUBEMAP_SWAP_DELAY: f32 = 3.0;
 
 fn cycle_cubemap_asset(
     time: Res<Time>,
-    mut next_swap: Local<f64>,
+    mut next_swap: Local<f32>,
     mut cubemap: ResMut<Cubemap>,
     asset_server: Res<AssetServer>,
     render_device: Res<RenderDevice>,
 ) {
-    let now = time.seconds_since_startup();
+    let now = time.elapsed_seconds();
     if *next_swap == 0.0 {
         *next_swap = now + CUBEMAP_SWAP_DELAY;
         return;
@@ -173,7 +174,7 @@ fn asset_loaded(
             }
         }
         if !updated {
-            commands.spawn_bundle(MaterialMeshBundle::<CubemapMaterial> {
+            commands.spawn(MaterialMeshBundle::<CubemapMaterial> {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 10000.0 })),
                 material: cubemap_materials.add(CubemapMaterial {
                     base_color_texture: Some(cubemap.image_handle.clone_weak()),

@@ -1,4 +1,4 @@
-use crate::{error::TextError, Font, FontAtlas};
+use crate::{error::TextError, Font, FontAtlas, TextSettings};
 use ab_glyph::{GlyphId, OutlinedGlyph, Point};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
@@ -14,6 +14,7 @@ type FontSizeKey = FloatOrd;
 #[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
 pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
+    queue: Vec<FontSizeKey>,
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +27,7 @@ impl Default for FontAtlasSet {
     fn default() -> Self {
         FontAtlasSet {
             font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
+            queue: Vec::new(),
         }
     }
 }
@@ -50,7 +52,22 @@ impl FontAtlasSet {
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
         outlined_glyph: OutlinedGlyph,
+        text_settings: &TextSettings,
     ) -> Result<GlyphAtlasInfo, TextError> {
+        if !text_settings.allow_dynamic_font_size {
+            if self.font_atlases.len() >= text_settings.max_font_atlases.get() {
+                return Err(TextError::ExceedMaxTextAtlases(
+                    text_settings.max_font_atlases.get(),
+                ));
+            }
+        } else {
+            // Clear last space in queue to make room for new font size
+            while self.queue.len() >= text_settings.max_font_atlases.get() - 1 {
+                if let Some(font_size_key) = self.queue.pop() {
+                    self.font_atlases.remove(&font_size_key);
+                }
+            }
+        }
         let glyph = outlined_glyph.glyph();
         let glyph_id = glyph.id;
         let glyph_position = glyph.position;
@@ -65,6 +82,7 @@ impl FontAtlasSet {
                     Vec2::splat(512.0),
                 )]
             });
+        self.queue.insert(0, FloatOrd(font_size));
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
             atlas.add_glyph(
@@ -106,11 +124,17 @@ impl FontAtlasSet {
     }
 
     pub fn get_glyph_atlas_info(
-        &self,
+        &mut self,
         font_size: f32,
         glyph_id: GlyphId,
         position: Point,
     ) -> Option<GlyphAtlasInfo> {
+        // Move to front of used queue.
+        let some_index = self.queue.iter().position(|x| *x == FloatOrd(font_size));
+        if let Some(index) = some_index {
+            let key = self.queue.remove(index);
+            self.queue.insert(0, key);
+        }
         self.font_atlases
             .get(&FloatOrd(font_size))
             .and_then(|font_atlases| {

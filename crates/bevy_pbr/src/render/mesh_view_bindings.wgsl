@@ -40,3 +40,6 @@ var<storage> cluster_light_index_lists: ClusterLightIndexLists;
 @group(0) @binding(8)
 var<storage> cluster_offsets_and_counts: ClusterOffsetsAndCounts;
 #endif
+
+@group(0) @binding(9)
+var<uniform> globals: Globals;

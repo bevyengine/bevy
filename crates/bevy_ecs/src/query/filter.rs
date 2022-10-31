@@ -5,7 +5,7 @@ use crate::{
     query::{
         debug_checked_unreachable, Access, FilteredAccess, QueryFetch, WorldQuery, WorldQueryGats,
     },
-    storage::{ComponentSparseSet, Table, Tables},
+    storage::{ComponentSparseSet, Table},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
@@ -66,6 +66,11 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     ) {
     }
 
+    unsafe fn clone_fetch<'w>(
+        _fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    }
+
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
@@ -83,20 +88,14 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         _fetch: &mut (),
         _state: &ComponentId,
         _archetype: &Archetype,
-        _tables: &Tables,
+        _table: &Table,
     ) {
     }
 
-    #[inline]
-    unsafe fn archetype_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch<'w>(
         _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        _archetype_index: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
-    }
-
-    #[inline]
-    unsafe fn table_fetch<'w>(
-        _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        _entity: Entity,
         _table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item {
     }
@@ -173,6 +172,11 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     ) {
     }
 
+    unsafe fn clone_fetch<'w>(
+        _fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    }
+
     const IS_DENSE: bool = {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => true,
@@ -190,20 +194,14 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         _fetch: &mut (),
         _state: &ComponentId,
         _archetype: &Archetype,
-        _tables: &Tables,
+        _table: &Table,
     ) {
     }
 
-    #[inline]
-    unsafe fn archetype_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch<'w>(
         _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        _archetype_index: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
-    }
-
-    #[inline]
-    unsafe fn table_fetch<'w>(
-        _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        _entity: Entity,
         _table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item {
     }
@@ -271,25 +269,12 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
 /// ```
-#[derive(Clone, Copy)]
 pub struct Or<T>(pub T);
 
 #[doc(hidden)]
 pub struct OrFetch<'w, T: WorldQuery> {
     fetch: QueryFetch<'w, T>,
     matches: bool,
-}
-impl<'w, T: WorldQuery> Copy for OrFetch<'w, T> where QueryFetch<'w, T>: Copy {}
-impl<'w, T: WorldQuery> Clone for OrFetch<'w, T>
-where
-    QueryFetch<'w, T>: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            fetch: self.fetch.clone(),
-            matches: self.matches,
-        }
-    }
 }
 
 macro_rules! impl_query_filter_tuple {
@@ -326,6 +311,18 @@ macro_rules! impl_query_filter_tuple {
                 },)*)
             }
 
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as WorldQueryGats<'w>>::Fetch {
+                let ($($filter,)*) = &fetch;
+                ($(
+                    OrFetch {
+                        fetch: $filter::clone_fetch(&$filter.fetch),
+                        matches: $filter.matches,
+                    },
+                )*)
+            }
+
             #[inline]
             unsafe fn set_table<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, state: &Self::State, table: &'w Table) {
                 let ($($filter,)*) = fetch;
@@ -339,37 +336,39 @@ macro_rules! impl_query_filter_tuple {
             }
 
             #[inline]
-            unsafe fn set_archetype<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, state: &Self::State, archetype: &'w Archetype, tables: &'w Tables) {
+            unsafe fn set_archetype<'w>(
+                fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                state: & Self::State,
+                archetype: &'w Archetype,
+                table: &'w Table
+            ) {
                 let ($($filter,)*) = fetch;
-                let ($($state,)*) = state;
+                let ($($state,)*) = &state;
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
                     if $filter.matches {
-                        $filter::set_archetype(&mut $filter.fetch, $state, archetype, tables);
+                        $filter::set_archetype(&mut $filter.fetch, $state, archetype, table);
                     }
                 )*
             }
 
-            #[inline]
-            unsafe fn table_fetch<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, table_row: usize) -> <Self as WorldQueryGats<'w>>::Item {
+            #[inline(always)]
+            unsafe fn fetch<'w>(
+                fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                _entity: Entity,
+                _table_row: usize
+            ) -> <Self as WorldQueryGats<'w>>::Item {
                 let ($($filter,)*) = fetch;
-                false $(|| ($filter.matches && $filter::table_filter_fetch(&mut $filter.fetch, table_row)))*
+                false $(|| ($filter.matches && $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row)))*
             }
 
-            #[inline]
-            unsafe fn archetype_fetch<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, archetype_index: usize) -> <Self as WorldQueryGats<'w>>::Item {
-                let ($($filter,)*) = fetch;
-                false $(|| ($filter.matches && $filter::archetype_filter_fetch(&mut $filter.fetch, archetype_index)))*
-            }
-
-            #[inline]
-            unsafe fn table_filter_fetch(fetch: &mut QueryFetch<'_, Self>, table_row: usize) -> bool {
-                Self::table_fetch(fetch, table_row)
-            }
-
-            #[inline]
-            unsafe fn archetype_filter_fetch(fetch: &mut QueryFetch<'_, Self>, archetype_index: usize) -> bool {
-                Self::archetype_fetch(fetch, archetype_index)
+            #[inline(always)]
+            unsafe fn filter_fetch<'w>(
+                fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                entity: Entity,
+                table_row: usize
+            ) -> bool {
+                Self::fetch(fetch, entity, table_row)
             }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
@@ -441,9 +440,7 @@ macro_rules! impl_tick_filter {
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
             table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-            entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
             marker: PhantomData<T>,
-            entities: Option<ThinSlicePtr<'w, Entity>>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
             change_tick: u32,
@@ -461,13 +458,28 @@ macro_rules! impl_tick_filter {
             unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> <Self as WorldQueryGats<'w>>::Fetch {
                 QueryFetch::<'w, Self> {
                     table_ticks: None,
-                    entities: None,
-                    entity_table_rows: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
-                        .then(|| world.storages().sparse_sets.get(id).unwrap()),
+                        .then(|| {
+                            world.storages()
+                                 .sparse_sets
+                                 .get(id)
+                                 .unwrap_or_else(|| debug_checked_unreachable())
+                        }),
                     marker: PhantomData,
                     last_change_tick,
                     change_tick,
+                }
+            }
+
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as WorldQueryGats<'w>>::Fetch {
+                $fetch_name {
+                    table_ticks: fetch.table_ticks,
+                    sparse_set: fetch.sparse_set,
+                    last_change_tick: fetch.last_change_tick,
+                    change_tick: fetch.change_tick,
+                    marker: PhantomData,
                 }
             }
 
@@ -480,53 +492,68 @@ macro_rules! impl_tick_filter {
 
             const IS_ARCHETYPAL:  bool = false;
 
-            unsafe fn set_table<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, &id: &ComponentId, table: &'w Table) {
-                fetch.table_ticks = Some(table.get_column(id).unwrap().get_ticks_slice().into());
+            #[inline]
+            unsafe fn set_table<'w>(
+                fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                &component_id: &ComponentId,
+                table: &'w Table
+            ) {
+                fetch.table_ticks = Some(
+                    table.get_column(component_id)
+                         .unwrap_or_else(|| debug_checked_unreachable())
+                         .get_ticks_slice()
+                         .into()
+                );
             }
 
-            unsafe fn set_archetype<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, &id: &ComponentId, archetype: &'w Archetype, tables: &'w Tables) {
-                match T::Storage::STORAGE_TYPE {
-                    StorageType::Table => {
-                        fetch.entity_table_rows = Some(archetype.entity_table_rows().into());
-                        let table = &tables[archetype.table_id()];
-                        fetch.table_ticks = Some(table.get_column(id).unwrap().get_ticks_slice().into());
-                    }
-                    StorageType::SparseSet => fetch.entities = Some(archetype.entities().into()),
+            #[inline]
+            unsafe fn set_archetype<'w>(
+                fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                component_id: &ComponentId,
+                _archetype: &'w Archetype,
+                table: &'w Table
+            ) {
+                if Self::IS_DENSE {
+                    Self::set_table(fetch, component_id, table);
                 }
             }
 
-            unsafe fn table_fetch<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, table_row: usize) -> <Self as WorldQueryGats<'w>>::Item {
-                $is_detected(&*(fetch.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), fetch.last_change_tick, fetch.change_tick)
-            }
-
-            unsafe fn archetype_fetch<'w>(fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, archetype_index: usize) -> <Self as WorldQueryGats<'w>>::Item {
+            #[inline(always)]
+            unsafe fn fetch<'w>(
+                fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                entity: Entity,
+                table_row: usize
+            ) -> <Self as WorldQueryGats<'w>>::Item {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        let table_row = *fetch.entity_table_rows.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
-                        $is_detected(&*(fetch.table_ticks.unwrap_or_else(|| debug_checked_unreachable()).get(table_row)).deref(), fetch.last_change_tick, fetch.change_tick)
+                        $is_detected(&*(
+                            fetch.table_ticks
+                                 .unwrap_or_else(|| debug_checked_unreachable())
+                                 .get(table_row))
+                                 .deref(),
+                            fetch.last_change_tick,
+                            fetch.change_tick
+                        )
                     }
                     StorageType::SparseSet => {
-                        let entity = *fetch.entities.unwrap_or_else(|| debug_checked_unreachable()).get(archetype_index);
-                        let ticks = fetch
+                        let ticks = &*fetch
                             .sparse_set
                             .unwrap_or_else(|| debug_checked_unreachable())
                             .get_ticks(entity)
-                            .map(|ticks| &*ticks.get())
-                            .cloned()
-                            .unwrap();
-                        $is_detected(&ticks, fetch.last_change_tick, fetch.change_tick)
+                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .get();
+                        $is_detected(ticks, fetch.last_change_tick, fetch.change_tick)
                     }
                 }
             }
 
-            #[inline]
-            unsafe fn table_filter_fetch(fetch: &mut QueryFetch<'_, Self>, table_row: usize) -> bool {
-                Self::table_fetch(fetch, table_row)
-            }
-
-            #[inline]
-            unsafe fn archetype_filter_fetch(fetch: &mut QueryFetch<'_, Self>, archetype_index: usize) -> bool {
-                Self::archetype_fetch(fetch, archetype_index)
+            #[inline(always)]
+            unsafe fn filter_fetch<'w>(
+                fetch: &mut QueryFetch<'w, Self>,
+                entity: Entity,
+                table_row: usize
+            ) -> bool {
+                Self::fetch(fetch, entity, table_row)
             }
 
             #[inline]
@@ -565,22 +592,6 @@ macro_rules! impl_tick_filter {
 
         /// SAFETY: read-only access
         unsafe impl<T: Component> ReadOnlyWorldQuery for $name<T> {}
-
-        impl<T> Clone for $fetch_name<'_, T> {
-            fn clone(&self) -> Self {
-                Self {
-                    table_ticks: self.table_ticks.clone(),
-                    entity_table_rows: self.entity_table_rows.clone(),
-                    marker: self.marker.clone(),
-                    entities: self.entities.clone(),
-                    sparse_set: self.sparse_set.clone(),
-                    last_change_tick: self.last_change_tick.clone(),
-                    change_tick: self.change_tick.clone(),
-                }
-            }
-        }
-
-        impl<T> Copy for $fetch_name<'_, T> {}
     };
 }
 
@@ -618,7 +629,7 @@ impl_tick_filter!(
 
 impl_tick_filter!(
     /// A filter on a component that only retains results added or mutably dereferenced after the system last ran.
-    ///  
+    ///
     /// A common use for this filter is avoiding redundant work when values have not changed.
     ///
     /// **Note** that simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).

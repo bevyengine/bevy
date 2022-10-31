@@ -3,6 +3,7 @@
 //! When using Bevy ECS, systems are usually not run directly, but are inserted into a
 //!  [`Stage`], which then lives within a [`Schedule`].
 
+mod ambiguity_detection;
 mod executor;
 mod executor_parallel;
 pub mod graph_utils;
@@ -36,7 +37,7 @@ use bevy_utils::HashMap;
 /// In this way, the properties of the child schedule can be set differently from the parent.
 /// For example, it can be set to run only once during app execution, while the parent schedule
 /// runs indefinitely.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Schedule {
     stages: HashMap<StageLabelId, Box<dyn Stage>>,
     stage_order: Vec<StageLabelId>,
@@ -116,7 +117,7 @@ impl Schedule {
         let label = label.as_label();
         self.stage_order.push(label);
         let prev = self.stages.insert(label, Box::new(stage));
-        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
+        assert!(prev.is_none(), "Stage already exists: {label:?}.");
         self
     }
 
@@ -151,11 +152,11 @@ impl Schedule {
             .enumerate()
             .find(|(_i, stage_label)| **stage_label == target)
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {target:?}."));
 
         self.stage_order.insert(target_index + 1, label);
         let prev = self.stages.insert(label, Box::new(stage));
-        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
+        assert!(prev.is_none(), "Stage already exists: {label:?}.");
         self
     }
 
@@ -191,11 +192,11 @@ impl Schedule {
             .enumerate()
             .find(|(_i, stage_label)| **stage_label == target)
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {target:?}."));
 
         self.stage_order.insert(target_index, label);
         let prev = self.stages.insert(label, Box::new(stage));
-        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
+        assert!(prev.is_none(), "Stage already exists: {label:?}.");
         self
     }
 

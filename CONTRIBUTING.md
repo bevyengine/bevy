@@ -224,7 +224,8 @@ This is incredibly valuable, easily distributed work, but requires a bit of guid
 * Accepted RFCs are not documentation: they serve only as a record of accepted decisions.
 
 [docs.rs](https://docs.rs/bevy) is built from out of the last release's documentation, which is written right in-line directly above the code it documents.
-To view the current docs on `main` before you contribute, clone the `bevy` repo, and run `cargo doc --open`.
+To view the current docs on `main` before you contribute, clone the `bevy` repo, and run `cargo doc --open` or go to [dev-docs.bevyengine.org](https://dev-docs.bevyengine.org/),
+which has the latest API reference built from the repo on every commit made to the `main` branch.
 
 ### Writing examples
 

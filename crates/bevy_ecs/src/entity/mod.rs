@@ -13,33 +13,29 @@
 //!
 //! |Operation|Command|Method|
 //! |:---:|:---:|:---:|
-//! |Spawn a new entity|[`Commands::spawn`]|[`World::spawn`]|
-//! |Spawn an entity with components|[`Commands::spawn_bundle`]|---|
+//! |Spawn an entity with components|[`Commands::spawn`]|---|
+//! |Spawn an entity without components|[`Commands::spawn_empty`]|[`World::spawn_empty`]|
 //! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
-//! |Insert a component to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
-//! |Insert multiple components to an entity|[`EntityCommands::insert_bundle`]|[`EntityMut::insert_bundle`]|
-//! |Remove a component from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
+//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
+//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityMut::remove`]|
 //!
 //! [`World`]: crate::world::World
 //! [`Commands::spawn`]: crate::system::Commands::spawn
-//! [`Commands::spawn_bundle`]: crate::system::Commands::spawn_bundle
+//! [`Commands::spawn_empty`]: crate::system::Commands::spawn_empty
 //! [`EntityCommands::despawn`]: crate::system::EntityCommands::despawn
 //! [`EntityCommands::insert`]: crate::system::EntityCommands::insert
-//! [`EntityCommands::insert_bundle`]: crate::system::EntityCommands::insert_bundle
 //! [`EntityCommands::remove`]: crate::system::EntityCommands::remove
 //! [`World::spawn`]: crate::world::World::spawn
-//! [`World::spawn_bundle`]: crate::world::World::spawn_bundle
+//! [`World::spawn_empty`]: crate::world::World::spawn_empty
 //! [`World::despawn`]: crate::world::World::despawn
 //! [`EntityMut::insert`]: crate::world::EntityMut::insert
-//! [`EntityMut::insert_bundle`]: crate::world::EntityMut::insert_bundle
 //! [`EntityMut::remove`]: crate::world::EntityMut::remove
 mod map_entities;
-mod serde;
 
-pub use self::serde::*;
 pub use map_entities::*;
 
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
+use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
@@ -69,19 +65,20 @@ type IdCursor = isize;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// #
+/// # #[derive(Component)]
+/// # struct SomeComponent;
 /// fn setup(mut commands: Commands) {
 ///     // Calling `spawn` returns `EntityCommands`.
-///     let entity = commands.spawn().id();
+///     let entity = commands.spawn(SomeComponent).id();
 /// }
 ///
 /// fn exclusive_system(world: &mut World) {
 ///     // Calling `spawn` returns `EntityMut`.
-///     let entity = world.spawn().id();
+///     let entity = world.spawn(SomeComponent).id();
 /// }
 /// #
 /// # bevy_ecs::system::assert_is_system(setup);
-/// # bevy_ecs::system::IntoExclusiveSystem::exclusive_system(exclusive_system);
+/// # bevy_ecs::system::assert_is_system(exclusive_system);
 /// ```
 ///
 /// It can be used to refer to a specific entity to apply [`EntityCommands`], or to call [`Query::get`] (or similar methods) to access its components.
@@ -106,7 +103,7 @@ type IdCursor = isize;
 /// [`EntityMut::id`]: crate::world::EntityMut::id
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
-#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Entity {
     pub(crate) generation: u32,
     pub(crate) id: u32,
@@ -550,7 +547,7 @@ impl Entities {
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then(|| Entity { generation: 0, id })
+            (idu < self.meta.len() + num_pending).then_some(Entity { generation: 0, id })
         }
     }
 
@@ -565,6 +562,9 @@ impl Entities {
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
     /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
     /// has not been assigned to an [`Archetype`][crate::archetype::Archetype].
+    ///
+    /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
+    /// to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
@@ -615,6 +615,20 @@ impl Entities {
         }
     }
 
+    /// # Safety
+    ///
+    /// This function is safe if and only if the world this Entities is on has no entities.
+    pub unsafe fn flush_and_reserve_invalid_assuming_no_entities(&mut self, count: usize) {
+        let free_cursor = self.free_cursor.get_mut();
+        *free_cursor = 0;
+        self.meta.reserve(count);
+        // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
+        self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
+        self.meta.set_len(count);
+
+        self.len = count as u32;
+    }
+
     /// Accessor for getting the length of the vec in `self.meta`
     #[inline]
     pub fn meta_len(&self) -> usize {
@@ -632,7 +646,10 @@ impl Entities {
     }
 }
 
+// Safety:
+// This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct EntityMeta {
     pub generation: u32,
     pub location: EntityLocation,
@@ -650,6 +667,7 @@ impl EntityMeta {
 
 /// A location of an entity in an archetype.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct EntityLocation {
     /// The archetype index
     pub archetype_id: ArchetypeId,
