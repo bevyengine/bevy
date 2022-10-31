@@ -691,6 +691,31 @@ impl<'a> MutUntyped<'a> {
         self.value.as_ref()
     }
 
+    /// Turn this [`MutUntyped`] into a [`Mut`] by mapping the inner [`PtrMut`] to another value.
+    /// If you know the type of the value you can do
+    /// ```no_run
+    /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
+    /// # let mut_untyped: MutUntyped = unimplemented!();
+    /// // SAFETY: ptr is of type `u8`
+    /// mut_untyped.to_typed(|ptr| unsafe { ptr.deref_mut::<u8>() });
+    /// ```
+    /// If you have a [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) that you know belongs to this [`MutUntyped`],
+    /// you can do
+    /// ```no_run
+    /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
+    /// # let mut_untyped: MutUntyped = unimplemented!();
+    /// # let reflect_from_ptr: bevy_reflect::ReflectFromPtr = unimplemented!();
+    /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
+    /// mut_untyped.to_typed(|ptr| unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) });
+    /// ```
+    pub fn to_typed<T: ?Sized>(self, f: impl FnOnce(PtrMut<'a>) -> &'a mut T) -> Mut<'a, T> {
+        Mut {
+            value: f(self.value),
+            ticks: self.ticks,
+        }
+    }
+
+
     /// Transforms this [`MutUntyped`] into a [`Mut<T>`] with the same lifetime.
     ///
     /// # Safety
@@ -753,7 +778,11 @@ impl std::fmt::Debug for MutUntyped<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::ptr::NonNull;
+
     use bevy_ecs_macros::Resource;
+    use bevy_ptr::PtrMut;
+    use bevy_reflect::{FromType, ReflectFromPtr};
 
     use crate::{
         self as bevy_ecs,
@@ -766,7 +795,11 @@ mod tests {
     };
 
     use super::DetectChanges;
+<<<<<<< HEAD
     use super::DetectChangesMut;
+=======
+    use super::MutUntyped;
+>>>>>>> 181b463bf (add MutUntyped::to_typed)
 
     #[derive(Component, PartialEq)]
     struct C;
@@ -989,5 +1022,41 @@ mod tests {
             r.is_changed(),
             "Resource must be changed after setting to a different value."
         );
+    }
+
+    #[test]
+    fn mut_untyped_to_reflect() {
+        let (last_change_tick, change_tick) = (2, 3);
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(2),
+        };
+        let ticks = Ticks {
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
+            last_change_tick,
+            change_tick,
+        };
+
+        let mut value: i32 = 5;
+        let value = MutUntyped {
+            // SAFETY: lifetime does not exceed `value`
+            value: unsafe { PtrMut::new(NonNull::new(&mut value as *mut i32 as *mut u8).unwrap()) },
+            ticks,
+        };
+
+        let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
+
+        let mut new = value.to_typed(|ptr| {
+            // SAFETY: ptr has type of ReflectFromPtr
+            let value = unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) };
+            value
+        });
+
+        assert!(!new.is_changed());
+
+        new.reflect_mut();
+
+        assert!(new.is_changed());
     }
 }
