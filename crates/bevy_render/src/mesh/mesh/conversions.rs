@@ -25,7 +25,7 @@
 //! ```
 
 use crate::mesh::VertexAttributeValues;
-use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec3A};
+use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec4};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]
