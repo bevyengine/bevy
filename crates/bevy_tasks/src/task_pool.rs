@@ -118,14 +118,22 @@ impl TaskPool {
                 thread_builder
                     .spawn(move || {
                         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-                            let tick_forever = async move {
-                                loop {
-                                    local_executor.tick().await;
+                            loop {
+                                let res = std::panic::catch_unwind(|| {
+                                    let tick_forever = async move {
+                                        loop {
+                                            local_executor.tick().await;
+                                        }
+                                    };
+                                    // Use unwrap_err because we expect a Closed error
+                                    future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
+                                });
+                                match res {
+                                    // Recieved an error from shutdown's recv. We should terminate.
+                                    Ok(Err(_)) => break,
+                                    _ => {},
                                 }
-                            };
-                            let shutdown_future = ex.run(tick_forever.or(shutdown_rx.recv()));
-                            // Use unwrap_err because we expect a Closed error
-                            future::block_on(shutdown_future).unwrap_err();
+                            }
                         });
                     })
                     .expect("Failed to spawn thread.")
