@@ -29,6 +29,17 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
     asset_server: Res<AssetServer>,
 ) {
+    println!("Toggle with:");
+    println!("1 - NO AA");
+    println!("2 - MSAA 4");
+    println!("3 - FXAA (default)");
+
+    println!("Threshold:");
+    println!("7 - LOW");
+    println!("8 - MEDIUM");
+    println!("9 - HIGH (default)");
+    println!("0 - ULTRA");
+
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
@@ -92,9 +103,6 @@ fn setup(
             ..default()
         })
         .insert(Fxaa::default());
-
-    println!("Toggle with:\n1 - NO AA\n2 - MSAA 4\n3 - FXAA (default)");
-    println!("Threshold:\n7 - LOW\n8 - MEDIUM\n9 - HIGH (default)\n0 - ULTRA");
 }
 
 fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa: ResMut<Msaa>) {
