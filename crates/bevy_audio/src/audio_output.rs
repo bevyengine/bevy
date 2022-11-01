@@ -1,6 +1,6 @@
 use crate::{Audio, AudioSource, Decodable};
 use bevy_asset::{Asset, Assets};
-use bevy_ecs::system::{NonSend, Res, ResMut, Resource};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_reflect::TypeUuid;
 use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
@@ -85,7 +85,7 @@ where
 
 /// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
 pub fn play_queued_audio_system<Source: Asset + Decodable>(
-    audio_output: NonSend<AudioOutput<Source>>,
+    audio_output: Res<AudioOutput<Source>>,
     audio_sources: Option<Res<Assets<Source>>>,
     mut audio: ResMut<Audio<Source>>,
     mut sinks: ResMut<Assets<AudioSink>>,
