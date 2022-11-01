@@ -1564,11 +1564,11 @@ impl<T: Component, A, B> StorageSwitch<T, A, B> {
     /// This will panic on debug builds if `T` is not a sparse set component.
     ///
     /// # Safety
-    /// `T` must be a sparse set component.
+    /// `T` must be a component.
     pub const unsafe fn new_sparse_set(sparse_set: B) -> Self {
         // SAFETY: The variant of the union is checked at compile time
         match T::Storage::STORAGE_TYPE {
-            StorageType::Table => Self {
+            StorageType::SparseSet => Self {
                 sparse_set: ManuallyDrop::new(sparse_set),
             },
             _ => debug_checked_unreachable(),

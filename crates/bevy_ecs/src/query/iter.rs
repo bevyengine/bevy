@@ -681,6 +681,10 @@ union QuerySwitch<Q, F, A, B> {
 }
 
 impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
+    /// Whether the corresponding query is using dense iteration or not.
+    /// For more information, see [`WorldQuery::IS_DENSE`]
+    ///
+    /// [`WorldQuery::IS_DENSE`]: crate::query::WorldQuery::IS_DENSE
     const IS_DENSE: bool = Q::IS_DENSE && F::IS_DENSE;
 
     /// Creates a new [`QuerySwitch`] of the dense variant.
@@ -728,13 +732,10 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     /// # Safety
     /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
     pub unsafe fn dense(&mut self) -> &mut A {
-        // SAFETY: The variant of the union is checked at compile time
-        unsafe {
-            if Self::IS_DENSE {
-                &mut self.dense
-            } else {
-                debug_checked_unreachable()
-            }
+        if Self::IS_DENSE {
+            &mut self.dense
+        } else {
+            debug_checked_unreachable()
         }
     }
 
@@ -747,13 +748,10 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     /// # Safety
     /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
     pub unsafe fn sparse(&mut self) -> &mut B {
-        // SAFETY: The variant of the union is checked at compile time
-        unsafe {
-            if !Self::IS_DENSE {
-                &mut self.sparse
-            } else {
-                debug_checked_unreachable()
-            }
+        if !Self::IS_DENSE {
+            &mut self.sparse
+        } else {
+            debug_checked_unreachable()
         }
     }
 }
