@@ -11,7 +11,7 @@ use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
-use std::{borrow::Borrow, fmt};
+use std::{borrow::Borrow, fmt, mem::MaybeUninit};
 
 use super::{NopWorldQuery, QueryItem, QueryManyIter, ROQueryItem, ReadOnlyWorldQuery};
 
@@ -438,24 +438,22 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         last_change_tick: u32,
         change_tick: u32,
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
-        // SAFETY: fetch is read-only
-        // and world must be validated
-        let array_of_results = entities.map(|entity| {
-            self.as_readonly()
-                .get_unchecked_manual(world, entity, last_change_tick, change_tick)
-        });
+        let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
-        // TODO: Replace with TryMap once https://github.com/rust-lang/rust/issues/79711 is stabilized
-        // If any of the get calls failed, bubble up the error
-        for result in &array_of_results {
-            match result {
-                Ok(_) => (),
-                Err(error) => return Err(*error),
-            }
+        for (value, entity) in std::iter::zip(&mut values, entities) {
+            // SAFETY: fetch is read-only
+            // and world must be validated
+            let item = self.as_readonly().get_unchecked_manual(
+                world,
+                entity,
+                last_change_tick,
+                change_tick,
+            )?;
+            *value = MaybeUninit::new(item);
         }
 
-        // Since we have verified that all entities are present, we can safely unwrap
-        Ok(array_of_results.map(|result| result.unwrap()))
+        // SAFETY: Each value has been fully initialized.
+        Ok(values.map(|x| x.assume_init()))
     }
 
     /// Gets the query results for the given [`World`] and array of [`Entity`], where the last change and
@@ -484,19 +482,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
             }
         }
 
-        let array_of_results = entities
-            .map(|entity| self.get_unchecked_manual(world, entity, last_change_tick, change_tick));
+        let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
-        // If any of the get calls failed, bubble up the error
-        for result in &array_of_results {
-            match result {
-                Ok(_) => (),
-                Err(error) => return Err(*error),
-            }
+        for (value, entity) in std::iter::zip(&mut values, entities) {
+            let item = self.get_unchecked_manual(world, entity, last_change_tick, change_tick)?;
+            *value = MaybeUninit::new(item);
         }
 
-        // Since we have verified that all entities are present, we can safely unwrap
-        Ok(array_of_results.map(|result| result.unwrap()))
+        // SAFETY: Each value has been fully initialized.
+        Ok(values.map(|x| x.assume_init()))
     }
 
     /// Returns an [`Iterator`] over the query results for the given [`World`].
