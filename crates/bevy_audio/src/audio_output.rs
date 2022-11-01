@@ -22,9 +22,8 @@ where
 {
     fn default() -> Self {
         if let Ok((stream, stream_handle)) = OutputStream::try_default() {
-            // We don't let `OutputStream` be dropped automatically
-            // as it will stop the audio from playing.
-            let _ = std::mem::ManuallyDrop::new(stream);
+            // We leak `OutputStream` to prevent the audio from stopping.
+            std::mem::forget(stream);
             Self {
                 stream_handle: Some(stream_handle),
                 phantom: PhantomData,
