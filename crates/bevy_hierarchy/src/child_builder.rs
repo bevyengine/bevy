@@ -515,9 +515,10 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        // SAFETY: This doesn't change the parent's location
+        // SAFETY: The EntityLocation is updated afterwards. 
         let world = unsafe { self.world_mut() };
         remove_children(parent, children, world);
+        self.update_location();
         self
     }
 }
