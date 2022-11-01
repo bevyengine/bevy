@@ -18,6 +18,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_render::prelude::*;
 /// # use bevy_core_pipeline::prelude::*;
 /// # use bevy_pbr::prelude::*;
 /// # fn system(mut commands: Commands) {
@@ -25,7 +26,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 ///     // Setup your camera as usual
 ///     Camera3dBundle {
 ///         // ... camera options
-/// #       ..default()
+/// #       ..Default::default()
 ///     },
 ///     // Add fog to the same entity
 ///     Fog {
