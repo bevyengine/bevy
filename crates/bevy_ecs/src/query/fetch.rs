@@ -1549,6 +1549,7 @@ impl<T: Component, A, B> StorageSwitch<T, A, B> {
     ///
     /// # Safety
     /// `T` must be a table component.
+    #[inline]
     pub const unsafe fn new_table(table: A) -> Self {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => Self {
@@ -1565,6 +1566,7 @@ impl<T: Component, A, B> StorageSwitch<T, A, B> {
     ///
     /// # Safety
     /// `T` must be a component.
+    #[inline]
     pub const unsafe fn new_sparse_set(sparse_set: B) -> Self {
         // SAFETY: The variant of the union is checked at compile time
         match T::Storage::STORAGE_TYPE {
@@ -1584,6 +1586,7 @@ impl<T: Component, A: Copy, B: Copy> StorageSwitch<T, A, B> {
     ///
     /// # Safety
     /// The [`StorageSwitch`] must be made via [`StorageSwitch::new_table`].
+    #[inline]
     pub unsafe fn table(&self) -> A {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => *self.table,
@@ -1600,6 +1603,7 @@ impl<T: Component, A: Copy, B: Copy> StorageSwitch<T, A, B> {
     ///
     /// # Safety
     /// The [`StorageSwitch`] must be made via [`StorageSwitch::new_sparse_set`].
+    #[inline]
     pub unsafe fn sparse_set(&self) -> B {
         match T::Storage::STORAGE_TYPE {
             StorageType::SparseSet => *self.sparse_set,

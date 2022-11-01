@@ -695,6 +695,7 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     ///
     /// # Safety
     /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    #[inline]
     pub const unsafe fn new_dense(dense: A) -> Self {
         if Self::IS_DENSE {
             Self {
@@ -713,6 +714,7 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     ///
     /// # Safety
     /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
     pub const unsafe fn new_sparse(sparse: B) -> Self {
         if !Self::IS_DENSE {
             Self {
@@ -731,6 +733,7 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     ///
     /// # Safety
     /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    #[inline]
     pub unsafe fn dense(&mut self) -> &mut A {
         if Self::IS_DENSE {
             &mut self.dense
@@ -747,6 +750,7 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     ///
     /// # Safety
     /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
     pub unsafe fn sparse(&mut self) -> &mut B {
         if !Self::IS_DENSE {
             &mut self.sparse
