@@ -461,7 +461,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
             let mut builder = WorldChildBuilder {
                 current_entity: None,
                 parent_entities: vec![entity],
-                // SAFETY: The EntityLocation is updated afterwards.
+                // SAFETY: The EntityLocation is updated after mutable world access.
                 world: unsafe { self.world_mut() },
             };
 
@@ -474,7 +474,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         {
-            // SAFETY: The EntityLocation is updated afterwards.
+            // SAFETY: The EntityLocation is updated after mutable world access before any methods are called on self.
             let world = unsafe { self.world_mut() };
             update_old_parents(world, parent, children);
             self.update_location();
@@ -493,7 +493,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
         {
-            // SAFETY: The EntityLocation is updated afterwards.
+            // SAFETY: The EntityLocation is updated after mutable world access before any methods are called on self.
             let world = unsafe { self.world_mut() };
             update_old_parents(world, parent, children);
             self.update_location();
@@ -512,7 +512,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        // SAFETY: The EntityLocation is updated afterwards.
+        // SAFETY: The EntityLocation is updated after mutable world access.
         let world = unsafe { self.world_mut() };
         remove_children(parent, children, world);
         self.update_location();
