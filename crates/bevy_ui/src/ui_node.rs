@@ -455,29 +455,38 @@ impl From<Color> for BackgroundColor {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiImage(pub Handle<Image>);
+pub struct UiImage {
+    /// Handle to the texture
+    pub texture: Handle<Image>,
+    /// Whether the image should be flipped along its x-axis
+    pub flip_x: bool,
+    /// Whether the image should be flipped along its y-axis
+    pub flip_y: bool,
+}
 
 impl Default for UiImage {
     fn default() -> Self {
-        Self(DEFAULT_IMAGE_HANDLE.typed())
+        Self {
+            texture: DEFAULT_IMAGE_HANDLE.typed(),
+            ..Default::default()
+        }
     }
 }
 
-/// Controls whether image is flipped along the x and y axes.
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Default)]
-pub struct FlipImage {
-    /// Flip the image along the x-axis
-    pub x_axis: bool,
-    /// Flip the image along the y-axis
-    pub y_axis: bool,
+impl UiImage {
+    pub fn new(texture: Handle<Image>) -> Self {
+        Self {
+            texture,
+            ..Default::default()
+        }
+    }
 }
 
 impl From<Handle<Image>> for UiImage {
-    fn from(handle: Handle<Image>) -> Self {
-        Self(handle)
+    fn from(texture: Handle<Image>) -> Self {
+        Self::new(texture)
     }
 }
 
