@@ -56,7 +56,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let max_size = self.cursor.remaining(self.tables, self.archetypes);
+        let max_size = self.cursor.max_remaining(self.tables, self.archetypes);
         let archetype_query = Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL;
         let min_size = if archetype_query { max_size } else { 0 };
         (min_size, Some(max_size))
@@ -425,7 +425,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Itera
             .iter()
             .enumerate()
             .try_fold(0, |acc, (i, cursor)| {
-                let n = cursor.remaining(self.tables, self.archetypes);
+                let n = cursor.max_remaining(self.tables, self.archetypes);
                 Some(acc + choose(n, K - i)?)
             });
 
@@ -556,8 +556,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         }
     }
 
-    /// How many values will this cursor return?
-    fn remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
+    /// How many values will this cursor return at most?
+    ///
+    /// Note that if `Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL`, the return value
+    /// will be **the exact count of remaining values**.
+    fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let remaining_matched: usize = if Self::IS_DENSE {
             let ids = self.table_id_iter.clone();
             ids.map(|id| tables[*id].entity_count()).sum()
