@@ -162,7 +162,7 @@ impl Archetype {
         sparse_set_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
-        let (min_sparse, _) = table_components.size_hint();
+        let (min_sparse, _) = sparse_set_components.size_hint();
         let mut components = SparseSet::with_capacity(min_table + min_sparse);
         for (component_id, archetype_component_id) in table_components {
             components.insert(
