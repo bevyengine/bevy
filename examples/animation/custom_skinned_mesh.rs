@@ -77,7 +77,7 @@ fn setup(
     // This means that a maximum of 4 joints can affect a single vertex.
     mesh.insert_attribute(
         Mesh::ATTRIBUTE_JOINT_INDEX,
-        // Need to be explicity here as [u16; 4] could be either Uint16x4 or Unorm16x4
+        // Need to be explicit here as [u16; 4] could be either Uint16x4 or Unorm16x4.
         VertexAttributeValues::Uint16x4(vec![
             [0, 0, 0, 0],
             [0, 0, 0, 0],
