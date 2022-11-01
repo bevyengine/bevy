@@ -25,7 +25,7 @@
 //! ```
 
 use crate::mesh::VertexAttributeValues;
-use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4};
+use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec3A};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]
@@ -72,6 +72,7 @@ impl_from!([f32; 2], Float32x2);
 impl_from_into!(Vec2, Float32x2);
 impl_from!([f32; 3], Float32x3);
 impl_from_into!(Vec3, Float32x3);
+impl_from_into!(Vec3A, Float32x3);
 impl_from!([f32; 4], Float32x4);
 impl_from_into!(Vec4, Float32x4);
 
@@ -128,6 +129,7 @@ impl_try_from!([f32; 2], Float32x2);
 impl_try_from_into!(Vec2, Float32x2);
 impl_try_from!([f32; 3], Float32x3);
 impl_try_from_into!(Vec3, Float32x3);
+impl_try_from_into!(Vec3A, Float32x3);
 impl_try_from!([f32; 4], Float32x4);
 impl_try_from_into!(Vec4, Float32x4);
 
