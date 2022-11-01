@@ -134,6 +134,8 @@ pub struct TupleInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl TupleInfo {
@@ -148,7 +150,15 @@ impl TupleInfo {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this tuple.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// Get the field at the given index.
@@ -182,10 +192,16 @@ impl TupleInfo {
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+
+    /// The docstring of this tuple, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
+    }
 }
 
 /// A tuple which allows fields to be added at runtime.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct DynamicTuple {
     name: String,
     fields: Vec<Box<dyn Reflect>>,

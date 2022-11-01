@@ -22,7 +22,7 @@ fn setup(
     mut animations: ResMut<Assets<AnimationClip>>,
 ) {
     // Camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -116,28 +116,35 @@ fn setup(
     // Create the scene that will be animated
     // First entity is the planet
     commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            ..default()
-        })
-        // Add the Name component, and the animation player
-        .insert_bundle((planet, player))
+        .spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
+                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                ..default()
+            },
+            // Add the Name component, and the animation player
+            planet,
+            player,
+        ))
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
-            p.spawn_bundle(SpatialBundle::VISIBLE_IDENTITY)
+            p.spawn((
+                SpatialBundle::VISIBLE_IDENTITY,
                 // Add the Name component
-                .insert(orbit_controller)
-                .with_children(|p| {
-                    // The satellite, placed at a distance of the planet
-                    p.spawn_bundle(PbrBundle {
+                orbit_controller,
+            ))
+            .with_children(|p| {
+                // The satellite, placed at a distance of the planet
+                p.spawn((
+                    PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
                         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                         material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
                         ..default()
-                    })
+                    },
                     // Add the Name component
-                    .insert(satellite);
-                });
+                    satellite,
+                ));
+            });
         });
 }

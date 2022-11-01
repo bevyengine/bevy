@@ -6,8 +6,6 @@ pub use draw_state::*;
 
 use bevy_ecs::prelude::{Component, Query};
 
-use copyless::VecHelper;
-
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]
 pub struct RenderPhase<I: PhaseItem> {
@@ -24,7 +22,7 @@ impl<I: PhaseItem> RenderPhase<I> {
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
     pub fn add(&mut self, item: I) {
-        self.items.alloc().init(item);
+        self.items.push(item);
     }
 
     /// Sorts all of its [`PhaseItems`](PhaseItem).

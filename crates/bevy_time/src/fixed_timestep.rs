@@ -189,6 +189,10 @@ impl System for FixedTimestep {
         self.internal_system.is_send()
     }
 
+    fn is_exclusive(&self) -> bool {
+        false
+    }
+
     unsafe fn run_unsafe(&mut self, _input: (), world: &World) -> ShouldRun {
         // SAFETY: this system inherits the internal system's component access and archetype component
         // access, which means the caller has ensured running the internal system is safe

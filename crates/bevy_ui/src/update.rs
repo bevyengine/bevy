@@ -99,7 +99,9 @@ fn update_clipping(
             commands.entity(entity).insert(CalculatedClip { clip });
         }
         (Some(clip), Some(mut old_clip)) => {
-            *old_clip = CalculatedClip { clip };
+            if old_clip.clip != clip {
+                *old_clip = CalculatedClip { clip };
+            }
         }
     }
 
@@ -108,7 +110,7 @@ fn update_clipping(
         Overflow::Visible => clip,
         Overflow::Hidden => {
             let node_center = global_transform.translation().truncate();
-            let node_rect = Rect::from_center_size(node_center, node.size);
+            let node_rect = Rect::from_center_size(node_center, node.calculated_size);
             Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
         }
     };
@@ -158,42 +160,42 @@ mod tests {
         let mut world = World::default();
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
-        commands.spawn_bundle(node_with_transform("0"));
+        commands.spawn(node_with_transform("0"));
 
         commands
-            .spawn_bundle(node_with_transform("1"))
+            .spawn(node_with_transform("1"))
             .with_children(|parent| {
                 parent
-                    .spawn_bundle(node_with_transform("1-0"))
+                    .spawn(node_with_transform("1-0"))
                     .with_children(|parent| {
-                        parent.spawn_bundle(node_with_transform("1-0-0"));
-                        parent.spawn_bundle(node_without_transform("1-0-1"));
-                        parent.spawn_bundle(node_with_transform("1-0-2"));
+                        parent.spawn(node_with_transform("1-0-0"));
+                        parent.spawn(node_without_transform("1-0-1"));
+                        parent.spawn(node_with_transform("1-0-2"));
                     });
-                parent.spawn_bundle(node_with_transform("1-1"));
+                parent.spawn(node_with_transform("1-1"));
                 parent
-                    .spawn_bundle(node_without_transform("1-2"))
+                    .spawn(node_without_transform("1-2"))
                     .with_children(|parent| {
-                        parent.spawn_bundle(node_with_transform("1-2-0"));
-                        parent.spawn_bundle(node_with_transform("1-2-1"));
+                        parent.spawn(node_with_transform("1-2-0"));
+                        parent.spawn(node_with_transform("1-2-1"));
                         parent
-                            .spawn_bundle(node_with_transform("1-2-2"))
+                            .spawn(node_with_transform("1-2-2"))
                             .with_children(|_| ());
-                        parent.spawn_bundle(node_with_transform("1-2-3"));
+                        parent.spawn(node_with_transform("1-2-3"));
                     });
-                parent.spawn_bundle(node_with_transform("1-3"));
+                parent.spawn(node_with_transform("1-3"));
             });
 
         commands
-            .spawn_bundle(node_without_transform("2"))
+            .spawn(node_without_transform("2"))
             .with_children(|parent| {
                 parent
-                    .spawn_bundle(node_with_transform("2-0"))
+                    .spawn(node_with_transform("2-0"))
                     .with_children(|_parent| ());
                 parent
-                    .spawn_bundle(node_with_transform("2-1"))
+                    .spawn(node_with_transform("2-1"))
                     .with_children(|parent| {
-                        parent.spawn_bundle(node_with_transform("2-1-0"));
+                        parent.spawn(node_with_transform("2-1-0"));
                     });
             });
         queue.apply(&mut world);

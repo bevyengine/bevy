@@ -71,7 +71,7 @@ fn spawn_tasks(mut commands: Commands) {
                 });
 
                 // Spawn new entity and add our new task as a component
-                commands.spawn().insert(ComputeTransform(task));
+                commands.spawn(ComputeTransform(task));
             }
         }
     }
@@ -90,7 +90,7 @@ fn handle_tasks(
     for (entity, mut task) in &mut transform_tasks {
         if let Some(transform) = future::block_on(future::poll_once(&mut task.0)) {
             // Add our new PbrBundle of components to our tagged entity
-            commands.entity(entity).insert_bundle(PbrBundle {
+            commands.entity(entity).insert(PbrBundle {
                 mesh: box_mesh_handle.clone(),
                 material: box_material_handle.clone(),
                 transform,
@@ -113,13 +113,13 @@ fn setup_env(mut commands: Commands) {
     };
 
     // lights
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 12.0, 15.0),
         ..default()
     });
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
         ..default()

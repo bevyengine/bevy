@@ -90,7 +90,7 @@ fn main() {
 /// Example of a run criteria.
 /// Here we only want to run for a second, then stop.
 fn run_for_a_second(time: Res<Time>, mut done: ResMut<Done>) -> ShouldRun {
-    let elapsed = time.seconds_since_startup();
+    let elapsed = time.elapsed_seconds();
     if elapsed < 1.0 {
         info!(
             "We should run again. Elapsed/remaining: {:.2}s/{:.2}s",
