@@ -179,7 +179,7 @@ fn main() {
         }
     };
 
-    println!("\n{:#?}", cfg);
+    println!("\n{cfg:#?}");
 
     App::new()
         .insert_resource(cfg)
@@ -317,7 +317,7 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
         }
     };
 
-    println!("\n{:#?}", result);
+    println!("\n{result:#?}");
 }
 
 /// overview of the inserted hierarchy

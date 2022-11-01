@@ -131,7 +131,7 @@ fn game_over_system(
     mut app_exit_events: EventWriter<AppExit>,
 ) {
     if let Some(ref player) = game_state.winning_player {
-        println!("{} won the game!", player);
+        println!("{player} won the game!");
         app_exit_events.send(AppExit);
     } else if game_state.current_round == game_rules.max_rounds {
         println!("Ran out of rounds. Nobody wins!");

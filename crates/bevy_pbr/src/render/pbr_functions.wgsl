@@ -1,5 +1,10 @@
 #define_import_path bevy_pbr::pbr_functions
 
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping
+#endif
+
+
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
     var color = output_color;
     if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
@@ -245,6 +250,7 @@ fn pbr(
     return output_color;
 }
 
+#ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // tone_mapping
     return vec4<f32>(reinhard_luminance(in.rgb), in.a);
@@ -253,4 +259,5 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 }
+#endif
 

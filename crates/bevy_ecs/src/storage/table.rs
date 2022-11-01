@@ -86,6 +86,18 @@ impl Column {
             .set_changed(change_tick);
     }
 
+    /// Writes component data to the column at given row.
+    /// Assumes the slot is initialized, calls drop.
+    /// Does not update the Component's ticks.
+    ///
+    /// # Safety
+    /// Assumes data has already been allocated for the given row.
+    #[inline]
+    pub(crate) unsafe fn replace_untracked(&mut self, row: usize, data: OwningPtr<'_>) {
+        debug_assert!(row < self.len());
+        self.data.replace_unchecked(row, data);
+    }
+
     #[inline]
     pub fn len(&self) -> usize {
         self.data.len()
@@ -104,6 +116,22 @@ impl Column {
         self.ticks.swap_remove(row);
     }
 
+    #[inline]
+    #[must_use = "The returned pointer should be used to drop the removed component"]
+    pub(crate) fn swap_remove_and_forget(
+        &mut self,
+        row: usize,
+    ) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+        (row < self.data.len()).then(|| {
+            // SAFETY: The row was length checked before this.
+            let data = unsafe { self.data.swap_remove_and_forget_unchecked(row) };
+            let ticks = self.ticks.swap_remove(row).into_inner();
+            (data, ticks)
+        })
+    }
+
+    /// # Safety
+    /// index must be in-bounds
     #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed component"]
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
@@ -168,6 +196,21 @@ impl Column {
         &self.ticks
     }
 
+    #[inline]
+    pub fn get(&self, row: usize) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+        (row < self.data.len())
+            // SAFETY: The row is length checked before fetching the pointer. This is being
+            // accessed through a read-only reference to the column.
+            .then(|| unsafe { (self.data.get_unchecked(row), self.ticks.get_unchecked(row)) })
+    }
+
+    #[inline]
+    pub fn get_data(&self, row: usize) -> Option<Ptr<'_>> {
+        // SAFETY: The row is length checked before fetching the pointer. This is being
+        // accessed through a read-only reference to the column.
+        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked(row) })
+    }
+
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
@@ -177,6 +220,13 @@ impl Column {
         self.data.get_unchecked(row)
     }
 
+    #[inline]
+    pub fn get_data_mut(&mut self, row: usize) -> Option<PtrMut<'_>> {
+        // SAFETY: The row is length checked before fetching the pointer. This is being
+        // accessed through an exclusive reference to the column.
+        (row < self.data.len()).then(|| unsafe { self.data.get_unchecked_mut(row) })
+    }
+
     /// # Safety
     /// - index must be in-bounds
     /// - no other reference to the data of the same row can exist at the same time
@@ -184,6 +234,11 @@ impl Column {
     pub(crate) unsafe fn get_data_unchecked_mut(&mut self, row: usize) -> PtrMut<'_> {
         debug_assert!(row < self.data.len());
         self.data.get_unchecked_mut(row)
+    }
+
+    #[inline]
+    pub fn get_ticks(&self, row: usize) -> Option<&UnsafeCell<ComponentTicks>> {
+        self.ticks.get(row)
     }
 
     /// # Safety

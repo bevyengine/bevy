@@ -10,7 +10,12 @@ use core::slice;
 use smallvec::SmallVec;
 use std::ops::Deref;
 
-/// Contains references to the child entities of this entity
+/// Contains references to the child entities of this entity.
+///
+/// See [`HierarchyQueryExt`] for hierarchy related methods on [`Query`].
+///
+/// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
+/// [`Query`]: bevy_ecs::system::Query
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);

@@ -15,14 +15,16 @@ use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            width: 1024.0,
-            height: 768.0,
-            title: "many_lights".to_string(),
-            present_mode: PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                width: 1024.0,
+                height: 768.0,
+                title: "many_lights".to_string(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup)
@@ -100,7 +102,7 @@ fn setup(
         mesh,
         material,
         transform: Transform {
-            translation: Vec3::new(0.0, RADIUS as f32, 0.0),
+            translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
         },

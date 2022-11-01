@@ -53,16 +53,16 @@ impl LogDiagnosticsPlugin {
     }
 
     fn log_diagnostic(diagnostic: &Diagnostic) {
-        if let Some(value) = diagnostic.value() {
+        if let Some(value) = diagnostic.smoothed() {
             if diagnostic.get_max_history_length() > 1 {
                 if let Some(average) = diagnostic.average() {
                     info!(
                         target: "bevy diagnostic",
-                        // Suffix is only used for 's' as in seconds currently,
-                        // so we reserve one column for it; however,
-                        // Do not reserve one column for the suffix in the average
+                        // Suffix is only used for 's' or 'ms' currently,
+                        // so we reserve two columns for it; however,
+                        // Do not reserve columns for the suffix in the average
                         // The ) hugging the value is more aesthetically pleasing
-                        "{name:<name_width$}: {value:>11.6}{suffix:1} (avg {average:>.6}{suffix:})",
+                        "{name:<name_width$}: {value:>11.6}{suffix:2} (avg {average:>.6}{suffix:})",
                         name = diagnostic.name,
                         suffix = diagnostic.suffix,
                         name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
@@ -85,7 +85,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        if state.timer.tick(time.delta()).finished() {
+        if state.timer.tick(time.raw_delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().flat_map(|id| {
                     diagnostics
@@ -110,7 +110,7 @@ impl LogDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        if state.timer.tick(time.delta()).finished() {
+        if state.timer.tick(time.raw_delta()).finished() {
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().flat_map(|id| {
                     diagnostics

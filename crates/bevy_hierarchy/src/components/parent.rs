@@ -9,6 +9,11 @@ use std::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.
+///
+/// See [`HierarchyQueryExt`] for hierarchy related methods on [`Query`].
+///
+/// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
+/// [`Query`]: bevy_ecs::system::Query
 #[derive(Component, Debug, Eq, PartialEq, Reflect)]
 #[reflect(Component, MapEntities, PartialEq)]
 pub struct Parent(pub(crate) Entity);
