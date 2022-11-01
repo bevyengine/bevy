@@ -1,6 +1,5 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -467,10 +466,11 @@ pub struct UiImage {
 }
 
 impl Default for UiImage {
-    fn default() -> Self {
-        Self {
+    fn default() -> UiImage {
+        UiImage {
             texture: DEFAULT_IMAGE_HANDLE.typed(),
-            ..Default::default()
+            flip_x: false,
+            flip_y: false,
         }
     }
 }

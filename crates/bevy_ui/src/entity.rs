@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    BackgroundColor, CalculatedSize, FlipImage, FocusPolicy, Interaction, Node, Style, UiImage,
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage,
 };
 use bevy_ecs::{
     bundle::Bundle,

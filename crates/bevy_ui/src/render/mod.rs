@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, FlipImage, Node, UiImage};
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
@@ -211,18 +211,17 @@ pub fn extract_uinodes(
             &BackgroundColor,
             &UiImage,
             &ComputedVisibility,
-            Option<&FlipImage>,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility, flip_image, clip) in uinode_query.iter() {
+    for (uinode, transform, color, ui_image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
-        let image = image.0.clone_weak();
+        let image = ui_image.texture.clone_weak();
         // Skip loading images
         if !images.contains(&image) {
             continue;
@@ -231,11 +230,6 @@ pub fn extract_uinodes(
         if color.0.a() == 0.0 {
             continue;
         }
-        let (flip_x, flip_y) = if let Some(flip) = flip_image {
-            (flip.x_axis, flip.y_axis)
-        } else {
-            (false, false)
-        };
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
             background_color: color.0,
@@ -246,8 +240,8 @@ pub fn extract_uinodes(
             image,
             atlas_size: None,
             clip: clip.map(|clip| clip.clip),
-            flip_x,
-            flip_y,
+            flip_x: ui_image.flip_x,
+            flip_y: ui_image.flip_y,
             scale_factor,
         });
     }
