@@ -46,6 +46,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::CameraUpdateSystem,
+    extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     prelude::Color,
     render_graph::RenderGraph,
@@ -140,12 +141,11 @@ impl Plugin for PbrPlugin {
             .register_type::<DirectionalLightShadowMap>()
             .register_type::<PointLightShadowMap>()
             .init_resource::<AmbientLight>()
-            .init_resource::<Fog>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
-            .add_plugin(ExtractResourcePlugin::<Fog>::default())
+            .add_plugin(ExtractComponentPlugin::<Fog>::default())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 // NOTE: Clusters need to have been added before update_clusters is run so

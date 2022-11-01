@@ -1,7 +1,7 @@
 use crate::{
     FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta, NotShadowCaster,
-    NotShadowReceiver, ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset,
-    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    NotShadowReceiver, ShadowPipeline, ViewClusterBindings, ViewFogUniformOffset,
+    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -400,7 +400,7 @@ impl FromWorld for MeshPipeline {
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
+                        has_dynamic_offset: true,
                         min_binding_size: Some(GpuFog::min_size()),
                     },
                     count: None,
@@ -827,7 +827,7 @@ pub fn queue_mesh_view_bind_groups(
         light_meta.view_gpu_lights.binding(),
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
-        fog_meta.gpu_fog.binding(),
+        fog_meta.gpu_fogs.binding(),
     ) {
         for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -899,6 +899,7 @@ impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
     type Param = SQuery<(
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
+        Read<ViewFogUniformOffset>,
         Read<MeshViewBindGroup>,
     )>;
     #[inline]
@@ -908,11 +909,12 @@ impl<const I: usize> EntityRenderCommand for SetMeshViewBindGroup<I> {
         view_query: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, view_lights, mesh_view_bind_group) = view_query.get_inner(view).unwrap();
+        let (view_uniform, view_lights, view_fog, mesh_view_bind_group) =
+            view_query.get_inner(view).unwrap();
         pass.set_bind_group(
             I,
             &mesh_view_bind_group.value,
-            &[view_uniform.offset, view_lights.offset],
+            &[view_uniform.offset, view_lights.offset, view_fog.offset],
         );
 
         RenderCommandResult::Success

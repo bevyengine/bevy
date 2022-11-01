@@ -1,11 +1,12 @@
-use crate::ReflectResource;
-use bevy_ecs::system::Resource;
+use crate::ReflectComponent;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::Reflect;
-use bevy_render::{color::Color, extract_resource::ExtractResource};
+use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Camera};
 
 /// A “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect, that makes
 /// objects appear progressively more covered in atmospheric haze as they move further away from the camera.
 /// Affects meshes rendered via the PBR [`StandardMaterial`](crate::StandardMaterial).
+/// Configurable independently for each camera.
 ///
 /// Currently, the following fog modes are supported:
 ///
@@ -16,22 +17,32 @@ use bevy_render::{color::Color, extract_resource::ExtractResource};
 /// ## Example
 ///
 /// ```
-/// # use bevy_app::prelude::*;
-/// # use bevy_render::prelude::*;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_core_pipeline::prelude::*;
 /// # use bevy_pbr::prelude::*;
-/// App::new()
-///     .insert_resource(Fog {
+/// # fn system(mut commands: Commands) {
+/// commands.spawn((
+///     // Setup your camera as usual
+///     Camera3dBundle {
+///         // ... camera options
+/// #       ..default()
+///     },
+///     // Add fog to the same entity
+///     Fog {
 ///         color: Color::WHITE,
 ///         mode: FogMode::Exponential { density: 1e-3 },
-///     });
+///     },
+/// ));
+/// # }
+/// # bevy_ecs::system::assert_is_system(system);
 /// ```
 ///
 /// ## Material Override
 ///
-/// Once enabled globally, the fog effect can be disabled for individual
+/// Once enabled for a specific camera, the fog effect can also be disabled for individual
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `no_fog` flag.
-#[derive(Debug, Clone, Default, ExtractResource, Resource, Reflect)]
-#[reflect(Resource)]
+#[derive(Debug, Clone, Default, Component, Reflect)]
+#[reflect(Component)]
 pub struct Fog {
     /// The color of the fog effect.
     ///
@@ -168,4 +179,13 @@ pub enum FogMode {
     /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
     /// </svg>
     ExponentialSquared { density: f32 },
+}
+
+impl ExtractComponent for Fog {
+    type Query = &'static Self;
+    type Filter = With<Camera>;
+
+    fn extract_component(item: QueryItem<Self::Query>) -> Self {
+        item.clone()
+    }
 }
