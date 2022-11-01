@@ -46,7 +46,6 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::CameraUpdateSystem,
-    extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     prelude::Color,
     render_graph::RenderGraph,
@@ -75,8 +74,6 @@ pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
-pub const FOG_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4913569193382610166);
 
 /// Sets up the entire PBR infrastructure of bevy.
 #[derive(Default)]
@@ -128,7 +125,6 @@ impl Plugin for PbrPlugin {
             "render/depth.wgsl",
             Shader::from_wgsl
         );
-        load_internal_asset!(app, FOG_HANDLE, "render/fog.wgsl", Shader::from_wgsl);
 
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
@@ -145,7 +141,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
-            .add_plugin(ExtractComponentPlugin::<Fog>::default())
+            .add_plugin(FogPlugin)
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 // NOTE: Clusters need to have been added before update_clusters is run so
@@ -243,10 +239,6 @@ impl Plugin for PbrPlugin {
                 render::prepare_clusters.label(RenderLightSystems::PrepareClusters),
             )
             .add_system_to_stage(
-                RenderStage::Prepare,
-                render::prepare_fog.label(RenderFogSystems::PrepareFog),
-            )
-            .add_system_to_stage(
                 RenderStage::Queue,
                 render::queue_shadows.label(RenderLightSystems::QueueShadows),
             )
@@ -256,7 +248,6 @@ impl Plugin for PbrPlugin {
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()
             .init_resource::<GlobalLightMeta>()
-            .init_resource::<FogMeta>()
             .init_resource::<SpecializedMeshPipelines<ShadowPipeline>>();
 
         let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
