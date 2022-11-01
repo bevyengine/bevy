@@ -39,9 +39,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Store parent entity for next sections
         .id();
 
-    // Another way is to use the push_children function to add children after the parent
+    // Another way is to use the set_parent function to add children after the parent
     // entity has already been spawned.
-    let child = commands
+    commands
         .spawn(SpriteBundle {
             transform: Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
             texture,
@@ -51,10 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .id();
-
-    // Add child to the parent.
-    commands.entity(parent).add_child(child);
+        .set_parent(parent);
 }
 
 // A simple system to rotate the root entity, and rotate all its children separately

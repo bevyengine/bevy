@@ -163,7 +163,7 @@ mod tests {
         world::World,
     };
 
-    use crate::{query_extension::HierarchyQueryExt, BuildWorldChildren, Children, Parent};
+    use crate::{query_extension::HierarchyQueryExt, Children, HierarchyCommands, Parent};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -174,8 +174,8 @@ mod tests {
 
         let [a, b, c, d] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).push_children(&[b, c]);
-        world.entity_mut(c).push_children(&[d]);
+        world.entity_mut(a).add_children(&[b, c]);
+        world.entity_mut(c).add_child(d);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
@@ -193,8 +193,8 @@ mod tests {
 
         let [a, b, c] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).push_children(&[b]);
-        world.entity_mut(b).push_children(&[c]);
+        world.entity_mut(a).add_child(b);
+        world.entity_mut(b).add_child(c);
 
         let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
         let (parent_query, a_query) = system_state.get(world);
