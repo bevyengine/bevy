@@ -1,17 +1,17 @@
 use crate::{Audio, AudioSource, Decodable};
 use bevy_asset::{Asset, Assets};
-use bevy_ecs::system::{NonSend, Res, ResMut};
+use bevy_ecs::system::{NonSend, Res, ResMut, Resource};
 use bevy_reflect::TypeUuid;
 use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 use std::marker::PhantomData;
 
 /// Used internally to play audio on the current "audio device"
+#[derive(Resource)]
 pub struct AudioOutput<Source = AudioSource>
 where
     Source: Decodable,
 {
-    _stream: Option<OutputStream>,
     stream_handle: Option<OutputStreamHandle>,
     phantom: PhantomData<Source>,
 }
@@ -22,15 +22,16 @@ where
 {
     fn default() -> Self {
         if let Ok((stream, stream_handle)) = OutputStream::try_default() {
+            // We don't let `OutputStream` be dropped automatically
+            // as it will stop the audio from playing.
+            let _ = std::mem::ManuallyDrop::new(stream);
             Self {
-                _stream: Some(stream),
                 stream_handle: Some(stream_handle),
                 phantom: PhantomData,
             }
         } else {
             warn!("No audio device found.");
             Self {
-                _stream: None,
                 stream_handle: None,
                 phantom: PhantomData,
             }
