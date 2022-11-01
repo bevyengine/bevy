@@ -131,6 +131,9 @@ impl TaskPool {
                                 match res {
                                     // Recieved an error from shutdown's recv. We should terminate.
                                     Ok(Err(_)) => break,
+                                    // The executor panicked for whatever reason.
+                                    // TODO: Properly handle this.
+                                    Err(_) => {},
                                     _ => {},
                                 }
                             }
