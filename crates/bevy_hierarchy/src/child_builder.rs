@@ -709,7 +709,7 @@ mod tests {
             commands.entity(parent).clear_children();
         }
         queue.apply(&mut world);
-        
+
         assert!(world.get::<Children>(parent).is_none());
 
         assert!(world.get::<Parent>(child1).is_none());
