@@ -28,7 +28,7 @@ pub(crate) struct DebugLinePipeline {
 impl FromWorld for DebugLinePipeline {
     fn from_world(render_world: &mut World) -> Self {
         DebugLinePipeline {
-            mesh_pipeline: render_world.get_resource::<MeshPipeline>().unwrap().clone(),
+            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             shader: SHADER_HANDLE.typed(),
         }
     }

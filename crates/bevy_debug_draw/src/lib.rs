@@ -206,11 +206,12 @@ impl DebugDraw {
         self.ray(start.extend(0.), vector.extend(0.), color);
     }
 
+    // Draw a circle.
     pub fn circle_2d(&mut self, position: Vec2, radius: f32, color: Color) {
         self.circle(position.extend(0.), Vec3::Z, radius, color);
     }
 
-    /// Draw a rectangle at `position`.
+    /// Draw a rectangle.
     pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
         self.rect(
             position.extend(0.),
@@ -220,11 +221,13 @@ impl DebugDraw {
         );
     }
 
+    /// Clear everything drawn up to this point, this frame.
     pub fn clear(&mut self) {
         self.positions.clear();
         self.colors.clear();
     }
 
+    /// Take the positions and colors data from `self` and overwrite the `mesh`'s vertex positions and colors.
     pub fn update_mesh(&mut self, mesh: &mut Mesh) {
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,

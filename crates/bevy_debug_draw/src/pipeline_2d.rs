@@ -23,13 +23,11 @@ pub(crate) struct DebugLinePipeline {
     mesh_pipeline: Mesh2dPipeline,
     shader: Handle<Shader>,
 }
+
 impl FromWorld for DebugLinePipeline {
     fn from_world(render_world: &mut World) -> Self {
         DebugLinePipeline {
-            mesh_pipeline: render_world
-                .get_resource::<Mesh2dPipeline>()
-                .unwrap()
-                .clone(),
+            mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
             shader: SHADER_HANDLE.typed(),
         }
     }
