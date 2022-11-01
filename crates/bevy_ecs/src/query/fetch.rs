@@ -55,7 +55,13 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// - Methods can be implemented for the query items.
 /// - There is no hardcoded limit on the number of elements.
 ///
-/// This trait can only be derived if each field of the struct also implements `WorldQuery`.
+/// This trait can only be derived if each field either
+///
+/// * also implements `WorldQuery`, or
+/// * is marked with `#[world_query(ignore)]`. Fields decorated with this attribute
+///   must implement [`Default`] and will be initialized to the default value as defined
+///   by the trait.
+///
 /// The derive macro only supports regular structs (structs with named fields).
 ///
 /// ```
