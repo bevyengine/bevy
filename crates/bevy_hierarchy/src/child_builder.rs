@@ -85,8 +85,17 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
 }
 
 fn clear_children(parent: Entity, world: &mut World) {
-    if let Some(children) = world.entity(parent).get::<Children>() {
-        remove_children(parent, &children.0.clone(), world);
+    let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
+    if let Some(children) = world.entity_mut(parent).remove::<Children>() {
+        for child in &children.0 {
+            world.entity_mut(*child).remove::<Parent>();
+            events.push(HierarchyEvent::ChildRemoved {
+                child: *child,
+                parent,
+            });
+        }
+
+        push_events(world, events);
     }
 }
 
@@ -700,12 +709,9 @@ mod tests {
             commands.entity(parent).clear_children();
         }
         queue.apply(&mut world);
+        
+        assert!(world.get::<Children>(parent).is_none());
 
-        let expected_children: SmallVec<[Entity; 8]> = smallvec![];
-        assert_eq!(
-            world.get::<Children>(parent).unwrap().0.clone(),
-            expected_children
-        );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child2).is_none());
     }
