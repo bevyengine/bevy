@@ -11,6 +11,10 @@ use std::ops::Deref;
 ///
 /// Only present on entities that have a parent.
 ///
+/// You can use [`With<Parent>`](bevy_ecs::query::With) as a [`Query`](bevy_ecs::system::Query) filter to find entities at the root of their hierarchy.
+///
+/// A [`Children`](crate::Children) component containing this entity will be on the parent.
+///
 /// See [`HierarchyQueryExt`](crate::query_extension::HierarchyQueryExt)
 /// for hierarchy related methods on [Query](bevy_ecs::system::Query).
 #[derive(Component, Debug, Eq, PartialEq, Reflect)]

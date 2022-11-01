@@ -12,7 +12,11 @@ use std::ops::Deref;
 
 /// Contains references to the child entities of this entity.
 ///
-/// Only present on entities that have children..
+/// Only present on entities that have children.
+///
+/// You can use [`Without<Children>`](bevy_ecs::query::Without) as a [`Query`](bevy_ecs::system::Query) filter to find leaf entities of the hierarchy.
+///
+/// A [`Parent`](crate::Parent) component containing this entity will be present on the children.
 ///
 /// See [`HierarchyQueryExt`](crate::query_extension::HierarchyQueryExt)
 /// for hierarchy related methods on [Query](bevy_ecs::system::Query).
@@ -25,7 +29,6 @@ impl MapEntities for Children {
         for entity in &mut self.0 {
             *entity = entity_map.get(*entity)?;
         }
-
         Ok(())
     }
 }
