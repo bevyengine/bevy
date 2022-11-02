@@ -284,6 +284,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "fog"
+path = "examples/3d/fog.rs"
+
+[package.metadata.example.fog]
+name = "Fog"
+description = "A scene showcasing the distance fog effect"
+category = "3D Rendering"
+wasm = true
+
+
+[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 
