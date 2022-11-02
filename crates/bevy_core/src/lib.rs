@@ -13,7 +13,7 @@ pub use task_pool_options::*;
 
 pub mod prelude {
     //! The Bevy Core Prelude.
-    #[doc(hidden)]
+    #[doc(no_inline)]
     pub use crate::{CorePlugin, Name, TaskPoolOptions};
 }
 

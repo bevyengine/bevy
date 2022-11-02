@@ -6,9 +6,9 @@ pub mod components;
 mod systems;
 pub use crate::systems::transform_propagate_system;
 
-#[doc(hidden)]
+#[allow(missing_docs)]
 pub mod prelude {
-    #[doc(hidden)]
+    #[doc(no_inline)]
     pub use crate::{components::*, TransformBundle, TransformPlugin};
 }
 
