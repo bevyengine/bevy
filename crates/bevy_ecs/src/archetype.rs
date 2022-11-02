@@ -131,7 +131,7 @@ impl ArchetypeEntity {
         self.entity
     }
 
-    pub fn table_row(&self) -> usize {
+    pub fn table_row(&self) -> u32 {
         self.table_row
     }
 }
@@ -243,13 +243,13 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn entity_table_row(&self, index: usize) -> u32 {
-        self.entities[index].table_row
+    pub fn entity_table_row(&self, index: u32) -> u32 {
+        self.entities[index as usize].table_row
     }
 
     #[inline]
-    pub(crate) fn set_entity_table_row(&mut self, index: usize, table_row: u32) {
-        self.entities[index].table_row = table_row;
+    pub(crate) fn set_entity_table_row(&mut self, index: u32, table_row: u32) {
+        self.entities[index as usize].table_row = table_row;
     }
 
     /// # Safety
@@ -260,7 +260,7 @@ impl Archetype {
 
         EntityLocation {
             archetype_id: self.id,
-            index,
+            index: (self.entities.len() - 1) as u32,
         }
     }
 
@@ -271,6 +271,7 @@ impl Archetype {
     /// Removes the entity at `index` by swapping it out. Returns the table row the entity is stored
     /// in.
     pub(crate) fn swap_remove(&mut self, index: u32) -> ArchetypeSwapRemoveResult {
+        let index = index as usize;
         let is_last = index == self.entities.len() - 1;
         let entity = self.entities.swap_remove(index);
         ArchetypeSwapRemoveResult {

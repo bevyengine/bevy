@@ -66,6 +66,7 @@ impl Column {
         data: OwningPtr<'_>,
         ticks: ComponentTicks,
     ) {
+        let row = row as usize;
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
         *self.ticks.get_unchecked_mut(row).get_mut() = ticks;
@@ -114,8 +115,8 @@ impl Column {
     /// index must be in-bounds
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: u32) {
-        self.data.swap_remove_and_drop_unchecked(row);
-        self.ticks.swap_remove(row);
+        self.data.swap_remove_and_drop_unchecked(row as usize);
+        self.ticks.swap_remove(row as usize);
     }
 
     #[inline]
@@ -160,9 +161,11 @@ impl Column {
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
         other: &mut Column,
-        src_row: usize,
-        dst_row: usize,
+        src_row: u32,
+        dst_row: u32,
     ) {
+        let src_row = src_row as usize;
+        let dst_row = dst_row as usize;
         debug_assert!(self.data.layout() == other.data.layout());
         let ptr = self.data.get_unchecked_mut(dst_row);
         other.data.swap_remove_unchecked(src_row, ptr);
@@ -323,7 +326,7 @@ impl Table {
         row: u32,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!((row as usize) < self.len());
+        debug_assert!((row as usize) < self.entity_count());
         let is_last = row as usize == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row as usize));
         for (component_id, column) in self.columns.iter_mut() {
@@ -355,7 +358,7 @@ impl Table {
         row: u32,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!((row as usize) < self.len());
+        debug_assert!((row as usize) < self.entity_count());
         let is_last = row as usize == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row as usize));
         for (component_id, column) in self.columns.iter_mut() {

@@ -176,9 +176,9 @@ where
             let table_row = archetype.entity_table_row(location.index);
             // SAFETY: set_archetype was called prior.
             // `location.index` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if F::filter_fetch(&mut self.filter, entity, table_row) {
+            if F::filter_fetch(&mut self.filter, entity, table_row as usize) {
                 // SAFETY: set_archetype was called prior, `location.index` is an archetype index in range of the current archetype
-                return Some(Q::fetch(&mut self.fetch, entity, table_row));
+                return Some(Q::fetch(&mut self.fetch, entity, table_row as usize));
             }
         }
         None
@@ -560,7 +560,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 Some(Q::fetch(
                     &mut self.fetch,
                     archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.table_row as usize,
                 ))
             }
         } else {
@@ -639,7 +639,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 if !F::filter_fetch(
                     &mut self.filter,
                     archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.table_row as usize,
                 ) {
                     self.current_index += 1;
                     continue;
@@ -650,7 +650,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 let item = Q::fetch(
                     &mut self.fetch,
                     archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.table_row as usize,
                 );
                 self.current_index += 1;
                 return Some(item);

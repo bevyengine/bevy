@@ -417,8 +417,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
         F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
-        if F::filter_fetch(&mut filter, entity, location.index) {
-            Ok(Q::fetch(&mut fetch, entity, location.index))
+        if F::filter_fetch(&mut filter, entity, location.index as usize) {
+            Ok(Q::fetch(&mut fetch, entity, location.index as usize))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }
@@ -961,14 +961,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                     if !F::filter_fetch(
                         &mut filter,
                         archetype_entity.entity,
-                        archetype_entity.table_row,
+                        archetype_entity.table_row as usize,
                     ) {
                         continue;
                     }
                     func(Q::fetch(
                         &mut fetch,
                         archetype_entity.entity,
-                        archetype_entity.table_row,
+                        archetype_entity.table_row as usize,
                     ));
                 }
             }
@@ -1091,14 +1091,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 if !F::filter_fetch(
                                     &mut filter,
                                     archetype_entity.entity,
-                                    archetype_entity.table_row,
+                                    archetype_entity.table_row as usize,
                                 ) {
                                     continue;
                                 }
                                 func(Q::fetch(
                                     &mut fetch,
                                     archetype_entity.entity,
-                                    archetype_entity.table_row,
+                                    archetype_entity.table_row as usize,
                                 ));
                             }
                         };
