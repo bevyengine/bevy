@@ -30,7 +30,7 @@ var samp: sampler;
     let EDGE_THRESHOLD_MIN: f32 = 0.0156;
 #endif
 
-#ifdef EDGE_THRESH_MIN_TURBO
+#ifdef EDGE_THRESH_MIN_EXTREME
     let EDGE_THRESHOLD_MIN: f32 = 0.0078;
 #endif
 
@@ -51,7 +51,7 @@ var samp: sampler;
     let EDGE_THRESHOLD_MAX: f32 = 0.063;
 #endif
 
-#ifdef EDGE_THRESH_TURBO
+#ifdef EDGE_THRESH_EXTREME
     let EDGE_THRESHOLD_MAX: f32 = 0.031;
 #endif
 

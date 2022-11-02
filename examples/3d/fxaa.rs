@@ -39,7 +39,7 @@ fn setup(
     println!("7 - MEDIUM");
     println!("8 - HIGH (default)");
     println!("9 - ULTRA");
-    println!("0 - TURBO");
+    println!("0 - EXTREME");
 
     // plane
     commands.spawn(PbrBundle {
@@ -116,8 +116,8 @@ fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa:
     let fxaa_med = keys.just_pressed(KeyCode::Key7);
     let fxaa_high = keys.just_pressed(KeyCode::Key8);
     let fxaa_ultra = keys.just_pressed(KeyCode::Key9);
-    let fxaa_turbo = keys.just_pressed(KeyCode::Key0);
-    let set_fxaa = set_fxaa | fxaa_low | fxaa_med | fxaa_high | fxaa_ultra | fxaa_turbo;
+    let fxaa_extreme = keys.just_pressed(KeyCode::Key0);
+    let set_fxaa = set_fxaa | fxaa_low | fxaa_med | fxaa_high | fxaa_ultra | fxaa_extreme;
     for mut fxaa in &mut query {
         if set_msaa {
             fxaa.enabled = false;
@@ -144,9 +144,9 @@ fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa:
         } else if fxaa_ultra {
             fxaa.edge_threshold = Sensitivity::Ultra;
             fxaa.edge_threshold_min = Sensitivity::Ultra;
-        } else if fxaa_turbo {
-            fxaa.edge_threshold = Sensitivity::Turbo;
-            fxaa.edge_threshold_min = Sensitivity::Turbo;
+        } else if fxaa_extreme {
+            fxaa.edge_threshold = Sensitivity::Extreme;
+            fxaa.edge_threshold_min = Sensitivity::Extreme;
         }
         if set_fxaa {
             fxaa.enabled = true;

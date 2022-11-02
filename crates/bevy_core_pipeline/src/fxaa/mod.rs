@@ -26,7 +26,7 @@ pub enum Sensitivity {
     Medium,
     High,
     Ultra,
-    Turbo,
+    Extreme,
 }
 
 impl Sensitivity {
@@ -36,7 +36,7 @@ impl Sensitivity {
             Sensitivity::Medium => "MEDIUM",
             Sensitivity::High => "HIGH",
             Sensitivity::Ultra => "ULTRA",
-            Sensitivity::Turbo => "TURBO",
+            Sensitivity::Extreme => "EXTREME",
         }
     }
 }
