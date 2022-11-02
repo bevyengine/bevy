@@ -239,7 +239,7 @@ pub fn extract_skinned_meshes(
             SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut joints)
         {
             last_start = last_start.max(skinned_joints.index as usize);
-            values.push((entity, (skinned_joints.to_buffer_index(),)));
+            values.push((entity, skinned_joints.to_buffer_index()));
         }
     }
 

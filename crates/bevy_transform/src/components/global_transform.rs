@@ -32,6 +32,7 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 ///
 /// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
 pub struct GlobalTransform(Affine3A);
 

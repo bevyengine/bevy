@@ -341,7 +341,7 @@ pub fn extract_text_uinodes(
                 .get(&text_glyph.atlas_info.texture_atlas)
                 .unwrap();
             let texture = atlas.texture.clone_weak();
-            let index = text_glyph.atlas_info.glyph_index as usize;
+            let index = text_glyph.atlas_info.glyph_index;
             let rect = atlas.textures[index];
             let atlas_size = Some(atlas.size);
 
@@ -425,11 +425,11 @@ pub fn prepare_uinodes(
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
-                commands.spawn((UiBatch {
+                commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
-                },));
+                });
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();

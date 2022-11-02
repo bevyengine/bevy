@@ -51,7 +51,7 @@ fn move_scene_entities(
 ) {
     for moved_scene_entity in &moved_scene {
         let mut offset = 0.;
-        iter_hierarchy(moved_scene_entity, &children, &mut |entity| {
+        for entity in children.iter_descendants(moved_scene_entity) {
             if let Ok(mut transform) = transforms.get_mut(entity) {
                 transform.translation = Vec3::new(
                     offset * time.elapsed_seconds().sin() / 20.,
@@ -60,15 +60,6 @@ fn move_scene_entities(
                 );
                 offset += 1.0;
             }
-        });
-    }
-}
-
-fn iter_hierarchy(entity: Entity, children_query: &Query<&Children>, f: &mut impl FnMut(Entity)) {
-    (f)(entity);
-    if let Ok(children) = children_query.get(entity) {
-        for child in children.iter().copied() {
-            iter_hierarchy(child, children_query, f);
         }
     }
 }

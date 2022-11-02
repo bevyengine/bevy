@@ -128,7 +128,8 @@ impl GenericTypeInfoCell {
         F: FnOnce() -> TypeInfo,
     {
         let type_id = TypeId::of::<T>();
-        let mapping = self.0.get_or_init(|| Box::new(RwLock::default()));
+        // let mapping = self.0.get_or_init(|| Box::new(RwLock::default()));
+        let mapping = self.0.get_or_init(Box::default);
         if let Some(info) = mapping.read().get(&type_id) {
             return info;
         }
