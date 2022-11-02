@@ -31,12 +31,11 @@
 //! [`EntityMut::insert`]: crate::world::EntityMut::insert
 //! [`EntityMut::remove`]: crate::world::EntityMut::remove
 mod map_entities;
-mod serde;
 
-pub use self::serde::*;
 pub use map_entities::*;
 
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
+use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
@@ -104,7 +103,7 @@ type IdCursor = isize;
 /// [`EntityMut::id`]: crate::world::EntityMut::id
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
-#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Entity {
     pub(crate) generation: u32,
     pub(crate) index: u32,
@@ -579,6 +578,9 @@ impl Entities {
     /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
     /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
     /// has not been assigned to an [`Archetype`][crate::archetype::Archetype].
+    ///
+    /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
+    /// to be initialized with the invalid archetype.
     pub unsafe fn flush(&mut self, mut init: impl FnMut(Entity, &mut EntityLocation)) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
@@ -629,6 +631,20 @@ impl Entities {
         }
     }
 
+    /// # Safety
+    ///
+    /// This function is safe if and only if the world this Entities is on has no entities.
+    pub unsafe fn flush_and_reserve_invalid_assuming_no_entities(&mut self, count: usize) {
+        let free_cursor = self.free_cursor.get_mut();
+        *free_cursor = 0;
+        self.meta.reserve(count);
+        // the EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
+        self.meta.as_mut_ptr().write_bytes(u8::MAX, count);
+        self.meta.set_len(count);
+
+        self.len = count as u32;
+    }
+
     /// Accessor for getting the length of the vec in `self.meta`
     #[inline]
     pub fn meta_len(&self) -> usize {
@@ -646,7 +662,10 @@ impl Entities {
     }
 }
 
+// Safety:
+// This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct EntityMeta {
     pub generation: u32,
     pub location: EntityLocation,
@@ -664,6 +683,7 @@ impl EntityMeta {
 
 /// A location of an entity in an archetype.
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct EntityLocation {
     /// The archetype index
     pub archetype_id: ArchetypeId,

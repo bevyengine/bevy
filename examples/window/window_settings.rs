@@ -9,14 +9,16 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "I am a window!".to_string(),
-            width: 500.,
-            height: 300.,
-            present_mode: PresentMode::AutoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "I am a window!".to_string(),
+                width: 500.,
+                height: 300.,
+                present_mode: PresentMode::AutoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_system(change_title)
@@ -46,7 +48,7 @@ fn change_title(time: Res<Time>, mut windows: ResMut<Windows>) {
     let window = windows.primary_mut();
     window.set_title(format!(
         "Seconds since startup: {}",
-        time.seconds_since_startup().round()
+        time.elapsed_seconds().round()
     ));
 }
 
