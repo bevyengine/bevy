@@ -14,7 +14,7 @@ pub use scene_loader::*;
 pub use scene_spawner::*;
 
 pub mod prelude {
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{
         DynamicScene, DynamicSceneBuilder, DynamicSceneBundle, Scene, SceneBundle, SceneSpawner,
     };

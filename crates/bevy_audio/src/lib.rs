@@ -28,7 +28,7 @@ mod audio_source;
 
 #[allow(missing_docs)]
 pub mod prelude {
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{Audio, AudioOutput, AudioSource, Decodable, PlaybackSettings};
 }
 

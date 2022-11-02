@@ -9,7 +9,7 @@ pub use axis::*;
 pub use input::*;
 
 pub mod prelude {
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{
         gamepad::{
             Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,
