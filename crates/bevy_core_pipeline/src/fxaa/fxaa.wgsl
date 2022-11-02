@@ -30,6 +30,10 @@ var samp: sampler;
     let EDGE_THRESHOLD_MIN: f32 = 0.0156;
 #endif
 
+#ifdef EDGE_THRESH_MIN_TURBO
+    let EDGE_THRESHOLD_MIN: f32 = 0.0078;
+#endif
+
 // The minimum amount of local contrast required to apply algorithm.
 #ifdef EDGE_THRESH_LOW
     let EDGE_THRESHOLD_MAX: f32 = 0.250;
@@ -45,6 +49,10 @@ var samp: sampler;
 
 #ifdef EDGE_THRESH_ULTRA
     let EDGE_THRESHOLD_MAX: f32 = 0.063;
+#endif
+
+#ifdef EDGE_THRESH_TURBO
+    let EDGE_THRESHOLD_MAX: f32 = 0.031;
 #endif
 
 let ITERATIONS: i32 = 12; //default is 12

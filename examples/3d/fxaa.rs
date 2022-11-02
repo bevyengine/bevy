@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::fxaa::{Fxaa, Quality},
+    core_pipeline::fxaa::{Fxaa, Sensitivity},
     prelude::*,
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
@@ -35,10 +35,11 @@ fn setup(
     println!("3 - FXAA (default)");
 
     println!("Threshold:");
-    println!("7 - LOW");
-    println!("8 - MEDIUM");
-    println!("9 - HIGH (default)");
-    println!("0 - ULTRA");
+    println!("6 - LOW");
+    println!("7 - MEDIUM");
+    println!("8 - HIGH (default)");
+    println!("9 - ULTRA");
+    println!("0 - TURBO");
 
     // plane
     commands.spawn(PbrBundle {
@@ -109,11 +110,12 @@ fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa:
     let set_no_aa = keys.just_pressed(KeyCode::Key1);
     let set_msaa = keys.just_pressed(KeyCode::Key2);
     let set_fxaa = keys.just_pressed(KeyCode::Key3);
-    let fxaa_low = keys.just_pressed(KeyCode::Key7);
-    let fxaa_med = keys.just_pressed(KeyCode::Key8);
-    let fxaa_high = keys.just_pressed(KeyCode::Key9);
-    let fxaa_ultra = keys.just_pressed(KeyCode::Key0);
-    let set_fxaa = set_fxaa | fxaa_low | fxaa_med | fxaa_high | fxaa_ultra;
+    let fxaa_low = keys.just_pressed(KeyCode::Key6);
+    let fxaa_med = keys.just_pressed(KeyCode::Key7);
+    let fxaa_high = keys.just_pressed(KeyCode::Key8);
+    let fxaa_ultra = keys.just_pressed(KeyCode::Key9);
+    let fxaa_turbo = keys.just_pressed(KeyCode::Key0);
+    let set_fxaa = set_fxaa | fxaa_low | fxaa_med | fxaa_high | fxaa_ultra | fxaa_turbo;
     for mut fxaa in &mut query {
         if set_msaa {
             fxaa.enabled = false;
@@ -129,17 +131,20 @@ fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa:
             msaa.samples = 1;
         }
         if fxaa_low {
-            fxaa.edge_threshold = Quality::Low;
-            fxaa.edge_threshold_min = Quality::Low;
+            fxaa.edge_threshold = Sensitivity::Low;
+            fxaa.edge_threshold_min = Sensitivity::Low;
         } else if fxaa_med {
-            fxaa.edge_threshold = Quality::Medium;
-            fxaa.edge_threshold_min = Quality::Medium;
+            fxaa.edge_threshold = Sensitivity::Medium;
+            fxaa.edge_threshold_min = Sensitivity::Medium;
         } else if fxaa_high {
-            fxaa.edge_threshold = Quality::High;
-            fxaa.edge_threshold_min = Quality::High;
+            fxaa.edge_threshold = Sensitivity::High;
+            fxaa.edge_threshold_min = Sensitivity::High;
         } else if fxaa_ultra {
-            fxaa.edge_threshold = Quality::Ultra;
-            fxaa.edge_threshold_min = Quality::Ultra;
+            fxaa.edge_threshold = Sensitivity::Ultra;
+            fxaa.edge_threshold_min = Sensitivity::Ultra;
+        } else if fxaa_turbo {
+            fxaa.edge_threshold = Sensitivity::Turbo;
+            fxaa.edge_threshold_min = Sensitivity::Turbo;
         }
         if set_fxaa {
             fxaa.enabled = true;

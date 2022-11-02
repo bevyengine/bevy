@@ -21,20 +21,22 @@ use bevy_render::{
 };
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
-pub enum Quality {
+pub enum Sensitivity {
     Low,
     Medium,
     High,
     Ultra,
+    Turbo,
 }
 
-impl Quality {
+impl Sensitivity {
     pub fn get_str(&self) -> &str {
         match self {
-            Quality::Low => "LOW",
-            Quality::Medium => "MEDIUM",
-            Quality::High => "HIGH",
-            Quality::Ultra => "ULTRA",
+            Sensitivity::Low => "LOW",
+            Sensitivity::Medium => "MEDIUM",
+            Sensitivity::High => "HIGH",
+            Sensitivity::Ultra => "ULTRA",
+            Sensitivity::Turbo => "TURBO",
         }
     }
 }
@@ -44,23 +46,23 @@ pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
 
+    /// Use lower sensitivity for a sharper, faster, result.
+    /// Use higher sensitivity for a slower, smoother, result.
+    /// Ultra and Turbo settings can result in significant smearing and loss of detail.
+
     /// The minimum amount of local contrast required to apply algorithm.
-    /// Use lower settings for a sharper, faster, result.
-    /// Use higher settings for a slower, smoother, result.
-    pub edge_threshold: Quality,
+    pub edge_threshold: Sensitivity,
 
     /// Trims the algorithm from processing darks.
-    /// Use lower settings for a sharper, faster, result.
-    /// Use higher settings for a slower, smoother, result.
-    pub edge_threshold_min: Quality,
+    pub edge_threshold_min: Sensitivity,
 }
 
 impl Default for Fxaa {
     fn default() -> Self {
         Fxaa {
             enabled: true,
-            edge_threshold: Quality::High,
-            edge_threshold_min: Quality::High,
+            edge_threshold: Sensitivity::High,
+            edge_threshold_min: Sensitivity::High,
         }
     }
 }
@@ -182,8 +184,8 @@ pub struct CameraFxaaPipeline {
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct FxaaPipelineKey {
-    edge_threshold: Quality,
-    edge_threshold_min: Quality,
+    edge_threshold: Sensitivity,
+    edge_threshold_min: Sensitivity,
     texture_format: TextureFormat,
 }
 
