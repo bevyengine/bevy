@@ -40,7 +40,7 @@ fn setup_pyramid_scene(
     });
 
     // pillars
-    for (x, z) in vec![(-1.5, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)] {
+    for (x, z) in &[(-1.5, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)] {
         commands.spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Box {
                 min_x: -0.5,
@@ -51,7 +51,7 @@ fn setup_pyramid_scene(
                 max_y: 3.0,
             })),
             material: stone.clone(),
-            transform: Transform::from_xyz(x, 0.0, z),
+            transform: Transform::from_xyz(*x, 0.0, *z),
             ..default()
         });
     }
@@ -177,7 +177,7 @@ fn update_system(
     // Fog Mode Switching
     text.sections[0]
         .value
-        .push_str(format!("\n\n1 / 2 / 3 - Switch Fog Mode").as_str());
+        .push_str("\n\n1 / 2 / 3 - Switch Fog Mode");
 
     if keycode.pressed(KeyCode::Key1) {
         fog.mode = match fog.mode {
@@ -191,16 +191,18 @@ fn update_system(
 
     if keycode.pressed(KeyCode::Key2) {
         fog.mode = match fog.mode {
-            FogMode::Exponential { density } => FogMode::Exponential { density },
-            FogMode::ExponentialSquared { density } => FogMode::Exponential { density },
+            FogMode::Exponential { density } | FogMode::ExponentialSquared { density } => {
+                FogMode::Exponential { density }
+            }
             _ => FogMode::Exponential { density: 0.07 },
         };
     }
 
     if keycode.pressed(KeyCode::Key3) {
         fog.mode = match fog.mode {
-            FogMode::Exponential { density } => FogMode::ExponentialSquared { density },
-            FogMode::ExponentialSquared { density } => FogMode::ExponentialSquared { density },
+            FogMode::Exponential { density } | FogMode::ExponentialSquared { density } => {
+                FogMode::ExponentialSquared { density }
+            }
             _ => FogMode::ExponentialSquared { density: 0.07 },
         };
     }
@@ -213,7 +215,7 @@ fn update_system(
     {
         text.sections[0]
             .value
-            .push_str(format!("\nA / S - Move Start Distance\nZ / X - Move End Distance").as_str());
+            .push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
 
         if keycode.pressed(KeyCode::A) {
             *start -= delta * 3.0;
@@ -231,14 +233,12 @@ fn update_system(
 
     // Exponential Fog Controls
     if let FogMode::Exponential { ref mut density } = &mut fog.mode {
-        text.sections[0]
-            .value
-            .push_str(format!("\nA / S - Change Density").as_str());
+        text.sections[0].value.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::A) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
-                *density = 0.0
+                *density = 0.0;
             }
         }
         if keycode.pressed(KeyCode::S) {
@@ -248,14 +248,12 @@ fn update_system(
 
     // ExponentialSquared Fog Controls
     if let FogMode::ExponentialSquared { ref mut density } = &mut fog.mode {
-        text.sections[0]
-            .value
-            .push_str(format!("\nA / S - Change Density").as_str());
+        text.sections[0].value.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::A) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
-                *density = 0.0
+                *density = 0.0;
             }
         }
         if keycode.pressed(KeyCode::S) {
@@ -266,7 +264,7 @@ fn update_system(
     // RGBA Controls
     text.sections[0]
         .value
-        .push_str(format!("\n\n- / = - Red\n[ / ] - Green\n; / ' - Blue\n. / ? - Alpha").as_str());
+        .push_str("\n\n- / = - Red\n[ / ] - Green\n; / ' - Blue\n. / ? - Alpha");
 
     if keycode.pressed(KeyCode::Minus) {
         let r = (fog.color.r() - 0.1 * delta).max(0.0);
