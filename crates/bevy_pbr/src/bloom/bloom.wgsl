@@ -4,6 +4,7 @@ struct Uniforms {
 	threshold: f32,
 	knee: f32,
 	scale: f32,
+    intensity: f32,
 };
 
 @group(0) @binding(0) var org: texture_2d<f32>;
@@ -116,7 +117,7 @@ fn up_sample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let up_sample = sample_3x3_tent(uv, texel_size * uniforms.scale);
     var color: vec4<f32> = textureSample(up, org_sampler, uv);
-    color = vec4<f32>(color.rgb + up_sample.rgb, up_sample.a);
+    color = vec4<f32>(color.rgb + up_sample.rgb * uniforms.intensity, up_sample.a);
 
     return color;
 }
