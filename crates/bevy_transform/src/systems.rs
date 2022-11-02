@@ -320,7 +320,7 @@ mod test {
 
         // Adding the system in a single threaded stage. As the system will panic, this will
         // only bring down the current test thread.
-        app.add_stage("single", SystemStage::single_threaded())
+        app.add_stage("single", SystemStage::parallel())
             .add_system_to_stage("single", transform_propagate_system);
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
