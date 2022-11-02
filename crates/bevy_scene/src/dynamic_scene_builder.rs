@@ -100,7 +100,6 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-
             let index = entity.index();
 
             if self.entities.contains_key(&index) {
