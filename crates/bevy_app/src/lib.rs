@@ -19,9 +19,9 @@ pub use schedule_runner::*;
 #[allow(missing_docs)]
 pub mod prelude {
     #[cfg(feature = "bevy_reflect")]
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::AppTypeRegistry;
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{
         app::App, CoreStage, DynamicPlugin, Plugin, PluginGroup, StartupSchedule, StartupStage,
     };

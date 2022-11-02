@@ -15,7 +15,7 @@ use crossbeam_channel::{Receiver, Sender};
 
 pub mod prelude {
     //! The Bevy Time Prelude.
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{Time, Timer, TimerMode};
 }
 

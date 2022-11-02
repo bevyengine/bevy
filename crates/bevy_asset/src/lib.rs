@@ -29,7 +29,7 @@ mod reflect;
 
 /// The `bevy_asset` prelude.
 pub mod prelude {
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{
         AddAsset, AssetEvent, AssetPlugin, AssetServer, Assets, Handle, HandleUntyped,
     };

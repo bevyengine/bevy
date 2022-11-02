@@ -7,7 +7,7 @@ pub mod tonemapping;
 pub mod upscaling;
 
 pub mod prelude {
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{
         clear_color::ClearColor,
         core_2d::{Camera2d, Camera2dBundle},

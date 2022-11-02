@@ -24,7 +24,7 @@ use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
 
 pub mod prelude {
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{
         camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,

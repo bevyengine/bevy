@@ -17,7 +17,7 @@ pub use render::*;
 use bevy_window::ModifiesWindows;
 
 pub mod prelude {
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
         bundle::{

@@ -19,7 +19,7 @@ pub use text::*;
 pub use text2d::*;
 
 pub mod prelude {
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{
         Font, HorizontalAlign, Text, Text2dBundle, TextAlignment, TextError, TextSection,
         TextStyle, VerticalAlign,

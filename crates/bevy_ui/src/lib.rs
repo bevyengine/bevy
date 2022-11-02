@@ -19,8 +19,9 @@ pub use geometry::*;
 pub use render::*;
 pub use ui_node::*;
 
+#[doc(hidden)]
 pub mod prelude {
-    #[doc(no_inline)]
+    #[doc(hidden)]
     pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
 }
 
