@@ -318,7 +318,7 @@ mod test {
         let mut temp = World::new();
         let mut app = App::new();
 
-        app.add_system_to_stage("single", transform_propagate_system);
+        app.add_system(transform_propagate_system);
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);
