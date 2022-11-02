@@ -23,7 +23,8 @@ use bevy_utils::Duration;
 /// assert!(stopwatch.paused());
 /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
 /// ```
-#[derive(Clone, Debug, Default, Reflect)]
+#[derive(Clone, Debug, Default, Reflect, FromReflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub struct Stopwatch {
     elapsed: Duration,
@@ -58,8 +59,8 @@ impl Stopwatch {
     ///
     /// # See Also
     ///
-    /// [`elapsed_secs`](Stopwatch::elapsed_secs) - if a `f32` value is desirable instead.
-    /// [`elapsed_secs_f64`](Stopwatch::elapsed_secs_f64) - if a `f64` is desirable instead.
+    /// [`elapsed_secs`](Stopwatch::elapsed_secs) - if an `f32` value is desirable instead.
+    /// [`elapsed_secs_f64`](Stopwatch::elapsed_secs_f64) - if an `f64` is desirable instead.
     #[inline]
     pub fn elapsed(&self) -> Duration {
         self.elapsed
@@ -80,7 +81,7 @@ impl Stopwatch {
     /// # See Also
     ///
     /// [`elapsed`](Stopwatch::elapsed) - if a `Duration` is desirable instead.
-    /// [`elapsed_secs_f64`](Stopwatch::elapsed_secs_f64) - if a `f64` is desirable instead.
+    /// [`elapsed_secs_f64`](Stopwatch::elapsed_secs_f64) - if an `f64` is desirable instead.
     #[inline]
     pub fn elapsed_secs(&self) -> f32 {
         self.elapsed().as_secs_f32()
@@ -92,7 +93,7 @@ impl Stopwatch {
     /// # See Also
     ///
     /// [`elapsed`](Stopwatch::elapsed) - if a `Duration` is desirable instead.
-    /// [`elapsed_secs`](Stopwatch::elapsed_secs) - if a `f32` is desirable instead.
+    /// [`elapsed_secs`](Stopwatch::elapsed_secs) - if an `f32` is desirable instead.
     #[inline]
     pub fn elapsed_secs_f64(&self) -> f64 {
         self.elapsed().as_secs_f64()
@@ -186,7 +187,7 @@ impl Stopwatch {
         self.paused
     }
 
-    /// Resets the stopwatch.
+    /// Resets the stopwatch. The reset doesn’t affect the paused state of the stopwatch.
     ///
     /// # Examples
     /// ```

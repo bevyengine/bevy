@@ -6,32 +6,31 @@ use xshell::{cmd, Shell};
 #[derive(Parser, Debug)]
 struct Args {
     /// Examples to build
-    #[clap(value_parser)]
     examples: Vec<String>,
 
-    #[clap(short, long, value_parser)]
+    #[arg(short, long)]
     /// Run tests
     test: bool,
 
-    #[clap(short, long, value_parser)]
+    #[arg(short, long)]
     /// Run on the given browsers. By default, chromium, firefox, webkit
     browsers: Vec<String>,
 
-    #[clap(short, long, value_parser)]
+    #[arg(short, long)]
     /// Stop after this number of frames
     frames: Option<usize>,
 }
 
 fn main() {
     let cli = Args::parse();
-    eprintln!("{:?}", cli);
+    eprintln!("{cli:?}");
 
     assert!(!cli.examples.is_empty(), "must have at least one example");
 
     let mut bevy_ci_testing = vec![];
     if let Some(frames) = cli.frames {
         let mut file = File::create("ci_testing_config.ron").unwrap();
-        file.write_fmt(format_args!("(exit_after: Some({}))", frames))
+        file.write_fmt(format_args!("(exit_after: Some({frames}))"))
             .unwrap();
         bevy_ci_testing = vec!["--features", "bevy_ci_testing"];
     }

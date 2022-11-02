@@ -7,7 +7,7 @@ While we try to keep the `Unreleased` changes updated, it is often behind and do
 all merged pull requests. To see a list of all changes since the latest release, you may compare
 current changes on git with [previous release tags][git_tag_comparison].
 
-[git_tag_comparison]: https://github.com/bevyengine/bevy/compare/v0.6.0...main
+[git_tag_comparison]: https://github.com/bevyengine/bevy/compare/v0.8.1...main
 
 ## Version 0.8.0 (2022-07-30)
 

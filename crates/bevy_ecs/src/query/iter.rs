@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{ArchetypeId, Archetypes},
+    archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
     entity::{Entities, Entity},
     prelude::World,
     query::{ArchetypeFilter, QueryState, WorldQuery},
@@ -13,14 +13,14 @@ use super::{QueryFetch, QueryItem, ReadOnlyWorldQuery};
 ///
 /// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryIter<'w, 's, Q: WorldQuery, F: WorldQuery> {
+pub struct QueryIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     cursor: QueryIterationCursor<'w, 's, Q, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
@@ -41,7 +41,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIter<'w, 's, Q, F> {
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's, Q, F> {
     type Item = QueryItem<'w, Q>;
 
     #[inline(always)]
@@ -70,12 +70,15 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> Iterator for QueryIter<'w, 's, Q, F> 
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> FusedIterator for QueryIter<'w, 's, Q, F> {}
 
-/// An [`Iterator`] over [`Query`](crate::system::Query) results of a list of [`Entity`]s.
+/// An [`Iterator`] over the query items generated from an iterator of [`Entity`]s.
+///
+/// Items are returned in the order of the provided iterator.
+/// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
-pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator>
+pub struct QueryManyIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator>
 where
     I::Item: Borrow<Entity>,
 {
@@ -88,7 +91,7 @@ where
     query_state: &'s QueryState<Q, F>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, I: Iterator> QueryManyIter<'w, 's, Q, F, I>
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, I: Iterator> QueryManyIter<'w, 's, Q, F, I>
 where
     I::Item: Borrow<Entity>,
 {
@@ -136,7 +139,8 @@ where
     #[inline(always)]
     unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<QueryItem<'w, Q>> {
         for entity in self.entity_iter.by_ref() {
-            let location = match self.entities.get(*entity.borrow()) {
+            let entity = *entity.borrow();
+            let location = match self.entities.get(entity) {
                 Some(location) => location,
                 None => continue,
             };
@@ -150,6 +154,7 @@ where
             }
 
             let archetype = &self.archetypes[location.archetype_id];
+            let table = &self.tables[archetype.table_id()];
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -157,7 +162,7 @@ where
                 &mut self.fetch,
                 &self.query_state.fetch_state,
                 archetype,
-                self.tables,
+                table,
             );
             // SAFETY: `table` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -165,13 +170,15 @@ where
                 &mut self.filter,
                 &self.query_state.filter_state,
                 archetype,
-                self.tables,
+                table,
             );
+
+            let table_row = archetype.entity_table_row(location.index);
             // SAFETY: set_archetype was called prior.
             // `location.index` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if F::archetype_filter_fetch(&mut self.filter, location.index) {
+            if F::filter_fetch(&mut self.filter, entity, table_row) {
                 // SAFETY: set_archetype was called prior, `location.index` is an archetype index in range of the current archetype
-                return Some(Q::archetype_fetch(&mut self.fetch, location.index));
+                return Some(Q::fetch(&mut self.fetch, entity, table_row));
             }
         }
         None
@@ -216,11 +223,21 @@ where
 
 /// An iterator over `K`-sized combinations of query items without repetition.
 ///
-/// In this context, a combination is an unordered subset of `K` elements.
-/// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`] (called `N`):
+/// A combination is an arrangement of a collection of items where order does not matter.
+///
+/// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
+/// `N` is the number of total entities output by the query.
+///
+/// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
+/// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
+/// And in this case, `N` would be defined as 4 since the size of the input list is 4.
+///
+/// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`]:
 /// - if `K = N`, only one combination exists,
 /// - if `K < N`, there are <sub>N</sub>C<sub>K</sub> combinations (see the [performance section] of `Query`),
 /// - if `K > N`, there are no combinations.
+///
+/// The output combination is not guaranteed to have any order of iteration.
 ///
 /// # Usage
 ///
@@ -267,14 +284,16 @@ where
 /// [`Query`]: crate::system::Query
 /// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
 /// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
-pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> {
+pub struct QueryCombinationIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<Q, F>,
     cursors: [QueryIterationCursor<'w, 's, Q, F>; K],
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<'w, 's, Q, F, K> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
+    QueryCombinationIter<'w, 's, Q, F, K>
+{
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
@@ -324,11 +343,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[QueryItem<'w, Q>; K]>
-    where
-        QueryFetch<'w, Q>: Clone,
-        QueryFetch<'w, F>: Clone,
-    {
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[QueryItem<'w, Q>; K]> {
         if K == 0 {
             return None;
         }
@@ -339,7 +354,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
                 Some(_) => {
                     // walk forward up to last element, propagating cursor state forward
                     for j in (i + 1)..K {
-                        self.cursors[j] = self.cursors[j - 1].clone();
+                        self.cursors[j] = self.cursors[j - 1].clone_cursor();
                         match self.cursors[j].next(self.tables, self.archetypes, self.query_state) {
                             Some(_) => {}
                             None if i > 0 => continue 'outer,
@@ -365,11 +380,7 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
 
     /// Get next combination of queried components
     #[inline]
-    pub fn fetch_next(&mut self) -> Option<[QueryItem<'_, Q>; K]>
-    where
-        for<'a> QueryFetch<'a, Q>: Clone,
-        for<'a> QueryFetch<'a, F>: Clone,
-    {
+    pub fn fetch_next(&mut self) -> Option<[QueryItem<'_, Q>; K]> {
         // SAFETY: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
@@ -385,9 +396,6 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery, const K: usize> QueryCombinationIter<
 // multiple times would allow multiple owned references to the same data to exist.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
 {
     type Item = [QueryItem<'w, Q>; K];
 
@@ -436,7 +444,7 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, F>
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> ExactSizeIterator for QueryIter<'w, 's, Q, F>
 where
     F: ArchetypeFilter,
 {
@@ -449,33 +457,17 @@ where
     }
 }
 
-impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery + ArchetypeFilter, const K: usize>
-    ExactSizeIterator for QueryCombinationIter<'w, 's, Q, F, K>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
-{
-    /// Returns the exact length of the iterator.
-    ///
-    /// **NOTE**: When the iterator length overflows `usize`, this will
-    /// return `usize::MAX`.
-    fn len(&self) -> usize {
-        self.size_hint().0
-    }
-}
-
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> FusedIterator
     for QueryCombinationIter<'w, 's, Q, F, K>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
 {
 }
 
-struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: WorldQuery> {
+struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     table_id_iter: std::slice::Iter<'s, TableId>,
     archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
+    table_entities: &'w [Entity],
+    archetype_entities: &'w [ArchetypeEntity],
     fetch: QueryFetch<'w, Q>,
     filter: QueryFetch<'w, F>,
     // length of the table table or length of the archetype, depending on whether both `Q`'s and `F`'s fetches are dense
@@ -485,17 +477,22 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: WorldQuery> {
     phantom: PhantomData<Q>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> Clone for QueryIterationCursor<'w, 's, Q, F>
-where
-    QueryFetch<'w, Q>: Clone,
-    QueryFetch<'w, F>: Clone,
-{
-    fn clone(&self) -> Self {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, Q, F> {
+    /// This function is safe to call if `(Q, F): ReadOnlyWorldQuery` holds.
+    ///
+    /// # Safety
+    /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
+    /// that the returned value is not used in any way that would cause two `QueryItem<Q>` for the same
+    /// `archetype_index` or `table_row` to be alive at the same time.
+    unsafe fn clone_cursor(&self) -> Self {
         Self {
             table_id_iter: self.table_id_iter.clone(),
             archetype_id_iter: self.archetype_id_iter.clone(),
-            fetch: self.fetch.clone(),
-            filter: self.filter.clone(),
+            table_entities: self.table_entities,
+            archetype_entities: self.archetype_entities,
+            // SAFETY: upheld by caller invariants
+            fetch: Q::clone_fetch(&self.fetch),
+            filter: F::clone_fetch(&self.filter),
             current_len: self.current_len,
             current_index: self.current_index,
             phantom: PhantomData,
@@ -503,7 +500,7 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, Q, F> {
     const IS_DENSE: bool = Q::IS_DENSE && F::IS_DENSE;
 
     unsafe fn init_empty(
@@ -540,6 +537,8 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
         QueryIterationCursor {
             fetch,
             filter,
+            table_entities: &[],
+            archetype_entities: &[],
             table_id_iter: query_state.matched_table_ids.iter(),
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
             current_len: 0,
@@ -552,10 +551,17 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
     #[inline]
     unsafe fn peek_last(&mut self) -> Option<QueryItem<'w, Q>> {
         if self.current_index > 0 {
+            let index = self.current_index - 1;
             if Self::IS_DENSE {
-                Some(Q::table_fetch(&mut self.fetch, self.current_index - 1))
+                let entity = self.table_entities.get_unchecked(index);
+                Some(Q::fetch(&mut self.fetch, *entity, index))
             } else {
-                Some(Q::archetype_fetch(&mut self.fetch, self.current_index - 1))
+                let archetype_entity = self.archetype_entities.get_unchecked(index);
+                Some(Q::fetch(
+                    &mut self.fetch,
+                    archetype_entity.entity,
+                    archetype_entity.table_row,
+                ))
             }
         } else {
             None
@@ -585,21 +591,23 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     Q::set_table(&mut self.fetch, &query_state.fetch_state, table);
                     F::set_table(&mut self.filter, &query_state.filter_state, table);
-                    self.current_len = table.len();
+                    self.table_entities = table.entities();
+                    self.current_len = table.entity_count();
                     self.current_index = 0;
                     continue;
                 }
 
                 // SAFETY: set_table was called prior.
                 // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
-                if !F::table_filter_fetch(&mut self.filter, self.current_index) {
+                let entity = self.table_entities.get_unchecked(self.current_index);
+                if !F::filter_fetch(&mut self.filter, *entity, self.current_index) {
                     self.current_index += 1;
                     continue;
                 }
 
                 // SAFETY: set_table was called prior.
                 // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
-                let item = Q::table_fetch(&mut self.fetch, self.current_index);
+                let item = Q::fetch(&mut self.fetch, *entity, self.current_index);
 
                 self.current_index += 1;
                 return Some(item);
@@ -611,13 +619,15 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
                     let archetype = &archetypes[*archetype_id];
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    Q::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, tables);
+                    let table = &tables[archetype.table_id()];
+                    Q::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, table);
                     F::set_archetype(
                         &mut self.filter,
                         &query_state.filter_state,
                         archetype,
-                        tables,
+                        table,
                     );
+                    self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_index = 0;
                     continue;
@@ -625,14 +635,23 @@ impl<'w, 's, Q: WorldQuery, F: WorldQuery> QueryIterationCursor<'w, 's, Q, F> {
 
                 // SAFETY: set_archetype was called prior.
                 // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                if !F::archetype_filter_fetch(&mut self.filter, self.current_index) {
+                let archetype_entity = self.archetype_entities.get_unchecked(self.current_index);
+                if !F::filter_fetch(
+                    &mut self.filter,
+                    archetype_entity.entity,
+                    archetype_entity.table_row,
+                ) {
                     self.current_index += 1;
                     continue;
                 }
 
                 // SAFETY: set_archetype was called prior, `current_index` is an archetype index in range of the current archetype
                 // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let item = Q::archetype_fetch(&mut self.fetch, self.current_index);
+                let item = Q::fetch(
+                    &mut self.fetch,
+                    archetype_entity.entity,
+                    archetype_entity.table_row,
+                );
                 self.current_index += 1;
                 return Some(item);
             }

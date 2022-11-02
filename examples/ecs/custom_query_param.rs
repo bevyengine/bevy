@@ -112,12 +112,7 @@ struct QueryFilter<T: Component, P: Component> {
 }
 
 fn spawn(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(ComponentA)
-        .insert(ComponentB)
-        .insert(ComponentC)
-        .insert(ComponentD);
+    commands.spawn((ComponentA, ComponentB, ComponentC, ComponentD));
 }
 
 fn print_components_iter_mut(
@@ -175,10 +170,10 @@ fn print_components_tuple(
 ) {
     println!("Print components (tuple):");
     for (entity, a, b, nested, (generic_c, generic_d)) in &query {
-        println!("Entity: {:?}", entity);
-        println!("A: {:?}", a);
-        println!("B: {:?}", b);
+        println!("Entity: {entity:?}");
+        println!("A: {a:?}");
+        println!("B: {b:?}");
         println!("Nested: {:?} {:?}", nested.0, nested.1);
-        println!("Generic: {:?} {:?}", generic_c, generic_d);
+        println!("Generic: {generic_c:?} {generic_d:?}");
     }
 }

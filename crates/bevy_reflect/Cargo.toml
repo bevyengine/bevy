@@ -10,11 +10,15 @@ keywords = ["bevy"]
 readme = "README.md"
 
 [features]
+default = []
+# Provides Bevy-related reflection implementations
 bevy = ["glam", "smallvec", "bevy_math"]
+# When enabled, allows documentation comments to be accessed via reflection
+documentation = ["bevy_reflect_derive/documentation"]
 
 [dependencies]
 # bevy
-bevy_math = { path = "../bevy_math", version = "0.9.0-dev", optional = true }
+bevy_math = { path = "../bevy_math", version = "0.9.0-dev", features = ["serialize"], optional = true }
 bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.9.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.9.0-dev" }
@@ -31,3 +35,8 @@ glam = { version = "0.21", features = ["serde"], optional = true }
 
 [dev-dependencies]
 ron = "0.8.0"
+
+[[example]]
+name = "reflect_docs"
+path = "examples/reflect_docs.rs"
+required-features = ["documentation"]

@@ -12,11 +12,19 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     let partial_eq_fn = meta.traits().get_partial_eq_impl(bevy_reflect_path);
     let debug_fn = meta.traits().get_debug_impl();
 
+    #[cfg(feature = "documentation")]
+    let with_docs = {
+        let doc = quote::ToTokens::to_token_stream(meta.doc());
+        Some(quote!(.with_docs(#doc)))
+    };
+    #[cfg(not(feature = "documentation"))]
+    let with_docs: Option<proc_macro2::TokenStream> = None;
+
     let typed_impl = impl_typed(
         type_name,
         meta.generics(),
         quote! {
-            let info = #bevy_reflect_path::ValueInfo::new::<Self>();
+            let info = #bevy_reflect_path::ValueInfo::new::<Self>() #with_docs;
             #bevy_reflect_path::TypeInfo::Value(info)
         },
         bevy_reflect_path,

@@ -5,14 +5,14 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, CalculatedClip, Node, UiColor, UiImage};
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Rect, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    camera::{Camera, CameraProjection, OrthographicProjection, WindowOrigin},
+    camera::Camera,
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
@@ -115,6 +115,18 @@ pub fn build_ui_render(app: &mut App) {
                 RunGraphOnViewNode::IN_VIEW,
             )
             .unwrap();
+        graph_2d
+            .add_node_edge(
+                bevy_core_pipeline::core_2d::graph::node::TONEMAPPING,
+                draw_ui_graph::node::UI_PASS,
+            )
+            .unwrap();
+        graph_2d
+            .add_node_edge(
+                draw_ui_graph::node::UI_PASS,
+                bevy_core_pipeline::core_2d::graph::node::UPSCALING,
+            )
+            .unwrap();
     }
 
     if let Some(graph_3d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME) {
@@ -127,6 +139,18 @@ pub fn build_ui_render(app: &mut App) {
             .add_node_edge(
                 bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
                 draw_ui_graph::node::UI_PASS,
+            )
+            .unwrap();
+        graph_3d
+            .add_node_edge(
+                bevy_core_pipeline::core_3d::graph::node::TONEMAPPING,
+                draw_ui_graph::node::UI_PASS,
+            )
+            .unwrap();
+        graph_3d
+            .add_node_edge(
+                draw_ui_graph::node::UI_PASS,
+                bevy_core_pipeline::core_3d::graph::node::UPSCALING,
             )
             .unwrap();
         graph_3d
@@ -161,11 +185,12 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 
 pub struct ExtractedUiNode {
     pub transform: Mat4,
-    pub color: Color,
+    pub background_color: Color,
     pub rect: Rect,
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub scale_factor: f32,
 }
 
 #[derive(Resource, Default)]
@@ -176,17 +201,19 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
+    windows: Extract<Res<Windows>>,
     uinode_query: Extract<
         Query<(
             &Node,
             &GlobalTransform,
-            &UiColor,
+            &BackgroundColor,
             &UiImage,
             &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
+    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     extracted_uinodes.uinodes.clear();
     for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
         if !visibility.is_visible() {
@@ -203,14 +230,15 @@ pub fn extract_uinodes(
         }
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             transform: transform.compute_matrix(),
-            color: color.0,
+            background_color: color.0,
             rect: Rect {
                 min: Vec2::ZERO,
-                max: uinode.size,
+                max: uinode.calculated_size,
             },
             image,
             atlas_size: None,
             clip: clip.map(|clip| clip.clip),
+            scale_factor,
         });
     }
 }
@@ -233,35 +261,37 @@ pub fn extract_default_ui_camera_view<T: Component>(
     mut commands: Commands,
     query: Extract<Query<(Entity, &Camera, Option<&UiCameraConfig>), With<T>>>,
 ) {
-    for (entity, camera, camera_ui) in query.iter() {
+    for (entity, camera, camera_ui) in &query {
         // ignore cameras with disabled ui
         if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. })) {
             continue;
         }
-        if let (Some(logical_size), Some(physical_size)) = (
+        if let (Some(logical_size), Some((physical_origin, _)), Some(physical_size)) = (
             camera.logical_viewport_size(),
+            camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
-            let mut projection = OrthographicProjection {
-                far: UI_CAMERA_FAR,
-                window_origin: WindowOrigin::BottomLeft,
-                ..Default::default()
-            };
-            projection.update(logical_size.x, logical_size.y);
+            // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
+            let projection_matrix =
+                Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
             let default_camera_view = commands
-                .spawn()
-                .insert(ExtractedView {
-                    projection: projection.get_projection_matrix(),
+                .spawn(ExtractedView {
+                    projection: projection_matrix,
                     transform: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
-                    width: physical_size.x,
-                    height: physical_size.y,
+                    hdr: camera.hdr,
+                    viewport: UVec4::new(
+                        physical_origin.x,
+                        physical_origin.y,
+                        physical_size.x,
+                        physical_size.y,
+                    ),
                 })
                 .id();
-            commands.get_or_spawn(entity).insert_bundle((
+            commands.get_or_spawn(entity).insert((
                 DefaultCameraView(default_camera_view),
                 RenderPhase::<TransparentUi>::default(),
             ));
@@ -291,11 +321,11 @@ pub fn extract_text_uinodes(
             continue;
         }
         // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if uinode.size == Vec2::ZERO {
+        if uinode.calculated_size == Vec2::ZERO {
             continue;
         }
         let text_glyphs = &text_layout_info.glyphs;
-        let alignment_offset = (uinode.size / -2.0).extend(0.0);
+        let alignment_offset = (uinode.calculated_size / -2.0).extend(0.0);
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
@@ -311,7 +341,7 @@ pub fn extract_text_uinodes(
                 .get(&text_glyph.atlas_info.texture_atlas)
                 .unwrap();
             let texture = atlas.texture.clone_weak();
-            let index = text_glyph.atlas_info.glyph_index as usize;
+            let index = text_glyph.atlas_info.glyph_index;
             let rect = atlas.textures[index];
             let atlas_size = Some(atlas.size);
 
@@ -324,11 +354,12 @@ pub fn extract_text_uinodes(
 
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 transform: extracted_transform,
-                color,
+                background_color: color,
                 rect,
                 image: texture,
                 atlas_size,
                 clip: clip.map(|clip| clip.clip),
+                scale_factor,
             });
         }
     }
@@ -394,11 +425,11 @@ pub fn prepare_uinodes(
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
-                commands.spawn_bundle((UiBatch {
+                commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
-                },));
+                });
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
@@ -460,24 +491,23 @@ pub fn prepare_uinodes(
             }
         }
 
-        // Clip UVs (Note: y is reversed in UV space)
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
         let uvs = [
             Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x,
-                uinode_rect.max.y - positions_diff[0].y,
+                uinode_rect.min.x + positions_diff[0].x * extracted_uinode.scale_factor,
+                uinode_rect.min.y + positions_diff[0].y * extracted_uinode.scale_factor,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x,
-                uinode_rect.max.y - positions_diff[1].y,
+                uinode_rect.max.x + positions_diff[1].x * extracted_uinode.scale_factor,
+                uinode_rect.min.y + positions_diff[1].y * extracted_uinode.scale_factor,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[2].x,
-                uinode_rect.min.y - positions_diff[2].y,
+                uinode_rect.max.x + positions_diff[2].x * extracted_uinode.scale_factor,
+                uinode_rect.max.y + positions_diff[2].y * extracted_uinode.scale_factor,
             ),
             Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x,
-                uinode_rect.min.y - positions_diff[3].y,
+                uinode_rect.min.x + positions_diff[3].x * extracted_uinode.scale_factor,
+                uinode_rect.max.y + positions_diff[3].y * extracted_uinode.scale_factor,
             ),
         ]
         .map(|pos| pos / atlas_extent);
@@ -486,7 +516,7 @@ pub fn prepare_uinodes(
             ui_meta.vertices.push(UiVertex {
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
-                color: extracted_uinode.color.as_linear_rgba_f32(),
+                color: extracted_uinode.background_color.as_linear_rgba_f32(),
             });
         }
 
@@ -496,11 +526,11 @@ pub fn prepare_uinodes(
 
     // if start != end, there is one last batch to process
     if start != end {
-        commands.spawn_bundle((UiBatch {
+        commands.spawn(UiBatch {
             range: start..end,
             image: current_batch_handle,
             z: last_z,
-        },));
+        });
     }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);

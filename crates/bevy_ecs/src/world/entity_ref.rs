@@ -238,7 +238,18 @@ impl<'w> EntityMut<'w> {
             })
     }
 
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `insert` instead, which now accepts bundles, components, and tuples of bundles and components."
+    )]
     pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        self.insert(bundle)
+    }
+
+    /// Adds a [`Bundle`] of components to the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let change_tick = self.world.change_tick();
         let bundle_info = self
             .world
@@ -260,8 +271,19 @@ impl<'w> EntityMut<'w> {
         self
     }
 
-    // TODO: move to BundleInfo
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `remove` instead, which now accepts bundles, components, and tuples of bundles and components."
+    )]
     pub fn remove_bundle<T: Bundle>(&mut self) -> Option<T> {
+        self.remove::<T>()
+    }
+
+    // TODO: move to BundleInfo
+    /// Removes a [`Bundle`] of components from the entity and returns the bundle.
+    ///
+    /// Returns `None` if the entity does not contain the bundle.
+    pub fn remove<T: Bundle>(&mut self) -> Option<T> {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -293,7 +315,7 @@ impl<'w> EntityMut<'w> {
         // SAFETY: bundle components are iterated in order, which guarantees that the component type
         // matches
         let result = unsafe {
-            T::from_components(storages, |storages| {
+            T::from_components(storages, &mut |storages| {
                 let component_id = bundle_components.next().unwrap();
                 // SAFETY: entity location is valid and table row is removed below
                 take_component(
@@ -384,9 +406,17 @@ impl<'w> EntityMut<'w> {
         entities.meta[entity.id as usize].location = new_location;
     }
 
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `remove_intersection` instead, which now accepts bundles, components, and tuples of bundles and components."
+    )]
+    pub fn remove_bundle_intersection<T: Bundle>(&mut self) {
+        self.remove_intersection::<T>();
+    }
+
     // TODO: move to BundleInfo
     /// Remove any components in the bundle that the entity has.
-    pub fn remove_bundle_intersection<T: Bundle>(&mut self) {
+    pub fn remove_intersection<T: Bundle>(&mut self) {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -447,14 +477,6 @@ impl<'w> EntityMut<'w> {
                 new_archetype_id,
             );
         }
-    }
-
-    pub fn insert<T: Component>(&mut self, value: T) -> &mut Self {
-        self.insert_bundle((value,))
-    }
-
-    pub fn remove<T: Component>(&mut self) -> Option<T> {
-        self.remove_bundle::<(T,)>().map(|v| v.0)
     }
 
     pub fn despawn(self) {
@@ -944,7 +966,7 @@ mod tests {
     #[test]
     fn entity_ref_get_by_id() {
         let mut world = World::new();
-        let entity = world.spawn().insert(TestComponent(42)).id();
+        let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
             .get_id(std::any::TypeId::of::<TestComponent>())
@@ -961,7 +983,7 @@ mod tests {
     #[test]
     fn entity_mut_get_by_id() {
         let mut world = World::new();
-        let entity = world.spawn().insert(TestComponent(42)).id();
+        let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
             .get_id(std::any::TypeId::of::<TestComponent>())
@@ -990,7 +1012,7 @@ mod tests {
         let invalid_component_id = ComponentId::new(usize::MAX);
 
         let mut world = World::new();
-        let entity = world.spawn().id();
+        let entity = world.spawn_empty().id();
         let entity = world.entity(entity);
         assert!(entity.get_by_id(invalid_component_id).is_none());
     }
@@ -1000,7 +1022,7 @@ mod tests {
         let invalid_component_id = ComponentId::new(usize::MAX);
 
         let mut world = World::new();
-        let mut entity = world.spawn();
+        let mut entity = world.spawn_empty();
         assert!(entity.get_by_id(invalid_component_id).is_none());
         assert!(entity.get_mut_by_id(invalid_component_id).is_none());
     }

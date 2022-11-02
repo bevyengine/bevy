@@ -2,6 +2,9 @@ use crate::{ButtonState, Input};
 use bevy_ecs::{event::EventReader, system::ResMut};
 use bevy_reflect::{FromReflect, Reflect};
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A keyboard input event.
 ///
 /// This event is the translated version of the `WindowEvent::KeyboardInput` from the `winit` crate.
@@ -11,7 +14,13 @@ use bevy_reflect::{FromReflect, Reflect};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct KeyboardInput {
     /// The scan code of the key.
     pub scan_code: u32,
@@ -71,9 +80,13 @@ pub fn keyboard_input_system(
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Reflect, FromReflect, Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Hash, PartialEq)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 #[repr(u32)]
 pub enum KeyCode {
     /// The `1` key over the letters.
@@ -604,7 +617,11 @@ impl From<winit::event::VirtualKeyCode> for KeyCode {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Reflect, FromReflect, Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
-#[reflect(Hash, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct ScanCode(pub u32);
