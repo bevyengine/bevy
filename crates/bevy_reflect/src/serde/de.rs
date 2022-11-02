@@ -105,7 +105,7 @@ impl<T: Display> Debug for ExpectedValues<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let len = self.0.len();
         for (index, item) in self.0.iter().enumerate() {
-            write!(f, "`{}`", item)?;
+            write!(f, "`{item}`")?;
             if index < len - 1 {
                 write!(f, ", ")?;
             }
@@ -218,7 +218,7 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
             .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
 
         let registration = self.registry.get_with_name(&type_name).ok_or_else(|| {
-            Error::custom(format_args!("No registration found for `{}`", type_name))
+            Error::custom(format_args!("No registration found for `{type_name}`"))
         })?;
         let value = map.next_value_seed(TypedReflectDeserializer {
             registration,

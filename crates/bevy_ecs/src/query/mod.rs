@@ -97,8 +97,8 @@ mod tests {
 
         let mut world = World::new();
         world.spawn((A(1), B(1)));
-        world.spawn((A(2),));
-        world.spawn((A(3),));
+        world.spawn(A(2));
+        world.spawn(A(3));
 
         assert_all_sizes_equal::<&A, With<B>>(&mut world, 1);
         assert_all_sizes_equal::<&A, Without<B>>(&mut world, 2);
@@ -110,10 +110,10 @@ mod tests {
         world.spawn((A(4), C(4)));
         world.spawn((A(5), C(5)));
         world.spawn((A(6), C(6)));
-        world.spawn((A(7),));
-        world.spawn((A(8),));
-        world.spawn((A(9),));
-        world.spawn((A(10),));
+        world.spawn(A(7));
+        world.spawn(A(8));
+        world.spawn(A(9));
+        world.spawn(A(10));
 
         // With/Without for B and C
         assert_all_sizes_equal::<&A, With<B>>(&mut world, 3);
@@ -444,7 +444,7 @@ mod tests {
     fn query_iter_combinations_sparse() {
         let mut world = World::new();
 
-        world.spawn_batch((1..=4).map(|i| (Sparse(i),)));
+        world.spawn_batch((1..=4).map(Sparse));
 
         let mut query = world.query::<&mut Sparse>();
         let mut combinations = query.iter_combinations_mut(&mut world);

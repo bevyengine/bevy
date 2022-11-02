@@ -18,17 +18,7 @@ use bevy_render::{
     prelude::Camera,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
-    render_resource::{
-        AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-        BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-        BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
-        FilterMode, FragmentState, LoadOp, MultisampleState, Operations, PipelineCache,
-        PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, ShaderType, TextureDescriptor,
-        TextureDimension, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-        TextureViewDimension,
-    },
+    render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
@@ -107,6 +97,8 @@ pub struct BloomSettings {
     pub knee: f32,
     /// Scale used when upsampling.
     pub up_sample_scale: f32,
+    /// Scale the intensity of the bloom effect. Defaults to 1.0.
+    pub intensity: f32,
 }
 
 impl Default for BloomSettings {
@@ -115,6 +107,7 @@ impl Default for BloomSettings {
             threshold: 1.0,
             knee: 0.1,
             up_sample_scale: 1.0,
+            intensity: 1.0,
         }
     }
 }
@@ -157,19 +150,14 @@ impl Node for BloomNode {
         #[cfg(feature = "trace")]
         let _bloom_span = info_span!("bloom").entered();
 
+        let pipelines = world.resource::<BloomPipelines>();
+        let pipeline_cache = world.resource::<PipelineCache>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (
-            (camera, view_target, textures, bind_groups, uniform_index),
-            pipelines,
-            pipeline_cache,
-        ) = match (
-            self.view_query.get_manual(world, view_entity),
-            world.get_resource::<BloomPipelines>(),
-            world.get_resource::<PipelineCache>(),
-        ) {
-            (Ok(c), Some(pipelines), Some(pipeline_cache)) => (c, pipelines, pipeline_cache),
-            _ => return Ok(()),
-        };
+        let (camera, view_target, textures, bind_groups, uniform_index) =
+            match self.view_query.get_manual(world, view_entity) {
+                Ok(result) => result,
+                _ => return Ok(()),
+            };
         let (
             down_sampling_pre_filter_pipeline,
             down_sampling_pipeline,
@@ -268,10 +256,12 @@ impl Node for BloomNode {
                 TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_up_sampling_final_pass"),
-                        color_attachments: &[Some(view_target.get_color_attachment(Operations {
-                            load: LoadOp::Load,
-                            store: true,
-                        }))],
+                        color_attachments: &[Some(view_target.get_unsampled_color_attachment(
+                            Operations {
+                                load: LoadOp::Load,
+                                store: true,
+                            },
+                        ))],
                         depth_stencil_attachment: None,
                     },
                 ));
@@ -297,7 +287,7 @@ struct BloomPipelines {
     down_sampling_pipeline: CachedRenderPipelineId,
     up_sampling_pipeline: CachedRenderPipelineId,
     up_sampling_final_pipeline: CachedRenderPipelineId,
-
+    sampler: Sampler,
     down_sampling_bind_group_layout: BindGroupLayout,
     up_sampling_bind_group_layout: BindGroupLayout,
 }
@@ -305,6 +295,13 @@ struct BloomPipelines {
 impl FromWorld for BloomPipelines {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
+            min_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            ..Default::default()
+        });
 
         let down_sampling_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -482,7 +479,7 @@ impl FromWorld for BloomPipelines {
             down_sampling_pipeline,
             up_sampling_pipeline,
             up_sampling_final_pipeline,
-
+            sampler,
             down_sampling_bind_group_layout,
             up_sampling_bind_group_layout,
         }
@@ -577,6 +574,7 @@ struct BloomUniform {
     threshold: f32,
     knee: f32,
     scale: f32,
+    intensity: f32,
 }
 
 #[derive(Resource, Default)]
@@ -614,6 +612,7 @@ fn prepare_bloom_uniforms(
                 threshold: settings.threshold,
                 knee: settings.knee,
                 scale: settings.up_sample_scale * scale,
+                intensity: settings.intensity,
             };
             let index = bloom_uniforms.uniforms.push(uniform);
             Some((entity, (BloomUniformIndex(index))))
@@ -641,14 +640,6 @@ fn queue_bloom_bind_groups(
     uniforms: Res<BloomUniforms>,
     views: Query<(Entity, &ViewTarget, &BloomTextures)>,
 ) {
-    let sampler = render_device.create_sampler(&SamplerDescriptor {
-        min_filter: FilterMode::Linear,
-        mag_filter: FilterMode::Linear,
-        address_mode_u: AddressMode::ClampToEdge,
-        address_mode_v: AddressMode::ClampToEdge,
-        ..Default::default()
-    });
-
     if let Some(uniforms) = uniforms.uniforms.binding() {
         for (entity, view_target, textures) in &views {
             let pre_filter_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
@@ -657,11 +648,11 @@ fn queue_bloom_bind_groups(
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::TextureView(view_target.main_texture.texture()),
+                        resource: BindingResource::TextureView(view_target.main_texture()),
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(&sampler),
+                        resource: BindingResource::Sampler(&pipelines.sampler),
                     },
                     BindGroupEntry {
                         binding: 2,
@@ -685,7 +676,7 @@ fn queue_bloom_bind_groups(
                         },
                         BindGroupEntry {
                             binding: 1,
-                            resource: BindingResource::Sampler(&sampler),
+                            resource: BindingResource::Sampler(&pipelines.sampler),
                         },
                         BindGroupEntry {
                             binding: 2,
@@ -719,7 +710,7 @@ fn queue_bloom_bind_groups(
                         },
                         BindGroupEntry {
                             binding: 1,
-                            resource: BindingResource::Sampler(&sampler),
+                            resource: BindingResource::Sampler(&pipelines.sampler),
                         },
                         BindGroupEntry {
                             binding: 2,
@@ -749,7 +740,7 @@ fn queue_bloom_bind_groups(
                         },
                         BindGroupEntry {
                             binding: 1,
-                            resource: BindingResource::Sampler(&sampler),
+                            resource: BindingResource::Sampler(&pipelines.sampler),
                         },
                         BindGroupEntry {
                             binding: 2,

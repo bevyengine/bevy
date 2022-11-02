@@ -117,7 +117,7 @@ pub fn extract_text2d_sprite(
                 .get(&text_glyph.atlas_info.texture_atlas)
                 .unwrap();
             let handle = atlas.texture.clone_weak();
-            let index = text_glyph.atlas_info.glyph_index as usize;
+            let index = text_glyph.atlas_info.glyph_index;
             let rect = Some(atlas.textures[index]);
 
             let glyph_transform = Transform::from_translation(
@@ -145,6 +145,11 @@ pub fn extract_text2d_sprite(
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
+///
+/// ## World Resources
+///
+/// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
+/// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
     mut commands: Commands,
@@ -202,7 +207,7 @@ pub fn update_text2d_layout(
                 }
                 Err(e @ TextError::FailedToAddGlyph(_))
                 | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
-                    panic!("Fatal error when processing text: {}.", e);
+                    panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
                     calculated_size.size = Vec2::new(

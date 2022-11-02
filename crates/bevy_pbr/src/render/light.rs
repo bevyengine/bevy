@@ -1076,7 +1076,7 @@ pub fn prepare_lights(
                 .spawn((
                     ShadowView {
                         depth_texture_view,
-                        pass_name: format!("shadow pass spot light {}", light_index,),
+                        pass_name: format!("shadow pass spot light {light_index}",),
                     },
                     ExtractedView {
                         viewport: UVec4::new(
@@ -1160,7 +1160,7 @@ pub fn prepare_lights(
                     .spawn((
                         ShadowView {
                             depth_texture_view,
-                            pass_name: format!("shadow pass directional light {}", i),
+                            pass_name: format!("shadow pass directional light {i}"),
                         },
                         ExtractedView {
                             viewport: UVec4::new(

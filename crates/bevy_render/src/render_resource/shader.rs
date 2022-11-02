@@ -258,7 +258,7 @@ impl AssetLoader for ShaderLoader {
                     String::from_utf8(Vec::from(bytes))?,
                     naga::ShaderStage::Compute,
                 ),
-                _ => panic!("unhandled extension: {}", ext),
+                _ => panic!("unhandled extension: {ext}"),
             };
 
             let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports(&shader);

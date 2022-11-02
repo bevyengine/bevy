@@ -54,7 +54,7 @@ pub struct WindowPlugin {
     /// create 'headless' processes (processes without windows), which may
     /// surprise your users. It is recommended to leave this setting as `true`.
     ///
-    /// If true, this plugin will add [`exit_on_all_closed`] to [`CoreStage::Update`].
+    /// If true, this plugin will add [`exit_on_all_closed`] to [`CoreStage::PostUpdate`].
     pub exit_on_all_closed: bool,
     /// Whether to close windows when they are requested to be closed (i.e.
     /// when the close button is pressed).

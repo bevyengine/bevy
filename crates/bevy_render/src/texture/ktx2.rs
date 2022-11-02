@@ -24,9 +24,8 @@ pub fn ktx2_buffer_to_image(
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
 ) -> Result<Image, TextureError> {
-    let ktx2 = ktx2::Reader::new(buffer).map_err(|err| {
-        TextureError::InvalidData(format!("Failed to parse ktx2 file: {:?}", err))
-    })?;
+    let ktx2 = ktx2::Reader::new(buffer)
+        .map_err(|err| TextureError::InvalidData(format!("Failed to parse ktx2 file: {err:?}")))?;
     let Header {
         pixel_width: width,
         pixel_height: height,
@@ -367,7 +366,7 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
         if data_format_descriptor.header == DataFormatDescriptorHeader::BASIC {
             let basic_data_format_descriptor =
                 BasicDataFormatDescriptor::parse(data_format_descriptor.data)
-                    .map_err(|err| TextureError::InvalidData(format!("KTX2: {:?}", err)))?;
+                    .map_err(|err| TextureError::InvalidData(format!("KTX2: {err:?}")))?;
             let sample_information = basic_data_format_descriptor
                 .sample_information()
                 .collect::<Vec<_>>();
