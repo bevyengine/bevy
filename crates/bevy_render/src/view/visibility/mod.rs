@@ -87,7 +87,7 @@ impl ComputedVisibility {
     /// [`CoreStage::Update`] stage will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
-         self.flags.bits == ComputedVisibilityFlags::all().bits
+        self.flags.bits == ComputedVisibilityFlags::all().bits
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
