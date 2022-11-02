@@ -246,6 +246,9 @@ impl<'w> EntityMut<'w> {
         self.insert(bundle)
     }
 
+    /// Adds a [`Bundle`] of components to the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let change_tick = self.world.change_tick();
         let bundle_info = self
@@ -277,6 +280,9 @@ impl<'w> EntityMut<'w> {
     }
 
     // TODO: move to BundleInfo
+    /// Removes a [`Bundle`] of components from the entity and returns the bundle.
+    ///
+    /// Returns `None` if the entity does not contain the bundle.
     pub fn remove<T: Bundle>(&mut self) -> Option<T> {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;

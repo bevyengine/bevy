@@ -105,7 +105,7 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
         .flat_map(|val| {
             let technical_name = val["name"].as_str().unwrap().to_string();
             if panic_on_missing && metadatas.get(&technical_name).is_none() {
-                panic!("Missing metadata for example {}", technical_name);
+                panic!("Missing metadata for example {technical_name}");
             }
 
             if metadatas

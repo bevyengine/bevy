@@ -109,7 +109,7 @@ Add a `shell.nix` file to the root of the project containing:
 { pkgs ? import <nixpkgs> {} }:
 with pkgs; mkShell rec {
   nativeBuildInputs = [
-    pkgconfig
+    pkg-config
     llvmPackages.bintools # To use lld linker
   ];
   buildInputs = [

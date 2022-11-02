@@ -15,7 +15,7 @@ fn main() {
             info!("Hello from a complex closure! {:?}", value);
 
             // we can modify the value inside the closure. this will be saved between calls.
-            value = format!("{} - updated", value);
+            value = format!("{value} - updated");
 
             // you could also use an outside variable like presented in the inlined closures
             // info!("outside_variable! {:?}", outside_variable);
@@ -25,7 +25,7 @@ fn main() {
     let outside_variable = "bar".to_string();
 
     App::new()
-        .add_plugin(LogPlugin)
+        .add_plugin(LogPlugin::default())
         // we can use a closure as a system
         .add_system(simple_closure)
         // or we can use a more complex closure, and pass an argument to initialize a Local variable.

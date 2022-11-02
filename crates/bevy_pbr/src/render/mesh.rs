@@ -25,7 +25,7 @@ use bevy_render::{
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
-    view::{ComputedVisibility, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
@@ -239,7 +239,7 @@ pub fn extract_skinned_meshes(
             SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut joints)
         {
             last_start = last_start.max(skinned_joints.index as usize);
-            values.push((entity, (skinned_joints.to_buffer_index(),)));
+            values.push((entity, skinned_joints.to_buffer_index()));
         }
     }
 
@@ -516,6 +516,8 @@ bitflags::bitflags! {
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
         const TRANSPARENT_MAIN_PASS       = (1 << 0);
+        const HDR                         = (1 << 1);
+        const TONEMAP_IN_SHADER           = (1 << 2);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -531,6 +533,14 @@ impl MeshPipelineKey {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits(msaa_bits).unwrap()
+    }
+
+    pub fn from_hdr(hdr: bool) -> Self {
+        if hdr {
+            MeshPipelineKey::HDR
+        } else {
+            MeshPipelineKey::NONE
+        }
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -566,12 +576,19 @@ impl SpecializedMeshPipeline for MeshPipeline {
         key: Self::Key,
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut vertex_attributes = vec![
-            Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
-            Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
-        ];
-
         let mut shader_defs = Vec::new();
+        let mut vertex_attributes = Vec::new();
+
+        if layout.contains(Mesh::ATTRIBUTE_POSITION) {
+            shader_defs.push(String::from("VERTEX_POSITIONS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
+        }
+
+        if layout.contains(Mesh::ATTRIBUTE_NORMAL) {
+            shader_defs.push(String::from("VERTEX_NORMALS"));
+            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push(String::from("VERTEX_UVS"));
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
@@ -617,6 +634,15 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_write_enabled = true;
         }
 
+        if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
+            shader_defs.push("TONEMAP_IN_SHADER".to_string());
+        }
+
+        let format = match key.contains(MeshPipelineKey::HDR) {
+            true => ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
@@ -629,7 +655,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format,
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],

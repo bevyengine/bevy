@@ -35,7 +35,7 @@ fn main() {
 
     // Simulate 10 frames of our world
     for iteration in 1..=10 {
-        println!("Simulating frame {}/10", iteration);
+        println!("Simulating frame {iteration}/10");
         schedule.run(&mut world);
     }
 }
