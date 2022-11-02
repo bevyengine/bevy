@@ -11,6 +11,7 @@ pub use iter::*;
 pub use state::*;
 
 #[allow(unreachable_code)]
+#[cfg_attr(debug_assertions, track_caller)]
 pub(crate) unsafe fn debug_checked_unreachable() -> ! {
     #[cfg(debug_assertions)]
     unreachable!();
