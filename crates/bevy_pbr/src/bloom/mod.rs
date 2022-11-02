@@ -256,10 +256,12 @@ impl Node for BloomNode {
                 TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_up_sampling_final_pass"),
-                        color_attachments: &[Some(view_target.get_color_attachment(Operations {
-                            load: LoadOp::Load,
-                            store: true,
-                        }))],
+                        color_attachments: &[Some(view_target.get_unsampled_color_attachment(
+                            Operations {
+                                load: LoadOp::Load,
+                                store: true,
+                            },
+                        ))],
                         depth_stencil_attachment: None,
                     },
                 ));
@@ -646,7 +648,7 @@ fn queue_bloom_bind_groups(
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::TextureView(view_target.main_texture.texture()),
+                        resource: BindingResource::TextureView(view_target.main_texture()),
                     },
                     BindGroupEntry {
                         binding: 1,
