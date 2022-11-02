@@ -44,7 +44,9 @@ impl<T> Task<T> {
 
     /// Returns `true` if the current task is finished.
     ///
-    /// Note that in a multithreaded environment, this task can change finish immediately after calling this function.
+    ///
+    /// Unlike poll, it doesn't resolve the final value, it just checks if the task has finished.
+    /// Note that in a multithreaded environment, this task can be finished immediately after calling this function.
     pub fn is_finished(&self) -> bool {
         self.0.is_finished()
     }
