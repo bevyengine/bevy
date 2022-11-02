@@ -223,10 +223,10 @@ mod tests {
         world.init_resource::<AppTypeRegistry>();
 
         // Spawn entities in order
-        let entity_a = world.spawn_empty().index();
-        let entity_b = world.spawn_empty().index();
-        let entity_c = world.spawn_empty().index();
-        let entity_d = world.spawn_empty().index();
+        let entity_a = world.spawn_empty().id();
+        let entity_b = world.spawn_empty().id();
+        let entity_c = world.spawn_empty().id();
+        let entity_d = world.spawn_empty().id();
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
 
