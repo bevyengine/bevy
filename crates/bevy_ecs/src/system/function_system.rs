@@ -4,7 +4,7 @@ use crate::{
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
-    schedule::SystemLabel,
+    schedule::{SystemLabel, SystemLabelId},
     system::{
         check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
         SystemParamItem, SystemParamState,
@@ -12,7 +12,7 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -27,7 +27,7 @@ pub struct SystemMeta {
 }
 
 impl SystemMeta {
-    fn new<T>() -> Self {
+    pub(crate) fn new<T>() -> Self {
         Self {
             name: std::any::type_name::<T>().into(),
             archetype_component_access: Access::default(),
@@ -82,6 +82,7 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
+/// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
 /// #[derive(Component)]
@@ -110,8 +111,9 @@ impl SystemMeta {
 /// use bevy_ecs::event::Events;
 ///
 /// struct MyEvent;
-/// struct CachedSystemState<'w, 's>{
-///    event_state: SystemState<EventReader<'w, 's, MyEvent>>
+/// #[derive(Resource)]
+/// struct CachedSystemState {
+///    event_state: SystemState<EventReader<'static, 'static, MyEvent>>
 /// }
 ///
 /// // Create and store a system state once
@@ -126,12 +128,12 @@ impl SystemMeta {
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
 ///     let mut event_reader = cached_state.event_state.get_mut(world);
 ///
-///     for events in event_reader.iter(){
+///     for events in event_reader.iter() {
 ///         println!("Hello World!");
 ///     };
 /// });
 /// ```
-pub struct SystemState<Param: SystemParam> {
+pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
     param_state: <Param as SystemParam>::Fetch,
     world_id: WorldId,
@@ -166,7 +168,7 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::Fetch: ReadOnlySystemParamFetch,
     {
         self.validate_world_and_update_archetypes(world);
-        // SAFE: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
+        // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
 
@@ -177,7 +179,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w mut World,
     ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
         self.validate_world_and_update_archetypes(world);
-        // SAFE: World is uniquely borrowed and matches the World this SystemState was created with.
+        // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
     }
 
@@ -246,10 +248,9 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 /// # Examples
 ///
 /// ```
-/// use bevy_ecs::system::IntoSystem;
-/// use bevy_ecs::system::Res;
+/// use bevy_ecs::prelude::*;
 ///
-/// fn my_system_function(an_usize_resource: Res<usize>) {}
+/// fn my_system_function(a_usize_local: Local<usize>) {}
 ///
 /// let system = IntoSystem::into_system(my_system_function);
 /// ```
@@ -277,7 +278,7 @@ impl<In, Out, Sys: System<In = In, Out = Out>> IntoSystem<In, Out, AlreadyWasSys
 /// [`System`]s may take an optional input which they require to be passed to them when they
 /// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
 /// with this `In` type, but only the first param of a function may be tagged as an input. This also
-/// means a system can only have one or zero input paramaters.
+/// means a system can only have one or zero input parameters.
 ///
 /// # Examples
 ///
@@ -319,7 +320,6 @@ where
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    #[allow(clippy::type_complexity)]
     marker: PhantomData<fn() -> (In, Out, Marker)>,
 }
 
@@ -388,6 +388,11 @@ where
     }
 
     #[inline]
+    fn is_exclusive(&self) -> bool {
+        false
+    }
+
+    #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: &World) -> Self::Out {
         let change_tick = world.increment_change_tick();
 
@@ -404,6 +409,14 @@ where
         let out = self.func.run(input, params);
         self.system_meta.last_change_tick = change_tick;
         out
+    }
+
+    fn get_last_change_tick(&self) -> u32 {
+        self.system_meta.last_change_tick
+    }
+
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.system_meta.last_change_tick = last_change_tick;
     }
 
     #[inline]
@@ -445,13 +458,20 @@ where
             self.system_meta.name.as_ref(),
         );
     }
-    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
-        vec![Box::new(self.func.as_system_label())]
+    fn default_labels(&self) -> Vec<SystemLabelId> {
+        vec![self.func.as_system_label().as_label()]
     }
 }
 
 /// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
-pub struct SystemTypeIdLabel<T: 'static>(PhantomData<fn() -> T>);
+pub struct SystemTypeIdLabel<T: 'static>(pub(crate) PhantomData<fn() -> T>);
+
+impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
+    #[inline]
+    fn as_str(&self) -> &'static str {
+        std::any::type_name::<T>()
+    }
+}
 
 impl<T> Debug for SystemTypeIdLabel<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -460,33 +480,13 @@ impl<T> Debug for SystemTypeIdLabel<T> {
             .finish()
     }
 }
-impl<T> Hash for SystemTypeIdLabel<T> {
-    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
-        // All SystemTypeIds of a given type are the same.
-    }
-}
+
 impl<T> Clone for SystemTypeIdLabel<T> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
-
 impl<T> Copy for SystemTypeIdLabel<T> {}
-
-impl<T> PartialEq for SystemTypeIdLabel<T> {
-    #[inline]
-    fn eq(&self, _other: &Self) -> bool {
-        // All labels of a given type are equal, as they will all have the same type id
-        true
-    }
-}
-impl<T> Eq for SystemTypeIdLabel<T> {}
-
-impl<T> SystemLabel for SystemTypeIdLabel<T> {
-    fn dyn_clone(&self) -> Box<dyn SystemLabel> {
-        Box::new(*self)
-    }
-}
 
 /// A trait implemented for all functions that can be used as [`System`]s.
 ///
@@ -499,7 +499,7 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 ///
 /// # Example
 ///
-/// To create something like [`ChainSystem`], but in entirely safe code.
+/// To create something like [`PipeSystem`], but in entirely safe code.
 ///
 /// ```rust
 /// use std::num::ParseIntError;
@@ -509,9 +509,9 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 ///
 /// // Unfortunately, we need all of these generics. `A` is the first system, with its
 /// // parameters and marker type required for coherence. `B` is the second system, and
-/// // the other generics are for the input/output types of A and B.
-/// /// Chain creates a new system which calls `a`, then calls `b` with the output of `a`
-/// pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
+/// // the other generics are for the input/output types of `A` and `B`.
+/// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
+/// pub fn pipe<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
 /// ) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
@@ -529,17 +529,18 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 ///     }
 /// }
 ///
-/// // Usage example for `chain`:
+/// // Usage example for `pipe`:
 /// fn main() {
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // chain the `parse_message_system`'s output into the `filter_system`s input
-///     let mut chained_system = IntoSystem::into_system(chain(parse_message, filter));
-///     chained_system.initialize(&mut world);
-///     assert_eq!(chained_system.run((), &mut world), Some(42));
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input
+///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
+///     piped_system.initialize(&mut world);
+///     assert_eq!(piped_system.run((), &mut world), Some(42));
 /// }
 ///
+/// #[derive(Resource)]
 /// struct Message(String);
 ///
 /// fn parse_message(message: Res<Message>) -> Result<usize, ParseIntError> {
@@ -550,7 +551,7 @@ impl<T> SystemLabel for SystemTypeIdLabel<T> {
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-/// [`ChainSystem`]: crate::system::ChainSystem
+/// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
 pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
     fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;
@@ -613,24 +614,21 @@ all_tuples!(impl_system_function, 0, 16, F);
 /// Used to implicitly convert systems to their default labels. For example, it will convert
 /// "system functions" to their [`SystemTypeIdLabel`].
 pub trait AsSystemLabel<Marker> {
-    type SystemLabel: SystemLabel;
-    fn as_system_label(&self) -> Self::SystemLabel;
+    fn as_system_label(&self) -> SystemLabelId;
 }
 
 impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
     AsSystemLabel<(In, Out, Param, Marker)> for T
 {
-    type SystemLabel = SystemTypeIdLabel<Self>;
-
-    fn as_system_label(&self) -> Self::SystemLabel {
-        SystemTypeIdLabel(PhantomData::<fn() -> Self>)
+    #[inline]
+    fn as_system_label(&self) -> SystemLabelId {
+        SystemTypeIdLabel::<T>(PhantomData).as_label()
     }
 }
 
-impl<T: SystemLabel + Clone> AsSystemLabel<()> for T {
-    type SystemLabel = T;
-
-    fn as_system_label(&self) -> Self::SystemLabel {
-        self.clone()
+impl<T: SystemLabel> AsSystemLabel<()> for T {
+    #[inline]
+    fn as_system_label(&self) -> SystemLabelId {
+        self.as_label()
     }
 }

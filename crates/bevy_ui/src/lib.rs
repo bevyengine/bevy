@@ -1,7 +1,7 @@
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn [`entity::UiCameraBundle`] and spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
-//! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/> ) except the vertical axis is inverted
+//! Spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
+//! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/>)
 mod flex;
 mod focus;
 mod geometry;
@@ -12,7 +12,7 @@ pub mod entity;
 pub mod update;
 pub mod widget;
 
-use bevy_render::camera::CameraTypePlugin;
+use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
@@ -22,18 +22,20 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction};
+    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
 }
 
-use crate::Size;
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
+use bevy_ecs::{
+    schedule::{IntoSystemDescriptor, SystemLabel},
+    system::Resource,
+};
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
 use update::{ui_z_system, update_clipping_system};
 
-use crate::prelude::CameraUi;
+use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -48,10 +50,27 @@ pub enum UiSystem {
     Focus,
 }
 
+/// The current scale of the UI.
+///
+/// A multiplier to fixed-sized ui values.
+/// **Note:** This will only affect fixed ui values like [`Val::Px`]
+#[derive(Debug, Resource)]
+pub struct UiScale {
+    /// The scale to be applied.
+    pub scale: f64,
+}
+
+impl Default for UiScale {
+    fn default() -> Self {
+        Self { scale: 1.0 }
+    }
+}
+
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(CameraTypePlugin::<CameraUi>::default())
+        app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<FlexSurface>()
+            .init_resource::<UiScale>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -68,11 +87,10 @@ impl Plugin for UiPlugin {
             .register_type::<Option<f32>>()
             .register_type::<Overflow>()
             .register_type::<PositionType>()
-            .register_type::<Size<f32>>()
-            .register_type::<Size<Val>>()
-            .register_type::<UiRect<Val>>()
+            .register_type::<Size>()
+            .register_type::<UiRect>()
             .register_type::<Style>()
-            .register_type::<UiColor>()
+            .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
@@ -86,11 +104,27 @@ impl Plugin for UiPlugin {
                 CoreStage::PostUpdate,
                 widget::text_system
                     .before(UiSystem::Flex)
-                    .after(ModifiesWindows),
+                    .after(ModifiesWindows)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `widget::text_system`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem)
+                    // Potential conflict: `Assets<Image>`
+                    // Since both systems will only ever insert new [`Image`] assets,
+                    // they will never observe each other's effects.
+                    .ambiguous_with(bevy_text::update_text2d_layout),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::image_node_system.before(UiSystem::Flex),
+                widget::image_node_system
+                    .before(UiSystem::Flex)
+                    // Potential conflicts: `Assets<Image>`
+                    // They run independently since `widget::image_node_system` will only ever observe
+                    // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(bevy_text::update_text2d_layout)
+                    .ambiguous_with(widget::text_system),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

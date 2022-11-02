@@ -14,26 +14,101 @@ use std::{
     mem::needs_drop,
 };
 
-/// A component is data associated with an [`Entity`](crate::entity::Entity). Each entity can have
-/// multiple different types of components, but only one of them per type.
+/// A data type that can be used to store data for an [entity].
 ///
-/// Any type that is `Send + Sync + 'static` can implement `Component` using `#[derive(Component)]`.
+/// `Component` is a [derivable trait]: this means that a data type can implement it by applying a `#[derive(Component)]` attribute to it.
+/// However, components must always satisfy the `Send + Sync + 'static` trait bounds.
 ///
-/// In order to use foreign types as components, wrap them using a newtype pattern.
+/// [entity]: crate::entity
+/// [derivable trait]: https://doc.rust-lang.org/book/appendix-03-derivable-traits.html
+///
+/// # Examples
+///
+/// Components can take many forms: they are usually structs, but can also be of every other kind of data type, like enums or zero sized types.
+/// The following examples show how components are laid out in code.
+///
 /// ```
 /// # use bevy_ecs::component::Component;
+/// # struct Color;
+/// #
+/// // A component can contain data...
+/// #[derive(Component)]
+/// struct LicensePlate(String);
+///
+/// // ... but it can also be a zero-sized marker.
+/// #[derive(Component)]
+/// struct Car;
+///
+/// // Components can also be structs with named fields...
+/// #[derive(Component)]
+/// struct VehiclePerformance {
+///     acceleration: f32,
+///     top_speed: f32,
+///     handling: f32,
+/// }
+///
+/// // ... or enums.
+/// #[derive(Component)]
+/// enum WheelCount {
+///     Two,
+///     Three,
+///     Four,
+/// }
+/// ```
+///
+/// # Component and data access
+///
+/// See the [`entity`] module level documentation to learn how to add or remove components from an entity.
+///
+/// See the documentation for [`Query`] to learn how to access component data from a system.
+///
+/// [`entity`]: crate::entity#usage
+/// [`Query`]: crate::system::Query
+///
+/// # Choosing a storage type
+///
+/// Components can be stored in the world using different strategies with their own performance implications.
+/// By default, components are added to the [`Table`] storage, which is optimized for query iteration.
+///
+/// Alternatively, components can be added to the [`SparseSet`] storage, which is optimized for component insertion and removal.
+/// This is achieved by adding an additional `#[component(storage = "SparseSet")]` attribute to the derive one:
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(storage = "SparseSet")]
+/// struct ComponentA;
+/// ```
+///
+/// [`Table`]: crate::storage::Table
+/// [`SparseSet`]: crate::storage::SparseSet
+///
+/// # Implementing the trait for foreign types
+///
+/// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
+/// This means that it is not possible to directly have a type defined in a third party library as a component.
+/// This important limitation can be easily worked around using the [newtype pattern]:
+/// this makes it possible to locally define and implement `Component` for a tuple struct that wraps the foreign type.
+/// The following example gives a demonstration of this pattern.
+///
+/// ```
+/// // `Component` is defined in the `bevy_ecs` crate.
+/// use bevy_ecs::component::Component;
+///
+/// // `Duration` is defined in the `std` crate.
 /// use std::time::Duration;
+///
+/// // It is not possible to implement `Component` for `Duration` from this position, as they are
+/// // both foreign items, defined in an external crate. However, nothing prevents to define a new
+/// // `Cooldown` type that wraps `Duration`. As `Cooldown` is defined in a local crate, it is
+/// // possible to implement `Component` for it.
 /// #[derive(Component)]
 /// struct Cooldown(Duration);
 /// ```
-/// Components are added with new entities using [`Commands::spawn`](crate::system::Commands::spawn),
-/// or to existing entities with [`EntityCommands::insert`](crate::system::EntityCommands::insert),
-/// or their [`World`](crate::world::World) equivalents.
 ///
-/// Components can be accessed in systems by using a [`Query`](crate::system::Query)
-/// as one of the arguments.
-///
-/// Components can be grouped together into a [`Bundle`](crate::bundle::Bundle).
+/// [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type
+/// [newtype pattern]: https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-the-newtype-pattern-to-implement-external-traits-on-external-types
 pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
 }
@@ -70,19 +145,14 @@ mod sealed {
 /// #[component(storage = "SparseSet")]
 /// struct A;
 /// ```
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub enum StorageType {
     /// Provides fast and cache-friendly iteration, but slower addition and removal of components.
     /// This is the default storage type.
+    #[default]
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
-}
-
-impl Default for StorageType {
-    fn default() -> Self {
-        StorageType::Table
-    }
 }
 
 #[derive(Debug)]
@@ -138,6 +208,23 @@ impl ComponentInfo {
     }
 }
 
+/// A semi-opaque value which uniquely identifies the type of a [`Component`] within a
+/// [`World`](crate::world::World).
+///
+/// Each time a new `Component` type is registered within a `World` using
+/// [`World::init_component`](crate::world::World::init_component) or
+/// [`World::init_component_with_descriptor`](crate::world::World::init_component_with_descriptor),
+/// a corresponding `ComponentId` is created to track it.
+///
+/// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
+/// into two separate but related concepts allows components to exist outside of Rust's type system.
+/// Each Rust type registered as a `Component` will have a corresponding `ComponentId`, but additional
+/// `ComponentId`s may exist in a `World` to track components which cannot be
+/// represented as Rust types for scripting or other advanced use-cases.
+///
+/// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
+/// one `World` to access the metadata of a `Component` in a different `World` is undefined behaviour
+/// and must not be attempted.
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId(usize);
 
@@ -196,7 +283,7 @@ impl std::fmt::Debug for ComponentDescriptor {
 impl ComponentDescriptor {
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>()
+        x.drop_as::<T>();
     }
 
     /// Create a new `ComponentDescriptor` for the type `T`.
@@ -207,7 +294,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -244,7 +331,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -255,7 +342,7 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -346,9 +433,36 @@ impl Components {
         self.components.get_unchecked(id.0)
     }
 
+    /// Type-erased equivalent of [`Components::component_id`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).map(|index| ComponentId(*index))
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `Components` instance
+    /// it was retrieved from and should not be used with another `Components`
+    /// instance.
+    ///
+    /// Returns [`None`] if the `Component` type has not
+    /// yet been initialized using [`Components::init_component`].
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let component_a_id = world.init_component::<ComponentA>();
+    ///
+    /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
+    /// ```
+    #[inline]
+    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
+        self.get_id(TypeId::of::<T>())
     }
 
     #[inline]
@@ -360,7 +474,7 @@ impl Components {
 
     #[inline]
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_resource::<T>()
@@ -370,7 +484,7 @@ impl Components {
 
     #[inline]
     pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())

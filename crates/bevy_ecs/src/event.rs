@@ -1,14 +1,10 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::system::{Local, Res, ResMut, SystemParam};
-use bevy_utils::tracing::trace;
+use crate::system::{Local, Res, ResMut, Resource, SystemParam};
+use bevy_utils::tracing::{trace, warn};
 use std::ops::{Deref, DerefMut};
-use std::{
-    fmt::{self},
-    hash::Hash,
-    marker::PhantomData,
-};
+use std::{fmt, hash::Hash, marker::PhantomData};
 
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
@@ -72,7 +68,7 @@ struct EventInstance<E: Event> {
 /// This collection is meant to be paired with a system that calls
 /// [`Events::update`] exactly once per update/frame.
 ///
-/// [`Events::update_system`] is a system that does this, typically intialized automatically using
+/// [`Events::update_system`] is a system that does this, typically initialized automatically using
 /// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 /// [`EventReader`]s are expected to read events from this collection at least once per loop/frame.
 /// Events will persist across a single frame boundary and so ordering of event producers and
@@ -126,9 +122,9 @@ struct EventInstance<E: Event> {
 /// [`add_event`](https://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event).
 ///
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
-/// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/bevy_ecs/examples/events.rs)
+/// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that a.start_event_count + a.len() should always === events_b.start_event_count.
@@ -146,6 +142,14 @@ impl<E: Event> Default for Events<E> {
             events_b: Default::default(),
             event_count: Default::default(),
         }
+    }
+}
+
+impl<E: Event> Events<E> {
+    pub fn oldest_event_count(&self) -> usize {
+        self.events_a
+            .start_event_count
+            .min(self.events_b.start_event_count)
     }
 }
 
@@ -199,9 +203,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
     {
-        self.reader.iter_with_id(&self.events).map(|r @ (_, id)| {
+        self.reader.iter_with_id(&self.events).inspect(|(_, id)| {
             trace!("EventReader::iter() -> {}", id);
-            r
         })
     }
 
@@ -249,6 +252,48 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 }
 
 /// Sends events of type `T`.
+///
+/// # Usage
+///
+/// `EventWriter`s are usually declared as a [`SystemParam`].
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// pub struct MyEvent; // Custom event type.
+/// fn my_system(mut writer: EventWriter<MyEvent>) {
+///     writer.send(MyEvent);
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
+/// # Limitations
+///
+/// `EventWriter` can only send events of one specific type, which must be known at compile-time.
+/// This is not a problem most of the time, but you may find a situation where you cannot know
+/// ahead of time every kind of event you'll need to send. In this case, you can use the "type-erased event" pattern.
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, event::Events};
+///
+/// # pub struct MyEvent;
+/// fn send_untyped(mut commands: Commands) {
+///     // Send an event of a specific type without having to declare that
+///     // type as a SystemParam.
+///     //
+///     // Effectively, we're just moving the type parameter from the /type/ to the /method/,
+///     // which allows one to do all kinds of clever things with type erasure, such as sending
+///     // custom events to unknown 3rd party plugins (modding API).
+///     //
+///     // NOTE: the event won't actually be sent until commands get flushed
+///     // at the end of the current stage.
+///     commands.add(|w: &mut World| {
+///         let mut events_resource = w.resource_mut::<Events<_>>();
+///         events_resource.send(MyEvent);
+///     });
+/// }
+/// ```
+/// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
 pub struct EventWriter<'w, 's, E: Event> {
     events: ResMut<'w, Events<E>>,
@@ -263,7 +308,7 @@ impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
         self.events.send(event);
     }
 
-    pub fn send_batch(&mut self, events: impl Iterator<Item = E>) {
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) {
         self.events.extend(events);
     }
 
@@ -309,10 +354,18 @@ impl<E: Event> ManualEventReader<E> {
            + ExactSizeIterator<Item = (&'a E, EventId<E>)> {
         // if the reader has seen some of the events in a buffer, find the proper index offset.
         // otherwise read all events in the buffer
+        let missed = self.missed_events(events);
+        if missed > 0 {
+            let plural = if missed == 1 { "event" } else { "events" };
+            let type_name = std::any::type_name::<E>();
+            warn!("Missed {missed} `{type_name}` {plural}. Consider reading from the `EventReader` more often (generally the best solution) or calling Events::update() less frequently (normally this is called once per frame). This problem is most likely due to run criteria/fixed timesteps or consuming events conditionally. See the Events documentation for more information.");
+        }
+
         let a_index = (self.last_event_count).saturating_sub(events.events_a.start_event_count);
         let b_index = (self.last_event_count).saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();
         let b = events.events_b.get(b_index..).unwrap_or_default();
+
         let unread_count = a.len() + b.len();
         // Ensure `len` is implemented correctly
         debug_assert_eq!(unread_count, self.len(events));
@@ -335,6 +388,13 @@ impl<E: Event> ManualEventReader<E> {
             .event_count
             .saturating_sub(self.last_event_count)
             .min(events.len())
+    }
+
+    /// Amount of events we missed.
+    pub fn missed_events(&self, events: &Events<E>) -> usize {
+        events
+            .oldest_event_count()
+            .saturating_sub(self.last_event_count)
     }
 
     /// See [`EventReader::is_empty`]

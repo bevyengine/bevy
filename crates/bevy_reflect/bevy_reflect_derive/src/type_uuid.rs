@@ -17,7 +17,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
     ast.generics.type_params_mut().for_each(|param| {
         param
             .bounds
-            .push(syn::parse_quote!(#bevy_reflect_path::TypeUuid))
+            .push(syn::parse_quote!(#bevy_reflect_path::TypeUuid));
     });
 
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -55,7 +55,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
     let bytes = uuid
         .as_bytes()
         .iter()
-        .map(|byte| format!("{:#X}", byte))
+        .map(|byte| format!("{byte:#X}"))
         .map(|byte_str| syn::parse_str::<LitInt>(&byte_str).unwrap());
 
     let base = quote! { #bevy_reflect_path::Uuid::from_bytes([#( #bytes ),*]) };

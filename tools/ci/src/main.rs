@@ -16,27 +16,55 @@ bitflags! {
     }
 }
 
+const CLIPPY_FLAGS: [&str; 8] = [
+    "-Aclippy::type_complexity",
+    "-Wclippy::doc_markdown",
+    "-Wclippy::redundant_else",
+    "-Wclippy::match_same_arms",
+    "-Wclippy::semicolon_if_nothing_returned",
+    "-Wclippy::explicit_iter_loop",
+    "-Wclippy::map_flatten",
+    "-Dwarnings",
+];
+
 fn main() {
     // When run locally, results may differ from actual CI runs triggered by
     // .github/workflows/ci.yml
     // - Official CI runs latest stable
     // - Local runs use whatever the default Rust is locally
 
-    let what_to_run = match std::env::args().nth(1).as_deref() {
-        Some("format") => Check::FORMAT,
-        Some("clippy") => Check::CLIPPY,
-        Some("compile-fail") => Check::COMPILE_FAIL,
-        Some("test") => Check::TEST,
-        Some("doc-test") => Check::DOC_TEST,
-        Some("doc-check") => Check::DOC_CHECK,
-        Some("bench-check") => Check::BENCH_CHECK,
-        Some("example-check") => Check::EXAMPLE_CHECK,
-        Some("lints") => Check::FORMAT | Check::CLIPPY,
-        Some("doc") => Check::DOC_TEST | Check::DOC_CHECK,
-        Some("compile") => {
-            Check::COMPILE_FAIL | Check::BENCH_CHECK | Check::EXAMPLE_CHECK | Check::COMPILE_CHECK
+    let arguments = [
+        ("lints", Check::FORMAT | Check::CLIPPY),
+        ("test", Check::TEST),
+        ("doc", Check::DOC_TEST | Check::DOC_CHECK),
+        (
+            "compile",
+            Check::COMPILE_FAIL | Check::BENCH_CHECK | Check::EXAMPLE_CHECK | Check::COMPILE_CHECK,
+        ),
+        ("format", Check::FORMAT),
+        ("clippy", Check::CLIPPY),
+        ("compile-fail", Check::COMPILE_FAIL),
+        ("bench-check", Check::BENCH_CHECK),
+        ("example-check", Check::EXAMPLE_CHECK),
+        ("doc-check", Check::DOC_CHECK),
+        ("doc-test", Check::DOC_TEST),
+    ];
+
+    let what_to_run = if let Some(arg) = std::env::args().nth(1).as_deref() {
+        if let Some((_, check)) = arguments.iter().find(|(str, _)| *str == arg) {
+            *check
+        } else {
+            println!(
+                "Invalid argument: {arg:?}.\nEnter one of: {}.",
+                arguments[1..]
+                    .iter()
+                    .map(|(s, _)| s)
+                    .fold(arguments[0].0.to_owned(), |c, v| c + ", " + v)
+            );
+            return;
         }
-        _ => Check::all(),
+    } else {
+        Check::all()
     };
 
     let sh = Shell::new().unwrap();
@@ -51,7 +79,10 @@ fn main() {
     if what_to_run.contains(Check::CLIPPY) {
         // See if clippy has any complaints.
         // - Type complexity must be ignored because we use huge templates for queries
-        cmd!(sh, "cargo clippy --workspace --all-targets --all-features -- -A clippy::type_complexity -W clippy::doc_markdown -D warnings")
+        cmd!(
+            sh,
+            "cargo clippy --workspace --all-targets --all-features -- {CLIPPY_FLAGS...}"
+        )
         .run()
         .expect("Please fix clippy errors in output above.");
     }

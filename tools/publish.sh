@@ -23,6 +23,7 @@ crates=(
     bevy_window
     bevy_encase_derive
     bevy_render/macros
+    bevy_mikktspace
     bevy_render
     bevy_core_pipeline
     bevy_input

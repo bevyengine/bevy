@@ -2,7 +2,7 @@ mod converter;
 mod gilrs_system;
 
 use bevy_app::{App, CoreStage, Plugin, StartupStage};
-use bevy_ecs::schedule::ParallelSystemDescriptorCoercion;
+use bevy_ecs::schedule::IntoSystemDescriptor;
 use bevy_input::InputSystem;
 use bevy_utils::tracing::error;
 use gilrs::GilrsBuilder;

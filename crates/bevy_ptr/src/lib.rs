@@ -161,11 +161,12 @@ impl<'a> OwningPtr<'a> {
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
         let mut temp = MaybeUninit::new(val);
+        // SAFETY: `temp.as_mut_ptr()` is a reference to a local value on the stack, so it cannot be null
         let ptr = unsafe { NonNull::new_unchecked(temp.as_mut_ptr().cast::<u8>()) };
         f(Self(ptr, PhantomData))
     }
 
-    //// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
+    /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
     /// Must point to a valid `T`.
@@ -174,13 +175,13 @@ impl<'a> OwningPtr<'a> {
         self.as_ptr().cast::<T>().read()
     }
 
-    //// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
+    /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
     ///
     /// # Safety
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
-        self.as_ptr().cast::<T>().drop_in_place()
+        self.as_ptr().cast::<T>().drop_in_place();
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -194,7 +195,7 @@ impl<'a> OwningPtr<'a> {
     }
 }
 
-/// Conceptually equilavent to `&'a [T]` but with length information cut out for performance reasons
+/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons
 pub struct ThinSlicePtr<'a, T> {
     ptr: NonNull<T>,
     #[cfg(debug_assertions)]
@@ -207,7 +208,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     /// Indexes the slice without doing bounds checks
     ///
     /// # Safety
-    /// `index` must be inbounds.
+    /// `index` must be in-bounds.
     pub unsafe fn get(self, index: usize) -> &'a T {
         #[cfg(debug_assertions)]
         debug_assert!(index < self.len);
@@ -233,6 +234,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
         Self {
+            // SAFETY: a reference can never be null
             ptr: unsafe { NonNull::new_unchecked(slice.as_ptr() as *mut T) },
             #[cfg(debug_assertions)]
             len: slice.len(),
