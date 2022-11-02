@@ -1463,6 +1463,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "z_index"
+path = "examples/ui/z_index.rs"
+
+[package.metadata.example.z_index]
+name = "UI Z-Index"
+description = "Demonstrates how to control the relative depth (z-position) of UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
 
