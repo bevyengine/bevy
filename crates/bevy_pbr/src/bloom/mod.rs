@@ -88,7 +88,7 @@ impl Plugin for BloomPlugin {
 // TODO: Write better documentation.
 /// Applies a bloom effect to an HDR-enabled Camera3d.
 ///
-/// See also https://en.wikipedia.org/wiki/Bloom_(shader_effect).
+/// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, Clone)]
 pub struct BloomSettings {
     /// Threshold for bloom to apply.
@@ -187,7 +187,7 @@ impl Node for BloomNode {
                         depth_stencil_attachment: None,
                     },
                 ));
-            pre_filter_pass.set_render_pipeline(&down_sampling_pre_filter_pipeline);
+            pre_filter_pass.set_render_pipeline(down_sampling_pre_filter_pipeline);
             pre_filter_pass.set_bind_group(
                 0,
                 &bind_groups.pre_filter_bind_group,
@@ -213,7 +213,7 @@ impl Node for BloomNode {
                         depth_stencil_attachment: None,
                     },
                 ));
-            down_sampling_pass.set_render_pipeline(&down_sampling_pipeline);
+            down_sampling_pass.set_render_pipeline(down_sampling_pipeline);
             down_sampling_pass.set_bind_group(
                 0,
                 &bind_groups.down_sampling_bind_groups[mip as usize - 1],
@@ -239,7 +239,7 @@ impl Node for BloomNode {
                         depth_stencil_attachment: None,
                     },
                 ));
-            up_sampling_pass.set_render_pipeline(&up_sampling_pipeline);
+            up_sampling_pass.set_render_pipeline(up_sampling_pipeline);
             up_sampling_pass.set_bind_group(
                 0,
                 &bind_groups.up_sampling_bind_groups[mip as usize - 1],
@@ -265,7 +265,7 @@ impl Node for BloomNode {
                         depth_stencil_attachment: None,
                     },
                 ));
-            up_sampling_final_pass.set_render_pipeline(&up_sampling_final_pipeline);
+            up_sampling_final_pass.set_render_pipeline(up_sampling_final_pipeline);
             up_sampling_final_pass.set_bind_group(
                 0,
                 &bind_groups.up_sampling_final_bind_group,
