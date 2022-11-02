@@ -386,6 +386,16 @@ pub enum CursorGrabMode {
     Locked,
 }
 
+impl From<CursorGrabMode> for winit::window::CursorGrabMode {
+    fn from(cursor_grab_mode: CursorGrabMode) -> Self {
+        match cursor_grab_mode {
+            CursorGrabMode::None => winit::window::CursorGrabMode::None,
+            CursorGrabMode::Confined => winit::window::CursorGrabMode::Confined,
+            CursorGrabMode::Locked => winit::window::CursorGrabMode::Locked,
+        }
+    }
+}
+
 /// Defines the way a window is displayed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
