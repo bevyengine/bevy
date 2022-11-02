@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 ///
 /// # Entity Order
 ///
-/// Extracted entities will always be stored in ascending order based on their [id](Entity::id).
+/// Extracted entities will always be stored in ascending order based on their [id](Entity::index).
 /// This means that inserting `Entity(1v0)` then `Entity(0v0)` will always result in the entities
 /// being ordered as `[Entity(0v0), Entity(1v0)]`.
 ///
@@ -223,10 +223,10 @@ mod tests {
         world.init_resource::<AppTypeRegistry>();
 
         // Spawn entities in order
-        let entity_a = world.spawn_empty().id();
-        let entity_b = world.spawn_empty().id();
-        let entity_c = world.spawn_empty().id();
-        let entity_d = world.spawn_empty().id();
+        let entity_a = world.spawn_empty().index();
+        let entity_b = world.spawn_empty().index();
+        let entity_c = world.spawn_empty().index();
+        let entity_d = world.spawn_empty().index();
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
 
@@ -238,10 +238,10 @@ mod tests {
         let mut entities = builder.build().entities.into_iter();
 
         // Assert entities are ordered
-        assert_eq!(entity_a.id(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_b.id(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_c.id(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_d.id(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_a.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_b.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_c.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_d.index(), entities.next().map(|e| e.entity).unwrap());
     }
 
     #[test]
