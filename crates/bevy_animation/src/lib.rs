@@ -17,7 +17,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
@@ -31,7 +31,7 @@ pub mod prelude {
 }
 
 /// List of keyframes for one of the attribute of a [`Transform`].
-#[derive(Clone, Debug)]
+#[derive(Reflect, FromReflect, Clone, Debug)]
 pub enum Keyframes {
     /// Keyframes for rotation.
     Rotation(Vec<Quat>),
@@ -44,7 +44,7 @@ pub enum Keyframes {
 /// Describes how an attribute of a [`Transform`] should be animated.
 ///
 /// `keyframe_timestamps` and `keyframes` should have the same length.
-#[derive(Clone, Debug)]
+#[derive(Reflect, FromReflect, Clone, Debug)]
 pub struct VariableCurve {
     /// Timestamp for each of the keyframes.
     pub keyframe_timestamps: Vec<f32>,
@@ -53,14 +53,14 @@ pub struct VariableCurve {
 }
 
 /// Path to an entity, with [`Name`]s. Each entity in a path must have a name.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
+#[derive(Reflect, FromReflect, Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub struct EntityPath {
     /// Parts of the path
     pub parts: Vec<Name>,
 }
 
 /// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
-#[derive(Clone, TypeUuid, Debug, Default)]
+#[derive(Reflect, FromReflect, Clone, TypeUuid, Debug, Default)]
 #[uuid = "d81b7179-0448-4eb0-89fe-c067222725bf"]
 pub struct AnimationClip {
     curves: HashMap<EntityPath, Vec<VariableCurve>>,
@@ -115,11 +115,19 @@ impl Default for AnimationPlayer {
 
 impl AnimationPlayer {
     /// Start playing an animation, resetting state of the player
-    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+    pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
         *self = Self {
             animation_clip: handle,
             ..Default::default()
         };
+        self
+    }
+
+    /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
+    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+        if self.animation_clip != handle || self.is_paused() {
+            self.start(handle);
+        }
         self
     }
 
@@ -243,6 +251,7 @@ pub fn animation_player(
                             .keyframe_timestamps
                             .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
                         {
+                            Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
                             Ok(i) => i,
                             Err(0) => continue, // this curve isn't started yet
                             Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
@@ -292,6 +301,7 @@ pub struct AnimationPlugin {}
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<AnimationClip>()
+            .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
