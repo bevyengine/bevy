@@ -125,16 +125,12 @@ impl TaskPool {
                                             local_executor.tick().await;
                                         }
                                     };
-                                    // Use unwrap_err because we expect a Closed error
                                     future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
                                 });
-                                match res {
-                                    // Recieved an error from shutdown's recv. We should terminate.
-                                    Ok(Err(_)) => break,
-                                    // The executor panicked for whatever reason.
-                                    // TODO: Properly handle this.
-                                    Err(_) => {}
-                                    _ => {}
+                                if let Ok(value) = res {
+                                    // Use unwrap_err because we expect a Closed error
+                                    value.unwrap_err();
+                                    break;
                                 }
                             }
                         });
