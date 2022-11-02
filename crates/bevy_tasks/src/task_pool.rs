@@ -133,8 +133,8 @@ impl TaskPool {
                                     Ok(Err(_)) => break,
                                     // The executor panicked for whatever reason.
                                     // TODO: Properly handle this.
-                                    Err(_) => {},
-                                    _ => {},
+                                    Err(_) => {}
+                                    _ => {}
                                 }
                             }
                         });
