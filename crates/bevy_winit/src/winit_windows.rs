@@ -1,7 +1,11 @@
+use crate::converters::convert_cursor_grab_mode;
 use bevy_math::{DVec2, IVec2};
 use bevy_utils::HashMap;
-use bevy_window::{MonitorSelection, Window, WindowDescriptor, WindowId, WindowMode};
-use raw_window_handle::HasRawWindowHandle;
+use bevy_window::{
+    CursorGrabMode, MonitorSelection, RawHandleWrapper, Window, WindowDescriptor, WindowId,
+    WindowMode,
+};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     window::Fullscreen,
@@ -158,8 +162,11 @@ impl WinitWindows {
             }
         }
 
-        if window_descriptor.cursor_locked {
-            match winit_window.set_cursor_grab(true) {
+        // Do not set the grab mode on window creation if it's none, this can fail on mobile
+        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
+            match winit_window
+                .set_cursor_grab(convert_cursor_grab_mode(window_descriptor.cursor_grab_mode))
+            {
                 Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
                 Err(err) => Err(err).unwrap(),
             }
@@ -192,7 +199,10 @@ impl WinitWindows {
             .map(|position| IVec2::new(position.x, position.y));
         let inner_size = winit_window.inner_size();
         let scale_factor = winit_window.scale_factor();
-        let raw_window_handle = winit_window.raw_window_handle();
+        let raw_handle = RawHandleWrapper {
+            window_handle: winit_window.raw_window_handle(),
+            display_handle: winit_window.raw_display_handle(),
+        };
         self.windows.insert(winit_window.id(), winit_window);
         Window::new(
             window_id,
@@ -201,7 +211,7 @@ impl WinitWindows {
             inner_size.height,
             scale_factor,
             position,
-            Some(raw_window_handle),
+            Some(raw_handle),
         )
     }
 
@@ -241,7 +251,9 @@ pub fn get_fitting_videomode(
         match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
                 match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
-                    Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                    Equal => b
+                        .refresh_rate_millihertz()
+                        .cmp(&a.refresh_rate_millihertz()),
                     default => default,
                 }
             }
@@ -258,7 +270,9 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
         use std::cmp::Ordering::*;
         match b.size().width.cmp(&a.size().width) {
             Equal => match b.size().height.cmp(&a.size().height) {
-                Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                Equal => b
+                    .refresh_rate_millihertz()
+                    .cmp(&a.refresh_rate_millihertz()),
                 default => default,
             },
             default => default,

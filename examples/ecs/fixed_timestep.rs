@@ -31,22 +31,30 @@ fn main() {
         .run();
 }
 
-fn frame_update(mut last_time: Local<f64>, time: Res<Time>) {
-    info!("update: {}", time.seconds_since_startup() - *last_time);
-    *last_time = time.seconds_since_startup();
+fn frame_update(mut last_time: Local<f32>, time: Res<Time>) {
+    info!(
+        "time since last frame_update: {}",
+        time.raw_elapsed_seconds() - *last_time
+    );
+    *last_time = time.raw_elapsed_seconds();
 }
 
-fn fixed_update(mut last_time: Local<f64>, time: Res<Time>, fixed_timesteps: Res<FixedTimesteps>) {
+fn fixed_update(mut last_time: Local<f32>, time: Res<Time>, fixed_timesteps: Res<FixedTimesteps>) {
     info!(
-        "fixed_update: {}",
-        time.seconds_since_startup() - *last_time,
+        "time since last fixed_update: {}\n",
+        time.raw_elapsed_seconds() - *last_time
     );
 
-    let fixed_timestep = fixed_timesteps.get(LABEL).unwrap();
-    info!(
-        "  overstep_percentage: {}",
-        fixed_timestep.overstep_percentage()
-    );
+    let state = fixed_timesteps.get(LABEL).unwrap();
 
-    *last_time = time.seconds_since_startup();
+    info!("fixed timestep: {}\n", 0.5);
+    info!(
+        "time accrued toward next fixed_update: {}\n",
+        state.accumulator()
+    );
+    info!(
+        "time accrued toward next fixed_update (% of timestep): {}",
+        state.overstep_percentage()
+    );
+    *last_time = time.raw_elapsed_seconds();
 }

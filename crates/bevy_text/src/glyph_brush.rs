@@ -106,7 +106,7 @@ impl GlyphBrush {
             let section_data = sections_data[sg.section_index];
             if let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) {
                 let bounds = outlined_glyph.px_bounds();
-                let handle_font_atlas: Handle<FontAtlasSet> = section_data.0.as_weak();
+                let handle_font_atlas: Handle<FontAtlasSet> = section_data.0.cast_weak();
                 let font_atlas_set = font_atlas_set_storage
                     .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
@@ -123,7 +123,7 @@ impl GlyphBrush {
                     })?;
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-                let glyph_rect = texture_atlas.textures[atlas_info.glyph_index as usize];
+                let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
                 let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
 
                 let x = bounds.min.x + size.x / 2.0 - min_x;

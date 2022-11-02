@@ -1,12 +1,12 @@
 #[warn(missing_docs)]
 mod cursor;
 mod event;
-mod raw_window_handle;
+mod raw_handle;
 mod system;
 mod window;
 mod windows;
 
-pub use crate::raw_window_handle::*;
+pub use crate::raw_handle::*;
 pub use cursor::*;
 pub use event::*;
 pub use system::*;
@@ -17,8 +17,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, MonitorSelection,
-        ReceivedCharacter, Window, WindowDescriptor, WindowMode, WindowMoved, WindowPosition,
-        Windows,
+        ReceivedCharacter, Window, WindowDescriptor, WindowMode, WindowMoved, WindowPlugin,
+        WindowPosition, Windows,
     };
 }
 
@@ -26,15 +26,22 @@ use bevy_app::prelude::*;
 use bevy_ecs::{
     event::Events,
     schedule::{IntoSystemDescriptor, SystemLabel},
-    system::Resource,
 };
 
-/// The configuration information for the [`WindowPlugin`].
-///
-/// It can be added as a [`Resource`](bevy_ecs::system::Resource) before the [`WindowPlugin`]
-/// runs, to configure how it behaves.
-#[derive(Resource, Clone)]
-pub struct WindowSettings {
+impl Default for WindowPlugin {
+    fn default() -> Self {
+        WindowPlugin {
+            window: Default::default(),
+            add_primary_window: true,
+            exit_on_all_closed: true,
+            close_when_requested: true,
+        }
+    }
+}
+
+/// A [`Plugin`] that defines an interface for windowing support in Bevy.
+pub struct WindowPlugin {
+    pub window: WindowDescriptor,
     /// Whether to create a window when added.
     ///
     /// Note that if there are no windows, by default the App will exit,
@@ -47,7 +54,7 @@ pub struct WindowSettings {
     /// create 'headless' processes (processes without windows), which may
     /// surprise your users. It is recommended to leave this setting as `true`.
     ///
-    /// If true, this plugin will add [`exit_on_all_closed`] to [`CoreStage::Update`].
+    /// If true, this plugin will add [`exit_on_all_closed`] to [`CoreStage::PostUpdate`].
     pub exit_on_all_closed: bool,
     /// Whether to close windows when they are requested to be closed (i.e.
     /// when the close button is pressed).
@@ -57,20 +64,6 @@ pub struct WindowSettings {
     /// This may surprise your users. It is recommended to leave this setting as `true`.
     pub close_when_requested: bool,
 }
-
-impl Default for WindowSettings {
-    fn default() -> Self {
-        WindowSettings {
-            add_primary_window: true,
-            exit_on_all_closed: true,
-            close_when_requested: true,
-        }
-    }
-}
-
-/// A [`Plugin`] that defines an interface for windowing support in Bevy.
-#[derive(Default)]
-pub struct WindowPlugin;
 
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
@@ -91,32 +84,21 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowMoved>()
             .init_resource::<Windows>();
 
-        let settings = app
-            .world
-            .get_resource::<WindowSettings>()
-            .cloned()
-            .unwrap_or_default();
-
-        if settings.add_primary_window {
-            let window_descriptor = app
-                .world
-                .get_resource::<WindowDescriptor>()
-                .cloned()
-                .unwrap_or_default();
+        if self.add_primary_window {
             let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
             create_window_event.send(CreateWindow {
                 id: WindowId::primary(),
-                descriptor: window_descriptor,
+                descriptor: self.window.clone(),
             });
         }
 
-        if settings.exit_on_all_closed {
+        if self.exit_on_all_closed {
             app.add_system_to_stage(
                 CoreStage::PostUpdate,
                 exit_on_all_closed.after(ModifiesWindows),
             );
         }
-        if settings.close_when_requested {
+        if self.close_when_requested {
             app.add_system(close_when_requested);
         }
     }

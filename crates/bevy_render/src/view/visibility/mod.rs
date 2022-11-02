@@ -6,8 +6,8 @@ use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 use std::cell::Cell;
@@ -26,7 +26,7 @@ use crate::{
 
 /// If an entity is hidden in this way,  all [`Children`] (and all of their children and so on) will also be hidden.
 /// This is done by setting the values of their [`ComputedVisibility`] component.
-#[derive(Component, Clone, Reflect, Debug)]
+#[derive(Component, Clone, Reflect, FromReflect, Debug)]
 #[reflect(Component, Default)]
 pub struct Visibility {
     /// Indicates whether this entity is visible. Hidden values will propagate down the entity hierarchy.
@@ -211,14 +211,23 @@ impl Plugin for VisibilityPlugin {
             update_frusta::<OrthographicProjection>
                 .label(UpdateOrthographicFrusta)
                 .after(camera_system::<OrthographicProjection>)
-                .after(TransformSystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate)
+                // We assume that no camera will have more than one projection component,
+                // so these systems will run independently of one another.
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                .ambiguous_with(update_frusta::<Projection>),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             update_frusta::<PerspectiveProjection>
                 .label(UpdatePerspectiveFrusta)
                 .after(camera_system::<PerspectiveProjection>)
-                .after(TransformSystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate)
+                // We assume that no camera will have more than one projection component,
+                // so these systems will run independently of one another.
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                .ambiguous_with(update_frusta::<Projection>),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,

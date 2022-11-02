@@ -13,9 +13,8 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::Added,
     reflect::ReflectComponent,
-    system::{Commands, ParamSet, Query, Res},
+    system::{Commands, Query, Res},
 };
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -24,7 +23,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::{borrow::Cow, ops::Range};
-use wgpu::Extent3d;
+use wgpu::{Extent3d, TextureFormat};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -68,6 +67,8 @@ pub struct RenderTargetInfo {
 pub struct ComputedCameraValues {
     projection_matrix: Mat4,
     target_info: Option<RenderTargetInfo>,
+    // position and size of the `Viewport`
+    old_viewport_size: Option<UVec2>,
 }
 
 /// The defining component for camera entities, storing information about how and what to render
@@ -96,6 +97,12 @@ pub struct Camera {
     /// The "target" that this camera will render to.
     #[reflect(ignore)]
     pub target: RenderTarget,
+    /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
+    /// Warning: we are still working on this feature. If MSAA is enabled, there will be artifacts in
+    /// some cases. When rendering with WebGL, this will crash if MSAA is enabled.
+    /// See <https://github.com/bevyengine/bevy/pull/3425> for details.
+    // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
+    pub hdr: bool,
 }
 
 impl Default for Camera {
@@ -106,6 +113,7 @@ impl Default for Camera {
             viewport: None,
             computed: Default::default(),
             target: Default::default(),
+            hdr: false,
         }
     }
 }
@@ -319,6 +327,22 @@ impl RenderTarget {
         }
     }
 
+    /// Retrieves the [`TextureFormat`] of this render target, if it exists.
+    pub fn get_texture_format<'a>(
+        &self,
+        windows: &'a ExtractedWindows,
+        images: &'a RenderAssets<Image>,
+    ) -> Option<TextureFormat> {
+        match self {
+            RenderTarget::Window(window_id) => windows
+                .get(window_id)
+                .and_then(|window| window.swap_chain_texture_format),
+            RenderTarget::Image(image_handle) => {
+                images.get(image_handle).map(|image| image.texture_format)
+            }
+        }
+    }
+
     pub fn get_render_target_info(
         &self,
         windows: &Windows,
@@ -366,6 +390,11 @@ impl RenderTarget {
 /// the app, as well as the runtime-selected [`Projection`]. The system runs during the
 /// [`CoreStage::PostUpdate`] stage.
 ///
+/// ## World Resources
+///
+/// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
+/// inspect information about the render target. This system will not access any other image assets.
+///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 /// [`Projection`]: crate::camera::Projection
@@ -376,10 +405,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut image_asset_events: EventReader<AssetEvent<Image>>,
     windows: Res<Windows>,
     images: Res<Assets<Image>>,
-    mut queries: ParamSet<(
-        Query<(Entity, &mut Camera, &mut T)>,
-        Query<Entity, Added<Camera>>,
-    )>,
+    mut cameras: Query<(&mut Camera, &mut T)>,
 ) {
     let mut changed_window_ids = Vec::new();
 
@@ -412,18 +438,21 @@ pub fn camera_system<T: CameraProjection + Component>(
         })
         .collect();
 
-    let mut added_cameras = vec![];
-    for entity in &queries.p1() {
-        added_cameras.push(entity);
-    }
-    for (entity, mut camera, mut camera_projection) in &mut queries.p0() {
+    for (mut camera, mut camera_projection) in &mut cameras {
+        let viewport_size = camera
+            .viewport
+            .as_ref()
+            .map(|viewport| viewport.physical_size);
+
         if camera
             .target
             .is_changed(&changed_window_ids, &changed_image_handles)
-            || added_cameras.contains(&entity)
+            || camera.is_added()
             || camera_projection.is_changed()
+            || camera.computed.old_viewport_size != viewport_size
         {
             camera.computed.target_info = camera.target.get_render_target_info(&windows, &images);
+            camera.computed.old_viewport_size = viewport_size;
             if let Some(size) = camera.logical_viewport_size() {
                 camera_projection.update(size.x, size.y);
                 camera.computed.projection_matrix = camera_projection.get_projection_matrix();
@@ -478,6 +507,7 @@ pub fn extract_cameras(
                 ExtractedView {
                     projection: camera.projection_matrix(),
                     transform: *transform,
+                    hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,

@@ -39,6 +39,11 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
+///
+/// ## World Resources
+///
+/// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
+/// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut commands: Commands,
@@ -117,9 +122,9 @@ pub fn text_system(
                 scale_factor,
                 text.alignment,
                 node_size,
-                &mut *font_atlas_set_storage,
-                &mut *texture_atlases,
-                &mut *textures,
+                &mut font_atlas_set_storage,
+                &mut texture_atlases,
+                &mut textures,
                 text_settings.as_ref(),
                 YAxisOrientation::TopToBottom,
             ) {
@@ -130,7 +135,7 @@ pub fn text_system(
                 }
                 Err(e @ TextError::FailedToAddGlyph(_))
                 | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
-                    panic!("Fatal error when processing text: {}.", e);
+                    panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
                     calculated_size.size = Size {
