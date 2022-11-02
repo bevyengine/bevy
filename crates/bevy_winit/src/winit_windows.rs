@@ -163,9 +163,7 @@ impl WinitWindows {
 
         // Do not set the grab mode on window creation if it's none, this can fail on mobile
         if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
-            match winit_window
-                .set_cursor_grab(window_descriptor.cursor_grab_mode.into())
-            {
+            match winit_window.set_cursor_grab(window_descriptor.cursor_grab_mode.into()) {
                 Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
                 Err(err) => Err(err).unwrap(),
             }
