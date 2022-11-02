@@ -452,11 +452,6 @@ mod test {
     use bevy_hierarchy::BuildWorldChildren;
 
     #[test]
-    fn computed_visibility_size() {
-        assert_eq!(std::mem::size_of::<ComputedVisibility>(), 1);
-    }
-
-    #[test]
     fn visibility_propagation() {
         let mut app = App::new();
         app.add_system(visibility_propagate_system);
