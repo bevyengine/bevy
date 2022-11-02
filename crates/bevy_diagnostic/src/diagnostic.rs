@@ -41,7 +41,7 @@ pub struct Diagnostic {
     ema_smoothing_factor: f64,
     max_history_length: usize,
     pub is_enabled: bool,
-    pub num_of_decimals: usize, // Seams like it needs to be usize
+    pub num_of_decimals: usize, // Seems like it needs to be usize
 }
 
 impl Diagnostic {
