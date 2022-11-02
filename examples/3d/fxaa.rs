@@ -48,14 +48,16 @@ fn setup(
         ..default()
     });
 
+    let cube_material = materials.add(StandardMaterial {
+        base_color_texture: Some(images.add(uv_debug_texture())),
+        ..default()
+    });
+
     // cubes
     for i in 0..5 {
         commands.spawn(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 0.25 })),
-            material: materials.add(StandardMaterial {
-                base_color_texture: Some(images.add(uv_debug_texture())),
-                ..default()
-            }),
+            material: cube_material.clone(),
             transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
             ..default()
         });
