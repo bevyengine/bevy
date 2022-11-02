@@ -19,7 +19,7 @@ mod android_tracing;
 
 pub mod prelude {
     //! The Bevy Log Prelude.
-    #[doc(hidden)]
+    #[doc(no_inline)]
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };

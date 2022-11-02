@@ -9,7 +9,7 @@ mod texture_atlas_builder;
 pub mod collide_aabb;
 
 pub mod prelude {
-    #[doc(hidden)]
+    #[doc(no_inline)]
     pub use crate::{
         bundle::{SpriteBundle, SpriteSheetBundle},
         sprite::Sprite,

@@ -14,7 +14,7 @@ pub use window::*;
 pub use windows::*;
 
 pub mod prelude {
-    #[doc(hidden)]
+    #[doc(no_inline)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, MonitorSelection,
         ReceivedCharacter, Window, WindowDescriptor, WindowMode, WindowMoved, WindowPlugin,

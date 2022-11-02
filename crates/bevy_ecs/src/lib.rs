@@ -22,10 +22,10 @@ pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
-    #[doc(hidden)]
+    #[doc(no_inline)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{ReflectComponent, ReflectResource};
-    #[doc(hidden)]
+    #[doc(no_inline)]
     pub use crate::{
         bundle::Bundle,
         change_detection::DetectChanges,

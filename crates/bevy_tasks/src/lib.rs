@@ -27,7 +27,7 @@ pub use iter::ParallelIterator;
 
 #[allow(missing_docs)]
 pub mod prelude {
-    #[doc(hidden)]
+    #[doc(no_inline)]
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},

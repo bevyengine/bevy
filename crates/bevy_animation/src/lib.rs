@@ -24,7 +24,7 @@ use bevy_utils::{tracing::warn, HashMap};
 
 #[allow(missing_docs)]
 pub mod prelude {
-    #[doc(hidden)]
+    #[doc(no_inline)]
     pub use crate::{
         AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, VariableCurve,
     };
