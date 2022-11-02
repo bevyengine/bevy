@@ -76,7 +76,6 @@ struct Bouncing;
 fn bounce(time: Res<Time>, mut query: Query<&mut Transform, With<Bouncing>>) {
     for mut transform in query.iter_mut() {
         transform.translation.y =
-            (transform.translation.x + transform.translation.z + time.elapsed_seconds() as f32)
-                .sin();
+            (transform.translation.x + transform.translation.z + time.elapsed_seconds()).sin();
     }
 }
