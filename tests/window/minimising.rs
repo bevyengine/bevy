@@ -6,11 +6,13 @@ fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
     // it is currently.
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "Minimising".into(),
-            ..Default::default()
-        })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "Minimising".into(),
+                ..Default::default()
+            },
+            ..default()
+        }))
         .add_system(minimise_automatically)
         .add_startup_system(setup_3d)
         .add_startup_system(setup_2d)
@@ -19,7 +21,7 @@ fn main() {
 
 fn minimise_automatically(mut windows: ResMut<Windows>, mut frames: Local<u32>) {
     if *frames == 60 {
-        windows.get_primary_mut().unwrap().set_minimized(true);
+        windows.primary_mut().set_minimized(true);
     } else {
         *frames += 1;
     }

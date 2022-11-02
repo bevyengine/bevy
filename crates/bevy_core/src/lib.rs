@@ -2,6 +2,8 @@
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
+#[cfg(feature = "serialize")]
+mod serde;
 mod task_pool_options;
 
 use bevy_ecs::system::Resource;
@@ -12,29 +14,45 @@ pub use task_pool_options::*;
 pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{DefaultTaskPoolOptions, Name};
+    pub use crate::{CorePlugin, Name, TaskPoolOptions};
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
 use std::borrow::Cow;
 use std::ops::Range;
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_ecs::schedule::IntoSystemDescriptor;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_tasks::tick_global_task_pools_on_main_thread;
+
 /// Adds core functionality to Apps.
 #[derive(Default)]
-pub struct CorePlugin;
+pub struct CorePlugin {
+    /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
+    pub task_pool_options: TaskPoolOptions,
+}
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
         // Setup the default bevy task pools
-        app.world
-            .get_resource::<DefaultTaskPoolOptions>()
-            .cloned()
-            .unwrap_or_default()
-            .create_default_pools();
+        self.task_pool_options.create_default_pools();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_system_to_stage(
+            bevy_app::CoreStage::Last,
+            tick_global_task_pools_on_main_thread.at_end(),
+        );
 
         app.register_type::<Entity>().register_type::<Name>();
+        app.register_type::<Entity>()
+            .register_type::<Name>()
+            .register_type::<Range<f32>>()
+            .register_type_data::<Range<f32>, ReflectSerialize>()
+            .register_type_data::<Range<f32>, ReflectDeserialize>();
 
         register_rust_types(app);
         register_math_types(app);
@@ -92,3 +110,42 @@ fn register_math_types(app: &mut App) {
 /// Wraps to 0 when it reaches the maximum u32 value
 #[derive(Default, Resource, Clone, Copy)]
 pub struct FrameCount(pub u32);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_tasks::prelude::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+
+    #[test]
+    fn runs_spawn_local_tasks() {
+        let mut app = App::new();
+        app.add_plugin(CorePlugin::default());
+
+        let (async_tx, async_rx) = crossbeam_channel::unbounded();
+        AsyncComputeTaskPool::get()
+            .spawn_local(async move {
+                async_tx.send(()).unwrap();
+            })
+            .detach();
+
+        let (compute_tx, compute_rx) = crossbeam_channel::unbounded();
+        ComputeTaskPool::get()
+            .spawn_local(async move {
+                compute_tx.send(()).unwrap();
+            })
+            .detach();
+
+        let (io_tx, io_rx) = crossbeam_channel::unbounded();
+        IoTaskPool::get()
+            .spawn_local(async move {
+                io_tx.send(()).unwrap();
+            })
+            .detach();
+
+        app.run();
+
+        async_rx.try_recv().unwrap();
+        compute_rx.try_recv().unwrap();
+        io_rx.try_recv().unwrap();
+    }
+}

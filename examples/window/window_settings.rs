@@ -1,19 +1,24 @@
 //! Illustrates how to change window settings and shows how to affect
 //! the mouse pointer in various ways.
 
-use bevy::{prelude::*, window::PresentMode};
-use bevy_internal::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+    window::{CursorGrabMode, PresentMode},
+};
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "I am a window!".to_string(),
-            width: 500.,
-            height: 300.,
-            present_mode: PresentMode::AutoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "I am a window!".to_string(),
+                width: 500.,
+                height: 300.,
+                present_mode: PresentMode::AutoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_system(change_title)
@@ -43,7 +48,7 @@ fn change_title(time: Res<Time>, mut windows: ResMut<Windows>) {
     let window = windows.primary_mut();
     window.set_title(format!(
         "Seconds since startup: {}",
-        time.seconds_since_startup().round()
+        time.elapsed_seconds().round()
     ));
 }
 
@@ -51,7 +56,10 @@ fn change_title(time: Res<Time>, mut windows: ResMut<Windows>) {
 fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     let window = windows.primary_mut();
     if input.just_pressed(KeyCode::Space) {
-        window.set_cursor_lock_mode(!window.cursor_locked());
+        window.set_cursor_grab_mode(match window.cursor_grab_mode() {
+            CursorGrabMode::None => CursorGrabMode::Locked,
+            CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,
+        });
         window.set_cursor_visibility(!window.cursor_visible());
     }
 }

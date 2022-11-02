@@ -19,18 +19,20 @@ struct Dimensions {
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            width: MAX_WIDTH.try_into().unwrap(),
-            height: MAX_HEIGHT.try_into().unwrap(),
-            scale_factor_override: Some(1.),
-            title: "Resizing".into(),
-            ..Default::default()
-        })
         .insert_resource(Dimensions {
             width: MAX_WIDTH,
             height: MAX_HEIGHT,
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                width: MAX_WIDTH.try_into().unwrap(),
+                height: MAX_HEIGHT.try_into().unwrap(),
+                scale_factor_override: Some(1.),
+                title: "Resizing".into(),
+                ..Default::default()
+            },
+            ..default()
+        }))
         .insert_resource(Phase::ContractingY)
         .add_system(change_window_size)
         .add_system(sync_dimensions)
@@ -98,7 +100,7 @@ fn change_window_size(
 
 fn sync_dimensions(dim: Res<Dimensions>, mut windows: ResMut<Windows>) {
     if dim.is_changed() {
-        windows.get_primary_mut().unwrap().set_resolution(
+        windows.primary_mut().set_resolution(
             dim.width.try_into().unwrap(),
             dim.height.try_into().unwrap(),
         );

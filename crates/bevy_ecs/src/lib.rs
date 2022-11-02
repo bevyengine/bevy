@@ -38,7 +38,7 @@ pub mod prelude {
             Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            adapter as system_adapter, Commands, In, IntoChainSystem, IntoSystem, Local, NonSend,
+            adapter as system_adapter, Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend,
             NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut,
             Resource, System, SystemParamFunction,
         },
@@ -65,6 +65,7 @@ mod tests {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
         any::TypeId,
+        marker::PhantomData,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc, Mutex,
@@ -77,6 +78,9 @@ mod tests {
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
+
+    #[derive(Default)]
+    struct NonSendA(usize, PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -232,6 +236,45 @@ mod tests {
                     y: SparseStored(789),
                 },
                 b: B(2),
+            }
+        );
+
+        #[derive(Default, Component, PartialEq, Debug)]
+        struct Ignored;
+
+        #[derive(Bundle, PartialEq, Debug)]
+        struct BundleWithIgnored {
+            c: C,
+            #[bundle(ignore)]
+            ignored: Ignored,
+        }
+
+        let mut ids = Vec::new();
+        <BundleWithIgnored as Bundle>::component_ids(
+            &mut world.components,
+            &mut world.storages,
+            &mut |id| {
+                ids.push(id);
+            },
+        );
+
+        assert_eq!(ids, &[world.init_component::<C>(),]);
+
+        let e4 = world
+            .spawn(BundleWithIgnored {
+                c: C,
+                ignored: Ignored,
+            })
+            .id();
+
+        assert_eq!(world.get::<C>(e4).unwrap(), &C);
+        assert_eq!(world.get::<Ignored>(e4), None);
+
+        assert_eq!(
+            world.entity_mut(e4).remove::<BundleWithIgnored>().unwrap(),
+            BundleWithIgnored {
+                c: C,
+                ignored: Ignored,
             }
         );
     }
@@ -497,8 +540,8 @@ mod tests {
         let f = world
             .spawn((TableStored("def"), A(456), SparseStored(1)))
             .id();
-        // // this should be skipped
-        // SparseStored(1).spawn("abc");
+        // this should be skipped
+        // world.spawn(SparseStored(1));
         let ents = world
             .query::<(Entity, Option<&SparseStored>, &A)>()
             .iter(&world)
@@ -952,11 +995,7 @@ mod tests {
             .components()
             .get_resource_id(TypeId::of::<Num>())
             .unwrap();
-        let archetype_component_id = world
-            .archetypes()
-            .resource()
-            .get_archetype_component_id(resource_id)
-            .unwrap();
+        let archetype_component_id = world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(world.resource::<Num>().0, 123);
         assert!(world.contains_resource::<Num>());
@@ -1019,11 +1058,8 @@ mod tests {
             "resource id does not change after removing / re-adding"
         );
 
-        let current_archetype_component_id = world
-            .archetypes()
-            .resource()
-            .get_archetype_component_id(current_resource_id)
-            .unwrap();
+        let current_archetype_component_id =
+            world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(
             archetype_component_id, current_archetype_component_id,
@@ -1260,6 +1296,38 @@ mod tests {
             assert!(!world.contains_resource::<A>());
         });
         assert_eq!(world.resource::<A>().0, 1);
+    }
+
+    #[test]
+    fn non_send_resource_scope() {
+        let mut world = World::default();
+        world.insert_non_send_resource(NonSendA::default());
+        world.resource_scope(|world: &mut World, mut value: Mut<NonSendA>| {
+            value.0 += 1;
+            assert!(!world.contains_resource::<NonSendA>());
+        });
+        assert_eq!(world.non_send_resource::<NonSendA>().0, 1);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSendA off of the main thread"
+    )]
+    fn non_send_resource_scope_from_different_thread() {
+        let mut world = World::default();
+        world.insert_non_send_resource(NonSendA::default());
+
+        let thread = std::thread::spawn(move || {
+            // Accessing the non-send resource on a different thread
+            // Should result in a panic
+            world.resource_scope(|_: &mut World, mut value: Mut<NonSendA>| {
+                value.0 += 1;
+            });
+        });
+
+        if let Err(err) = thread.join() {
+            std::panic::resume_unwind(err);
+        }
     }
 
     #[test]
