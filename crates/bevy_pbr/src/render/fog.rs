@@ -48,10 +48,6 @@ pub fn prepare_fog(
     for (entity, fog) in &views {
         let gpu_fog = if let Some(fog) = fog {
             match &fog.mode {
-                FogMode::Off => GpuFog {
-                    mode: GPU_FOG_MODE_OFF,
-                    ..Default::default()
-                },
                 FogMode::Linear { start, end } => GpuFog {
                     mode: GPU_FOG_MODE_LINEAR,
                     color: fog.color.into(),

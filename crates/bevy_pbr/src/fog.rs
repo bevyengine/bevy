@@ -42,7 +42,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 ///
 /// Once enabled for a specific camera, the fog effect can also be disabled for individual
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `no_fog` flag.
-#[derive(Debug, Clone, Default, Component, Reflect)]
+#[derive(Debug, Clone, Component, Reflect)]
 #[reflect(Component)]
 pub struct Fog {
     /// The color of the fog effect.
@@ -56,12 +56,8 @@ pub struct Fog {
 }
 
 /// Allows switching between different the [`Fog`] “modes”, and configuring their parameters.
-#[derive(Debug, Clone, Default, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 pub enum FogMode {
-    /// Fog effect is disabled (the default)
-    #[default]
-    Off,
-
     /// A linear fog effect that grows in intensity between `start` and `end` distances.
     ///
     /// This mode is simpler to control than other modes, however it can produce results that look “artificial”, depending on the scene.
@@ -180,6 +176,18 @@ pub enum FogMode {
     /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
     /// </svg>
     ExponentialSquared { density: f32 },
+}
+
+impl Default for Fog {
+    fn default() -> Self {
+        Fog {
+            color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+            mode: FogMode::Linear {
+                start: 0.0,
+                end: 100.0,
+            },
+        }
+    }
 }
 
 impl ExtractComponent for Fog {
