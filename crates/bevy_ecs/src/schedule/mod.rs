@@ -117,7 +117,7 @@ impl Schedule {
         let label = label.as_label();
         self.stage_order.push(label);
         let prev = self.stages.insert(label, Box::new(stage));
-        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
+        assert!(prev.is_none(), "Stage already exists: {label:?}.");
         self
     }
 
@@ -152,11 +152,11 @@ impl Schedule {
             .enumerate()
             .find(|(_i, stage_label)| **stage_label == target)
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {target:?}."));
 
         self.stage_order.insert(target_index + 1, label);
         let prev = self.stages.insert(label, Box::new(stage));
-        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
+        assert!(prev.is_none(), "Stage already exists: {label:?}.");
         self
     }
 
@@ -192,11 +192,11 @@ impl Schedule {
             .enumerate()
             .find(|(_i, stage_label)| **stage_label == target)
             .map(|(i, _)| i)
-            .unwrap_or_else(|| panic!("Target stage does not exist: {:?}.", target));
+            .unwrap_or_else(|| panic!("Target stage does not exist: {target:?}."));
 
         self.stage_order.insert(target_index, label);
         let prev = self.stages.insert(label, Box::new(stage));
-        assert!(prev.is_none(), "Stage already exists: {:?}.", label);
+        assert!(prev.is_none(), "Stage already exists: {label:?}.");
         self
     }
 

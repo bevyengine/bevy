@@ -1,8 +1,8 @@
 use crate::Vec3;
-use serde::{Deserialize, Serialize};
 
 /// A ray is an infinite line starting at `origin`, going in `direction`.
-#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Ray {
     /// The origin of the ray.
     pub origin: Vec3,

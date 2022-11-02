@@ -1103,6 +1103,7 @@ pub fn prepare_lights(
                             ),
                             transform: view_translation * *view_rotation,
                             projection: cube_face_projection,
+                            hdr: false,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
@@ -1147,7 +1148,7 @@ pub fn prepare_lights(
                 .spawn((
                     ShadowView {
                         depth_texture_view,
-                        pass_name: format!("shadow pass spot light {}", light_index,),
+                        pass_name: format!("shadow pass spot light {light_index}",),
                     },
                     ExtractedView {
                         viewport: UVec4::new(
@@ -1158,6 +1159,7 @@ pub fn prepare_lights(
                         ),
                         transform: spot_view_transform,
                         projection: spot_projection,
+                        hdr: false,
                     },
                     RenderPhase::<Shadow>::default(),
                     LightEntity::Spot { light_entity },
@@ -1206,6 +1208,7 @@ pub fn prepare_lights(
                         ),
                         transform: GlobalTransform::from(view.inverse()),
                         projection: light.projection,
+                        hdr: false,
                     },
                     RenderPhase::<Shadow>::default(),
                     LightEntity::Directional { light_entity },
