@@ -68,9 +68,9 @@ impl TaskPoolBuilder {
 pub struct TaskPool {
     /// The executor for the pool
     ///
-    /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
+    /// This has to be separate from TaskPoolInner because we have to create an `Arc<Executor>` to
     /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the Vec<Task<T>> contained within TaskPoolInner
+    /// the `Vec<Task<T>>` contained within `TaskPoolInner`
     executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
