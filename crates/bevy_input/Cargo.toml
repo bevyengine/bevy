@@ -11,6 +11,8 @@ keywords = ["bevy"]
 [features]
 default = []
 serialize = ["serde"]
+wayland = ["winit/wayland"]
+x11 = ["winit/x11"]
 
 [dependencies]
 # bevy
@@ -24,3 +26,6 @@ winit = { version = "0.27", default-features = false }
 # other
 serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "1.0"
+
+[package.metadata.docs.rs]
+features = ["x11"]
