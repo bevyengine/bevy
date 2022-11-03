@@ -2,7 +2,7 @@
 
 use crate::{
     widget::{Button, ImageMode},
-    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage,
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::{
     bundle::Bundle,
@@ -45,6 +45,8 @@ pub struct NodeBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
 }
 
 impl Default for NodeBundle {
@@ -60,6 +62,7 @@ impl Default for NodeBundle {
             global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
+            z_index: Default::default(),
         }
     }
 }
@@ -97,6 +100,8 @@ pub struct ImageBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
 }
 
 /// A UI node that is text
@@ -126,6 +131,8 @@ pub struct TextBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
 }
 
 impl TextBundle {
@@ -174,6 +181,7 @@ impl Default for TextBundle {
             global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
+            z_index: Default::default(),
         }
     }
 }
@@ -211,6 +219,8 @@ pub struct ButtonBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
 }
 
 impl Default for ButtonBundle {
@@ -227,6 +237,7 @@ impl Default for ButtonBundle {
             global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
+            z_index: Default::default(),
         }
     }
 }

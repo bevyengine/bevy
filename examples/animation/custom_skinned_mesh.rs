@@ -71,9 +71,6 @@ fn setup(
     );
     // Set mesh vertex normals
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 10]);
-    // Set mesh vertex UVs. Although the mesh doesn't have any texture applied,
-    //  UVs are still required by the render pipeline. So these UVs are zeroed out.
-    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; 10]);
     // Set mesh vertex joint indices for mesh skinning.
     // Each vertex gets 4 indices used to address the `JointTransforms` array in the vertex shader
     //  as well as `SkinnedMeshJoint` array in the `SkinnedMesh` component.
