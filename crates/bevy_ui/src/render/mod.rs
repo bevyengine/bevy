@@ -220,7 +220,7 @@ pub fn extract_uinodes(
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, image, visibility, clip)) = uinode_query.get(*entity) {
+        if let Ok((uinode, transform, color, ui_image, visibility, clip)) = uinode_query.get(*entity) {
             if !visibility.is_visible() {
                 continue;
             }
