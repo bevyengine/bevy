@@ -2,13 +2,9 @@
 
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
-use bevy_utils::tracing::trace;
+use bevy_utils::tracing::{trace, warn};
 use std::ops::{Deref, DerefMut};
-use std::{
-    fmt::{self},
-    hash::Hash,
-    marker::PhantomData,
-};
+use std::{fmt, hash::Hash, marker::PhantomData};
 
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
@@ -149,6 +145,14 @@ impl<E: Event> Default for Events<E> {
     }
 }
 
+impl<E: Event> Events<E> {
+    pub fn oldest_event_count(&self) -> usize {
+        self.events_a
+            .start_event_count
+            .min(self.events_b.start_event_count)
+    }
+}
+
 #[derive(Debug)]
 struct EventSequence<E: Event> {
     events: Vec<EventInstance<E>>,
@@ -199,9 +203,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
     {
-        self.reader.iter_with_id(&self.events).map(|r @ (_, id)| {
+        self.reader.iter_with_id(&self.events).inspect(|(_, id)| {
             trace!("EventReader::iter() -> {}", id);
-            r
         })
     }
 
@@ -305,7 +308,7 @@ impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
         self.events.send(event);
     }
 
-    pub fn send_batch(&mut self, events: impl Iterator<Item = E>) {
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) {
         self.events.extend(events);
     }
 
@@ -351,10 +354,18 @@ impl<E: Event> ManualEventReader<E> {
            + ExactSizeIterator<Item = (&'a E, EventId<E>)> {
         // if the reader has seen some of the events in a buffer, find the proper index offset.
         // otherwise read all events in the buffer
+        let missed = self.missed_events(events);
+        if missed > 0 {
+            let plural = if missed == 1 { "event" } else { "events" };
+            let type_name = std::any::type_name::<E>();
+            warn!("Missed {missed} `{type_name}` {plural}. Consider reading from the `EventReader` more often (generally the best solution) or calling Events::update() less frequently (normally this is called once per frame). This problem is most likely due to run criteria/fixed timesteps or consuming events conditionally. See the Events documentation for more information.");
+        }
+
         let a_index = (self.last_event_count).saturating_sub(events.events_a.start_event_count);
         let b_index = (self.last_event_count).saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();
         let b = events.events_b.get(b_index..).unwrap_or_default();
+
         let unread_count = a.len() + b.len();
         // Ensure `len` is implemented correctly
         debug_assert_eq!(unread_count, self.len(events));
@@ -377,6 +388,13 @@ impl<E: Event> ManualEventReader<E> {
             .event_count
             .saturating_sub(self.last_event_count)
             .min(events.len())
+    }
+
+    /// Amount of events we missed.
+    pub fn missed_events(&self, events: &Events<E>) -> usize {
+        events
+            .oldest_event_count()
+            .saturating_sub(self.last_event_count)
     }
 
     /// See [`EventReader::is_empty`]

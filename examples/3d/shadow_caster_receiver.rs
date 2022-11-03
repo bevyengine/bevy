@@ -1,5 +1,7 @@
 //! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
 
+use std::f32::consts::PI;
+
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
@@ -41,7 +43,7 @@ fn setup(
     }));
 
     // sphere - initially a caster
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: sphere_handle.clone(),
         material: materials.add(Color::RED.into()),
         transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
@@ -49,27 +51,30 @@ fn setup(
     });
 
     // sphere - initially not a caster
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: sphere_handle,
             material: materials.add(Color::BLUE.into()),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
             ..default()
-        })
-        .insert(NotShadowCaster);
+        },
+        NotShadowCaster,
+    ));
 
     // floating plane - initially not a shadow receiver and not a caster
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
             material: materials.add(Color::GREEN.into()),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
-        })
-        .insert_bundle((NotShadowCaster, NotShadowReceiver));
+        },
+        NotShadowCaster,
+        NotShadowReceiver,
+    ));
 
     // lower ground plane - initially a shadow receiver
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 20.0 })),
         material: white_handle,
         ..default()
@@ -77,7 +82,7 @@ fn setup(
 
     println!("Using DirectionalLight");
 
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(5.0, 5.0, 0.0),
         point_light: PointLight {
             intensity: 0.0,
@@ -89,9 +94,7 @@ fn setup(
         ..default()
     });
 
-    let theta = std::f32::consts::FRAC_PI_4;
-    let light_transform = Mat4::from_euler(EulerRot::ZYX, 0.0, std::f32::consts::FRAC_PI_2, -theta);
-    commands.spawn_bundle(DirectionalLightBundle {
+    commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 100000.0,
             shadow_projection: OrthographicProjection {
@@ -106,12 +109,17 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_matrix(light_transform),
+        transform: Transform::from_rotation(Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            PI / 2.,
+            -PI / 4.,
+        )),
         ..default()
     });
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-5.0, 5.0, 5.0)
             .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
         ..default()

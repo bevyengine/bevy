@@ -4,7 +4,7 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
     query::{debug_checked_unreachable, Access, FilteredAccess},
-    storage::{ComponentSparseSet, Table, Tables},
+    storage::{ComponentSparseSet, Table},
     world::{Mut, World},
 };
 use bevy_ecs_macros::all_tuples;
@@ -12,94 +12,145 @@ pub use bevy_ecs_macros::WorldQuery;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use std::{cell::UnsafeCell, marker::PhantomData};
 
-/// Types that can be queried from a [`World`].
+/// Types that can be fetched from a [`World`] using a [`Query`].
 ///
-/// Notable types that implement this trait are `&T` and `&mut T` where `T` implements [`Component`],
-/// allowing you to query for components immutably and mutably accordingly.
+/// There are many types that natively implement this trait:
 ///
-/// See [`Query`](crate::system::Query) for a primer on queries.
-///
-/// # Basic [`WorldQuery`]'s
-///
-/// Here is a small list of the most important world queries to know about where `C` stands for a
-/// [`Component`] and `WQ` stands for a [`WorldQuery`]:
-/// - `&C`: Queries immutably for the component `C`
-/// - `&mut C`: Queries mutably for the component `C`
-/// - `Option<WQ>`: Queries the inner [`WorldQuery`] `WQ` but instead of discarding the entity if the world
-///     query fails it returns [`None`]. See [`Query`](crate::system::Query).
-/// - `(WQ1, WQ2, ...)`: Queries all contained world queries allowing to query for more than one thing.
-///     This is the `And` operator for filters. See [`Or`].
-/// - `ChangeTrackers<C>`: See the docs of [`ChangeTrackers`].
-/// - [`Entity`]: Using the entity type as a world query will grant access to the entity that is
-///     being queried for. See [`Entity`].
-///
-/// Bevy also offers a few filters like [`Added`](crate::query::Added), [`Changed`](crate::query::Changed),
-/// [`With`](crate::query::With), [`Without`](crate::query::Without) and [`Or`].
-/// For more information on these consult the item's corresponding documentation.
-///
-/// [`Or`]: crate::query::Or
-///
-/// # Derive
-///
-/// This trait can be derived with the [`derive@super::WorldQuery`] macro.
-///
-/// You may want to implement a custom query with the derive macro for the following reasons:
-/// - Named structs can be clearer and easier to use than complex query tuples. Access via struct
-///   fields is more convenient than destructuring tuples or accessing them via `q.0, q.1, ...`
-///   pattern and saves a lot of maintenance burden when adding or removing components.
-/// - Nested queries enable the composition pattern and makes query types easier to re-use.
-/// - You can bypass the limit of 15 components that exists for query tuples.
+/// - **Component references.**
+///   Fetches a component by reference (immutably or mutably).
+/// - **`WorldQuery` tuples.**
+///   If every element of a tuple implements `WorldQuery`, then the tuple itself also implements the same trait.
+///   This enables a single `Query` to access multiple components and filter over multiple conditions.
+///   Due to the current lack of variadic generics in Rust, the trait has been implemented for tuples from 0 to 15 elements,
+///   but nesting of tuples allows infinite `WorldQuery`s.
+/// - **Component filters.**
+///   [`With`] and [`Without`] filters can be applied to check if the queried entity contains or not a particular component.
+/// - **Change detection filters.**
+///   [`Added`] and [`Changed`] filters can be applied to detect component changes to an entity.
+/// - **Filter disjunction operator.**
+///   By default, tuples compose query filters in such a way that all conditions must be satisfied to generate a query item for a given entity.
+///   Wrapping a tuple inside an [`Or`] operator will relax the requirement to just one condition.
+/// - **[`Entity`].**
+///   Gets the identifier of the queried entity.
+/// - **[`Option`].**
+///   By default, a world query only tests entities that have the matching component types.
+///   Wrapping it into an `Option` will increase the query search space, and it will return `None` if an entity doesn't satisfy the `WorldQuery`.
+/// - **[`AnyOf`].**
+///   Equivalent to wrapping each world query inside it into an `Option`.
+/// - **[`ChangeTrackers`].**
+///   Similar to change detection filters but it is used as a query fetch parameter.
+///   It exposes methods to check for changes to the wrapped component.
 ///
 /// Implementing the trait manually can allow for a fundamentally new type of behaviour.
 ///
-/// The derive macro implements [`WorldQuery`] for your type and declares an additional struct
-/// which will be used as an item for query iterators. The implementation also generates two other
-/// structs that are used as [`WorldQuery::Fetch`](WorldQueryGats::Fetch) and
-/// [`WorldQuery::State`] associated types.
+/// # Trait derivation
 ///
-/// The derive macro requires every struct field to implement the `WorldQuery` trait.
+/// Query design can be easily structured by deriving `WorldQuery` for custom types.
+/// Despite the added complexity, this approach has several advantages over using `WorldQuery` tuples.
+/// The most relevant improvements are:
 ///
-/// **Note:** currently, the macro only supports named structs.
+/// - Reusability across multiple systems.
+/// - There is no need to destructure a tuple since all fields are named.
+/// - Subqueries can be composed together to create a more complex query.
+/// - Methods can be implemented for the query items.
+/// - There is no hardcoded limit on the number of elements.
+///
+/// This trait can only be derived if each field either
+///
+/// * also implements `WorldQuery`, or
+/// * is marked with `#[world_query(ignore)]`. Fields decorated with this attribute
+///   must implement [`Default`] and will be initialized to the default value as defined
+///   by the trait.
+///
+/// The derive macro only supports regular structs (structs with named fields).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(Component)]
-/// struct Foo;
-/// #[derive(Component)]
-/// struct Bar;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
 ///
 /// #[derive(WorldQuery)]
 /// struct MyQuery {
 ///     entity: Entity,
-///     // We must explicitly list out all lifetimes, as we are defining a struct
-///     foo: &'static Foo,
-///     bar: Option<&'static Bar>,
+///     // It is required that all reference lifetimes are explicitly annotated, just like in any
+///     // struct. Each lifetime should be 'static.
+///     component_a: &'static ComponentA,
+///     component_b: &'static ComponentB,
 /// }
 ///
 /// fn my_system(query: Query<MyQuery>) {
 ///     for q in &query {
-///         // Note the type of the returned item.
-///         let q: MyQueryItem<'_> = q;
-///         q.foo;
+///         q.component_a;
 ///     }
 /// }
-///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// ## Mutable queries
+/// ## Macro expansion
 ///
-/// All queries that are derived with the `WorldQuery` macro provide only an immutable access by default.
-/// If you need a mutable access to components, you can mark a struct with the `mutable` attribute.
+/// Expanding the macro will declare three or six additional structs, depending on whether or not the struct is marked as mutable.
+/// For a struct named `X`, the additional structs will be:
+///
+/// |Struct name|`mutable` only|Description|
+/// |:---:|:---:|---|
+/// |`XState`|---|Used as the [`State`] type for `X` and `XReadOnly`|
+/// |`XItem`|---|The type of the query item for `X`|
+/// |`XFetch`|---|Used as the [`Fetch`] type for `X`|
+/// |`XReadOnlyItem`|✓|The type of the query item for `XReadOnly`|
+/// |`XReadOnlyFetch`|✓|Used as the [`Fetch`] type for `XReadOnly`|
+/// |`XReadOnly`|✓|[`ReadOnly`] variant of `X`|
+///
+/// ## Adding mutable references
+///
+/// Simply adding mutable references to a derived `WorldQuery` will result in a compilation error:
+///
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::WorldQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// #[derive(WorldQuery)]
+/// struct CustomQuery {
+///     component_a: &'static mut ComponentA,
+/// }
+/// ```
+///
+/// To grant mutable access to components, the struct must be marked with the `#[world_query(mutable)]` attribute.
+/// This will also create three more structs that will be used for accessing the query immutably (see table above).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
+/// # use bevy_ecs::query::WorldQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// #
+/// #[derive(WorldQuery)]
+/// #[world_query(mutable)]
+/// struct CustomQuery {
+///     component_a: &'static mut ComponentA,
+/// }
+/// ```
 ///
+/// ## Adding methods to query items
+///
+/// It is possible to add methods to query items in order to write reusable logic about related components.
+/// This will often make systems more readable because low level logic is moved out from them.
+/// It is done by adding `impl` blocks with methods for the `-Item` or `-ReadOnlyItem` generated structs.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::WorldQuery;
+/// #
 /// #[derive(Component)]
 /// struct Health(f32);
+///
 /// #[derive(Component)]
 /// struct Buff(f32);
 ///
@@ -110,7 +161,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///     buff: Option<&'static mut Buff>,
 /// }
 ///
-/// // This implementation is only available when iterating with `iter_mut`.
+/// // `HealthQueryItem` is only available when accessing the query with mutable methods.
 /// impl<'w> HealthQueryItem<'w> {
 ///     fn damage(&mut self, value: f32) {
 ///         self.health.0 -= value;
@@ -121,7 +172,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///     }
 /// }
 ///
-/// // If you want to use it with `iter`, you'll need to write an additional implementation.
+/// // `HealthQueryReadOnlyItem` is only available when accessing the query with immutable methods.
 /// impl<'w> HealthQueryReadOnlyItem<'w> {
 ///     fn total(&self) -> f32 {
 ///         self.health.0 + self.buff.map_or(0.0, |Buff(buff)| *buff)
@@ -129,202 +180,132 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 ///
 /// fn my_system(mut health_query: Query<HealthQuery>) {
-///     // Iterator's item is `HealthQueryReadOnlyItem`.
-///     for health in &health_query {
+///     // The item returned by the iterator is of type `HealthQueryReadOnlyItem`.
+///     for health in health_query.iter() {
 ///         println!("Total: {}", health.total());
 ///     }
-///     // Iterator's item is `HealthQueryItem`.
+///     // The item returned by the iterator is of type `HealthQueryItem`.
 ///     for mut health in &mut health_query {
 ///         health.damage(1.0);
 ///         println!("Total (mut): {}", health.total());
 ///     }
 /// }
-///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// Mutable queries will also have a read only version derived:
-/// ```rust
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
+/// ## Deriving traits for query items
 ///
-/// #[derive(Component)]
-/// pub struct MyComponent;
-///
-/// #[derive(WorldQuery)]
-/// #[world_query(mutable)]
-/// pub struct Foo {
-///     my_component_yay: &'static mut MyComponent,
-/// }
-///
-/// fn my_system(mut my_query: Query<(FooReadOnly, FooReadOnly)>) {
-///     for (i1, i2) in &mut my_query {
-///         let _: FooReadOnlyItem<'_> = i1;
-///         let _: FooReadOnlyItem<'_> = i2;
-///     }
-/// }
-///
-/// # bevy_ecs::system::assert_is_system(my_system);
-/// ```
-///
-/// **Note:** if you omit the `mutable` attribute for a query that doesn't implement
-/// [`ReadOnlyWorldQuery`], compilation will fail. We insert static checks as in the example above for
-/// every query component and a nested query.
-/// (The checks neither affect the runtime, nor pollute your local namespace.)
-///
-/// ```compile_fail
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(Component)]
-/// struct Foo;
-/// #[derive(Component)]
-/// struct Bar;
-///
-/// #[derive(WorldQuery)]
-/// struct FooQuery {
-///     foo: &'static Foo,
-///     bar_query: BarQuery,
-/// }
-///
-/// #[derive(WorldQuery)]
-/// #[world_query(mutable)]
-/// struct BarQuery {
-///     bar: &'static mut Bar,
-/// }
-/// ```
-///
-/// ## Derives for items
-///
-/// If you want query items to have derivable traits, you can pass them with using
-/// the `world_query(derive)` attribute. When the `WorldQuery` macro generates the structs
-/// for query items, it doesn't automatically inherit derives of a query itself. Since derive macros
-/// can't access information about other derives, they need to be passed manually with the
-/// `world_query(derive)` attribute.
+/// The `WorldQuery` derive macro does not automatically implement the traits of the struct to the query item types.
+/// Something similar can be done by using the `#[world_query(derive(...))]` attribute.
+/// This will apply the listed derivable traits to the query item structs.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(Component, Debug)]
-/// struct Foo;
-///
+/// # use bevy_ecs::query::WorldQuery;
+/// #
+/// # #[derive(Component, Debug)]
+/// # struct ComponentA;
+/// #
 /// #[derive(WorldQuery)]
 /// #[world_query(mutable, derive(Debug))]
-/// struct FooQuery {
-///     foo: &'static Foo,
+/// struct CustomQuery {
+///     component_a: &'static ComponentA,
 /// }
 ///
+/// // This function statically checks that `T` implements `Debug`.
 /// fn assert_debug<T: std::fmt::Debug>() {}
 ///
-/// assert_debug::<FooQueryItem>();
-/// assert_debug::<FooQueryReadOnlyItem>();
+/// assert_debug::<CustomQueryItem>();
+/// assert_debug::<CustomQueryReadOnlyItem>();
 /// ```
 ///
-/// ## Nested queries
+/// ## Query composition
 ///
-/// Using nested queries enable the composition pattern, which makes it possible to re-use other
-/// query types. All types that implement [`WorldQuery`] (including the ones that use this derive
-/// macro) are supported.
+/// It is possible to use any `WorldQuery` as a field of another one.
+/// This means that a `WorldQuery` can also be used as a subquery, potentially in multiple places.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(Component)]
-/// struct Foo;
-/// #[derive(Component)]
-/// struct Bar;
-/// #[derive(Component)]
-/// struct OptionalFoo;
-/// #[derive(Component)]
-/// struct OptionalBar;
+/// # use bevy_ecs::query::WorldQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # #[derive(Component)]
+/// # struct ComponentC;
+/// #
+/// #[derive(WorldQuery)]
+/// struct SubQuery {
+///     component_a: &'static ComponentA,
+///     component_b: &'static ComponentB,
+/// }
 ///
 /// #[derive(WorldQuery)]
 /// struct MyQuery {
-///     foo: FooQuery,
-///     bar: (&'static Bar, Option<&'static OptionalBar>)
+///     subquery: SubQuery,
+///     component_c: &'static ComponentC,
 /// }
-///
-/// #[derive(WorldQuery)]
-/// struct FooQuery {
-///     foo: &'static Foo,
-///     optional_foo: Option<&'static OptionalFoo>,
-/// }
-///
-/// // You can also compose derived queries with regular ones in tuples.
-/// fn my_system(query: Query<(&Foo, MyQuery, FooQuery)>) {
-///     for (foo, my_query, foo_query) in &query {
-///         foo; my_query; foo_query;
-///     }
-/// }
-///
-/// # bevy_ecs::system::assert_is_system(my_system);
-/// ```
-///
-/// ## Ignored fields
-///
-/// The macro also supports `ignore` attribute for struct members. Fields marked with this attribute
-/// must implement the `Default` trait.
-///
-/// This example demonstrates a query that would iterate over every entity.
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::query::WorldQuery;
-///
-/// #[derive(WorldQuery, Debug)]
-/// struct EmptyQuery {
-///     empty: (),
-/// }
-///
-/// fn my_system(query: Query<EmptyQuery>) {
-///     for _ in &query {}
-/// }
-///
-/// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
 /// ## Filters
 ///
-/// Using [`derive@super::WorldQuery`] macro we can create our own query filters.
+/// Since the query filter type parameter is `WorldQuery`, it is also possible to use this macro to create filters.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::{query::WorldQuery, component::Component};
-///
-/// #[derive(Component)]
-/// struct Foo;
-/// #[derive(Component)]
-/// struct Bar;
-/// #[derive(Component)]
-/// struct Baz;
-/// #[derive(Component)]
-/// struct Qux;
-///
+/// # use bevy_ecs::{query::WorldQuery, component::Component};
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # #[derive(Component)]
+/// # struct ComponentC;
+/// # #[derive(Component)]
+/// # struct ComponentD;
+/// # #[derive(Component)]
+/// # struct ComponentE;
+/// #
 /// #[derive(WorldQuery)]
 /// struct MyFilter<T: Component, P: Component> {
-///     _foo: With<Foo>,
-///     _bar: With<Bar>,
-///     _or: Or<(With<Baz>, Changed<Foo>, Added<Bar>)>,
-///     _generic_tuple: (With<T>, Without<P>),
+///     // Field names are not relevant, since they are never manually accessed.
+///     with_a: With<ComponentA>,
+///     or_filter: Or<(With<ComponentC>, Added<ComponentB>)>,
+///     generic_tuple: (With<T>, Without<P>),
 /// }
 ///
-/// fn my_system(query: Query<Entity, MyFilter<Foo, Qux>>) {
-///     for _ in &query {}
+/// fn my_system(query: Query<Entity, MyFilter<ComponentD, ComponentE>>) {
+///     // ...
 /// }
-///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+///
 /// # Safety
 ///
-/// component access of `ROQueryFetch<Self>` must be a subset of `QueryFetch<Self>`
+/// Component access of `ROQueryFetch<Self>` must be a subset of `QueryFetch<Self>`
 /// and `ROQueryFetch<Self>` must match exactly the same archetypes/tables as `QueryFetch<Self>`
 ///
-/// Implementor must ensure that [`WorldQuery::update_component_access`] and
-/// [`WorldQuery::update_archetype_component_access`] exactly reflects the results of
-/// [`WorldQuery::matches_component_set`], [`WorldQuery::archetype_fetch`], and
-/// [`WorldQuery::table_fetch`].
+/// Implementor must ensure that
+/// [`update_component_access`] and [`update_archetype_component_access`]
+/// exactly reflects the results of the following methods:
+///
+/// - [`matches_component_set`]
+/// - [`fetch`]
+///
+/// [`Added`]: crate::query::Added
+/// [`fetch`]: Self::fetch
+/// [`Changed`]: crate::query::Changed
+/// [`Fetch`]: crate::query::WorldQueryGats::Fetch
+/// [`matches_component_set`]: Self::matches_component_set
+/// [`Or`]: crate::query::Or
+/// [`Query`]: crate::system::Query
+/// [`ReadOnly`]: Self::ReadOnly
+/// [`State`]: Self::State
+/// [`update_archetype_component_access`]: Self::update_archetype_component_access
+/// [`update_component_access`]: Self::update_component_access
+/// [`With`]: crate::query::With
+/// [`Without`]: crate::query::Without
 pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     /// The read-only variant of this [`WorldQuery`], which satisfies the [`ReadOnlyWorldQuery`] trait.
     type ReadOnly: ReadOnlyWorldQuery<State = Self::State>;
@@ -350,11 +331,22 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
         change_tick: u32,
     ) -> <Self as WorldQueryGats<'w>>::Fetch;
 
+    /// While this function can be called for any query, it is always safe to call if `Self: ReadOnlyWorldQuery` holds.
+    ///
+    /// # Safety
+    /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
+    /// that the returned value is not used in any way that would cause two `QueryItem<Self>` for the same
+    /// `archetype_index` or `table_row` to be alive at the same time.
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch;
+
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
     /// all of the matched components. This is used to select a more efficient "table iterator"
-    /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] and [`WorldQuery::table_fetch`]
-    /// will be called for iterators. If this returns false, [`WorldQuery::set_archetype`] and
-    /// [`WorldQuery::archetype_fetch`] will be called for iterators.
+    /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] must be used before
+    /// [`WorldQuery::fetch`] can be called for iterators. If this returns false,
+    /// [`WorldQuery::set_archetype`] must be used before [`WorldQuery::fetch`] can be called for
+    /// iterators.
     const IS_DENSE: bool;
 
     /// Returns true if (and only if) this Fetch relies strictly on archetypes to limit which
@@ -375,7 +367,7 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
         state: &Self::State,
         archetype: &'w Archetype,
-        tables: &'w Tables,
+        table: &'w Table,
     );
 
     /// Adjusts internal state to account for the next [`Table`]. This will always be called on tables
@@ -391,51 +383,30 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
         table: &'w Table,
     );
 
-    /// Fetch [`Self::Item`](`WorldQueryGats::Item`) for the given `archetype_index` in the current [`Archetype`]. This must
-    /// always be called after [`WorldQuery::set_archetype`] with an `archetype_index` in the range of
-    /// the current [`Archetype`]
-    ///
-    /// # Safety
-    /// Must always be called _after_ [`WorldQuery::set_archetype`]. `archetype_index` must be in the range
-    /// of the current archetype
-    unsafe fn archetype_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item;
-
-    /// Fetch [`Self::Item`](`WorldQueryGats::Item`) for the given `table_row` in the current [`Table`]. This must always be
-    /// called after [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`]
+    /// Fetch [`Self::Item`](`WorldQueryGats::Item`) for either the given `entity` in the current [`Table`],
+    /// or for the given `entity` in the current [`Archetype`]. This must always be called after
+    /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
+    /// [`WorldQuery::set_archetype`]  with a `entity` in the current archetype.
     ///
     /// # Safety
     ///
-    /// Must always be called _after_ [`WorldQuery::set_table`]. `table_row` must be in the range of the
-    /// current table
-    unsafe fn table_fetch<'w>(
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
+    /// `table_row` must be in the range of the current table and archetype.
+    unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        entity: Entity,
         table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item;
 
     /// # Safety
     ///
-    /// Must always be called _after_ [`WorldQuery::set_archetype`]. `archetype_index` must be in the range
-    /// of the current archetype.
+    /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
+    /// `table_row` must be in the range of the current table and archetype.
     #[allow(unused_variables)]
-    #[inline]
-    unsafe fn archetype_filter_fetch(
+    #[inline(always)]
+    unsafe fn filter_fetch(
         fetch: &mut <Self as WorldQueryGats<'_>>::Fetch,
-        archetype_index: usize,
-    ) -> bool {
-        true
-    }
-
-    /// # Safety
-    ///
-    /// Must always be called _after_ [`WorldQuery::set_table`]. `table_row` must be in the range of the
-    /// current table.
-    #[allow(unused_variables)]
-    #[inline]
-    unsafe fn table_filter_fetch(
-        fetch: &mut <Self as WorldQueryGats<'_>>::Fetch,
+        entity: Entity,
         table_row: usize,
     ) -> bool {
         true
@@ -459,7 +430,9 @@ pub unsafe trait WorldQuery: for<'w> WorldQueryGats<'w> {
     ) -> bool;
 }
 
-/// A helper trait for [`WorldQuery`] that works around Rust's lack of Generic Associated Types
+/// A helper trait for [`WorldQuery`] that works around Rust's lack of Generic Associated Types.
+///
+/// **Note**: Consider using the type aliases [`QueryItem`] and [`QueryFetch`] when using `Item` or `Fetch`.
 pub trait WorldQueryGats<'world> {
     type Item;
     type Fetch;
@@ -481,12 +454,6 @@ pub type ROQueryFetch<'w, Q> = QueryFetch<'w, <Q as WorldQuery>::ReadOnly>;
 /// The read-only variant of the item type returned when a [`WorldQuery`] is iterated over immutably
 pub type ROQueryItem<'w, Q> = QueryItem<'w, <Q as WorldQuery>::ReadOnly>;
 
-#[doc(hidden)]
-#[derive(Clone)]
-pub struct EntityFetch<'w> {
-    entities: Option<ThinSlicePtr<'w, Entity>>,
-}
-
 /// SAFETY: no component or archetype access
 unsafe impl WorldQuery for Entity {
     type ReadOnly = Self;
@@ -502,48 +469,41 @@ unsafe impl WorldQuery for Entity {
 
     unsafe fn init_fetch<'w>(
         _world: &'w World,
-        _state: &(),
+        _state: &Self::State,
         _last_change_tick: u32,
         _change_tick: u32,
-    ) -> EntityFetch<'w> {
-        EntityFetch { entities: None }
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    }
+
+    unsafe fn clone_fetch<'w>(
+        _fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
     }
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut EntityFetch<'w>,
-        _state: &(),
-        archetype: &'w Archetype,
-        _tables: &Tables,
+        _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &Table,
     ) {
-        fetch.entities = Some(archetype.entities().into());
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut EntityFetch<'w>, _state: &(), table: &'w Table) {
-        fetch.entities = Some(table.entities().into());
+    unsafe fn set_table<'w>(
+        _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        _state: &Self::State,
+        _table: &'w Table,
+    ) {
     }
 
-    #[inline]
-    unsafe fn table_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        table_row: usize,
-    ) -> QueryItem<'w, Self> {
-        let entities = fetch
-            .entities
-            .unwrap_or_else(|| debug_checked_unreachable());
-        *entities.get(table_row)
-    }
-
-    #[inline]
-    unsafe fn archetype_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        entity: Entity,
+        _table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item {
-        let entities = fetch
-            .entities
-            .unwrap_or_else(|| debug_checked_unreachable());
-        *entities.get(archetype_index)
+        entity
     }
 
     fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
@@ -566,7 +526,7 @@ unsafe impl WorldQuery for Entity {
 }
 
 impl<'w> WorldQueryGats<'w> for Entity {
-    type Fetch = EntityFetch<'w>;
+    type Fetch = ();
     type Item = Entity;
 }
 
@@ -577,9 +537,7 @@ unsafe impl ReadOnlyWorldQuery for Entity {}
 pub struct ReadFetch<'w, T> {
     // T::Storage = TableStorage
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     // T::Storage = SparseStorage
-    entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
 }
 
@@ -609,74 +567,71 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             table_components: None,
-            entity_table_rows: None,
-            entities: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
-                .then(|| world.storages().sparse_sets.get(component_id).unwrap()),
+            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
+                world
+                    .storages()
+                    .sparse_sets
+                    .get(component_id)
+                    .unwrap_or_else(|| debug_checked_unreachable())
+            }),
+        }
+    }
+
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        ReadFetch {
+            table_components: fetch.table_components,
+            sparse_set: fetch.sparse_set,
         }
     }
 
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ReadFetch<'w, T>,
-        &component_id: &ComponentId,
-        archetype: &'w Archetype,
-        tables: &'w Tables,
+        component_id: &ComponentId,
+        _archetype: &'w Archetype,
+        table: &'w Table,
     ) {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                fetch.entity_table_rows = Some(archetype.entity_table_rows().into());
-                let column = tables[archetype.table_id()]
-                    .get_column(component_id)
-                    .unwrap();
-                fetch.table_components = Some(column.get_data_slice().into());
-            }
-            StorageType::SparseSet => fetch.entities = Some(archetype.entities().into()),
+        if Self::IS_DENSE {
+            Self::set_table(fetch, component_id, table);
         }
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut ReadFetch<'w, T>, &id: &ComponentId, table: &'w Table) {
-        fetch.table_components = Some(table.get_column(id).unwrap().get_data_slice().into());
+    unsafe fn set_table<'w>(
+        fetch: &mut ReadFetch<'w, T>,
+        &component_id: &ComponentId,
+        table: &'w Table,
+    ) {
+        fetch.table_components = Some(
+            table
+                .get_column(component_id)
+                .unwrap_or_else(|| debug_checked_unreachable())
+                .get_data_slice()
+                .into(),
+        );
     }
 
-    #[inline]
-    unsafe fn archetype_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                let (entity_table_rows, table_components) = fetch
-                    .entity_table_rows
-                    .zip(fetch.table_components)
-                    .unwrap_or_else(|| debug_checked_unreachable());
-                let table_row = *entity_table_rows.get(archetype_index);
-                table_components.get(table_row).deref()
-            }
-            StorageType::SparseSet => {
-                let (entities, sparse_set) = fetch
-                    .entities
-                    .zip(fetch.sparse_set)
-                    .unwrap_or_else(|| debug_checked_unreachable());
-                let entity = *entities.get(archetype_index);
-                sparse_set
-                    .get(entity)
-                    .unwrap_or_else(|| debug_checked_unreachable())
-                    .deref::<T>()
-            }
-        }
-    }
-
-    #[inline]
-    unsafe fn table_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        entity: Entity,
         table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item {
-        let components = fetch
-            .table_components
-            .unwrap_or_else(|| debug_checked_unreachable());
-        components.get(table_row).deref()
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => fetch
+                .table_components
+                .unwrap_or_else(|| debug_checked_unreachable())
+                .get(table_row)
+                .deref(),
+            StorageType::SparseSet => fetch
+                .sparse_set
+                .unwrap_or_else(|| debug_checked_unreachable())
+                .get(entity)
+                .unwrap_or_else(|| debug_checked_unreachable())
+                .deref(),
+        }
     }
 
     fn update_component_access(
@@ -713,17 +668,6 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 }
 
-impl<T> Clone for ReadFetch<'_, T> {
-    fn clone(&self) -> Self {
-        Self {
-            table_components: self.table_components,
-            entity_table_rows: self.entity_table_rows,
-            entities: self.entities,
-            sparse_set: self.sparse_set,
-        }
-    }
-}
-
 /// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyWorldQuery for &T {}
 
@@ -735,11 +679,11 @@ impl<'w, T: Component> WorldQueryGats<'w> for &T {
 #[doc(hidden)]
 pub struct WriteFetch<'w, T> {
     // T::Storage = TableStorage
-    table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
+    table_data: Option<(
+        ThinSlicePtr<'w, UnsafeCell<T>>,
+        ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>,
+    )>,
     // T::Storage = SparseStorage
-    entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
 
     last_change_tick: u32,
@@ -771,34 +715,39 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         change_tick: u32,
     ) -> WriteFetch<'w, T> {
         WriteFetch {
-            table_components: None,
-            entities: None,
-            entity_table_rows: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
-                .then(|| world.storages().sparse_sets.get(component_id).unwrap()),
-            table_ticks: None,
+            table_data: None,
+            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
+                world
+                    .storages()
+                    .sparse_sets
+                    .get(component_id)
+                    .unwrap_or_else(|| debug_checked_unreachable())
+            }),
             last_change_tick,
             change_tick,
+        }
+    }
+
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        WriteFetch {
+            table_data: fetch.table_data,
+            sparse_set: fetch.sparse_set,
+            last_change_tick: fetch.last_change_tick,
+            change_tick: fetch.change_tick,
         }
     }
 
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteFetch<'w, T>,
-        &component_id: &ComponentId,
-        archetype: &'w Archetype,
-        tables: &'w Tables,
+        component_id: &ComponentId,
+        _archetype: &'w Archetype,
+        table: &'w Table,
     ) {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                fetch.entity_table_rows = Some(archetype.entity_table_rows().into());
-                let column = tables[archetype.table_id()]
-                    .get_column(component_id)
-                    .unwrap();
-                fetch.table_components = Some(column.get_data_slice().into());
-                fetch.table_ticks = Some(column.get_ticks_slice().into());
-            }
-            StorageType::SparseSet => fetch.entities = Some(archetype.entities().into()),
+        if Self::IS_DENSE {
+            Self::set_table(fetch, component_id, table);
         }
     }
 
@@ -808,23 +757,26 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        let column = table.get_column(component_id).unwrap();
-        fetch.table_components = Some(column.get_data_slice().into());
-        fetch.table_ticks = Some(column.get_ticks_slice().into());
+        let column = table
+            .get_column(component_id)
+            .unwrap_or_else(|| debug_checked_unreachable());
+        fetch.table_data = Some((
+            column.get_data_slice().into(),
+            column.get_ticks_slice().into(),
+        ));
     }
 
-    #[inline]
-    unsafe fn archetype_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
+        entity: Entity,
+        table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                let (entity_table_rows, (table_components, table_ticks)) = fetch
-                    .entity_table_rows
-                    .zip(fetch.table_components.zip(fetch.table_ticks))
+                let (table_components, table_ticks) = fetch
+                    .table_data
                     .unwrap_or_else(|| debug_checked_unreachable());
-                let table_row = *entity_table_rows.get(archetype_index);
                 Mut {
                     value: table_components.get(table_row).deref_mut(),
                     ticks: Ticks {
@@ -835,12 +787,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 }
             }
             StorageType::SparseSet => {
-                let (entities, sparse_set) = fetch
-                    .entities
-                    .zip(fetch.sparse_set)
-                    .unwrap_or_else(|| debug_checked_unreachable());
-                let entity = *entities.get(archetype_index);
-                let (component, component_ticks) = sparse_set
+                let (component, component_ticks) = fetch
+                    .sparse_set
+                    .unwrap_or_else(|| debug_checked_unreachable())
                     .get_with_ticks(entity)
                     .unwrap_or_else(|| debug_checked_unreachable());
                 Mut {
@@ -852,25 +801,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     },
                 }
             }
-        }
-    }
-
-    #[inline]
-    unsafe fn table_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        table_row: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
-        let (table_components, table_ticks) = fetch
-            .table_components
-            .zip(fetch.table_ticks)
-            .unwrap_or_else(|| debug_checked_unreachable());
-        Mut {
-            value: table_components.get(table_row).deref_mut(),
-            ticks: Ticks {
-                component_ticks: table_ticks.get(table_row).deref_mut(),
-                change_tick: fetch.change_tick,
-                last_change_tick: fetch.last_change_tick,
-            },
         }
     }
 
@@ -908,20 +838,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 }
 
-impl<T> Clone for WriteFetch<'_, T> {
-    fn clone(&self) -> Self {
-        Self {
-            table_components: self.table_components,
-            table_ticks: self.table_ticks,
-            entities: self.entities,
-            entity_table_rows: self.entity_table_rows,
-            sparse_set: self.sparse_set,
-            last_change_tick: self.last_change_tick,
-            change_tick: self.change_tick,
-        }
-    }
-}
-
 impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
     type Fetch = WriteFetch<'w, T>;
     type Item = Mut<'w, T>;
@@ -931,17 +847,6 @@ impl<'w, T: Component> WorldQueryGats<'w> for &mut T {
 pub struct OptionFetch<'w, T: WorldQuery> {
     fetch: <T as WorldQueryGats<'w>>::Fetch,
     matches: bool,
-}
-impl<'w, T: WorldQuery> Clone for OptionFetch<'w, T>
-where
-    <T as WorldQueryGats<'w>>::Fetch: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            fetch: self.fetch.clone(),
-            matches: self.matches,
-        }
-    }
 }
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
@@ -969,16 +874,25 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         }
     }
 
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        OptionFetch {
+            fetch: T::clone_fetch(&fetch.fetch),
+            matches: fetch.matches,
+        }
+    }
+
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut OptionFetch<'w, T>,
         state: &T::State,
         archetype: &'w Archetype,
-        tables: &'w Tables,
+        table: &'w Table,
     ) {
         fetch.matches = T::matches_component_set(state, &|id| archetype.contains(id));
         if fetch.matches {
-            T::set_archetype(&mut fetch.fetch, state, archetype, tables);
+            T::set_archetype(&mut fetch.fetch, state, archetype, table);
         }
     }
 
@@ -990,28 +904,15 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         }
     }
 
-    #[inline]
-    unsafe fn archetype_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
-        if fetch.matches {
-            Some(T::archetype_fetch(&mut fetch.fetch, archetype_index))
-        } else {
-            None
-        }
-    }
-
-    #[inline]
-    unsafe fn table_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        entity: Entity,
         table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item {
-        if fetch.matches {
-            Some(T::table_fetch(&mut fetch.fetch, table_row))
-        } else {
-            None
-        }
+        fetch
+            .matches
+            .then(|| T::fetch(&mut fetch.fetch, entity, table_row))
     }
 
     fn update_component_access(state: &T::State, access: &mut FilteredAccess<ComponentId>) {
@@ -1086,13 +987,24 @@ impl<'w, T: WorldQuery> WorldQueryGats<'w> for Option<T> {
 /// }
 /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
 /// ```
-#[derive(Clone)]
 pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
     marker: PhantomData<T>,
 }
+
+impl<T: Component> Clone for ChangeTrackers<T> {
+    fn clone(&self) -> Self {
+        Self {
+            component_ticks: self.component_ticks,
+            last_change_tick: self.last_change_tick,
+            change_tick: self.change_tick,
+            marker: PhantomData,
+        }
+    }
+}
+impl<T: Component> Copy for ChangeTrackers<T> {}
 
 impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1122,28 +1034,12 @@ impl<T: Component> ChangeTrackers<T> {
 pub struct ChangeTrackersFetch<'w, T> {
     // T::Storage = TableStorage
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
-    entity_table_rows: Option<ThinSlicePtr<'w, usize>>,
     // T::Storage = SparseStorage
-    entities: Option<ThinSlicePtr<'w, Entity>>,
     sparse_set: Option<&'w ComponentSparseSet>,
 
     marker: PhantomData<T>,
     last_change_tick: u32,
     change_tick: u32,
-}
-
-impl<T> Clone for ChangeTrackersFetch<'_, T> {
-    fn clone(&self) -> Self {
-        Self {
-            table_ticks: self.table_ticks,
-            entity_table_rows: self.entity_table_rows,
-            entities: self.entities,
-            sparse_set: self.sparse_set,
-            marker: self.marker,
-            last_change_tick: self.last_change_tick,
-            change_tick: self.change_tick,
-        }
-    }
 }
 
 // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
@@ -1166,36 +1062,46 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
 
     unsafe fn init_fetch<'w>(
         world: &'w World,
-        &id: &ComponentId,
+        &component_id: &ComponentId,
         last_change_tick: u32,
         change_tick: u32,
     ) -> ChangeTrackersFetch<'w, T> {
         ChangeTrackersFetch {
             table_ticks: None,
-            entities: None,
-            entity_table_rows: None,
-            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
-                .then(|| world.storages().sparse_sets.get(id).unwrap()),
+            sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
+                world
+                    .storages()
+                    .sparse_sets
+                    .get(component_id)
+                    .unwrap_or_else(|| debug_checked_unreachable())
+            }),
             marker: PhantomData,
             last_change_tick,
             change_tick,
         }
     }
 
+    unsafe fn clone_fetch<'w>(
+        fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+        ChangeTrackersFetch {
+            table_ticks: fetch.table_ticks,
+            sparse_set: fetch.sparse_set,
+            marker: fetch.marker,
+            last_change_tick: fetch.last_change_tick,
+            change_tick: fetch.change_tick,
+        }
+    }
+
     #[inline]
     unsafe fn set_archetype<'w>(
         fetch: &mut ChangeTrackersFetch<'w, T>,
-        &id: &ComponentId,
-        archetype: &'w Archetype,
-        tables: &'w Tables,
+        component_id: &ComponentId,
+        _archetype: &'w Archetype,
+        table: &'w Table,
     ) {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                fetch.entity_table_rows = Some(archetype.entity_table_rows().into());
-                let column = tables[archetype.table_id()].get_column(id).unwrap();
-                fetch.table_ticks = Some(column.get_ticks_slice().into());
-            }
-            StorageType::SparseSet => fetch.entities = Some(archetype.entities().into()),
+        if Self::IS_DENSE {
+            Self::set_table(fetch, component_id, table);
         }
     }
 
@@ -1205,68 +1111,44 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         &id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_ticks = Some(table.get_column(id).unwrap().get_ticks_slice().into());
+        fetch.table_ticks = Some(
+            table
+                .get_column(id)
+                .unwrap_or_else(|| debug_checked_unreachable())
+                .get_ticks_slice()
+                .into(),
+        );
     }
 
-    #[inline]
-    unsafe fn archetype_fetch<'w>(
+    #[inline(always)]
+    unsafe fn fetch<'w>(
         fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        archetype_index: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
-        match T::Storage::STORAGE_TYPE {
-            StorageType::Table => {
-                let entity_table_rows = fetch
-                    .entity_table_rows
-                    .unwrap_or_else(|| debug_checked_unreachable());
-                let table_row = *entity_table_rows.get(archetype_index);
-                ChangeTrackers {
-                    component_ticks: {
-                        let table_ticks = fetch
-                            .table_ticks
-                            .unwrap_or_else(|| debug_checked_unreachable());
-                        table_ticks.get(table_row).read()
-                    },
-                    marker: PhantomData,
-                    last_change_tick: fetch.last_change_tick,
-                    change_tick: fetch.change_tick,
-                }
-            }
-            StorageType::SparseSet => {
-                let entities = fetch
-                    .entities
-                    .unwrap_or_else(|| debug_checked_unreachable());
-                let entity = *entities.get(archetype_index);
-                ChangeTrackers {
-                    component_ticks: fetch
-                        .sparse_set
-                        .unwrap_or_else(|| debug_checked_unreachable())
-                        .get_ticks(entity)
-                        .map(|ticks| &*ticks.get())
-                        .cloned()
-                        .unwrap_or_else(|| debug_checked_unreachable()),
-                    marker: PhantomData,
-                    last_change_tick: fetch.last_change_tick,
-                    change_tick: fetch.change_tick,
-                }
-            }
-        }
-    }
-
-    #[inline]
-    unsafe fn table_fetch<'w>(
-        fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+        entity: Entity,
         table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item {
-        ChangeTrackers {
-            component_ticks: {
-                let table_ticks = fetch
-                    .table_ticks
-                    .unwrap_or_else(|| debug_checked_unreachable());
-                table_ticks.get(table_row).read()
+        match T::Storage::STORAGE_TYPE {
+            StorageType::Table => ChangeTrackers {
+                component_ticks: {
+                    let table_ticks = fetch
+                        .table_ticks
+                        .unwrap_or_else(|| debug_checked_unreachable());
+                    table_ticks.get(table_row).read()
+                },
+                marker: PhantomData,
+                last_change_tick: fetch.last_change_tick,
+                change_tick: fetch.change_tick,
             },
-            marker: PhantomData,
-            last_change_tick: fetch.last_change_tick,
-            change_tick: fetch.change_tick,
+            StorageType::SparseSet => ChangeTrackers {
+                component_ticks: *fetch
+                    .sparse_set
+                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .get_ticks(entity)
+                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .get(),
+                marker: PhantomData,
+                last_change_tick: fetch.last_change_tick,
+                change_tick: fetch.change_tick,
+            },
         }
     }
 
@@ -1338,15 +1220,27 @@ macro_rules! impl_tuple_fetch {
                 ($($name::init_fetch(_world, $name, _last_change_tick, _change_tick),)*)
             }
 
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as WorldQueryGats<'w>>::Fetch {
+                let ($($name,)*) = &fetch;
+                ($($name::clone_fetch($name),)*)
+            }
+
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
             #[inline]
-            unsafe fn set_archetype<'w>(_fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, _state: &Self::State, _archetype: &'w Archetype, _tables: &'w Tables) {
+            unsafe fn set_archetype<'w>(
+                _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                _state: &Self::State,
+                _archetype: &'w Archetype,
+                _table: &'w Table
+            ) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name::set_archetype($name, $state, _archetype, _tables);)*
+                $($name::set_archetype($name, $state, _archetype, _table);)*
             }
 
             #[inline]
@@ -1356,32 +1250,25 @@ macro_rules! impl_tuple_fetch {
                 $($name::set_table($name, $state, _table);)*
             }
 
-            #[inline]
+            #[inline(always)]
             #[allow(clippy::unused_unit)]
-            unsafe fn table_fetch<'w>(_fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, _table_row: usize) -> QueryItem<'w, Self> {
+            unsafe fn fetch<'w>(
+                _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                _entity: Entity,
+                _table_row: usize
+            ) -> <Self as WorldQueryGats<'w>>::Item {
                 let ($($name,)*) = _fetch;
-                ($($name::table_fetch($name, _table_row),)*)
+                ($($name::fetch($name, _entity, _table_row),)*)
             }
 
-            #[inline]
-            #[allow(clippy::unused_unit)]
-            unsafe fn archetype_fetch<'w>(_fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, _archetype_index: usize) -> QueryItem<'w, Self> {
+            #[inline(always)]
+            unsafe fn filter_fetch<'w>(
+                _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                _entity: Entity,
+                _table_row: usize
+            ) -> bool {
                 let ($($name,)*) = _fetch;
-                ($($name::archetype_fetch($name, _archetype_index),)*)
-            }
-
-            #[allow(unused_variables)]
-            #[inline]
-            unsafe fn table_filter_fetch(_fetch: &mut QueryFetch<'_, Self>, table_row: usize) -> bool {
-                let ($($name,)*) = _fetch;
-                true $(&& $name::table_filter_fetch($name, table_row))*
-            }
-
-            #[allow(unused_variables)]
-            #[inline]
-            unsafe fn archetype_filter_fetch(_fetch: &mut QueryFetch<'_, Self>, archetype_index: usize) -> bool {
-                let ($($name,)*) = _fetch;
-                true $(&& $name::archetype_filter_fetch($name, archetype_index))*
+                true $(&& $name::filter_fetch($name, _entity, _table_row))*
             }
 
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
@@ -1413,10 +1300,9 @@ macro_rules! impl_tuple_fetch {
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
-/// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), (Or(With<A>, With<B>, With<C>)>`.
+/// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
 /// Each of the components in `T` is returned as an `Option`, as with `Option<A>` queries.
 /// Entities are guaranteed to have at least one of the components in `T`.
-#[derive(Clone)]
 pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_anytuple_fetch {
@@ -1448,18 +1334,30 @@ macro_rules! impl_anytuple_fetch {
                 ($(($name::init_fetch(_world, $name, _last_change_tick, _change_tick), false),)*)
             }
 
+            unsafe fn clone_fetch<'w>(
+                fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+            ) -> <Self as WorldQueryGats<'w>>::Fetch {
+                let ($($name,)*) = &fetch;
+                ($(($name::clone_fetch(& $name.0), $name.1),)*)
+            }
+
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
             #[inline]
-            unsafe fn set_archetype<'w>(_fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, _state: &Self::State, _archetype: &'w Archetype, _tables: &'w Tables) {
+            unsafe fn set_archetype<'w>(
+                _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                _state: &Self::State,
+                _archetype: &'w Archetype,
+                _table: &'w Table
+            ) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
                     if $name.1 {
-                        $name::set_archetype(&mut $name.0, $state, _archetype, _tables);
+                        $name::set_archetype(&mut $name.0, $state, _archetype, _table);
                     }
                 )*
             }
@@ -1476,21 +1374,16 @@ macro_rules! impl_anytuple_fetch {
                 )*
             }
 
-            #[inline]
+            #[inline(always)]
             #[allow(clippy::unused_unit)]
-            unsafe fn table_fetch<'w>(_fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, _table_row: usize) -> QueryItem<'w, Self> {
+            unsafe fn fetch<'w>(
+                _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
+                _entity: Entity,
+                _table_row: usize
+            ) -> <Self as WorldQueryGats<'w>>::Item {
                 let ($($name,)*) = _fetch;
                 ($(
-                    $name.1.then(|| $name::table_fetch(&mut $name.0, _table_row)),
-                )*)
-            }
-
-            #[inline]
-            #[allow(clippy::unused_unit)]
-            unsafe fn archetype_fetch<'w>(_fetch: &mut <Self as WorldQueryGats<'w>>::Fetch, _archetype_index: usize) -> QueryItem<'w, Self> {
-                let ($($name,)*) = _fetch;
-                ($(
-                    $name.1.then(|| $name::archetype_fetch(&mut $name.0, _archetype_index)),
+                    $name.1.then(|| $name::fetch(&mut $name.0, _entity, _table_row)),
                 )*)
             }
 
@@ -1580,12 +1473,17 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     ) {
     }
 
+    unsafe fn clone_fetch<'w>(
+        _fetch: &<Self as WorldQueryGats<'w>>::Fetch,
+    ) -> <Self as WorldQueryGats<'w>>::Fetch {
+    }
+
     #[inline(always)]
     unsafe fn set_archetype(
         _fetch: &mut (),
         _state: &Q::State,
         _archetype: &Archetype,
-        _tables: &Tables,
+        _tables: &Table,
     ) {
     }
 
@@ -1593,15 +1491,9 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     unsafe fn set_table<'w>(_fetch: &mut (), _state: &Q::State, _table: &Table) {}
 
     #[inline(always)]
-    unsafe fn archetype_fetch<'w>(
+    unsafe fn fetch<'w>(
         _fetch: &mut <Self as WorldQueryGats<'w>>::Fetch,
-        _archetype_index: usize,
-    ) -> <Self as WorldQueryGats<'w>>::Item {
-    }
-
-    #[inline(always)]
-    unsafe fn table_fetch<'w>(
-        _fetch: &mut (),
+        _entity: Entity,
         _table_row: usize,
     ) -> <Self as WorldQueryGats<'w>>::Item {
     }

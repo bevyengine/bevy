@@ -40,6 +40,9 @@ struct PostPhysics;
 struct Done(bool);
 
 fn main() {
+    #[derive(RunCriteriaLabel)]
+    struct IsDone;
+
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Done>()
@@ -70,8 +73,7 @@ fn main() {
                 // This shows that we can modify existing run criteria results.
                 // Here we create a _not done_ criteria by piping the output of
                 // the `is_done` system and inverting the output.
-                // Notice a string literal also works as a label.
-                .with_run_criteria(RunCriteria::pipe("is_done_label", inverse))
+                .with_run_criteria(RunCriteria::pipe(IsDone, inverse))
                 // `collision` and `sfx` are not ordered with respect to
                 // each other, and may run in any order
                 .with_system(collision)
@@ -80,7 +82,7 @@ fn main() {
         .add_system(
             exit.after(PostPhysics)
                 // Label the run criteria such that the `PostPhysics` set can reference it
-                .with_run_criteria(is_done.label("is_done_label")),
+                .with_run_criteria(is_done.label(IsDone)),
         )
         .run();
 }
@@ -88,7 +90,7 @@ fn main() {
 /// Example of a run criteria.
 /// Here we only want to run for a second, then stop.
 fn run_for_a_second(time: Res<Time>, mut done: ResMut<Done>) -> ShouldRun {
-    let elapsed = time.seconds_since_startup();
+    let elapsed = time.elapsed_seconds();
     if elapsed < 1.0 {
         info!(
             "We should run again. Elapsed/remaining: {:.2}s/{:.2}s",

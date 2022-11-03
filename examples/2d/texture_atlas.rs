@@ -6,8 +6,7 @@ use bevy::{asset::LoadState, prelude::*};
 fn main() {
     App::new()
         .init_resource::<RpgSpriteHandles>()
-        .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
         .add_state(AppState::Setup)
         .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(load_textures))
         .add_system_set(SystemSet::on_update(AppState::Setup).with_system(check_textures))
@@ -63,9 +62,9 @@ fn setup(
     let atlas_handle = texture_atlases.add(texture_atlas);
 
     // set up a scene to display our texture atlas
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     // draw a sprite from the atlas
-    commands.spawn_bundle(SpriteSheetBundle {
+    commands.spawn(SpriteSheetBundle {
         transform: Transform {
             translation: Vec3::new(150.0, 0.0, 0.0),
             scale: Vec3::splat(4.0),
@@ -76,7 +75,7 @@ fn setup(
         ..default()
     });
     // draw the atlas itself
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         texture: texture_atlas_texture,
         transform: Transform::from_xyz(-300.0, 0.0, 0.0),
         ..default()

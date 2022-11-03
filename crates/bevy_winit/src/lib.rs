@@ -4,6 +4,7 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
+use converters::convert_cursor_grab_mode;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -31,7 +32,7 @@ use bevy_window::{
 };
 
 use winit::{
-    dpi::{LogicalSize, PhysicalPosition},
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
@@ -48,13 +49,15 @@ impl Plugin for WinitPlugin {
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);
         let event_loop = EventLoop::new();
-        #[cfg(not(target_os = "android"))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
         let mut create_window_reader = WinitCreateWindowReader::default();
-        #[cfg(target_os = "android")]
+        #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
         let create_window_reader = WinitCreateWindowReader::default();
         // Note that we create a window here "early" because WASM/WebGL requires the window to exist prior to initializing
         // the renderer.
-        #[cfg(not(target_os = "android"))]
+        // And for ios and macos, we should not create window early, all ui related code should be executed inside
+        // UIApplicationMain/NSApplicationMain.
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
         handle_create_window_events(&mut app.world, &event_loop, &mut create_window_reader.0);
         app.insert_resource(create_window_reader)
             .insert_non_send_resource(event_loop);
@@ -135,10 +138,10 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_cursor_icon(converters::convert_cursor_icon(icon));
                 }
-                bevy_window::WindowCommand::SetCursorLockMode { locked } => {
+                bevy_window::WindowCommand::SetCursorGrabMode { grab_mode } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window
-                        .set_cursor_grab(locked)
+                        .set_cursor_grab(convert_cursor_grab_mode(grab_mode))
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
                 bevy_window::WindowCommand::SetCursorVisibility { visible } => {
@@ -147,12 +150,9 @@ fn change_window(
                 }
                 bevy_window::WindowCommand::SetCursorPosition { position } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
+
                     window
-                        .set_cursor_position(winit::dpi::LogicalPosition::new(
-                            position.x,
-                            inner_size.height - position.y,
-                        ))
+                        .set_cursor_position(LogicalPosition::new(position.x, position.y))
                         .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
                 }
                 bevy_window::WindowCommand::SetMaximized { maximized } => {
@@ -163,12 +163,26 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_minimized(minimized);
                 }
-                bevy_window::WindowCommand::SetPosition { position } => {
+                bevy_window::WindowCommand::SetPosition {
+                    monitor_selection,
+                    position,
+                } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_outer_position(PhysicalPosition {
-                        x: position[0],
-                        y: position[1],
-                    });
+
+                    use bevy_window::MonitorSelection::*;
+                    let maybe_monitor = match monitor_selection {
+                        Current => window.current_monitor(),
+                        Primary => window.primary_monitor(),
+                        Index(i) => window.available_monitors().nth(i),
+                    };
+                    if let Some(monitor) = maybe_monitor {
+                        let monitor_position = DVec2::from(<(_, _)>::from(monitor.position()));
+                        let position = monitor_position + position.as_dvec2();
+
+                        window.set_outer_position(LogicalPosition::new(position.x, position.y));
+                    } else {
+                        warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                    }
                 }
                 bevy_window::WindowCommand::Center(monitor_selection) => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -177,19 +191,20 @@ fn change_window(
                     let maybe_monitor = match monitor_selection {
                         Current => window.current_monitor(),
                         Primary => window.primary_monitor(),
-                        Number(n) => window.available_monitors().nth(n),
+                        Index(i) => window.available_monitors().nth(i),
                     };
 
                     if let Some(monitor) = maybe_monitor {
-                        let screen_size = monitor.size();
+                        let monitor_size = monitor.size();
+                        let monitor_position = monitor.position().cast::<f64>();
 
                         let window_size = window.outer_size();
 
                         window.set_outer_position(PhysicalPosition {
-                            x: screen_size.width.saturating_sub(window_size.width) as f64 / 2.
-                                + monitor.position().x as f64,
-                            y: screen_size.height.saturating_sub(window_size.height) as f64 / 2.
-                                + monitor.position().y as f64,
+                            x: monitor_size.width.saturating_sub(window_size.width) as f64 / 2.
+                                + monitor_position.x,
+                            y: monitor_size.height.saturating_sub(window_size.height) as f64 / 2.
+                                + monitor_position.y,
                         });
                     } else {
                         warn!("Couldn't get monitor selected with: {monitor_selection:?}");
@@ -414,13 +429,8 @@ pub fn winit_runner_with(mut app: App) {
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let mut cursor_moved_events = world.resource_mut::<Events<CursorMoved>>();
-                        let winit_window = winit_windows.get_window(window_id).unwrap();
-                        let inner_size = winit_window.inner_size();
 
-                        // move origin to bottom left
-                        let y_position = inner_size.height as f64 - position.y;
-
-                        let physical_position = DVec2::new(position.x, y_position);
+                        let physical_position = DVec2::new(position.x, position.y);
                         window
                             .update_cursor_physical_position_from_backend(Some(physical_position));
 
@@ -578,12 +588,12 @@ pub fn winit_runner_with(mut app: App) {
                 }
             }
             event::Event::DeviceEvent {
-                event: DeviceEvent::MouseMotion { delta },
+                event: DeviceEvent::MouseMotion { delta: (x, y) },
                 ..
             } => {
                 let mut mouse_motion_events = app.world.resource_mut::<Events<MouseMotion>>();
                 mouse_motion_events.send(MouseMotion {
-                    delta: Vec2::new(delta.0 as f32, delta.1 as f32),
+                    delta: DVec2 { x, y }.as_vec2(),
                 });
             }
             event::Event::Suspended => {

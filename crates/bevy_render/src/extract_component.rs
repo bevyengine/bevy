@@ -115,10 +115,10 @@ fn prepare_uniform_components<C: Component>(
         .map(|(entity, component)| {
             (
                 entity,
-                (DynamicUniformIndex::<C> {
+                DynamicUniformIndex::<C> {
                     index: component_uniforms.uniforms.push(component.clone()),
                     marker: PhantomData,
-                },),
+                },
             )
         })
         .collect::<Vec<_>>();
@@ -183,11 +183,11 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    mut query: Extract<Query<(Entity, C::Query), C::Filter>>,
+    query: Extract<Query<(Entity, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, query_item) in query.iter_mut() {
-        values.push((entity, (C::extract_component(query_item),)));
+    for (entity, query_item) in &query {
+        values.push((entity, C::extract_component(query_item)));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -197,12 +197,12 @@ fn extract_components<C: ExtractComponent>(
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    mut query: Extract<Query<(Entity, &ComputedVisibility, C::Query), C::Filter>>,
+    query: Extract<Query<(Entity, &ComputedVisibility, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility, query_item) in query.iter_mut() {
+    for (entity, computed_visibility, query_item) in &query {
         if computed_visibility.is_visible() {
-            values.push((entity, (C::extract_component(query_item),)));
+            values.push((entity, C::extract_component(query_item)));
         }
     }
     *previous_len = values.len();

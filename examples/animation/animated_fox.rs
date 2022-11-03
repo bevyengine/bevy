@@ -1,5 +1,7 @@
 //! Plays animations from a skinned glTF.
 
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 
 fn main() {
@@ -32,27 +34,22 @@ fn setup(
     ]));
 
     // Camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(100.0, 100.0, 150.0)
             .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
         ..default()
     });
 
     // Plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 500000.0 })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
 
     // Light
-    commands.spawn_bundle(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            1.0,
-            -std::f32::consts::FRAC_PI_4,
-        )),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
             shadows_enabled: true,
             ..default()
@@ -61,7 +58,7 @@ fn setup(
     });
 
     // Fox
-    commands.spawn_bundle(SceneBundle {
+    commands.spawn(SceneBundle {
         scene: asset_server.load("models/animated/Fox.glb#Scene0"),
         ..default()
     });

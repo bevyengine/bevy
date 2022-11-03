@@ -579,10 +579,10 @@ mod tests {
         pub fn new(inputs: usize, outputs: usize) -> Self {
             TestNode {
                 inputs: (0..inputs)
-                    .map(|i| SlotInfo::new(format!("in_{}", i), SlotType::TextureView))
+                    .map(|i| SlotInfo::new(format!("in_{i}"), SlotType::TextureView))
                     .collect(),
                 outputs: (0..outputs)
-                    .map(|i| SlotInfo::new(format!("out_{}", i), SlotType::TextureView))
+                    .map(|i| SlotInfo::new(format!("out_{i}"), SlotType::TextureView))
                     .collect(),
             }
         }

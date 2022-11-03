@@ -5,7 +5,6 @@ use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
 
-use super::image_texture_conversion::image_to_texture;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
@@ -16,7 +15,7 @@ use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{
@@ -102,8 +101,9 @@ impl ImageFormat {
     }
 }
 
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
+#[reflect_value]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
@@ -114,11 +114,11 @@ pub struct Image {
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
-/// [`ImageSampler::Default`], will read the sampler from the [`ImageSettings`] resource at runtime.
+/// [`ImageSampler::Default`], will read the sampler from the [`ImagePlugin`](super::ImagePlugin) at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
 #[derive(Debug, Default, Clone)]
 pub enum ImageSampler {
-    /// Default image sampler, derived from the [`ImageSettings`] resource.
+    /// Default image sampler, derived from the [`ImagePlugin`](super::ImagePlugin) setup.
     #[default]
     Default,
     /// Custom sampler for this image which will override global default.
@@ -159,41 +159,10 @@ impl ImageSampler {
     }
 }
 
-/// Global resource for [`Image`] settings.
-///
-/// Can be set via `insert_resource` during app initialization to change the default settings.
-#[derive(Resource)]
-pub struct ImageSettings {
-    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
-    pub default_sampler: wgpu::SamplerDescriptor<'static>,
-}
-
-impl Default for ImageSettings {
-    fn default() -> Self {
-        ImageSettings::default_linear()
-    }
-}
-
-impl ImageSettings {
-    /// Creates image settings with linear sampling by default.
-    pub fn default_linear() -> ImageSettings {
-        ImageSettings {
-            default_sampler: ImageSampler::linear_descriptor(),
-        }
-    }
-
-    /// Creates image settings with nearest sampling by default.
-    pub fn default_nearest() -> ImageSettings {
-        ImageSettings {
-            default_sampler: ImageSampler::nearest_descriptor(),
-        }
-    }
-}
-
 /// A rendering resource for the default image sampler which is set during renderer
 /// initialization.
 ///
-/// The [`ImageSettings`] resource can be set during app initialization to change the default
+/// The [`ImagePlugin`](super::ImagePlugin) can be set during app initialization to change the default
 /// image sampler.
 #[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
@@ -201,7 +170,7 @@ pub struct DefaultImageSampler(pub(crate) Sampler);
 impl Default for Image {
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size() as usize];
+        let data = vec![255; format.pixel_size()];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
@@ -342,13 +311,18 @@ impl Image {
         });
     }
 
-    /// Convert a texture from a format to another
-    /// Only a few formats are supported as input and output:
+    /// Convert a texture from a format to another. Only a few formats are
+    /// supported as input and output:
     /// - `TextureFormat::R8Unorm`
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
+    ///
+    /// To get [`Image`] as a [`image::DynamicImage`] see:
+    /// [`Image::try_into_dynamic`].
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::image_texture_conversion::texture_to_image(self)
+        self.clone()
+            .try_into_dynamic()
+            .ok()
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => {
                     Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
@@ -362,9 +336,7 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| {
-                super::image_texture_conversion::image_to_texture(dyn_img, is_srgb)
-            })
+            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb))
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -395,14 +367,14 @@ impl Image {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
             }
             _ => {
-                let image_crate_format = format.as_image_crate_format().ok_or_else(|| {
-                    TextureError::UnsupportedTextureFormat(format!("{:?}", format))
-                })?;
+                let image_crate_format = format
+                    .as_image_crate_format()
+                    .ok_or_else(|| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
                 let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Ok(image_to_texture(dyn_img, is_srgb))
+                Ok(Self::from_dynamic(dyn_img, is_srgb))
             }
         }
     }
@@ -537,9 +509,10 @@ impl TextureFormatPixelInfo for TextureFormat {
             TextureFormat::R16Uint
             | TextureFormat::R16Sint
             | TextureFormat::R16Float
+            | TextureFormat::R16Unorm
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
-            | TextureFormat::R16Unorm
+            | TextureFormat::Rg16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rgba16Uint
             | TextureFormat::Rgba16Sint
@@ -585,6 +558,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::Rg8Sint
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
+            | TextureFormat::Rg16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rg32Uint
             | TextureFormat::Rg32Sint

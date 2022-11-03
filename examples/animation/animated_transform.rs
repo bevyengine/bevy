@@ -1,6 +1,6 @@
 //! Create and play an animation defined by code that operates on the `Transform` component.
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::PI;
 
 use bevy::prelude::*;
 
@@ -22,7 +22,7 @@ fn setup(
     mut animations: ResMut<Assets<AnimationClip>>,
 ) {
     // Camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -62,11 +62,11 @@ fn setup(
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
-                Quat::from_axis_angle(Vec3::Y, 0.0),
-                Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),
-                Quat::from_axis_angle(Vec3::Y, PI),
-                Quat::from_axis_angle(Vec3::Y, 3.0 * FRAC_PI_2),
-                Quat::from_axis_angle(Vec3::Y, 0.0),
+                Quat::IDENTITY,
+                Quat::from_axis_angle(Vec3::Y, PI / 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
+                Quat::IDENTITY,
             ]),
         },
     );
@@ -100,11 +100,11 @@ fn setup(
         VariableCurve {
             keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             keyframes: Keyframes::Rotation(vec![
-                Quat::from_axis_angle(Vec3::Y, 0.0),
-                Quat::from_axis_angle(Vec3::Y, FRAC_PI_2),
-                Quat::from_axis_angle(Vec3::Y, PI),
-                Quat::from_axis_angle(Vec3::Y, 3.0 * FRAC_PI_2),
-                Quat::from_axis_angle(Vec3::Y, 0.0),
+                Quat::IDENTITY,
+                Quat::from_axis_angle(Vec3::Y, PI / 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
+                Quat::IDENTITY,
             ]),
         },
     );
@@ -116,28 +116,35 @@ fn setup(
     // Create the scene that will be animated
     // First entity is the planet
     commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
-            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-            ..default()
-        })
-        // Add the Name component, and the animation player
-        .insert_bundle((planet, player))
+        .spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
+                material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
+                ..default()
+            },
+            // Add the Name component, and the animation player
+            planet,
+            player,
+        ))
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
-            p.spawn_bundle(SpatialBundle::default())
+            p.spawn((
+                SpatialBundle::VISIBLE_IDENTITY,
                 // Add the Name component
-                .insert(orbit_controller)
-                .with_children(|p| {
-                    // The satellite, placed at a distance of the planet
-                    p.spawn_bundle(PbrBundle {
+                orbit_controller,
+            ))
+            .with_children(|p| {
+                // The satellite, placed at a distance of the planet
+                p.spawn((
+                    PbrBundle {
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
                         mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                         material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
                         ..default()
-                    })
+                    },
                     // Add the Name component
-                    .insert(satellite);
-                });
+                    satellite,
+                ));
+            });
         });
 }

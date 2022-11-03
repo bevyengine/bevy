@@ -19,6 +19,9 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
     }
 }
 
+/// Label for [`camera_system<T>`], shared accross all `T`.
+///
+/// [`camera_system<T>`]: crate::camera::camera_system
 #[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
@@ -27,17 +30,33 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
         app.register_type::<T>()
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                crate::camera::camera_system::<T>,
+                crate::camera::camera_system::<T>
+                    .label(CameraUpdateSystem)
+                    // We assume that each camera will only have one projection,
+                    // so we can ignore ambiguities with all other monomorphizations.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(CameraUpdateSystem),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
-                    .after(ModifiesWindows),
+                    .after(ModifiesWindows)
+                    // We assume that each camera will only have one projection,
+                    // so we can ignore ambiguities with all other monomorphizations.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(CameraUpdateSystem),
             );
     }
 }
 
+/// Trait to control the projection matrix of a camera.
+///
+/// Components implementing this trait are automatically polled for changes, and used
+/// to recompute the camera projection matrix of the [`Camera`] component attached to
+/// the same entity as the component implementing this trait.
+///
+/// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
@@ -93,12 +112,35 @@ impl Default for Projection {
     }
 }
 
+/// A 3D camera projection in which distant objects appear smaller than close objects.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct PerspectiveProjection {
+    /// The vertical field of view (FOV) in radians.
+    ///
+    /// Defaults to a value of π/4 radians or 45 degrees.
     pub fov: f32,
+
+    /// The aspect ratio (width divided by height) of the viewing frustum.
+    ///
+    /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
+    /// updates this value when the aspect ratio of the associated window changes.
+    ///
+    /// Defaults to a value of `1.0`.
     pub aspect_ratio: f32,
+
+    /// The distance from the camera in world units of the viewing frustum's near plane.
+    ///
+    /// Objects closer to the camera than this value will not be visible.
+    ///
+    /// Defaults to a value of `0.1`.
     pub near: f32,
+
+    /// The distance from the camera in world units of the viewing frustum's far plane.
+    ///
+    /// Objects farther from the camera than this value will not be visible.
+    ///
+    /// Defaults to a value of `1000.0`.
     pub far: f32,
 }
 

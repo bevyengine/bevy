@@ -8,6 +8,8 @@ pub mod graph {
     }
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
+        pub const TONEMAPPING: &str = "tonemapping";
+        pub const UPSCALING: &str = "upscaling";
     }
 }
 
@@ -30,6 +32,8 @@ use bevy_render::{
 use bevy_utils::FloatOrd;
 use std::ops::Range;
 
+use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
+
 pub struct Core2dPlugin;
 
 impl Plugin for Core2dPlugin {
@@ -46,13 +50,20 @@ impl Plugin for Core2dPlugin {
             .init_resource::<DrawFunctions<Transparent2d>>()
             .add_system_to_stage(RenderStage::Extract, extract_core_2d_camera_phases)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
-            .add_system_to_stage(RenderStage::PhaseSort, batch_phase_system::<Transparent2d>);
+            .add_system_to_stage(
+                RenderStage::PhaseSort,
+                batch_phase_system::<Transparent2d>.after(sort_phase_system::<Transparent2d>),
+            );
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
+        let tonemapping = TonemappingNode::new(&mut render_app.world);
+        let upscaling = UpscalingNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
         let mut draw_2d_graph = RenderGraph::default();
         draw_2d_graph.add_node(graph::node::MAIN_PASS, pass_node_2d);
+        draw_2d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
+        draw_2d_graph.add_node(graph::node::UPSCALING, upscaling);
         let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
             graph::input::VIEW_ENTITY,
             SlotType::Entity,
@@ -64,6 +75,28 @@ impl Plugin for Core2dPlugin {
                 graph::node::MAIN_PASS,
                 MainPass2dNode::IN_VIEW,
             )
+            .unwrap();
+        draw_2d_graph
+            .add_slot_edge(
+                input_node_id,
+                graph::input::VIEW_ENTITY,
+                graph::node::TONEMAPPING,
+                TonemappingNode::IN_VIEW,
+            )
+            .unwrap();
+        draw_2d_graph
+            .add_slot_edge(
+                input_node_id,
+                graph::input::VIEW_ENTITY,
+                graph::node::UPSCALING,
+                UpscalingNode::IN_VIEW,
+            )
+            .unwrap();
+        draw_2d_graph
+            .add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING)
+            .unwrap();
+        draw_2d_graph
+            .add_node_edge(graph::node::TONEMAPPING, graph::node::UPSCALING)
             .unwrap();
         graph.add_sub_graph(graph::NAME, draw_2d_graph);
     }
@@ -125,7 +158,7 @@ pub fn extract_core_2d_camera_phases(
     mut commands: Commands,
     cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
 ) {
-    for (entity, camera) in cameras_2d.iter() {
+    for (entity, camera) in &cameras_2d {
         if camera.is_active {
             commands
                 .get_or_spawn(entity)

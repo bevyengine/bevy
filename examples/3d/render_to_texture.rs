@@ -1,5 +1,7 @@
 //! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
 
+use std::f32::consts::PI;
+
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
@@ -74,25 +76,26 @@ fn setup(
     let first_pass_layer = RenderLayers::layer(1);
 
     // The cube that will be rendered to the texture.
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: cube_handle,
             material: cube_material_handle,
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
             ..default()
-        })
-        .insert(FirstPassCube)
-        .insert(first_pass_layer);
+        },
+        FirstPassCube,
+        first_pass_layer,
+    ));
 
     // Light
     // NOTE: Currently lights are shared between passes - see https://github.com/bevyengine/bevy/issues/3462
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         ..default()
     });
 
-    commands
-        .spawn_bundle(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             camera_3d: Camera3d {
                 clear_color: ClearColorConfig::Custom(Color::WHITE),
                 ..default()
@@ -104,10 +107,11 @@ fn setup(
                 ..default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-                .looking_at(Vec3::default(), Vec3::Y),
+                .looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
-        })
-        .insert(first_pass_layer);
+        },
+        first_pass_layer,
+    ));
 
     let cube_size = 4.0;
     let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));
@@ -121,23 +125,20 @@ fn setup(
     });
 
     // Main pass cube, with material containing the rendered first pass texture.
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: cube_handle,
             material: material_handle,
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1.5),
-                rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-                ..default()
-            },
+            transform: Transform::from_xyz(0.0, 0.0, 1.5)
+                .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
             ..default()
-        })
-        .insert(MainPassCube);
+        },
+        MainPassCube,
+    ));
 
     // The main pass camera.
-    commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 }

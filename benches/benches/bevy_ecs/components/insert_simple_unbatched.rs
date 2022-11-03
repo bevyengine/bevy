@@ -23,7 +23,7 @@ impl Benchmark {
     pub fn run(&mut self) {
         let mut world = World::new();
         for _ in 0..10_000 {
-            world.spawn().insert_bundle((
+            world.spawn((
                 Transform(Mat4::from_scale(Vec3::ONE)),
                 Position(Vec3::X),
                 Rotation(Vec3::X),

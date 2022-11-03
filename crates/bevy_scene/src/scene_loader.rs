@@ -30,7 +30,7 @@ impl AssetLoader for SceneLoader {
         Box::pin(async move {
             let mut deserializer = ron::de::Deserializer::from_bytes(bytes)?;
             let scene_deserializer = SceneDeserializer {
-                type_registry: &*self.type_registry.read(),
+                type_registry: &self.type_registry.read(),
             };
             let scene = scene_deserializer.deserialize(&mut deserializer)?;
             load_context.set_default_asset(LoadedAsset::new(scene));

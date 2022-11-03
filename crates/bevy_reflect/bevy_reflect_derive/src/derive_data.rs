@@ -1,11 +1,13 @@
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
+use crate::utility::members_to_serialization_denylist;
+use bit_set::BitSet;
 use quote::quote;
 
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Type, Variant};
+use syn::{Data, DeriveInput, Field, Fields, Generics, Ident, Meta, Path, Token, Variant};
 
 pub(crate) enum ReflectDerive<'a> {
     Struct(ReflectStruct<'a>),
@@ -37,6 +39,9 @@ pub(crate) struct ReflectMeta<'a> {
     generics: &'a Generics,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
+    /// The documentation for this type, if any
+    #[cfg(feature = "documentation")]
+    docs: crate::documentation::Documentation,
 }
 
 /// Struct data used by derive macros for `Reflect` and `FromReflect`.
@@ -54,6 +59,7 @@ pub(crate) struct ReflectMeta<'a> {
 /// ```
 pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
+    serialization_denylist: BitSet<u32>,
     fields: Vec<StructField<'a>>,
 }
 
@@ -83,6 +89,9 @@ pub(crate) struct StructField<'a> {
     pub attrs: ReflectFieldAttr,
     /// The index of this field within the struct.
     pub index: usize,
+    /// The documentation for this field, if any
+    #[cfg(feature = "documentation")]
+    pub doc: crate::documentation::Documentation,
 }
 
 /// Represents a variant on an enum.
@@ -92,10 +101,14 @@ pub(crate) struct EnumVariant<'a> {
     /// The fields within this variant.
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
+    #[allow(dead_code)]
     pub attrs: ReflectFieldAttr,
     /// The index of this variant within the enum.
     #[allow(dead_code)]
     pub index: usize,
+    /// The documentation for this variant, if any
+    #[cfg(feature = "documentation")]
+    pub doc: crate::documentation::Documentation,
 }
 
 pub(crate) enum EnumVariantFields<'a> {
@@ -104,40 +117,91 @@ pub(crate) enum EnumVariantFields<'a> {
     Unit,
 }
 
+/// The method in which the type should be reflected.
+#[derive(PartialEq, Eq)]
+enum ReflectMode {
+    /// Reflect the type normally, providing information about all fields/variants.
+    Normal,
+    /// Reflect the type as a value.
+    Value,
+}
+
 impl<'a> ReflectDerive<'a> {
     pub fn from_input(input: &'a DeriveInput) -> Result<Self, syn::Error> {
         let mut traits = ReflectTraits::default();
         // Should indicate whether `#[reflect_value]` was used
-        let mut force_reflect_value = false;
+        let mut reflect_mode = None;
+
+        #[cfg(feature = "documentation")]
+        let mut doc = crate::documentation::Documentation::default();
 
         for attribute in input.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
-            let meta_list = if let Meta::List(meta_list) = attribute {
-                meta_list
-            } else {
-                continue;
-            };
+            match attribute {
+                Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
+                    if !matches!(reflect_mode, None | Some(ReflectMode::Normal)) {
+                        return Err(syn::Error::new(
+                            meta_list.span(),
+                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
+                        ));
+                    }
 
-            if let Some(ident) = meta_list.path.get_ident() {
-                if ident == REFLECT_ATTRIBUTE_NAME {
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
-                } else if ident == REFLECT_VALUE_ATTRIBUTE_NAME {
-                    force_reflect_value = true;
-                    traits = ReflectTraits::from_nested_metas(&meta_list.nested);
+                    reflect_mode = Some(ReflectMode::Normal);
+                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                    traits = traits.merge(new_traits)?;
                 }
+                Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
+                    if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
+                        return Err(syn::Error::new(
+                            meta_list.span(),
+                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
+                        ));
+                    }
+
+                    reflect_mode = Some(ReflectMode::Value);
+                    let new_traits = ReflectTraits::from_nested_metas(&meta_list.nested)?;
+                    traits = traits.merge(new_traits)?;
+                }
+                Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
+                    if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
+                        return Err(syn::Error::new(
+                            path.span(),
+                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
+                        ));
+                    }
+
+                    reflect_mode = Some(ReflectMode::Value);
+                }
+                #[cfg(feature = "documentation")]
+                Meta::NameValue(pair) if pair.path.is_ident("doc") => {
+                    if let syn::Lit::Str(lit) = pair.lit {
+                        doc.push(lit.value());
+                    }
+                }
+                _ => continue,
             }
         }
 
         let meta = ReflectMeta::new(&input.ident, &input.generics, traits);
 
-        if force_reflect_value {
+        #[cfg(feature = "documentation")]
+        let meta = meta.with_docs(doc);
+
+        // Use normal reflection if unspecified
+        let reflect_mode = reflect_mode.unwrap_or(ReflectMode::Normal);
+
+        if reflect_mode == ReflectMode::Value {
             return Ok(Self::Value(meta));
         }
 
         return match &input.data {
             Data::Struct(data) => {
+                let fields = Self::collect_struct_fields(&data.fields)?;
                 let reflect_struct = ReflectStruct {
                     meta,
-                    fields: Self::collect_struct_fields(&data.fields)?,
+                    serialization_denylist: members_to_serialization_denylist(
+                        fields.iter().map(|v| v.attrs.ignore),
+                    ),
+                    fields,
                 };
 
                 match data.fields {
@@ -147,10 +211,9 @@ impl<'a> ReflectDerive<'a> {
                 }
             }
             Data::Enum(data) => {
-                let reflect_enum = ReflectEnum {
-                    meta,
-                    variants: Self::collect_enum_variants(&data.variants)?,
-                };
+                let variants = Self::collect_enum_variants(&data.variants)?;
+
+                let reflect_enum = ReflectEnum { meta, variants };
                 Ok(Self::Enum(reflect_enum))
             }
             Data::Union(..) => Err(syn::Error::new(
@@ -170,6 +233,8 @@ impl<'a> ReflectDerive<'a> {
                     index,
                     attrs,
                     data: field,
+                    #[cfg(feature = "documentation")]
+                    doc: crate::documentation::Documentation::from_attributes(&field.attrs),
                 })
             })
             .fold(
@@ -199,6 +264,8 @@ impl<'a> ReflectDerive<'a> {
                     attrs: parse_field_attrs(&variant.attrs)?,
                     data: variant,
                     index,
+                    #[cfg(feature = "documentation")]
+                    doc: crate::documentation::Documentation::from_attributes(&variant.attrs),
                 })
             })
             .fold(
@@ -217,7 +284,15 @@ impl<'a> ReflectMeta<'a> {
             type_name,
             generics,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
+            #[cfg(feature = "documentation")]
+            docs: Default::default(),
         }
+    }
+
+    /// Sets the documentation for this type.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: crate::documentation::Documentation) -> Self {
+        Self { docs, ..self }
     }
 
     /// The registered reflect traits on this struct.
@@ -247,7 +322,14 @@ impl<'a> ReflectMeta<'a> {
             &self.bevy_reflect_path,
             self.traits.idents(),
             self.generics,
+            None,
         )
+    }
+
+    /// The collection of docstrings for this type, if any.
+    #[cfg(feature = "documentation")]
+    pub fn doc(&self) -> &crate::documentation::Documentation {
+        &self.docs
     }
 }
 
@@ -257,19 +339,50 @@ impl<'a> ReflectStruct<'a> {
         &self.meta
     }
 
-    /// Get an iterator over the active fields.
+    /// Access the data about which fields should be ignored during serialization.
+    ///
+    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`](crate::utility::members_to_serialization_denylist) function.
+    #[allow(dead_code)]
+    pub fn serialization_denylist(&self) -> &BitSet<u32> {
+        &self.serialization_denylist
+    }
+
+    /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
+    ///
+    /// Returns a specific implementation for structs and this method should be preffered over the generic [`get_type_registration`](crate::ReflectMeta) method
+    pub fn get_type_registration(&self) -> proc_macro2::TokenStream {
+        let reflect_path = self.meta.bevy_reflect_path();
+
+        crate::registration::impl_get_type_registration(
+            self.meta.type_name(),
+            reflect_path,
+            self.meta.traits().idents(),
+            self.meta.generics(),
+            Some(&self.serialization_denylist),
+        )
+    }
+
+    /// Get a collection of types which are exposed to the reflection API
+    pub fn active_types(&self) -> Vec<syn::Type> {
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_active())
+            .map(|field| field.data.ty.clone())
+            .collect::<Vec<_>>()
+    }
+
+    /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields.iter().filter(|field| !field.attrs.ignore)
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_active())
     }
 
-    /// Get an iterator over the ignored fields.
+    /// Get an iterator of fields which are ignored by the reflection API
     pub fn ignored_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.fields.iter().filter(|field| field.attrs.ignore)
-    }
-
-    /// Get a collection of all active types.
-    pub fn active_types(&self) -> impl Iterator<Item = &Type> {
-        self.active_fields().map(|field| &field.data.ty)
+        self.fields
+            .iter()
+            .filter(move |field| field.attrs.ignore.is_ignored())
     }
 
     /// The complete set of fields in this struct.
@@ -285,17 +398,6 @@ impl<'a> ReflectEnum<'a> {
         &self.meta
     }
 
-    /// Get an iterator over the active variants.
-    pub fn active_variants(&self) -> impl Iterator<Item = &EnumVariant<'a>> {
-        self.variants.iter().filter(|variant| !variant.attrs.ignore)
-    }
-
-    /// Get an iterator over the ignored variants.
-    #[allow(dead_code)]
-    pub fn ignored_variants(&self) -> impl Iterator<Item = &EnumVariant<'a>> {
-        self.variants.iter().filter(|variant| variant.attrs.ignore)
-    }
-
     /// Returns the given ident as a qualified unit variant of this enum.
     pub fn get_unit(&self, variant: &Ident) -> proc_macro2::TokenStream {
         let name = self.meta.type_name;
@@ -305,7 +407,6 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// The complete set of variants in this enum.
-    #[allow(dead_code)]
     pub fn variants(&self) -> &[EnumVariant<'a>] {
         &self.variants
     }

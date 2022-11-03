@@ -4,7 +4,6 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityMap},
     event::{Events, ManualEventReader},
-    reflect::{ReflectComponent, ReflectMapEntities},
     system::{Command, Resource},
     world::{Mut, World},
 };
@@ -13,9 +12,11 @@ use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
 
+/// Informations about a scene instance.
 #[derive(Debug)]
-struct InstanceInfo {
-    entity_map: EntityMap,
+pub struct InstanceInfo {
+    /// Mapping of entities from the scene world to the instance world.
+    pub entity_map: EntityMap,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -161,11 +162,6 @@ impl SceneSpawner {
         scene_handle: Handle<Scene>,
         instance_id: InstanceId,
     ) -> Result<InstanceId, SceneSpawnError> {
-        let mut instance_info = InstanceInfo {
-            entity_map: EntityMap::default(),
-        };
-        let type_registry = world.resource::<AppTypeRegistry>().clone();
-        let type_registry = type_registry.read();
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene =
                 scenes
@@ -174,42 +170,9 @@ impl SceneSpawner {
                         handle: scene_handle.clone(),
                     })?;
 
-            for archetype in scene.world.archetypes().iter() {
-                for scene_entity in archetype.entities() {
-                    let entity = *instance_info
-                        .entity_map
-                        .entry(*scene_entity)
-                        .or_insert_with(|| world.spawn().id());
-                    for component_id in archetype.components() {
-                        let component_info = scene
-                            .world
-                            .components()
-                            .get_info(component_id)
-                            .expect("component_ids in archetypes should have ComponentInfo");
+            let instance_info =
+                scene.write_to_world_with(world, &world.resource::<AppTypeRegistry>().clone())?;
 
-                        let reflect_component = type_registry
-                            .get(component_info.type_id().unwrap())
-                            .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                                type_name: component_info.name().to_string(),
-                            })
-                            .and_then(|registration| {
-                                registration.data::<ReflectComponent>().ok_or_else(|| {
-                                    SceneSpawnError::UnregisteredComponent {
-                                        type_name: component_info.name().to_string(),
-                                    }
-                                })
-                            })?;
-                        reflect_component.copy(&scene.world, world, *scene_entity, entity);
-                    }
-                }
-            }
-            for registration in type_registry.iter() {
-                if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                    map_entities_reflect
-                        .map_entities(world, &instance_info.entity_map)
-                        .unwrap();
-                }
-            }
             self.spawned_instances.insert(instance_id, instance_info);
             let spawned = self
                 .spawned_scenes
@@ -332,14 +295,19 @@ impl SceneSpawner {
         self.spawned_instances.contains_key(&instance_id)
     }
 
-    /// Get an iterator over the entities in an instance, once it's spawned
+    /// Get an iterator over the entities in an instance, once it's spawned.
+    ///
+    /// Before the scene is spawned, the iterator will be empty. Use [`Self::instance_is_ready`]
+    /// to check if the instance is ready.
     pub fn iter_instance_entities(
         &'_ self,
         instance_id: InstanceId,
-    ) -> Option<impl Iterator<Item = Entity> + '_> {
+    ) -> impl Iterator<Item = Entity> + '_ {
         self.spawned_instances
             .get(&instance_id)
             .map(|instance| instance.entity_map.values())
+            .into_iter()
+            .flatten()
     }
 }
 

@@ -189,6 +189,10 @@ impl System for FixedTimestep {
         self.internal_system.is_send()
     }
 
+    fn is_exclusive(&self) -> bool {
+        false
+    }
+
     unsafe fn run_unsafe(&mut self, _input: (), world: &World) -> ShouldRun {
         // SAFETY: this system inherits the internal system's component access and archetype component
         // access, which means the caller has ensured running the internal system is safe
@@ -224,6 +228,14 @@ impl System for FixedTimestep {
     fn check_change_tick(&mut self, change_tick: u32) {
         self.internal_system.check_change_tick(change_tick);
     }
+
+    fn get_last_change_tick(&self) -> u32 {
+        self.internal_system.get_last_change_tick()
+    }
+
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.internal_system.set_last_change_tick(last_change_tick);
+    }
 }
 
 #[cfg(test)]
@@ -249,8 +261,10 @@ mod test {
         world.insert_resource(Count(0));
         let mut schedule = Schedule::default();
 
+        #[derive(StageLabel)]
+        struct Update;
         schedule.add_stage(
-            "update",
+            Update,
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(0.5).with_label(LABEL))
                 .with_system(fixed_update),
