@@ -127,10 +127,9 @@ impl Plugin for BloomPlugin {
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
-    // TODO: Write better documentation for each parameter
     /// Baseline of the threshold curve (default: 1.0).
     ///
-    /// Pixel RGB values under the threshold curve will not have bloom applied.
+    /// RGB values under the threshold curve will not have bloom applied.
     pub threshold: f32,
 
     /// Knee of the threshold curve (default: 0.1).
