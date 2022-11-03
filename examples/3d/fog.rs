@@ -200,7 +200,7 @@ fn update_system(
             fog.mode = FogMode::Linear {
                 start: 5.0,
                 end: 20.0,
-            }
+            };
         };
     }
 
