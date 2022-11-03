@@ -35,6 +35,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 ///     FogSettings {
 ///         color: Color::WHITE,
 ///         falloff: FogFalloff::Exponential { density: 1e-3 },
+///         ..Default::default()
 ///     },
 /// ));
 /// # }

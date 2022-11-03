@@ -38,6 +38,7 @@ fn setup_camera_fog(mut commands: Commands) {
                 start: 5.0,
                 end: 20.0,
             },
+            ..default()
         },
     ));
 }
