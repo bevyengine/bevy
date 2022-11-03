@@ -2,9 +2,7 @@ use std::num::NonZeroU32;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_core_pipeline::{
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state, prelude::Camera3d,
-};
+use bevy_core_pipeline::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryState, With},
@@ -29,7 +27,14 @@ use bevy_utils::HashMap;
 pub mod draw_3d_graph {
     pub mod node {
         /// Label for the bloom render node.
-        pub const BLOOM: &str = "bloom";
+        pub const BLOOM: &str = "bloom_3d";
+    }
+}
+
+pub mod draw_2d_graph {
+    pub mod node {
+        /// Label for the bloom render node.
+        pub const BLOOM: &str = "bloom_2d";
     }
 }
 
@@ -54,39 +59,69 @@ impl Plugin for BloomPlugin {
             .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
             .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
             .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
-
-        let bloom_node = BloomNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-        let draw_3d_graph = graph
-            .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
-            .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::BLOOM, bloom_node);
-        draw_3d_graph
-            .add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
-                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::BLOOM,
-                BloomNode::IN_VIEW,
-            )
-            .unwrap();
-        // MAIN_PASS -> BLOOM -> TONEMAPPING
-        draw_3d_graph
-            .add_node_edge(
-                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
-                draw_3d_graph::node::BLOOM,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_node_edge(
-                draw_3d_graph::node::BLOOM,
-                bevy_core_pipeline::core_3d::graph::node::TONEMAPPING,
-            )
-            .unwrap();
+        {
+            let bloom_node = BloomNode::new(&mut render_app.world);
+            let mut graph = render_app.world.resource_mut::<RenderGraph>();
+            let draw_3d_graph = graph
+                .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
+                .unwrap();
+            draw_3d_graph.add_node(draw_3d_graph::node::BLOOM, bloom_node);
+            draw_3d_graph
+                .add_slot_edge(
+                    draw_3d_graph.input_node().unwrap().id,
+                    bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+                    draw_3d_graph::node::BLOOM,
+                    BloomNode::IN_VIEW,
+                )
+                .unwrap();
+            // MAIN_PASS -> BLOOM -> TONEMAPPING
+            draw_3d_graph
+                .add_node_edge(
+                    bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+                    draw_3d_graph::node::BLOOM,
+                )
+                .unwrap();
+            draw_3d_graph
+                .add_node_edge(
+                    draw_3d_graph::node::BLOOM,
+                    bevy_core_pipeline::core_3d::graph::node::TONEMAPPING,
+                )
+                .unwrap();
+        }
+        {
+            let bloom_node = BloomNode::new(&mut render_app.world);
+            let mut graph = render_app.world.resource_mut::<RenderGraph>();
+            let draw_2d_graph = graph
+                .get_sub_graph_mut(bevy_core_pipeline::core_2d::graph::NAME)
+                .unwrap();
+            draw_2d_graph.add_node(draw_2d_graph::node::BLOOM, bloom_node);
+            draw_2d_graph
+                .add_slot_edge(
+                    draw_2d_graph.input_node().unwrap().id,
+                    bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
+                    draw_2d_graph::node::BLOOM,
+                    BloomNode::IN_VIEW,
+                )
+                .unwrap();
+            // MAIN_PASS -> BLOOM -> TONEMAPPING
+            draw_2d_graph
+                .add_node_edge(
+                    bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
+                    draw_2d_graph::node::BLOOM,
+                )
+                .unwrap();
+            draw_2d_graph
+                .add_node_edge(
+                    draw_2d_graph::node::BLOOM,
+                    bevy_core_pipeline::core_2d::graph::node::TONEMAPPING,
+                )
+                .unwrap();
+        }
     }
 }
 
 // TODO: Write better documentation.
-/// Applies a bloom effect to an HDR-enabled Camera3d.
+/// Applies a bloom effect to a HDR-enabled Camera.
 ///
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, Clone)]
@@ -488,9 +523,9 @@ impl FromWorld for BloomPipelines {
 
 fn extract_bloom_settings(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(Entity, &Camera, &BloomSettings), With<Camera3d>>>,
+    cameras: Extract<Query<(Entity, &Camera, &BloomSettings), With<Camera>>>,
 ) {
-    for (entity, camera, bloom_settings) in &cameras_3d {
+    for (entity, camera, bloom_settings) in &cameras {
         if camera.is_active && camera.hdr {
             commands.get_or_spawn(entity).insert(bloom_settings.clone());
         }
