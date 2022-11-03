@@ -11,12 +11,12 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 
-use crate::{Fog, FogMode};
+use crate::{FogFalloff, FogSettings};
 
 /// The GPU-side representation of the fog configuration that's sent as a uniform to the shader
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuFog {
-    /// unsigned int representation of the active fog mode
+    /// unsigned int representation of the active fog falloff mode
     mode: u32,
     /// fog color
     color: Vec4,
@@ -43,24 +43,24 @@ pub fn prepare_fog(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut fog_meta: ResMut<FogMeta>,
-    views: Query<(Entity, Option<&Fog>), With<ExtractedView>>,
+    views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
 ) {
     for (entity, fog) in &views {
         let gpu_fog = if let Some(fog) = fog {
-            match &fog.mode {
-                FogMode::Linear { start, end } => GpuFog {
+            match &fog.falloff {
+                FogFalloff::Linear { start, end } => GpuFog {
                     mode: GPU_FOG_MODE_LINEAR,
                     color: fog.color.into(),
                     density_or_start: *start,
                     end: *end,
                 },
-                FogMode::Exponential { density } => GpuFog {
+                FogFalloff::Exponential { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL,
                     color: fog.color.into(),
                     density_or_start: *density,
                     ..Default::default()
                 },
-                FogMode::ExponentialSquared { density } => GpuFog {
+                FogFalloff::ExponentialSquared { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL_SQUARED,
                     color: fog.color.into(),
                     density_or_start: *density,
@@ -110,7 +110,7 @@ impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, FOG_SHADER_HANDLE, "fog.wgsl", Shader::from_wgsl);
 
-        app.add_plugin(ExtractComponentPlugin::<Fog>::default());
+        app.add_plugin(ExtractComponentPlugin::<FogSettings>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<FogMeta>().add_system_to_stage(

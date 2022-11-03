@@ -3,16 +3,18 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::Reflect;
 use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Camera};
 
-/// A “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect, that makes
-/// objects appear progressively more covered in atmospheric haze as they move further away from the camera.
+/// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
+/// in which objects appear progressively more covered in atmospheric haze as they move further away from the camera.
 /// Affects meshes rendered via the PBR [`StandardMaterial`](crate::StandardMaterial).
-/// Configurable independently for each camera.
 ///
-/// Currently, the following fog modes are supported:
+/// ## Falloff
 ///
-/// - [`FogMode::Linear`]
-/// - [`FogMode::Exponential`]
-/// - [`FogMode::ExponentialSquared`]
+/// The rate at which fog intensity increases with distance is controlled by the falloff mode.
+/// Currently, the following fog falloff modes are supported:
+///
+/// - [`FogFalloff::Linear`]
+/// - [`FogFalloff::Exponential`]
+/// - [`FogFalloff::ExponentialSquared`]
 ///
 /// ## Example
 ///
@@ -29,9 +31,9 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// #       ..Default::default()
 ///     },
 ///     // Add fog to the same entity
-///     Fog {
+///     FogSettings {
 ///         color: Color::WHITE,
-///         mode: FogMode::Exponential { density: 1e-3 },
+///         falloff: FogFalloff::Exponential { density: 1e-3 },
 ///     },
 /// ));
 /// # }
@@ -44,23 +46,23 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `no_fog` flag.
 #[derive(Debug, Clone, Component, Reflect)]
 #[reflect(Component)]
-pub struct Fog {
+pub struct FogSettings {
     /// The color of the fog effect.
     ///
     /// **Tip:** The alpha channel of the color can be used to “modulate” the fog effect without
-    /// changing the fog mode or parameters.
+    /// changing the fog falloff mode or parameters.
     pub color: Color,
 
-    /// Determines which “mode” of fog rendering to use, and provides parameters for each mode.
-    pub mode: FogMode,
+    /// Determines which falloff mode to use, and its parameters.
+    pub falloff: FogFalloff,
 }
 
-/// Allows switching between different the [`Fog`] “modes”, and configuring their parameters.
+/// Allows switching between the different fog falloff modes, and configuring their parameters.
 #[derive(Debug, Clone, Reflect)]
-pub enum FogMode {
-    /// A linear fog effect that grows in intensity between `start` and `end` distances.
+pub enum FogFalloff {
+    /// A linear fog falloff that grows in intensity between `start` and `end` distances.
     ///
-    /// This mode is simpler to control than other modes, however it can produce results that look “artificial”, depending on the scene.
+    /// This falloff mode is simpler to control than other modes, however it can produce results that look “artificial”, depending on the scene.
     ///
     /// ## Formula
     ///
@@ -71,7 +73,7 @@ pub enum FogMode {
     /// ```
     ///
     /// <svg width="370" height="212" viewBox="0 0 370 212" fill="none">
-    /// <title>Plot showing how the linear fog mode behaves for start and end values of 0.8 and 2.2, respectively.</title>
+    /// <title>Plot showing how linear fog falloff behaves for start and end values of 0.8 and 2.2, respectively.</title>
     /// <path d="M331 151H42V49" stroke="currentColor" stroke-width="2"/>
     /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="136" y="173.864">1</tspan></text>
     /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-family="Inter" font-size="12" letter-spacing="0em"><tspan x="30" y="53.8636">1</tspan></text>
@@ -94,9 +96,9 @@ pub enum FogMode {
         end: f32,
     },
 
-    /// An exponential fog effect with a given `density`.
+    /// An exponential fog falloff with a given `density`.
     ///
-    /// Initially gains intensity quickly with distance, then more slowly. Typically produces more natural results than [`FogMode::Linear`],
+    /// Initially gains intensity quickly with distance, then more slowly. Typically produces more natural results than [`FogFalloff::Linear`],
     /// but is a bit harder to control.
     ///
     /// To move the fog “further away”, use lower density values. To move it “closer” use higher density values.
@@ -117,7 +119,7 @@ pub enum FogMode {
     /// ```
     ///
     /// <svg width="370" height="212" viewBox="0 0 370 212" fill="none">
-    /// <title>Plot showing how the exponential fog mode behaves for different density values</title>
+    /// <title>Plot showing how exponential fog falloff behaves for different density values</title>
     /// <mask id="mask0_3_31" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="42" y="42" width="286" height="108">
     /// <rect x="42" y="42" width="286" height="108" fill="#D9D9D9"/>
     /// </mask>
@@ -140,9 +142,9 @@ pub enum FogMode {
     /// </svg>
     Exponential { density: f32 },
 
-    /// A squared exponential fog effect with a given `density`.
+    /// A squared exponential fog falloff with a given `density`.
     ///
-    /// Similar to [`FogMode::Exponential`], but grows more slowly in intensity for closer distances
+    /// Similar to [`FogFalloff::Exponential`], but grows more slowly in intensity for closer distances
     /// before “catching up”.
     ///
     /// ## Formula
@@ -154,7 +156,7 @@ pub enum FogMode {
     /// ```
     ///
     /// <svg width="370" height="212" viewBox="0 0 370 212" fill="none">
-    /// <title>Plot showing how the exponential squared fog mode behaves for different density values</title>
+    /// <title>Plot showing how exponential squared fog falloff behaves for different density values</title>
     /// <mask id="mask0_1_3" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="42" y="42" width="286" height="108">
     /// <rect x="42" y="42" width="286" height="108" fill="#D9D9D9"/>
     /// </mask>
@@ -178,11 +180,11 @@ pub enum FogMode {
     ExponentialSquared { density: f32 },
 }
 
-impl Default for Fog {
+impl Default for FogSettings {
     fn default() -> Self {
-        Fog {
+        FogSettings {
             color: Color::rgba(1.0, 1.0, 1.0, 1.0),
-            mode: FogMode::Linear {
+            falloff: FogFalloff::Linear {
                 start: 0.0,
                 end: 100.0,
             },
@@ -190,7 +192,7 @@ impl Default for Fog {
     }
 }
 
-impl ExtractComponent for Fog {
+impl ExtractComponent for FogSettings {
     type Query = &'static Self;
     type Filter = With<Camera>;
 

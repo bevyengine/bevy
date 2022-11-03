@@ -1,11 +1,11 @@
 //! This interactive example shows how to use distance fog,
-//! and allows playing around with different fog modes/settings.
+//! and allows playing around with different fog settings.
 //!
 //! ## Controls
 //!
 //! | Key Binding        | Action                              |
 //! |:-------------------|:------------------------------------|
-//! | `1` / `2` / `3`    | Switch Fog Mode                     |
+//! | `1` / `2` / `3`    | Fog Falloff Mode                    |
 //! | `A` / `S`          | Move Start Distance (Linear Fog)    |
 //! |                    | Change Density (Exponential Fogs)   |
 //! | `Z` / `X`          | Move End Distance (Linear Fog)      |
@@ -32,9 +32,9 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
-        Fog {
+        FogSettings {
             color: Color::rgba(0.05, 0.05, 0.05, 1.0),
-            mode: FogMode::Linear {
+            falloff: FogFalloff::Linear {
                 start: 5.0,
                 end: 20.0,
             },
@@ -165,7 +165,7 @@ fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn update_system(
-    mut camera: Query<(&mut Fog, &mut Transform)>,
+    mut camera: Query<(&mut FogSettings, &mut Transform)>,
     mut text: Query<&mut Text>,
     time: Res<Time>,
     keycode: Res<Input<KeyCode>>,
@@ -186,18 +186,18 @@ fn update_system(
     .looking_at(Vec3::ZERO, Vec3::Y);
 
     // Fog Information
-    text.sections[0].value = format!("Fog Mode: {:?}\nFog Color: {:?}", fog.mode, fog.color);
+    text.sections[0].value = format!("Fog Falloff: {:?}\nFog Color: {:?}", fog.falloff, fog.color);
 
-    // Fog Mode Switching
+    // Fog Falloff Mode Switching
     text.sections[0]
         .value
-        .push_str("\n\n1 / 2 / 3 - Switch Fog Mode");
+        .push_str("\n\n1 / 2 / 3 - Fog Falloff Mode");
 
     if keycode.pressed(KeyCode::Key1) {
-        if let FogMode::Linear { .. } = fog.mode {
+        if let FogFalloff::Linear { .. } = fog.falloff {
             // No change
         } else {
-            fog.mode = FogMode::Linear {
+            fog.falloff = FogFalloff::Linear {
                 start: 5.0,
                 end: 20.0,
             };
@@ -205,30 +205,30 @@ fn update_system(
     }
 
     if keycode.pressed(KeyCode::Key2) {
-        if let FogMode::Exponential { .. } = fog.mode {
+        if let FogFalloff::Exponential { .. } = fog.falloff {
             // No change
-        } else if let FogMode::ExponentialSquared { density } = fog.mode {
-            fog.mode = FogMode::Exponential { density };
+        } else if let FogFalloff::ExponentialSquared { density } = fog.falloff {
+            fog.falloff = FogFalloff::Exponential { density };
         } else {
-            fog.mode = FogMode::Exponential { density: 0.07 };
+            fog.falloff = FogFalloff::Exponential { density: 0.07 };
         };
     }
 
     if keycode.pressed(KeyCode::Key3) {
-        if let FogMode::Exponential { density } = fog.mode {
-            fog.mode = FogMode::ExponentialSquared { density };
-        } else if let FogMode::ExponentialSquared { .. } = fog.mode {
+        if let FogFalloff::Exponential { density } = fog.falloff {
+            fog.falloff = FogFalloff::ExponentialSquared { density };
+        } else if let FogFalloff::ExponentialSquared { .. } = fog.falloff {
             // No change
         } else {
-            fog.mode = FogMode::Exponential { density: 0.07 };
+            fog.falloff = FogFalloff::Exponential { density: 0.07 };
         };
     }
 
     // Linear Fog Controls
-    if let FogMode::Linear {
+    if let FogFalloff::Linear {
         ref mut start,
         ref mut end,
-    } = &mut fog.mode
+    } = &mut fog.falloff
     {
         text.sections[0]
             .value
@@ -249,7 +249,7 @@ fn update_system(
     }
 
     // Exponential Fog Controls
-    if let FogMode::Exponential { ref mut density } = &mut fog.mode {
+    if let FogFalloff::Exponential { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::A) {
@@ -264,7 +264,7 @@ fn update_system(
     }
 
     // ExponentialSquared Fog Controls
-    if let FogMode::ExponentialSquared { ref mut density } = &mut fog.mode {
+    if let FogFalloff::ExponentialSquared { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::A) {
