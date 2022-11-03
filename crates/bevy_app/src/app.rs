@@ -10,7 +10,7 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
@@ -26,6 +26,10 @@ bevy_utils::define_label!(
 #[cfg(feature = "bevy_reflect")]
 #[derive(Resource, Clone, bevy_derive::Deref, bevy_derive::DerefMut, Default)]
 pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
+
+pub(crate) enum AppError {
+    DuplicatePlugin { plugin_name: String },
+}
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -68,6 +72,7 @@ pub struct App {
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
+    plugin_name_added: HashSet<String>,
 }
 
 impl Debug for App {
@@ -132,6 +137,7 @@ impl App {
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
+            plugin_name_added: Default::default(),
         }
     }
 
@@ -822,19 +828,37 @@ impl App {
     /// # }
     /// App::new().add_plugin(bevy_log::LogPlugin::default());
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the plugin was already added to the application.
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
     where
         T: Plugin,
     {
-        self.add_boxed_plugin(Box::new(plugin))
+        match self.add_boxed_plugin(Box::new(plugin)) {
+            Ok(app) => app,
+            Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
+                "Error adding plugin {}: : plugin was already added in application",
+                plugin_name
+            ),
+        }
     }
 
     /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
-    pub(crate) fn add_boxed_plugin(&mut self, plugin: Box<dyn Plugin>) -> &mut Self {
+    pub(crate) fn add_boxed_plugin(
+        &mut self,
+        plugin: Box<dyn Plugin>,
+    ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
+        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
+            Err(AppError::DuplicatePlugin {
+                plugin_name: plugin.name().to_string(),
+            })?;
+        }
         plugin.build(self);
         self.plugin_registry.push(plugin);
-        self
+        Ok(self)
     }
 
     /// Checks if a [`Plugin`] has already been added.
@@ -897,6 +921,10 @@ impl App {
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugin in the group was already added to the application.
     pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
         let builder = group.build();
         builder.finish(self);
@@ -1030,3 +1058,49 @@ fn run_once(mut app: App) {
 /// frame is over.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;
+
+#[cfg(test)]
+mod tests {
+    use crate::{App, Plugin};
+
+    struct PluginA;
+    impl Plugin for PluginA {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginB;
+    impl Plugin for PluginB {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginC<T>(T);
+    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginD;
+    impl Plugin for PluginD {
+        fn build(&self, _app: &mut crate::App) {}
+        fn is_unique(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn can_add_two_plugins() {
+        App::new().add_plugin(PluginA).add_plugin(PluginB);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cant_add_twice_the_same_plugin() {
+        App::new().add_plugin(PluginA).add_plugin(PluginA);
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_with_different_type_param() {
+        App::new().add_plugin(PluginC(0)).add_plugin(PluginC(true));
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_not_unique() {
+        App::new().add_plugin(PluginD).add_plugin(PluginD);
+    }
+}

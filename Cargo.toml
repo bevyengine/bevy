@@ -335,6 +335,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "fxaa"
+path = "examples/3d/fxaa.rs"
+
+[package.metadata.example.fxaa]
+name = "FXAA"
+description = "Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
@@ -1460,6 +1470,16 @@ path = "examples/ui/transparency_ui.rs"
 [package.metadata.example.transparency_ui]
 name = "Transparency UI"
 description = "Demonstrates transparency for UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "z_index"
+path = "examples/ui/z_index.rs"
+
+[package.metadata.example.z_index]
+name = "UI Z-Index"
+description = "Demonstrates how to control the relative depth (z-position) of UI elements"
 category = "UI (User Interface)"
 wasm = true
 

@@ -1,25 +1,33 @@
 use std::sync::Mutex;
 
-use crate::tonemapping::{Tonemapping, TonemappingPipeline};
+use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, Operations,
         PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
         TextureViewId,
     },
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
+use bevy_utils::default;
 
-pub struct TonemappingNode {
-    query: QueryState<(&'static ViewTarget, Option<&'static Tonemapping>), With<ExtractedView>>,
+pub struct FxaaNode {
+    query: QueryState<
+        (
+            &'static ViewTarget,
+            &'static CameraFxaaPipeline,
+            &'static Fxaa,
+        ),
+        With<ExtractedView>,
+    >,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
-impl TonemappingNode {
+impl FxaaNode {
     pub const IN_VIEW: &'static str = "view";
 
     pub fn new(world: &mut World) -> Self {
@@ -30,9 +38,9 @@ impl TonemappingNode {
     }
 }
 
-impl Node for TonemappingNode {
+impl Node for FxaaNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(TonemappingNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(FxaaNode::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {
@@ -47,43 +55,43 @@ impl Node for TonemappingNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let pipeline_cache = world.resource::<PipelineCache>();
-        let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
+        let fxaa_pipeline = world.resource::<FxaaPipeline>();
 
-        let (target, tonemapping) = match self.query.get_manual(world, view_entity) {
+        let (target, pipeline, fxaa) = match self.query.get_manual(world, view_entity) {
             Ok(result) => result,
             Err(_) => return Ok(()),
         };
 
-        let tonemapping_enabled = tonemapping.map_or(false, |t| t.is_enabled);
-        if !tonemapping_enabled || !target.is_hdr() {
+        if !fxaa.enabled {
             return Ok(());
-        }
-
-        let pipeline = match pipeline_cache
-            .get_render_pipeline(tonemapping_pipeline.tonemapping_pipeline_id)
-        {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
         };
+
+        let pipeline = pipeline_cache
+            .get_render_pipeline(pipeline.pipeline_id)
+            .unwrap();
 
         let post_process = target.post_process_write();
         let source = post_process.source;
         let destination = post_process.destination;
-
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
                     .render_device
-                    .create_sampler(&SamplerDescriptor::default());
+                    .create_sampler(&SamplerDescriptor {
+                        mipmap_filter: FilterMode::Linear,
+                        mag_filter: FilterMode::Linear,
+                        min_filter: FilterMode::Linear,
+                        ..default()
+                    });
 
                 let bind_group =
                     render_context
                         .render_device
                         .create_bind_group(&BindGroupDescriptor {
                             label: None,
-                            layout: &tonemapping_pipeline.texture_bind_group,
+                            layout: &fxaa_pipeline.texture_bind_group,
                             entries: &[
                                 BindGroupEntry {
                                     binding: 0,
@@ -102,14 +110,11 @@ impl Node for TonemappingNode {
         };
 
         let pass_descriptor = RenderPassDescriptor {
-            label: Some("tonemapping_pass"),
+            label: Some("fxaa_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: destination,
                 resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared
-                    store: true,
-                },
+                ops: Operations::default(),
             })],
             depth_stencil_attachment: None,
         };

@@ -1453,7 +1453,7 @@ mod tests {
             e4,
             Entity {
                 generation: 0,
-                id: 3,
+                index: 3,
             },
             "new entity is created immediately after world_a's max entity"
         );
@@ -1487,7 +1487,7 @@ mod tests {
 
         let e4_mismatched_generation = Entity {
             generation: 1,
-            id: 3,
+            index: 3,
         };
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
@@ -1506,7 +1506,7 @@ mod tests {
 
         let high_non_existent_entity = Entity {
             generation: 0,
-            id: 6,
+            index: 6,
         };
         world_b
             .get_or_spawn(high_non_existent_entity)
@@ -1520,7 +1520,7 @@ mod tests {
 
         let high_non_existent_but_reserved_entity = Entity {
             generation: 0,
-            id: 5,
+            index: 5,
         };
         assert!(
             world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
@@ -1539,19 +1539,19 @@ mod tests {
             vec![
                 Entity {
                     generation: 0,
-                    id: 5
+                    index: 5
                 },
                 Entity {
                     generation: 0,
-                    id: 4
+                    index: 4
                 },
                 Entity {
                     generation: 0,
-                    id: 7,
+                    index: 7,
                 },
                 Entity {
                     generation: 0,
-                    id: 8,
+                    index: 8,
                 },
             ],
             "space between original entities and high entities is used for new entity ids"
@@ -1603,7 +1603,7 @@ mod tests {
         let e2 = world.spawn_empty().id();
         let invalid_e2 = Entity {
             generation: 1,
-            id: e2.id,
+            index: e2.index,
         };
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];

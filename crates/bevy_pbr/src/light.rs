@@ -1557,6 +1557,22 @@ pub fn check_light_mesh_visibility(
         (Without<NotShadowCaster>, Without<DirectionalLight>),
     >,
 ) {
+    fn shrink_entities(visible_entities: &mut VisibleEntities) {
+        // Check that visible entities capacity() is no more than two times greater than len()
+        let capacity = visible_entities.entities.capacity();
+        let reserved = capacity
+            .checked_div(visible_entities.entities.len())
+            .map_or(0, |reserve| {
+                if reserve > 2 {
+                    capacity / (reserve / 2)
+                } else {
+                    capacity
+                }
+            });
+
+        visible_entities.entities.shrink_to(reserved);
+    }
+
     // Directional lights
     for (
         directional_light,
@@ -1598,8 +1614,7 @@ pub fn check_light_mesh_visibility(
             visible_entities.entities.push(entity);
         }
 
-        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
-        // to prevent holding unneeded memory
+        shrink_entities(&mut visible_entities);
     }
 
     for visible_lights in &visible_point_lights {
@@ -1670,11 +1685,12 @@ pub fn check_light_mesh_visibility(
                     }
                 }
 
-                // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
-                // to prevent holding unneeded memory
+                for visible_entities in cubemap_visible_entities.iter_mut() {
+                    shrink_entities(visible_entities);
+                }
             }
 
-            // spot lights
+            // Spot lights
             if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask)) =
                 spot_lights.get_mut(light_entity)
             {
@@ -1726,8 +1742,7 @@ pub fn check_light_mesh_visibility(
                     }
                 }
 
-                // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
-                // to prevent holding unneeded memory
+                shrink_entities(&mut visible_entities);
             }
         }
     }
