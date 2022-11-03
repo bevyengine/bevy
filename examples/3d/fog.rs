@@ -180,30 +180,33 @@ fn update_system(
         .push_str("\n\n1 / 2 / 3 - Switch Fog Mode");
 
     if keycode.pressed(KeyCode::Key1) {
-        fog.mode = match fog.mode {
-            FogMode::Linear { start, end } => FogMode::Linear { start, end },
-            _ => FogMode::Linear {
+        if let FogMode::Linear { .. } = fog.mode {
+            // No change
+        } else {
+            fog.mode = FogMode::Linear {
                 start: 5.0,
                 end: 20.0,
-            },
+            }
         };
     }
 
     if keycode.pressed(KeyCode::Key2) {
-        fog.mode = match fog.mode {
-            FogMode::Exponential { density } | FogMode::ExponentialSquared { density } => {
-                FogMode::Exponential { density }
-            }
-            _ => FogMode::Exponential { density: 0.07 },
+        if let FogMode::Exponential { .. } = fog.mode {
+            // No change
+        } else if let FogMode::ExponentialSquared { density } = fog.mode {
+            fog.mode = FogMode::Exponential { density };
+        } else {
+            fog.mode = FogMode::Exponential { density: 0.07 };
         };
     }
 
     if keycode.pressed(KeyCode::Key3) {
-        fog.mode = match fog.mode {
-            FogMode::Exponential { density } | FogMode::ExponentialSquared { density } => {
-                FogMode::ExponentialSquared { density }
-            }
-            _ => FogMode::ExponentialSquared { density: 0.07 },
+        if let FogMode::Exponential { density } = fog.mode {
+            fog.mode = FogMode::ExponentialSquared { density };
+        } else if let FogMode::ExponentialSquared { .. } = fog.mode {
+            // No change
+        } else {
+            fog.mode = FogMode::Exponential { density: 0.07 };
         };
     }
 
@@ -277,32 +280,32 @@ fn update_system(
     }
 
     if keycode.pressed(KeyCode::LBracket) {
-        let r = (fog.color.g() - 0.1 * delta).max(0.0);
-        fog.color.set_g(r);
+        let g = (fog.color.g() - 0.1 * delta).max(0.0);
+        fog.color.set_g(g);
     }
 
     if keycode.pressed(KeyCode::RBracket) {
-        let r = (fog.color.g() + 0.1 * delta).min(1.0);
-        fog.color.set_g(r);
+        let g = (fog.color.g() + 0.1 * delta).min(1.0);
+        fog.color.set_g(g);
     }
 
     if keycode.pressed(KeyCode::Semicolon) {
-        let r = (fog.color.b() - 0.1 * delta).max(0.0);
-        fog.color.set_b(r);
+        let b = (fog.color.b() - 0.1 * delta).max(0.0);
+        fog.color.set_b(b);
     }
 
     if keycode.pressed(KeyCode::Apostrophe) {
-        let r = (fog.color.b() + 0.1 * delta).min(1.0);
-        fog.color.set_b(r);
+        let b = (fog.color.b() + 0.1 * delta).min(1.0);
+        fog.color.set_b(b);
     }
 
     if keycode.pressed(KeyCode::Period) {
-        let r = (fog.color.a() - 0.1 * delta).max(0.0);
-        fog.color.set_a(r);
+        let a = (fog.color.a() - 0.1 * delta).max(0.0);
+        fog.color.set_a(a);
     }
 
     if keycode.pressed(KeyCode::Slash) {
-        let r = (fog.color.a() + 0.1 * delta).min(1.0);
-        fog.color.set_a(r);
+        let a = (fog.color.a() + 0.1 * delta).min(1.0);
+        fog.color.set_a(a);
     }
 }
