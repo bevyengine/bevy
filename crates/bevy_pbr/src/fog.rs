@@ -15,6 +15,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// - [`FogFalloff::Linear`]
 /// - [`FogFalloff::Exponential`]
 /// - [`FogFalloff::ExponentialSquared`]
+/// - [`FogFalloff::Atmospheric`]
 ///
 /// ## Example
 ///
@@ -116,7 +117,7 @@ pub enum FogFalloff {
     /// in the ballpark of `1e-3`. Conversely, for really small scale scenes you might want really high values of
     /// density.
     ///
-    /// **Tip:** You can combine the `density` parameter with the [`Fog`] `color`'s alpha channel for easier control.
+    /// **Tip:** You can combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier control.
     ///
     /// ## Formula
     ///
