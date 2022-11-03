@@ -46,6 +46,8 @@ pub struct AddBundle {
     pub(crate) bundle_status: Vec<ComponentStatus>,
 }
 
+/// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
+/// being added to a given entity, relative to that entity's original archetype.
 pub(crate) trait BundleComponentStatus {
     /// Returns the Bundle's component status for the given "bundle index"
     ///
@@ -68,6 +70,7 @@ pub(crate) struct SpawnBundleStatus;
 impl BundleComponentStatus for SpawnBundleStatus {
     #[inline]
     unsafe fn get_status(&self, _index: usize) -> ComponentStatus {
+        // Components added during a spawn_bundle call are always treated as added
         ComponentStatus::Added
     }
 }

@@ -1594,7 +1594,6 @@ mod tests {
     use crate::{
         change_detection::DetectChanges,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
-        prelude::Bundle,
         ptr::OwningPtr,
         system::Resource,
     };
