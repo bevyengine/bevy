@@ -20,6 +20,8 @@ use bevy_render::{
     view::ViewTarget,
     Extract, RenderApp, RenderStage,
 };
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
 use std::num::NonZeroU32;
 
