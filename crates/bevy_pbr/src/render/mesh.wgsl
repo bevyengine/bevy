@@ -70,7 +70,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
     #import bevy_pbr::mesh_vertex_output
 };
 
