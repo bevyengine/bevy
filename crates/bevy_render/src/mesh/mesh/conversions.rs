@@ -163,6 +163,8 @@ impl_try_from!([u16; 4], Uint16x4, Unorm16x4);
 
 #[cfg(test)]
 mod tests {
+    use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec4};
+
     use super::VertexAttributeValues;
     #[test]
     fn f32() {
@@ -213,11 +215,37 @@ mod tests {
     }
 
     #[test]
+    fn vec2() {
+        let buffer = vec![Vec2::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Float32x2(_)));
+        let result_into: Vec<Vec2> = values.clone().try_into().unwrap();
+        let result_from: Vec<Vec2> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn i32_2() {
         let buffer = vec![[0; 2]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[i32; 2]> = values.clone().try_into().unwrap();
         let result_from: Vec<[i32; 2]> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn ivec2() {
+        let buffer = vec![IVec2::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Sint32x2(_)));
+        let result_into: Vec<IVec2> = values.clone().try_into().unwrap();
+        let result_from: Vec<IVec2> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
@@ -237,11 +265,50 @@ mod tests {
     }
 
     #[test]
+    fn uvec2() {
+        let buffer = vec![UVec2::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Uint32x2(_)));
+        let result_into: Vec<UVec2> = values.clone().try_into().unwrap();
+        let result_from: Vec<UVec2> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn f32_3() {
         let buffer = vec![[0.0; 3]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[f32; 3]> = values.clone().try_into().unwrap();
         let result_from: Vec<[f32; 3]> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn vec3() {
+        let buffer = vec![Vec3::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Float32x3(_)));
+        let result_into: Vec<Vec3> = values.clone().try_into().unwrap();
+        let result_from: Vec<Vec3> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn vec3a() {
+        let buffer = vec![Vec3A::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Float32x3(_)));
+        let result_into: Vec<Vec3A> = values.clone().try_into().unwrap();
+        let result_from: Vec<Vec3A> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
@@ -261,11 +328,37 @@ mod tests {
     }
 
     #[test]
+    fn ivec3() {
+        let buffer = vec![IVec3::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Sint32x3(_)));
+        let result_into: Vec<IVec3> = values.clone().try_into().unwrap();
+        let result_from: Vec<IVec3> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn u32_3() {
         let buffer = vec![[0_u32; 3]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[u32; 3]> = values.clone().try_into().unwrap();
         let result_from: Vec<[u32; 3]> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn uvec3() {
+        let buffer = vec![UVec3::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Uint32x3(_)));
+        let result_into: Vec<UVec3> = values.clone().try_into().unwrap();
+        let result_from: Vec<UVec3> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
@@ -285,6 +378,19 @@ mod tests {
     }
 
     #[test]
+    fn vec4() {
+        let buffer = vec![Vec4::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Float32x4(_)));
+        let result_into: Vec<Vec4> = values.clone().try_into().unwrap();
+        let result_from: Vec<Vec4> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn i32_4() {
         let buffer = vec![[0; 4]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
@@ -297,11 +403,37 @@ mod tests {
     }
 
     #[test]
+    fn ivec4() {
+        let buffer = vec![IVec4::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Sint32x4(_)));
+        let result_into: Vec<IVec4> = values.clone().try_into().unwrap();
+        let result_from: Vec<IVec4> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn u32_4() {
         let buffer = vec![[0_u32; 4]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[u32; 4]> = values.clone().try_into().unwrap();
         let result_from: Vec<[u32; 4]> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn uvec4() {
+        let buffer = vec![UVec4::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Uint32x4(_)));
+        let result_into: Vec<UVec4> = values.clone().try_into().unwrap();
+        let result_from: Vec<UVec4> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
