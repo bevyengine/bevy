@@ -569,10 +569,8 @@ pub fn extract_lights(
                 projection: directional_light.shadow_projection.get_projection_matrix(),
                 shadows_enabled: directional_light.shadows_enabled,
                 shadow_depth_bias: directional_light.shadow_depth_bias,
-                // The factor of SQRT_2 is for the worst-case diagonal offset
                 shadow_normal_bias: directional_light.shadow_normal_bias
-                    * directional_light_texel_size
-                    * std::f32::consts::SQRT_2,
+                    * directional_light_texel_size,
             },
             render_visible_entities,
         ));
