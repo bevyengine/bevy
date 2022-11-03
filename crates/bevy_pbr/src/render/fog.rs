@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{prelude::*, schedule::SystemLabel};
-use bevy_math::Vec4;
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
@@ -19,17 +19,18 @@ pub struct GpuFog {
     /// unsigned int representation of the active fog falloff mode
     mode: u32,
     /// fog color
-    color: Vec4,
-    /// for linear fog, `start`; for other modes of fog, `density`.
-    density_or_start: f32,
-    /// for linear fog, `end`; for other modes of fog, unused
-    end: f32,
+    base_color: Vec4,
+    scattering_color: Vec4,
+    scattering_expoent: f32,
+    be: Vec3,
+    bi: Vec3,
 }
 
 const GPU_FOG_MODE_OFF: u32 = 0;
 const GPU_FOG_MODE_LINEAR: u32 = 1;
 const GPU_FOG_MODE_EXPONENTIAL: u32 = 2;
 const GPU_FOG_MODE_EXPONENTIAL_SQUARED: u32 = 3;
+const GPU_FOG_MODE_ATMOSPHERIC: u32 = 4;
 
 /// Metadata for fog
 #[derive(Default, Resource)]
@@ -50,20 +51,38 @@ pub fn prepare_fog(
             match &fog.falloff {
                 FogFalloff::Linear { start, end } => GpuFog {
                     mode: GPU_FOG_MODE_LINEAR,
-                    color: fog.color.into(),
-                    density_or_start: *start,
-                    end: *end,
+                    base_color: fog.color.into(),
+                    scattering_color: fog.scattering_color.into(),
+                    scattering_expoent: fog.scattering_expoent,
+                    be: Vec3::new(*start, *end, 0.0),
+                    ..Default::default()
                 },
                 FogFalloff::Exponential { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL,
-                    color: fog.color.into(),
-                    density_or_start: *density,
+                    base_color: fog.color.into(),
+                    scattering_color: fog.scattering_color.into(),
+                    scattering_expoent: fog.scattering_expoent,
+                    be: Vec3::new(*density, 0.0, 0.0),
                     ..Default::default()
                 },
                 FogFalloff::ExponentialSquared { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL_SQUARED,
-                    color: fog.color.into(),
-                    density_or_start: *density,
+                    base_color: fog.color.into(),
+                    scattering_color: fog.scattering_color.into(),
+                    scattering_expoent: fog.scattering_expoent,
+                    be: Vec3::new(*density, 0.0, 0.0),
+                    ..Default::default()
+                },
+                FogFalloff::Atmospheric {
+                    extinction,
+                    inscattering,
+                } => GpuFog {
+                    mode: GPU_FOG_MODE_ATMOSPHERIC,
+                    base_color: fog.color.into(),
+                    scattering_color: fog.scattering_color.into(),
+                    scattering_expoent: fog.scattering_expoent,
+                    be: Vec3::new(extinction.r(), extinction.g(), extinction.b()),
+                    bi: Vec3::new(inscattering.r(), inscattering.g(), inscattering.b()),
                     ..Default::default()
                 },
             }

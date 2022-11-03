@@ -53,6 +53,14 @@ pub struct FogSettings {
     /// changing the fog falloff mode or parameters.
     pub color: Color,
 
+    /// The color used for the fog the view direction aligns with directional lights
+    /// Produces a “halo” or light dispersion effect (e.g. around the sun)
+    pub scattering_color: Color,
+
+    /// The expoent applied to the directional light alignment calculation
+    /// A higher value means a more concentrated “halo”
+    pub scattering_expoent: f32,
+
     /// Determines which falloff mode to use, and its parameters.
     pub falloff: FogFalloff,
 }
@@ -178,6 +186,15 @@ pub enum FogFalloff {
     /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
     /// </svg>
     ExponentialSquared { density: f32 },
+
+    /// Behaves somewhat like [`FogFalloff::Exponential`] mode, however individual color channels can have
+    /// their own density value. Additionally, the falloff formula is separated into two terms, for a
+    /// somewhat simplified atmospheric scattering model, with `extinction` and `inscattering`, resulting
+    /// in a total of six different configurable coefficients.
+    Atmospheric {
+        extinction: Color,
+        inscattering: Color,
+    },
 }
 
 impl Default for FogSettings {
@@ -188,6 +205,8 @@ impl Default for FogSettings {
                 start: 0.0,
                 end: 100.0,
             },
+            scattering_color: Color::NONE,
+            scattering_expoent: 8.0,
         }
     }
 }

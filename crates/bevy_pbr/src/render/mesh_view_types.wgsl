@@ -63,15 +63,25 @@ struct Lights {
 
 struct Fog {
     mode: u32,
-    color: vec4<f32>,
-    density_or_start: f32,
-    end: f32,
+    base_color: vec4<f32>,
+    scattering_color: vec4<f32>,
+    scattering_expoent: f32,
+    // For Linear Fog:
+    //     be.x = start, be.y = end
+    // For Exponential and ExponentialSquared Fog:
+    //     be.x = density
+    // For Atmospheric Fog:
+    //     be = per-channel extinction density
+    //     bi = per-channel inscattering density
+    be: vec3<f32>,
+    bi: vec3<f32>,
 }
 
 let FOG_MODE_OFF: u32                   = 0u;
 let FOG_MODE_LINEAR: u32                = 1u;
 let FOG_MODE_EXPONENTIAL: u32           = 2u;
 let FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
+let FOG_MODE_ATMOSPHERIC: u32           = 4u;
 
 #ifdef NO_STORAGE_BUFFERS_SUPPORT
 struct PointLights {

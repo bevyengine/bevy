@@ -241,20 +241,32 @@ fn pbr(
 
     // fog
     if (fog.mode != FOG_MODE_OFF && (in.material.flags & STANDARD_MATERIAL_FLAGS_NO_FOG_BIT) == 0u) {
+        let view_to_world = in.world_position.xyz - view.world_position.xyz;
         // `length()` is used here instead of just `view_z` since that produces more
         // high quality results, especially for denser/smaller fogs. we get a "curved"
         // fog shape that remains consistent with camera rotation, instead of a "linear"
         // fog shape that looks a bit fake
-        let distance = length(view.world_position.xyz - in.world_position.xyz);
-        var fog_contrib = vec4<f32>(0.0);
-        if (fog.mode == FOG_MODE_LINEAR) {
-            fog_contrib = linear_fog(distance);
-        } else if (fog.mode == FOG_MODE_EXPONENTIAL) {
-            fog_contrib = exponential_fog(distance);
-        } else if (fog.mode == FOG_MODE_EXPONENTIAL_SQUARED) {
-            fog_contrib = exponential_squared_fog(distance);
+        let distance = length(view_to_world);
+
+        var scattering = 0.0;
+        if (fog.scattering_color.a > 0.0) {
+            let view_to_world_normalized = normalize(view_to_world);
+            for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+                let light = lights.directional_lights[i];
+                let intensity = length(light.color.rgb);
+                scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.scattering_expoent) * intensity;
+            }
         }
-        output_color = vec4<f32>(mix(output_color.rgb, fog_contrib.rgb, fog_contrib.a), output_color.a);
+
+        if (fog.mode == FOG_MODE_LINEAR) {
+            output_color = linear_fog(output_color, distance, scattering);
+        } else if (fog.mode == FOG_MODE_EXPONENTIAL) {
+            output_color = exponential_fog(output_color, distance, scattering);
+        } else if (fog.mode == FOG_MODE_EXPONENTIAL_SQUARED) {
+            output_color = exponential_squared_fog(output_color, distance, scattering);
+        } else if (fog.mode == FOG_MODE_ATMOSPHERIC) {
+            output_color = atmospheric_fog(output_color, distance, scattering);
+        }
     }
 
     output_color = cluster_debug_visualization(
