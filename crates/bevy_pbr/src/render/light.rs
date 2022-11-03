@@ -1,8 +1,8 @@
 use crate::{
-    point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
-    DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
-    PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLight, VisiblePointLights,
-    SHADOW_SHADER_HANDLE,
+    directional_light_order, point_light_order, AmbientLight, Clusters, CubemapVisibleEntities,
+    DirectionalLight, DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline,
+    NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLight,
+    VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
@@ -211,7 +211,7 @@ pub struct GpuLights {
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
-pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 #[derive(Resource)]
@@ -771,6 +771,7 @@ pub fn prepare_lights(
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
+    mut max_directional_lights_warning_emitted: Local<bool>,
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
@@ -787,6 +788,7 @@ pub fn prepare_lights(
     global_light_meta.entity_to_index.clear();
 
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
+    let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
 
     #[cfg(not(feature = "webgl"))]
     let max_texture_array_layers = render_device.limits().max_texture_array_layers as usize;
@@ -796,6 +798,16 @@ pub fn prepare_lights(
     let max_texture_array_layers = 1;
     #[cfg(feature = "webgl")]
     let max_texture_cubes = 1;
+
+    if !*max_directional_lights_warning_emitted && directional_lights.len() > MAX_DIRECTIONAL_LIGHTS
+    {
+        warn!(
+            "The amount of directional lights of {} is exceeding the supported limit of {}.",
+            directional_lights.len(),
+            MAX_DIRECTIONAL_LIGHTS
+        );
+        *max_directional_lights_warning_emitted = true;
+    }
 
     let point_light_count = point_lights
         .iter()
@@ -810,6 +822,7 @@ pub fn prepare_lights(
 
     let directional_shadow_maps_count = directional_lights
         .iter()
+        .take(MAX_DIRECTIONAL_LIGHTS)
         .filter(|(_, light)| light.shadows_enabled)
         .count()
         .min(max_texture_array_layers);
@@ -837,6 +850,17 @@ pub fn prepare_lights(
                 &light_2.shadows_enabled,
                 &light_2.spot_light_angles.is_some(),
             ),
+        )
+    });
+
+    // Sort lights by
+    // - those with shadows enabled first, so that the index can be used to render at most `directional_light_shadow_maps_count`
+    //   directional light shadows
+    // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
+    directional_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
+        directional_light_order(
+            (entity_1, &light_1.shadows_enabled),
+            (entity_2, &light_2.shadows_enabled),
         )
     });
 
@@ -908,6 +932,54 @@ pub fn prepare_lights(
         global_light_meta.entity_to_index.insert(entity, index);
     }
 
+    let mut gpu_directional_lights = [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS];
+
+    for (index, (_light_entity, light)) in directional_lights
+        .iter()
+        .enumerate()
+        .take(MAX_DIRECTIONAL_LIGHTS)
+    {
+        let mut flags = DirectionalLightFlags::NONE;
+
+        // Lights are sorted, shadow enabled lights are first
+        if light.shadows_enabled && (index < directional_shadow_maps_count) {
+            flags |= DirectionalLightFlags::SHADOWS_ENABLED;
+        }
+
+        // direction is negated to be ready for N.L
+        let dir_to_light = -light.direction;
+
+        // convert from illuminance (lux) to candelas
+        //
+        // exposure is hard coded at the moment but should be replaced
+        // by values coming from the camera
+        // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
+        const APERTURE: f32 = 4.0;
+        const SHUTTER_SPEED: f32 = 1.0 / 250.0;
+        const SENSITIVITY: f32 = 100.0;
+        let ev100 = f32::log2(APERTURE * APERTURE / SHUTTER_SPEED) - f32::log2(SENSITIVITY / 100.0);
+        let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
+        let intensity = light.illuminance * exposure;
+
+        // NOTE: A directional light seems to have to have an eye position on the line along the direction of the light
+        // through the world origin. I (Rob Swain) do not yet understand why it cannot be translated away from this.
+        let view = Mat4::look_at_rh(Vec3::ZERO, light.direction, Vec3::Y);
+        // NOTE: This orthographic projection defines the volume within which shadows from a directional light can be cast
+        let projection = light.projection;
+
+        gpu_directional_lights[index] = GpuDirectionalLight {
+            // premultiply color by intensity
+            // we don't use the alpha at all, so no reason to multiply only [0..3]
+            color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
+            dir_to_light,
+            // NOTE: * view is correct, it should not be view.inverse() here
+            view_projection: projection * view,
+            flags: flags.bits,
+            shadow_depth_bias: light.shadow_depth_bias,
+            shadow_normal_bias: light.shadow_normal_bias,
+        };
+    }
+
     global_light_meta.gpu_point_lights.set(gpu_point_lights);
     global_light_meta
         .gpu_point_lights
@@ -962,8 +1034,8 @@ pub fn prepare_lights(
         );
 
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
-        let mut gpu_lights = GpuLights {
-            directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
+        let gpu_lights = GpuLights {
+            directional_lights: gpu_directional_lights,
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
                 * ambient_light.brightness,
             cluster_factors: Vec4::new(
@@ -1097,89 +1169,54 @@ pub fn prepare_lights(
             view_lights.push(view_light_entity);
         }
 
-        for (i, (light_entity, light)) in directional_lights
+        // directional lights
+        for (light_index, &(light_entity, light)) in directional_lights
             .iter()
             .enumerate()
-            .take(MAX_DIRECTIONAL_LIGHTS)
+            .take(directional_shadow_maps_count)
         {
-            // direction is negated to be ready for N.L
-            let dir_to_light = -light.direction;
-
-            // convert from illuminance (lux) to candelas
-            //
-            // exposure is hard coded at the moment but should be replaced
-            // by values coming from the camera
-            // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
-            const APERTURE: f32 = 4.0;
-            const SHUTTER_SPEED: f32 = 1.0 / 250.0;
-            const SENSITIVITY: f32 = 100.0;
-            let ev100 =
-                f32::log2(APERTURE * APERTURE / SHUTTER_SPEED) - f32::log2(SENSITIVITY / 100.0);
-            let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
-            let intensity = light.illuminance * exposure;
-
             // NOTE: A directional light seems to have to have an eye position on the line along the direction of the light
             // through the world origin. I (Rob Swain) do not yet understand why it cannot be translated away from this.
             let view = Mat4::look_at_rh(Vec3::ZERO, light.direction, Vec3::Y);
-            // NOTE: This orthographic projection defines the volume within which shadows from a directional light can be cast
-            let projection = light.projection;
 
-            let mut flags = DirectionalLightFlags::NONE;
-            if light.shadows_enabled {
-                flags |= DirectionalLightFlags::SHADOWS_ENABLED;
-            }
+            let depth_texture_view =
+                directional_light_depth_texture
+                    .texture
+                    .create_view(&TextureViewDescriptor {
+                        label: Some("directional_light_shadow_map_texture_view"),
+                        format: None,
+                        dimension: Some(TextureViewDimension::D2),
+                        aspect: TextureAspect::All,
+                        base_mip_level: 0,
+                        mip_level_count: None,
+                        base_array_layer: light_index as u32,
+                        array_layer_count: NonZeroU32::new(1),
+                    });
 
-            gpu_lights.directional_lights[i] = GpuDirectionalLight {
-                // premultiply color by intensity
-                // we don't use the alpha at all, so no reason to multiply only [0..3]
-                color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
-                dir_to_light,
-                // NOTE: * view is correct, it should not be view.inverse() here
-                view_projection: projection * view,
-                flags: flags.bits,
-                shadow_depth_bias: light.shadow_depth_bias,
-                shadow_normal_bias: light.shadow_normal_bias,
-            };
-
-            if light.shadows_enabled {
-                let depth_texture_view =
-                    directional_light_depth_texture
-                        .texture
-                        .create_view(&TextureViewDescriptor {
-                            label: Some("directional_light_shadow_map_texture_view"),
-                            format: None,
-                            dimension: Some(TextureViewDimension::D2),
-                            aspect: TextureAspect::All,
-                            base_mip_level: 0,
-                            mip_level_count: None,
-                            base_array_layer: i as u32,
-                            array_layer_count: NonZeroU32::new(1),
-                        });
-
-                let view_light_entity = commands
-                    .spawn((
-                        ShadowView {
-                            depth_texture_view,
-                            pass_name: format!("shadow pass directional light {i}"),
-                        },
-                        ExtractedView {
-                            viewport: UVec4::new(
-                                0,
-                                0,
-                                directional_light_shadow_map.size as u32,
-                                directional_light_shadow_map.size as u32,
-                            ),
-                            transform: GlobalTransform::from(view.inverse()),
-                            projection,
-                            hdr: false,
-                        },
-                        RenderPhase::<Shadow>::default(),
-                        LightEntity::Directional { light_entity },
-                    ))
-                    .id();
-                view_lights.push(view_light_entity);
-            }
+            let view_light_entity = commands
+                .spawn((
+                    ShadowView {
+                        depth_texture_view,
+                        pass_name: format!("shadow pass directional light {}", light_index),
+                    },
+                    ExtractedView {
+                        viewport: UVec4::new(
+                            0,
+                            0,
+                            directional_light_shadow_map.size as u32,
+                            directional_light_shadow_map.size as u32,
+                        ),
+                        transform: GlobalTransform::from(view.inverse()),
+                        projection: light.projection,
+                        hdr: false,
+                    },
+                    RenderPhase::<Shadow>::default(),
+                    LightEntity::Directional { light_entity },
+                ))
+                .id();
+            view_lights.push(view_light_entity);
         }
+
         let point_light_depth_texture_view =
             point_light_depth_texture
                 .texture
