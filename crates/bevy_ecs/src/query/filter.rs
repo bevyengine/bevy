@@ -439,7 +439,7 @@ macro_rules! impl_tick_filter {
                             world.storages()
                                  .sparse_sets
                                  .get(id)
-                                 .unwrap_or_else(|| debug_checked_unreachable())
+                                 .unwrap_or_else(|| debug_checked_unreachable!())
                         }),
                     marker: PhantomData,
                     last_change_tick,
@@ -476,7 +476,7 @@ macro_rules! impl_tick_filter {
             ) {
                 fetch.table_ticks = Some(
                     table.get_column(component_id)
-                         .unwrap_or_else(|| debug_checked_unreachable())
+                         .unwrap_or_else(|| debug_checked_unreachable!())
                          .get_ticks_slice()
                          .into()
                 );
@@ -504,7 +504,7 @@ macro_rules! impl_tick_filter {
                     StorageType::Table => {
                         $is_detected(&*(
                             fetch.table_ticks
-                                 .unwrap_or_else(|| debug_checked_unreachable())
+                                 .unwrap_or_else(|| debug_checked_unreachable!())
                                  .get(table_row))
                                  .deref(),
                             fetch.last_change_tick,
@@ -514,9 +514,9 @@ macro_rules! impl_tick_filter {
                     StorageType::SparseSet => {
                         let ticks = &*fetch
                             .sparse_set
-                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .unwrap_or_else(|| debug_checked_unreachable!())
                             .get_ticks(entity)
-                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .unwrap_or_else(|| debug_checked_unreachable!())
                             .get();
                         $is_detected(ticks, fetch.last_change_tick, fetch.change_tick)
                     }

@@ -2,7 +2,7 @@ use crate::{
     archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
     entity::{Entities, Entity},
     prelude::World,
-    query::{ArchetypeFilter, QueryState, WorldQuery},
+    query::{debug_checked_unreachable, ArchetypeFilter, QueryState, WorldQuery},
     storage::{TableId, Tables},
 };
 use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
@@ -586,7 +586,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_index == self.current_len {
                     let table_id = self.table_id_iter.next()?;
-                    let table = &tables[*table_id];
+                    let table = tables.get(*table_id)
+                        .unwrap_or_else(|| debug_checked_unreachable!());
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     Q::set_table(&mut self.fetch, &query_state.fetch_state, table);
@@ -616,10 +617,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             loop {
                 if self.current_index == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
-                    let archetype = &archetypes[*archetype_id];
+                    let archetype = archetypes.get(*archetype_id)
+                        .unwrap_or_else(|| debug_checked_unreachable!());
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    let table = &tables[archetype.table_id()];
+                    let table = tables.get(archetype.table_id())
+                        .unwrap_or_else(|| debug_checked_unreachable!());
                     Q::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, table);
                     F::set_archetype(
                         &mut self.filter,

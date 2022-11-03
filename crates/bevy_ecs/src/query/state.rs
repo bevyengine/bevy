@@ -3,7 +3,10 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     prelude::FromWorld,
-    query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, WorldQuery},
+    query::{
+        debug_checked_unreachable, Access, FilteredAccess, QueryCombinationIter, QueryIter,
+        WorldQuery,
+    },
     storage::TableId,
     world::{World, WorldId},
 };
@@ -930,7 +933,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let tables = &world.storages().tables;
         if Q::IS_DENSE && F::IS_DENSE {
             for table_id in &self.matched_table_ids {
-                let table = &tables[*table_id];
+                let table = tables
+                    .get(*table_id)
+                    .unwrap_or_else(|| debug_checked_unreachable!());
                 Q::set_table(&mut fetch, &self.fetch_state, table);
                 F::set_table(&mut filter, &self.filter_state, table);
 
@@ -946,8 +951,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         } else {
             let archetypes = &world.archetypes;
             for archetype_id in &self.matched_archetype_ids {
-                let archetype = &archetypes[*archetype_id];
-                let table = &tables[archetype.table_id()];
+                let archetype = archetypes
+                    .get(*archetype_id)
+                    .unwrap_or_else(|| debug_checked_unreachable!());
+                let table = tables
+                    .get(archetype.table_id())
+                    .unwrap_or_else(|| debug_checked_unreachable!());
                 Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
                 F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 

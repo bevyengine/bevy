@@ -386,7 +386,7 @@ impl Table {
         for (component_id, column) in self.columns.iter_mut() {
             new_table
                 .get_column_mut(*component_id)
-                .unwrap_or_else(|| debug_checked_unreachable())
+                .unwrap_or_else(|| debug_checked_unreachable!())
                 .initialize_from_unchecked(column, row, new_row);
         }
         TableMoveResult {

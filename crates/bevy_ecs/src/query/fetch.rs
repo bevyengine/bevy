@@ -552,7 +552,7 @@ unsafe impl<T: Component> WorldQuery for &T {
                     .storages()
                     .sparse_sets
                     .get(component_id)
-                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .unwrap_or_else(|| debug_checked_unreachable!())
             }),
         }
     }
@@ -585,7 +585,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         fetch.table_components = Some(
             table
                 .get_column(component_id)
-                .unwrap_or_else(|| debug_checked_unreachable())
+                .unwrap_or_else(|| debug_checked_unreachable!())
                 .get_data_slice()
                 .into(),
         );
@@ -600,14 +600,14 @@ unsafe impl<T: Component> WorldQuery for &T {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => fetch
                 .table_components
-                .unwrap_or_else(|| debug_checked_unreachable())
+                .unwrap_or_else(|| debug_checked_unreachable!())
                 .get(table_row)
                 .deref(),
             StorageType::SparseSet => fetch
                 .sparse_set
-                .unwrap_or_else(|| debug_checked_unreachable())
+                .unwrap_or_else(|| debug_checked_unreachable!())
                 .get(entity)
-                .unwrap_or_else(|| debug_checked_unreachable())
+                .unwrap_or_else(|| debug_checked_unreachable!())
                 .deref(),
         }
     }
@@ -696,7 +696,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     .storages()
                     .sparse_sets
                     .get(component_id)
-                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .unwrap_or_else(|| debug_checked_unreachable!())
             }),
             last_change_tick,
             change_tick,
@@ -732,7 +732,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         let column = table
             .get_column(component_id)
-            .unwrap_or_else(|| debug_checked_unreachable());
+            .unwrap_or_else(|| debug_checked_unreachable!());
         fetch.table_data = Some((
             column.get_data_slice().into(),
             column.get_ticks_slice().into(),
@@ -749,7 +749,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             StorageType::Table => {
                 let (table_components, table_ticks) = fetch
                     .table_data
-                    .unwrap_or_else(|| debug_checked_unreachable());
+                    .unwrap_or_else(|| debug_checked_unreachable!());
                 Mut {
                     value: table_components.get(table_row).deref_mut(),
                     ticks: Ticks {
@@ -762,9 +762,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             StorageType::SparseSet => {
                 let (component, component_ticks) = fetch
                     .sparse_set
-                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .unwrap_or_else(|| debug_checked_unreachable!())
                     .get_with_ticks(entity)
-                    .unwrap_or_else(|| debug_checked_unreachable());
+                    .unwrap_or_else(|| debug_checked_unreachable!());
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: Ticks {
@@ -1038,7 +1038,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
                     .storages()
                     .sparse_sets
                     .get(component_id)
-                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .unwrap_or_else(|| debug_checked_unreachable!())
             }),
             marker: PhantomData,
             last_change_tick,
@@ -1077,7 +1077,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         fetch.table_ticks = Some(
             table
                 .get_column(id)
-                .unwrap_or_else(|| debug_checked_unreachable())
+                .unwrap_or_else(|| debug_checked_unreachable!())
                 .get_ticks_slice()
                 .into(),
         );
@@ -1094,7 +1094,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
                 component_ticks: {
                     let table_ticks = fetch
                         .table_ticks
-                        .unwrap_or_else(|| debug_checked_unreachable());
+                        .unwrap_or_else(|| debug_checked_unreachable!());
                     table_ticks.get(table_row).read()
                 },
                 marker: PhantomData,
@@ -1104,9 +1104,9 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
             StorageType::SparseSet => ChangeTrackers {
                 component_ticks: *fetch
                     .sparse_set
-                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .unwrap_or_else(|| debug_checked_unreachable!())
                     .get_ticks(entity)
-                    .unwrap_or_else(|| debug_checked_unreachable())
+                    .unwrap_or_else(|| debug_checked_unreachable!())
                     .get(),
                 marker: PhantomData,
                 last_change_tick: fetch.last_change_tick,

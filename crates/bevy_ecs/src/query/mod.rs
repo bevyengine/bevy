@@ -10,12 +10,21 @@ pub use filter::*;
 pub use iter::*;
 pub use state::*;
 
-#[allow(unreachable_code)]
-pub(crate) unsafe fn debug_checked_unreachable() -> ! {
-    #[cfg(debug_assertions)]
-    unreachable!();
-    std::hint::unreachable_unchecked();
+#[cfg(debug_assertions)]
+macro_rules! debug_checked_unreachable {
+    () => {
+        unreachable!()
+    };
 }
+
+#[cfg(not(debug_assertions))]
+macro_rules! debug_checked_unreachable {
+    () => {
+        std::hint::unreachable_unchecked()
+    };
+}
+
+pub(crate) use debug_checked_unreachable;
 
 #[cfg(test)]
 mod tests {
