@@ -48,7 +48,7 @@ pub struct AddBundle {
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
 /// being added to a given entity, relative to that entity's original archetype.
-/// See [`crate::bundle::Bundle::write_components`] for more info.
+/// See [`crate::bundle::BundleInfo::write_components`] for more info.
 pub(crate) trait BundleComponentStatus {
     /// Returns the Bundle's component status for the given "bundle index"
     ///
