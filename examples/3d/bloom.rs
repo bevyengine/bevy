@@ -84,23 +84,25 @@ fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
-    commands.spawn((TextBundle::from_section(
-        "",
-        TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 12.0,
-            color: Color::WHITE,
-        },
-    )
-    .with_style(Style {
-        position_type: PositionType::Absolute,
-        position: UiRect {
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+    commands.spawn(
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 12.0,
+                color: Color::WHITE,
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    }),));
+        }),
+    );
 }
 
 fn update_bloom_settings(
@@ -134,10 +136,10 @@ fn update_bloom_settings(
     }
 
     if keycode.pressed(KeyCode::E) {
-        bloom_settings.knee -= 1.0;
+        bloom_settings.knee -= 0.1;
     }
     if keycode.pressed(KeyCode::R) {
-        bloom_settings.knee += 1.0;
+        bloom_settings.knee += 0.1;
     }
 
     if keycode.pressed(KeyCode::A) {
