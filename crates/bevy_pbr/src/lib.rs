@@ -1,7 +1,6 @@
 pub mod wireframe;
 
 mod alpha;
-mod bloom;
 mod bundle;
 mod light;
 mod material;
@@ -9,7 +8,6 @@ mod pbr_material;
 mod render;
 
 pub use alpha::*;
-pub use bloom::*;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;
@@ -135,7 +133,6 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
-            .add_plugin(BloomPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
