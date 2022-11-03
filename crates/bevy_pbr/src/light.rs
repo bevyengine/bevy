@@ -173,12 +173,12 @@ impl Default for SpotLight {
 /// To enable shadows, set the `shadows_enabled` property to `true`.
 ///
 /// While directional lights contribute to the illumination of meshes regardless
-/// of their (or the meshes's) position, currently only a limited region of the scene
+/// of their (or the meshes') positions, currently only a limited region of the scene
 /// (the _shadow volume_) can cast and receive shadows for any given directional light.
 ///
 /// The shadow volume is a _rectangular cuboid_, with left/right/bottom/top/near/far
 /// planes controllable via the `shadow_projection` field. It is affected by the
-/// directional light entity's [`Transform`], and as such can be freely repositioned in the
+/// directional light entity's [`GlobalTransform`], and as such can be freely repositioned in the
 /// scene, (or even scaled!) without affecting illumination in any other way, by simply
 /// moving (or scaling) the entity around. The shadow volume is always oriented towards the
 /// light entity's forward direction.
@@ -201,8 +201,9 @@ impl Default for SpotLight {
 ///
 /// **Note:** Very large shadow map resolutions (> 4K) can have non-negligible performance and
 /// memory impact, and not work properly under mobile or lower-end hardware. To improve the visual
-/// fidelity of shadow maps, it's typically advisable to first tweak the `shadow_projection` to
-/// a scene-appropriate size, before ramping up the shadow map resolution.
+/// fidelity of shadow maps, it's typically advisable to first reduce the `shadow_projection`
+/// left/right/top/bottom to a scene-appropriate size, before ramping up the shadow map
+/// resolution.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
@@ -210,7 +211,7 @@ pub struct DirectionalLight {
     /// Illuminance in lux
     pub illuminance: f32,
     pub shadows_enabled: bool,
-    /// a projection that controls the volume in which shadow maps are rendered
+    /// A projection that controls the volume in which shadow maps are rendered
     pub shadow_projection: OrthographicProjection,
     pub shadow_depth_bias: f32,
     /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
