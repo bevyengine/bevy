@@ -6,6 +6,7 @@ mod flex;
 mod focus;
 mod geometry;
 mod render;
+mod stack;
 mod ui_node;
 
 pub mod entity;
@@ -33,7 +34,9 @@ use bevy_ecs::{
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
-use update::{ui_z_system, update_clipping_system};
+use stack::ui_stack_system;
+pub use stack::UiStack;
+use update::update_clipping_system;
 
 use crate::prelude::UiCameraConfig;
 
@@ -48,6 +51,8 @@ pub enum UiSystem {
     Flex,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
+    /// After this label, the [`UiStack`] resource has been updated
+    Stack,
 }
 
 /// The current scale of the UI.
@@ -71,6 +76,7 @@ impl Plugin for UiPlugin {
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
+            .init_resource::<UiStack>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -135,9 +141,7 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                ui_z_system
-                    .after(UiSystem::Flex)
-                    .before(TransformSystem::TransformPropagate),
+                ui_stack_system.label(UiSystem::Stack),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
