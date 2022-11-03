@@ -1,4 +1,18 @@
-//! This example shows how to use distance fog
+//! This interactive example shows how to use distance fog,
+//! and allows playing around with different fog modes/settings.
+//!
+//! ## Controls
+//!
+//! | Key Binding        | Action                              |
+//! |:-------------------|:------------------------------------|
+//! | `1` / `2` / `3`    | Switch Fog Mode                     |
+//! | `A` / `S`          | Move Start Distance (Linear Fog)    |
+//! |                    | Change Density (Exponential Fogs)   |
+//! | `Z` / `X`          | Move End Distance (Linear Fog)      |
+//! | `-` / `=`          | Adjust Fog Red Channel              |
+//! | `[` / `]`          | Adjust Fog Green Channel            |
+//! | `;` / `'`          | Adjust Fog Blue Channel             |
+//! | `.` / `?`          | Adjust Fog Alpha Channel            |
 
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},
