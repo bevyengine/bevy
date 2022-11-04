@@ -46,7 +46,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// ## Material Override
 ///
 /// Once enabled for a specific camera, the fog effect can also be disabled for individual
-/// [`StandardMaterial`](crate::StandardMaterial) instances via the `no_fog` flag.
+/// [`StandardMaterial`](crate::StandardMaterial) instances via the `fog_enabled` flag.
 #[derive(Debug, Clone, Component, Reflect)]
 #[reflect(Component)]
 pub struct FogSettings {

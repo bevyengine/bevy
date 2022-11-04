@@ -241,7 +241,7 @@ fn pbr(
         output_color.a);
 
     // fog
-    if (fog.mode != FOG_MODE_OFF && (in.material.flags & STANDARD_MATERIAL_FLAGS_NO_FOG_BIT) == 0u) {
+    if (fog.mode != FOG_MODE_OFF && (in.material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
         let view_to_world = in.world_position.xyz - view.world_position.xyz;
         // `length()` is used here instead of just `view_z` since that produces more
         // high quality results, especially for denser/smaller fogs. we get a "curved"

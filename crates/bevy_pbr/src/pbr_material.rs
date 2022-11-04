@@ -204,8 +204,8 @@ pub struct StandardMaterial {
     /// shadows, alpha mode and ambient light are ignored if this is set to `true`.
     pub unlit: bool,
 
-    /// Whether to disable fog for this material.
-    pub no_fog: bool,
+    /// Whether to enable fog for this material.
+    pub fog_enabled: bool,
 
     /// How to apply the alpha channel of the `base_color_texture`.
     ///
@@ -257,7 +257,7 @@ impl Default for StandardMaterial {
             double_sided: false,
             cull_mode: Some(Face::Back),
             unlit: false,
-            no_fog: false,
+            fog_enabled: true,
             alpha_mode: AlphaMode::Opaque,
             depth_bias: 0.0,
         }
@@ -304,7 +304,7 @@ bitflags::bitflags! {
         const ALPHA_MODE_BLEND           = (1 << 8);
         const TWO_COMPONENT_NORMAL_MAP   = (1 << 9);
         const FLIP_NORMAL_MAP_Y          = (1 << 10);
-        const NO_FOG                     = (1 << 11);
+        const FOG_ENABLED                = (1 << 11);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -355,8 +355,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if self.unlit {
             flags |= StandardMaterialFlags::UNLIT;
         }
-        if self.no_fog {
-            flags |= StandardMaterialFlags::NO_FOG;
+        if self.fog_enabled {
+            flags |= StandardMaterialFlags::FOG_ENABLED;
         }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
