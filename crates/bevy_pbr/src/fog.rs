@@ -55,8 +55,8 @@ pub struct FogSettings {
     /// changing the fog falloff mode or parameters.
     pub color: Color,
 
-    /// The color used for the fog the view direction aligns with directional lights
-    /// Produces a “halo” or light dispersion effect (e.g. around the sun)
+    /// The color used for the fog where the view direction aligns with directional lights.
+    /// Produces a “halo” or light dispersion effect. (e.g. around the sun)
     pub scattering_color: Color,
 
     /// The exponent applied to the directional light alignment calculation
@@ -99,10 +99,10 @@ pub enum FogFalloff {
     /// <text font-family="sans-serif" fill="#FF00E5" style="white-space: pre" font-family="Inter" font-size="10" letter-spacing="0em"><tspan x="267" y="58.6364">end</tspan></text>
     /// </svg>
     Linear {
-        // Distance from the camera where fog is completely transparent
+        /// Distance from the camera where fog is completely transparent, in world units.
         start: f32,
 
-        // Distance from the camera where fog is completely opaque
+        /// Distance from the camera where fog is completely opaque, in world units.
         end: f32,
     },
 
@@ -150,7 +150,10 @@ pub enum FogFalloff {
     /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="161" y="190.864">distance</tspan></text>
     /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
     /// </svg>
-    Exponential { density: f32 },
+    Exponential {
+        /// Unitless multiplier applied to the world distance (within the exponential squared fog falloff calculation).
+        density: f32,
+    },
 
     /// A squared exponential fog falloff with a given `density`.
     ///
@@ -187,14 +190,48 @@ pub enum FogFalloff {
     /// <text font-family="sans-serif" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="161" y="190.864">distance</tspan></text>
     /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
     /// </svg>
-    ExponentialSquared { density: f32 },
+    ExponentialSquared {
+        /// Unitless multiplier applied to the world distance (within the exponential squared fog falloff calculation).
+        density: f32,
+    },
 
-    /// Behaves somewhat like [`FogFalloff::Exponential`] mode, however individual color channels can have
-    /// their own density value. Additionally, the falloff formula is separated into two terms, for a
-    /// somewhat simplified atmospheric scattering model, with `extinction` and `inscattering`, resulting
-    /// in a total of six different configurable coefficients.
+    /// A more general form of the [`FogFalloff::Exponential`] mode. The falloff formula is separated into
+    /// two terms, `extinction` and `inscattering`, for a somewhat simplified atmospheric scattering model.
+    /// Additionally, individual color channels can have their own density values, resulting in a total of
+    /// six different configuration parameters.
+    ///
+    /// ## Equivalence to [`FogFalloff::Exponential`]
+    ///
+    /// The following two falloff modes will produce identical visual results:
+    ///
+    /// ```
+    /// const D: f32 = 0.5;
+    ///
+    /// let exponential = FalloffMode::Exponential {
+    ///     density: D,
+    /// };
+    ///
+    /// let atmospheric = FalloffMode::Atmospheric {
+    ///     extinction: Color::rgb(D, D, D),
+    ///     inscattering: Color::rgb(D, D, D),
+    /// }
+    /// ```
+    ///
+    /// **Note:** While the results are identical, [`FogFalloff::Atmospheric`] is computationally more expensive.
     Atmospheric {
+        /// Controls how much light is removed due to atmospheric “extinction”, i.e. loss of light due to
+        /// photons being absorbed by atmospheric particles.
+        ///
+        /// Each channel in the color (`R`, `G`, `B`) can be thought of as an independent `density` factor from
+        /// [`FogFalloff::Exponential`]: A unitless multiplier applied to the world distance (within the fog
+        /// falloff calculation) for that specific channel. Alpha values are ignored.
         extinction: Color,
+
+        /// Controls how much light is added due to light scattering from the sun through the atmosphere.
+        ///
+        /// Each channel in the color (`R`, `G`, `B`) can be thought of as an independent `density` factor from
+        /// [`FogFalloff::Exponential`]: A unitless multiplier applied to the world distance (within the fog
+        /// falloff calculation) for that specific channel. Alpha values are ignored.
         inscattering: Color,
     },
 }
