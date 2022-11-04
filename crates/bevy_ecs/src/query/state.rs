@@ -1041,7 +1041,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 change_tick,
                             );
                             let tables = &world.storages().tables;
-                            let table = tables.get(*table_id)
+                            let table = tables
+                                .get(*table_id)
                                 .unwrap_or_else(|| debug_checked_unreachable!());
                             let entities = table.entities();
                             Q::set_table(&mut fetch, &self.fetch_state, table);
@@ -1093,9 +1094,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 change_tick,
                             );
                             let tables = &world.storages().tables;
-                            let archetype = world.archetypes.get(*archetype_id)
+                            let archetype = world
+                                .archetypes
+                                .get(*archetype_id)
                                 .unwrap_or_else(|| debug_checked_unreachable!());
-                            let table = tables.get(archetype.table_id())
+                            let table = tables
+                                .get(archetype.table_id())
                                 .unwrap_or_else(|| debug_checked_unreachable!());
                             Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
                             F::set_archetype(&mut filter, &self.filter_state, archetype, table);
