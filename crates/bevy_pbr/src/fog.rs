@@ -437,7 +437,7 @@ impl FogFalloff {
     /// - <https://en.wikipedia.org/wiki/Visibility>
     /// - <https://www.biral.com/wp-content/uploads/2015/02/Introduction_to_visibility-v2-2.pdf>
     pub fn koschmieder(v: f32, c_t: f32) -> f32 {
-        return -c_t.ln() / v;
+        -c_t.ln() / v
     }
 }
 
