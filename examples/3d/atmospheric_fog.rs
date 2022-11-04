@@ -23,10 +23,11 @@ fn setup_camera_fog(mut commands: Commands) {
             color: Color::rgba(0.1, 0.2, 0.4, 1.0),
             directional_light_color: Color::rgba(1.0, 0.95, 0.75, 0.5),
             directional_light_exponent: 30.0,
-            falloff: FogFalloff::Atmospheric {
-                extinction: Color::rgb(0.15, 0.1, 0.05),
-                inscattering: Color::rgb(0.05, 0.07, 0.2),
-            },
+            falloff: FogFalloff::from_visibility_colors(
+                15.0,
+                Color::rgb(0.35, 0.5, 0.66),
+                Color::rgb(0.8, 0.844, 1.0),
+            ),
         },
     ));
 }
