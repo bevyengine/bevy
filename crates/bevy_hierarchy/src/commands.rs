@@ -58,12 +58,9 @@ pub trait HierarchyCommands {
 impl<'w> HierarchyCommands for EntityMut<'w> {
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
-        {
-            // SAFETY: The EntityLocation is updated afterwards.
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             set_parent(world, child, parent);
-            self.update_location();
-        }
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component.0.retain(|value| child != *value);
             children_component.0.push(child);
@@ -78,12 +75,9 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
             return self;
         }
         let parent = self.id();
-        {
-            // SAFETY: The EntityLocation is updated afterwards.
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             update_parent_components(world, parent, children);
-            self.update_location();
-        }
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
                 .0
@@ -97,12 +91,9 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
 
     fn insert_child(&mut self, index: usize, child: Entity) -> &mut Self {
         let parent = self.id();
-        {
-            // SAFETY: The EntityLocation is updated afterwards.
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             set_parent(world, child, parent);
-            self.update_location();
-        }
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component.0.retain(|value| child != *value);
             if index < children_component.0.len() {
@@ -122,12 +113,9 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
             return self;
         }
         let parent = self.id();
-        {
-            // SAFETY: The EntityLocation is updated afterwards.
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             update_parent_components(world, parent, children);
-            self.update_location();
-        }
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
                 .0
@@ -152,11 +140,10 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
                     self.remove::<Children>();
                 }
                 let parent = self.id();
-                // SAFETY: The EntityLocation is updated afterwards.
-                let world = unsafe { self.world_mut() };
-                world.entity_mut(child).remove::<Parent>();
-                push_event(world, HierarchyEvent::ChildRemoved { child, parent });
-                self.update_location();
+                self.world_scope(|world| {
+                    world.entity_mut(child).remove::<Parent>();
+                    push_event(world, HierarchyEvent::ChildRemoved { child, parent });
+                });
             }
         }
         self
@@ -164,44 +151,40 @@ impl<'w> HierarchyCommands for EntityMut<'w> {
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        // SAFETY: The EntityLocation is updated afterwards.
-        let world = unsafe { self.world_mut() };
-        remove_children(world, parent, children);
-        self.update_location();
+        self.world_scope(|world| {
+            remove_children(world, parent, children);
+        });
         self
     }
 
     fn clear_children(&mut self) -> &mut Self {
         let parent = self.id();
         if let Some(children) = self.remove::<Children>() {
-            // SAFETY: The EntityLocation is updated afterwards.
-            let world = unsafe { self.world_mut() };
-            for child in children.0 {
-                world.entity_mut(child).remove::<Parent>();
-                push_event(world, HierarchyEvent::ChildRemoved { child, parent });
-            }
-            self.update_location();
+            self.world_scope(|world| {
+                for child in children.0 {
+                    world.entity_mut(child).remove::<Parent>();
+                    push_event(world, HierarchyEvent::ChildRemoved { child, parent });
+                }
+            });
         }
         self
     }
 
     fn set_parent(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        // SAFETY: The EntityLocation is updated afterwards.
-        let world = unsafe { self.world_mut() };
-        world.entity_mut(parent).add_child(child);
-        self.update_location();
+        self.world_scope(|world| {
+            world.entity_mut(parent).add_child(child);
+        });
         self
     }
 
     fn remove_parent(&mut self) -> &mut Self {
         let child = self.id();
         if let Some(parent) = self.remove::<Parent>().map(|p| p.get()) {
-            // SAFETY: The EntityLocation is updated afterwards.
-            let world = unsafe { self.world_mut() };
-            remove_child(world, parent, child);
-            push_event(world, HierarchyEvent::ChildRemoved { child, parent });
-            self.update_location();
+            self.world_scope(|world| {
+                remove_child(world, parent, child);
+                push_event(world, HierarchyEvent::ChildRemoved { child, parent });
+            });
         }
         self
     }
@@ -228,18 +211,13 @@ pub trait HierachyEntityMutExt {
 
 impl<'w> HierachyEntityMutExt for EntityMut<'w> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
-        {
-            let entity = self.id();
-            let mut builder = WorldChildBuilder {
+        let entity = self.id();
+        self.world_scope(|world| {
+            spawn_children(&mut WorldChildBuilder {
                 parent: entity,
-                // SAFETY: self.update_location() is called below. It is impossible to make EntityMut
-                // function calls on `self` within the scope defined here
-                world: unsafe { self.world_mut() },
-            };
-
-            spawn_children(&mut builder);
-        }
-        self.update_location();
+                world,
+            });
+        });
         self
     }
 }

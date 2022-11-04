@@ -127,11 +127,9 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         )
         .entered();
 
-        // SAFETY: The location is updated.
-        unsafe {
-            despawn_children(self.world_mut(), entity);
-            self.update_location();
-        }
+        self.world_scope(|world| {
+            despawn_children(world, entity);
+        });
     }
 }
 
