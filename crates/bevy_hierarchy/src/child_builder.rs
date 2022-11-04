@@ -456,29 +456,23 @@ pub trait BuildWorldChildren {
 
 impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
-        {
-            let entity = self.id();
+        let entity = self.id();
+        self.world_scope(|world| {
             let mut builder = WorldChildBuilder {
                 current_entity: None,
                 parent_entities: vec![entity],
-                // SAFETY: The EntityLocation is updated before any other methods are called on self.
-                world: unsafe { self.world_mut() },
+                world,
             };
-
             spawn_children(&mut builder);
-        }
-        self.update_location();
+        });
         self
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        {
-            // SAFETY: The EntityLocation is updated before any other methods are called on self.
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             update_old_parents(world, parent, children);
-            self.update_location();
-        }
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
                 .0
@@ -492,13 +486,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        {
-            // SAFETY: The EntityLocation is updated before any other methods are called on self.
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             update_old_parents(world, parent, children);
-            self.update_location();
-        }
-
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
                 .0
@@ -512,10 +502,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        // SAFETY: The EntityLocation is updated before any other methods are called on self.
-        let world = unsafe { self.world_mut() };
-        remove_children(parent, children, world);
-        self.update_location();
+        self.world_scope(|world| {
+            remove_children(parent, children, world);
+        });
         self
     }
 }
