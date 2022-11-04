@@ -137,15 +137,6 @@ fn setup_pyramid_scene(
 }
 
 fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // UI camera
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
-            priority: -1,
-            ..default()
-        },
-        ..default()
-    });
-
     commands.spawn((TextBundle::from_section(
         "",
         TextStyle {
