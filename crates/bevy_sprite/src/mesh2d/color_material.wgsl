@@ -19,7 +19,6 @@ var texture_sampler: sampler;
 var<uniform> mesh: Mesh2d;
 
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
     #import bevy_sprite::mesh2d_vertex_output
 };
 

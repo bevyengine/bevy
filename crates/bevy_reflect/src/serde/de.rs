@@ -35,6 +35,14 @@ trait TupleLikeInfo {
     fn get_field_len(&self) -> usize;
 }
 
+trait Container {
+    fn get_field_registration<'a, E: Error>(
+        &self,
+        index: usize,
+        registry: &'a TypeRegistry,
+    ) -> Result<&'a TypeRegistration, E>;
+}
+
 impl StructLikeInfo for StructInfo {
     fn get_name(&self) -> &str {
         self.type_name()
@@ -49,6 +57,23 @@ impl StructLikeInfo for StructInfo {
     }
 }
 
+impl Container for StructInfo {
+    fn get_field_registration<'a, E: Error>(
+        &self,
+        index: usize,
+        registry: &'a TypeRegistry,
+    ) -> Result<&'a TypeRegistration, E> {
+        let field = self.field_at(index).ok_or_else(|| {
+            de::Error::custom(format_args!(
+                "no field at index {} on struct {}",
+                index,
+                self.type_name(),
+            ))
+        })?;
+        get_registration(field.type_id(), field.type_name(), registry)
+    }
+}
+
 impl StructLikeInfo for StructVariantInfo {
     fn get_name(&self) -> &str {
         self.name()
@@ -60,6 +85,23 @@ impl StructLikeInfo for StructVariantInfo {
 
     fn iter_fields(&self) -> Iter<'_, NamedField> {
         self.iter()
+    }
+}
+
+impl Container for StructVariantInfo {
+    fn get_field_registration<'a, E: Error>(
+        &self,
+        index: usize,
+        registry: &'a TypeRegistry,
+    ) -> Result<&'a TypeRegistration, E> {
+        let field = self.field_at(index).ok_or_else(|| {
+            de::Error::custom(format_args!(
+                "no field at index {} on variant {}",
+                index,
+                self.name(),
+            ))
+        })?;
+        get_registration(field.type_id(), field.type_name(), registry)
     }
 }
 
@@ -151,6 +193,23 @@ impl<'de> Deserialize<'de> for Ident {
     }
 }
 
+struct U32Visitor;
+
+impl<'de> Visitor<'de> for U32Visitor {
+    type Value = u32;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("u32")
+    }
+
+    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(v)
+    }
+}
+
 /// A general purpose deserializer for reflected types.
 ///
 /// This will return a [`Box<dyn Reflect>`] containing the deserialized data.
@@ -192,7 +251,7 @@ impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_any(UntypedReflectDeserializerVisitor {
+        deserializer.deserialize_map(UntypedReflectDeserializerVisitor {
             registry: self.registry,
         })
     }
@@ -279,8 +338,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             TypeInfo::Struct(struct_info) => {
                 let mut dynamic_struct = deserializer.deserialize_struct(
                     struct_info.name(),
-                    // Field names are mainly just a hint, we don't necessarily need to store and pass that data
-                    &[],
+                    struct_info.field_names(),
                     StructVisitor {
                         struct_info,
                         registry: self.registry,
@@ -350,8 +408,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 } else {
                     deserializer.deserialize_enum(
                         enum_info.name(),
-                        // Variant names are mainly just a hint, we don't necessarily need to store and pass that data
-                        &[],
+                        enum_info.variant_names(),
                         EnumVisitor {
                             enum_info,
                             registry: self.registry,
@@ -397,6 +454,30 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
         V: MapAccess<'de>,
     {
         visit_struct(&mut map, self.struct_info, self.registry)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut index = 0usize;
+        let mut output = DynamicStruct::default();
+
+        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
+            registration: self
+                .struct_info
+                .get_field_registration(index, self.registry)?,
+            registry: self.registry,
+        })? {
+            let name = self.struct_info.field_at(index).unwrap().name();
+            output.insert_boxed(name, value);
+            index += 1;
+            if index >= self.struct_info.field_len() {
+                break;
+            }
+        }
+
+        Ok(output)
     }
 }
 
@@ -609,21 +690,15 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
         A: EnumAccess<'de>,
     {
         let mut dynamic_enum = DynamicEnum::default();
-        let (Ident(variant_name), variant) = data.variant().unwrap();
-        let variant_info = self.enum_info.variant(&variant_name).ok_or_else(|| {
-            let names = self.enum_info.iter().map(|variant| variant.name());
-            Error::custom(format_args!(
-                "unknown variant `{}`, expected one of {:?}",
-                variant_name,
-                ExpectedValues(names.collect())
-            ))
+        let (variant_info, variant) = data.variant_seed(VariantDeserializer {
+            enum_info: self.enum_info,
         })?;
+
         let value: DynamicVariant = match variant_info {
             VariantInfo::Unit(..) => variant.unit_variant()?.into(),
             VariantInfo::Struct(struct_info) => variant
                 .struct_variant(
-                    // Field names are mainly just a hint, we don't necessarily need to store and pass that data
-                    &[],
+                    struct_info.field_names(),
                     StructVariantVisitor {
                         struct_info,
                         registry: self.registry,
@@ -653,8 +728,60 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                 .into(),
         };
 
-        dynamic_enum.set_variant(variant_name, value);
+        dynamic_enum.set_variant(variant_info.name(), value);
         Ok(dynamic_enum)
+    }
+}
+
+struct VariantDeserializer {
+    enum_info: &'static EnumInfo,
+}
+
+impl<'de> DeserializeSeed<'de> for VariantDeserializer {
+    type Value = &'static VariantInfo;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct VariantVisitor(&'static EnumInfo);
+
+        impl<'de> Visitor<'de> for VariantVisitor {
+            type Value = &'static VariantInfo;
+
+            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+                formatter.write_str("expected either a variant index or variant name")
+            }
+
+            fn visit_str<E>(self, variant_name: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                self.0.variant(variant_name).ok_or_else(|| {
+                    let names = self.0.iter().map(|variant| variant.name());
+                    Error::custom(format_args!(
+                        "unknown variant `{}`, expected one of {:?}",
+                        variant_name,
+                        ExpectedValues(names.collect())
+                    ))
+                })
+            }
+
+            fn visit_u32<E>(self, variant_index: u32) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                self.0.variant_at(variant_index as usize).ok_or_else(|| {
+                    Error::custom(format_args!(
+                        "no variant found at index `{}` on enum `{}`",
+                        variant_index,
+                        self.0.name()
+                    ))
+                })
+            }
+        }
+
+        deserializer.deserialize_identifier(VariantVisitor(self.enum_info))
     }
 }
 
@@ -675,6 +802,30 @@ impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
         V: MapAccess<'de>,
     {
         visit_struct(&mut map, self.struct_info, self.registry)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut index = 0usize;
+        let mut output = DynamicStruct::default();
+
+        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
+            registration: self
+                .struct_info
+                .get_field_registration(index, self.registry)?,
+            registry: self.registry,
+        })? {
+            let name = self.struct_info.field_at(index).unwrap().name();
+            output.insert_boxed(name, value);
+            index += 1;
+            if index >= self.struct_info.field_len() {
+                break;
+            }
+        }
+
+        Ok(output)
     }
 }
 
@@ -836,6 +987,7 @@ fn get_registration<'a, E: Error>(
 
 #[cfg(test)]
 mod tests {
+    use bincode::Options;
     use std::any::TypeId;
     use std::f32::consts::PI;
 
@@ -1168,5 +1320,112 @@ mod tests {
             value: String::from("I <3 Enums"),
         });
         assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+    }
+
+    #[test]
+    fn should_deserialize_non_self_describing_binary() {
+        let mut map = HashMap::new();
+        map.insert(64, 32);
+
+        let expected = MyStruct {
+            primitive_value: 123,
+            option_value: Some(String::from("Hello world!")),
+            option_value_complex: Some(SomeStruct { foo: 123 }),
+            tuple_value: (PI, 1337),
+            list_value: vec![-2, -1, 0, 1, 2],
+            array_value: [-2, -1, 0, 1, 2],
+            map_value: map,
+            struct_value: SomeStruct { foo: 999999999 },
+            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_enum: SomeEnum::Unit,
+            newtype_enum: SomeEnum::NewType(123),
+            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
+            struct_enum: SomeEnum::Struct {
+                foo: String::from("Struct variant value"),
+            },
+            custom_deserialize: CustomDeserialize {
+                value: 100,
+                inner_struct: SomeDeserializableStruct { foo: 101 },
+            },
+        };
+
+        let registry = get_registry();
+
+        let input = vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 40, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 114, 101, 102,
+            108, 101, 99, 116, 58, 58, 115, 101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101,
+            115, 116, 115, 58, 58, 77, 121, 83, 116, 114, 117, 99, 116, 123, 1, 12, 0, 0, 0, 0, 0,
+            0, 0, 72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 33, 1, 123, 0, 0, 0, 0, 0,
+            0, 0, 219, 15, 73, 64, 57, 5, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 254, 255, 255,
+            255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255, 255,
+            255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32, 0,
+            0, 0, 0, 0, 0, 0, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 84, 117, 112,
+            108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1, 0, 0, 0, 123, 0, 0, 0, 0, 0,
+            0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20, 0, 0, 0, 0, 0,
+            0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
+            108, 117, 101, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
+        ];
+
+        let deserializer = UntypedReflectDeserializer::new(&registry);
+
+        let dynamic_output = bincode::DefaultOptions::new()
+            .with_fixint_encoding()
+            .deserialize_seed(deserializer, &input)
+            .unwrap();
+
+        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_deserialize_self_describing_binary() {
+        let mut map = HashMap::new();
+        map.insert(64, 32);
+
+        let expected = MyStruct {
+            primitive_value: 123,
+            option_value: Some(String::from("Hello world!")),
+            option_value_complex: Some(SomeStruct { foo: 123 }),
+            tuple_value: (PI, 1337),
+            list_value: vec![-2, -1, 0, 1, 2],
+            array_value: [-2, -1, 0, 1, 2],
+            map_value: map,
+            struct_value: SomeStruct { foo: 999999999 },
+            tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_enum: SomeEnum::Unit,
+            newtype_enum: SomeEnum::NewType(123),
+            tuple_enum: SomeEnum::Tuple(1.23, 3.21),
+            struct_enum: SomeEnum::Struct {
+                foo: String::from("Struct variant value"),
+            },
+            custom_deserialize: CustomDeserialize {
+                value: 100,
+                inner_struct: SomeDeserializableStruct { foo: 101 },
+            },
+        };
+
+        let registry = get_registry();
+
+        let input = vec![
+            129, 217, 40, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115,
+            101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
+            83, 116, 114, 117, 99, 116, 158, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111, 114,
+            108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255, 0, 1, 2,
+            149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172, 84, 117,
+            112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 164, 85, 110, 105, 116, 129, 167, 78,
+            101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202, 63, 157,
+            112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145, 180, 83,
+            116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117,
+            101, 146, 100, 145, 101,
+        ];
+
+        let deserializer = UntypedReflectDeserializer::new(&registry);
+
+        let dynamic_output = deserializer
+            .deserialize(&mut rmp_serde::Deserializer::new(input.as_slice()))
+            .unwrap();
+
+        let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        assert_eq!(expected, output);
     }
 }
