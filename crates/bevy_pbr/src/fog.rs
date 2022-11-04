@@ -114,12 +114,15 @@ pub enum FogFalloff {
     ///
     /// To move the fog “further away”, use lower density values. To move it “closer” use higher density values.
     ///
-    /// **Note:** It's not _unusual_ to have very large or very small values for the density, depending on the scene
+    /// ## Tips
+    ///
+    /// - Use the [`FogFalloff::from_visibility()`] convenience method to create an exponential falloff with the proper
+    /// density for a desired visibility distance in world units;
+    /// - It's not _unusual_ to have very large or very small values for the density, depending on the scene
     /// scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
     /// in the ballpark of `1e-3`. Conversely, for really small scale scenes you might want really high values of
-    /// density.
-    ///
-    /// **Tip:** You can combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier control.
+    /// density;
+    /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
@@ -206,8 +209,8 @@ pub enum FogFalloff {
     /// The following two falloff modes will produce identical visual results:
     ///
     /// ```
-    /// const D: f32 = 0.5;
-    ///
+    /// # const D: f32 = 0.5;
+    /// #
     /// let exponential = FalloffMode::Exponential {
     ///     density: D,
     /// };
