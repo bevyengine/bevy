@@ -248,13 +248,12 @@ fn pbr(
         // fog shape that looks a bit fake
         let distance = length(view_to_world);
 
-        var scattering = 0.0;
+        var scattering = vec3<f32>(0.0);
         if (fog.scattering_color.a > 0.0) {
             let view_to_world_normalized = view_to_world / distance;
             for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
                 let light = lights.directional_lights[i];
-                let intensity = length(light.color.rgb);
-                scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.scattering_exponent) * intensity;
+                scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.scattering_exponent) * light.color.rgb;
             }
         }
 

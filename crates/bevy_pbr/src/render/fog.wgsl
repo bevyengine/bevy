@@ -7,11 +7,11 @@
 fn linear_fog(
     input_color: vec4<f32>,
     distance: f32,
-    scattering: f32,
+    scattering: vec3<f32>,
 ) -> vec4<f32> {
     var result = fog.base_color;
-    if (scattering > 0.0) {
-        result = vec4<f32>(mix(result.rgb, fog.scattering_color.rgb, min(scattering * fog.scattering_color.a, 1.0)), result.a);
+    if (fog.scattering_color.a > 0.0) {
+        result = vec4<f32>(fog.base_color.rgb + scattering * fog.scattering_color.rgb * fog.scattering_color.a, result.a);
     }
     let start = fog.be.x;
     let end = fog.be.y;
@@ -22,11 +22,11 @@ fn linear_fog(
 fn exponential_fog(
     input_color: vec4<f32>,
     distance: f32,
-    scattering: f32,
+    scattering: vec3<f32>,
 ) -> vec4<f32> {
     var result = fog.base_color;
-    if (scattering > 0.0) {
-        result = vec4<f32>(mix(result.rgb, fog.scattering_color.rgb, min(scattering * fog.scattering_color.a, 1.0)), result.a);
+    if (fog.scattering_color.a > 0.0) {
+        result = vec4<f32>(fog.base_color.rgb + scattering * fog.scattering_color.rgb * fog.scattering_color.a, result.a);
     }
     let density = fog.be.x;
     result.a *= 1.0 - 1.0 / exp(distance * density);
@@ -36,11 +36,11 @@ fn exponential_fog(
 fn exponential_squared_fog(
     input_color: vec4<f32>,
     distance: f32,
-    scattering: f32,
+    scattering: vec3<f32>,
 ) -> vec4<f32> {
     var result = fog.base_color;
-    if (scattering > 0.0) {
-        result = vec4<f32>(mix(result.rgb, fog.scattering_color.rgb, min(scattering * fog.scattering_color.a, 1.0)), result.a);
+    if (fog.scattering_color.a > 0.0) {
+        result = vec4<f32>(fog.base_color.rgb + scattering * fog.scattering_color.rgb * fog.scattering_color.a, result.a);
     }
     let density = fog.be.x;
     result.a *= 1.0 - 1.0 / exp(pow(distance * density, 2.0));
@@ -53,13 +53,12 @@ fn exponential_squared_fog(
 fn atmospheric_fog(
     input_color: vec4<f32>,
     distance: f32,
-    scattering: f32,
+    scattering: vec3<f32>,
 ) -> vec4<f32> {
     var result = fog.base_color;
-    if (scattering > 0.0) {
-        result = vec4<f32>(mix(result.rgb, fog.scattering_color.rgb, min(scattering * fog.scattering_color.a, 1.0)), result.a);
+    if (fog.scattering_color.a > 0.0) {
+        result = vec4<f32>(fog.base_color.rgb + scattering * fog.scattering_color.rgb * fog.scattering_color.a, result.a);
     }
-
     let extinction_color = 1.0 - 1.0 / exp(distance * fog.be);
     let inscattering_color = 1.0 - 1.0 / exp(distance * fog.bi);
 

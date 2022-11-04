@@ -55,8 +55,9 @@ pub struct FogSettings {
     /// changing the fog falloff mode or parameters.
     pub color: Color,
 
-    /// The color used for the fog where the view direction aligns with directional lights.
-    /// Produces a “halo” or light dispersion effect. (e.g. around the sun)
+    /// Color used to modulate the influence of directional light colors on the
+    /// fog, where the view direction aligns with each directional light direction,
+    /// producing a “halo” or light dispersion effect. (e.g. around the sun)
     pub scattering_color: Color,
 
     /// The exponent applied to the directional light alignment calculation
