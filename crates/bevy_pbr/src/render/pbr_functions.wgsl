@@ -250,7 +250,7 @@ fn pbr(
 
         var scattering = 0.0;
         if (fog.scattering_color.a > 0.0) {
-            let view_to_world_normalized = normalize(view_to_world);
+            let view_to_world_normalized = view_to_world / distance;
             for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
                 let light = lights.directional_lights[i];
                 let intensity = length(light.color.rgb);
