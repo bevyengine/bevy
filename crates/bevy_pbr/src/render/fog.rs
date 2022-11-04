@@ -21,9 +21,9 @@ pub struct GpuFog {
     /// Fog color
     base_color: Vec4,
     /// The color used for the fog where the view direction aligns with directional lights
-    scattering_color: Vec4,
+    directional_light_color: Vec4,
     /// The exponent applied to the directional light alignment calculation
-    scattering_exponent: f32,
+    directional_light_exponent: f32,
     /// Allocated differently depending on fog mode.
     /// See `mesh_view_types.wgsl` for a detailed explanation
     be: Vec3,
@@ -59,24 +59,24 @@ pub fn prepare_fog(
                 FogFalloff::Linear { start, end } => GpuFog {
                     mode: GPU_FOG_MODE_LINEAR,
                     base_color: fog.color.into(),
-                    scattering_color: fog.scattering_color.into(),
-                    scattering_exponent: fog.scattering_exponent,
+                    directional_light_color: fog.directional_light_color.into(),
+                    directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(*start, *end, 0.0),
                     ..Default::default()
                 },
                 FogFalloff::Exponential { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL,
                     base_color: fog.color.into(),
-                    scattering_color: fog.scattering_color.into(),
-                    scattering_exponent: fog.scattering_exponent,
+                    directional_light_color: fog.directional_light_color.into(),
+                    directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(*density, 0.0, 0.0),
                     ..Default::default()
                 },
                 FogFalloff::ExponentialSquared { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL_SQUARED,
                     base_color: fog.color.into(),
-                    scattering_color: fog.scattering_color.into(),
-                    scattering_exponent: fog.scattering_exponent,
+                    directional_light_color: fog.directional_light_color.into(),
+                    directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(*density, 0.0, 0.0),
                     ..Default::default()
                 },
@@ -86,8 +86,8 @@ pub fn prepare_fog(
                 } => GpuFog {
                     mode: GPU_FOG_MODE_ATMOSPHERIC,
                     base_color: fog.color.into(),
-                    scattering_color: fog.scattering_color.into(),
-                    scattering_exponent: fog.scattering_exponent,
+                    directional_light_color: fog.directional_light_color.into(),
+                    directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(extinction.r(), extinction.g(), extinction.b()),
                     bi: Vec3::new(inscattering.r(), inscattering.g(), inscattering.b()),
                 },

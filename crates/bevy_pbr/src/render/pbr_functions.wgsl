@@ -249,11 +249,11 @@ fn pbr(
         let distance = length(view_to_world);
 
         var scattering = vec3<f32>(0.0);
-        if (fog.scattering_color.a > 0.0) {
+        if (fog.directional_light_color.a > 0.0) {
             let view_to_world_normalized = view_to_world / distance;
             for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
                 let light = lights.directional_lights[i];
-                scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.scattering_exponent) * light.color.rgb;
+                scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.directional_light_exponent) * light.color.rgb;
             }
         }
 

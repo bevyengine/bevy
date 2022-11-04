@@ -64,8 +64,8 @@ struct Lights {
 struct Fog {
     mode: u32,
     base_color: vec4<f32>,
-    scattering_color: vec4<f32>,
-    scattering_exponent: f32,
+    directional_light_color: vec4<f32>,
+    directional_light_exponent: f32,
     // `be` and `bi` are allocated differently depending on the fog mode
     //
     // For Linear Fog:
