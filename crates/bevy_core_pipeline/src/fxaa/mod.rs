@@ -118,6 +118,12 @@ impl Plugin for FxaaPlugin {
             graph
                 .add_node_edge(core_3d::graph::node::TONEMAPPING, FXAA_NODE_3D)
                 .unwrap();
+            graph
+                .add_node_edge(
+                    FXAA_NODE_3D,
+                    core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                )
+                .unwrap();
         }
         {
             let fxaa_node = FxaaNode::new(&mut render_app.world);
@@ -137,6 +143,12 @@ impl Plugin for FxaaPlugin {
 
             graph
                 .add_node_edge(core_2d::graph::node::TONEMAPPING, FXAA_NODE_2D)
+                .unwrap();
+            graph
+                .add_node_edge(
+                    FXAA_NODE_2D,
+                    core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+                )
                 .unwrap();
         }
     }
