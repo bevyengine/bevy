@@ -56,6 +56,7 @@ pub enum MouseButton {
     Other(u16),
 }
 
+#[cfg(feature = "winit_extra")]
 impl From<winit::event::MouseButton> for MouseButton {
     fn from(mouse_button: winit::event::MouseButton) -> Self {
         match mouse_button {

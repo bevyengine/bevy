@@ -386,6 +386,7 @@ pub enum CursorGrabMode {
     Locked,
 }
 
+#[cfg(feature = "winit_extra")]
 impl From<CursorGrabMode> for winit::window::CursorGrabMode {
     fn from(cursor_grab_mode: CursorGrabMode) -> Self {
         match cursor_grab_mode {

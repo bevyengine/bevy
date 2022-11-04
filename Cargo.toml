@@ -67,7 +67,7 @@ bevy_scene = ["bevy_internal/bevy_scene"]
 bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
-bevy_winit = ["bevy_internal/bevy_winit"]
+bevy_winit = ["bevy_internal/bevy_winit", "bevy_internal/winit_extra"]
 
 # Tracing features
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]

@@ -30,6 +30,7 @@ pub struct KeyboardInput {
     pub state: ButtonState,
 }
 
+#[cfg(feature = "winit_extra")]
 impl From<&winit::event::KeyboardInput> for KeyboardInput {
     fn from(keyboard_input: &winit::event::KeyboardInput) -> Self {
         KeyboardInput {
@@ -437,6 +438,7 @@ pub enum KeyCode {
     Cut,
 }
 
+#[cfg(feature = "winit_extra")]
 impl From<winit::event::VirtualKeyCode> for KeyCode {
     fn from(virtual_key_code: winit::event::VirtualKeyCode) -> Self {
         match virtual_key_code {

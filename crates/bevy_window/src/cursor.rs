@@ -81,6 +81,7 @@ pub enum CursorIcon {
     RowResize,
 }
 
+#[cfg(feature = "winit_extra")]
 impl From<CursorIcon> for winit::window::CursorIcon {
     fn from(cursor_icon: CursorIcon) -> Self {
         match cursor_icon {

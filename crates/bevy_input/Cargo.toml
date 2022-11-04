@@ -13,6 +13,7 @@ default = []
 serialize = ["serde"]
 wayland = ["winit/wayland"]
 x11 = ["winit/x11"]
+winit_extra = ["winit"]
 
 [dependencies]
 # bevy
@@ -21,10 +22,10 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.9.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["glam"] }
-winit = { version = "0.27", default-features = false }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }
+winit = { version = "0.27", default-features = false, optional = true }
 thiserror = "1.0"
 
 [package.metadata.docs.rs]

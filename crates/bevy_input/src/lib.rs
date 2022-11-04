@@ -147,6 +147,7 @@ impl ButtonState {
     }
 }
 
+#[cfg(feature = "winit_extra")]
 impl From<winit::event::ElementState> for ButtonState {
     fn from(element_state: winit::event::ElementState) -> Self {
         match element_state {
