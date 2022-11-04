@@ -79,15 +79,15 @@ pub struct FogSettings {
 /// For easier artistic control, instead of creating the enum variants directly, you can use the
 /// visibility-based convenience methods:
 ///
-/// - For [`FogFalloff::Exponential`]:
+/// - For `FogFalloff::Exponential`:
 ///     - [`FogFalloff::from_visibility()`]
 ///     - [`FogFalloff::from_visibility_contrast()`]
 ///
-/// - For [`FogFalloff::ExponentialSquared`]:
+/// - For `FogFalloff::ExponentialSquared`:
 ///     - [`FogFalloff::from_visibility_squared()`]
 ///     - [`FogFalloff::from_visibility_contrast_squared()`]
 ///
-/// - For [`FogFalloff::Atmospheric`]:
+/// - For `FogFalloff::Atmospheric`:
 ///     - [`FogFalloff::from_visibility_color()`]
 ///     - [`FogFalloff::from_visibility_colors()`]
 ///     - [`FogFalloff::from_visibility_contrast_color()`]
@@ -399,10 +399,10 @@ impl FogFalloff {
     }
 
     /// The original 2% contrast threshold as proposed by Koschmieder, being the
-    /// minimum visual contrast at which a human observer can detect an object
+    /// minimum visual contrast at which a human observer can detect an object.
     pub const KOSCHMIEDER_CONTRAST_THRESHOLD: f32 = 0.02;
 
-    /// A revised 5% contrast threshold, deemed more realistic for typical human observers
+    /// A revised 5% contrast threshold, deemed more realistic for typical human observers.
     pub const REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD: f32 = 0.05;
 
     /// Calculates the extinction coefficient β, from V and Cₜ, where:
