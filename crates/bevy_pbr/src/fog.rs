@@ -1,5 +1,6 @@
 use crate::ReflectComponent;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Camera};
 
@@ -216,8 +217,8 @@ pub enum FogFalloff {
     /// };
     ///
     /// let atmospheric = FalloffMode::Atmospheric {
-    ///     extinction: Color::rgb(D, D, D),
-    ///     inscattering: Color::rgb(D, D, D),
+    ///     extinction: Vec3::new(D, D, D),
+    ///     inscattering: Vec3::new(D, D, D),
     /// }
     /// ```
     ///
@@ -226,17 +227,23 @@ pub enum FogFalloff {
         /// Controls how much light is removed due to atmospheric “extinction”, i.e. loss of light due to
         /// photons being absorbed by atmospheric particles.
         ///
-        /// Each channel in the color (`R`, `G`, `B`) can be thought of as an independent `density` factor from
+        /// Each component can be thought of as an independent per `R`/`G`/`B` channel `density` factor from
         /// [`FogFalloff::Exponential`]: A unitless multiplier applied to the world distance (within the fog
-        /// falloff calculation) for that specific channel. Alpha values are ignored.
-        extinction: Color,
+        /// falloff calculation) for that specific channel.
+        ///
+        /// **Note:** This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
+        /// For artistic control, use the [`FogFalloff::from_visibility_colors()`] convenience method.
+        extinction: Vec3,
 
         /// Controls how much light is added due to light scattering from the sun through the atmosphere.
         ///
-        /// Each channel in the color (`R`, `G`, `B`) can be thought of as an independent `density` factor from
+        /// Each component can be thought of as an independent per `R`/`G`/`B` channel `density` factor from
         /// [`FogFalloff::Exponential`]: A unitless multiplier applied to the world distance (within the fog
-        /// falloff calculation) for that specific channel. Alpha values are ignored.
-        inscattering: Color,
+        /// falloff calculation) for that specific channel.
+        ///
+        /// **Note:** This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
+        /// For artistic control, use the [`FogFalloff::from_visibility_colors()`] convenience method.
+        inscattering: Vec3,
     },
 }
 
@@ -318,7 +325,7 @@ impl FogFalloff {
         let [r_i, g_i, b_i, a_i] = inscattering_color.as_linear_rgba_f32();
 
         FogFalloff::Atmospheric {
-            extinction: Color::rgb(
+            extinction: Vec3::new(
                 // Values are subtracted from 1.0 here to preserve the intuitive/artistic meaning of
                 // colors, since they're later subtracted. (e.g. by giving a blue extinction color, you
                 // get blue and _not_ yellow results)
@@ -328,7 +335,7 @@ impl FogFalloff {
             ) * FogFalloff::koschmieder(visibility, contrast_threshold)
                 * a_e.powf(E),
 
-            inscattering: Color::rgb(r_i.powf(E), g_i.powf(E), b_i.powf(E))
+            inscattering: Vec3::new(r_i.powf(E), g_i.powf(E), b_i.powf(E))
                 * FogFalloff::koschmieder(visibility, contrast_threshold)
                 * a_i.powf(E),
         }

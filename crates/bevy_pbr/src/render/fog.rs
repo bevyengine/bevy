@@ -88,8 +88,8 @@ pub fn prepare_fog(
                     base_color: fog.color.into(),
                     directional_light_color: fog.directional_light_color.into(),
                     directional_light_exponent: fog.directional_light_exponent,
-                    be: Vec3::new(extinction.r(), extinction.g(), extinction.b()),
-                    bi: Vec3::new(inscattering.r(), inscattering.g(), inscattering.b()),
+                    be: *extinction,
+                    bi: *inscattering,
                 },
             }
         } else {
