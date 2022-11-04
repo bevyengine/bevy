@@ -171,8 +171,8 @@ fn update_system(
     time: Res<Time>,
     keycode: Res<Input<KeyCode>>,
 ) {
-    let now = time.elapsed().as_millis() as f32 / 1000.0;
-    let delta = time.delta().as_millis() as f32 / 1000.0;
+    let now = time.elapsed_seconds();
+    let delta = time.delta_seconds();
 
     let (mut fog, mut transform) = camera.single_mut();
     let mut text = text.single_mut();
