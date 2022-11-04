@@ -237,6 +237,137 @@ pub enum FogFalloff {
     },
 }
 
+impl FogFalloff {
+    /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world units,
+    /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`]
+    pub fn from_visibility(visibility: f32) -> FogFalloff {
+        FogFalloff::from_visibility_contrast(
+            visibility,
+            FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
+        )
+    }
+
+    /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world units,
+    /// and a given contrast threshold in the range of 0.0 to 1.0.
+    pub fn from_visibility_contrast(visibility: f32, contrast_threshold: f32) -> FogFalloff {
+        FogFalloff::Exponential {
+            density: FogFalloff::koschmieder(visibility, contrast_threshold),
+        }
+    }
+
+    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
+    /// a color for both extinction and inscattering, using the revised Koschmieder contrast threshold,
+    /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
+    pub fn from_visibility_color(
+        visibility: f32,
+        extinction_inscattering_color: Color,
+    ) -> FogFalloff {
+        FogFalloff::from_visibility_contrast_colors(
+            visibility,
+            FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
+            extinction_inscattering_color,
+            extinction_inscattering_color,
+        )
+    }
+
+    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
+    /// extinction and inscattering colors, using the revised Koschmieder contrast threshold,
+    /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
+    pub fn from_visibility_colors(
+        visibility: f32,
+        extinction_color: Color,
+        inscattering_color: Color,
+    ) -> FogFalloff {
+        FogFalloff::from_visibility_contrast_colors(
+            visibility,
+            FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
+            extinction_color,
+            inscattering_color,
+        )
+    }
+
+    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
+    /// a contrast threshold in the range of 0.0 to 1.0, and a color for both extinction and inscattering.
+    pub fn from_visibility_contrast_color(
+        visibility: f32,
+        contrast_threshold: f32,
+        extinction_inscattering_color: Color,
+    ) -> FogFalloff {
+        FogFalloff::from_visibility_contrast_colors(
+            visibility,
+            contrast_threshold,
+            extinction_inscattering_color,
+            extinction_inscattering_color,
+        )
+    }
+
+    /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
+    /// a contrast threshold in the range of 0.0 to 1.0, extinction and inscattering colors.
+    pub fn from_visibility_contrast_colors(
+        visibility: f32,
+        contrast_threshold: f32,
+        extinction_color: Color,
+        inscattering_color: Color,
+    ) -> FogFalloff {
+        use std::f32::consts::E;
+
+        let [r_e, g_e, b_e, a_e] = extinction_color.as_linear_rgba_f32();
+        let [r_i, g_i, b_i, a_i] = inscattering_color.as_linear_rgba_f32();
+
+        FogFalloff::Atmospheric {
+            extinction: Color::rgb(
+                // Values are subtracted from 1.0 here to preserve the intuitive/artistic meaning of
+                // colors, since they're later subtracted. (e.g. by giving a blue extinction color, you
+                // get blue and _not_ yellow results)
+                (1.0 - r_e).powf(E),
+                (1.0 - g_e).powf(E),
+                (1.0 - b_e).powf(E),
+            ) * FogFalloff::koschmieder(visibility, contrast_threshold)
+                * a_e.powf(E),
+
+            inscattering: Color::rgb(r_i.powf(E), g_i.powf(E), b_i.powf(E))
+                * FogFalloff::koschmieder(visibility, contrast_threshold)
+                * a_i.powf(E),
+        }
+    }
+
+    /// The original 2% contrast threshold as proposed by Koschmieder, being the
+    /// minimum visual contrast at which a human observer can detect an object
+    pub const KOSCHMIEDER_CONTRAST_THRESHOLD: f32 = 0.02;
+
+    /// A revised 5% contrast threshold, deemed more realistic for typical human observers
+    pub const REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD: f32 = 0.05;
+
+    /// Calculates the extinction coefficient β, from V and Cₜ, where:
+    ///
+    /// - Cₜ is the contrast threshold, in the range of 0.0 to 1.0
+    /// - V is the visibility distance in which a perfectly black object is still identifiable
+    ///   against the horizon sky within the contrast threshold
+    ///
+    /// We start with Koschmieder's equation:
+    ///
+    /// ```text
+    ///       -ln(Cₜ)
+    ///  V = ─────────
+    ///          β
+    /// ```
+    ///
+    /// Multiplying both sides by β/V, that gives us:
+    ///
+    /// ```text
+    ///       -ln(Cₜ)
+    ///  β = ─────────
+    ///          V
+    /// ```
+    ///
+    /// See:
+    /// - <https://en.wikipedia.org/wiki/Visibility>
+    /// - <https://www.biral.com/wp-content/uploads/2015/02/Introduction_to_visibility-v2-2.pdf>
+    pub fn koschmieder(v: f32, c_t: f32) -> f32 {
+        return -c_t.ln() / v;
+    }
+}
+
 impl Default for FogSettings {
     fn default() -> Self {
         FogSettings {
