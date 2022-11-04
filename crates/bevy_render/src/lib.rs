@@ -245,7 +245,7 @@ impl Plugin for RenderPlugin {
                     // extract
                     extract(app_world, render_app);
                 }
-
+            }, |render_app| {
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =
