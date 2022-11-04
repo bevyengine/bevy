@@ -27,7 +27,6 @@ fn setup_camera_fog(mut commands: Commands) {
                 extinction: Color::rgb(0.15, 0.1, 0.05),
                 inscattering: Color::rgb(0.05, 0.07, 0.2),
             },
-            ..default()
         },
     ));
 }
