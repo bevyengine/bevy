@@ -191,9 +191,6 @@ pub enum FogFalloff {
     ///
     /// - Use the [`FogFalloff::from_visibility_squared()`] convenience method to create an exponential squared falloff
     /// with the proper density for a desired visibility distance in world units;
-    /// - Unlike `FogFalloff::Exponential`, squared exponential fog typically needs less extreme `density` values.
-    /// For scenes with objects in the scale of thousands of units, you might want density values
-    /// between `0.1` and `0.01` instead of `0.001` for exponential.
     /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
