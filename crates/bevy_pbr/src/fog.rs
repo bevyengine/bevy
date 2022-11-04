@@ -69,7 +69,7 @@ pub struct FogSettings {
     pub falloff: FogFalloff,
 }
 
-/// Allows switching between the different fog falloff modes, and configuring their parameters.
+/// Allows switching between different fog falloff modes, and configuring their parameters.
 ///
 /// ## Convenience Methods
 ///
@@ -143,7 +143,7 @@ pub enum FogFalloff {
     /// density for a desired visibility distance in world units;
     /// - It's not _unusual_ to have very large or very small values for the density, depending on the scene
     /// scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
-    /// in the ballpark of `1e-3`. Conversely, for really small scale scenes you might want really high values of
+    /// in the ballpark of `0.001`. Conversely, for really small scale scenes you might want really high values of
     /// density;
     /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
     ///
@@ -178,7 +178,7 @@ pub enum FogFalloff {
     /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
     /// </svg>
     Exponential {
-        /// Unitless multiplier applied to the world distance (within the exponential squared fog falloff calculation).
+        /// Unitless multiplier applied to the world distance (within the exponential fog falloff calculation).
         density: f32,
     },
 
@@ -186,6 +186,15 @@ pub enum FogFalloff {
     ///
     /// Similar to [`FogFalloff::Exponential`], but grows more slowly in intensity for closer distances
     /// before “catching up”.
+    ///
+    /// ## Tips
+    ///
+    /// - Use the [`FogFalloff::from_visibility_squared()`] convenience method to create an exponential squared falloff
+    /// with the proper density for a desired visibility distance in world units;
+    /// - Unlike `FogFalloff::Exponential`, squared exponential fog typically needs less extreme `density` values.
+    /// For scenes with objects in the scale of thousands of units, you might want density values
+    /// between `0.1` and `0.01` instead of `0.001` for exponential.
+    /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
