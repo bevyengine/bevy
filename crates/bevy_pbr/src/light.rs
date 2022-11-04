@@ -167,6 +167,43 @@ impl Default for SpotLight {
 /// | 32,000–100,000    | Direct sunlight                                |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
+///
+/// ## Shadows
+///
+/// To enable shadows, set the `shadows_enabled` property to `true`.
+///
+/// While directional lights contribute to the illumination of meshes regardless
+/// of their (or the meshes') positions, currently only a limited region of the scene
+/// (the _shadow volume_) can cast and receive shadows for any given directional light.
+///
+/// The shadow volume is a _rectangular cuboid_, with left/right/bottom/top/near/far
+/// planes controllable via the `shadow_projection` field. It is affected by the
+/// directional light entity's [`GlobalTransform`], and as such can be freely repositioned in the
+/// scene, (or even scaled!) without affecting illumination in any other way, by simply
+/// moving (or scaling) the entity around. The shadow volume is always oriented towards the
+/// light entity's forward direction.
+///
+/// For smaller scenes, a static directional light with a preset volume is typically
+/// sufficient. For larger scenes with movable cameras, you might want to introduce
+/// a system that dynamically repositions and scales the light entity (and therefore
+/// its shadow volume) based on the scene subject's position (e.g. a player character)
+/// and its relative distance to the camera.
+///
+/// Shadows are produced via [shadow mapping](https://en.wikipedia.org/wiki/Shadow_mapping).
+/// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::DirectionalLightShadowMap;
+/// App::new()
+///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
+/// ```
+///
+/// **Note:** Very large shadow map resolutions (> 4K) can have non-negligible performance and
+/// memory impact, and not work properly under mobile or lower-end hardware. To improve the visual
+/// fidelity of shadow maps, it's typically advisable to first reduce the `shadow_projection`
+/// left/right/top/bottom to a scene-appropriate size, before ramping up the shadow map
+/// resolution.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
@@ -174,6 +211,7 @@ pub struct DirectionalLight {
     /// Illuminance in lux
     pub illuminance: f32,
     pub shadows_enabled: bool,
+    /// A projection that controls the volume in which shadow maps are rendered
     pub shadow_projection: OrthographicProjection,
     pub shadow_depth_bias: f32,
     /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
@@ -208,6 +246,7 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
+/// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
