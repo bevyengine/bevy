@@ -89,6 +89,7 @@ impl VariantInfo {
 pub struct StructVariantInfo {
     name: &'static str,
     fields: Box<[NamedField]>,
+    field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -98,9 +99,11 @@ impl StructVariantInfo {
     /// Create a new [`StructVariantInfo`].
     pub fn new(name: &'static str, fields: &[NamedField]) -> Self {
         let field_indices = Self::collect_field_indices(fields);
+        let field_names = fields.iter().map(|field| field.name()).collect();
         Self {
             name,
             fields: fields.to_vec().into_boxed_slice(),
+            field_names,
             field_indices,
             #[cfg(feature = "documentation")]
             docs: None,
@@ -116,6 +119,11 @@ impl StructVariantInfo {
     /// The name of this variant.
     pub fn name(&self) -> &'static str {
         self.name
+    }
+
+    /// A slice containing the names of all fields in order.
+    pub fn field_names(&self) -> &[&'static str] {
+        &self.field_names
     }
 
     /// Get the field with the given name.
