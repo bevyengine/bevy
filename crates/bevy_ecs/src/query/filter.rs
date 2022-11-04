@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
-    query::{debug_checked_unreachable, Access, FilteredAccess, WorldQuery},
+    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table},
     world::World,
 };
@@ -439,7 +439,7 @@ macro_rules! impl_tick_filter {
                             world.storages()
                                  .sparse_sets
                                  .get(id)
-                                 .unwrap_or_else(|| debug_checked_unreachable())
+                                 .debug_checked_unwrap()
                         }),
                     marker: PhantomData,
                     last_change_tick,
@@ -476,7 +476,7 @@ macro_rules! impl_tick_filter {
             ) {
                 fetch.table_ticks = Some(
                     table.get_column(component_id)
-                         .unwrap_or_else(|| debug_checked_unreachable())
+                    .debug_checked_unwrap()
                          .get_ticks_slice()
                          .into()
                 );
@@ -504,7 +504,7 @@ macro_rules! impl_tick_filter {
                     StorageType::Table => {
                         $is_detected(&*(
                             fetch.table_ticks
-                                 .unwrap_or_else(|| debug_checked_unreachable())
+                            .debug_checked_unwrap()
                                  .get(table_row))
                                  .deref(),
                             fetch.last_change_tick,
@@ -514,9 +514,9 @@ macro_rules! impl_tick_filter {
                     StorageType::SparseSet => {
                         let ticks = &*fetch
                             .sparse_set
-                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .debug_checked_unwrap()
                             .get_ticks(entity)
-                            .unwrap_or_else(|| debug_checked_unreachable())
+                            .debug_checked_unwrap()
                             .get();
                         $is_detected(ticks, fetch.last_change_tick, fetch.change_tick)
                     }
