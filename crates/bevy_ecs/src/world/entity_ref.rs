@@ -201,7 +201,7 @@ impl<'w> EntityRef<'w> {
     ///
     /// # Safety
     ///
-    /// - The returned reference must never alias a mutable borrow of this component.
+    /// - The returned reference must never alias another reference to this component
     /// - The returned reference must not be used after this component is moved which
     ///   may happen from **any** `insert_component`, `remove_component` or `despawn`
     ///   operation on this world (non-exhaustive list).
@@ -211,7 +211,8 @@ impl<'w> EntityRef<'w> {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'w>> {
         self.world.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above, world access is promised by the caller
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above,
+        // the caller promises that they can uniquely access this component
         get_mut_by_id(self.world, self.entity, self.location, component_id)
     }
 }

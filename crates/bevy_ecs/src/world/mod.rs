@@ -1533,7 +1533,8 @@ impl World {
         };
 
         Some(MutUntyped {
-            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
+            // SAFETY: the caller of this function has to ensure that they can mutably access this
+            // component for the duration of the `'_` lifetime
             value: ptr.assert_unique(),
             ticks,
         })
