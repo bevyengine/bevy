@@ -70,6 +70,24 @@ pub struct FogSettings {
 }
 
 /// Allows switching between the different fog falloff modes, and configuring their parameters.
+///
+/// ## Convenience Methods
+///
+/// When using non-linear fog modes it can be hard to determine the right parameter values
+/// for a given scene.
+///
+/// For easier artistic control, instead of creating the enum variants directly, you can use the
+/// visibility-based convenience methods:
+///
+/// - For [`FogFalloff::Exponential`]:
+///     - [`FogFalloff::from_visibility()`]
+///     - [`FogFalloff::from_visibility_contrast()`]
+///
+/// - For [`FogFalloff::Atmospheric`]:
+///     - [`FogFalloff::from_visibility_color()`]
+///     - [`FogFalloff::from_visibility_colors()`]
+///     - [`FogFalloff::from_visibility_contrast_color()`]
+///     - [`FogFalloff::from_visibility_contrast_colors()`]
 #[derive(Debug, Clone, Reflect)]
 pub enum FogFalloff {
     /// A linear fog falloff that grows in intensity between `start` and `end` distances.
@@ -205,6 +223,19 @@ pub enum FogFalloff {
     /// Additionally, individual color channels can have their own density values, resulting in a total of
     /// six different configuration parameters.
     ///
+    /// ## Formula
+    ///
+    /// Unlike other modes, atmospheric falloff doesn't use a simple intensity-based blend of fog color with
+    /// object color. Instead, it calculates per-channel extinction and inscattering factors, which are
+    /// then used to calculate the final color.
+    ///
+    ///
+    /// ```text
+    /// let extinction_factor = 1.0 - 1.0 / (distance * extinction).exp();
+    /// let inscattering_factor = 1.0 - 1.0 / (distance * inscattering).exp();
+    /// let result = input_color * (1.0 - extinction_factor) + fog_color * inscattering_factor;
+    /// ```
+    ///
     /// ## Equivalence to [`FogFalloff::Exponential`]
     ///
     /// The following two falloff modes will produce identical visual results:
@@ -231,7 +262,8 @@ pub enum FogFalloff {
         /// [`FogFalloff::Exponential`]: A unitless multiplier applied to the world distance (within the fog
         /// falloff calculation) for that specific channel.
         ///
-        /// **Note:** This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
+        /// **Note:**
+        /// This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
         /// For artistic control, use the [`FogFalloff::from_visibility_colors()`] convenience method.
         extinction: Vec3,
 
@@ -241,7 +273,8 @@ pub enum FogFalloff {
         /// [`FogFalloff::Exponential`]: A unitless multiplier applied to the world distance (within the fog
         /// falloff calculation) for that specific channel.
         ///
-        /// **Note:** This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
+        /// **Note:**
+        /// This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
         /// For artistic control, use the [`FogFalloff::from_visibility_colors()`] convenience method.
         inscattering: Vec3,
     },
@@ -266,7 +299,7 @@ impl FogFalloff {
     }
 
     /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
-    /// a color for both extinction and inscattering, using the revised Koschmieder contrast threshold,
+    /// and a shared color for both extinction and inscattering, using the revised Koschmieder contrast threshold,
     /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     pub fn from_visibility_color(
         visibility: f32,
@@ -297,7 +330,7 @@ impl FogFalloff {
     }
 
     /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
-    /// a contrast threshold in the range of 0.0 to 1.0, and a color for both extinction and inscattering.
+    /// a contrast threshold in the range of 0.0 to 1.0, and a shared color for both extinction and inscattering.
     pub fn from_visibility_contrast_color(
         visibility: f32,
         contrast_threshold: f32,
