@@ -1,13 +1,14 @@
 use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
-    RefChange,
+    RefChange, ReflectAsset, ReflectHandle,
 };
-use bevy_app::App;
+use bevy_app::{App, AppTypeRegistry};
 use bevy_ecs::{
     event::{EventWriter, Events},
     system::{ResMut, Resource},
     world::FromWorld,
 };
+use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -279,6 +280,14 @@ pub trait AddAsset {
     where
         T: Asset;
 
+    /// Registers the asset type `T` using `[App::register]`,
+    /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
+    ///
+    /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
+    fn register_asset_reflect<T>(&mut self) -> &mut Self
+    where
+        T: Asset + Reflect + FromReflect + GetTypeRegistration;
+
     /// Registers `T` as a supported internal asset in the application.
     ///
     /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
@@ -330,6 +339,23 @@ impl AddAsset for App {
             .add_system_to_stage(AssetStage::LoadAssets, update_asset_storage_system::<T>)
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
+    }
+
+    fn register_asset_reflect<T>(&mut self) -> &mut Self
+    where
+        T: Asset + Reflect + FromReflect + GetTypeRegistration,
+    {
+        let type_registry = self.world.resource::<AppTypeRegistry>();
+        {
+            let mut type_registry = type_registry.write();
+
+            type_registry.register::<T>();
+            type_registry.register::<Handle<T>>();
+            type_registry.register_type_data::<T, ReflectAsset>();
+            type_registry.register_type_data::<Handle<T>, ReflectHandle>();
+        }
+
+        self
     }
 
     fn add_debug_asset<T: Clone>(&mut self) -> &mut Self

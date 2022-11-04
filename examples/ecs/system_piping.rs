@@ -24,7 +24,7 @@ fn parse_message_system(message: Res<Message>) -> Result<usize> {
 // message printed.
 fn handler_system(In(result): In<Result<usize>>) {
     match result {
-        Ok(value) => println!("parsed message: {}", value),
-        Err(err) => println!("encountered an error: {:?}", err),
+        Ok(value) => println!("parsed message: {value}"),
+        Err(err) => println!("encountered an error: {err:?}"),
     }
 }

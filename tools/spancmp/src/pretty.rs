@@ -190,7 +190,7 @@ impl Scale {
         } else {
             3
         };
-        print!("{:5.precision$}{}", v, self.name, precision = precision);
+        print!("{v:5.precision$}{}", self.name);
     }
 
     pub fn print_with_scale(&self, v: f32, v_scale: f32) {

@@ -76,7 +76,7 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 // load_scene_example.scn. You should immediately see the changes appear in the console.
 fn log_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
     for (entity, component_a) in &query {
-        info!("  Entity({})", entity.id());
+        info!("  Entity({})", entity.index());
         info!(
             "    ComponentA: {{ x: {} y: {} }}\n",
             component_a.x, component_a.y
@@ -115,7 +115,7 @@ fn save_scene_system(world: &mut World) {
     IoTaskPool::get()
         .spawn(async move {
             // Write the scene RON data to file
-            File::create(format!("assets/{}", NEW_SCENE_FILE_PATH))
+            File::create(format!("assets/{NEW_SCENE_FILE_PATH}"))
                 .and_then(|mut file| file.write(serialized_scene.as_bytes()))
                 .expect("Error while writing scene to file");
         })

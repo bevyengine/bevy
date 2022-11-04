@@ -194,7 +194,7 @@ impl EnumInfo {
     ///
     /// This does _not_ check if the given variant exists.
     pub fn variant_path(&self, name: &str) -> String {
-        format!("{}::{}", self.type_name(), name)
+        format!("{}::{name}", self.type_name())
     }
 
     /// Checks if a variant with the given name exists within this enum.

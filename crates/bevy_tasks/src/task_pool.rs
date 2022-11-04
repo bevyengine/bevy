@@ -68,9 +68,9 @@ impl TaskPoolBuilder {
 pub struct TaskPool {
     /// The executor for the pool
     ///
-    /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
+    /// This has to be separate from TaskPoolInner because we have to create an `Arc<Executor>` to
     /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the Vec<Task<T>> contained within TaskPoolInner
+    /// the `Vec<Task<T>>` contained within `TaskPoolInner`
     executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
@@ -105,9 +105,9 @@ impl TaskPool {
                 let shutdown_rx = shutdown_rx.clone();
 
                 let thread_name = if let Some(thread_name) = thread_name {
-                    format!("{} ({})", thread_name, i)
+                    format!("{thread_name} ({i})")
                 } else {
-                    format!("TaskPool ({})", i)
+                    format!("TaskPool ({i})")
                 };
                 let mut thread_builder = thread::Builder::new().name(thread_name);
 
@@ -118,14 +118,21 @@ impl TaskPool {
                 thread_builder
                     .spawn(move || {
                         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-                            let tick_forever = async move {
-                                loop {
-                                    local_executor.tick().await;
+                            loop {
+                                let res = std::panic::catch_unwind(|| {
+                                    let tick_forever = async move {
+                                        loop {
+                                            local_executor.tick().await;
+                                        }
+                                    };
+                                    future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
+                                });
+                                if let Ok(value) = res {
+                                    // Use unwrap_err because we expect a Closed error
+                                    value.unwrap_err();
+                                    break;
                                 }
-                            };
-                            let shutdown_future = ex.run(tick_forever.or(shutdown_rx.recv()));
-                            // Use unwrap_err because we expect a Closed error
-                            future::block_on(shutdown_future).unwrap_err();
+                            }
                         });
                     })
                     .expect("Failed to spawn thread.")

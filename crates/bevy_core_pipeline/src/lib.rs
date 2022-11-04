@@ -2,6 +2,7 @@ pub mod clear_color;
 pub mod core_2d;
 pub mod core_3d;
 pub mod fullscreen_vertex_shader;
+pub mod fxaa;
 pub mod tonemapping;
 pub mod upscaling;
 
@@ -19,6 +20,7 @@ use crate::{
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
+    fxaa::FxaaPlugin,
     tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
@@ -45,6 +47,7 @@ impl Plugin for CorePipelinePlugin {
             .add_plugin(TonemappingPlugin)
             .add_plugin(UpscalingPlugin)
             .add_plugin(Core2dPlugin)
-            .add_plugin(Core3dPlugin);
+            .add_plugin(Core3dPlugin)
+            .add_plugin(FxaaPlugin);
     }
 }

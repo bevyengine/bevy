@@ -35,6 +35,7 @@ impl ArchetypeId {
     }
 }
 
+#[derive(Copy, Clone)]
 pub(crate) enum ComponentStatus {
     Added,
     Mutated,
@@ -43,6 +44,36 @@ pub(crate) enum ComponentStatus {
 pub struct AddBundle {
     pub archetype_id: ArchetypeId,
     pub(crate) bundle_status: Vec<ComponentStatus>,
+}
+
+/// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
+/// being added to a given entity, relative to that entity's original archetype.
+/// See [`crate::bundle::BundleInfo::write_components`] for more info.
+pub(crate) trait BundleComponentStatus {
+    /// Returns the Bundle's component status for the given "bundle index"
+    ///
+    /// # Safety
+    /// Callers must ensure that index is always a valid bundle index for the
+    /// Bundle associated with this [`BundleComponentStatus`]
+    unsafe fn get_status(&self, index: usize) -> ComponentStatus;
+}
+
+impl BundleComponentStatus for AddBundle {
+    #[inline]
+    unsafe fn get_status(&self, index: usize) -> ComponentStatus {
+        // SAFETY: caller has ensured index is a valid bundle index for this bundle
+        *self.bundle_status.get_unchecked(index)
+    }
+}
+
+pub(crate) struct SpawnBundleStatus;
+
+impl BundleComponentStatus for SpawnBundleStatus {
+    #[inline]
+    unsafe fn get_status(&self, _index: usize) -> ComponentStatus {
+        // Components added during a spawn_bundle call are always treated as added
+        ComponentStatus::Added
+    }
 }
 
 /// Archetypes and bundles form a graph. Adding or removing a bundle moves
@@ -121,9 +152,19 @@ impl Edges {
     }
 }
 
-struct TableInfo {
-    id: TableId,
-    entity_rows: Vec<usize>,
+pub struct ArchetypeEntity {
+    pub(crate) entity: Entity,
+    pub(crate) table_row: usize,
+}
+
+impl ArchetypeEntity {
+    pub fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    pub fn table_row(&self) -> usize {
+        self.table_row
+    }
 }
 
 pub(crate) struct ArchetypeSwapRemoveResult {
@@ -138,9 +179,9 @@ pub(crate) struct ArchetypeComponentInfo {
 
 pub struct Archetype {
     id: ArchetypeId,
-    entities: Vec<Entity>,
+    table_id: TableId,
     edges: Edges,
-    table_info: TableInfo,
+    entities: Vec<ArchetypeEntity>,
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
     components: SparseSet<ComponentId, ArchetypeComponentInfo>,
@@ -183,14 +224,11 @@ impl Archetype {
         }
         Self {
             id,
-            table_info: TableInfo {
-                id: table_id,
-                entity_rows: Default::default(),
-            },
+            table_id,
+            entities: Vec::new(),
             components,
             table_components,
             sparse_set_components,
-            entities: Default::default(),
             edges: Default::default(),
         }
     }
@@ -202,17 +240,12 @@ impl Archetype {
 
     #[inline]
     pub fn table_id(&self) -> TableId {
-        self.table_info.id
+        self.table_id
     }
 
     #[inline]
-    pub fn entities(&self) -> &[Entity] {
+    pub fn entities(&self) -> &[ArchetypeEntity] {
         &self.entities
-    }
-
-    #[inline]
-    pub fn entity_table_rows(&self) -> &[usize] {
-        &self.table_info.entity_rows
     }
 
     #[inline]
@@ -242,20 +275,19 @@ impl Archetype {
 
     #[inline]
     pub fn entity_table_row(&self, index: usize) -> usize {
-        self.table_info.entity_rows[index]
+        self.entities[index].table_row
     }
 
     #[inline]
     pub(crate) fn set_entity_table_row(&mut self, index: usize, table_row: usize) {
-        self.table_info.entity_rows[index] = table_row;
+        self.entities[index].table_row = table_row;
     }
 
     /// # Safety
     /// valid component values must be immediately written to the relevant storages
     /// `table_row` must be valid
     pub(crate) unsafe fn allocate(&mut self, entity: Entity, table_row: usize) -> EntityLocation {
-        self.entities.push(entity);
-        self.table_info.entity_rows.push(table_row);
+        self.entities.push(ArchetypeEntity { entity, table_row });
 
         EntityLocation {
             archetype_id: self.id,
@@ -265,21 +297,20 @@ impl Archetype {
 
     pub(crate) fn reserve(&mut self, additional: usize) {
         self.entities.reserve(additional);
-        self.table_info.entity_rows.reserve(additional);
     }
 
     /// Removes the entity at `index` by swapping it out. Returns the table row the entity is stored
     /// in.
     pub(crate) fn swap_remove(&mut self, index: usize) -> ArchetypeSwapRemoveResult {
         let is_last = index == self.entities.len() - 1;
-        self.entities.swap_remove(index);
+        let entity = self.entities.swap_remove(index);
         ArchetypeSwapRemoveResult {
             swapped_entity: if is_last {
                 None
             } else {
-                Some(self.entities[index])
+                Some(self.entities[index].entity)
             },
-            table_row: self.table_info.entity_rows.swap_remove(index),
+            table_row: entity.table_row,
         }
     }
 
@@ -317,7 +348,6 @@ impl Archetype {
 
     pub(crate) fn clear_entities(&mut self) {
         self.entities.clear();
-        self.table_info.entity_rows.clear();
     }
 }
 
