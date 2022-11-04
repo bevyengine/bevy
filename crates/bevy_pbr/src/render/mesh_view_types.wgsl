@@ -66,6 +66,8 @@ struct Fog {
     base_color: vec4<f32>,
     scattering_color: vec4<f32>,
     scattering_exponent: f32,
+    // `be` and `bi` are allocated differently depending on the fog mode
+    //
     // For Linear Fog:
     //     be.x = start, be.y = end
     // For Exponential and ExponentialSquared Fog:
@@ -77,6 +79,7 @@ struct Fog {
     bi: vec3<f32>,
 }
 
+// Important: These must be kept in sync with `fog.rs`
 let FOG_MODE_OFF: u32                   = 0u;
 let FOG_MODE_LINEAR: u32                = 1u;
 let FOG_MODE_EXPONENTIAL: u32           = 2u;
