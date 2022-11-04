@@ -59,8 +59,8 @@ fn atmospheric_fog(
     if (fog.directional_light_color.a > 0.0) {
         fog_color = vec4<f32>(fog.base_color.rgb + scattering * fog.directional_light_color.rgb * fog.directional_light_color.a, fog_color.a);
     }
-    let extinction_color = 1.0 - 1.0 / exp(distance * fog.be);
-    let inscattering_color = 1.0 - 1.0 / exp(distance * fog.bi);
+    let extinction_factor = 1.0 - 1.0 / exp(distance * fog.be);
+    let inscattering_factor = 1.0 - 1.0 / exp(distance * fog.bi);
 
-    return vec4<f32>(input_color.rgb * (1.0 - extinction_color * fog_color.a) + fog_color.rgb * inscattering_color * fog_color.a, input_color.a);
+    return vec4<f32>(input_color.rgb * (1.0 - extinction_factor * fog_color.a) + fog_color.rgb * inscattering_factor * fog_color.a, input_color.a);
 }
