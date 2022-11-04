@@ -70,10 +70,8 @@ fn setup_terrain_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::default())),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("000000").unwrap(),
-            emissive: Color::hex("888888").unwrap(),
-            perceptual_roughness: 1.0,
-            reflectance: 0.0,
+            base_color: Color::hex("888888").unwrap(),
+            unlit: true,
             cull_mode: None,
             ..default()
         }),

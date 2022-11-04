@@ -96,6 +96,12 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         output_color = alpha_discard(material, output_color);
     }
 
+    // fog
+    if (fog.mode != FOG_MODE_OFF && (material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+        let view_to_world = in.world_position.xyz - view.world_position.xyz;
+        output_color = apply_fog(output_color, view_to_world);
+    }
+
 #ifdef TONEMAP_IN_SHADER
         output_color = tone_mapping(output_color);
 #endif

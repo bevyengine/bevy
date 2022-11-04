@@ -114,9 +114,9 @@ fn setup_pyramid_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Box::default())),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("28221B").unwrap(),
+            base_color: Color::hex("888888").unwrap(),
+            unlit: true,
             cull_mode: None,
-            perceptual_roughness: 1.0,
             ..default()
         }),
         transform: Transform::from_scale(Vec3::splat(10_000_000.0)),

@@ -240,35 +240,6 @@ fn pbr(
             emissive.rgb * output_color.a,
         output_color.a);
 
-    // fog
-    if (fog.mode != FOG_MODE_OFF && (in.material.flags & STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
-        let view_to_world = in.world_position.xyz - view.world_position.xyz;
-        // `length()` is used here instead of just `view_z` since that produces more
-        // high quality results, especially for denser/smaller fogs. we get a "curved"
-        // fog shape that remains consistent with camera rotation, instead of a "linear"
-        // fog shape that looks a bit fake
-        let distance = length(view_to_world);
-
-        var scattering = vec3<f32>(0.0);
-        if (fog.directional_light_color.a > 0.0) {
-            let view_to_world_normalized = view_to_world / distance;
-            for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-                let light = lights.directional_lights[i];
-                scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.directional_light_exponent) * light.color.rgb;
-            }
-        }
-
-        if (fog.mode == FOG_MODE_LINEAR) {
-            output_color = linear_fog(output_color, distance, scattering);
-        } else if (fog.mode == FOG_MODE_EXPONENTIAL) {
-            output_color = exponential_fog(output_color, distance, scattering);
-        } else if (fog.mode == FOG_MODE_EXPONENTIAL_SQUARED) {
-            output_color = exponential_squared_fog(output_color, distance, scattering);
-        } else if (fog.mode == FOG_MODE_ATMOSPHERIC) {
-            output_color = atmospheric_fog(output_color, distance, scattering);
-        }
-    }
-
     output_color = cluster_debug_visualization(
         output_color,
         view_z,
@@ -290,3 +261,33 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 }
 #endif
+
+fn apply_fog(input_color: vec4<f32>, view_to_world: vec3<f32>) -> vec4<f32> {
+    // `length()` is used here instead of just `view_z` since that produces more
+    // high quality results, especially for denser/smaller fogs. we get a "curved"
+    // fog shape that remains consistent with camera rotation, instead of a "linear"
+    // fog shape that looks a bit fake
+    let distance = length(view_to_world);
+
+    var scattering = vec3<f32>(0.0);
+    if (fog.directional_light_color.a > 0.0) {
+        let view_to_world_normalized = view_to_world / distance;
+        let n_directional_lights = lights.n_directional_lights;
+        for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+            let light = lights.directional_lights[i];
+            scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.directional_light_exponent) * light.color.rgb;
+        }
+    }
+
+    if (fog.mode == FOG_MODE_LINEAR) {
+        return linear_fog(input_color, distance, scattering);
+    } else if (fog.mode == FOG_MODE_EXPONENTIAL) {
+        return exponential_fog(input_color, distance, scattering);
+    } else if (fog.mode == FOG_MODE_EXPONENTIAL_SQUARED) {
+        return exponential_squared_fog(input_color, distance, scattering);
+    } else if (fog.mode == FOG_MODE_ATMOSPHERIC) {
+        return atmospheric_fog(input_color, distance, scattering);
+    } else {
+        return input_color;
+    }
+}
