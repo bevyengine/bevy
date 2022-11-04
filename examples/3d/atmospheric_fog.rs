@@ -24,9 +24,9 @@ fn setup_camera_fog(mut commands: Commands) {
             directional_light_color: Color::rgba(1.0, 0.95, 0.75, 0.5),
             directional_light_exponent: 30.0,
             falloff: FogFalloff::from_visibility_colors(
-                15.0,
-                Color::rgb(0.35, 0.5, 0.66),
-                Color::rgb(0.8, 0.844, 1.0),
+                15.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
+                Color::rgb(0.35, 0.5, 0.66), // atmospheric extinction color (light lost due to absorption by atmospheric particles)
+                Color::rgb(0.8, 0.844, 1.0), // atmospheric inscattering color (light gained due to scattering from the sun)
             ),
         },
     ));
