@@ -398,9 +398,7 @@ pub fn winit_runner_with(mut app: App) {
                         return;
                     };
 
-                let window = if let Some(window) = windows.get_mut(window_id) {
-                    window
-                } else {
+                let Some(window) = windows.get_mut(window_id) else {
                     // If we're here, this window was previously opened
                     info!("Skipped event for closed window: {:?}", window_id);
                     return;
