@@ -117,7 +117,7 @@ pub fn build_ui_render(app: &mut App) {
             .unwrap();
         graph_2d
             .add_node_edge(
-                bevy_core_pipeline::core_2d::graph::node::TONEMAPPING,
+                bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 draw_ui_graph::node::UI_PASS,
             )
             .unwrap();
@@ -143,7 +143,7 @@ pub fn build_ui_render(app: &mut App) {
             .unwrap();
         graph_3d
             .add_node_edge(
-                bevy_core_pipeline::core_3d::graph::node::TONEMAPPING,
+                bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 draw_ui_graph::node::UI_PASS,
             )
             .unwrap();
