@@ -21,7 +21,7 @@ pub struct GpuFog {
     /// fog color
     base_color: Vec4,
     scattering_color: Vec4,
-    scattering_expoent: f32,
+    scattering_exponent: f32,
     be: Vec3,
     bi: Vec3,
 }
@@ -53,7 +53,7 @@ pub fn prepare_fog(
                     mode: GPU_FOG_MODE_LINEAR,
                     base_color: fog.color.into(),
                     scattering_color: fog.scattering_color.into(),
-                    scattering_expoent: fog.scattering_expoent,
+                    scattering_exponent: fog.scattering_exponent,
                     be: Vec3::new(*start, *end, 0.0),
                     ..Default::default()
                 },
@@ -61,7 +61,7 @@ pub fn prepare_fog(
                     mode: GPU_FOG_MODE_EXPONENTIAL,
                     base_color: fog.color.into(),
                     scattering_color: fog.scattering_color.into(),
-                    scattering_expoent: fog.scattering_expoent,
+                    scattering_exponent: fog.scattering_exponent,
                     be: Vec3::new(*density, 0.0, 0.0),
                     ..Default::default()
                 },
@@ -69,7 +69,7 @@ pub fn prepare_fog(
                     mode: GPU_FOG_MODE_EXPONENTIAL_SQUARED,
                     base_color: fog.color.into(),
                     scattering_color: fog.scattering_color.into(),
-                    scattering_expoent: fog.scattering_expoent,
+                    scattering_exponent: fog.scattering_exponent,
                     be: Vec3::new(*density, 0.0, 0.0),
                     ..Default::default()
                 },
@@ -80,7 +80,7 @@ pub fn prepare_fog(
                     mode: GPU_FOG_MODE_ATMOSPHERIC,
                     base_color: fog.color.into(),
                     scattering_color: fog.scattering_color.into(),
-                    scattering_expoent: fog.scattering_expoent,
+                    scattering_exponent: fog.scattering_exponent,
                     be: Vec3::new(extinction.r(), extinction.g(), extinction.b()),
                     bi: Vec3::new(inscattering.r(), inscattering.g(), inscattering.b()),
                 },

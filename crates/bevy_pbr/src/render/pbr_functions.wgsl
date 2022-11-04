@@ -254,7 +254,7 @@ fn pbr(
             for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
                 let light = lights.directional_lights[i];
                 let intensity = length(light.color.rgb);
-                scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.scattering_expoent) * intensity;
+                scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.scattering_exponent) * intensity;
             }
         }
 

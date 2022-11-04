@@ -59,9 +59,9 @@ pub struct FogSettings {
     /// Produces a “halo” or light dispersion effect (e.g. around the sun)
     pub scattering_color: Color,
 
-    /// The expoent applied to the directional light alignment calculation
+    /// The exponent applied to the directional light alignment calculation
     /// A higher value means a more concentrated “halo”
-    pub scattering_expoent: f32,
+    pub scattering_exponent: f32,
 
     /// Determines which falloff mode to use, and its parameters.
     pub falloff: FogFalloff,
@@ -208,7 +208,7 @@ impl Default for FogSettings {
                 end: 100.0,
             },
             scattering_color: Color::NONE,
-            scattering_expoent: 8.0,
+            scattering_exponent: 8.0,
         }
     }
 }

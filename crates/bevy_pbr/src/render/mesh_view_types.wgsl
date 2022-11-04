@@ -65,7 +65,7 @@ struct Fog {
     mode: u32,
     base_color: vec4<f32>,
     scattering_color: vec4<f32>,
-    scattering_expoent: f32,
+    scattering_exponent: f32,
     // For Linear Fog:
     //     be.x = start, be.y = end
     // For Exponential and ExponentialSquared Fog:
