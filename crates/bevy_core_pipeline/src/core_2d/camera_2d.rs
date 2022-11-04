@@ -19,7 +19,7 @@ impl ExtractComponent for Camera2d {
     type Query = &'static Self;
     type Filter = With<Camera>;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
         item.clone()
     }
 }

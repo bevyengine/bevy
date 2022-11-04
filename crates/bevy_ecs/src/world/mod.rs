@@ -1940,4 +1940,10 @@ mod tests {
 
         assert_eq!(entity_counters.len(), 0);
     }
+
+    #[test]
+    fn spawn_empty_bundle() {
+        let mut world = World::new();
+        world.spawn(());
+    }
 }

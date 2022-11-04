@@ -2,8 +2,8 @@ use crate::{
     component::Component,
     entity::Entity,
     query::{
-        QueryCombinationIter, QueryEntityError, QueryItem, QueryIter, QueryManyIter,
-        QuerySingleError, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery,
+        QueryCombinationIter, QueryEntityError, QueryIter, QueryManyIter, QuerySingleError,
+        QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery,
     },
     world::{Mut, World},
 };
@@ -712,7 +712,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`for_each`](Self::for_each) to operate on read-only query items.
     /// - [`iter_mut`](Self::iter_mut) for the iterator based alternative.
     #[inline]
-    pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(QueryItem<'a, Q>)) {
+    pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(Q::Item<'a>)) {
         // SAFETY: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
@@ -786,7 +786,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn par_for_each_mut<'a>(
         &'a mut self,
         batch_size: usize,
-        f: impl Fn(QueryItem<'a, Q>) + Send + Sync + Clone,
+        f: impl Fn(Q::Item<'a>) + Send + Sync + Clone,
     ) {
         // SAFETY: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
@@ -945,7 +945,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// - [`get`](Self::get) to get a read-only query item.
     #[inline]
-    pub fn get_mut(&mut self, entity: Entity) -> Result<QueryItem<'_, Q>, QueryEntityError> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<Q::Item<'_>, QueryEntityError> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -970,7 +970,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn get_many_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[QueryItem<'_, Q>; N], QueryEntityError> {
+    ) -> Result<[Q::Item<'_>; N], QueryEntityError> {
         // SAFETY: scheduler ensures safe Query world access
         unsafe {
             self.state.get_many_unchecked_manual(
@@ -1031,7 +1031,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_many_mut`](Self::get_many_mut) for the non panicking version.
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
-    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [QueryItem<'_, Q>; N] {
+    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [Q::Item<'_>; N] {
         self.get_many_mut(entities).unwrap()
     }
 
@@ -1048,10 +1048,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// - [`get_mut`](Self::get_mut) for the safe version.
     #[inline]
-    pub unsafe fn get_unchecked(
-        &self,
-        entity: Entity,
-    ) -> Result<QueryItem<'_, Q>, QueryEntityError> {
+    pub unsafe fn get_unchecked(&self, entity: Entity) -> Result<Q::Item<'_>, QueryEntityError> {
         // SEMI-SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         self.state
@@ -1302,7 +1299,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_single_mut`](Self::get_single_mut) for the non-panicking version.
     /// - [`single`](Self::single) to get the read-only query item.
     #[track_caller]
-    pub fn single_mut(&mut self) -> QueryItem<'_, Q> {
+    pub fn single_mut(&mut self) -> Q::Item<'_> {
         self.get_single_mut().unwrap()
     }
 
@@ -1332,7 +1329,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_single`](Self::get_single) to get the read-only query item.
     /// - [`single_mut`](Self::single_mut) for the panicking version.
     #[inline]
-    pub fn get_single_mut(&mut self) -> Result<QueryItem<'_, Q>, QuerySingleError> {
+    pub fn get_single_mut(&mut self) -> Result<Q::Item<'_>, QuerySingleError> {
         // SAFETY:
         // the query ensures mutable access to the components it accesses, and the query
         // is uniquely borrowed
@@ -1415,7 +1412,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w Query<'_
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> IntoIterator for &'w mut Query<'_, 's, Q, F> {
-    type Item = QueryItem<'w, Q>;
+    type Item = Q::Item<'w>;
     type IntoIter = QueryIter<'w, 's, Q, F>;
 
     fn into_iter(self) -> Self::IntoIter {

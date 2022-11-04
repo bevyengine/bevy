@@ -42,7 +42,7 @@ let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
-    directional_lights: array<DirectionalLight, 1u>,
+    directional_lights: array<DirectionalLight, 10u>,
     ambient_color: vec4<f32>,
     // x/y/z dimensions and n_clusters in w
     cluster_dimensions: vec4<u32>,
