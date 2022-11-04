@@ -251,16 +251,18 @@ pub enum FogFalloff {
     /// The following two falloff modes will produce identical visual results:
     ///
     /// ```
+    /// # use bevy_pbr::prelude::*;
+    /// # use bevy_math::prelude::*;
     /// # const D: f32 = 0.5;
     /// #
-    /// let exponential = FalloffMode::Exponential {
+    /// let exponential = FogFalloff::Exponential {
     ///     density: D,
     /// };
     ///
-    /// let atmospheric = FalloffMode::Atmospheric {
+    /// let atmospheric = FogFalloff::Atmospheric {
     ///     extinction: Vec3::new(D, D, D),
     ///     inscattering: Vec3::new(D, D, D),
-    /// }
+    /// };
     /// ```
     ///
     /// **Note:** While the results are identical, [`FogFalloff::Atmospheric`] is computationally more expensive.
