@@ -42,10 +42,42 @@ fn setup(
 ) {
     let window = windows.primary_mut();
     let size = Extent3d {
-        width: window.physical_width(),
-        height: window.physical_height(),
+        width: window.width() as u32,
+        height: window.height() as u32,
         ..default()
     };
+
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                justify_content: JustifyContent::FlexEnd,
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                ..default()
+            },
+            background_color: BackgroundColor(Color::NONE),
+            ..default()
+        })
+        .with_children(|commands| {
+            commands
+                .spawn(NodeBundle {
+                    background_color: BackgroundColor(Color::MAROON),
+                    style: Style {
+                        size: Size::new(Val::Px(100.0), Val::Auto),
+                        ..default()
+                    },
+                    ..default()
+                })
+                .with_children(|commands| {
+                    commands.spawn(NodeBundle {
+                        background_color: BackgroundColor(Color::PINK),
+                        style: Style {
+                            size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
+                            ..default()
+                        },
+                        ..default()
+                    });
+                });
+        });
 
     // This is the texture that will be rendered to.
     let mut image = Image {
@@ -147,6 +179,7 @@ fn setup(
             ..Camera2dBundle::default()
         },
         post_processing_pass_layer,
+        UiCameraConfig { show_ui: false },
     ));
 }
 
