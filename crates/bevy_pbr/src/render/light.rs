@@ -942,7 +942,7 @@ pub fn prepare_lights(
         }
 
         // direction is negated to be ready for N.L
-        let dir_to_light = -light.direction;
+        let dir_to_light = light.transform.back();
 
         // convert from illuminance (lux) to candelas
         //
@@ -956,9 +956,8 @@ pub fn prepare_lights(
         let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
         let intensity = light.illuminance * exposure;
 
-        // NOTE: A directional light seems to have to have an eye position on the line along the direction of the light
-        // through the world origin. I (Rob Swain) do not yet understand why it cannot be translated away from this.
-        let view = Mat4::look_at_rh(Vec3::ZERO, light.direction, Vec3::Y);
+        // NOTE: For the purpose of rendering shadow maps, we apply the directional light's transform to an orthographic camera
+        let view = light.transform.compute_matrix().inverse();
         // NOTE: This orthographic projection defines the volume within which shadows from a directional light can be cast
         let projection = light.projection;
 
@@ -1170,9 +1169,6 @@ pub fn prepare_lights(
             .enumerate()
             .take(directional_shadow_maps_count)
         {
-            // NOTE: For the purpose of rendering shadow maps, we apply the directional light's transform to an orthographic camera
-            let view = light.transform.compute_matrix().inverse();
-
             let depth_texture_view =
                 directional_light_depth_texture
                     .texture
@@ -1200,7 +1196,7 @@ pub fn prepare_lights(
                             directional_light_shadow_map.size as u32,
                             directional_light_shadow_map.size as u32,
                         ),
-                        transform: GlobalTransform::from(view.inverse()),
+                        transform: light.transform,
                         projection: light.projection,
                         hdr: false,
                     },
