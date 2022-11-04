@@ -166,7 +166,7 @@ pub struct WindowSurfaces {
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS s
-    _marker: NonSend<NonSendMarker>,
+    // _marker: NonSend<NonSendMarker>, // TODO: reenable marker as this will break some OS's
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,

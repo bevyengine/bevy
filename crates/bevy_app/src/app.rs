@@ -8,8 +8,10 @@ use bevy_ecs::{
         SystemStage,
     },
     system::Resource,
+    
     world::World,
 };
+use bevy_tasks::ComputeTaskPool;
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
 
@@ -67,12 +69,13 @@ pub struct App {
     /// the application's event loop and advancing the [`Schedule`].
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
-    pub runner: Box<dyn Fn(App)>,
+    pub runner: Box<dyn Fn(App) + Send + Sync>, // send/sync bound is only required to make App Send/Sync
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
+    run_once: bool,
 }
 
 impl Debug for App {
@@ -88,8 +91,8 @@ impl Debug for App {
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
 struct SubApp {
     app: App,
-    extract: Box<dyn Fn(&mut World, &mut App)>,
-    runner: Box<dyn Fn(&mut App)>,
+    extract: Box<dyn Fn(&mut World, &mut App) + Send + Sync>, // Send + Sync bound is only required to make SubApp send sync
+    runner: Box<dyn Fn(&mut App) + Send + Sync>, // this send sync bound is required since we're actually sending this function to another thread
 }
 
 impl Debug for SubApp {
@@ -137,6 +140,7 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
+            run_once: false,
         }
     }
 
@@ -148,12 +152,18 @@ impl App {
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
-        self.schedule.run(&mut self.world);
-
-        for sub_app in self.sub_apps.values_mut() {
-            (sub_app.extract)(&mut self.world, &mut sub_app.app);
-            (sub_app.runner)(&mut sub_app.app);
-        }
+        ComputeTaskPool::get().scope(|scope| {
+            if self.run_once {
+                for sub_app in self.sub_apps.values_mut() {
+                    (sub_app.extract)(&mut self.world, &mut sub_app.app);
+                }
+                for sub_app in self.sub_apps.values_mut() {
+                    scope.spawn(async { (sub_app.runner)(&mut sub_app.app) });
+                }
+            }
+            self.schedule.run(&mut self.world);
+        });
+        self.run_once = true;
 
         self.world.clear_trackers();
     }
@@ -802,7 +812,7 @@ impl App {
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
+    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static + Send + Sync) -> &mut Self {
         self.runner = Box::new(run_fn);
         self
     }
@@ -993,8 +1003,8 @@ impl App {
         &mut self,
         label: impl AppLabel,
         app: App,
-        sub_app_extract: impl Fn(&mut World, &mut App) + 'static,
-        sub_app_runner: impl Fn(&mut App) + 'static,
+        sub_app_extract: impl Fn(&mut World, &mut App) + 'static + Send + Sync,
+        sub_app_runner: impl Fn(&mut App) + 'static + Send + Sync,
     ) -> &mut Self {
         self.sub_apps.insert(
             label.as_label(),
