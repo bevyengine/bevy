@@ -25,17 +25,19 @@ struct Table(f32);
 struct Sparse(f32);
 
 trait BenchModify {
-    fn bench_modify(&mut self);
+    fn bench_modify(&mut self) -> f32;
 }
 
 impl BenchModify for Table {
-    fn bench_modify(&mut self) {
+    fn bench_modify(&mut self) -> f32 {
         self.0 += 1f32;
+        black_box(self.0)
     }
 }
 impl BenchModify for Sparse {
-    fn bench_modify(&mut self) {
+    fn bench_modify(&mut self) -> f32 {
         self.0 += 1f32;
+        black_box(self.0)
     }
 }
 
