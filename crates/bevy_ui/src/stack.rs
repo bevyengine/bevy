@@ -109,7 +109,7 @@ mod tests {
         system::{CommandQueue, Commands},
         world::World,
     };
-    use bevy_hierarchy::BuildChildren;
+    use bevy_hierarchy::HierachyEntityCommandsExt;
 
     use crate::{Node, UiStack, ZIndex};
 
