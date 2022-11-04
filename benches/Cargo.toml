@@ -17,6 +17,10 @@ bevy_reflect = { path = "../crates/bevy_reflect" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
 
+[profile.release]
+opt-level = 3
+lto = true
+
 [[bench]]
 name = "ecs"
 path = "benches/bevy_ecs/benches.rs"

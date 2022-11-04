@@ -35,11 +35,11 @@ fn setup_scene(
 
     let material_emissive = materials.add(StandardMaterial {
         emissive: Color::rgb_linear(5.2, 1.2, 0.8), // 3. Set StandardMaterial::emissive using Color::rgb_linear, for entities we want to apply bloom to
-        ..Default::default()
+        ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
         base_color: Color::GRAY,
-        ..Default::default()
+        ..default()
     });
 
     let mesh = meshes.add(
@@ -67,21 +67,12 @@ fn setup_scene(
                     mesh: mesh.clone(),
                     material,
                     transform: Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
-                    ..Default::default()
+                    ..default()
                 },
                 Bouncing,
             ));
         }
     }
-
-    // UI camera
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
-            priority: -1,
-            ..default()
-        },
-        ..default()
-    });
 
     commands.spawn(
         TextBundle::from_section(
