@@ -412,11 +412,18 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         {
             return Err(QueryEntityError::QueryDoesNotMatch(entity));
         }
-        let archetype = &world.archetypes[location.archetype_id];
+        let archetype = world
+            .archetypes
+            .get(location.archetype_id)
+            .unwrap_or_else(|| debug_checked_unreachable!());
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
 
-        let table = &world.storages().tables[archetype.table_id()];
+        let table = world
+            .storages()
+            .tables
+            .get(archetype.table_id())
+            .unwrap_or_else(|| debug_checked_unreachable!());
         Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
         F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
@@ -1034,7 +1041,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 change_tick,
                             );
                             let tables = &world.storages().tables;
-                            let table = &tables[*table_id];
+                            let table = tables.get(*table_id)
+                                .unwrap_or_else(|| debug_checked_unreachable!());
                             let entities = table.entities();
                             Q::set_table(&mut fetch, &self.fetch_state, table);
                             F::set_table(&mut filter, &self.filter_state, table);
@@ -1085,8 +1093,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 change_tick,
                             );
                             let tables = &world.storages().tables;
-                            let archetype = &world.archetypes[*archetype_id];
-                            let table = &tables[archetype.table_id()];
+                            let archetype = world.archetypes.get(*archetype_id)
+                                .unwrap_or_else(|| debug_checked_unreachable!());
+                            let table = tables.get(archetype.table_id())
+                                .unwrap_or_else(|| debug_checked_unreachable!());
                             Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
                             F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
