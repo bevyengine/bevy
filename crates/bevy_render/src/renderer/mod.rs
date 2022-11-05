@@ -135,8 +135,7 @@ pub async fn initialize_renderer(
 
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
-    let mut limits = options.limits.clone();
-    if matches!(options.priority, WgpuSettingsPriority::Functionality) {
+    let mut limits = if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
@@ -145,8 +144,10 @@ pub async fn initialize_renderer(
             // integrated GPUs.
             features -= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
         }
-        limits = adapter.limits();
-    }
+        adapter.limits()
+    } else {
+        options.limits.clone()
+    };
 
     // Enforce the disabled features
     if let Some(disabled_features) = options.disabled_features {
