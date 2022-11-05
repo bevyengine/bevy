@@ -454,7 +454,7 @@ impl<'w> EntityMut<'w> {
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
-                if let Some(StorageType::SparseSet) = old_archetype.get_storage_type(component_id) {
+                if old_archetype.get_storage_type(component_id) == Some(StorageType::SparseSet) {
                     storages
                         .sparse_sets
                         .get_mut(component_id)
