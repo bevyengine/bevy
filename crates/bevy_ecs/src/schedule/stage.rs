@@ -309,7 +309,7 @@ impl SystemStage {
                 }
             }
         });
-        for system in systems.drain(..) {
+        for system in systems.into_iter() {
             self.add_system_inner(system, set_run_criteria_index);
         }
         self
