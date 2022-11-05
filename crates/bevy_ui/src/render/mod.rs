@@ -349,7 +349,7 @@ pub fn extract_text_uinodes(
                     .get(&text_glyph.atlas_info.texture_atlas)
                     .unwrap();
                 let texture = atlas.texture.clone_weak();
-                let index = text_glyph.atlas_info.glyph_index as usize;
+                let index = text_glyph.atlas_info.glyph_index;
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
 
