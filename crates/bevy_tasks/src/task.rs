@@ -54,6 +54,7 @@ impl TaskGroup {
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
 /// Wraps `async_executor::Task`
 #[derive(Debug)]
+#[must_use = "Tasks are canceled when dropped, use `.detach()` to run them in the background."]
 pub struct Task<T>(async_task::Task<T>);
 
 impl<T> Task<T> {
@@ -79,6 +80,15 @@ impl<T> Task<T> {
     /// See `async_executor::Task::cancel`
     pub async fn cancel(self) -> Option<T> {
         self.0.cancel().await
+    }
+
+    /// Returns `true` if the current task is finished.
+    ///
+    ///
+    /// Unlike poll, it doesn't resolve the final value, it just checks if the task has finished.
+    /// Note that in a multithreaded environment, this task can be finished immediately after calling this function.
+    pub fn is_finished(&self) -> bool {
+        self.0.is_finished()
     }
 }
 

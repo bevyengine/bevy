@@ -67,14 +67,14 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ParallelCommandsState {
     }
 }
 
-// SAFE: no component or resource access to report
+// SAFETY: no component or resource access to report
 unsafe impl SystemParamState for ParallelCommandsState {
     fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self {
         Self::default()
     }
 
     fn apply(&mut self, world: &mut World) {
-        for cq in self.thread_local_storage.iter_mut() {
+        for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
         }
     }

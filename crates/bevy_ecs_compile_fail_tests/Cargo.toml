@@ -10,4 +10,4 @@ publish = false
 
 [dev-dependencies]
 bevy_ecs = { path = "../bevy_ecs" }
-trybuild = "1.0"
+trybuild = "1.0.71"
