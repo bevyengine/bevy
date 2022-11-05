@@ -98,6 +98,8 @@ impl TaskPool {
         let executor = Arc::new(async_executor::Executor::new());
 
         let num_threads = num_threads.unwrap_or_else(crate::available_parallelism);
+        #[cfg(feature = "core_affinity")]
+        let mut core_ids = core_affinity::get_core_ids();
 
         let threads = (0..num_threads)
             .map(|i| {
@@ -115,8 +117,16 @@ impl TaskPool {
                     thread_builder = thread_builder.stack_size(stack_size);
                 }
 
+                #[cfg(feature = "core_affinity")]
+                let core_id = core_ids.as_mut().and_then(|ids| ids.pop());
+
                 thread_builder
                     .spawn(move || {
+                        #[cfg(feature = "core_affinity")]
+                        if let Some(core_id) = core_id {
+                            core_affinity::set_for_current(core_id);
+                        }
+
                         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
                             loop {
                                 let res = std::panic::catch_unwind(|| {
