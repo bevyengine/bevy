@@ -488,12 +488,9 @@ impl Runner<'_> {
         if src.is_empty() {
             // Don't steal more than fits into the queue.
             for _ in 0..self.worker.spare_capacity() {
-                if let Ok(t) = src.pop() {
-                    let res = self.worker.push(t);
-                    debug_assert!(res.is_ok());
-                } else {
-                    break;
-                }
+                let Ok(t) = src.pop() else { break };
+                let res = self.worker.push(t);
+                debug_assert!(res.is_ok());
             }
         }
     }
