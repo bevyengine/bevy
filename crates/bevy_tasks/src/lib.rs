@@ -24,7 +24,6 @@ mod task_pool_builder;
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
 pub use usages::tick_global_task_pools_on_main_thread;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 mod iter;
 pub use iter::ParallelIterator;

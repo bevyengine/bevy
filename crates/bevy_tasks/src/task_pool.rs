@@ -290,6 +290,9 @@ impl TaskPool {
             tracing::error!("Attempting to use TaskPool::scope with the {:?} task group, but there are no threads for it!",
                             group);
         }
+
+        let mut dummy_thread_counts = vec![0; TaskGroup::MAX_PRIORITY];
+        dummy_thread_counts[TaskGroup::AsyncCompute.to_priority()] = 1;
         // SAFETY: This safety comment applies to all references transmuted to 'env.
         // Any futures spawned with these references need to return before this function completes.
         // This is guaranteed because we drive all the futures spawned onto the Scope
@@ -297,6 +300,8 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         let executor: &Executor = &self.executor;
         let executor: &'env Executor = unsafe { mem::transmute(executor) };
+        let task_scope_executor = &Executor::new(&dummy_thread_counts);
+        let task_scope_executor: &'env Executor = unsafe { mem::transmute(task_scope_executor) };
         let spawned: ConcurrentQueue<async_task::Task<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'env ConcurrentQueue<async_task::Task<T>> =
             unsafe { mem::transmute(&spawned) };
@@ -304,6 +309,7 @@ impl TaskPool {
         let scope = Scope {
             group,
             executor,
+            task_scope_executor,
             spawned: spawned_ref,
             scope: PhantomData,
             env: PhantomData,
@@ -349,7 +355,7 @@ impl TaskPool {
                 };
 
                 self.executor.try_tick(group.to_priority());
-                executor.try_tick(group.to_priority());
+                task_scope_executor.try_tick(group.to_priority());
             }
         }
     }
@@ -433,6 +439,7 @@ impl Drop for TaskPool {
 pub struct Scope<'scope, 'env: 'scope, T> {
     group: TaskGroup,
     executor: &'scope Executor<'scope>,
+    task_scope_executor: &'scope Executor<'scope>,
     spawned: &'scope ConcurrentQueue<async_task::Task<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -462,7 +469,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.executor.spawn(self.group.to_priority(), f);
+        let task = self.task_scope_executor.spawn(self.group.to_priority(), f);
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -615,14 +622,14 @@ mod tests {
 
     #[test]
     fn test_nested_spawn() {
-        let pool = TaskPool::new();
+        let pool = TaskPool::default();
 
         let foo = Box::new(42);
         let foo = &*foo;
 
         let count = Arc::new(AtomicI32::new(0));
 
-        let outputs: Vec<i32> = pool.scope(|scope| {
+        let outputs: Vec<i32> = pool.scope(TaskGroup::Compute, |scope| {
             for _ in 0..10 {
                 let count_clone = count.clone();
                 scope.spawn(async move {
@@ -653,7 +660,7 @@ mod tests {
 
     #[test]
     fn test_nested_locality() {
-        let pool = Arc::new(TaskPool::new());
+        let pool = TaskPool::init(|| TaskPool::default());
         let count = Arc::new(AtomicI32::new(0));
         let barrier = Arc::new(Barrier::new(101));
         let thread_check_failed = Arc::new(AtomicBool::new(false));
@@ -661,10 +668,9 @@ mod tests {
         for _ in 0..100 {
             let inner_barrier = barrier.clone();
             let count_clone = count.clone();
-            let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
             std::thread::spawn(move || {
-                inner_pool.scope(|scope| {
+                pool.scope(TaskGroup::Compute, |scope| {
                     let spawner = std::thread::current().id();
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {

@@ -2,7 +2,11 @@
 use std::fs::File;
 use std::io::Write;
 
-use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{
+    prelude::*,
+    tasks::{TaskGroup, TaskPool},
+    utils::Duration,
+};
 
 fn main() {
     App::new()
@@ -112,8 +116,8 @@ fn save_scene_system(world: &mut World) {
     // as they are blocking
     // This can't work in WASM as there is no filesystem access
     #[cfg(not(target_arch = "wasm32"))]
-    IoTaskPool::get()
-        .spawn(async move {
+    TaskPool::get()
+        .spawn(TaskGroup::IO, async move {
             // Write the scene RON data to file
             File::create(format!("assets/{NEW_SCENE_FILE_PATH}"))
                 .and_then(|mut file| file.write(serialized_scene.as_bytes()))

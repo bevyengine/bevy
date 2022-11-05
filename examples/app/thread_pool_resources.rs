@@ -7,7 +7,7 @@ use bevy::tasks::TaskPoolBuilder;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(CorePlugin {
-            task_pool_options: TaskPoolOptions::with_num_threads(4),
+            task_pool_builder: TaskPoolBuilder::new().threads(4),
         }))
         .run();
 }
