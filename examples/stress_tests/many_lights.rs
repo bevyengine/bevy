@@ -52,7 +52,7 @@ fn setup(
                 radius: RADIUS,
                 subdivisions: 9,
             })
-            .expect("Error while creating mesh from icosphere"),
+            .unwrap(),
         ),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
         transform: Transform::from_scale(Vec3::NEG_ONE),

@@ -72,7 +72,7 @@ fn setup_scene(
                 subdivisions: 4,
                 radius: 0.5,
             })
-            .expect("Error while creating mesh from icosphere"),
+            .unwrap(),
         ),
         material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),

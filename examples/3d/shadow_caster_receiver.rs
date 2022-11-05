@@ -42,7 +42,7 @@ fn setup(
             radius: sphere_radius,
             ..default()
         })
-        .expect("Error while creating mesh from icosphere"),
+        .unwrap(),
     );
 
     // sphere - initially a caster

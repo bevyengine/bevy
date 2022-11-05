@@ -31,7 +31,7 @@ fn setup(
                 radius: 0.5,
                 subdivisions: 3,
             })
-            .expect("Error while creating mesh from icosphere"),
+            .unwrap(),
         ),
         material: materials.add(StandardMaterial {
             // Alpha channel of the color controls transparency.
@@ -54,7 +54,7 @@ fn setup(
                 radius: 0.5,
                 subdivisions: 3,
             })
-            .expect("Error while creating mesh from icosphere"),
+            .unwrap(),
         ),
         material: materials.add(StandardMaterial {
             base_color: Color::rgba(0.2, 0.7, 0.1, 0.0),
@@ -82,7 +82,7 @@ fn setup(
                 radius: 0.5,
                 subdivisions: 3,
             })
-            .expect("Error while creating mesh from icosphere"),
+            .unwrap(),
         ),
         material: materials.add(Color::rgb(0.7, 0.2, 0.1).into()),
         transform: Transform::from_xyz(0.0, 0.5, -1.5),

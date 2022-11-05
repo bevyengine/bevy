@@ -48,7 +48,7 @@ fn setup_scene(
             subdivisions: 5,
         }
         .try_into()
-        .expect("Error while creating mesh from icosphere"),
+        .unwrap(),
     );
 
     for x in -10..10 {

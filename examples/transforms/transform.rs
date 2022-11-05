@@ -45,7 +45,7 @@ fn setup(
                     radius: 3.0,
                     subdivisions: 32,
                 })
-                .expect("Error while creating mesh from icosphere"),
+                .unwrap(),
             ),
             material: materials.add(Color::YELLOW.into()),
             transform: Transform::from_translation(Vec3::ZERO),

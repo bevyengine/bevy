@@ -27,7 +27,7 @@ fn setup(
                         radius: 0.45,
                         subdivisions: 32,
                     })
-                    .expect("Error while creating mesh from icosphere"),
+                    .unwrap(),
                 ),
                 material: materials.add(StandardMaterial {
                     base_color: Color::hex("ffd891").unwrap(),
@@ -48,7 +48,7 @@ fn setup(
                 radius: 0.45,
                 subdivisions: 32,
             })
-            .expect("Error while creating mesh from icosphere"),
+            .unwrap(),
         ),
         material: materials.add(StandardMaterial {
             base_color: Color::hex("ffd891").unwrap(),

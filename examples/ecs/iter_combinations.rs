@@ -59,7 +59,7 @@ fn generate_bodies(
             radius: 1.0,
             subdivisions: 3,
         })
-        .expect("Error while creating mesh from icosphere"),
+        .unwrap(),
     );
 
     let color_range = 0.5..1.0;
@@ -122,7 +122,7 @@ fn generate_bodies(
                             radius: 1.0,
                             subdivisions: 5,
                         })
-                        .expect("Error while creating mesh from icosphere"),
+                        .unwrap(),
                     ),
                     material: materials.add(StandardMaterial {
                         base_color: Color::ORANGE_RED,

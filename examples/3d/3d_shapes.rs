@@ -38,11 +38,7 @@ fn setup(
         meshes.add(shape::Box::default().into()),
         meshes.add(shape::Capsule::default().into()),
         meshes.add(shape::Torus::default().into()),
-        meshes.add(
-            shape::Icosphere::default()
-                .try_into()
-                .expect("Error while creating mesh from icosphere"),
-        ),
+        meshes.add(shape::Icosphere::default().try_into().unwrap()),
         meshes.add(shape::UVSphere::default().into()),
     ];
 
