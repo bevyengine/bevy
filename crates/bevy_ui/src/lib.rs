@@ -9,7 +9,8 @@ mod render;
 mod stack;
 mod ui_node;
 
-pub mod entity;
+pub mod camera_config;
+pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
@@ -23,7 +24,10 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
+    pub use crate::{
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
+        UiScale,
+    };
 }
 
 use bevy_app::prelude::*;
