@@ -380,7 +380,7 @@ pub fn queue_material_meshes<M: Material>(
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
                                 | view_key;
                         let alpha_mode = material.properties.alpha_mode;
-                        if let AlphaMode::Blend = alpha_mode {
+                        if alpha_mode == AlphaMode::Blend {
                             mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
                         }
 
