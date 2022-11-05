@@ -21,6 +21,10 @@ fn prepare_world_normal(
     return output;
 }
 
+// !!!
+// WARN this code is directly copied from pbr_functions.wgsl because of limitations with shader imports.
+// This is a temporary measure until better imports are supported.
+// !!!
 fn apply_normal_mapping(
     standard_material_flags: u32,
     world_normal: vec3<f32>,
