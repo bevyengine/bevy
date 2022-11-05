@@ -1610,9 +1610,6 @@ target_sdk_version = 31
 icon = "@mipmap/ic_launcher"
 label = "Bevy Example"
 
-[profile.release]
-lto = true
-
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
