@@ -34,7 +34,8 @@ fn check_textures(
     rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
 ) {
-    if asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id)) == LoadState::Loaded
+    if asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id))
+        == LoadState::Loaded
     {
         state.set(AppState::Finished).unwrap();
     }

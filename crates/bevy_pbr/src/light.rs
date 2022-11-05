@@ -768,7 +768,10 @@ fn compute_aabb_for_cluster(
         let p_max_near = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_near);
         let p_max_far = line_intersection_to_z_plane(Vec3::ZERO, p_max.xyz(), cluster_far);
 
-        (p_min_near.min(p_min_far).min(p_max_near.min(p_max_far)), p_min_near.max(p_min_far).max(p_max_near.max(p_max_far)))
+        (
+            p_min_near.min(p_min_far).min(p_max_near.min(p_max_far)),
+            p_min_near.max(p_min_far).max(p_max_near.max(p_max_far)),
+        )
     };
 
     Aabb::from_min_max(cluster_min, cluster_max)
