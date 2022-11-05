@@ -880,30 +880,23 @@ pub fn queue_mesh_view_bind_groups(
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings, maybe_prepass_textures) in &views
-        {
-            let depth_view = if let Some(ViewPrepassTextures {
-                depth: Some(prepass_depth_texture),
-                ..
-            }) = &maybe_prepass_textures
-            {
-                &prepass_depth_texture.default_view
-            } else {
-                &fallback_depths
-                    .image_for_samplecount(msaa.samples)
-                    .texture_view
+        for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
+            let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
+                Some(texture) => &texture.default_view,
+                None => {
+                    &fallback_depths
+                        .image_for_samplecount(msaa.samples)
+                        .texture_view
+                }
             };
 
-            let normal_view = if let Some(ViewPrepassTextures {
-                normals: Some(prepass_normals_texture),
-                ..
-            }) = &maybe_prepass_textures
-            {
-                &prepass_normals_texture.default_view
-            } else {
-                &fallback_images
-                    .image_for_samplecount(msaa.samples)
-                    .texture_view
+            let normal_view = match prepass_textures.and_then(|x| x.normals.as_ref()) {
+                Some(texture) => &texture.default_view,
+                None => {
+                    &fallback_images
+                        .image_for_samplecount(msaa.samples)
+                        .texture_view
+                }
             };
 
             let layout = if msaa.samples > 1 {
