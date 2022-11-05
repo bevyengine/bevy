@@ -1,6 +1,6 @@
 //! This example illustrates the [`UIScale`] resource from `bevy_ui`.
 
-use bevy::{prelude::*, utils::Duration};
+use bevy::{prelude::*, text::TextSettings, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
 
@@ -10,6 +10,10 @@ struct ApplyScaling;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(TextSettings {
+            allow_dynamic_font_size: true,
+            ..default()
+        })
         .insert_resource(TargetScale {
             start_scale: 1.0,
             target_scale: 1.0,
