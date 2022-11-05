@@ -1,5 +1,8 @@
 pub use crate::task_pool_builder::*;
-use crate::{executor::Executor, local_executor::LocalExecutor, Task, TaskGroup};
+use crate::{
+    executor::Executor, local_executor::LocalExecutor, simple_executor::SimpleExecutor, Task,
+    TaskGroup,
+};
 use concurrent_queue::ConcurrentQueue;
 use event_listener::Event;
 use futures_lite::{future, pin};
@@ -291,8 +294,6 @@ impl TaskPool {
                             group);
         }
 
-        let mut dummy_thread_counts = vec![0; TaskGroup::MAX_PRIORITY];
-        dummy_thread_counts[group.to_priority()] = 1;
         // SAFETY: This safety comment applies to all references transmuted to 'env.
         // Any futures spawned with these references need to return before this function completes.
         // This is guaranteed because we drive all the futures spawned onto the Scope
@@ -300,8 +301,8 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         let executor: &Executor = &self.executor;
         let executor: &'env Executor = unsafe { mem::transmute(executor) };
-        let task_scope_executor = &Executor::new(&dummy_thread_counts);
-        let task_scope_executor: &'env Executor = unsafe { mem::transmute(task_scope_executor) };
+        let task_scope_executor = &SimpleExecutor::new();
+        let task_scope_executor: &'env SimpleExecutor = unsafe { mem::transmute(task_scope_executor) };
         let spawned: ConcurrentQueue<async_task::Task<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'env ConcurrentQueue<async_task::Task<T>> =
             unsafe { mem::transmute(&spawned) };
@@ -355,7 +356,7 @@ impl TaskPool {
                 };
 
                 self.executor.try_tick(group.to_priority());
-                task_scope_executor.try_tick(group.to_priority());
+                task_scope_executor.try_tick();
             }
         }
     }
@@ -428,7 +429,7 @@ impl Drop for TaskPool {
 pub struct Scope<'scope, 'env: 'scope, T> {
     group: TaskGroup,
     executor: &'scope Executor<'scope>,
-    task_scope_executor: &'scope Executor<'scope>,
+    task_scope_executor: &'scope SimpleExecutor<'scope>,
     spawned: &'scope ConcurrentQueue<async_task::Task<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -458,7 +459,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.task_scope_executor.spawn(self.group.to_priority(), f);
+        let task = self.task_scope_executor.spawn(f);
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();

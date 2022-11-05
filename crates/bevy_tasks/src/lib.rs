@@ -11,6 +11,8 @@ pub use task::{Task, TaskGroup};
 #[cfg(not(target_arch = "wasm32"))]
 mod executor;
 #[cfg(not(target_arch = "wasm32"))]
+mod simple_executor;
+#[cfg(not(target_arch = "wasm32"))]
 mod task_pool;
 #[cfg(not(target_arch = "wasm32"))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
