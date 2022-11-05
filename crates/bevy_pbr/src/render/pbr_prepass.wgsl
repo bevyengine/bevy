@@ -5,9 +5,23 @@
 // WARN this code is directly copied from pbr_functions.wgsl because of limitations with shader imports.
 // This is a temporary measure until better imports are supported.
 // !!!
-// NOTE: This ensures that the world_normal is normalized and if
-// vertex tangents and normal maps then normal mapping may be applied.
-fn prepare_normal(
+fn prepare_world_normal(
+    world_normal: vec3<f32>,
+    double_sided: bool,
+    is_front: bool,
+) -> vec3<f32> {
+    var output: vec3<f32> = world_normal;
+    #ifndef VERTEX_TANGENTS
+    #ifndef STANDARDMATERIAL_NORMAL_MAP
+    // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
+    // material, the normal needs to be inverted. This is a branchless version of that.
+    output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
+#endif
+#endif
+    return output;
+}
+
+fn apply_normal_mapping(
     standard_material_flags: u32,
     world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
@@ -18,7 +32,6 @@ fn prepare_normal(
 #ifdef VERTEX_UVS
     uv: vec2<f32>,
 #endif
-    is_front: bool,
 ) -> vec3<f32> {
     // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
     // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
@@ -39,24 +52,12 @@ fn prepare_normal(
 #endif
 #endif
 
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
-        if (!is_front) {
-            N = -N;
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-            T = -T;
-            B = -B;
-#endif
-#endif
-        }
-    }
-
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_UVS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
         Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
@@ -64,7 +65,7 @@ fn prepare_normal(
         Nt = Nt * 2.0 - 1.0;
     }
     // Normal maps authored for DirectX require flipping the y component
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
+    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u {
         Nt.y = -Nt.y;
     }
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
@@ -100,7 +101,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.base_color;
 
 #ifdef VERTEX_UVS
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+    if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
 #endif
@@ -112,10 +113,16 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
 #ifdef PREPASS_NORMALS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
-        let normal = prepare_normal(
-            material.flags,
+    if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+        let world_normal = prepare_world_normal(
             in.world_normal,
+            (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+            in.is_front,
+        );
+
+        let normal = apply_normal_mapping(
+            material.flags,
+            world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
             in.world_tangent,
@@ -124,7 +131,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef VERTEX_UVS
             in.uv,
 #endif
-            in.is_front,
         );
 
         return vec4(normal * 0.5 + vec3(0.5), 1.0);
