@@ -472,7 +472,7 @@ fn prepare_materials_2d<M: Material2d>(
     pipeline: Res<Material2dPipeline<M>>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets.into_iter() {
+    for (handle, material) in queued_assets {
         match prepare_material2d(
             &material,
             &render_device,

@@ -87,7 +87,7 @@ impl<T: Asset> LoadedAsset<T> {
     /// Adds dependencies on other assets at the provided paths.
     #[must_use]
     pub fn with_dependencies(mut self, asset_paths: Vec<AssetPath<'static>>) -> Self {
-        for asset_path in asset_paths.into_iter() {
+        for asset_path in asset_paths {
             self.add_dependency(asset_path);
         }
         self
