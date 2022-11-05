@@ -384,8 +384,9 @@ impl Entities {
 
     /// Check that we do not have pending work requiring `flush()` to be called.
     fn verify_flushed(&mut self) {
+        let needs_flush = self.needs_flush();
         debug_assert!(
-            !self.needs_flush(),
+            !needs_flush,
             "flush() needs to be called before this operation is legal"
         );
     }
