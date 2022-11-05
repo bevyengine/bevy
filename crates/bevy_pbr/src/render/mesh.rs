@@ -398,7 +398,7 @@ impl FromWorld for MeshPipeline {
                 },
                 count: None,
             },
-            // depth texture
+            // Depth texture
             BindGroupLayoutEntry {
                 binding: 10,
                 visibility: ShaderStages::FRAGMENT,
@@ -409,7 +409,7 @@ impl FromWorld for MeshPipeline {
                 },
                 count: None,
             },
-            // normal texture
+            // Normal texture
             BindGroupLayoutEntry {
                 binding: 11,
                 visibility: ShaderStages::FRAGMENT,
@@ -427,7 +427,7 @@ impl FromWorld for MeshPipeline {
             entries: &layout_entries,
         });
 
-        // modify for multisampled
+        // Modify for multisampled
         layout_entries[10].ty = BindingType::Texture {
             multisampled: true,
             sample_type: TextureSampleType::Depth,

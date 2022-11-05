@@ -81,7 +81,7 @@ impl Node for PrepassNode {
             }
 
             {
-                // Set up the pass descriptor with the depth attachment and maybe colour attachment
+                // Set up the pass descriptor with the depth attachment and optional color attachments
                 let pass_descriptor = RenderPassDescriptor {
                     label: Some("prepass"),
                     color_attachments: &color_attachments,
@@ -104,7 +104,7 @@ impl Node for PrepassNode {
                 }
 
                 {
-                    // Run the depth prepass, sorted front-to-back
+                    // Run the prepass, sorted front-to-back 
                     #[cfg(feature = "trace")]
                     let _opaque_prepass_span = info_span!("opaque_prepass").entered();
                     let draw_functions = world.resource::<DrawFunctions<Opaque3dPrepass>>();
@@ -117,7 +117,7 @@ impl Node for PrepassNode {
                 }
 
                 {
-                    // Run the depth prepass, sorted front-to-back
+                    // Run the prepass, sorted front-to-back
                     #[cfg(feature = "trace")]
                     let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
                     let draw_functions = world.resource::<DrawFunctions<AlphaMask3dPrepass>>();
