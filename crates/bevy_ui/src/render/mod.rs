@@ -11,6 +11,7 @@ use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped}
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
+use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
     color::Color,
@@ -209,7 +210,7 @@ pub fn extract_uinodes(
             &Node,
             &GlobalTransform,
             &BackgroundColor,
-            &UiImage,
+            Option<&UiImage>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
@@ -218,11 +219,19 @@ pub fn extract_uinodes(
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, image, visibility, clip)) = uinode_query.get(*entity) {
+        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+            uinode_query.get(*entity)
+        {
             if !visibility.is_visible() {
                 continue;
             }
-            let image = image.0.clone_weak();
+
+            let image = if let Some(image) = maybe_image {
+                image.0.clone_weak()
+            } else {
+                DEFAULT_IMAGE_HANDLE.typed().clone_weak()
+            };
+
             // Skip loading images
             if !images.contains(&image) {
                 continue;
@@ -231,6 +240,7 @@ pub fn extract_uinodes(
             if color.0.a() == 0.0 {
                 continue;
             }
+
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
