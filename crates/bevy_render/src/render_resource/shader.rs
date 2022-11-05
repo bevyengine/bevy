@@ -416,10 +416,11 @@ impl ShaderProcessor {
                 let def = cap.get(1).unwrap();
                 scopes.push(*scopes.last().unwrap() && !shader_defs_unique.contains(def.as_str()));
             } else if self.else_regex.is_match(line) {
-                let mut is_parent_scope_truthy = true;
-                if scopes.len() > 1 {
-                    is_parent_scope_truthy = scopes[scopes.len() - 2];
-                }
+                let is_parent_scope_truthy = if scopes.len() > 1 {
+                    scopes[scopes.len() - 2]
+                } else {
+                    true
+                };
                 if let Some(last) = scopes.last_mut() {
                     *last = is_parent_scope_truthy && !*last;
                 }
