@@ -483,7 +483,7 @@ impl World {
         // SAFETY: entity index was just allocated
         self.entities
             .meta
-            .get_unchecked_mut(entity.id() as usize)
+            .get_unchecked_mut(entity.index() as usize)
             .location = location;
         EntityMut::new(self, entity, location)
     }
@@ -1939,5 +1939,11 @@ mod tests {
         iterate_and_count_entities(&world, &mut entity_counters);
 
         assert_eq!(entity_counters.len(), 0);
+    }
+
+    #[test]
+    fn spawn_empty_bundle() {
+        let mut world = World::new();
+        world.spawn(());
     }
 }

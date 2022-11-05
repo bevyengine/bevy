@@ -104,7 +104,7 @@ impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
 
 impl<'w> DespawnRecursiveExt for EntityMut<'w> {
     /// Despawns the provided entity and its children.
-    fn despawn_recursive(mut self) {
+    fn despawn_recursive(self) {
         let entity = self.id();
 
         #[cfg(feature = "trace")]
@@ -114,11 +114,7 @@ impl<'w> DespawnRecursiveExt for EntityMut<'w> {
         )
         .entered();
 
-        // SAFETY: EntityMut is consumed so even though the location is no longer
-        // valid, it cannot be accessed again with the invalid location.
-        unsafe {
-            despawn_with_children_recursive(self.world_mut(), entity);
-        }
+        despawn_with_children_recursive(self.into_world_mut(), entity);
     }
 
     fn despawn_descendants(&mut self) {

@@ -1,7 +1,7 @@
 use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
-    query::debug_checked_unreachable,
+    query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
@@ -386,7 +386,7 @@ impl Table {
         for (component_id, column) in self.columns.iter_mut() {
             new_table
                 .get_column_mut(*component_id)
-                .unwrap_or_else(|| debug_checked_unreachable())
+                .debug_checked_unwrap()
                 .initialize_from_unchecked(column, row, new_row);
         }
         TableMoveResult {

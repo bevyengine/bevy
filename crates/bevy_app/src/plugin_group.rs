@@ -1,4 +1,4 @@
-use crate::{App, Plugin};
+use crate::{App, AppError, Plugin};
 use bevy_utils::{tracing::debug, tracing::warn, HashMap};
 use std::any::TypeId;
 
@@ -6,6 +6,10 @@ use std::any::TypeId;
 pub trait PluginGroup: Sized {
     /// Configures the [`Plugin`]s that are to be added.
     fn build(self) -> PluginGroupBuilder;
+    /// Configures a name for the [`PluginGroup`] which is primarily used for debugging.
+    fn name() -> String {
+        std::any::type_name::<Self>().to_string()
+    }
     /// Sets the value of the given [`Plugin`], if it exists
     fn set<T: Plugin>(self, plugin: T) -> PluginGroupBuilder {
         self.build().set(plugin)
@@ -27,13 +31,22 @@ impl PluginGroup for PluginGroupBuilder {
 /// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::system::Resource)
 /// are built before/after dependent/depending [`Plugin`]s. [`Plugin`]s inside the group
 /// can be disabled, enabled or reordered.
-#[derive(Default)]
 pub struct PluginGroupBuilder {
+    group_name: String,
     plugins: HashMap<TypeId, PluginEntry>,
     order: Vec<TypeId>,
 }
 
 impl PluginGroupBuilder {
+    /// Start a new builder for the [`PluginGroup`].
+    pub fn start<PG: PluginGroup>() -> Self {
+        Self {
+            group_name: PG::name(),
+            plugins: Default::default(),
+            order: Default::default(),
+        }
+    }
+
     /// Finds the index of a target [`Plugin`]. Panics if the target's [`TypeId`] is not found.
     fn index_of<Target: Plugin>(&self) -> usize {
         let index = self
@@ -155,12 +168,24 @@ impl PluginGroupBuilder {
 
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
     /// in the order specified.
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugin in the group was already added to the application.
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
             if let Some(entry) = self.plugins.remove(ty) {
                 if entry.enabled {
                     debug!("added plugin: {}", entry.plugin.name());
-                    app.add_boxed_plugin(entry.plugin);
+                    if let Err(AppError::DuplicatePlugin { plugin_name }) =
+                        app.add_boxed_plugin(entry.plugin)
+                    {
+                        panic!(
+                            "Error adding plugin {} in group {}: plugin was already added in application",
+                            plugin_name,
+                            self.group_name
+                        );
+                    }
                 }
             }
         }
@@ -181,14 +206,14 @@ pub struct NoopPluginGroup;
 
 impl PluginGroup for NoopPluginGroup {
     fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::default()
+        PluginGroupBuilder::start::<Self>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::PluginGroupBuilder;
-    use crate::{App, Plugin};
+    use crate::{App, NoopPluginGroup, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -207,7 +232,7 @@ mod tests {
 
     #[test]
     fn basic_ordering() {
-        let group = PluginGroupBuilder::default()
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
             .add(PluginA)
             .add(PluginB)
             .add(PluginC);
@@ -224,7 +249,7 @@ mod tests {
 
     #[test]
     fn add_after() {
-        let group = PluginGroupBuilder::default()
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
             .add(PluginA)
             .add(PluginB)
             .add_after::<PluginA, PluginC>(PluginC);
@@ -241,7 +266,7 @@ mod tests {
 
     #[test]
     fn add_before() {
-        let group = PluginGroupBuilder::default()
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
             .add(PluginA)
             .add(PluginB)
             .add_before::<PluginB, PluginC>(PluginC);
@@ -258,7 +283,7 @@ mod tests {
 
     #[test]
     fn readd() {
-        let group = PluginGroupBuilder::default()
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
             .add(PluginA)
             .add(PluginB)
             .add(PluginC)
@@ -276,7 +301,7 @@ mod tests {
 
     #[test]
     fn readd_after() {
-        let group = PluginGroupBuilder::default()
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
             .add(PluginA)
             .add(PluginB)
             .add(PluginC)
@@ -294,7 +319,7 @@ mod tests {
 
     #[test]
     fn readd_before() {
-        let group = PluginGroupBuilder::default()
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
             .add(PluginA)
             .add(PluginB)
             .add(PluginC)

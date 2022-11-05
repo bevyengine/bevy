@@ -456,31 +456,23 @@ pub trait BuildWorldChildren {
 
 impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
-        {
-            let entity = self.id();
+        let entity = self.id();
+        self.world_scope(|world| {
             let mut builder = WorldChildBuilder {
                 current_entity: None,
                 parent_entities: vec![entity],
-                // SAFETY: self.update_location() is called below. It is impossible to make EntityMut
-                // function calls on `self` within the scope defined here
-                world: unsafe { self.world_mut() },
+                world,
             };
-
             spawn_children(&mut builder);
-        }
-        self.update_location();
+        });
         self
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        {
-            // SAFETY: parent entity is not modified and its location is updated manually
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             update_old_parents(world, parent, children);
-            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
-            self.update_location();
-        }
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
                 .0
@@ -494,14 +486,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        {
-            // SAFETY: parent entity is not modified and its location is updated manually
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             update_old_parents(world, parent, children);
-            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
-            self.update_location();
-        }
-
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
                 .0
@@ -515,9 +502,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        // SAFETY: This doesn't change the parent's location
-        let world = unsafe { self.world_mut() };
-        remove_children(parent, children, world);
+        self.world_scope(|world| {
+            remove_children(parent, children, world);
+        });
         self
     }
 }

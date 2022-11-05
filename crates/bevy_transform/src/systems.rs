@@ -318,8 +318,8 @@ mod test {
         let mut temp = World::new();
         let mut app = App::new();
 
-        // Adding the system in a single threaded stage. As the system will panic, this will
-        // only bring down the current test thread.
+        // FIXME: Parallel executors seem to have some odd interaction with the other
+        // tests in this crate. Using single_threaded until a root cause can be found.
         app.add_stage("single", SystemStage::single_threaded())
             .add_system_to_stage("single", transform_propagate_system);
 

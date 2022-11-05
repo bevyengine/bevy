@@ -147,6 +147,8 @@ impl Plugin for PbrPlugin {
             .register_type::<AmbientLight>()
             .register_type::<DirectionalLightShadowMap>()
             .register_type::<PointLightShadowMap>()
+            .add_plugin(MeshRenderPlugin)
+            .add_plugin(MaterialPlugin::<StandardMaterial>::default())
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
