@@ -111,6 +111,11 @@ impl<'a> Executor<'a> {
 impl Drop for Executor<'_> {
     fn drop(&mut self) {
         for group in self.state.groups.iter() {
+            let mut sleepers = group.sleepers.lock();
+            for (_, waker) in sleepers.wakers.drain(..) {
+                waker.wake();
+            }
+            drop(sleepers);
             while group.queue.pop().is_ok() {}
         }
     }

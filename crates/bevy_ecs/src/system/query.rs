@@ -739,7 +739,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Rule of thumb: If the function body is (mostly) computationally expensive but there are not many items, a small batch size (=more batches) may help to even out the load.
     /// If the body is computationally cheap and you have many items, a large batch size (=fewer batches) avoids spawning additional futures that don't help to even out the load.
     ///
-    /// [`TaskPool`]: bevy_tasks::prelude::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::prelude::TaskPool
     ///
     /// # Panics
     ///
@@ -777,7 +777,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// This method panics if the [`TaskPool`] is not initialized.
     /// If using this from a query that is being initialized and run from the [`Schedule`](crate::schedule::Schedule), this never panics.
     ///
-    /// [`TaskPool`]: bevy_tasks::prelude::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::prelude::TaskPool
     ///
     /// # See also
     ///

@@ -208,11 +208,11 @@ impl TaskPool {
     /// # Example
     ///
     /// ```
-    /// use bevy_tasks::TaskPool;
+    /// use bevy_tasks::{TaskPool, TaskGroup};
     ///
-    /// let pool = TaskPool::new();
+    /// let pool = TaskPool::init(TaskPool::default);
     /// let mut x = 0;
-    /// let results = pool.scope(|s| {
+    /// let results = pool.scope(TaskGroup::Compute, |s| {
     ///     s.spawn(async {
     ///         // you can borrow the spawner inside a task and spawn tasks from within the task
     ///         s.spawn(async {
@@ -232,7 +232,7 @@ impl TaskPool {
     /// assert!(results.contains(&1));
     ///
     /// // The ordering is deterministic if you only spawn directly from the closure function.
-    /// let results = pool.scope(|s| {
+    /// let results = pool.scope(TaskGroup::Compute, |s| {
     ///     s.spawn(async { 0  });
     ///     s.spawn(async { 1 });
     /// });
@@ -253,11 +253,11 @@ impl TaskPool {
     /// Thus this lifetime must outlive `'scope`.
     ///
     /// ```compile_fail
-    /// use bevy_tasks::TaskPool;
+    /// use bevy_tasks::{TaskPool, TaskGroup};
     /// fn scope_escapes_closure() {
-    ///     let pool = TaskPool::new();
+    ///     let pool = TaskPool::init(TaskPool::default);
     ///     let foo = Box::new(42);
-    ///     pool.scope(|scope| {
+    ///     pool.scope(TaskGroup::Compute, |scope| {
     ///         std::thread::spawn(move || {
     ///             // UB. This could spawn on the scope after `.scope` returns and the internal Scope is dropped.
     ///             scope.spawn(async move {
@@ -269,10 +269,10 @@ impl TaskPool {
     /// ```
     ///
     /// ```compile_fail
-    /// use bevy_tasks::TaskPool;
+    /// use bevy_tasks::{TaskPool, TaskGroup};
     /// fn cannot_borrow_from_closure() {
-    ///     let pool = TaskPool::new();
-    ///     pool.scope(|scope| {
+    ///     let pool = TaskPool::init(TaskPool::default);
+    ///     pool.scope(TaskGroup::Compute, |scope| {
     ///         let x = 1;
     ///         let y = &x;
     ///         scope.spawn(async move {
@@ -400,7 +400,7 @@ impl TaskPool {
     /// ```rust
     /// use bevy_tasks::TaskPool;
     ///
-    /// TaskPool::new().with_local_executor(|local_executor| {
+    /// TaskPool::init(TaskPool::default).with_local_executor(|local_executor| {
     ///     local_executor.try_tick();
     /// });
     /// ```
@@ -509,7 +509,7 @@ mod tests {
 
     #[test]
     fn test_spawn() {
-        let pool = TaskPool::default();
+        let pool = TaskPool::init(TaskPool::default);
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -540,7 +540,7 @@ mod tests {
 
     #[test]
     fn test_mixed_spawn_local_and_spawn() {
-        let pool = TaskPool::default();
+        let pool = TaskPool::init(TaskPool::default);
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -585,7 +585,7 @@ mod tests {
 
     #[test]
     fn test_thread_locality() {
-        let pool = Arc::new(TaskPool::default());
+        let pool = TaskPool::init(TaskPool::default);
         let count = Arc::new(AtomicI32::new(0));
         let barrier = Arc::new(Barrier::new(101));
         let thread_check_failed = Arc::new(AtomicBool::new(false));
@@ -593,10 +593,9 @@ mod tests {
         for _ in 0..100 {
             let inner_barrier = barrier.clone();
             let count_clone = count.clone();
-            let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
             std::thread::spawn(move || {
-                inner_pool.scope(TaskGroup::Compute, |scope| {
+                pool.scope(TaskGroup::Compute, |scope| {
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
@@ -622,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_nested_spawn() {
-        let pool = TaskPool::default();
+        let pool = TaskPool::init(TaskPool::default);
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -660,7 +659,7 @@ mod tests {
 
     #[test]
     fn test_nested_locality() {
-        let pool = TaskPool::init(|| TaskPool::default());
+        let pool = TaskPool::init(TaskPool::default);
         let count = Arc::new(AtomicI32::new(0));
         let barrier = Arc::new(Barrier::new(101));
         let thread_check_failed = Arc::new(AtomicBool::new(false));

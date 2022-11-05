@@ -206,8 +206,8 @@ mod tests {
     #[test]
     fn test_par_chunks_map() {
         let v = vec![42; 1000];
-        let task_pool = TaskPool::default();
-        let outputs = v.par_splat_map(&task_pool, None, |numbers| -> i32 { numbers.iter().sum() });
+        let task_pool = TaskPool::init(TaskPool::default);
+        let outputs = v.par_splat_map(task_pool, None, |numbers| -> i32 { numbers.iter().sum() });
 
         let mut sum = 0;
         for output in outputs {
@@ -220,9 +220,9 @@ mod tests {
     #[test]
     fn test_par_chunks_map_mut() {
         let mut v = vec![42; 1000];
-        let task_pool = TaskPool::default();
+        let task_pool = TaskPool::init(TaskPool::default);
 
-        let outputs = v.par_splat_map_mut(&task_pool, None, |numbers| -> i32 {
+        let outputs = v.par_splat_map_mut(task_pool, None, |numbers| -> i32 {
             for number in numbers.iter_mut() {
                 *number *= 2;
             }
