@@ -487,11 +487,7 @@ impl Runner<'_> {
     fn steal(&self, src: &ConcurrentQueue<Runnable>) {
         if src.is_empty() {
             // Don't steal more than fits into the queue.
-            const CAPACITY: usize = 512;
-            let count = CAPACITY - self.worker.len();
-
-            // Steal tasks.
-            for _ in 0..count {
+            for _ in 0..self.worker.spare_capacity() {
                 if let Ok(t) = src.pop() {
                     let res = self.worker.push(t);
                     debug_assert!(res.is_ok());
