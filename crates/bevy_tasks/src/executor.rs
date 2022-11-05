@@ -138,7 +138,7 @@ impl State {
                     .into_boxed_slice();
                 // TODO: This is a hack only for initialziation
                 // probably should refactor it out.
-                let available = ConcurrentQueue::bounded(*count);
+                let available = ConcurrentQueue::bounded(*count.max(&1));
                 for worker in workers {
                     available.push(worker).unwrap();
                 }

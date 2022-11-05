@@ -292,7 +292,7 @@ impl TaskPool {
         }
 
         let mut dummy_thread_counts = vec![0; TaskGroup::MAX_PRIORITY];
-        dummy_thread_counts[TaskGroup::AsyncCompute.to_priority()] = 1;
+        dummy_thread_counts[group.to_priority()] = 1;
         // SAFETY: This safety comment applies to all references transmuted to 'env.
         // Any futures spawned with these references need to return before this function completes.
         // This is guaranteed because we drive all the futures spawned onto the Scope
