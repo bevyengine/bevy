@@ -383,7 +383,7 @@ impl Entities {
     }
 
     /// Check that we do not have pending work requiring `flush()` to be called.
-    fn verify_flushed(&mut self) {
+    fn verify_flushed(&self) {
         debug_assert!(
             !self.needs_flush(),
             "flush() needs to be called before this operation is legal"
@@ -567,8 +567,8 @@ impl Entities {
         }
     }
 
-    fn needs_flush(&mut self) -> bool {
-        *self.free_cursor.get_mut() != self.pending.len() as IdCursor
+    fn needs_flush(&self) -> bool {
+        self.free_cursor.load(Ordering::Relaxed) != self.pending.len() as IdCursor
     }
 
     /// Allocates space for entities previously reserved with `reserve_entity` or
