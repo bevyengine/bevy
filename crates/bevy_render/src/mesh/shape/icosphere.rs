@@ -1,5 +1,6 @@
 use crate::mesh::{Indices, Mesh};
 use hexasphere::shapes::IcoSphere;
+use thiserror::Error;
 use wgpu::PrimitiveTopology;
 
 /// A sphere made from a subdivided Icosahedron.
@@ -20,25 +21,13 @@ impl Default for Icosphere {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum FromIcosphereError {
+    #[error("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
     TooManyVertices {
         subdivisions: usize,
         number_of_resulting_points: usize,
     },
-}
-
-impl std::error::Error for FromIcosphereError {}
-
-impl std::fmt::Display for FromIcosphereError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FromIcosphereError::TooManyVertices {
-                subdivisions,
-                number_of_resulting_points,
-            } => write!(f, "Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")
-        }
-    }
 }
 
 impl TryFrom<Icosphere> for Mesh {
