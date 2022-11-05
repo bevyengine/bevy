@@ -104,7 +104,7 @@ impl Node for PrepassNode {
                 }
 
                 {
-                    // Run the prepass, sorted front-to-back 
+                    // Run the prepass, sorted front-to-back
                     #[cfg(feature = "trace")]
                     let _opaque_prepass_span = info_span!("opaque_prepass").entered();
                     let draw_functions = world.resource::<DrawFunctions<Opaque3dPrepass>>();
