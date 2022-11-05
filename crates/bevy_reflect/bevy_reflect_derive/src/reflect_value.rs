@@ -38,12 +38,13 @@ impl Parse for ReflectValueDef {
             lookahead = input.lookahead1();
         }
 
-        let mut traits = None;
-        if lookahead.peek(Paren) {
+        let traits = if lookahead.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            traits = Some(content.parse::<ReflectTraits>()?);
-        }
+            Some(content.parse::<ReflectTraits>()?)
+        } else {
+            None
+        };
 
         Ok(ReflectValueDef {
             attrs,
