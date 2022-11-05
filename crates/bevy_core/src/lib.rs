@@ -47,8 +47,7 @@ impl Plugin for CorePlugin {
             tick_global_task_pools_on_main_thread.at_end(),
         );
 
-        app.register_type::<Entity>()
-            .register_type::<Name>();
+        app.register_type::<Entity>().register_type::<Name>();
 
         register_rust_types(app);
         register_math_types(app);
