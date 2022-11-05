@@ -470,7 +470,7 @@ macro_rules! load_internal_binary_asset {
 
 /// Loads an internal binary asset.
 ///
-/// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
+/// Internal binary assets (e.g. spir-v shaders) are bundled directly into the app and can't be hot reloaded
 /// using the conventional API. See `DebugAssetServerPlugin`.
 #[cfg(not(feature = "debug_asset_server"))]
 #[macro_export]
