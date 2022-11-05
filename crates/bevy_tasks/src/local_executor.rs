@@ -1,5 +1,6 @@
 use async_task::{Runnable, Task};
-use concurrent_queue::ConcurrentQueue;
+use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::panic::{RefUnwindSafe, UnwindSafe};
@@ -10,7 +11,7 @@ use std::rc::Rc;
 /// The executor can only be run on the thread that created it.
 #[derive(Debug)]
 pub struct LocalExecutor<'a> {
-    queue: ConcurrentQueue<Runnable>,
+    queue: RefCell<VecDeque<Runnable>>,
 
     /// Makes the type `!Send` and `!Sync`.
     _marker: PhantomData<&'a Rc<()>>,
@@ -23,7 +24,7 @@ impl<'a> LocalExecutor<'a> {
     /// Creates a single-threaded executor.
     pub fn new() -> LocalExecutor<'a> {
         LocalExecutor {
-            queue: ConcurrentQueue::unbounded(),
+            queue: RefCell::new(VecDeque::new()),
             _marker: PhantomData,
         }
     }
@@ -36,17 +37,24 @@ impl<'a> LocalExecutor<'a> {
         // Even if the returned Task and waker are sent to another thread, the associated inner
         // task is only dropped when `try_tick` is triggered.
         let (runnable, task) = unsafe { async_task::spawn_unchecked(future, self.schedule()) };
-        self.queue.push(runnable).unwrap();
+        self.queue.borrow_mut().push_back(runnable);
         task
+    }
+
+    /// Attempts to fetch a task if at least one is scheduled.
+    #[inline]
+    pub fn try_fetch(&self) -> Option<Runnable> {
+        self.queue.borrow_mut().pop_front()
     }
 
     /// Attempts to run a task if at least one is scheduled.
     ///
     /// Running a scheduled task means simply polling its future once.
+    #[inline]
     pub fn try_tick(&self) -> bool {
-        match self.queue.pop() {
-            Err(_) => false,
-            Ok(runnable) => {
+        match self.try_fetch() {
+            None => false,
+            Some(runnable) => {
                 runnable.run();
                 true
             }
@@ -56,7 +64,7 @@ impl<'a> LocalExecutor<'a> {
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule(&self) -> impl Fn(Runnable) + '_ {
         move |runnable| {
-            self.queue.push(runnable).unwrap();
+            self.queue.borrow_mut().push_back(runnable);
         }
     }
 }

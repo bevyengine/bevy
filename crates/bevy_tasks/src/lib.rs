@@ -21,9 +21,6 @@ mod single_threaded_task_pool;
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod task_pool_builder;
-mod usages;
-#[cfg(not(target_arch = "wasm32"))]
-pub use usages::tick_global_task_pools_on_main_thread;
 
 mod iter;
 pub use iter::ParallelIterator;

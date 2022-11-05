@@ -25,8 +25,6 @@ use std::ops::Range;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_ecs::schedule::IntoSystemDescriptor;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::tick_global_task_pools_on_main_thread;
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
@@ -43,7 +41,7 @@ impl Plugin for CorePlugin {
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system_to_stage(
             bevy_app::CoreStage::Last,
-            tick_global_task_pools_on_main_thread.at_end(),
+            TaskPool::flush_local_tasks.at_end(),
         );
 
         app.register_type::<Entity>().register_type::<Name>();

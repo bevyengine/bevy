@@ -55,7 +55,7 @@ pub struct TaskPool {
 
 impl TaskPool {
     thread_local! {
-        static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
+        pub(crate) static LOCAL_EXECUTOR: LocalExecutor<'static> = LocalExecutor::new();
     }
 
     /// Initializes the global [`TaskPool`] instance.
@@ -393,22 +393,11 @@ impl TaskPool {
         Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
     }
 
-    /// Runs a function with the local executor. Typically used to tick
-    /// the local executor on the main thread as it needs to share time with
-    /// other things.
-    ///
-    /// ```rust
-    /// use bevy_tasks::TaskPool;
-    ///
-    /// TaskPool::init(TaskPool::default).with_local_executor(|local_executor| {
-    ///     local_executor.try_tick();
-    /// });
-    /// ```
-    pub fn with_local_executor<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&LocalExecutor) -> R,
-    {
-        Self::LOCAL_EXECUTOR.with(f)
+    /// Flushes all local tasks on the current thread from the `TaskPool`.
+    /// This function will continue running until the local executor for the
+    /// current thread is empty.
+    pub fn flush_local_tasks() {
+        Self::LOCAL_EXECUTOR.with(|local_executor| while local_executor.try_tick() {});
     }
 }
 

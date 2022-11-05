@@ -72,8 +72,7 @@ impl TaskPool {
         T: Send + 'static,
     {
         let executor = &LocalExecutor::new();
-        let executor: &'env LocalExecutor<'env> =
-            unsafe { mem::transmute(executor) };
+        let executor: &'env LocalExecutor<'env> = unsafe { mem::transmute(executor) };
 
         let results: Mutex<Vec<Arc<Mutex<Option<T>>>>> = Mutex::new(Vec::new());
         let results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>> = unsafe { mem::transmute(&results) };

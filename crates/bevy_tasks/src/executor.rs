@@ -1,5 +1,6 @@
 // Forked from async_executor
 
+use crate::TaskPool;
 use parking_lot::Mutex;
 use std::future::Future;
 use std::marker::PhantomData;
@@ -403,6 +404,13 @@ impl Runner<'_> {
             loop {
                 // Try the local queue.
                 if let Some(r) = self.worker.pop() {
+                    self.wake_and_notify();
+                    return Poll::Ready(r);
+                }
+
+                // Try the local task queue.
+                let local_r = TaskPool::LOCAL_EXECUTOR.with(|local| local.try_fetch());
+                if let Some(r) = local_r {
                     self.wake_and_notify();
                     return Poll::Ready(r);
                 }
