@@ -267,29 +267,24 @@ impl TaskPool {
         if spawned.is_empty() {
             Vec::new()
         } else {
-            let get_results = async {
-                let mut results = Vec::with_capacity(spawned_ref.len());
-                while let Ok(task) = spawned_ref.pop() {
-                    results.push(task.await.unwrap());
-                }
+            future::block_on(async move {
+                let get_results = async  {
+                    let mut results = Vec::with_capacity(scope.spawned.len());
+                    while let Ok(task) = spawned_ref.pop() {
+                        results.push(task.await);
+                    }
 
-                results
-            };
-
-            // Pin the futures on the stack.
-            pin!(get_results);
-
-            loop {
-                if let Some(result) = future::block_on(future::poll_once(&mut get_results)) {
-                    break result;
+                    results
                 };
 
-                std::panic::catch_unwind(|| {
-                    executor.try_tick();
-                    task_scope_executor.try_tick();
-                })
-                .ok();
-            }
+                let tick_forever = async move {
+                    loop {
+                        task_scope_executor.tick().await;
+                    }
+                };
+
+                executor.run(tick_forever).or(get_results).await
+            })
         }
     }
 
