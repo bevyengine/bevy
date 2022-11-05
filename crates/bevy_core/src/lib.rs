@@ -47,12 +47,8 @@ impl Plugin for CorePlugin {
             tick_global_task_pools_on_main_thread.at_end(),
         );
 
-        app.register_type::<Entity>().register_type::<Name>();
         app.register_type::<Entity>()
-            .register_type::<Name>()
-            .register_type::<Range<f32>>()
-            .register_type_data::<Range<f32>, ReflectSerialize>()
-            .register_type_data::<Range<f32>, ReflectDeserialize>();
+            .register_type::<Name>();
 
         register_rust_types(app);
         register_math_types(app);
@@ -63,6 +59,8 @@ impl Plugin for CorePlugin {
 
 fn register_rust_types(app: &mut App) {
     app.register_type::<Range<f32>>()
+        .register_type_data::<Range<f32>, ReflectSerialize>()
+        .register_type_data::<Range<f32>, ReflectDeserialize>()
         .register_type::<String>()
         .register_type::<HashSet<String>>()
         .register_type::<Option<String>>()
