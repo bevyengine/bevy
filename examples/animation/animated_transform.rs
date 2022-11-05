@@ -118,7 +118,10 @@ fn setup(
     commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
+                mesh: meshes.add(
+                    Mesh::try_from(shape::Icosphere::default())
+                        .expect("Error while creating mesh from icosphere"),
+                ),
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
                 ..default()
             },
