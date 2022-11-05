@@ -131,7 +131,7 @@ impl Node for PrepassNode {
             }
 
             if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-                // copy depth buffer to texture
+                // Copy depth buffer to texture
                 render_context.command_encoder.copy_texture_to_texture(
                     view_depth_texture.texture.as_image_copy(),
                     prepass_depth_texture.texture.as_image_copy(),
