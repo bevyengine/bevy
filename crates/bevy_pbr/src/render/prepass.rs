@@ -179,7 +179,7 @@ where
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        // NOTE: Eventually, it would be nice to only add this when the shaders area overloaded.
+        // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layout.insert(1, self.material_layout.clone());
 
