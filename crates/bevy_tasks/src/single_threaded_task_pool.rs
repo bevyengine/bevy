@@ -66,13 +66,13 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
+    pub fn scope<'env, F, T>(&self, _: TaskGroup, f: F) -> Vec<T>
     where
         F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        let executor = &async_executor::LocalExecutor::new();
-        let executor: &'env async_executor::LocalExecutor<'env> =
+        let executor = &LocalExecutor::new();
+        let executor: &'env LocalExecutor<'env> =
             unsafe { mem::transmute(executor) };
 
         let results: Mutex<Vec<Arc<Mutex<Option<T>>>>> = Mutex::new(Vec::new());
@@ -141,7 +141,7 @@ impl FakeTask {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'env async_executor::LocalExecutor<'env>,
+    executor: &'env LocalExecutor<'env>,
     // Vector to gather results of all futures spawned during scope run
     results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>>,
 
