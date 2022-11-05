@@ -2,7 +2,10 @@
 
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
-    ecs::system::{lifetimeless::*, SystemParamItem},
+    ecs::{
+        query::QueryItem,
+        system::{lifetimeless::*, SystemParamItem},
+    },
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
@@ -67,7 +70,7 @@ impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
     type Filter = ();
 
-    fn extract_component(item: bevy::ecs::query::QueryItem<Self::Query>) -> Self {
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
         InstanceMaterialData(item.0.clone())
     }
 }

@@ -526,7 +526,7 @@ impl<'w> EntityMut<'w> {
 
     /// Returns this `EntityMut`'s world.
     ///
-    /// See [`EntityMut::into_world_mut`] for a safe alternative.
+    /// See [`EntityMut::world_scope`] or [`EntityMut::into_world_mut`] for a safe alternative.
     ///
     /// # Safety
     /// Caller must not modify the world in a way that changes the current entity's location
@@ -541,6 +541,12 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn into_world_mut(self) -> &'w mut World {
         self.world
+    }
+
+    /// Gives mutable access to this `EntityMut`'s [`World`] in a temporary scope.
+    pub fn world_scope(&mut self, f: impl FnOnce(&mut World)) {
+        f(self.world);
+        self.update_location();
     }
 
     /// Updates the internal entity location to match the current location in the internal

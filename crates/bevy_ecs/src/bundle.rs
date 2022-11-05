@@ -5,7 +5,10 @@
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
-    archetype::{AddBundle, Archetype, ArchetypeId, Archetypes, ComponentStatus},
+    archetype::{
+        Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
+        SpawnBundleStatus,
+    },
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
@@ -340,13 +343,10 @@ impl BundleInfo {
     ) -> BundleSpawner<'a, 'b> {
         let new_archetype_id =
             self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY);
-        let (empty_archetype, archetype) =
-            archetypes.get_2_mut(ArchetypeId::EMPTY, new_archetype_id);
+        let archetype = &mut archetypes[new_archetype_id];
         let table = &mut storages.tables[archetype.table_id()];
-        let add_bundle = empty_archetype.edges().get_add_bundle(self.id()).unwrap();
         BundleSpawner {
             archetype,
-            add_bundle,
             bundle_info: self,
             table,
             entities,
@@ -355,16 +355,29 @@ impl BundleInfo {
         }
     }
 
+    /// This writes components from a given [`Bundle`] to the given entity.
+    ///
     /// # Safety
+    ///
+    /// `bundle_component_status` must return the "correct" [`ComponentStatus`] for each component
+    /// in the [`Bundle`], with respect to the entity's original archetype (prior to the bundle being added)
+    /// For example, if the original archetype already has `ComponentA` and `T` also has `ComponentA`, the status
+    /// should be `Mutated`. If the original archetype does not have `ComponentA`, the status should be `Added`.
+    /// When "inserting" a bundle into an existing entity, [`AddBundle`](crate::archetype::AddBundle)
+    /// should be used, which will report `Added` vs `Mutated` status based on the current archetype's structure.
+    /// When spawning a bundle, [`SpawnBundleStatus`] can be used instead, which removes the need
+    /// to look up the [`AddBundle`](crate::archetype::AddBundle) in the archetype graph, which requires
+    /// ownership of the entity's current archetype.
+    ///
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
     #[allow(clippy::too_many_arguments)]
-    unsafe fn write_components<T: Bundle>(
+    unsafe fn write_components<T: Bundle, S: BundleComponentStatus>(
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
-        add_bundle: &AddBundle,
+        bundle_component_status: &S,
         entity: Entity,
         table_row: usize,
         change_tick: u32,
@@ -378,7 +391,8 @@ impl BundleInfo {
             match self.storage_types[bundle_component] {
                 StorageType::Table => {
                     let column = table.get_column_mut(component_id).unwrap();
-                    match add_bundle.bundle_status.get_unchecked(bundle_component) {
+                    // SAFETY: bundle_component is a valid index for this bundle
+                    match bundle_component_status.get_status(bundle_component) {
                         ComponentStatus::Added => {
                             column.initialize(
                                 table_row,
@@ -624,7 +638,6 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
 pub(crate) struct BundleSpawner<'a, 'b> {
     pub(crate) archetype: &'a mut Archetype,
     pub(crate) entities: &'a mut Entities,
-    add_bundle: &'a AddBundle,
     bundle_info: &'b BundleInfo,
     table: &'a mut Table,
     sparse_sets: &'a mut SparseSets,
@@ -649,7 +662,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
         self.bundle_info.write_components(
             self.table,
             self.sparse_sets,
-            self.add_bundle,
+            &SpawnBundleStatus,
             entity,
             table_row,
             self.change_tick,

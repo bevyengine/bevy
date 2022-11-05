@@ -73,6 +73,7 @@ pub struct StructInfo {
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[NamedField]>,
+    field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -93,11 +94,14 @@ impl StructInfo {
             .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
 
+        let field_names = fields.iter().map(|field| field.name()).collect();
+
         Self {
             name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            field_names,
             field_indices,
             #[cfg(feature = "documentation")]
             docs: None,
@@ -108,6 +112,11 @@ impl StructInfo {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// A slice containing the names of all fields in order.
+    pub fn field_names(&self) -> &[&'static str] {
+        &self.field_names
     }
 
     /// Get the field with the given name.
@@ -471,9 +480,7 @@ impl Typed for DynamicStruct {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
-        struct_value
-    } else {
+    let ReflectRef::Struct(struct_value) = b.reflect_ref()  else {
         return Some(false);
     };
 

@@ -396,9 +396,7 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
-    let b = if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
-        tuple
-    } else {
+    let ReflectRef::Tuple(b) = b.reflect_ref() else {
         return Some(false);
     };
 
