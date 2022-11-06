@@ -1,4 +1,4 @@
-use crate::{entity::UiCameraConfig, CalculatedClip, Node, UiStack};
+use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack};
 use bevy_ecs::{
     entity::Entity,
     prelude::Component,

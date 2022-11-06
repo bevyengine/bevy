@@ -248,9 +248,7 @@ fn collision_system(
     windows: Res<Windows>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let window = if let Some(window) = windows.get_primary() {
-        window
-    } else {
+    let Some(window) = windows.get_primary() else {
         return;
     };
 

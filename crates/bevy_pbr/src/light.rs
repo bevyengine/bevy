@@ -970,9 +970,7 @@ pub(crate) fn assign_lights_to_clusters(
             continue;
         }
 
-        let screen_size = if let Some(screen_size) = camera.physical_viewport_size() {
-            screen_size
-        } else {
+        let Some(screen_size) = camera.physical_viewport_size() else {
             clusters.clear();
             continue;
         };

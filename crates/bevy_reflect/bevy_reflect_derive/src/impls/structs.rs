@@ -223,6 +223,10 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Struct(self)
             }
 
+            fn reflect_owned(self: Box<Self>) -> #bevy_reflect_path::ReflectOwned {
+                #bevy_reflect_path::ReflectOwned::Struct(self)
+            }
+
             #hash_fn
 
             #partial_eq_fn

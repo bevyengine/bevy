@@ -264,6 +264,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Enum(self)
             }
 
+            fn reflect_owned(self: Box<Self>) -> #bevy_reflect_path::ReflectOwned {
+                #bevy_reflect_path::ReflectOwned::Enum(self)
+            }
+
             #hash_fn
 
             #partial_eq_fn
