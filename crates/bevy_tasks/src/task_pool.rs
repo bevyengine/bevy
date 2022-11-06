@@ -9,10 +9,9 @@ use std::{
 use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, FutureExt};
-use is_main_thread::is_main_thread;
 
-use crate::MainThreadExecutor;
 use crate::Task;
+use crate::{main_thread_executor::MainThreadSpawner, MainThreadExecutor};
 
 /// Used to create a [`TaskPool`]
 #[derive(Debug, Default, Clone)]
@@ -247,16 +246,16 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
-        let task_scope_executor = MainThreadExecutor::init();
-        let task_scope_executor: &'env async_executor::Executor =
-            unsafe { mem::transmute(task_scope_executor) };
+        let main_thread_spawner = MainThreadExecutor::init().spawner();
+        let main_thread_spawner: MainThreadSpawner<'env> =
+            unsafe { mem::transmute(main_thread_spawner) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
-            task_scope_executor,
+            main_thread_spawner,
             spawned: spawned_ref,
             scope: PhantomData,
             env: PhantomData,
@@ -279,20 +278,10 @@ impl TaskPool {
                     results
                 };
 
-                let is_main = if let Some(is_main) = is_main_thread() {
-                    is_main
-                } else {
-                    false
-                };
-
-                if is_main {
+                if let Some(main_thread_ticker) = MainThreadExecutor::get().ticker() {
                     let tick_forever = async move {
                         loop {
-                            if let Some(is_main) = is_main_thread() {
-                                if is_main {
-                                    task_scope_executor.tick().await;
-                                }
-                            }
+                            main_thread_ticker.tick().await;
                         }
                     };
 
@@ -373,7 +362,7 @@ impl Drop for TaskPool {
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
-    task_scope_executor: &'scope async_executor::Executor<'scope>,
+    main_thread_spawner: MainThreadSpawner<'scope>,
     spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -402,8 +391,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.task_scope_executor.spawn(f).fallible();
+    pub fn spawn_on_main<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
+        let main_thread_spawner: &MainThreadSpawner<'scope> =
+            unsafe { mem::transmute(&self.main_thread_spawner) };
+        let task = main_thread_spawner.spawn(f).fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -487,7 +478,7 @@ mod tests {
                     });
                 } else {
                     let count_clone = local_count.clone();
-                    scope.spawn_on_scope(async move {
+                    scope.spawn_on_main(async move {
                         if *foo != 42 {
                             panic!("not 42!?!?")
                         } else {
@@ -528,7 +519,7 @@ mod tests {
                     });
                     let spawner = std::thread::current().id();
                     let inner_count_clone = count_clone.clone();
-                    scope.spawn_on_scope(async move {
+                    scope.spawn_on_main(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                         if std::thread::current().id() != spawner {
                             // NOTE: This check is using an atomic rather than simply panicing the
@@ -603,7 +594,7 @@ mod tests {
                         inner_count_clone.fetch_add(1, Ordering::Release);
 
                         // spawning on the scope from another thread runs the futures on the scope's thread
-                        scope.spawn_on_scope(async move {
+                        scope.spawn_on_main(async move {
                             inner_count_clone.fetch_add(1, Ordering::Release);
                             if std::thread::current().id() != spawner {
                                 // NOTE: This check is using an atomic rather than simply panicing the

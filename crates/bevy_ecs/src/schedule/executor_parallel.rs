@@ -236,7 +236,7 @@ impl ParallelExecutor {
                 if system_data.is_send {
                     scope.spawn(task);
                 } else {
-                    scope.spawn_on_scope(task);
+                    scope.spawn_on_main(task);
                 }
 
                 #[cfg(test)]
@@ -271,7 +271,7 @@ impl ParallelExecutor {
                 if system_data.is_send {
                     scope.spawn(task);
                 } else {
-                    scope.spawn_on_scope(task);
+                    scope.spawn_on_main(task);
                 }
             }
         }
