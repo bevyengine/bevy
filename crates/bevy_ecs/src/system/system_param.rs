@@ -203,12 +203,12 @@ fn assert_component_access_compatibility(
     current: &FilteredAccess<ComponentId>,
     world: &World,
 ) {
-    let mut conflicts = system_access.get_conflicts_single(current);
+    let conflicts = system_access.get_conflicts_single(current);
     if conflicts.is_empty() {
         return;
     }
     let conflicting_components = conflicts
-        .drain(..)
+        .into_iter()
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
