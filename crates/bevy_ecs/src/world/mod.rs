@@ -581,15 +581,13 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        self.get_entity_mut(entity)
-            .map(|e| {
-                e.despawn();
-                true
-            })
-            .unwrap_or_else(|| {
-                debug!("Attempted to despawn non-existent entity {:?}", entity);
-                false
-            })
+        if let Some(entity) = self.get_entity_mut(entity) {
+            entity.despawn();
+            true
+        } else {
+            debug!("Attempted to despawn non-existent entity {:?}", entity);
+            false
+        }
     }
 
     /// Clears component tracker state
