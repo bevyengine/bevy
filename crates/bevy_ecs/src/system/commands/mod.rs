@@ -820,9 +820,7 @@ pub struct Despawn {
 
 impl Command for Despawn {
     fn write(self, world: &mut World) {
-        if !world.despawn(self.entity) {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", self.entity);
-        }
+        world.despawn(self.entity);
     }
 }
 

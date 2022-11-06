@@ -20,7 +20,7 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
     cell::UnsafeCell,
@@ -585,7 +585,7 @@ impl World {
             entity.despawn();
             true
         } else {
-            debug!("Attempted to despawn non-existent entity {:?}", entity);
+            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", self.entity);
             false
         }
     }
