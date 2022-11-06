@@ -189,6 +189,8 @@ pub enum FogFalloff {
     /// Similar to [`FogFalloff::Exponential`], but grows more slowly in intensity for closer distances
     /// before “catching up”.
     ///
+    /// To move the fog “further away”, use lower density values. To move it “closer” use higher density values.
+    ///
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility_squared()`] convenience method to create an exponential squared falloff
@@ -235,12 +237,18 @@ pub enum FogFalloff {
     /// Additionally, individual color channels can have their own density values, resulting in a total of
     /// six different configuration parameters.
     ///
+    /// ## Tips
+    ///
+    /// - Use the [`FogFalloff::from_visibility_colors()`] or [`FogFalloff::from_visibility_color()`] convenience methods
+    /// to create an atmospheric falloff with the proper densities for a desired visibility distance in world units and
+    /// extinction and inscattering colors;
+    /// - Combine the atmospheric fog parameters with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    ///
     /// ## Formula
     ///
     /// Unlike other modes, atmospheric falloff doesn't use a simple intensity-based blend of fog color with
     /// object color. Instead, it calculates per-channel extinction and inscattering factors, which are
     /// then used to calculate the final color.
-    ///
     ///
     /// ```text
     /// let extinction_factor = 1.0 - 1.0 / (distance * extinction).exp();
@@ -250,7 +258,7 @@ pub enum FogFalloff {
     ///
     /// ## Equivalence to [`FogFalloff::Exponential`]
     ///
-    /// The following two falloff modes will produce identical visual results:
+    /// For a density value of `D`, the following two falloff modes will produce identical visual results:
     ///
     /// ```
     /// # use bevy_pbr::prelude::*;
@@ -296,7 +304,7 @@ pub enum FogFalloff {
 
 impl FogFalloff {
     /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world units,
-    /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`]
+    /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     pub fn from_visibility(visibility: f32) -> FogFalloff {
         FogFalloff::from_visibility_contrast(
             visibility,
@@ -305,7 +313,7 @@ impl FogFalloff {
     }
 
     /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world units,
-    /// and a given contrast threshold in the range of 0.0 to 1.0.
+    /// and a given contrast threshold in the range of `0.0` to `1.0`.
     pub fn from_visibility_contrast(visibility: f32, contrast_threshold: f32) -> FogFalloff {
         FogFalloff::Exponential {
             density: FogFalloff::koschmieder(visibility, contrast_threshold),
@@ -313,7 +321,7 @@ impl FogFalloff {
     }
 
     /// Creates a [`FogFalloff::ExponentialSquared`] value from the given visibility distance in world units,
-    /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`]
+    /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     pub fn from_visibility_squared(visibility: f32) -> FogFalloff {
         FogFalloff::from_visibility_contrast(
             visibility,
@@ -322,7 +330,7 @@ impl FogFalloff {
     }
 
     /// Creates a [`FogFalloff::ExponentialSquared`] value from the given visibility distance in world units,
-    /// and a given contrast threshold in the range of 0.0 to 1.0.
+    /// and a given contrast threshold in the range of `0.0` to `1.0`.
     pub fn from_visibility_contrast_squared(
         visibility: f32,
         contrast_threshold: f32,
@@ -350,6 +358,11 @@ impl FogFalloff {
     /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
     /// extinction and inscattering colors, using the revised Koschmieder contrast threshold,
     /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
+    ///
+    /// ## Tips
+    /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering` effects;
+    /// - Using an `extinction_color` of [`Color:WHITE`] or [`Color:NONE`] disables the extinction effect;
+    /// - Using an `inscattering_color` of [`Color:BLACK`] or [`Color:NONE`] disables the inscattering effect.
     pub fn from_visibility_colors(
         visibility: f32,
         extinction_color: Color,
@@ -364,7 +377,7 @@ impl FogFalloff {
     }
 
     /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
-    /// a contrast threshold in the range of 0.0 to 1.0, and a shared color for both extinction and inscattering.
+    /// a contrast threshold in the range of `0.0` to `1.0`, and a shared color for both extinction and inscattering.
     pub fn from_visibility_contrast_color(
         visibility: f32,
         contrast_threshold: f32,
@@ -379,7 +392,12 @@ impl FogFalloff {
     }
 
     /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
-    /// a contrast threshold in the range of 0.0 to 1.0, extinction and inscattering colors.
+    /// a contrast threshold in the range of `0.0` to `1.0`, extinction and inscattering colors.
+    ///
+    /// ## Tips
+    /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering` effects;
+    /// - Using an `extinction_color` of [`Color:WHITE`] or [`Color:NONE`] disables the extinction effect;
+    /// - Using an `inscattering_color` of [`Color:BLACK`] or [`Color:NONE`] disables the inscattering effect.
     pub fn from_visibility_contrast_colors(
         visibility: f32,
         contrast_threshold: f32,
@@ -417,7 +435,7 @@ impl FogFalloff {
 
     /// Calculates the extinction coefficient β, from V and Cₜ, where:
     ///
-    /// - Cₜ is the contrast threshold, in the range of 0.0 to 1.0
+    /// - Cₜ is the contrast threshold, in the range of `0.0` to `1.0`
     /// - V is the visibility distance in which a perfectly black object is still identifiable
     ///   against the horizon sky within the contrast threshold
     ///
