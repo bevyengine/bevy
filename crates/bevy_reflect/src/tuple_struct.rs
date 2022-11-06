@@ -1,5 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed, UnnamedField};
+use crate::{
+    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, UnnamedField,
+};
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
@@ -328,6 +330,11 @@ impl Reflect for DynamicTupleStruct {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::TupleStruct(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::TupleStruct(self)
     }
 
     fn apply(&mut self, value: &dyn Reflect) {

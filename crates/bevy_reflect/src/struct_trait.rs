@@ -1,5 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
+use crate::{
+    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+};
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
 use std::{
@@ -425,6 +427,11 @@ impl Reflect for DynamicStruct {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Struct(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Struct(self)
     }
 
     fn apply(&mut self, value: &dyn Reflect) {

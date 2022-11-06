@@ -5,7 +5,7 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
+use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -298,6 +298,10 @@ impl Reflect for DynamicMap {
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Map(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Map(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {

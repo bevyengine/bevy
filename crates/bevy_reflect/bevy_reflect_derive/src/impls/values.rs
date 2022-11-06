@@ -103,6 +103,10 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Value(self)
             }
 
+            fn reflect_owned(self: Box<Self>) -> #bevy_reflect_path::ReflectOwned {
+                #bevy_reflect_path::ReflectOwned::Value(self)
+            }
+
             #hash_fn
 
             #partial_eq_fn

@@ -4,7 +4,7 @@ use std::any::Any;
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
 };
 
 impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
@@ -113,6 +113,10 @@ where
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::List(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::List(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
