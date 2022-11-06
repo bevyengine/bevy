@@ -247,7 +247,7 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
-        let task_scope_executor = &async_executor::Executor::default();
+        let task_scope_executor = MainThreadExecutor::init();
         let task_scope_executor: &'env async_executor::Executor =
             unsafe { mem::transmute(task_scope_executor) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
@@ -279,19 +279,27 @@ impl TaskPool {
                     results
                 };
 
-                let tick_forever = async move {
-                    loop {
-                        if let Some(is_main) = is_main_thread() {
-                            if is_main {
-                                MainThreadExecutor::get().tick().await;
-                            }
-                        }
-
-                        task_scope_executor.tick().await;
-                    }
+                let is_main = if let Some(is_main) = is_main_thread() {
+                    is_main
+                } else {
+                    false
                 };
 
-                executor.run(tick_forever).or(get_results).await
+                if is_main {
+                    let tick_forever = async move {
+                        loop {
+                            if let Some(is_main) = is_main_thread() {
+                                if is_main {
+                                    task_scope_executor.tick().await;
+                                }
+                            }
+                        }
+                    };
+
+                    executor.run(tick_forever).or(get_results).await
+                } else {
+                    executor.run(get_results).await
+                }
             })
         }
     }
