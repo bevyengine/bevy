@@ -20,6 +20,7 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
     cell::UnsafeCell,
@@ -585,7 +586,10 @@ impl World {
                 e.despawn();
                 true
             })
-            .unwrap_or(false)
+            .unwrap_or_else(|| {
+                debug!("Attempted to despawn non-existent entity {:?}", entity);
+                false
+            })
     }
 
     /// Clears component tracker state
