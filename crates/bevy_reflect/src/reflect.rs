@@ -92,10 +92,13 @@ pub trait Reflect: Any + Send + Sync {
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
-    /// Casts this type to a reflected value
+    /// Casts this type to a boxed reflected value.
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
+
+    /// Casts this type to a reflected value.
     fn as_reflect(&self) -> &dyn Reflect;
 
-    /// Casts this type to a mutable reflected value
+    /// Casts this type to a mutable reflected value.
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
 
     /// Applies a reflected value to this value.
