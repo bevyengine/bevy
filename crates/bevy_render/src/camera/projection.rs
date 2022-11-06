@@ -187,7 +187,10 @@ pub enum ScalingMode {
     WindowSize,
     /// Use minimal possible viewport size while keeping the aspect ratio.
     /// Arguments are in world units.
-    Auto { min_width: f32, min_height: f32 },
+    AutoMin { min_width: f32, min_height: f32 },
+    /// Use maximal possible viewport size while keeping the aspect ratio.
+    /// Arguments are in world units.
+    AutoMax { max_width: f32, max_height: f32 },
     /// Keep vertical axis constant; resize horizontal with aspect ratio.
     /// The argument is the desired height of the viewport in world units.
     FixedVertical(f32),
@@ -227,7 +230,7 @@ impl CameraProjection for OrthographicProjection {
     fn update(&mut self, width: f32, height: f32) {
         let (viewport_width, viewport_height) = match self.scaling_mode {
             ScalingMode::WindowSize => (width, height),
-            ScalingMode::Auto {
+            ScalingMode::AutoMin {
                 min_width,
                 min_height,
             } => {
@@ -235,6 +238,16 @@ impl CameraProjection for OrthographicProjection {
                     (width * min_height / height, min_height)
                 } else {
                     (min_width, height * min_width / width)
+                }
+            }
+            ScalingMode::AutoMax {
+                max_width,
+                max_height,
+            } => {
+                if width * max_height < max_width * height {
+                    (width * max_height / height, max_height)
+                } else {
+                    (max_width, height * max_width / width)
                 }
             }
             ScalingMode::FixedVertical(viewport_height) => {
