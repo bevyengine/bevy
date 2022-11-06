@@ -1,5 +1,7 @@
 use bevy_ecs::prelude::Resource;
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
+use bevy_tasks::{
+    AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, MainThreadExecutor, TaskPoolBuilder,
+};
 use bevy_utils::tracing::trace;
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
@@ -148,6 +150,10 @@ impl TaskPoolOptions {
                     .thread_name("Compute Task Pool".to_string())
                     .build()
             });
+        }
+
+        {
+            MainThreadExecutor::init();
         }
     }
 }

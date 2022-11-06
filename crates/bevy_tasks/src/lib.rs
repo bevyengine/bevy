@@ -20,7 +20,7 @@ pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
 pub use usages::tick_global_task_pools_on_main_thread;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, MainThreadExecutor};
 
 mod iter;
 pub use iter::ParallelIterator;

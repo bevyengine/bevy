@@ -17,6 +17,7 @@ use std::ops::Deref;
 static COMPUTE_TASK_POOL: OnceCell<ComputeTaskPool> = OnceCell::new();
 static ASYNC_COMPUTE_TASK_POOL: OnceCell<AsyncComputeTaskPool> = OnceCell::new();
 static IO_TASK_POOL: OnceCell<IoTaskPool> = OnceCell::new();
+static MAIN_THREAD_EXECUTOR: OnceCell<MainThreadExecutor> = OnceCell::new();
 
 /// A newtype for a task pool for CPU-intensive work that must be completed to deliver the next
 /// frame
@@ -104,6 +105,29 @@ impl IoTaskPool {
 
 impl Deref for IoTaskPool {
     type Target = TaskPool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub struct MainThreadExecutor(async_executor::Executor<'static>);
+
+impl MainThreadExecutor {
+    pub fn init() -> &'static Self {
+        MAIN_THREAD_EXECUTOR.get_or_init(|| Self(async_executor::Executor::new()))
+    }
+
+    pub fn get() -> &'static Self {
+        MAIN_THREAD_EXECUTOR.get().expect(
+            "A MainThreadExecutor has not been initialize yet. Please call \
+                MainThreadExecutor::init beforehand",
+        )
+    }
+}
+
+impl Deref for MainThreadExecutor {
+    type Target = async_executor::Executor<'static>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
