@@ -1,5 +1,5 @@
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::CameraUi, DefaultCameraView};
+use crate::{prelude::UiCameraConfig, DefaultCameraView};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -7,9 +7,7 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::*,
     render_phase::*,
-    render_resource::{
-        CachedRenderPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
-    },
+    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
     renderer::*,
     view::*,
 };
@@ -20,7 +18,7 @@ pub struct UiPassNode {
         (
             &'static RenderPhase<TransparentUi>,
             &'static ViewTarget,
-            Option<&'static CameraUi>,
+            Option<&'static UiCameraConfig>,
         ),
         With<ExtractedView>,
     >,
@@ -56,17 +54,16 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
 
-        let (transparent_phase, target, camera_ui) =
-            if let Ok(result) = self.ui_view_query.get_manual(world, input_view_entity) {
-                result
-            } else {
+        let Ok((transparent_phase, target, camera_ui)) =
+                self.ui_view_query.get_manual(world, input_view_entity)
+             else {
                 return Ok(());
             };
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
         // Don't render UI for cameras where it is explicitly disabled
-        if let Some(&CameraUi { is_enabled: false }) = camera_ui {
+        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false })) {
             return Ok(());
         }
 
@@ -81,14 +78,10 @@ impl Node for UiPassNode {
         };
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[RenderPassColorAttachment {
-                view: &target.view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                },
-            }],
+            color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
+                load: LoadOp::Load,
+                store: true,
+            }))],
             depth_stencil_attachment: None,
         };
 

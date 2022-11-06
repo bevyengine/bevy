@@ -5,7 +5,6 @@ use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
 
-use super::image_texture_conversion::image_to_texture;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
@@ -13,9 +12,11 @@ use crate::{
     texture::BevyDefault,
 };
 use bevy_asset::HandleUntyped;
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
@@ -100,19 +101,78 @@ impl ImageFormat {
     }
 }
 
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
+#[reflect_value]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
-    pub sampler_descriptor: wgpu::SamplerDescriptor<'static>,
+    /// The [`ImageSampler`] to use during rendering.
+    pub sampler_descriptor: ImageSampler,
+    pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
 }
+
+/// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
+/// [`ImageSampler::Default`], will read the sampler from the [`ImagePlugin`](super::ImagePlugin) at setup.
+/// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
+#[derive(Debug, Default, Clone)]
+pub enum ImageSampler {
+    /// Default image sampler, derived from the [`ImagePlugin`](super::ImagePlugin) setup.
+    #[default]
+    Default,
+    /// Custom sampler for this image which will override global default.
+    Descriptor(wgpu::SamplerDescriptor<'static>),
+}
+
+impl ImageSampler {
+    /// Returns an image sampler with `Linear` min and mag filters
+    #[inline]
+    pub fn linear() -> ImageSampler {
+        ImageSampler::Descriptor(Self::linear_descriptor())
+    }
+
+    /// Returns an image sampler with `nearest` min and mag filters
+    #[inline]
+    pub fn nearest() -> ImageSampler {
+        ImageSampler::Descriptor(Self::nearest_descriptor())
+    }
+
+    /// Returns a sampler descriptor with `Linear` min and mag filters
+    #[inline]
+    pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
+        wgpu::SamplerDescriptor {
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        }
+    }
+
+    /// Returns a sampler descriptor with `Nearest` min and mag filters
+    #[inline]
+    pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
+        wgpu::SamplerDescriptor {
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        }
+    }
+}
+
+/// A rendering resource for the default image sampler which is set during renderer
+/// initialization.
+///
+/// The [`ImagePlugin`](super::ImagePlugin) can be set during app initialization to change the default
+/// image sampler.
+#[derive(Resource, Debug, Clone, Deref, DerefMut)]
+pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size() as usize];
+        let data = vec![255; format.pixel_size()];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
@@ -128,7 +188,8 @@ impl Default for Image {
                 sample_count: 1,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
-            sampler_descriptor: wgpu::SamplerDescriptor::default(),
+            sampler_descriptor: ImageSampler::Default,
+            texture_view_descriptor: None,
         }
     }
 }
@@ -252,13 +313,18 @@ impl Image {
         });
     }
 
-    /// Convert a texture from a format to another
-    /// Only a few formats are supported as input and output:
+    /// Convert a texture from a format to another. Only a few formats are
+    /// supported as input and output:
     /// - `TextureFormat::R8Unorm`
     /// - `TextureFormat::Rg8Unorm`
     /// - `TextureFormat::Rgba8UnormSrgb`
+    ///
+    /// To get [`Image`] as a [`image::DynamicImage`] see:
+    /// [`Image::try_into_dynamic`].
     pub fn convert(&self, new_format: TextureFormat) -> Option<Self> {
-        super::image_texture_conversion::texture_to_image(self)
+        self.clone()
+            .try_into_dynamic()
+            .ok()
             .and_then(|img| match new_format {
                 TextureFormat::R8Unorm => {
                     Some((image::DynamicImage::ImageLuma8(img.into_luma8()), false))
@@ -272,9 +338,7 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| {
-                super::image_texture_conversion::image_to_texture(dyn_img, is_srgb)
-            })
+            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb))
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
@@ -305,11 +369,14 @@ impl Image {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
             }
             _ => {
-                let image_crate_format = format.as_image_crate_format().ok_or_else(|| {
-                    TextureError::UnsupportedTextureFormat(format!("{:?}", format))
-                })?;
-                let dyn_img = image::load_from_memory_with_format(buffer, image_crate_format)?;
-                Ok(image_to_texture(dyn_img, is_srgb))
+                let image_crate_format = format
+                    .as_image_crate_format()
+                    .ok_or_else(|| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
+                let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
+                reader.set_format(image_crate_format);
+                reader.no_limits();
+                let dyn_img = reader.decode()?;
+                Ok(Self::from_dynamic(dyn_img, is_srgb))
             }
         }
     }
@@ -331,11 +398,11 @@ impl Image {
 
 #[derive(Clone, Copy, Debug)]
 pub enum DataFormat {
-    R8,
-    Rg8,
-    Rgb8,
-    Rgba8,
-    Rgba16Float,
+    Rgb,
+    Rgba,
+    Rrr,
+    Rrrg,
+    Rg,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -444,8 +511,10 @@ impl TextureFormatPixelInfo for TextureFormat {
             TextureFormat::R16Uint
             | TextureFormat::R16Sint
             | TextureFormat::R16Float
+            | TextureFormat::R16Unorm
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
+            | TextureFormat::Rg16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rgba16Uint
             | TextureFormat::Rgba16Sint
@@ -479,6 +548,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::R8Sint
             | TextureFormat::R16Uint
             | TextureFormat::R16Sint
+            | TextureFormat::R16Unorm
             | TextureFormat::R16Float
             | TextureFormat::R32Uint
             | TextureFormat::R32Sint
@@ -490,6 +560,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::Rg8Sint
             | TextureFormat::Rg16Uint
             | TextureFormat::Rg16Sint
+            | TextureFormat::Rg16Unorm
             | TextureFormat::Rg16Float
             | TextureFormat::Rg32Uint
             | TextureFormat::Rg32Sint
@@ -540,7 +611,11 @@ pub struct GpuImage {
 impl RenderAsset for Image {
     type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
-    type Param = (SRes<RenderDevice>, SRes<RenderQueue>);
+    type Param = (
+        SRes<RenderDevice>,
+        SRes<RenderQueue>,
+        SRes<DefaultImageSampler>,
+    );
 
     /// Clones the Image.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -550,7 +625,7 @@ impl RenderAsset for Image {
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::ExtractedAsset,
-        (render_device, render_queue): &mut SystemParamItem<Self::Param>,
+        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let texture = if image.texture_descriptor.mip_level_count > 1 || image.is_compressed() {
             render_device.create_texture_with_data(
@@ -588,12 +663,22 @@ impl RenderAsset for Image {
             texture
         };
 
-        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        let texture_view = texture.create_view(
+            image
+                .texture_view_descriptor
+                .or_else(|| Some(TextureViewDescriptor::default()))
+                .as_ref()
+                .unwrap(),
+        );
         let size = Vec2::new(
             image.texture_descriptor.size.width as f32,
             image.texture_descriptor.size.height as f32,
         );
-        let sampler = render_device.create_sampler(&image.sampler_descriptor);
+        let sampler = match image.sampler_descriptor {
+            ImageSampler::Default => (***default_sampler).clone(),
+            ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+        };
+
         Ok(GpuImage {
             texture,
             texture_view,
@@ -656,36 +741,7 @@ impl CompressedImageFormats {
             | TextureFormat::EacR11Snorm
             | TextureFormat::EacRg11Unorm
             | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Astc4x4RgbaUnorm
-            | TextureFormat::Astc4x4RgbaUnormSrgb
-            | TextureFormat::Astc5x4RgbaUnorm
-            | TextureFormat::Astc5x4RgbaUnormSrgb
-            | TextureFormat::Astc5x5RgbaUnorm
-            | TextureFormat::Astc5x5RgbaUnormSrgb
-            | TextureFormat::Astc6x5RgbaUnorm
-            | TextureFormat::Astc6x5RgbaUnormSrgb
-            | TextureFormat::Astc6x6RgbaUnorm
-            | TextureFormat::Astc6x6RgbaUnormSrgb
-            | TextureFormat::Astc8x5RgbaUnorm
-            | TextureFormat::Astc8x5RgbaUnormSrgb
-            | TextureFormat::Astc8x6RgbaUnorm
-            | TextureFormat::Astc8x6RgbaUnormSrgb
-            | TextureFormat::Astc10x5RgbaUnorm
-            | TextureFormat::Astc10x5RgbaUnormSrgb
-            | TextureFormat::Astc10x6RgbaUnorm
-            | TextureFormat::Astc10x6RgbaUnormSrgb
-            | TextureFormat::Astc8x8RgbaUnorm
-            | TextureFormat::Astc8x8RgbaUnormSrgb
-            | TextureFormat::Astc10x8RgbaUnorm
-            | TextureFormat::Astc10x8RgbaUnormSrgb
-            | TextureFormat::Astc10x10RgbaUnorm
-            | TextureFormat::Astc10x10RgbaUnormSrgb
-            | TextureFormat::Astc12x10RgbaUnorm
-            | TextureFormat::Astc12x10RgbaUnormSrgb
-            | TextureFormat::Astc12x12RgbaUnorm
-            | TextureFormat::Astc12x12RgbaUnormSrgb => {
-                self.contains(CompressedImageFormats::ASTC_LDR)
-            }
+            TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }
     }
@@ -717,6 +773,6 @@ mod test {
     #[test]
     fn image_default_size() {
         let image = Image::default();
-        assert_eq!(Vec2::new(1.0, 1.0), image.size());
+        assert_eq!(Vec2::ONE, image.size());
     }
 }

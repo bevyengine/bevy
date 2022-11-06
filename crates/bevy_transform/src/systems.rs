@@ -42,6 +42,7 @@ pub fn propagate_transforms(
                 *global_transform = GlobalTransform::from(*transform);
             }
 
+            // If our `Children` has changed, we need to recalculate everything below us
             changed |= children_changed;
 
             for child in children.iter() {
@@ -74,7 +75,7 @@ fn propagate_recursive(
 ) -> Result<(), ()> {
     if let Ok(actual_parent) = parent_query.get(entity) {
         assert_eq!(
-            actual_parent.0, expected_parent,
+            actual_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
     } else {
@@ -98,7 +99,7 @@ fn propagate_recursive(
     let (children, changed_children) = children_query.get(entity).map_err(drop)?;
     // If our `Children` has changed, we need to recalculate everything below us
     changed |= changed_children;
-    for child in children.iter() {
+    for child in children {
         let _ = propagate_recursive(
             &global_matrix,
             unsafe_transform_query,
@@ -123,9 +124,10 @@ mod test {
     use crate::components::{GlobalTransform, Transform};
     use crate::systems::*;
     use crate::TransformBundle;
-    use bevy_hierarchy::{
-        parent_update_system, BuildChildren, BuildWorldChildren, Children, Parent,
-    };
+    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
+
+    #[derive(StageLabel)]
+    struct Update;
 
     #[test]
     fn did_propagate() {
@@ -133,31 +135,27 @@ mod test {
         world.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
         update_stage.add_system(sync_simple_transforms);
         update_stage.add_system(propagate_transforms);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Root entity
-        world
-            .spawn()
-            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
+        world.spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
 
         let mut children = Vec::new();
         world
-            .spawn()
-            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
                         .id(),
                 );
             });
@@ -177,31 +175,29 @@ mod test {
     #[test]
     fn did_propagate_command_buffer() {
         let mut world = World::default();
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
         update_stage.add_system(sync_simple_transforms);
         update_stage.add_system(propagate_transforms);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Root entity
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
                         .id(),
                 );
             });
@@ -225,37 +221,26 @@ mod test {
         world.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
         update_stage.add_system(sync_simple_transforms);
         update_stage.add_system(propagate_transforms);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Add parent entities
-        let mut command_queue = CommandQueue::default();
-        let mut commands = Commands::new(&mut command_queue, &world);
         let mut children = Vec::new();
-        let parent = commands
-            .spawn()
-            .insert(Transform::from_xyz(1.0, 0.0, 0.0))
-            .id();
-        commands.entity(parent).with_children(|parent| {
-            children.push(
-                parent
-                    .spawn()
-                    .insert(Transform::from_xyz(0.0, 2.0, 0.0))
-                    .id(),
-            );
-            children.push(
-                parent
-                    .spawn()
-                    .insert(Transform::from_xyz(0.0, 3.0, 0.0))
-                    .id(),
-            );
-        });
-        command_queue.apply(&mut world);
-        schedule.run(&mut world);
+        let parent = {
+            let mut command_queue = CommandQueue::default();
+            let mut commands = Commands::new(&mut command_queue, &world);
+            let parent = commands.spawn(Transform::from_xyz(1.0, 0.0, 0.0)).id();
+            commands.entity(parent).with_children(|parent| {
+                children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.0)).id());
+                children.push(parent.spawn(Transform::from_xyz(0.0, 3.0, 0.0)).id());
+            });
+            command_queue.apply(&mut world);
+            schedule.run(&mut world);
+            parent
+        };
 
         assert_eq!(
             world
@@ -268,9 +253,13 @@ mod test {
         );
 
         // Parent `e1` to `e2`.
-        (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
-
-        schedule.run(&mut world);
+        {
+            let mut command_queue = CommandQueue::default();
+            let mut commands = Commands::new(&mut command_queue, &world);
+            commands.entity(children[1]).add_child(children[0]);
+            command_queue.apply(&mut world);
+            schedule.run(&mut world);
+        }
 
         assert_eq!(
             world
@@ -312,37 +301,28 @@ mod test {
         let mut app = App::new();
         app.insert_resource(ComputeTaskPool(TaskPool::default()));
 
-        app.add_system(parent_update_system);
         app.add_system(sync_simple_transforms);
         app.add_system(propagate_transforms);
 
         let translation = vec3(1.0, 0.0, 0.0);
 
+        // These will be overwritten.
+        let mut child = Entity::from_raw(0);
+        let mut grandchild = Entity::from_raw(1);
         let parent = app
             .world
-            .spawn()
-            .insert(Transform::from_translation(translation))
-            .insert(GlobalTransform::default())
-            .id();
-
-        let child = app
-            .world
-            .spawn()
-            .insert_bundle((
-                Transform::identity(),
-                GlobalTransform::default(),
-                Parent(parent),
+            .spawn((
+                Transform::from_translation(translation),
+                GlobalTransform::IDENTITY,
             ))
-            .id();
-
-        let grandchild = app
-            .world
-            .spawn()
-            .insert_bundle((
-                Transform::identity(),
-                GlobalTransform::default(),
-                Parent(child),
-            ))
+            .with_children(|builder| {
+                child = builder
+                    .spawn(TransformBundle::IDENTITY)
+                    .with_children(|builder| {
+                        grandchild = builder.spawn(TransformBundle::IDENTITY).id();
+                    })
+                    .id();
+            })
             .id();
 
         app.update();
@@ -355,46 +335,49 @@ mod test {
 
         let mut state = app.world.query::<&GlobalTransform>();
         for global in state.iter(&app.world) {
-            assert_eq!(
-                global,
-                &GlobalTransform {
-                    translation,
-                    ..Default::default()
-                },
-            );
+            assert_eq!(global, &GlobalTransform::from_translation(translation));
         }
     }
+
     #[test]
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
+        // We cannot directly edit Parent and Children, so we use a temp world to break
+        // the hierarchy's invariants.
+        let mut temp = World::new();
         let mut app = App::new();
         app.insert_resource(ComputeTaskPool(TaskPool::default()));
 
-        app.add_system(parent_update_system);
-        app.add_system(sync_simple_transforms);
-        app.add_system(propagate_transforms);
+        // FIXME: Parallel executors seem to have some odd interaction with the other
+        // tests in this crate. Using single_threaded until a root cause can be found.
+        app.add_stage("single", SystemStage::single_threaded())
+            .add_system_to_stage("single", sync_simple_transforms)
+            .add_system_to_stage("single", propagate_transforms);
 
-        let child = app
-            .world
-            .spawn()
-            .insert_bundle((Transform::identity(), GlobalTransform::default()))
-            .id();
+        fn setup_world(world: &mut World) -> (Entity, Entity) {
+            let mut grandchild = Entity::from_raw(0);
+            let child = world
+                .spawn(TransformBundle::IDENTITY)
+                .with_children(|builder| {
+                    grandchild = builder.spawn(TransformBundle::IDENTITY).id();
+                })
+                .id();
+            (child, grandchild)
+        }
 
-        let grandchild = app
-            .world
-            .spawn()
-            .insert_bundle((
-                Transform::identity(),
-                GlobalTransform::default(),
-                Parent(child),
-            ))
-            .id();
-        app.world.spawn().insert_bundle((
-            Transform::default(),
-            GlobalTransform::default(),
-            Children::with(&[child]),
-        ));
-        app.world.entity_mut(child).insert(Parent(grandchild));
+        let (temp_child, temp_grandchild) = setup_world(&mut temp);
+        let (child, grandchild) = setup_world(&mut app.world);
+
+        assert_eq!(temp_child, child);
+        assert_eq!(temp_grandchild, grandchild);
+
+        app.world
+            .spawn(TransformBundle::IDENTITY)
+            .push_children(&[child]);
+        std::mem::swap(
+            &mut *app.world.get_mut::<Parent>(child).unwrap(),
+            &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
+        );
 
         app.update();
     }
