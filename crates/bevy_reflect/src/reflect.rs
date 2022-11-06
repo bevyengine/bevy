@@ -50,7 +50,7 @@ pub enum ReflectMut<'a> {
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectMut` is obtained via [`Reflect::reflect_owned`].
+/// A `ReflectOwned` is obtained via [`Reflect::reflect_owned`].
 pub enum ReflectOwned {
     Struct(Box<dyn Struct>),
     TupleStruct(Box<dyn TupleStruct>),
