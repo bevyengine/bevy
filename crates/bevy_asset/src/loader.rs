@@ -1,6 +1,6 @@
 use crate::{
     path::AssetPath, AssetIo, AssetIoError, AssetMeta, AssetServer, Assets, Handle, HandleId,
-    RefChangeChannel,
+    HandleUntyped, RefChangeChannel,
 };
 use anyhow::Error;
 use anyhow::Result;
@@ -9,6 +9,7 @@ use bevy_reflect::{TypeUuid, TypeUuidDynamic};
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
+use std::ops::{Bound, RangeBounds};
 use std::path::Path;
 
 /// A loader for an asset source.
@@ -125,6 +126,7 @@ pub struct LoadContext<'a> {
     pub(crate) labeled_assets: HashMap<Option<String>, BoxedLoadedAsset>,
     pub(crate) path: &'a Path,
     pub(crate) version: usize,
+    pub(crate) defered_loads: HashMap<AssetPath<'static>, (Bound<usize>, Bound<usize>)>,
 }
 
 impl<'a> LoadContext<'a> {
@@ -140,6 +142,7 @@ impl<'a> LoadContext<'a> {
             labeled_assets: Default::default(),
             version,
             path,
+            defered_loads: Default::default(),
         }
     }
 
@@ -166,9 +169,40 @@ impl<'a> LoadContext<'a> {
         self.get_handle(AssetPath::new_ref(self.path(), Some(label)))
     }
 
+    /// Queues an asset contained within the primary asset to be loaded later as if
+    /// it were a separate file.
+    ///
+    /// This allows arbitrary assets to be loaded where the super-asset's loader
+    /// may not know the types of files to be loaded ahead of time.
+    pub fn load_sub_asset<R: RangeBounds<usize>>(
+        &mut self,
+        sub_path: &str,
+        label: Option<&str>,
+        sub_range: R,
+    ) -> HandleUntyped {
+        let path = AssetPath::new_sub(
+            self.path().to_owned(),
+            Path::new(sub_path).to_owned(),
+            label.as_ref().map(|value| value.to_string()),
+        );
+        self.defered_loads.insert(
+            path.clone(),
+            (
+                sub_range.start_bound().cloned(),
+                sub_range.end_bound().cloned(),
+            ),
+        );
+        self.get_handle_untyped(path)
+    }
+
     /// Gets a handle to an asset of type `T` from its id.
     pub fn get_handle<I: Into<HandleId>, T: Asset>(&self, id: I) -> Handle<T> {
         Handle::strong(id.into(), self.ref_change_channel.sender.clone())
+    }
+
+    /// Gets an untyped handle to an asset from its id.
+    pub fn get_handle_untyped<I: Into<HandleId>>(&self, id: I) -> HandleUntyped {
+        HandleUntyped::strong(id.into(), self.ref_change_channel.sender.clone())
     }
 
     /// Reads the contents of the file at the specified path through the [`AssetIo`] associated
