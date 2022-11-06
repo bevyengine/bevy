@@ -381,9 +381,7 @@ impl Typed for DynamicTupleStruct {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let tuple_struct = if let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() {
-        tuple_struct
-    } else {
+    let ReflectRef::TupleStruct(tuple_struct) = b.reflect_ref() else {
         return Some(false);
     };
 

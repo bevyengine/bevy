@@ -324,9 +324,7 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
-    let list = if let ReflectRef::List(list) = b.reflect_ref() {
-        list
-    } else {
+    let ReflectRef::List(list) = b.reflect_ref() else {
         return Some(false);
     };
 

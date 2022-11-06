@@ -186,8 +186,8 @@ fn prepare_assets<R: RenderAsset>(
     param: StaticSystemParam<<R as RenderAsset>::Param>,
 ) {
     let mut param = param.into_inner();
-    let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, extracted_asset) in queued_assets.drain(..) {
+    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    for (handle, extracted_asset) in queued_assets {
         match R::prepare_asset(extracted_asset, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(handle, prepared_asset);

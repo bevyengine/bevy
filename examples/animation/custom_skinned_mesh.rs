@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     render::mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, PrimitiveTopology,
+        Indices, PrimitiveTopology, VertexAttributeValues,
     },
 };
 use rand::Rng;
@@ -77,8 +77,9 @@ fn setup(
     // This means that a maximum of 4 joints can affect a single vertex.
     mesh.insert_attribute(
         Mesh::ATTRIBUTE_JOINT_INDEX,
-        vec![
-            [0u16, 0, 0, 0],
+        // Need to be explicit here as [u16; 4] could be either Uint16x4 or Unorm16x4.
+        VertexAttributeValues::Uint16x4(vec![
+            [0, 0, 0, 0],
             [0, 0, 0, 0],
             [0, 1, 0, 0],
             [0, 1, 0, 0],
@@ -88,7 +89,7 @@ fn setup(
             [0, 1, 0, 0],
             [0, 1, 0, 0],
             [0, 1, 0, 0],
-        ],
+        ]),
     );
     // Set mesh vertex joint weights for mesh skinning.
     // Each vertex gets 4 joint weights corresponding to the 4 joint indices assigned to it.

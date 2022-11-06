@@ -314,6 +314,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "bloom"
+path = "examples/3d/bloom.rs"
+
+[package.metadata.example.bloom]
+name = "Bloom"
+description = "Illustrates bloom configuration using HDR and emissive materials"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 

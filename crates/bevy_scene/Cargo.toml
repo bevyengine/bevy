@@ -26,3 +26,7 @@ ron = "0.8.0"
 uuid = { version = "1.1", features = ["v4", "serde"] }
 anyhow = "1.0.4"
 thiserror = "1.0"
+
+[dev-dependencies]
+postcard = { version = "1.0", features = ["alloc"] }
+bincode = "1.3"
