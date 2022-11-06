@@ -246,7 +246,15 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
-        let main_thread_spawner = MainThreadExecutor::init().spawner();
+
+        #[cfg(not(test))]
+        let main_thread_executor = MainThreadExecutor::init();
+        // for testing configure a new instance of main thread executor for every scope
+        // this helps us pretend that the thread that an app or stage is constructed on is the main thread
+        #[cfg(test)]
+        let main_thread_executor = MainThreadExecutor(Arc::new(async_executor::Executor::new()));
+
+        let main_thread_spawner = main_thread_executor.spawner();
         let main_thread_spawner: MainThreadSpawner<'env> =
             unsafe { mem::transmute(main_thread_spawner) };
         let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
@@ -278,9 +286,10 @@ impl TaskPool {
                     results
                 };
 
-                if let Some(main_thread_ticker) = MainThreadExecutor::get().ticker() {
+                if let Some(main_thread_ticker) = main_thread_executor.ticker() {
                     let tick_forever = async move {
                         loop {
+                            dbg!("tivk");
                             main_thread_ticker.tick().await;
                         }
                     };
@@ -455,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mixed_spawn_on_scope_and_spawn() {
+    fn test_mixed_spawn_on_main_and_spawn() {
         let pool = TaskPool::new();
 
         let foo = Box::new(42);

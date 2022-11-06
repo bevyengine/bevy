@@ -8,10 +8,9 @@ use bevy_ecs::{
         SystemStage,
     },
     system::Resource,
-    
     world::World,
 };
-use bevy_tasks::ComputeTaskPool;
+use bevy_tasks::{ComputeTaskPool, TaskPool};
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
 
@@ -152,7 +151,7 @@ impl App {
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
-        ComputeTaskPool::get().scope(|scope| {
+        ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             if self.run_once {
                 for sub_app in self.sub_apps.values_mut() {
                     (sub_app.extract)(&mut self.world, &mut sub_app.app);

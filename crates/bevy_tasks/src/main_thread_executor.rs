@@ -10,7 +10,10 @@ static MAIN_THREAD_EXECUTOR: OnceCell<MainThreadExecutor> = OnceCell::new();
 /// Use to access the global main thread executor. Be aware that the main thread executor
 /// only makes progress when it is ticked. This normally happens in `[TaskPool::scope]`.
 #[derive(Debug)]
-pub struct MainThreadExecutor(Arc<Executor<'static>>);
+pub struct MainThreadExecutor(
+    // this is only pub crate for testing purposes, do not contruct otherwise
+    pub(crate) Arc<Executor<'static>>,
+);
 
 impl MainThreadExecutor {
     /// Initializes the global `[MainThreadExecutor]` instance.
@@ -39,6 +42,17 @@ impl MainThreadExecutor {
     /// Use this to tick the main thread executor.
     /// Returns None if called on not the main thread.
     pub fn ticker(&self) -> Option<MainThreadTicker> {
+        // always return ticker when testing to allow tests to run off main thread
+        dbg!("hjj");
+        #[cfg(test)]
+        if true {
+            dbg!("blah");
+            return Some(MainThreadTicker {
+                executor: self.0.clone(),
+                _marker: PhantomData::default(),
+            });
+        }
+
         if let Some(is_main) = is_main_thread() {
             if is_main {
                 return Some(MainThreadTicker {
@@ -69,7 +83,7 @@ pub struct MainThreadTicker {
 impl MainThreadTicker {
     /// Tick the main thread executor.
     /// This needs to be called manually on the main thread if a `[TaskPool::scope]` is not active
-    pub fn tick<'a>(&'a self) -> impl Future<Output = ()> + 'a {
+    pub fn tick(&self) -> impl Future<Output = ()> + '_ {
         self.executor.tick()
     }
 }
