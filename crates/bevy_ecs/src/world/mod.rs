@@ -20,7 +20,6 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
     cell::UnsafeCell,
@@ -581,7 +580,6 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        debug!("Despawning entity {:?}", entity);
         self.get_entity_mut(entity)
             .map(|e| {
                 e.despawn();
