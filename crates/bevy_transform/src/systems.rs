@@ -131,8 +131,8 @@ mod test {
 
     #[test]
     fn did_propagate() {
+        ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(sync_simple_transforms);
@@ -217,8 +217,8 @@ mod test {
 
     #[test]
     fn correct_children() {
+        ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
-        world.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         let mut update_stage = SystemStage::parallel();
         update_stage.add_system(sync_simple_transforms);
@@ -299,7 +299,7 @@ mod test {
     #[test]
     fn correct_transforms_when_no_children() {
         let mut app = App::new();
-        app.insert_resource(ComputeTaskPool(TaskPool::default()));
+        ComputeTaskPool::init(TaskPool::default);
 
         app.add_system(sync_simple_transforms);
         app.add_system(propagate_transforms);
@@ -342,11 +342,11 @@ mod test {
     #[test]
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
+        ComputeTaskPool::init(TaskPool::default);
         // We cannot directly edit Parent and Children, so we use a temp world to break
         // the hierarchy's invariants.
         let mut temp = World::new();
         let mut app = App::new();
-        app.insert_resource(ComputeTaskPool(TaskPool::default()));
 
         // FIXME: Parallel executors seem to have some odd interaction with the other
         // tests in this crate. Using single_threaded until a root cause can be found.

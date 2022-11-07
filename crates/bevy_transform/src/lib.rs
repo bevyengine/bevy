@@ -90,23 +90,19 @@ impl Plugin for TransformPlugin {
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::sync_simple_transforms
-                    .label(TransformSystem::TransformPropagate),
+                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
             )
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::propagate_transforms
-                    .label(TransformSystem::TransformPropagate),
+                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::sync_simple_transforms
-                    .label(TransformSystem::TransformPropagate),
+                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::propagate_transforms
-                    .label(TransformSystem::TransformPropagate),
+                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
             );
     }
 }
