@@ -317,6 +317,11 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -517,6 +522,10 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn as_any_mut(&mut self) -> &mut dyn Any {
+                self
+            }
+
+            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
                 self
             }
 
