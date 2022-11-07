@@ -1502,6 +1502,16 @@ description = "Illustrates how to scale the UI"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "loading_bar_widget"
+path = "examples/ui/loading_bar_widget.rs"
+
+[package.metadata.example.loading_bar_widget]
+name = "Loading Bar Widget"
+description = "Illustrates how to use the loadingbar widget"
+category = "UI (User Interface)"
+wasm = true
+
 # Window
 [[example]]
 name = "clear_color"
