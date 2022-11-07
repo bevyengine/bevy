@@ -17,9 +17,7 @@ use bevy_render::{
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
-    view::{
-        ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-    },
+    view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
@@ -486,16 +484,20 @@ pub fn queue_mesh2d_view_bind_groups(
 
 pub struct SetMesh2dViewBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
-    type Param = (SRes<Mesh2dViewBindGroup>,SQuery<Read<ViewUniformOffset>>);
+    type Param = (SRes<Mesh2dViewBindGroup>, SQuery<Read<ViewUniformOffset>>);
     #[inline]
     fn render<'w>(
         view: Entity,
         _item: Entity,
-        (mesh2d_view_bind_group,view_query): SystemParamItem<'w, '_, Self::Param>,
+        (mesh2d_view_bind_group, view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let view_uniform = view_query.get_inner(view).unwrap();
-        pass.set_bind_group(I, &mesh2d_view_bind_group.into_inner().value, &[view_uniform.offset]);
+        pass.set_bind_group(
+            I,
+            &mesh2d_view_bind_group.into_inner().value,
+            &[view_uniform.offset],
+        );
 
         RenderCommandResult::Success
     }
