@@ -2,6 +2,7 @@
 
 use crate::{
     change_detection::MAX_CHANGE_AGE,
+    query::WorldQuery,
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
@@ -110,6 +111,7 @@ use std::{
 /// [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type
 /// [newtype pattern]: https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-the-newtype-pattern-to-implement-external-traits-on-external-types
 pub trait Component: Send + Sync + 'static {
+    type Filter: WorldQuery;
     type Storage: ComponentStorage;
 }
 

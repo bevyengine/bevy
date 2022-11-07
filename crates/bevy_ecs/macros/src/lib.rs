@@ -139,6 +139,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
+    let mut field_type_filters = Vec::new();
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
@@ -147,6 +148,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     {
         match field_kind {
             BundleFieldKind::Component => {
+                field_type_filters.push(quote! {
+                <#field_type as #ecs_path::bundle::Bundle>::Filter
+                });
                 field_component_ids.push(quote! {
                 <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
                 });
@@ -172,6 +176,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         /// SAFETY: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
+            type Filter = (#(#field_type_filters),*);
+
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,

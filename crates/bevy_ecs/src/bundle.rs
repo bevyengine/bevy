@@ -11,6 +11,7 @@ use crate::{
     },
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
+    query::{With, WorldQuery},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
 use bevy_ecs_macros::all_tuples;
@@ -138,6 +139,26 @@ use std::{any::TypeId, collections::HashMap};
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
 pub unsafe trait Bundle: Send + Sync + 'static {
+    /// A [`WorldQuery`] which may be used to filter entities with this bundle.
+    ///
+    /// For any bundle `(A, B, ...)`, this is equivalent to `(With<A>, With<B>, ...)`.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Foo;
+    ///
+    /// #[derive(Component)]
+    /// struct Bar;
+    ///
+    /// fn system(query: Query<Entity, <(Foo, Bar) as Bundle>::Filter>) {
+    ///     /* ... */
+    /// }
+    /// ```
+    type Filter: WorldQuery;
+
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(
@@ -170,6 +191,8 @@ pub unsafe trait Bundle: Send + Sync + 'static {
 // - `Bundle::get_components` is called exactly once for C.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
+    type Filter = With<C>;
+
     fn component_ids(
         components: &mut Components,
         storages: &mut Storages,
@@ -200,6 +223,8 @@ macro_rules! tuple_impl {
         // bundle, in the exact order that `Bundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
+            type Filter = ($($name::Filter,)*);
+
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*

@@ -43,6 +43,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
+            type Filter = #bevy_ecs_path::query::With<#struct_name #type_generics>;
             type Storage = #storage;
         }
     })

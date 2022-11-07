@@ -1642,4 +1642,52 @@ mod tests {
             "new entity was spawned and received C component"
         );
     }
+
+    #[test]
+    fn query_with_component_filter() {
+        #[derive(Component)]
+        struct Foo;
+
+        let mut world = World::new();
+        let e = world.spawn(Foo).id();
+
+        let mut q = world.query_filtered::<Entity, <Foo as Component>::Filter>();
+
+        assert_eq!(q.single(&world), e);
+    }
+
+    #[test]
+    fn query_with_bundle_filter() {
+        #[derive(Component)]
+        struct Foo;
+
+        #[derive(Component)]
+        struct Bar;
+
+        let mut world = World::new();
+        let e = world.spawn((Foo, Bar)).id();
+
+        let mut q = world.query_filtered::<Entity, <(Foo, Bar) as Bundle>::Filter>();
+
+        assert_eq!(q.single(&world), e);
+    }
+
+    #[test]
+    fn query_with_nested_bundle_filter() {
+        #[derive(Component)]
+        struct Foo;
+
+        #[derive(Component)]
+        struct Bar;
+
+        #[derive(Component)]
+        struct Baz;
+
+        let mut world = World::new();
+        let e = world.spawn(((Foo, Bar), Baz)).id();
+
+        let mut q = world.query_filtered::<Entity, <((Foo, Bar), Baz) as Bundle>::Filter>();
+
+        assert_eq!(q.single(&world), e);
+    }
 }
