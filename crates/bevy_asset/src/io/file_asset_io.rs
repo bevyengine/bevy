@@ -1,6 +1,6 @@
 #[cfg(feature = "filesystem_watcher")]
 use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
-use crate::{AssetIo, AssetIoError};
+use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 #[cfg(feature = "filesystem_watcher")]
 use bevy_ecs::system::Res;
@@ -15,11 +15,15 @@ use parking_lot::RwLock;
 #[cfg(feature = "filesystem_watcher")]
 use std::sync::Arc;
 use std::{
+    convert::TryFrom,
     env, fs,
     io::Read,
     path::{Path, PathBuf},
 };
 
+/// I/O implementation for the local filesystem.
+///
+/// This asset I/O is fully featured but it's not available on `android` and `wasm` targets.
 pub struct FileAssetIo {
     root_path: PathBuf,
     #[cfg(feature = "filesystem_watcher")]
@@ -27,11 +31,15 @@ pub struct FileAssetIo {
 }
 
 impl FileAssetIo {
+    /// Creates a new `FileAssetIo` at a path relative to the executable's directory, optionally
+    /// watching for changes.
+    ///
+    /// See `get_base_path` below.
     pub fn new<P: AsRef<Path>>(path: P, watch_for_changes: bool) -> Self {
         let file_asset_io = FileAssetIo {
             #[cfg(feature = "filesystem_watcher")]
             filesystem_watcher: Default::default(),
-            root_path: Self::get_root_path().join(path.as_ref()),
+            root_path: Self::get_base_path().join(path.as_ref()),
         };
         if watch_for_changes {
             #[cfg(any(
@@ -49,7 +57,12 @@ impl FileAssetIo {
         file_asset_io
     }
 
-    pub fn get_root_path() -> PathBuf {
+    /// Returns the base path of the assets directory, which is normally the executable's parent
+    /// directory.
+    ///
+    /// If the `CARGO_MANIFEST_DIR` environment variable is set, then its value will be used
+    /// instead. It's set by cargo when running with `cargo run`.
+    pub fn get_base_path() -> PathBuf {
         if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
             PathBuf::from(manifest_dir)
         } else {
@@ -63,6 +76,9 @@ impl FileAssetIo {
         }
     }
 
+    /// Returns the root directory where assets are loaded from.
+    ///
+    /// See `get_base_path`.
     pub fn root_path(&self) -> &PathBuf {
         &self.root_path
     }
@@ -128,11 +144,22 @@ impl AssetIo for FileAssetIo {
         Ok(())
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
-        self.root_path.join(path).is_dir()
+    fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
+        let full_path = self.root_path.join(path);
+        full_path
+            .metadata()
+            .and_then(Metadata::try_from)
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AssetIoError::NotFound(full_path)
+                } else {
+                    e.into()
+                }
+            })
     }
 }
 
+/// Watches for file changes in the local file system.
 #[cfg(all(
     feature = "filesystem_watcher",
     all(not(target_arch = "wasm32"), not(target_os = "android"))

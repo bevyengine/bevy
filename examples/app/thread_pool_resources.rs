@@ -1,10 +1,12 @@
+//! This example illustrates how to customize the thread pool used internally (e.g. to only use a
+//! certain number of threads).
+
 use bevy::prelude::*;
 
-/// This example illustrates how to customize the thread pool used internally (e.g. to only use a
-/// certain number of threads).
 fn main() {
     App::new()
-        .insert_resource(DefaultTaskPoolOptions::with_num_threads(4))
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(CorePlugin {
+            task_pool_options: TaskPoolOptions::with_num_threads(4),
+        }))
         .run();
 }

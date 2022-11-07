@@ -1,11 +1,10 @@
 use crate::{
-    archetype::ArchetypeComponentId,
-    component::ComponentId,
-    query::Access,
-    schedule::{BoxedRunCriteriaLabel, GraphNode, RunCriteriaLabel},
-    system::{BoxedSystem, IntoSystem, System},
+    prelude::System,
+    schedule::{GraphNode, RunCriteriaLabel, RunCriteriaLabelId},
+    system::{BoxedSystem, IntoSystem, Local},
     world::World,
 };
+use core::fmt::Debug;
 use std::borrow::Cow;
 
 /// Determines whether a system should be executed or not, and how many times it should be ran each
@@ -44,7 +43,32 @@ pub enum ShouldRun {
     NoAndCheckAgain,
 }
 
-#[derive(Default)]
+impl ShouldRun {
+    /// A run criterion which returns [`ShouldRun::Yes`] exactly once.
+    ///
+    /// This leads to the systems controlled by it only being
+    /// executed one time only.
+    pub fn once(mut ran: Local<bool>) -> ShouldRun {
+        if *ran {
+            ShouldRun::No
+        } else {
+            *ran = true;
+            ShouldRun::Yes
+        }
+    }
+}
+
+impl From<bool> for ShouldRun {
+    fn from(value: bool) -> Self {
+        if value {
+            ShouldRun::Yes
+        } else {
+            ShouldRun::No
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 pub(crate) struct BoxedRunCriteria {
     criteria_system: Option<BoxedSystem<(), ShouldRun>>,
     initialized: bool,
@@ -71,6 +95,7 @@ impl BoxedRunCriteria {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum RunCriteriaInner {
     Single(BoxedSystem<(), ShouldRun>),
     Piped {
@@ -79,12 +104,13 @@ pub(crate) enum RunCriteriaInner {
     },
 }
 
+#[derive(Debug)]
 pub(crate) struct RunCriteriaContainer {
     pub(crate) should_run: ShouldRun,
     pub(crate) inner: RunCriteriaInner,
-    pub(crate) label: Option<BoxedRunCriteriaLabel>,
-    pub(crate) before: Vec<BoxedRunCriteriaLabel>,
-    pub(crate) after: Vec<BoxedRunCriteriaLabel>,
+    pub(crate) label: Option<RunCriteriaLabelId>,
+    pub(crate) before: Vec<RunCriteriaLabelId>,
+    pub(crate) after: Vec<RunCriteriaLabelId>,
 }
 
 impl RunCriteriaContainer {
@@ -117,7 +143,7 @@ impl RunCriteriaContainer {
 }
 
 impl GraphNode for RunCriteriaContainer {
-    type Label = BoxedRunCriteriaLabel;
+    type Label = RunCriteriaLabelId;
 
     fn name(&self) -> Cow<'static, str> {
         match &self.inner {
@@ -126,7 +152,7 @@ impl GraphNode for RunCriteriaContainer {
         }
     }
 
-    fn labels(&self) -> &[BoxedRunCriteriaLabel] {
+    fn labels(&self) -> &[RunCriteriaLabelId] {
         if let Some(ref label) = self.label {
             std::slice::from_ref(label)
         } else {
@@ -134,34 +160,37 @@ impl GraphNode for RunCriteriaContainer {
         }
     }
 
-    fn before(&self) -> &[BoxedRunCriteriaLabel] {
+    fn before(&self) -> &[RunCriteriaLabelId] {
         &self.before
     }
 
-    fn after(&self) -> &[BoxedRunCriteriaLabel] {
+    fn after(&self) -> &[RunCriteriaLabelId] {
         &self.after
     }
 }
 
+#[derive(Debug)]
 pub enum RunCriteriaDescriptorOrLabel {
     Descriptor(RunCriteriaDescriptor),
-    Label(BoxedRunCriteriaLabel),
+    Label(RunCriteriaLabelId),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum DuplicateLabelStrategy {
     Panic,
     Discard,
 }
 
+#[derive(Debug)]
 pub struct RunCriteriaDescriptor {
     pub(crate) system: RunCriteriaSystem,
-    pub(crate) label: Option<BoxedRunCriteriaLabel>,
+    pub(crate) label: Option<RunCriteriaLabelId>,
     pub(crate) duplicate_label_strategy: DuplicateLabelStrategy,
-    pub(crate) before: Vec<BoxedRunCriteriaLabel>,
-    pub(crate) after: Vec<BoxedRunCriteriaLabel>,
+    pub(crate) before: Vec<RunCriteriaLabelId>,
+    pub(crate) after: Vec<RunCriteriaLabelId>,
 }
 
+#[derive(Debug)]
 pub(crate) enum RunCriteriaSystem {
     Single(BoxedSystem<(), ShouldRun>),
     Piped(BoxedSystem<ShouldRun, ShouldRun>),
@@ -200,12 +229,12 @@ where
     }
 }
 
-impl<L> IntoRunCriteria<BoxedRunCriteriaLabel> for L
+impl<L> IntoRunCriteria<RunCriteriaLabelId> for L
 where
     L: RunCriteriaLabel,
 {
     fn into(self) -> RunCriteriaDescriptorOrLabel {
-        RunCriteriaDescriptorOrLabel::Label(Box::new(self))
+        RunCriteriaDescriptorOrLabel::Label(self.as_label())
     }
 }
 
@@ -232,24 +261,24 @@ pub trait RunCriteriaDescriptorCoercion<Param> {
 
 impl RunCriteriaDescriptorCoercion<()> for RunCriteriaDescriptor {
     fn label(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.label = Some(Box::new(label));
+        self.label = Some(label.as_label());
         self.duplicate_label_strategy = DuplicateLabelStrategy::Panic;
         self
     }
 
     fn label_discard_if_duplicate(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.label = Some(Box::new(label));
+        self.label = Some(label.as_label());
         self.duplicate_label_strategy = DuplicateLabelStrategy::Discard;
         self
     }
 
     fn before(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.before.push(Box::new(label));
+        self.before.push(label.as_label());
         self
     }
 
     fn after(mut self, label: impl RunCriteriaLabel) -> RunCriteriaDescriptor {
-        self.after.push(Box::new(label));
+        self.after.push(label.as_label());
         self
     }
 }
@@ -304,8 +333,9 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct RunCriteria {
-    label: BoxedRunCriteriaLabel,
+    label: RunCriteriaLabelId,
 }
 
 impl RunCriteria {
@@ -320,52 +350,53 @@ impl RunCriteria {
             label: None,
             duplicate_label_strategy: DuplicateLabelStrategy::Panic,
             before: vec![],
-            after: vec![Box::new(label)],
+            after: vec![label.as_label()],
         }
     }
 }
 
-#[derive(Default)]
-pub struct RunOnce {
-    ran: bool,
-    archetype_component_access: Access<ArchetypeComponentId>,
-    component_access: Access<ComponentId>,
+impl Debug for dyn System<In = (), Out = ShouldRun> + 'static {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "System {} with In=(), Out=ShouldRun: {{{}}}",
+            self.name(),
+            {
+                if self.is_send() {
+                    if self.is_exclusive() {
+                        "is_send is_exclusive"
+                    } else {
+                        "is_send"
+                    }
+                } else if self.is_exclusive() {
+                    "is_exclusive"
+                } else {
+                    ""
+                }
+            },
+        )
+    }
 }
 
-impl System for RunOnce {
-    type In = ();
-    type Out = ShouldRun;
-
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<RunOnce>())
+impl Debug for dyn System<In = ShouldRun, Out = ShouldRun> + 'static {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "System {} with In=ShouldRun, Out=ShouldRun: {{{}}}",
+            self.name(),
+            {
+                if self.is_send() {
+                    if self.is_exclusive() {
+                        "is_send is_exclusive"
+                    } else {
+                        "is_send"
+                    }
+                } else if self.is_exclusive() {
+                    "is_exclusive"
+                } else {
+                    ""
+                }
+            },
+        )
     }
-
-    fn component_access(&self) -> &Access<ComponentId> {
-        &self.component_access
-    }
-
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
-        &self.archetype_component_access
-    }
-
-    fn is_send(&self) -> bool {
-        true
-    }
-
-    unsafe fn run_unsafe(&mut self, _input: (), _world: &World) -> ShouldRun {
-        if self.ran {
-            ShouldRun::No
-        } else {
-            self.ran = true;
-            ShouldRun::Yes
-        }
-    }
-
-    fn apply_buffers(&mut self, _world: &mut World) {}
-
-    fn initialize(&mut self, _world: &mut World) {}
-
-    fn update_archetype_component_access(&mut self, _world: &World) {}
-
-    fn check_change_tick(&mut self, _change_tick: u32) {}
 }

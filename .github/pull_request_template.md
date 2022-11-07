@@ -11,7 +11,7 @@
 
 ## Changelog
 
-> This section is optional. If this was a trivial fix, or has no externally-visible impact, feel free to skip this section.
+> This section is optional. If this was a trivial fix, or has no externally-visible impact, you can delete this section.
 
 - What changed as a result of this PR?
 - If applicable, organize changes under "Added", "Changed", or "Fixed" sub-headings
@@ -20,7 +20,7 @@
 
 ## Migration Guide
 
-> This section is optional
+> This section is optional. If there are no breaking changes, you can delete this section.
 
 - If this PR is a breaking change (relative to the last release of Bevy), describe how a user might need to migrate their code to support these changes
 - Simply adding new functionality is not a breaking change.

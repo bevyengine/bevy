@@ -12,8 +12,10 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
+    spanned::Spanned,
     token::Comma,
-    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Result, Token, TypeParam,
+    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta, Result,
+    Token, TypeParam,
 };
 
 struct AllTuples {
@@ -68,7 +70,7 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
-        let ident_tuples = &ident_tuples[0..i - input.start];
+        let ident_tuples = &ident_tuples[..i];
         quote! {
             #macro_ident!(#(#ident_tuples),*);
         }
@@ -80,7 +82,13 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
     })
 }
 
-static BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
+enum BundleFieldKind {
+    Component,
+    Ignore,
+}
+
+const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
+const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
 
 #[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
@@ -92,15 +100,36 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let is_bundle = named_fields
-        .iter()
-        .map(|field| {
-            field
-                .attrs
-                .iter()
-                .any(|a| *a.path.get_ident().as_ref().unwrap() == BUNDLE_ATTRIBUTE_NAME)
-        })
-        .collect::<Vec<bool>>();
+    let mut field_kind = Vec::with_capacity(named_fields.len());
+
+    'field_loop: for field in named_fields.iter() {
+        for attr in &field.attrs {
+            if attr.path.is_ident(BUNDLE_ATTRIBUTE_NAME) {
+                if let Ok(Meta::List(MetaList { nested, .. })) = attr.parse_meta() {
+                    if let Some(&NestedMeta::Meta(Meta::Path(ref path))) = nested.first() {
+                        if path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
+                            field_kind.push(BundleFieldKind::Ignore);
+                            continue 'field_loop;
+                        }
+
+                        return syn::Error::new(
+                            path.span(),
+                            format!(
+                                "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
+                            ),
+                        )
+                        .into_compile_error()
+                        .into();
+                    }
+
+                    return syn::Error::new(attr.span(), format!("Invalid bundle attribute. Use `#[{BUNDLE_ATTRIBUTE_NAME}({BUNDLE_ATTRIBUTE_IGNORE_NAME})]`")).into_compile_error().into();
+                }
+            }
+        }
+
+        field_kind.push(BundleFieldKind::Component);
+    }
+
     let field = named_fields
         .iter()
         .map(|field| field.ident.as_ref().unwrap())
@@ -113,58 +142,56 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
-    for ((field_type, is_bundle), field) in
-        field_type.iter().zip(is_bundle.iter()).zip(field.iter())
+    for ((field_type, field_kind), field) in
+        field_type.iter().zip(field_kind.iter()).zip(field.iter())
     {
-        if *is_bundle {
-            field_component_ids.push(quote! {
-                component_ids.extend(<#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages));
-            });
-            field_get_components.push(quote! {
-                self.#field.get_components(&mut func);
-            });
-            field_from_components.push(quote! {
-                #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(&mut func),
-            });
-        } else {
-            field_component_ids.push(quote! {
-                component_ids.push(components.init_component::<#field_type>(storages));
-            });
-            field_get_components.push(quote! {
-                func((&mut self.#field as *mut #field_type).cast::<u8>());
-                std::mem::forget(self.#field);
-            });
-            field_from_components.push(quote! {
-                #field: func().cast::<#field_type>().read(),
-            });
+        match field_kind {
+            BundleFieldKind::Component => {
+                field_component_ids.push(quote! {
+                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+                });
+                field_get_components.push(quote! {
+                    self.#field.get_components(&mut *func);
+                });
+                field_from_components.push(quote! {
+                    #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                });
+            }
+
+            BundleFieldKind::Ignore => {
+                field_from_components.push(quote! {
+                    #field: ::std::default::Default::default(),
+                });
+            }
         }
     }
-    let field_len = field.len();
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        /// SAFE: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        /// SAFETY: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
                 storages: &mut #ecs_path::storage::Storages,
-            ) -> Vec<#ecs_path::component::ComponentId> {
-                let mut component_ids = Vec::with_capacity(#field_len);
+                ids: &mut impl FnMut(#ecs_path::component::ComponentId)
+            ){
                 #(#field_component_ids)*
-                component_ids
             }
 
-            #[allow(unused_variables, unused_mut, non_snake_case)]
-            unsafe fn from_components(mut func: impl FnMut() -> *mut u8) -> Self {
+            #[allow(unused_variables, non_snake_case)]
+            unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
+            where
+                __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
+            {
                 Self {
                     #(#field_from_components)*
                 }
             }
 
-            #[allow(unused_variables, unused_mut, forget_copy, forget_ref)]
-            fn get_components(mut self, mut func: impl FnMut(*mut u8)) {
+            #[allow(unused_variables)]
+            fn get_components(self, func: &mut impl FnMut(#ecs_path::ptr::OwningPtr<'_>)) {
                 #(#field_get_components)*
             }
         }
@@ -181,16 +208,16 @@ fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
 pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
     let max_params = 8;
-    let params = get_idents(|i| format!("P{}", i), max_params);
-    let params_fetch = get_idents(|i| format!("PF{}", i), max_params);
-    let metas = get_idents(|i| format!("m{}", i), max_params);
+    let params = get_idents(|i| format!("P{i}"), max_params);
+    let params_fetch = get_idents(|i| format!("PF{i}"), max_params);
+    let metas = get_idents(|i| format!("m{i}"), max_params);
     let mut param_fn_muts = Vec::new();
     for (i, param) in params.iter().enumerate() {
-        let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
+        let fn_name = Ident::new(&format!("p{i}"), Span::call_site());
         let index = Index::from(i);
         param_fn_muts.push(quote! {
             pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
-                // SAFE: systems run without conflicts with other systems.
+                // SAFETY: systems run without conflicts with other systems.
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
@@ -211,13 +238,13 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type Fetch = ParamSetState<(#(#param::Fetch,)*)>;
             }
 
-            // SAFE: All parameters are constrained to ReadOnlyFetch, so World is only read
+            // SAFETY: All parameters are constrained to ReadOnlyFetch, so World is only read
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_fetch,)*)>
             where #(#param_fetch: ReadOnlySystemParamFetch,)*
             { }
 
-            // SAFE: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+            // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
 
             unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamState for ParamSetState<(#(#param_fetch,)*)>
@@ -247,6 +274,10 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     #(
                         #param.new_archetype(archetype, system_meta);
                     )*
+                }
+
+                fn apply(&mut self, world: &mut World) {
+                    self.0.apply(world)
                 }
             }
 
@@ -318,7 +349,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                             }
                             Ok(())
                         })
-                        .expect("Invalid 'render_resources' attribute format.");
+                        .expect("Invalid 'system_param' attribute format.");
 
                         attributes
                     }),
@@ -366,51 +397,58 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }));
 
     let struct_name = &ast.ident;
-    let fetch_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
     let fetch_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
-        impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-            type Fetch = #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
-        }
+        // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
+        // The struct can still be accessed via SystemParam::Fetch, e.g. EventReaderState can be accessed via
+        // <EventReader<'static, 'static, T> as SystemParam>::Fetch
+        const _: () = {
+            impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+                type Fetch = FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
+            }
 
-        #[doc(hidden)]
-        #fetch_struct_visibility struct #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> {
-            state: TSystemParamState,
-            marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
-        }
+            #[doc(hidden)]
+            #fetch_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
+                state: TSystemParamState,
+                marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
+            }
 
-        unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for #fetch_struct_name<TSystemParamState, #punctuated_generic_idents> #where_clause {
-            fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
-                Self {
-                    state: TSystemParamState::init(world, system_meta),
-                    marker: std::marker::PhantomData,
+            unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {
+                fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
+                    Self {
+                        state: TSystemParamState::init(world, system_meta),
+                        marker: std::marker::PhantomData,
+                    }
+                }
+
+                fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
+                    self.state.new_archetype(archetype, system_meta)
+                }
+
+                fn apply(&mut self, world: &mut #path::world::World) {
+                    self.state.apply(world)
                 }
             }
 
-            fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                self.state.new_archetype(archetype, system_meta)
-            }
-
-            fn apply(&mut self, world: &mut #path::world::World) {
-                self.state.apply(world)
-            }
-        }
-
-        impl #impl_generics #path::system::SystemParamFetch<'w, 's> for #fetch_struct_name <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
-            type Item = #struct_name #ty_generics;
-            unsafe fn get_param(
-                state: &'s mut Self,
-                system_meta: &#path::system::SystemMeta,
-                world: &'w #path::world::World,
-                change_tick: u32,
-            ) -> Self::Item {
-                #struct_name {
-                    #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
-                    #(#ignored_fields: <#ignored_field_types>::default(),)*
+            impl #impl_generics #path::system::SystemParamFetch<'w, 's> for FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
+                type Item = #struct_name #ty_generics;
+                unsafe fn get_param(
+                    state: &'s mut Self,
+                    system_meta: &#path::system::SystemMeta,
+                    world: &'w #path::world::World,
+                    change_tick: u32,
+                ) -> Self::Item {
+                    #struct_name {
+                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#ignored_fields: <#ignored_field_types>::default(),)*
+                    }
                 }
             }
-        }
+
+            // Safety: The `ParamState` is `ReadOnlySystemParamFetch`, so this can only read from the `World`
+            unsafe impl<TSystemParamState: #path::system::SystemParamState + #path::system::ReadOnlySystemParamFetch, #punctuated_generics> #path::system::ReadOnlySystemParamFetch for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {}
+        };
     })
 }
 
@@ -421,7 +459,11 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(ast)
 }
 
-#[proc_macro_derive(SystemLabel)]
+/// Generates an impl of the `SystemLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[system_label(ignore_fields)]`.
+#[proc_macro_derive(SystemLabel, attributes(system_label))]
 pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
@@ -429,30 +471,27 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("SystemLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "system_label")
 }
 
-#[proc_macro_derive(StageLabel)]
+/// Generates an impl of the `StageLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[stage_label(ignore_fields)]`.
+#[proc_macro_derive(StageLabel, attributes(stage_label))]
 pub fn derive_stage_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
     trait_path.segments.push(format_ident!("schedule").into());
     trait_path.segments.push(format_ident!("StageLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "stage_label")
 }
 
-#[proc_macro_derive(AmbiguitySetLabel)]
-pub fn derive_ambiguity_set_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("AmbiguitySetLabel").into());
-    derive_label(input, &trait_path)
-}
-
-#[proc_macro_derive(RunCriteriaLabel)]
+/// Generates an impl of the `RunCriteriaLabel` trait.
+///
+/// This works only for unit structs, or enums with only unit variants.
+/// You may force a struct or variant to behave as if it were fieldless with `#[run_criteria_label(ignore_fields)]`.
+#[proc_macro_derive(RunCriteriaLabel, attributes(run_criteria_label))]
 pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut trait_path = bevy_ecs_path();
@@ -460,11 +499,16 @@ pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, &trait_path)
+    derive_label(input, &trait_path, "run_criteria_label")
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
     BevyManifest::default().get_path("bevy_ecs")
+}
+
+#[proc_macro_derive(Resource)]
+pub fn derive_resource(input: TokenStream) -> TokenStream {
+    component::derive_resource(input)
 }
 
 #[proc_macro_derive(Component, attributes(component))]

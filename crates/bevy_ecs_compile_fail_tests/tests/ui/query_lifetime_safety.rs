@@ -6,7 +6,7 @@ struct Foo(u32);
 
 fn main() {
     let mut world = World::default();
-    let e = world.spawn().insert(Foo(10_u32)).id();
+    let e = world.spawn(Foo(10_u32)).id();
 
     let mut system_state = SystemState::<Query<&mut Foo>>::new(&mut world);
     {

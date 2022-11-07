@@ -6,8 +6,6 @@ pub use draw_state::*;
 
 use bevy_ecs::prelude::{Component, Query};
 
-use copyless::VecHelper;
-
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]
 pub struct RenderPhase<I: PhaseItem> {
@@ -24,12 +22,12 @@ impl<I: PhaseItem> RenderPhase<I> {
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
     pub fn add(&mut self, item: I) {
-        self.items.alloc().init(item);
+        self.items.push(item);
     }
 
     /// Sorts all of its [`PhaseItems`](PhaseItem).
     pub fn sort(&mut self) {
-        self.items.sort_by_key(|d| d.sort_key());
+        I::sort(&mut self.items);
     }
 }
 
@@ -37,8 +35,7 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
     /// Batches the compatible [`BatchedPhaseItem`]s of this render phase
     pub fn batch(&mut self) {
         // TODO: this could be done in-place
-        let mut items = std::mem::take(&mut self.items);
-        let mut items = items.drain(..);
+        let mut items = std::mem::take(&mut self.items).into_iter();
 
         self.items.reserve(items.len());
 
@@ -63,14 +60,14 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
 
 /// This system sorts all [`RenderPhases`](RenderPhase) for the [`PhaseItem`] type.
 pub fn sort_phase_system<I: PhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
-    for mut phase in render_phases.iter_mut() {
+    for mut phase in &mut render_phases {
         phase.sort();
     }
 }
 
 /// This system batches the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
 pub fn batch_phase_system<I: BatchedPhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
-    for mut phase in render_phases.iter_mut() {
+    for mut phase in &mut render_phases {
         phase.batch();
     }
 }

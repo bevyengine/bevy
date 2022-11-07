@@ -1,42 +1,177 @@
+#![allow(clippy::doc_markdown)]
+
 use super::Buffer;
 use crate::renderer::{RenderDevice, RenderQueue};
-use bevy_crevice::std430::{self, AsStd430, Std430};
-use bevy_utils::tracing::warn;
-use std::num::NonZeroU64;
-use wgpu::{BindingResource, BufferBinding, BufferDescriptor, BufferUsages};
+use encase::{
+    internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
+    StorageBuffer as StorageBufferWrapper,
+};
+use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
-/// A helper for a storage buffer binding with a body, or a variable-sized array, or both.
-pub struct StorageBuffer<T: AsStd430, U: AsStd430 = ()> {
-    body: U,
-    values: Vec<T>,
-    scratch: Vec<u8>,
-    storage_buffer: Option<Buffer>,
+/// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
+///
+/// Storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts of data.
+/// Note however that WebGL2 does not support storage buffers, so consider alternative options in this case.
+///
+/// Storage buffers can store runtime-sized arrays, but only if they are the last field in a structure.
+///
+/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::StorageBuffer::write_buffer) queues
+/// copying of the data from system RAM to VRAM. Storage buffers must conform to [std430 alignment/padding requirements], which
+/// is automatically enforced by this structure.
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`Texture`](crate::render_resource::Texture)
+///
+/// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
+pub struct StorageBuffer<T: ShaderType> {
+    value: T,
+    scratch: StorageBufferWrapper<Vec<u8>>,
+    buffer: Option<Buffer>,
+    capacity: usize,
+    label: Option<String>,
+    label_changed: bool,
 }
 
-impl<T: AsStd430, U: AsStd430 + Default> Default for StorageBuffer<T, U> {
-    /// Creates a new [`StorageBuffer`]
-    ///
-    /// This does not immediately allocate system/video RAM buffers.
-    fn default() -> Self {
+impl<T: ShaderType> From<T> for StorageBuffer<T> {
+    fn from(value: T) -> Self {
         Self {
-            body: U::default(),
-            values: Vec::new(),
-            scratch: Vec::new(),
-            storage_buffer: None,
+            value,
+            scratch: StorageBufferWrapper::new(Vec::new()),
+            buffer: None,
+            capacity: 0,
+            label: None,
+            label_changed: false,
         }
     }
 }
 
-impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
-    // NOTE: AsStd430::std430_size_static() uses size_of internally but trait functions cannot be
-    // marked as const functions
-    const BODY_SIZE: usize = std::mem::size_of::<U>();
-    const ITEM_SIZE: usize = std::mem::size_of::<T>();
+impl<T: ShaderType + Default> Default for StorageBuffer<T> {
+    fn default() -> Self {
+        Self {
+            value: T::default(),
+            scratch: StorageBufferWrapper::new(Vec::new()),
+            buffer: None,
+            capacity: 0,
+            label: None,
+            label_changed: false,
+        }
+    }
+}
 
-    /// Gets the reference to the underlying buffer, if one has been allocated.
+impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
-        self.storage_buffer.as_ref()
+        self.buffer.as_ref()
+    }
+
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(
+            self.buffer()?.as_entire_buffer_binding(),
+        ))
+    }
+
+    pub fn set(&mut self, value: T) {
+        self.value = value;
+    }
+
+    pub fn get(&self) -> &T {
+        &self.value
+    }
+
+    pub fn get_mut(&mut self) -> &mut T {
+        &mut self.value
+    }
+
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.label_changed = true;
+        }
+
+        self.label = label;
+    }
+
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
+    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    ///
+    /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
+    /// allocated does not have enough capacity, a new GPU-side buffer is created.
+    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+        self.scratch.write(&self.value).unwrap();
+
+        let size = self.scratch.as_ref().len();
+
+        if self.capacity < size || self.label_changed {
+            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+                label: self.label.as_deref(),
+                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+                contents: self.scratch.as_ref(),
+            }));
+            self.capacity = size;
+            self.label_changed = false;
+        } else if let Some(buffer) = &self.buffer {
+            queue.write_buffer(buffer, 0, self.scratch.as_ref());
+        }
+    }
+}
+
+/// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
+///
+/// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
+/// of data. Note however that WebGL2 does not support storage buffers, so consider alternative options in this case. Dynamic
+/// storage buffers support multiple separate bindings at dynamic byte offsets and so have a
+/// [`push`](crate::render_resource::DynamicStorageBuffer::push) method.
+///
+/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicStorageBuffer::write_buffer)
+/// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
+/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to
+/// these requirements. Each item [`push`](crate::render_resource::DynamicStorageBuffer::push)ed into this structure
+/// will additionally be aligned to meet dynamic offset alignment requirements.
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`Texture`](crate::render_resource::Texture)
+///
+/// [std430 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-storage
+pub struct DynamicStorageBuffer<T: ShaderType> {
+    values: Vec<T>,
+    scratch: DynamicStorageBufferWrapper<Vec<u8>>,
+    buffer: Option<Buffer>,
+    capacity: usize,
+    label: Option<String>,
+    label_changed: bool,
+}
+
+impl<T: ShaderType> Default for DynamicStorageBuffer<T> {
+    fn default() -> Self {
+        Self {
+            values: Vec::new(),
+            scratch: DynamicStorageBufferWrapper::new(Vec::new()),
+            buffer: None,
+            capacity: 0,
+            label: None,
+            label_changed: false,
+        }
+    }
+}
+
+impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
+    #[inline]
+    pub fn buffer(&self) -> Option<&Buffer> {
+        self.buffer.as_ref()
     }
 
     #[inline]
@@ -44,98 +179,62 @@ impl<T: AsStd430, U: AsStd430> StorageBuffer<T, U> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.buffer()?,
             offset: 0,
-            size: Some(NonZeroU64::new((self.size()) as u64).unwrap()),
+            size: Some(T::min_size()),
         }))
     }
 
     #[inline]
-    pub fn set_body(&mut self, body: U) {
-        self.body = body;
+    pub fn len(&self) -> usize {
+        self.values.len()
     }
 
-    fn reserve_buffer(&mut self, device: &RenderDevice) -> bool {
-        let size = self.size();
-        if self.storage_buffer.is_none() || size > self.scratch.len() {
-            self.scratch.resize(size, 0);
-            self.storage_buffer = Some(device.create_buffer(&BufferDescriptor {
-                label: None,
-                size: size as wgpu::BufferAddress,
-                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
-                mapped_at_creation: false,
-            }));
-            true
-        } else {
-            false
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    #[inline]
+    pub fn push(&mut self, value: T) -> u32 {
+        let offset = self.scratch.write(&value).unwrap() as u32;
+        self.values.push(value);
+        offset
+    }
+
+    pub fn set_label(&mut self, label: Option<&str>) {
+        let label = label.map(str::to_string);
+
+        if label != self.label {
+            self.label_changed = true;
         }
+
+        self.label = label;
     }
 
-    fn size(&self) -> usize {
-        let mut size = 0;
-        size += Self::BODY_SIZE;
-        if Self::ITEM_SIZE > 0 {
-            if size > 0 {
-                // Pad according to the array item type's alignment
-                size = (size + <U as AsStd430>::Output::ALIGNMENT - 1)
-                    & !(<U as AsStd430>::Output::ALIGNMENT - 1);
-            }
-            // Variable size arrays must have at least 1 element
-            size += Self::ITEM_SIZE * self.values.len().max(1);
-        }
-        size
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
     }
 
+    #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
-        self.reserve_buffer(device);
-        if let Some(storage_buffer) = &self.storage_buffer {
-            let range = 0..self.size();
-            let mut writer = std430::Writer::new(&mut self.scratch[range.clone()]);
-            let mut offset = 0;
-            // First write the struct body if there is one
-            if Self::BODY_SIZE > 0 {
-                if let Ok(new_offset) = writer.write(&self.body).map_err(|e| warn!("{:?}", e)) {
-                    offset = new_offset;
-                }
-            }
-            if Self::ITEM_SIZE > 0 {
-                if self.values.is_empty() {
-                    // Zero-out the padding and dummy array item in the case of the array being empty
-                    for i in offset..self.size() {
-                        self.scratch[i] = 0;
-                    }
-                } else {
-                    // Then write the array. Note that padding bytes may be added between the body
-                    // and the array in order to align the array to the alignment requirements of its
-                    // items
-                    writer
-                        .write(self.values.as_slice())
-                        .map_err(|e| warn!("{:?}", e))
-                        .ok();
-                }
-            }
-            queue.write_buffer(storage_buffer, 0, &self.scratch[range]);
+        let size = self.scratch.as_ref().len();
+
+        if self.capacity < size || self.label_changed {
+            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+                label: self.label.as_deref(),
+                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+                contents: self.scratch.as_ref(),
+            }));
+            self.capacity = size;
+            self.label_changed = false;
+        } else if let Some(buffer) = &self.buffer {
+            queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
-    }
-
-    pub fn values(&self) -> &[T] {
-        &self.values
-    }
-
-    pub fn values_mut(&mut self) -> &mut [T] {
-        &mut self.values
     }
 
     #[inline]
     pub fn clear(&mut self) {
         self.values.clear();
-    }
-
-    #[inline]
-    pub fn push(&mut self, value: T) {
-        self.values.push(value);
-    }
-
-    #[inline]
-    pub fn append(&mut self, values: &mut Vec<T>) {
-        self.values.append(values);
+        self.scratch.as_mut().clear();
+        self.scratch.set_offset(0);
     }
 }
