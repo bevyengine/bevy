@@ -96,7 +96,7 @@ impl RenderGraph {
         let id = *self
             .node_names
             .entry(name.clone())
-            .or_insert_with(|| NodeId::new());
+            .or_insert_with(NodeId::new);
 
         let mut new_node_state = NodeState::new(id, node);
         new_node_state.name = Some(name);
