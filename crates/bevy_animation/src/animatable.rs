@@ -30,15 +30,7 @@ pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
 
     /// Post-processes the value using resources in the [`World`].
     /// Most animatable types do not need to implement this.
-    ///
-    /// # Safety
-    /// All concrete implementors of this function can only read
-    /// into the resources stored in the World. Mutation of any state,
-    /// or reading any component or [`NonSend`] resource data may cause
-    /// undefined behavior or data races.
-    ///
-    /// [`NonSend`]: bevy_ecs::system::NonSend
-    unsafe fn post_process(&mut self, _world: &World) {}
+    fn post_process(&mut self, _world: &World) {}
 }
 
 macro_rules! impl_float_animatable {
