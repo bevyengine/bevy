@@ -18,7 +18,7 @@ pub struct BlendInput<T> {
 
 /// An animatable value type.
 pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
-    /// Interpolates between two values of.
+    /// Interpolates between `a` and `b` with  a interpolation factor of `time`.
     ///
     /// The `time` parameter here may not be clamped to the range `[0.0, 1.0]`.
     fn interpolate(a: &Self, b: &Self, time: f32) -> Self;
@@ -70,12 +70,12 @@ impl_float_animatable!(DVec4, f64);
 
 // Vec3 is special cased to use Vec3A internally for blending
 impl Animatable for Vec3 {
-    #[inline(always)]
+    #[inline]
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
         (*a) * (1.0 - t) + (*b) * t
     }
 
-    #[inline(always)]
+    #[inline]
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         let mut value = Vec3A::ZERO;
         for input in inputs {
