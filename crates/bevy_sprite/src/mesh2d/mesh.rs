@@ -448,7 +448,7 @@ pub fn queue_mesh2d_bind_group(
     }
 }
 
-#[derive(Component)]
+#[derive(Resource)]
 pub struct Mesh2dViewBindGroup {
     pub value: BindGroup,
 }
@@ -458,48 +458,44 @@ pub fn queue_mesh2d_view_bind_groups(
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<Entity, With<ExtractedView>>,
     globals_buffer: Res<GlobalsBuffer>,
 ) {
     if let (Some(view_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        for entity in &views {
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: globals.clone(),
-                    },
-                ],
-                label: Some("mesh2d_view_bind_group"),
-                layout: &mesh2d_pipeline.view_layout,
-            });
-
-            commands.entity(entity).insert(Mesh2dViewBindGroup {
-                value: view_bind_group,
-            });
-        }
+        let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: view_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: globals.clone(),
+                },
+            ],
+            label: Some("mesh2d_view_bind_group"),
+            layout: &mesh2d_pipeline.view_layout,
+        });
+        commands.insert_resource(Mesh2dViewBindGroup {
+            value: view_bind_group,
+        });
     }
 }
 
 pub struct SetMesh2dViewBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
-    type Param = SQuery<(Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>)>;
+    type Param = (SRes<Mesh2dViewBindGroup>,SQuery<Read<ViewUniformOffset>>);
     #[inline]
     fn render<'w>(
         view: Entity,
         _item: Entity,
-        view_query: SystemParamItem<'w, '_, Self::Param>,
+        (mesh2d_view_bind_group,view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, mesh2d_view_bind_group) = view_query.get_inner(view).unwrap();
-        pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
+        let view_uniform = view_query.get_inner(view).unwrap();
+        pass.set_bind_group(I, &mesh2d_view_bind_group.into_inner().value, &[view_uniform.offset]);
 
         RenderCommandResult::Success
     }
