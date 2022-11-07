@@ -23,10 +23,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    event::Events,
-    schedule::{IntoSystemDescriptor, SystemLabel},
-};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -85,8 +82,7 @@ impl Plugin for WindowPlugin {
             .init_resource::<Windows>();
 
         if self.add_primary_window {
-            let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
-            create_window_event.send(CreateWindow {
+            app.world.send_event(CreateWindow {
                 id: WindowId::primary(),
                 descriptor: self.window.clone(),
             });
