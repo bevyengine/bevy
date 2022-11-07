@@ -92,12 +92,21 @@ impl RenderGraph {
     where
         T: Node,
     {
-        let id = NodeId::new();
         let name = name.into();
-        let mut node_state = NodeState::new(id, node);
-        node_state.name = Some(name.clone());
-        self.nodes.insert(id, node_state);
-        self.node_names.insert(name, id);
+        let id = *self
+            .node_names
+            .entry(name.clone())
+            .or_insert_with(|| NodeId::new());
+
+        let mut new_node_state = NodeState::new(id, node);
+        new_node_state.name = Some(name);
+        self.nodes
+            .entry(id)
+            .and_modify(|old_entry| {
+                // If replacing a node, retain the connectivity by moving them into the new node.
+                std::mem::swap(&mut old_entry.edges, &mut new_node_state.edges);
+            })
+            .insert(new_node_state);
         id
     }
 
