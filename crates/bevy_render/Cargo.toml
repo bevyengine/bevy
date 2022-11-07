@@ -62,7 +62,7 @@ thiserror = "1.0"
 futures-lite = "1.4.0"
 anyhow = "1.0"
 hex = "0.4.2"
-hexasphere = "7.2"
+hexasphere = "8.0"
 parking_lot = "0.12.1"
 regex = "1.5"
 ddsfile = { version = "0.5.0", optional = true }
