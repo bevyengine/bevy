@@ -1690,4 +1690,20 @@ mod tests {
 
         assert_eq!(q.single(&world), e);
     }
+
+    #[test]
+    fn query_with_incompatible_bundle_filter() {
+        #[derive(Component)]
+        struct Foo;
+
+        #[derive(Component)]
+        struct Bar;
+
+        let mut world = World::new();
+        let e = world.spawn(Foo).id(); // No Bar!
+
+        let mut q = world.query_filtered::<Entity, <(Foo, Bar) as Bundle>::Filter>(); // Query for Bar!
+
+        assert!(q.get(&world, e).is_err());
+    }
 }
