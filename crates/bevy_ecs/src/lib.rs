@@ -1686,9 +1686,11 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn(((Foo, Bar), Baz)).id();
 
-        let mut q = world.query_filtered::<Entity, <((Foo, Bar), Baz) as Bundle>::Filter>();
+        let mut q1 = world.query_filtered::<Entity, <((Foo, Bar), Baz) as Bundle>::Filter>();
+        let mut q2 = world.query_filtered::<Entity, <(Foo, Bar, Baz) as Bundle>::Filter>();
 
-        assert_eq!(q.single(&world), e);
+        assert_eq!(q1.single(&world), e);
+        assert_eq!(q2.single(&world), e);
     }
 
     #[test]
@@ -1705,5 +1707,60 @@ mod tests {
         let mut q = world.query_filtered::<Entity, <(Foo, Bar) as Bundle>::Filter>(); // Query for Bar!
 
         assert!(q.get(&world, e).is_err());
+    }
+
+    #[test]
+    fn query_with_named_bundle_filter() {
+        #[derive(Component, Default)]
+        struct Foo;
+
+        #[derive(Component, Default)]
+        struct Bar;
+
+        #[derive(Bundle, Default)]
+        struct FooBundle {
+            foo: Foo,
+            bar: Bar
+        }
+
+        let mut world = World::new();
+        let e = world.spawn(FooBundle::default()).id();
+
+        let mut q = world.query_filtered::<Entity, <(Foo, Bar) as Bundle>::Filter>();
+
+        assert_eq!(q.single(&world), e);
+    }
+
+    #[test]
+    fn query_with_named_nested_bundle_filter() {
+        #[derive(Component, Default)]
+        struct Foo;
+
+        #[derive(Component, Default)]
+        struct Bar;
+
+        #[derive(Component, Default)]
+        struct Baz;
+
+        #[derive(Bundle, Default)]
+        struct FooBundle {
+            foo: Foo,
+            bar: Bar
+        }
+
+        #[derive(Bundle, Default)]
+        struct BazBundle {
+            baz: Baz,
+            foo: FooBundle,
+        }
+
+        let mut world = World::new();
+        let e = world.spawn(BazBundle::default()).id();
+
+        let mut q1 = world.query_filtered::<Entity, <((Foo, Bar), Baz) as Bundle>::Filter>();
+        let mut q2 = world.query_filtered::<Entity, <(Foo, Bar, Baz) as Bundle>::Filter>();
+
+        assert_eq!(q1.single(&world), e);
+        assert_eq!(q2.single(&world), e);
     }
 }
