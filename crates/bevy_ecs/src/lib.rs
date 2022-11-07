@@ -1720,7 +1720,7 @@ mod tests {
         #[derive(Bundle, Default)]
         struct FooBundle {
             foo: Foo,
-            bar: Bar
+            bar: Bar,
         }
 
         let mut world = World::new();
@@ -1745,7 +1745,7 @@ mod tests {
         #[derive(Bundle, Default)]
         struct FooBundle {
             foo: Foo,
-            bar: Bar
+            bar: Bar,
         }
 
         #[derive(Bundle, Default)]
