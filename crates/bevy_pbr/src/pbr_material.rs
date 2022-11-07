@@ -446,11 +446,13 @@ impl Material for StandardMaterial {
     }
 
     #[inline]
-    fn required_vertex_attributes() -> Vec<MeshVertexAttribute> {
-        vec![
+    fn required_vertex_attributes() -> &'static [MeshVertexAttribute] {
+        static ATTRIBUTES: &[MeshVertexAttribute] = &[
             Mesh::ATTRIBUTE_POSITION,
             Mesh::ATTRIBUTE_NORMAL,
             Mesh::ATTRIBUTE_UV_0,
-        ]
+        ];
+
+        ATTRIBUTES
     }
 }
