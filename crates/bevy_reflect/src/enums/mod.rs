@@ -290,9 +290,9 @@ mod tests {
             A,
             B,
             C {
+                bar: bool,
                 #[reflect(ignore)]
                 foo: f32,
-                bar: bool,
             },
         }
 

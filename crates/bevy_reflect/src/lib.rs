@@ -349,14 +349,14 @@ mod tests {
         #[reflect(PartialEq)]
         struct Foo {
             a: u32,
+            b: Vec<isize>,
+            c: HashMap<usize, i8>,
+            d: Bar,
+            e: (i32, Vec<isize>, Bar),
+            f: Vec<(Baz, HashMap<usize, Bar>)>,
+            g: [u32; 2],
             #[reflect(ignore)]
-            _b: u32,
-            c: Vec<isize>,
-            d: HashMap<usize, i8>,
-            e: Bar,
-            f: (i32, Vec<isize>, Bar),
-            g: Vec<(Baz, HashMap<usize, Bar>)>,
-            h: [u32; 2],
+            _h: u32,
         }
 
         #[derive(Reflect, Eq, PartialEq, Clone, Debug, FromReflect)]
@@ -377,39 +377,39 @@ mod tests {
 
         let mut foo = Foo {
             a: 1,
-            _b: 1,
-            c: vec![1, 2],
-            d: hash_map,
-            e: Bar { x: 1 },
-            f: (1, vec![1, 2], Bar { x: 1 }),
-            g: vec![(Baz("string".to_string()), hash_map_baz)],
-            h: [2; 2],
+            b: vec![1, 2],
+            c: hash_map,
+            d: Bar { x: 1 },
+            e: (1, vec![1, 2], Bar { x: 1 }),
+            f: vec![(Baz("string".to_string()), hash_map_baz)],
+            g: [2; 2],
+            _h: 1,
         };
 
         let mut foo_patch = DynamicStruct::default();
         foo_patch.insert("a", 2u32);
-        foo_patch.insert("b", 2u32); // this should be ignored
+        foo_patch.insert("_h", 2u32); // this should be ignored
 
         let mut list = DynamicList::default();
         list.push(3isize);
         list.push(4isize);
         list.push(5isize);
-        foo_patch.insert("c", List::clone_dynamic(&list));
+        foo_patch.insert("b", List::clone_dynamic(&list));
 
         let mut map = DynamicMap::default();
         map.insert(2usize, 3i8);
         map.insert(3usize, 4i8);
-        foo_patch.insert("d", map);
+        foo_patch.insert("c", map);
 
         let mut bar_patch = DynamicStruct::default();
         bar_patch.insert("x", 2u32);
-        foo_patch.insert("e", bar_patch.clone_dynamic());
+        foo_patch.insert("d", bar_patch.clone_dynamic());
 
         let mut tuple = DynamicTuple::default();
         tuple.insert(2i32);
         tuple.insert(list);
         tuple.insert(bar_patch);
-        foo_patch.insert("f", tuple);
+        foo_patch.insert("e", tuple);
 
         let mut composite = DynamicList::default();
         composite.push({
@@ -430,10 +430,10 @@ mod tests {
             });
             tuple
         });
-        foo_patch.insert("g", composite);
+        foo_patch.insert("f", composite);
 
         let array = DynamicArray::from_vec(vec![2u32, 2u32]);
-        foo_patch.insert("h", array);
+        foo_patch.insert("g", array);
 
         foo.apply(&foo_patch);
 
@@ -447,13 +447,13 @@ mod tests {
 
         let expected_foo = Foo {
             a: 2,
-            _b: 1,
-            c: vec![3, 4, 5],
-            d: hash_map,
-            e: Bar { x: 2 },
-            f: (2, vec![3, 4, 5], Bar { x: 2 }),
-            g: vec![(Baz("new_string".to_string()), hash_map_baz.clone())],
-            h: [2; 2],
+            b: vec![3, 4, 5],
+            c: hash_map,
+            d: Bar { x: 2 },
+            e: (2, vec![3, 4, 5], Bar { x: 2 }),
+            f: vec![(Baz("new_string".to_string()), hash_map_baz.clone())],
+            g: [2; 2],
+            _h: 1,
         };
 
         assert_eq!(foo, expected_foo);
@@ -467,13 +467,13 @@ mod tests {
 
         let expected_new_foo = Foo {
             a: 2,
-            _b: 0,
-            c: vec![3, 4, 5],
-            d: hash_map,
-            e: Bar { x: 2 },
-            f: (2, vec![3, 4, 5], Bar { x: 2 }),
-            g: vec![(Baz("new_string".to_string()), hash_map_baz)],
-            h: [2; 2],
+            b: vec![3, 4, 5],
+            c: hash_map,
+            d: Bar { x: 2 },
+            e: (2, vec![3, 4, 5], Bar { x: 2 }),
+            f: vec![(Baz("new_string".to_string()), hash_map_baz)],
+            g: [2; 2],
+            _h: 0,
         };
 
         assert_eq!(new_foo, expected_new_foo);
@@ -484,14 +484,14 @@ mod tests {
         #[derive(Reflect)]
         struct Foo {
             a: u32,
+            b: Vec<isize>,
+            c: HashMap<usize, i8>,
+            d: Bar,
+            e: String,
+            f: (i32, Vec<isize>, Bar),
+            g: [u32; 2],
             #[reflect(ignore)]
-            _b: u32,
-            c: Vec<isize>,
-            d: HashMap<usize, i8>,
-            e: Bar,
-            f: String,
-            g: (i32, Vec<isize>, Bar),
-            h: [u32; 2],
+            _h: u32,
         }
 
         #[derive(Reflect, Serialize, Deserialize)]
@@ -505,13 +505,13 @@ mod tests {
         hash_map.insert(2, 2);
         let foo = Foo {
             a: 1,
-            _b: 1,
-            c: vec![1, 2],
-            d: hash_map,
-            e: Bar { x: 1 },
-            f: "hi".to_string(),
-            g: (1, vec![1, 2], Bar { x: 1 }),
-            h: [2; 2],
+            b: vec![1, 2],
+            c: hash_map,
+            d: Bar { x: 1 },
+            e: "hi".to_string(),
+            f: (1, vec![1, 2], Bar { x: 1 }),
+            g: [2; 2],
+            _h: 1,
         };
 
         let mut registry = TypeRegistry::default();

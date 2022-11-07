@@ -108,11 +108,11 @@ impl<T> ResultSifter<T> {
 /// pub struct HelloWorld {
 ///     reflected_field: u32      // index: 0
 ///
-///     #[reflect(ignore)]
-///     non_reflected_field: u32  // index: N/A (not 1!)
-///
 ///     #[reflect(skip_serializing)]
 ///     non_serialized_field: u32 // index: 1
+///
+///     #[reflect(ignore)]
+///     non_reflected_field: u32  // index: N/A (not 2!)
 /// }
 /// ```
 /// Would convert to the `0b01` bitset (i.e second field is NOT serialized)

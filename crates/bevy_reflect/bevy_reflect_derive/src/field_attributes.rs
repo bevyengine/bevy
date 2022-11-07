@@ -5,6 +5,7 @@
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
 use crate::REFLECT_ATTRIBUTE_NAME;
+use proc_macro2::Span;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Attribute, Lit, Meta, NestedMeta};
@@ -69,85 +70,158 @@ pub(crate) enum DefaultBehavior {
     Func(syn::ExprPath),
 }
 
-/// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).
-pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr, syn::Error> {
-    let mut args = ReflectFieldAttr::default();
-    let mut errors: Option<syn::Error> = None;
-
-    let attrs = attrs
-        .iter()
-        .filter(|a| a.path.is_ident(REFLECT_ATTRIBUTE_NAME));
-    for attr in attrs {
-        let meta = attr.parse_meta()?;
-        if let Err(err) = parse_meta(&mut args, &meta) {
-            if let Some(ref mut error) = errors {
-                error.combine(err);
-            } else {
-                errors = Some(err);
-            }
-        }
-    }
-
-    if let Some(error) = errors {
-        Err(error)
-    } else {
-        Ok(args)
-    }
+/// Helper struct for parsing field attributes on structs, tuple structs, and enum variants.
+pub(crate) struct ReflectFieldAttrParser {
+    /// Indicates whether the fields being parsed are part of an enum variant.
+    is_variant: bool,
+    /// The [`Span`] for the last `#[reflect(ignore)]` attribute, if any.
+    last_ignored: Option<Span>,
+    /// The [`Span`] for the last `#[reflect(skip_serializing)]` attribute, if any.
+    last_skipped: Option<Span>,
 }
 
-/// Recursively parses attribute metadata for things like `#[reflect(ignore)]` and `#[reflect(default = "foo")]`
-fn parse_meta(args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
-    match meta {
-        Meta::Path(path) if path.is_ident(IGNORE_SERIALIZATION_ATTR) => {
-            (args.ignore == ReflectIgnoreBehavior::None)
-                .then(|| args.ignore = ReflectIgnoreBehavior::IgnoreSerialization)
-                .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
+impl ReflectFieldAttrParser {
+    /// Create a new parser for struct and tuple struct fields.
+    pub fn new_struct() -> Self {
+        Self {
+            is_variant: false,
+            last_ignored: None,
+            last_skipped: None,
         }
-        Meta::Path(path) if path.is_ident(IGNORE_ALL_ATTR) => {
-            (args.ignore == ReflectIgnoreBehavior::None)
-                .then(|| args.ignore = ReflectIgnoreBehavior::IgnoreAlways)
-                .ok_or_else(|| syn::Error::new_spanned(path, format!("Only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
+    }
+
+    /// Create a new parser for enum variant struct fields.
+    pub fn new_enum_variant() -> Self {
+        Self {
+            is_variant: true,
+            last_ignored: None,
+            last_skipped: None,
         }
-        Meta::Path(path) if path.is_ident(DEFAULT_ATTR) => {
-            args.default = DefaultBehavior::Default;
-            Ok(())
-        }
-        Meta::Path(path) => Err(syn::Error::new(
-            path.span(),
-            format!("unknown attribute parameter: {}", path.to_token_stream()),
-        )),
-        Meta::NameValue(pair) if pair.path.is_ident(DEFAULT_ATTR) => {
-            let lit = &pair.lit;
-            match lit {
-                Lit::Str(lit_str) => {
-                    args.default = DefaultBehavior::Func(lit_str.parse()?);
-                    Ok(())
-                }
-                err => {
-                    Err(syn::Error::new(
-                        err.span(),
-                        format!("expected a string literal containing the name of a function, but found: {}", err.to_token_stream()),
-                    ))
-                }
+    }
+
+    /// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).
+    pub fn parse(&mut self, attrs: &[Attribute]) -> Result<ReflectFieldAttr, syn::Error> {
+        let mut args = ReflectFieldAttr::default();
+        let mut errors: Option<syn::Error> = None;
+
+        let attrs = attrs
+            .iter()
+            .filter(|a| a.path.is_ident(REFLECT_ATTRIBUTE_NAME));
+        for attr in attrs {
+            let meta = attr.parse_meta()?;
+            if let Err(err) = self.parse_meta(&mut args, &meta) {
+                Self::combine_error(err, &mut errors);
             }
         }
-        Meta::NameValue(pair) => {
-            let path = &pair.path;
-            Err(syn::Error::new(
+
+        self.check_ignore_order(&args, &mut errors);
+        self.check_skip_order(&args, &mut errors);
+
+        if let Some(error) = errors {
+            Err(error)
+        } else {
+            Ok(args)
+        }
+    }
+
+    /// Recursively parses attribute metadata for things like `#[reflect(ignore)]` and `#[reflect(default = "foo")]`
+    fn parse_meta(&mut self, args: &mut ReflectFieldAttr, meta: &Meta) -> Result<(), syn::Error> {
+        match meta {
+            Meta::Path(path) if path.is_ident(IGNORE_SERIALIZATION_ATTR) => {
+                if args.ignore == ReflectIgnoreBehavior::None {
+                    args.ignore = ReflectIgnoreBehavior::IgnoreSerialization;
+                    self.last_skipped = Some(path.span());
+                    Ok(())
+                } else {
+                    Err(syn::Error::new_spanned(path, format!("only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
+                }
+            }
+            Meta::Path(path) if path.is_ident(IGNORE_ALL_ATTR) => {
+                if args.ignore == ReflectIgnoreBehavior::None {
+                    args.ignore = ReflectIgnoreBehavior::IgnoreAlways;
+                    self.last_ignored = Some(path.span());
+                    Ok(())
+                } else {
+                    Err(syn::Error::new_spanned(path, format!("only one of ['{IGNORE_SERIALIZATION_ATTR}','{IGNORE_ALL_ATTR}'] is allowed")))
+                }
+            }
+            Meta::Path(path) if path.is_ident(DEFAULT_ATTR) => {
+                args.default = DefaultBehavior::Default;
+                Ok(())
+            }
+            Meta::Path(path) => Err(syn::Error::new(
                 path.span(),
                 format!("unknown attribute parameter: {}", path.to_token_stream()),
-            ))
-        }
-        Meta::List(list) if !list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
-            Err(syn::Error::new(list.path.span(), "unexpected property"))
-        }
-        Meta::List(list) => {
-            for nested in &list.nested {
-                if let NestedMeta::Meta(meta) = nested {
-                    parse_meta(args, meta)?;
+            )),
+            Meta::NameValue(pair) if pair.path.is_ident(DEFAULT_ATTR) => {
+                let lit = &pair.lit;
+                match lit {
+                    Lit::Str(lit_str) => {
+                        args.default = DefaultBehavior::Func(lit_str.parse()?);
+                        Ok(())
+                    }
+                    err => {
+                        Err(syn::Error::new(
+                            err.span(),
+                            format!("expected a string literal containing the name of a function, but found: {}", err.to_token_stream()),
+                        ))
+                    }
                 }
             }
-            Ok(())
+            Meta::NameValue(pair) => {
+                let path = &pair.path;
+                Err(syn::Error::new(
+                    path.span(),
+                    format!("unknown attribute parameter: {}", path.to_token_stream()),
+                ))
+            }
+            Meta::List(list) if !list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
+                Err(syn::Error::new(list.path.span(), "unexpected property"))
+            }
+            Meta::List(list) => {
+                for nested in &list.nested {
+                    if let NestedMeta::Meta(meta) = nested {
+                        self.parse_meta(args, meta)?;
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Verifies `#[reflect(ignore)]` attributes are always last in the type definition.
+    fn check_ignore_order(&self, args: &ReflectFieldAttr, errors: &mut Option<syn::Error>) {
+        if args.ignore.is_active() {
+            if let Some(span) = self.last_ignored {
+                if self.is_variant {
+                    Self::combine_error(syn::Error::new(span, format!("fields marked with `#[reflect({IGNORE_ALL_ATTR})]` must come last in variant definition")), errors);
+                } else {
+                    Self::combine_error(syn::Error::new(span, format!("fields marked with `#[reflect({IGNORE_ALL_ATTR})]` must come last in type definition")), errors);
+                }
+            }
+        }
+    }
+
+    /// Verifies `#[reflect(skip_serializing)]` attributes are always last in the type definition,
+    /// but before `#[reflect(ignore)]` attributes.
+    fn check_skip_order(&self, args: &ReflectFieldAttr, errors: &mut Option<syn::Error>) {
+        if args.ignore == ReflectIgnoreBehavior::None {
+            if let Some(span) = self.last_skipped {
+                if self.is_variant {
+                    Self::combine_error(syn::Error::new(span, format!("fields marked with `#[reflect({IGNORE_SERIALIZATION_ATTR})]` must come last in variant definition (but before any fields marked `#[reflect({IGNORE_ALL_ATTR})]`)")), errors);
+                } else {
+                    Self::combine_error(syn::Error::new(span, format!("fields marked with `#[reflect({IGNORE_SERIALIZATION_ATTR})]` must come last in type definition (but before any fields marked `#[reflect({IGNORE_ALL_ATTR})]`)")), errors);
+                }
+            }
+        }
+    }
+
+    /// Set or combine the given error into an optionally existing error.
+    fn combine_error(err: syn::Error, errors: &mut Option<syn::Error>) {
+        if let Some(error) = errors {
+            error.combine(err);
+        } else {
+            *errors = Some(err);
         }
     }
 }

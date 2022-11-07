@@ -22,10 +22,10 @@ mod tests {
         #[reflect(PartialEq)]
         struct TestStruct {
             a: i32,
-            #[reflect(ignore)]
             b: i32,
             #[reflect(skip_serializing)]
             c: i32,
+            #[reflect(ignore)]
             d: i32,
         }
 
@@ -34,9 +34,9 @@ mod tests {
 
         let test_struct = TestStruct {
             a: 3,
-            b: 4,
-            c: 5,
-            d: 6,
+            b: 6,
+            c: 4,
+            d: 5,
         };
 
         let serializer = ReflectSerializer::new(&test_struct, &registry);
@@ -45,7 +45,7 @@ mod tests {
 
         let mut expected = DynamicStruct::default();
         expected.insert("a", 3);
-        expected.insert("d", 6);
+        expected.insert("b", 6);
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
@@ -64,9 +64,9 @@ mod tests {
         #[reflect(PartialEq)]
         struct TestStruct(
             i32,
-            #[reflect(ignore)] i32,
-            #[reflect(skip_serializing)] i32,
             i32,
+            #[reflect(skip_serializing)] i32,
+            #[reflect(ignore)] i32,
         );
 
         let mut registry = TypeRegistry::default();
@@ -80,7 +80,7 @@ mod tests {
 
         let mut expected = DynamicTupleStruct::default();
         expected.insert(3);
-        expected.insert(6);
+        expected.insert(4);
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);

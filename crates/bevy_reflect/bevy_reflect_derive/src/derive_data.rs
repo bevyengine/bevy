@@ -1,5 +1,5 @@
 use crate::container_attributes::ReflectTraits;
-use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
+use crate::field_attributes::{ReflectFieldAttr, ReflectFieldAttrParser};
 use crate::utility::members_to_serialization_denylist;
 use bit_set::BitSet;
 use quote::quote;
@@ -100,9 +100,6 @@ pub(crate) struct EnumVariant<'a> {
     pub data: &'a Variant,
     /// The fields within this variant.
     pub fields: EnumVariantFields<'a>,
-    /// The reflection-based attributes on the variant.
-    #[allow(dead_code)]
-    pub attrs: ReflectFieldAttr,
     /// The index of this variant within the enum.
     #[allow(dead_code)]
     pub index: usize,
@@ -195,7 +192,8 @@ impl<'a> ReflectDerive<'a> {
 
         return match &input.data {
             Data::Struct(data) => {
-                let fields = Self::collect_struct_fields(&data.fields)?;
+                let mut field_parser = ReflectFieldAttrParser::new_struct();
+                let fields = Self::collect_struct_fields(&data.fields, &mut field_parser)?;
                 let reflect_struct = ReflectStruct {
                     meta,
                     serialization_denylist: members_to_serialization_denylist(
@@ -223,12 +221,15 @@ impl<'a> ReflectDerive<'a> {
         };
     }
 
-    fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
+    fn collect_struct_fields(
+        fields: &'a Fields,
+        field_parser: &mut ReflectFieldAttrParser,
+    ) -> Result<Vec<StructField<'a>>, syn::Error> {
         let sifter: utility::ResultSifter<StructField<'a>> = fields
             .iter()
             .enumerate()
             .map(|(index, field)| -> Result<StructField, syn::Error> {
-                let attrs = parse_field_attrs(&field.attrs)?;
+                let attrs = field_parser.parse(&field.attrs)?;
                 Ok(StructField {
                     index,
                     attrs,
@@ -252,7 +253,8 @@ impl<'a> ReflectDerive<'a> {
             .iter()
             .enumerate()
             .map(|(index, variant)| -> Result<EnumVariant, syn::Error> {
-                let fields = Self::collect_struct_fields(&variant.fields)?;
+                let mut field_parser = ReflectFieldAttrParser::new_enum_variant();
+                let fields = Self::collect_struct_fields(&variant.fields, &mut field_parser)?;
 
                 let fields = match variant.fields {
                     Fields::Named(..) => EnumVariantFields::Named(fields),
@@ -261,7 +263,6 @@ impl<'a> ReflectDerive<'a> {
                 };
                 Ok(EnumVariant {
                     fields,
-                    attrs: parse_field_attrs(&variant.attrs)?,
                     data: variant,
                     index,
                     #[cfg(feature = "documentation")]

@@ -91,18 +91,18 @@ pub struct Camera {
     /// If this is set to `true`, this camera will be rendered to its specified [`RenderTarget`]. If `false`, this
     /// camera will not be rendered.
     pub is_active: bool,
-    /// Computed values for this camera, such as the projection matrix and the render target size.
-    #[reflect(ignore)]
-    pub computed: ComputedCameraValues,
-    /// The "target" that this camera will render to.
-    #[reflect(ignore)]
-    pub target: RenderTarget,
     /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
     /// Warning: we are still working on this feature. If MSAA is enabled, there will be artifacts in
     /// some cases. When rendering with WebGL, this will crash if MSAA is enabled.
     /// See <https://github.com/bevyengine/bevy/pull/3425> for details.
     // TODO: resolve the issues mentioned in the doc comment above, then remove the warning.
     pub hdr: bool,
+    /// Computed values for this camera, such as the projection matrix and the render target size.
+    #[reflect(ignore)]
+    pub computed: ComputedCameraValues,
+    /// The "target" that this camera will render to.
+    #[reflect(ignore)]
+    pub target: RenderTarget,
 }
 
 impl Default for Camera {

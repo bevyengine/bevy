@@ -177,27 +177,6 @@ pub struct StandardMaterial {
     /// which can be done via `cull_mode`.
     pub double_sided: bool,
 
-    /// Whether to cull the "front", "back" or neither side of a mesh.
-    /// If set to `None`, the two sides of the mesh are visible.
-    ///
-    /// Defaults to `Some(Face::Back)`.
-    /// In bevy, the order of declaration of a triangle's vertices
-    /// in [`Mesh`] defines the triangle's front face.
-    ///
-    /// When a triangle is in a viewport,
-    /// if its vertices appear counter-clockwise from the viewport's perspective,
-    /// then the viewport is seeing the triangle's front face.
-    /// Conversly, if the vertices appear clockwise, you are seeing the back face.
-    ///
-    /// In short, in bevy, front faces winds counter-clockwise.
-    ///
-    /// Your 3D editing software should manage all of that.
-    ///
-    /// [`Mesh`]: bevy_render::mesh::Mesh
-    // TODO: include this in reflection somehow (maybe via remote types like serde https://serde.rs/remote-derive.html)
-    #[reflect(ignore)]
-    pub cull_mode: Option<Face>,
-
     /// Whether to apply only the base color to this material.
     ///
     /// Normals, occlusion textures, roughness, metallic, reflectance, emissive,
@@ -225,6 +204,26 @@ pub struct StandardMaterial {
     ///
     /// [z-fighting]: https://en.wikipedia.org/wiki/Z-fighting
     pub depth_bias: f32,
+    /// Whether to cull the "front", "back" or neither side of a mesh.
+    /// If set to `None`, the two sides of the mesh are visible.
+    ///
+    /// Defaults to `Some(Face::Back)`.
+    /// In bevy, the order of declaration of a triangle's vertices
+    /// in [`Mesh`] defines the triangle's front face.
+    ///
+    /// When a triangle is in a viewport,
+    /// if its vertices appear counter-clockwise from the viewport's perspective,
+    /// then the viewport is seeing the triangle's front face.
+    /// Conversly, if the vertices appear clockwise, you are seeing the back face.
+    ///
+    /// In short, in bevy, front faces winds counter-clockwise.
+    ///
+    /// Your 3D editing software should manage all of that.
+    ///
+    /// [`Mesh`]: bevy_render::mesh::Mesh
+    // TODO: include this in reflection somehow (maybe via remote types like serde https://serde.rs/remote-derive.html)
+    #[reflect(ignore)]
+    pub cull_mode: Option<Face>,
 }
 
 impl Default for StandardMaterial {
