@@ -146,11 +146,13 @@ impl Plugin for RenderPlugin {
             let instance = wgpu::Instance::new(backends);
             let surface = {
                 let windows = app.world.resource_mut::<bevy_window::Windows>();
-                let raw_handle = windows.get_primary().and_then(|window| unsafe {
+                let raw_handle = windows.get_primary().and_then(|window| {
                     match window.window_handle() {
-                        AbstractWindowHandle::RawWindowHandle(handle) => {
+                        AbstractWindowHandle::RawWindowHandle(handle) => unsafe {
+                            // SAFETY: This is only run on the main thread. Also the caller of `RawHandleWrapper::new` has
+                            // ensured that the window was created on the main thread.
                             Some(instance.create_surface(&handle.get_handle()))
-                        }
+                        },
                         AbstractWindowHandle::Virtual => None,
                     }
                 });

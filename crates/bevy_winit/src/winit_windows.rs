@@ -23,7 +23,10 @@ pub struct WinitWindows {
 }
 
 impl WinitWindows {
-    pub fn create_window(
+    /// # SAFETY
+    ///
+    /// This should only be called from the main thread, as it might create windows that cannot be used across threads
+    pub unsafe fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window_id: WindowId,
@@ -199,9 +202,12 @@ impl WinitWindows {
             .map(|position| IVec2::new(position.x, position.y));
         let inner_size = winit_window.inner_size();
         let scale_factor = winit_window.scale_factor();
-        let raw_handle = RawHandleWrapper {
-            window_handle: winit_window.raw_window_handle(),
-            display_handle: winit_window.raw_display_handle(),
+        let raw_handle = unsafe {
+            // SAFETY: Caller ensured that this is run on the main thread
+            RawHandleWrapper::new(
+                winit_window.raw_window_handle(),
+                winit_window.raw_display_handle(),
+            )
         };
         self.windows.insert(winit_window.id(), winit_window);
         Window::new(

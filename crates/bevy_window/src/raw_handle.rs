@@ -9,11 +9,24 @@ use raw_window_handle::{
 /// thread-safe.
 #[derive(Debug, Clone)]
 pub struct RawHandleWrapper {
-    pub window_handle: RawWindowHandle,
-    pub display_handle: RawDisplayHandle,
+    window_handle: RawWindowHandle,
+    display_handle: RawDisplayHandle,
 }
 
 impl RawHandleWrapper {
+    /// Create a new `RawHandleWrapper` from its components
+    ///
+    /// # Safety
+    ///
+    /// If the particular underlying handle can only be used on the same thread, the caller should ensure that the window
+    /// was created on the main thread.
+    pub unsafe fn new(window_handle: RawWindowHandle, display_handle: RawDisplayHandle) -> Self {
+        RawHandleWrapper {
+            window_handle,
+            display_handle,
+        }
+    }
+
     /// Returns a [`HasRawWindowHandle`] + [`HasRawDisplayHandle`] impl, which exposes [`RawWindowHandle`] and [`RawDisplayHandle`].
     ///
     /// # Safety
@@ -22,14 +35,6 @@ impl RawHandleWrapper {
     /// operations off of the main thread. The caller must ensure the [`RawHandleWrapper`] is only used in valid contexts.
     pub unsafe fn get_handle(&self) -> ThreadLockedRawWindowHandleWrapper {
         ThreadLockedRawWindowHandleWrapper(self.clone())
-    }
-
-    pub fn get_display_handle(&self) -> RawDisplayHandle {
-        self.display_handle
-    }
-
-    pub fn get_window_handle(&self) -> RawWindowHandle {
-        self.window_handle
     }
 }
 
@@ -58,7 +63,7 @@ pub struct ThreadLockedRawWindowHandleWrapper(RawHandleWrapper);
 // and so exposing a safe method to get a [`RawWindowHandle`] directly would be UB.
 unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
     fn raw_window_handle(&self) -> RawWindowHandle {
-        self.0.get_window_handle()
+        self.0.window_handle
     }
 }
 
@@ -70,6 +75,6 @@ unsafe impl HasRawWindowHandle for ThreadLockedRawWindowHandleWrapper {
 // and so exposing a safe method to get a [`RawDisplayHandle`] directly would be UB.
 unsafe impl HasRawDisplayHandle for ThreadLockedRawWindowHandleWrapper {
     fn raw_display_handle(&self) -> RawDisplayHandle {
-        self.0.get_display_handle()
+        self.0.display_handle
     }
 }

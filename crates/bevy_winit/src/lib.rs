@@ -685,11 +685,14 @@ fn handle_create_window_events(
     #[cfg(not(any(target_os = "windows", target_feature = "x11")))]
     let mut window_resized_events = world.resource_mut::<Events<WindowResized>>();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
-        let window = winit_windows.create_window(
-            event_loop,
-            create_window_event.id,
-            &create_window_event.descriptor,
-        );
+        let window = unsafe {
+            // SAFETY: This is only called from the main thread
+            winit_windows.create_window(
+                event_loop,
+                create_window_event.id,
+                &create_window_event.descriptor,
+            )
+        };
         // This event is already sent on windows, x11, and xwayland.
         // TODO: we aren't yet sure about native wayland, so we might be able to exclude it,
         // but sending a duplicate event isn't problematic, as windows already does this.
