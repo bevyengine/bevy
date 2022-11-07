@@ -1,5 +1,6 @@
 use crate::{
-    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed,
+    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -49,6 +50,8 @@ pub struct ArrayInfo {
     item_type_name: &'static str,
     item_type_id: TypeId,
     capacity: usize,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl ArrayInfo {
@@ -65,7 +68,15 @@ impl ArrayInfo {
             item_type_name: std::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this array.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The compile-time capacity of the array.
@@ -105,6 +116,12 @@ impl ArrayInfo {
     /// Check if the given type matches the array item type.
     pub fn item_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.item_type_id
+    }
+
+    /// The docstring of this array, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 
@@ -181,6 +198,11 @@ impl Reflect for DynamicArray {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -208,6 +230,11 @@ impl Reflect for DynamicArray {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Array(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Array(self)
     }
 
     #[inline]

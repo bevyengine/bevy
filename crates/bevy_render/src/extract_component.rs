@@ -38,7 +38,7 @@ pub trait ExtractComponent: Component {
     /// Filters the entities with additional constraints.
     type Filter: WorldQuery + ReadOnlyWorldQuery;
     /// Defines how the component is transferred into the "render world".
-    fn extract_component(item: QueryItem<Self::Query>) -> Self;
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self;
 }
 
 /// This plugin prepares the components of the corresponding type for the GPU
@@ -115,10 +115,10 @@ fn prepare_uniform_components<C: Component>(
         .map(|(entity, component)| {
             (
                 entity,
-                (DynamicUniformIndex::<C> {
+                DynamicUniformIndex::<C> {
                     index: component_uniforms.uniforms.push(component.clone()),
                     marker: PhantomData,
-                },),
+                },
             )
         })
         .collect::<Vec<_>>();
@@ -174,7 +174,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
     type Filter = ();
 
     #[inline]
-    fn extract_component(handle: QueryItem<Self::Query>) -> Self {
+    fn extract_component(handle: QueryItem<'_, Self::Query>) -> Self {
         handle.clone_weak()
     }
 }
@@ -187,7 +187,7 @@ fn extract_components<C: ExtractComponent>(
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
-        values.push((entity, (C::extract_component(query_item),)));
+        values.push((entity, C::extract_component(query_item)));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -202,7 +202,7 @@ fn extract_visible_components<C: ExtractComponent>(
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, query_item) in &query {
         if computed_visibility.is_visible() {
-            values.push((entity, (C::extract_component(query_item),)));
+            values.push((entity, C::extract_component(query_item)));
         }
     }
     *previous_len = values.len();

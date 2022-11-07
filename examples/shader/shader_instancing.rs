@@ -2,7 +2,10 @@
 
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
-    ecs::system::{lifetimeless::*, SystemParamItem},
+    ecs::{
+        query::QueryItem,
+        system::{lifetimeless::*, SystemParamItem},
+    },
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
@@ -32,8 +35,7 @@ fn main() {
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
         meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-        GlobalTransform::default(),
+        SpatialBundle::VISIBLE_IDENTITY,
         InstanceMaterialData(
             (1..=10)
                 .flat_map(|x| (1..=10).map(move |y| (x as f32 / 10.0, y as f32 / 10.0)))
@@ -44,8 +46,6 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                 })
                 .collect(),
         ),
-        Visibility::default(),
-        ComputedVisibility::default(),
         // NOTE: Frustum culling is done based on the Aabb of the Mesh and the GlobalTransform.
         // As the cube is at the origin, if its Aabb moves outside the view frustum, all the
         // instanced cubes will be culled.
@@ -70,7 +70,7 @@ impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
     type Filter = ();
 
-    fn extract_component(item: bevy::ecs::query::QueryItem<Self::Query>) -> Self {
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
         InstanceMaterialData(item.0.clone())
     }
 }

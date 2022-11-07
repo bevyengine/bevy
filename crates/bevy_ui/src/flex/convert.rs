@@ -10,9 +10,8 @@ pub fn from_rect(
     taffy::geometry::Rect {
         start: from_val(scale_factor, rect.left),
         end: from_val(scale_factor, rect.right),
-        // NOTE: top and bottom are intentionally flipped. stretch has a flipped y-axis
-        top: from_val(scale_factor, rect.bottom),
-        bottom: from_val(scale_factor, rect.top),
+        top: from_val(scale_factor, rect.top),
+        bottom: from_val(scale_factor, rect.bottom),
     }
 }
 

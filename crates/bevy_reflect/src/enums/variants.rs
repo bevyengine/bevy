@@ -72,6 +72,16 @@ impl VariantInfo {
             Self::Unit(info) => info.name(),
         }
     }
+
+    /// The docstring of the underlying variant, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&str> {
+        match self {
+            Self::Struct(info) => info.docs(),
+            Self::Tuple(info) => info.docs(),
+            Self::Unit(info) => info.docs(),
+        }
+    }
 }
 
 /// Type info for struct variants.
@@ -79,23 +89,41 @@ impl VariantInfo {
 pub struct StructVariantInfo {
     name: &'static str,
     fields: Box<[NamedField]>,
+    field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl StructVariantInfo {
     /// Create a new [`StructVariantInfo`].
     pub fn new(name: &'static str, fields: &[NamedField]) -> Self {
         let field_indices = Self::collect_field_indices(fields);
+        let field_names = fields.iter().map(|field| field.name()).collect();
         Self {
             name,
             fields: fields.to_vec().into_boxed_slice(),
+            field_names,
             field_indices,
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this variant.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The name of this variant.
     pub fn name(&self) -> &'static str {
         self.name
+    }
+
+    /// A slice containing the names of all fields in order.
+    pub fn field_names(&self) -> &[&'static str] {
+        &self.field_names
     }
 
     /// Get the field with the given name.
@@ -132,6 +160,12 @@ impl StructVariantInfo {
             .map(|(index, field)| (field.name(), index))
             .collect()
     }
+
+    /// The docstring of this variant, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
+    }
 }
 
 /// Type info for tuple variants.
@@ -139,6 +173,8 @@ impl StructVariantInfo {
 pub struct TupleVariantInfo {
     name: &'static str,
     fields: Box<[UnnamedField]>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl TupleVariantInfo {
@@ -147,7 +183,15 @@ impl TupleVariantInfo {
         Self {
             name,
             fields: fields.to_vec().into_boxed_slice(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this variant.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The name of this variant.
@@ -169,22 +213,46 @@ impl TupleVariantInfo {
     pub fn field_len(&self) -> usize {
         self.fields.len()
     }
+
+    /// The docstring of this variant, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
+    }
 }
 
 /// Type info for unit variants.
 #[derive(Clone, Debug)]
 pub struct UnitVariantInfo {
     name: &'static str,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl UnitVariantInfo {
     /// Create a new [`UnitVariantInfo`].
     pub fn new(name: &'static str) -> Self {
-        Self { name }
+        Self {
+            name,
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+
+    /// Sets the docstring for this variant.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The name of this variant.
     pub fn name(&self) -> &'static str {
         self.name
+    }
+
+    /// The docstring of this variant, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }

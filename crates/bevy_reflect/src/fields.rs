@@ -7,6 +7,8 @@ pub struct NamedField {
     name: &'static str,
     type_name: &'static str,
     type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl NamedField {
@@ -16,7 +18,15 @@ impl NamedField {
             name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this field.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The name of the field.
@@ -40,6 +50,12 @@ impl NamedField {
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+
+    /// The docstring of this field, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
+    }
 }
 
 /// The unnamed field of a reflected tuple or tuple struct.
@@ -48,6 +64,8 @@ pub struct UnnamedField {
     index: usize,
     type_name: &'static str,
     type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl UnnamedField {
@@ -56,7 +74,15 @@ impl UnnamedField {
             index,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this field.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// Returns the index of the field.
@@ -79,5 +105,11 @@ impl UnnamedField {
     /// Check if the given type matches the field type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this field, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }

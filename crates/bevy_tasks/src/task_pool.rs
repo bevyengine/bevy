@@ -8,7 +8,7 @@ use std::{
 };
 
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::{future, pin};
+use futures_lite::{future, pin, FutureExt};
 
 use crate::Task;
 
@@ -68,9 +68,9 @@ impl TaskPoolBuilder {
 pub struct TaskPool {
     /// The executor for the pool
     ///
-    /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
+    /// This has to be separate from TaskPoolInner because we have to create an `Arc<Executor>` to
     /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the Vec<Task<T>> contained within TaskPoolInner
+    /// the `Vec<Task<T>>` contained within `TaskPoolInner`
     executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
@@ -105,9 +105,9 @@ impl TaskPool {
                 let shutdown_rx = shutdown_rx.clone();
 
                 let thread_name = if let Some(thread_name) = thread_name {
-                    format!("{} ({})", thread_name, i)
+                    format!("{thread_name} ({i})")
                 } else {
-                    format!("TaskPool ({})", i)
+                    format!("TaskPool ({i})")
                 };
                 let mut thread_builder = thread::Builder::new().name(thread_name);
 
@@ -117,9 +117,23 @@ impl TaskPool {
 
                 thread_builder
                     .spawn(move || {
-                        let shutdown_future = ex.run(shutdown_rx.recv());
-                        // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_future).unwrap_err();
+                        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
+                            loop {
+                                let res = std::panic::catch_unwind(|| {
+                                    let tick_forever = async move {
+                                        loop {
+                                            local_executor.tick().await;
+                                        }
+                                    };
+                                    future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
+                                });
+                                if let Ok(value) = res {
+                                    // Use unwrap_err because we expect a Closed error
+                                    value.unwrap_err();
+                                    break;
+                                }
+                            }
+                        });
                     })
                     .expect("Failed to spawn thread.")
             })
@@ -164,11 +178,19 @@ impl TaskPool {
     ///     });
     /// });
     ///
-    /// // results are returned in the order the tasks are spawned in.
-    /// // Note: the ordering may become non-deterministic if you spawn from within tasks.
-    /// // the ordering is only guaranteed when tasks are spawned directly from the main closure.
+    /// // The ordering of results is non-deterministic if you spawn from within tasks as above.
+    /// // If you're doing this, you'll have to write your code to not depend on the ordering.
+    /// assert!(results.contains(&0));
+    /// assert!(results.contains(&1));
+    ///
+    /// // The ordering is deterministic if you only spawn directly from the closure function.
+    /// let results = pool.scope(|s| {
+    ///     s.spawn(async { 0  });
+    ///     s.spawn(async { 1 });
+    /// });
     /// assert_eq!(&results[..], &[0, 1]);
-    /// // can access x after scope runs
+    ///
+    /// // You can access x after scope runs, since it was only temporarily borrowed in the scope.
     /// assert_eq!(x, 2);
     /// ```
     ///
@@ -221,7 +243,7 @@ impl TaskPool {
         // This is guaranteed because we drive all the futures spawned onto the Scope
         // to completion in this function. However, rust has no way of knowing this so we
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
-        let executor: &async_executor::Executor = &*self.executor;
+        let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
         let task_scope_executor = &async_executor::Executor::default();
         let task_scope_executor: &'env async_executor::Executor =
@@ -305,6 +327,24 @@ impl TaskPool {
         T: 'static,
     {
         Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+    }
+
+    /// Runs a function with the local executor. Typically used to tick
+    /// the local executor on the main thread as it needs to share time with
+    /// other things.
+    ///
+    /// ```rust
+    /// use bevy_tasks::TaskPool;
+    ///
+    /// TaskPool::new().with_local_executor(|local_executor| {
+    ///     local_executor.try_tick();
+    /// });
+    /// ```
+    pub fn with_local_executor<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&async_executor::LocalExecutor) -> R,
+    {
+        Self::LOCAL_EXECUTOR.with(f)
     }
 }
 

@@ -51,15 +51,46 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
         });
 
+    #[cfg(feature = "documentation")]
+    let field_generator = {
+        let docs = reflect_struct
+            .active_fields()
+            .map(|field| quote::ToTokens::to_token_stream(&field.doc));
+        quote! {
+            #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names).with_docs(#docs) ,)*
+        }
+    };
+
+    #[cfg(not(feature = "documentation"))]
+    let field_generator = {
+        quote! {
+            #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names) ,)*
+        }
+    };
+
     let string_name = struct_name.to_string();
+
+    #[cfg(feature = "documentation")]
+    let info_generator = {
+        let doc = reflect_struct.meta().doc();
+        quote! {
+            #bevy_reflect_path::StructInfo::new::<Self>(#string_name, &fields).with_docs(#doc)
+        }
+    };
+
+    #[cfg(not(feature = "documentation"))]
+    let info_generator = {
+        quote! {
+            #bevy_reflect_path::StructInfo::new::<Self>(#string_name, &fields)
+        }
+    };
+
     let typed_impl = impl_typed(
         struct_name,
         reflect_struct.meta().generics(),
         quote! {
-           let fields = [
-                #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names),)*
-            ];
-            let info = #bevy_reflect_path::StructInfo::new::<Self>(#string_name, &fields);
+            let fields = [#field_generator];
+            let info = #info_generator;
             #bevy_reflect_path::TypeInfo::Struct(info)
         },
         bevy_reflect_path,
@@ -153,6 +184,11 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             #[inline]
+            fn into_reflect(self: Box<Self>) -> Box<dyn #bevy_reflect_path::Reflect> {
+                self
+            }
+
+            #[inline]
             fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
                 self
             }
@@ -190,6 +226,10 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::Struct(self)
+            }
+
+            fn reflect_owned(self: Box<Self>) -> #bevy_reflect_path::ReflectOwned {
+                #bevy_reflect_path::ReflectOwned::Struct(self)
             }
 
             #hash_fn

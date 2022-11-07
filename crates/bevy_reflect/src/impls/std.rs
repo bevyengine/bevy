@@ -1,4 +1,5 @@
-use crate::{self as bevy_reflect, ReflectFromPtr};
+use crate::std_traits::ReflectDefault;
+use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
 use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
     EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
@@ -11,6 +12,8 @@ use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
+#[cfg(any(unix, windows))]
+use std::ffi::OsString;
 use std::{
     any::Any,
     borrow::Cow,
@@ -20,25 +23,83 @@ use std::{
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
     ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
+    path::PathBuf,
 };
 
-impl_reflect_value!(bool(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(char(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(u128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(usize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i8(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(i128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(isize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(String(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(bool(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(char(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u128(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(usize(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(i8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i128(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(isize(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(String(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(PathBuf(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_reflect_value!(Result<T: Clone + Reflect + 'static, E: Clone + Reflect + 'static>());
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
 impl_reflect_value!(Range<T: Clone + Send + Sync + 'static>());
@@ -47,7 +108,14 @@ impl_reflect_value!(RangeFrom<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeTo<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeToInclusive<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeFull());
-impl_reflect_value!(Duration(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(Duration(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_reflect_value!(Instant(Debug, Hash, PartialEq));
 impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
@@ -61,6 +129,11 @@ impl_reflect_value!(NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
+
+// Only for platforms that can serialize it as in serde:
+// https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
+#[cfg(any(unix, windows))]
+impl_reflect_value!(OsString(Debug, Hash, PartialEq, Serialize, Deserialize));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -172,6 +245,10 @@ impl<T: FromReflect> Reflect for Vec<T> {
         self
     }
 
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -195,6 +272,10 @@ impl<T: FromReflect> Reflect for Vec<T> {
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::List(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::List(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
@@ -336,6 +417,11 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
         self
     }
 
+    #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -359,6 +445,10 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Map(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Map(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
@@ -463,6 +553,11 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -491,6 +586,11 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Array(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Array(self)
     }
 
     #[inline]
@@ -575,6 +675,10 @@ impl Reflect for Cow<'static, str> {
         self
     }
 
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -603,6 +707,10 @@ impl Reflect for Cow<'static, str> {
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Value(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Value(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
@@ -729,6 +837,11 @@ impl<T: FromReflect> Reflect for Option<T> {
         self
     }
 
+    #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -793,6 +906,10 @@ impl<T: FromReflect> Reflect for Option<T> {
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Enum(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Enum(self)
     }
 
     #[inline]

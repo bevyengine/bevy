@@ -37,6 +37,8 @@ pub struct Diagnostic {
     pub suffix: Cow<'static, str>,
     history: VecDeque<DiagnosticMeasurement>,
     sum: f64,
+    ema: f64,
+    ema_smoothing_factor: f64,
     max_history_length: usize,
     pub is_enabled: bool,
 }
@@ -45,6 +47,15 @@ impl Diagnostic {
     /// Add a new value as a [`DiagnosticMeasurement`]. Its timestamp will be [`Instant::now`].
     pub fn add_measurement(&mut self, value: f64) {
         let time = Instant::now();
+
+        if let Some(previous) = self.measurement() {
+            let delta = (time - previous.time).as_secs_f64();
+            let alpha = (delta / self.ema_smoothing_factor).clamp(0.0, 1.0);
+            self.ema += alpha * (value - self.ema);
+        } else {
+            self.ema = value;
+        }
+
         if self.max_history_length > 1 {
             if self.history.len() == self.max_history_length {
                 if let Some(removed_diagnostic) = self.history.pop_front() {
@@ -57,6 +68,7 @@ impl Diagnostic {
             self.history.clear();
             self.sum = value;
         }
+
         self.history
             .push_back(DiagnosticMeasurement { time, value });
     }
@@ -83,6 +95,8 @@ impl Diagnostic {
             history: VecDeque::with_capacity(max_history_length),
             max_history_length,
             sum: 0.0,
+            ema: 0.0,
+            ema_smoothing_factor: 2.0 / 21.0,
             is_enabled: true,
         }
     }
@@ -91,6 +105,22 @@ impl Diagnostic {
     #[must_use]
     pub fn with_suffix(mut self, suffix: impl Into<Cow<'static, str>>) -> Self {
         self.suffix = suffix.into();
+        self
+    }
+
+    /// The smoothing factor used for the exponential smoothing used for
+    /// [`smoothed`](Self::smoothed).
+    ///
+    /// If measurements come in less fequently than `smoothing_factor` seconds
+    /// apart, no smoothing will be applied. As measurements come in more
+    /// frequently, the smoothing takes a greater effect such that it takes
+    /// approximately `smoothing_factor` seconds for 83% of an instantaneous
+    /// change in measurement to e reflected in the smoothed value.
+    ///
+    /// A smoothing factor of 0.0 will effectively disable smoothing.
+    #[must_use]
+    pub fn with_smoothing_factor(mut self, smoothing_factor: f64) -> Self {
+        self.ema_smoothing_factor = smoothing_factor;
         self
     }
 
@@ -105,11 +135,24 @@ impl Diagnostic {
         self.measurement().map(|measurement| measurement.value)
     }
 
-    /// Return the mean (average) of this diagnostic's values.
+    /// Return the simple moving average of this diagnostic's recent values.
     /// N.B. this a cheap operation as the sum is cached.
     pub fn average(&self) -> Option<f64> {
         if !self.history.is_empty() {
             Some(self.sum / self.history.len() as f64)
+        } else {
+            None
+        }
+    }
+
+    /// Return the exponential moving average of this diagnostic.
+    ///
+    /// This is by default tuned to behave reasonably well for a typical
+    /// measurement that changes every frame such as frametime. This can be
+    /// adjusted using [`with_smoothing_factor`](Self::with_smoothing_factor).
+    pub fn smoothed(&self) -> Option<f64> {
+        if !self.history.is_empty() {
+            Some(self.ema)
         } else {
             None
         }

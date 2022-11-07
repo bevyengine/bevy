@@ -14,7 +14,7 @@ use bevy::{
     scene::InstanceId,
 };
 
-use std::f32::consts::PI;
+use std::f32::consts::*;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 struct CameraControllerCheckSystem;
@@ -45,16 +45,22 @@ Controls:
         color: Color::WHITE,
         brightness: 1.0 / 5.0f32,
     })
-    .insert_resource(AssetServerSettings {
-        asset_folder: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
-        watch_for_changes: true,
-    })
-    .insert_resource(WindowDescriptor {
-        title: "bevy scene viewer".to_string(),
-        ..default()
-    })
     .init_resource::<CameraTracker>()
-    .add_plugins(DefaultPlugins)
+    .add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                window: WindowDescriptor {
+                    title: "bevy scene viewer".to_string(),
+                    ..default()
+                },
+                ..default()
+            })
+            .set(AssetPlugin {
+                asset_folder: std::env::var("CARGO_MANIFEST_DIR")
+                    .unwrap_or_else(|_| ".".to_string()),
+                watch_for_changes: true,
+            }),
+    )
     .add_startup_system(setup)
     .add_system_to_stage(CoreStage::PreUpdate, scene_load_check)
     .add_system_to_stage(CoreStage::PreUpdate, setup_scene_after_load)
@@ -226,7 +232,7 @@ fn setup_scene_after_load(
             // correct bounds. However, it could very well be rotated and so we first convert to
             // a Sphere, and then back to an Aabb to find the conservative min and max points.
             let sphere = Sphere {
-                center: Vec3A::from(transform.mul_vec3(Vec3::from(aabb.center))),
+                center: Vec3A::from(transform.transform_point(Vec3::from(aabb.center))),
                 radius: transform.radius_vec3a(aabb.half_extents),
             };
             let aabb = Aabb::from(sphere);
@@ -331,8 +337,8 @@ fn update_lights(
             transform.rotation = Quat::from_euler(
                 EulerRot::ZYX,
                 0.0,
-                time.seconds_since_startup() as f32 * PI / 15.0,
-                -PI / 4.,
+                time.elapsed_seconds() * PI / 15.0,
+                -FRAC_PI_4,
             );
         }
     }

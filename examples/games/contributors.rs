@@ -39,7 +39,7 @@ struct SelectionState {
 impl Default for SelectionState {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
+            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, TimerMode::Repeating),
             has_triggered: false,
         }
     }
@@ -248,9 +248,7 @@ fn collision_system(
     windows: Res<Windows>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let window = if let Some(window) = windows.get_primary() {
-        window
-    } else {
+    let Some(window) = windows.get_primary() else {
         return;
     };
 
@@ -324,7 +322,7 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(LoadContributorsError::Var)?;
 
     let mut cmd = std::process::Command::new("git")
-        .args(&["--no-pager", "log", "--pretty=format:%an"])
+        .args(["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
         .spawn()

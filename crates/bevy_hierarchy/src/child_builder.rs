@@ -1,7 +1,4 @@
-use crate::{
-    prelude::{Children, Parent},
-    HierarchyEvent,
-};
+use crate::{Children, HierarchyEvent, Parent};
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
@@ -68,19 +65,31 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
-    for child in children {
-        world.entity_mut(*child).remove::<Parent>();
-        events.push(HierarchyEvent::ChildRemoved {
-            child: *child,
-            parent,
-        });
+    if let Some(parent_children) = world.get::<Children>(parent) {
+        for &child in children {
+            if parent_children.contains(&child) {
+                events.push(HierarchyEvent::ChildRemoved { child, parent });
+            }
+        }
+    } else {
+        return;
+    }
+    for event in &events {
+        if let &HierarchyEvent::ChildRemoved { child, .. } = event {
+            world.entity_mut(child).remove::<Parent>();
+        }
     }
     push_events(world, events);
 
-    if let Some(mut parent_children) = world.get_mut::<Children>(parent) {
+    let mut parent = world.entity_mut(parent);
+    if let Some(mut parent_children) = parent.get_mut::<Children>() {
         parent_children
             .0
             .retain(|parent_child| !children.contains(parent_child));
+
+        if parent_children.is_empty() {
+            parent.remove::<Children>();
+        }
     }
 }
 
@@ -146,7 +155,7 @@ impl Command for InsertChildren {
     }
 }
 
-/// Command that pushes children to the end of the entity's children
+/// Command that pushes children to the end of the entity's [`Children`].
 #[derive(Debug)]
 pub struct PushChildren {
     parent: Entity,
@@ -166,7 +175,7 @@ impl Command for PushChildren {
     }
 }
 
-/// Command that removes children from an entity, and removes that child's parent and inserts it into the previous parent component
+/// Command that removes children from an entity, and removes that child's parent.
 pub struct RemoveChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
@@ -175,6 +184,27 @@ pub struct RemoveChildren {
 impl Command for RemoveChildren {
     fn write(self, world: &mut World) {
         remove_children(self.parent, &self.children, world);
+    }
+}
+
+/// Command that removes the parent of an entity, and removes that entity from the parent's [`Children`].
+pub struct RemoveParent {
+    child: Entity,
+}
+
+impl Command for RemoveParent {
+    fn write(self, world: &mut World) {
+        if let Some(parent) = world.get::<Parent>(self.child) {
+            let parent_entity = parent.get();
+            remove_from_children(world, parent_entity, self.child);
+            world.entity_mut(self.child).remove::<Parent>();
+            if let Some(mut events) = world.get_resource_mut::<Events<_>>() {
+                events.send(HierarchyEvent::ChildRemoved {
+                    child: self.child,
+                    parent: parent_entity,
+                });
+            }
+        }
     }
 }
 
@@ -258,13 +288,31 @@ pub trait BuildChildren {
     /// ```
     fn add_children<T>(&mut self, f: impl FnOnce(&mut ChildBuilder) -> T) -> T;
     /// Pushes children to the back of the builder's children
+    ///
+    /// If the children were previously children of another parent, that parent's [`Children`] component
+    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// [`Children`] component to be removed from the entity.
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Inserts children at the given index
+    ///
+    /// If the children were previously children of another parent, that parent's [`Children`] component
+    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// [`Children`] component to be removed from the entity.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
     /// Removes the given children
+    ///
+    /// Removing all children from a parent causes its [`Children`] component to be removed from the entity.
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Adds a single child
+    ///
+    /// If the children were previously children of another parent, that parent's [`Children`] component
+    /// will have those children removed from its list. Removing all children from a parent causes its
+    /// [`Children`] component to be removed from the entity.
     fn add_child(&mut self, child: Entity) -> &mut Self;
+    /// Sets the parent of this entity.
+    fn set_parent(&mut self, parent: Entity) -> &mut Self;
+    /// Removes the parent of this entity.
+    fn remove_parent(&mut self) -> &mut Self;
 }
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
@@ -321,6 +369,18 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
         self.commands().add(AddChild { child, parent });
+        self
+    }
+
+    fn set_parent(&mut self, parent: Entity) -> &mut Self {
+        let child = self.id();
+        self.commands().add(AddChild { child, parent });
+        self
+    }
+
+    fn remove_parent(&mut self) -> &mut Self {
+        let child = self.id();
+        self.commands().add(RemoveParent { child });
         self
     }
 }
@@ -396,31 +456,23 @@ pub trait BuildWorldChildren {
 
 impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
-        {
-            let entity = self.id();
+        let entity = self.id();
+        self.world_scope(|world| {
             let mut builder = WorldChildBuilder {
                 current_entity: None,
                 parent_entities: vec![entity],
-                // SAFETY: self.update_location() is called below. It is impossible to make EntityMut
-                // function calls on `self` within the scope defined here
-                world: unsafe { self.world_mut() },
+                world,
             };
-
             spawn_children(&mut builder);
-        }
-        self.update_location();
+        });
         self
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        {
-            // SAFETY: parent entity is not modified and its location is updated manually
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             update_old_parents(world, parent, children);
-            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
-            self.update_location();
-        }
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
                 .0
@@ -434,14 +486,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        {
-            // SAFETY: parent entity is not modified and its location is updated manually
-            let world = unsafe { self.world_mut() };
+        self.world_scope(|world| {
             update_old_parents(world, parent, children);
-            // Inserting a bundle in the children entities may change the parent entity's location if they were of the same archetype
-            self.update_location();
-        }
-
+        });
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component
                 .0
@@ -455,9 +502,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        // SAFETY: This doesn't change the parent's location
-        let world = unsafe { self.world_mut() };
-        remove_children(parent, children, world);
+        self.world_scope(|world| {
+            remove_children(parent, children, world);
+        });
         self
     }
 }
@@ -572,7 +619,7 @@ mod tests {
     fn push_and_insert_and_remove_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
@@ -633,7 +680,7 @@ mod tests {
     fn push_and_insert_and_remove_children_world() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         world.entity_mut(entities[0]).push_children(&entities[1..3]);
@@ -670,6 +717,96 @@ mod tests {
         );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child4).is_none());
+    }
+
+    /// Tests what happens when all children are removed from a parent using world functions
+    #[test]
+    fn children_removed_when_empty_world() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![C(1), C(2), C(3)])
+            .collect::<Vec<Entity>>();
+
+        let parent1 = entities[0];
+        let parent2 = entities[1];
+        let child = entities[2];
+
+        // push child into parent1
+        world.entity_mut(parent1).push_children(&[child]);
+        assert_eq!(
+            world.get::<Children>(parent1).unwrap().0.as_slice(),
+            &[child]
+        );
+
+        // move only child from parent1 with `push_children`
+        world.entity_mut(parent2).push_children(&[child]);
+        assert!(world.get::<Children>(parent1).is_none());
+
+        // move only child from parent2 with `insert_children`
+        world.entity_mut(parent1).insert_children(0, &[child]);
+        assert!(world.get::<Children>(parent2).is_none());
+
+        // remove only child from parent1 with `remove_children`
+        world.entity_mut(parent1).remove_children(&[child]);
+        assert!(world.get::<Children>(parent1).is_none());
+    }
+
+    /// Tests what happens when all children are removed form a parent using commands
+    #[test]
+    fn children_removed_when_empty_commands() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![C(1), C(2), C(3)])
+            .collect::<Vec<Entity>>();
+
+        let parent1 = entities[0];
+        let parent2 = entities[1];
+        let child = entities[2];
+
+        let mut queue = CommandQueue::default();
+
+        // push child into parent1
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent1).push_children(&[child]);
+            queue.apply(&mut world);
+        }
+        assert_eq!(
+            world.get::<Children>(parent1).unwrap().0.as_slice(),
+            &[child]
+        );
+
+        // move only child from parent1 with `push_children`
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent2).push_children(&[child]);
+            queue.apply(&mut world);
+        }
+        assert!(world.get::<Children>(parent1).is_none());
+
+        // move only child from parent2 with `insert_children`
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent1).insert_children(0, &[child]);
+            queue.apply(&mut world);
+        }
+        assert!(world.get::<Children>(parent2).is_none());
+
+        // move only child from parent1 with `add_child`
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent2).add_child(child);
+            queue.apply(&mut world);
+        }
+        assert!(world.get::<Children>(parent1).is_none());
+
+        // remove only child from parent2 with `remove_children`
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(parent2).remove_children(&[child]);
+            queue.apply(&mut world);
+        }
+        assert!(world.get::<Children>(parent2).is_none());
     }
 
     #[test]
