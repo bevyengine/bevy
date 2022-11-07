@@ -72,6 +72,6 @@ flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.2.4", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.2.0", optional = true }
-encase = { version = "0.3", features = ["glam"] }
+encase = { version = "0.4", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = ["profile-with-tracing"], optional = true }
