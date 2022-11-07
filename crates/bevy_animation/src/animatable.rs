@@ -1,10 +1,10 @@
 use crate::util;
 use bevy_asset::{Asset, Assets, Handle, HandleId};
-use bevy_core::FloatOrd;
 use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::Transform;
+use bevy_utils::FloatOrd;
 
 /// An individual input for [`Animatable::blend`].
 pub struct BlendInput<T> {
@@ -133,9 +133,7 @@ impl<T: Asset> Animatable for Handle<T> {
             .expect("Attempted to blend Handle with zero inputs.")
     }
 
-    // SAFE: This implementation only reads resources from the provided
-    // World.
-    unsafe fn post_process(&mut self, world: &World) {
+    fn post_process(&mut self, world: &World) {
         // Upgrade weak handles into strong ones.
         if self.is_strong() {
             return;
@@ -145,7 +143,7 @@ impl<T: Asset> Animatable for Handle<T> {
             .expect(
                 "Attempted to animate a Handle<T> without the corresponding Assets<T> resource.",
             )
-            .get_handle(self.id);
+            .get_handle(self.id());
     }
 }
 
@@ -198,7 +196,7 @@ impl Animatable for Quat {
         let a: Vec4 = (*a).into();
         let b: Vec4 = b.into();
         let rot = Vec4::interpolate(&a, &b, t);
-        let inv_mag = util::approx_rsqrt(rot.dot(rot));
+        let inv_mag = bevy_math::approx_rsqrt(rot.dot(rot));
         Quat::from_vec4(rot * inv_mag)
     }
 
