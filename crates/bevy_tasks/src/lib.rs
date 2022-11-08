@@ -23,7 +23,7 @@ pub use usages::tick_global_task_pools_on_main_thread;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 mod main_thread_executor;
-pub use main_thread_executor::MainThreadExecutor;
+pub use main_thread_executor::ThreadExecutor;
 
 mod iter;
 pub use iter::ParallelIterator;

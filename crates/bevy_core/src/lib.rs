@@ -6,6 +6,7 @@ mod name;
 mod serde;
 mod task_pool_options;
 
+use bevy_ecs::schedule::MainThreadExecutor;
 use bevy_ecs::system::{ResMut, Resource};
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
@@ -42,6 +43,7 @@ impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
         // Setup the default bevy task pools
         self.task_pool_options.create_default_pools();
+        app.insert_resource(MainThreadExecutor::new());
 
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system_to_stage(

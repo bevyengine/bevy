@@ -11,7 +11,7 @@ use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, FutureExt};
 
 use crate::Task;
-use crate::{main_thread_executor::MainThreadSpawner, MainThreadExecutor};
+use crate::{main_thread_executor::MainThreadSpawner, ThreadExecutor};
 
 /// Used to create a [`TaskPool`]
 #[derive(Debug, Default, Clone)]
@@ -165,7 +165,7 @@ impl TaskPool {
     ///
     /// let pool = TaskPool::new();
     /// let mut x = 0;
-    /// let results = pool.scope(|s| {
+    /// let results = pool.scope(None, |s| {
     ///     s.spawn(async {
     ///         // you can borrow the spawner inside a task and spawn tasks from within the task
     ///         s.spawn(async {
@@ -185,7 +185,7 @@ impl TaskPool {
     /// assert!(results.contains(&1));
     ///
     /// // The ordering is deterministic if you only spawn directly from the closure function.
-    /// let results = pool.scope(|s| {
+    /// let results = pool.scope(None, |s| {
     ///     s.spawn(async { 0  });
     ///     s.spawn(async { 1 });
     /// });
@@ -210,7 +210,7 @@ impl TaskPool {
     /// fn scope_escapes_closure() {
     ///     let pool = TaskPool::new();
     ///     let foo = Box::new(42);
-    ///     pool.scope(|scope| {
+    ///     pool.scope(None, |scope| {
     ///         std::thread::spawn(move || {
     ///             // UB. This could spawn on the scope after `.scope` returns and the internal Scope is dropped.
     ///             scope.spawn(async move {
@@ -225,7 +225,7 @@ impl TaskPool {
     /// use bevy_tasks::TaskPool;
     /// fn cannot_borrow_from_closure() {
     ///     let pool = TaskPool::new();
-    ///     pool.scope(|scope| {
+    ///     pool.scope(None, |scope| {
     ///         let x = 1;
     ///         let y = &x;
     ///         scope.spawn(async move {
@@ -234,7 +234,7 @@ impl TaskPool {
     ///     });
     /// }
     ///
-    pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
+    pub fn scope<'env, F, T>(&self, thread_executor: Option<Arc<ThreadExecutor>>, f: F) -> Vec<T>
     where
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
@@ -247,23 +247,20 @@ impl TaskPool {
         let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
 
-        #[cfg(not(test))]
-        let main_thread_executor = MainThreadExecutor::init();
-        // for testing configure a new instance of main thread executor for every scope
-        // this helps us pretend that the thread that an app or stage is constructed on is the main thread
-        #[cfg(test)]
-        let main_thread_executor = MainThreadExecutor(Arc::new(async_executor::Executor::new()));
-
-        let main_thread_spawner = main_thread_executor.spawner();
-        let main_thread_spawner: MainThreadSpawner<'env> =
-            unsafe { mem::transmute(main_thread_spawner) };
-        let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
+        let thread_executor = if let Some(thread_executor) = thread_executor {
+            thread_executor
+        } else {
+            Arc::new(ThreadExecutor::new())
+        };
+        let thread_spawner = thread_executor.spawner();
+        let thread_spawner: MainThreadSpawner<'env> = unsafe { mem::transmute(thread_spawner) };
+        let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
-            main_thread_spawner,
+            thread_spawner,
             spawned: spawned_ref,
             scope: PhantomData,
             env: PhantomData,
@@ -286,10 +283,9 @@ impl TaskPool {
                     results
                 };
 
-                if let Some(main_thread_ticker) = main_thread_executor.ticker() {
+                if let Some(main_thread_ticker) = thread_executor.ticker() {
                     let tick_forever = async move {
                         loop {
-                            dbg!("tivk");
                             main_thread_ticker.tick().await;
                         }
                     };
@@ -371,7 +367,7 @@ impl Drop for TaskPool {
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
-    main_thread_spawner: MainThreadSpawner<'scope>,
+    thread_spawner: MainThreadSpawner<'scope>,
     spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -400,10 +396,8 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_main<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let main_thread_spawner: &MainThreadSpawner<'scope> =
-            unsafe { mem::transmute(&self.main_thread_spawner) };
-        let task = main_thread_spawner.spawn(f).fallible();
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
+        let task = self.thread_spawner.spawn(f).fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -441,7 +435,7 @@ mod tests {
 
         let count = Arc::new(AtomicI32::new(0));
 
-        let outputs = pool.scope(|scope| {
+        let outputs = pool.scope(None, |scope| {
             for _ in 0..100 {
                 let count_clone = count.clone();
                 scope.spawn(async move {
@@ -473,7 +467,7 @@ mod tests {
         let local_count = Arc::new(AtomicI32::new(0));
         let non_local_count = Arc::new(AtomicI32::new(0));
 
-        let outputs = pool.scope(|scope| {
+        let outputs = pool.scope(None, |scope| {
             for i in 0..100 {
                 if i % 2 == 0 {
                     let count_clone = non_local_count.clone();
@@ -487,7 +481,7 @@ mod tests {
                     });
                 } else {
                     let count_clone = local_count.clone();
-                    scope.spawn_on_main(async move {
+                    scope.spawn_on_scope(async move {
                         if *foo != 42 {
                             panic!("not 42!?!?")
                         } else {
@@ -521,14 +515,14 @@ mod tests {
             let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
             std::thread::spawn(move || {
-                inner_pool.scope(|scope| {
+                inner_pool.scope(None, |scope| {
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                     });
                     let spawner = std::thread::current().id();
                     let inner_count_clone = count_clone.clone();
-                    scope.spawn_on_main(async move {
+                    scope.spawn_on_scope(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                         if std::thread::current().id() != spawner {
                             // NOTE: This check is using an atomic rather than simply panicing the
@@ -554,7 +548,7 @@ mod tests {
 
         let count = Arc::new(AtomicI32::new(0));
 
-        let outputs: Vec<i32> = pool.scope(|scope| {
+        let outputs: Vec<i32> = pool.scope(None, |scope| {
             for _ in 0..10 {
                 let count_clone = count.clone();
                 scope.spawn(async move {
@@ -596,14 +590,14 @@ mod tests {
             let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
             std::thread::spawn(move || {
-                inner_pool.scope(|scope| {
+                inner_pool.scope(None, |scope| {
                     let spawner = std::thread::current().id();
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
 
                         // spawning on the scope from another thread runs the futures on the scope's thread
-                        scope.spawn_on_main(async move {
+                        scope.spawn_on_scope(async move {
                             inner_count_clone.fetch_add(1, Ordering::Release);
                             if std::thread::current().id() != spawner {
                                 // NOTE: This check is using an atomic rather than simply panicing the

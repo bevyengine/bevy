@@ -11,7 +11,7 @@ fn main() {
         .build();
 
     let t0 = instant::Instant::now();
-    pool.scope(|s| {
+    pool.scope(None, |s| {
         for i in 0..40 {
             s.spawn(async move {
                 let now = instant::Instant::now();

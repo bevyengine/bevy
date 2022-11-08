@@ -4,8 +4,8 @@ use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
     schedule::{
-        IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
-        SystemStage,
+        IntoSystemDescriptor, MainThreadExecutor, Schedule, ShouldRun, Stage, StageLabel, State,
+        StateData, SystemSet, SystemStage,
     },
     system::Resource,
     world::World,
@@ -151,7 +151,11 @@ impl App {
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
-        ComputeTaskPool::init(TaskPool::default).scope(|scope| {
+        let thread_executor = self
+            .world
+            .get_resource::<MainThreadExecutor>()
+            .map(|e| e.0.clone());
+        ComputeTaskPool::init(TaskPool::default).scope(thread_executor, |scope| {
             if self.run_once {
                 for sub_app in self.sub_apps.values_mut() {
                     (sub_app.extract)(&mut self.world, &mut sub_app.app);
@@ -1001,10 +1005,13 @@ impl App {
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
-        app: App,
+        mut app: App,
         sub_app_extract: impl Fn(&mut World, &mut App) + 'static + Send + Sync,
         sub_app_runner: impl Fn(&mut App) + 'static + Send + Sync,
     ) -> &mut Self {
+        if let Some(executor) = self.world.get_resource::<MainThreadExecutor>() {
+            app.world.insert_resource(executor.clone());
+        }
         self.sub_apps.insert(
             label.as_label(),
             SubApp {

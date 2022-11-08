@@ -409,7 +409,7 @@ async fn load_gltf<'a, 'b>(
     } else {
         #[cfg(not(target_arch = "wasm32"))]
         IoTaskPool::get()
-            .scope(|scope| {
+            .scope(None, |scope| {
                 gltf.textures().for_each(|gltf_texture| {
                     let linear_textures = &linear_textures;
                     let load_context: &LoadContext = load_context;

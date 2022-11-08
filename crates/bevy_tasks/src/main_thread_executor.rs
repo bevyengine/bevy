@@ -1,65 +1,52 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{
+    marker::PhantomData,
+    sync::Arc,
+    thread::{self, ThreadId},
+};
 
 use async_executor::{Executor, Task};
 use futures_lite::Future;
-use is_main_thread::is_main_thread;
-use once_cell::sync::OnceCell;
-
-static MAIN_THREAD_EXECUTOR: OnceCell<MainThreadExecutor> = OnceCell::new();
 
 /// Use to access the global main thread executor. Be aware that the main thread executor
 /// only makes progress when it is ticked. This normally happens in `[TaskPool::scope]`.
 #[derive(Debug)]
-pub struct MainThreadExecutor(
+pub struct ThreadExecutor {
     // this is only pub crate for testing purposes, do not contruct otherwise
-    pub(crate) Arc<Executor<'static>>,
-);
+    executor: Arc<Executor<'static>>,
+    thread_id: ThreadId,
+}
 
-impl MainThreadExecutor {
-    /// Initializes the global `[MainThreadExecutor]` instance.
-    pub fn init() -> &'static Self {
-        MAIN_THREAD_EXECUTOR.get_or_init(|| Self(Arc::new(Executor::new())))
+impl Default for ThreadExecutor {
+    fn default() -> Self {
+        Self {
+            executor: Arc::new(Executor::new()),
+            thread_id: thread::current().id(),
+        }
     }
+}
 
-    /// Gets the global [`MainThreadExecutor`] instance.
-    ///
-    /// # Panics
-    /// Panics if no executor has been initialized yet.
-    pub fn get() -> &'static Self {
-        MAIN_THREAD_EXECUTOR.get().expect(
-            "A MainThreadExecutor has not been initialize yet. Please call \
-                MainThreadExecutor::init beforehand",
-        )
+impl ThreadExecutor {
+    /// Initializes the global `[MainThreadExecutor]` instance.
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Gets the `[MainThreadSpawner]` for the global main thread executor.
     /// Use this to spawn tasks on the main thread.
     pub fn spawner(&self) -> MainThreadSpawner<'static> {
-        MainThreadSpawner(self.0.clone())
+        MainThreadSpawner(self.executor.clone())
     }
 
-    /// Gets the `[MainThreadTicker]` for the global main thread executor.
-    /// Use this to tick the main thread executor.
-    /// Returns None if called on not the main thread.
+    /// Gets the `[MainThreadTicker]` for this executor.
+    /// Use this to tick the executor.
+    /// It only returns the ticker if it's on the thread the executor was created on
+    /// and returns `None` otherwise.
     pub fn ticker(&self) -> Option<MainThreadTicker> {
-        // always return ticker when testing to allow tests to run off main thread
-        dbg!("hjj");
-        #[cfg(test)]
-        if true {
-            dbg!("blah");
+        if thread::current().id() == self.thread_id {
             return Some(MainThreadTicker {
-                executor: self.0.clone(),
+                executor: self.executor.clone(),
                 _marker: PhantomData::default(),
             });
-        }
-
-        if let Some(is_main) = is_main_thread() {
-            if is_main {
-                return Some(MainThreadTicker {
-                    executor: self.0.clone(),
-                    _marker: PhantomData::default(),
-                });
-            }
         }
         None
     }

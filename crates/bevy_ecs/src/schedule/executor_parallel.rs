@@ -1,11 +1,15 @@
+use std::sync::Arc;
+
+use crate as bevy_ecs;
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
     schedule::{ParallelSystemExecutor, SystemContainer},
+    system::Resource,
     world::World,
 };
 use async_channel::{Receiver, Sender};
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
+use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use event_listener::Event;
@@ -13,6 +17,22 @@ use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
 use scheduling_event::*;
+
+///
+#[derive(Resource, Default)]
+pub struct MainThreadExecutor(pub Arc<ThreadExecutor>);
+
+impl MainThreadExecutor {
+    pub fn new() -> Self {
+        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
+    }
+}
+
+impl Clone for MainThreadExecutor {
+    fn clone(&self) -> Self {
+        MainThreadExecutor(self.0.clone())
+    }
+}
 
 struct SystemSchedulingMetadata {
     /// Used to signal the system's task to start the system.
@@ -124,7 +144,11 @@ impl ParallelSystemExecutor for ParallelExecutor {
             }
         }
 
-        ComputeTaskPool::init(TaskPool::default).scope(|scope| {
+        let thread_executor = world
+            .get_resource::<MainThreadExecutor>()
+            .map(|e| e.0.clone());
+
+        ComputeTaskPool::init(TaskPool::default).scope(thread_executor, |scope| {
             self.prepare_systems(scope, systems, world);
             if self.should_run.count_ones(..) == 0 {
                 return;
@@ -236,7 +260,7 @@ impl ParallelExecutor {
                 if system_data.is_send {
                     scope.spawn(task);
                 } else {
-                    scope.spawn_on_main(task);
+                    scope.spawn_on_scope(task);
                 }
 
                 #[cfg(test)]
@@ -271,7 +295,7 @@ impl ParallelExecutor {
                 if system_data.is_send {
                     scope.spawn(task);
                 } else {
-                    scope.spawn_on_main(task);
+                    scope.spawn_on_scope(task);
                 }
             }
         }
