@@ -183,7 +183,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, C::Query), <C as ExtractComponent>::Filter>>,
+    query: Extract<Query<(Entity, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
@@ -197,7 +197,7 @@ fn extract_components<C: ExtractComponent>(
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ComputedVisibility, C::Query), <C as ExtractComponent>::Filter>>,
+    query: Extract<Query<(Entity, &ComputedVisibility, C::Query), C::Filter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, query_item) in &query {
