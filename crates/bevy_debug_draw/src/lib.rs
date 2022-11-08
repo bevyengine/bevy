@@ -119,14 +119,32 @@ impl Default for DebugDraw {
 impl DebugDraw {
     /// Draw a line from `start` to `end`.
     pub fn line(&mut self, start: Vec3, end: Vec3, color: Color) {
+        self.line_gradient(start, end, color, color);
+    }
+
+    /// Draw a line from `start` to `end`.
+    pub fn line_gradient(&mut self, start: Vec3, end: Vec3, start_color: Color, end_color: Color) {
         self.positions.extend([start.to_array(), end.to_array()]);
-        let color = color.as_linear_rgba_f32();
-        self.colors.extend([color, color]);
+        self.colors.extend([
+            start_color.as_linear_rgba_f32(),
+            end_color.as_linear_rgba_f32(),
+        ]);
     }
 
     /// Draw a line from `start` to `start + vector`.
     pub fn ray(&mut self, start: Vec3, vector: Vec3, color: Color) {
-        self.line(start, start + vector, color);
+        self.ray_gradient(start, vector, color, color);
+    }
+
+    /// Draw a line from `start` to `start + vector`.
+    pub fn ray_gradient(
+        &mut self,
+        start: Vec3,
+        vector: Vec3,
+        start_color: Color,
+        end_color: Color,
+    ) {
+        self.line_gradient(start, start + vector, start_color, end_color);
     }
 
     /// Draw a circle at `position` with the flat side facing `normal`.
@@ -189,14 +207,20 @@ impl DebugDraw {
             .extend(std::iter::repeat(color.as_linear_rgba_f32()).take(24))
     }
 
-    /// Draw an axis-aligned box.
-    pub fn aab(&mut self, position: Vec3, size: Vec3, color: Color) {
-        self.cuboid(position, Quat::IDENTITY, size, color);
+    /// Draw a line from `start` to `end`.
+    pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: Color) {
+        self.line_gradient_2d(start, end, color, color);
     }
 
     /// Draw a line from `start` to `end`.
-    pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: Color) {
-        self.line(start.extend(0.), end.extend(0.), color);
+    pub fn line_gradient_2d(
+        &mut self,
+        start: Vec2,
+        end: Vec2,
+        start_color: Color,
+        end_color: Color,
+    ) {
+        self.line_gradient(start.extend(0.), end.extend(0.), start_color, end_color);
     }
 
     /// Draw a line from `start` to `start + vector`.
