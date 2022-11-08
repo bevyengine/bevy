@@ -134,13 +134,11 @@ impl DebugDraw {
         let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
         self.positions
             .extend((0..self.circle_segments).into_iter().flat_map(|i| {
-                let angle = i as f32 * TAU / self.circle_segments as f32;
+                let mut angle = i as f32 * TAU / self.circle_segments as f32;
+                let start = rotation * (Vec2::from(angle.sin_cos()) * radius).extend(0.) + position;
 
-                let (y, x) = angle.sin_cos();
-                let start = rotation * Vec3::new(x, y, 0.) * radius + position;
-
-                let (y, x) = (angle + TAU / self.circle_segments as f32).sin_cos();
-                let end = rotation * Vec3::new(x, y, 0.) * radius + position;
+                angle += TAU / self.circle_segments as f32;
+                let end = rotation * (Vec2::from(angle.sin_cos()) * radius).extend(0.) + position;
 
                 [start.to_array(), end.to_array()]
             }));
@@ -276,7 +274,7 @@ pub(crate) fn update(
     }
 }
 
-/// Move the DebugDrawMesh marker Component to the render context.
+/// Move the DebugDrawMesh marker Component and the DebugDrawConfig Resource to the render context.
 pub(crate) fn extract(
     mut commands: Commands,
     query: Extract<Query<Entity, With<DebugDrawMesh>>>,
