@@ -31,6 +31,7 @@ default = [
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
+  "bevy_widget",
   "render",
   "png",
   "hdr",
@@ -67,6 +68,7 @@ bevy_scene = ["bevy_internal/bevy_scene"]
 bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
+bevy_widget = ["bevy_internal/bevy_widget"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Tracing features
@@ -1502,14 +1504,15 @@ description = "Illustrates how to scale the UI"
 category = "UI (User Interface)"
 wasm = true
 
+# Widgets
 [[example]]
-name = "progress_bar_widget"
-path = "examples/ui/progress_bar_widget.rs"
+name = "progress_bar"
+path = "examples/widgets/progress_bar.rs"
 
-[package.metadata.example.progress_bar_widget]
-name = "Loading Bar Widget"
+[package.metadata.example.progress_bar]
+name = "Progress Bar Widget"
 description = "Illustrates how to use the progress bar widget"
-category = "UI (User Interface)"
+category = "Widgets"
 wasm = true
 
 # Window

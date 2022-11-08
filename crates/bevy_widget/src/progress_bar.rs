@@ -4,16 +4,18 @@
 use bevy_ecs::{
     prelude::Component,
     query::{Changed, With},
+    reflect::ReflectComponent,
     system::Query,
 };
 use bevy_hierarchy::Children;
 use bevy_log::warn;
 use bevy_math::map_range;
-
-use crate::{Size, Style, Val};
+use bevy_reflect::Reflect;
+use bevy_ui::{Size, Style, Val};
 
 /// A progress bar widget.
-#[derive(Component, Default, Clone, Debug)]
+#[derive(Component, Default, Clone, Debug, Reflect)]
+#[reflect(Component)]
 pub struct ProgressBarWidget {
     /// The current progress of the progress bar.
     ///
@@ -30,7 +32,7 @@ pub struct ProgressBarWidget {
 /// Defines the direction the progress bar will increase the size of the inner node.
 ///
 /// It increases in the direction of the flex-axis.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Reflect)]
 pub enum ProgressBarDirection {
     /// Direction from FlexStart to FlexEnd
     #[default]
@@ -40,8 +42,9 @@ pub enum ProgressBarDirection {
 }
 
 /// Marker component for the inner box of the progress bar.
-#[derive(Component, Default, Clone, Debug)]
-pub struct LoadingBarInner;
+#[derive(Component, Default, Clone, Debug, Reflect)]
+#[reflect(Component)]
+pub struct ProgressBarInner;
 
 impl ProgressBarWidget {
     /// Creates a new [`ProgressBarWidget`].
@@ -77,7 +80,7 @@ impl ProgressBarWidget {
 
 pub(crate) fn update_progress_bars(
     q: Query<(&ProgressBarWidget, &Children), Changed<ProgressBarWidget>>,
-    mut inner: Query<&mut Style, With<LoadingBarInner>>,
+    mut inner: Query<&mut Style, With<ProgressBarInner>>,
 ) {
     for (widget, children) in q.iter() {
         for child in children.iter() {
@@ -97,5 +100,3 @@ pub(crate) fn update_progress_bars(
         }
     }
 }
-
-

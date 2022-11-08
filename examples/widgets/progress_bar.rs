@@ -1,15 +1,17 @@
-//! This example illustrates how to setup and use the ProgressBar widget.
+//! This example illustrates how to setup and use the [`ProgressBarWidget`].
 //! Any Node that has a `ProgressBar` component *and* an immediate child node
 //! with the `ProgressBarInner` component will be considered a ProgressBar-widget.
 
 use bevy::{
+    math::map_range,
     prelude::*,
-    ui::widget::{LoadingBarInner, ProgressBarWidget}, math::map_range,
+    widget::{ProgressBarInner, ProgressBarWidget, WidgetPlugin},
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugin(WidgetPlugin)
         .insert_resource(Progress::Completed(2.0))
         .add_startup_system(setup)
         .add_system(update_progress_state)
@@ -67,10 +69,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         background_color: progress_bar_foreground.into(),
                         ..default()
                     })
-                    .insert(LoadingBarInner);
+                    .insert(ProgressBarInner);
                 outer.spawn(TextBundle {
                     text: Text::from_section(
-                        "Loading Bar",
+                        "Progress Bar",
                         TextStyle {
                             font: font.clone(),
                             font_size: 20.0,
@@ -101,8 +103,7 @@ enum Progress {
 /// then it will stay on the "Completed"-state for a time before resetting.
 fn update_progress_state(mut progress: ResMut<Progress>, time: Res<Time>) {
     let elapsed_time = match *progress {
-        Progress::Loading(value) => value,
-        Progress::Completed(value) => value,
+        Progress::Loading(value) | Progress::Completed(value) => value,
     } + time.delta_seconds();
 
     *progress = match *progress {
@@ -123,7 +124,7 @@ fn update_progress_state(mut progress: ResMut<Progress>, time: Res<Time>) {
     };
 }
 
-/// This is responsible for updating the value of the ProgressBarWidget component.
+/// This is responsible for updating the value of the [`ProgressBarWidget`] component.
 /// This could be in response to changes in player health values, loading of assets ++.
 fn set_widget_progress(mut q: Query<&mut ProgressBarWidget>, progress: Res<Progress>) {
     for mut widget in q.iter_mut() {
@@ -145,7 +146,7 @@ fn update_widget_text(
             if let Ok(mut text) = q.get_mut(*child) {
                 let progress = widget.get_progress();
                 if progress >= 1.0 {
-                    text.sections[0].value = format!("Loading complete!");
+                    text.sections[0].value = "Loading complete!".to_string();
                 } else {
                     text.sections[0].value = format!("Loading: {:.2}%", progress * 100.0);
                 }

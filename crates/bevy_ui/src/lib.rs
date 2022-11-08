@@ -30,6 +30,7 @@ pub mod prelude {
     };
 }
 
+use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
 use bevy_ecs::{
     schedule::{IntoSystemDescriptor, SystemLabel},
@@ -41,9 +42,6 @@ use bevy_window::ModifiesWindows;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
-use widget::update_progress_bars;
-
-use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -151,10 +149,6 @@ impl Plugin for UiPlugin {
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_clipping_system.after(TransformSystem::TransformPropagate),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                update_progress_bars.before(UiSystem::Flex),
             );
 
         crate::render::build_ui_render(app);
