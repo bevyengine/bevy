@@ -139,24 +139,7 @@ use std::{any::TypeId, collections::HashMap};
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
 pub unsafe trait Bundle: Send + Sync + 'static {
-    /// A [`WorldQuery`] which may be used to filter entities with this bundle.
-    ///
-    /// For any bundle `(A, B, ...)`, this is equivalent to `(With<A>, With<B>, ...)`.
-    ///
-    /// # Example
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Foo;
-    ///
-    /// #[derive(Component)]
-    /// struct Bar;
-    ///
-    /// fn system(query: Query<Entity, <(Foo, Bar) as Bundle>::Filter>) {
-    ///     /* ... */
-    /// }
-    /// ```
+    #[doc(hidden)]
     type Filter: WorldQuery;
 
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
