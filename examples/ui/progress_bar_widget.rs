@@ -4,7 +4,7 @@
 
 use bevy::{
     prelude::*,
-    ui::widget::{LoadingBarInner, ProgressBarWidget},
+    ui::widget::{LoadingBarInner, ProgressBarWidget}, math::map_range,
 };
 
 fn main() {
@@ -16,12 +16,6 @@ fn main() {
         .add_system(set_widget_progress.after(update_progress_state))
         .add_system(update_widget_text.after(set_widget_progress))
         .run();
-}
-
-#[derive(Resource, Clone, Copy, Debug)]
-enum Progress {
-    Loading(f32),
-    Completed(f32),
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -96,6 +90,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 const LOAD_DURATION: f32 = 3.0;
 const COMPLETE_DURATION: f32 = 1.5;
 
+#[derive(Resource, Clone, Copy, Debug)]
+enum Progress {
+    Loading(f32),
+    Completed(f32),
+}
+
 /// This is a helper system to mimic some changing state.
 /// It will "Load" for a time until it reaches completed,
 /// then it will stay on the "Completed"-state for a time before resetting.
@@ -137,7 +137,7 @@ fn set_widget_progress(mut q: Query<&mut ProgressBarWidget>, progress: Res<Progr
 
 /// Updates the text of the progress-bar.
 fn update_widget_text(
-    widgets: Query<(&ProgressBarWidget, &Children)>,
+    widgets: Query<(&ProgressBarWidget, &Children), Changed<ProgressBarWidget>>,
     mut q: Query<&mut Text, With<Parent>>,
 ) {
     for (widget, children) in widgets.iter() {
@@ -152,10 +152,4 @@ fn update_widget_text(
             }
         }
     }
-}
-
-// TODO: This should be moved into bevy_math or something
-/// Maps a value from one range of values to a new range of values.
-fn map_range(value: f32, old_range: (f32, f32), new_range: (f32, f32)) -> f32 {
-    (value - old_range.0) / (old_range.1 - old_range.0) * (new_range.1 - new_range.0) + new_range.0
 }

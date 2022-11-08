@@ -8,6 +8,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::Children;
 use bevy_log::warn;
+use bevy_math::map_range;
 
 use crate::{Size, Style, Val};
 
@@ -97,7 +98,4 @@ pub(crate) fn update_progress_bars(
     }
 }
 
-/// Maps a value from one range of values to a new range of values.
-fn map_range(value: f32, old_range: (f32, f32), new_range: (f32, f32)) -> f32 {
-    (value - old_range.0) / (old_range.1 - old_range.0) * (new_range.1 - new_range.0) + new_range.0
-}
+

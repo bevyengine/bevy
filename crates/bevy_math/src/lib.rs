@@ -22,3 +22,9 @@ pub mod prelude {
 }
 
 pub use glam::*;
+
+
+/// Maps a value from one range of values to a new range of values.
+pub fn map_range(value: f32, old_range: (f32, f32), new_range: (f32, f32)) -> f32 {
+    (value - old_range.0) / (old_range.1 - old_range.0) * (new_range.1 - new_range.0) + new_range.0
+}
