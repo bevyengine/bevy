@@ -7,11 +7,9 @@ use std::{
 use async_executor::{Executor, Task};
 use futures_lite::Future;
 
-/// Use to access the global main thread executor. Be aware that the main thread executor
-/// only makes progress when it is ticked. This normally happens in `[TaskPool::scope]`.
+/// An executor that can only be ticked on the thread it was instantiated on.
 #[derive(Debug)]
 pub struct ThreadExecutor {
-    // this is only pub crate for testing purposes, do not contruct otherwise
     executor: Arc<Executor<'static>>,
     thread_id: ThreadId,
 }
@@ -26,13 +24,13 @@ impl Default for ThreadExecutor {
 }
 
 impl ThreadExecutor {
-    /// Initializes the global `[MainThreadExecutor]` instance.
+    /// createa a new `[ThreadExecutor]`
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Gets the `[MainThreadSpawner]` for the global main thread executor.
-    /// Use this to spawn tasks on the main thread.
+    /// Gets the `[MainThreadSpawner]` for the thread executor.
+    /// Use this to spawn tasks that run on the thread this was instatiated on.
     pub fn spawner(&self) -> MainThreadSpawner<'static> {
         MainThreadSpawner(self.executor.clone())
     }
@@ -69,8 +67,29 @@ pub struct MainThreadTicker {
 }
 impl MainThreadTicker {
     /// Tick the main thread executor.
-    /// This needs to be called manually on the main thread if a `[TaskPool::scope]` is not active
+    /// This needs to be called manually on the thread if it is not being used with
+    /// a `[TaskPool::scope]`.
     pub fn tick(&self) -> impl Future<Output = ()> + '_ {
         self.executor.tick()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_ticker() {
+        let executor = Arc::new(ThreadExecutor::new());
+        let ticker = executor.ticker();
+        assert!(ticker.is_some());
+
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                let ticker = executor.ticker();
+                assert!(ticker.is_none());
+            });
+        });
     }
 }

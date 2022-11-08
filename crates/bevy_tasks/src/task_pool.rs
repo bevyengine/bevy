@@ -158,6 +158,11 @@ impl TaskPool {
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     ///
+    /// The `thread_executor` optional parameter can be used to pass a `[ThreadExecutor]` to
+    /// spawn tasks on when calling `spawn_on_scope`. This can be useful for spawning tasks that
+    /// must run on the main thread. If `None` is passed then `spawn_on_scope` runs tasks on
+    /// the thread `scope` is run on.
+    ///
     /// # Example
     ///
     /// ```
