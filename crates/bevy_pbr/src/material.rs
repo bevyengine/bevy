@@ -154,7 +154,7 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
 
     /// Returns a list of vertex attributes required by this `Material`.
     ///
-    /// The default implementation of this method returns an empty `Vec`.
+    /// The default implementation of this method returns an empty slice.
     #[inline]
     fn required_vertex_attributes() -> &'static [MeshVertexAttribute] {
         &[]
