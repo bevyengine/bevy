@@ -1726,13 +1726,13 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn(FooBundle::default()).id();
 
-        let mut q = world.query_filtered::<Entity, With<(Foo, Bar)>>();
+        let mut q = world.query_filtered::<Entity, With<FooBundle>>();
 
         assert_eq!(q.single(&world), e);
     }
 
     #[test]
-    fn query_with_named_nested_bundle_filter() {
+    fn query_named_bundle_using_anonymous_bundle_filter() {
         #[derive(Component, Default)]
         struct Foo;
 
