@@ -185,10 +185,10 @@ pub enum ScalingMode {
     None,
     /// Match the window size. 1 world unit = 1 pixel.
     WindowSize,
-    /// Use minimal possible viewport size while keeping the aspect ratio.
+    /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
     /// Arguments are in world units.
     AutoMin { min_width: f32, min_height: f32 },
-    /// Use maximal possible viewport size while keeping the aspect ratio.
+    /// Keeping the aspect ratio while the axes can't be bigger than given maximum.
     /// Arguments are in world units.
     AutoMax { max_width: f32, max_height: f32 },
     /// Keep vertical axis constant; resize horizontal with aspect ratio.
