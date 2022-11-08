@@ -11,7 +11,7 @@ use crate::{
     },
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    query::{With, WorldQuery},
+    query::{WithComponent, WorldQuery},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
 use bevy_ecs_macros::all_tuples;
@@ -191,7 +191,7 @@ pub unsafe trait Bundle: Send + Sync + 'static {
 // - `Bundle::get_components` is called exactly once for C.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
-    type Filter = With<C>;
+    type Filter = WithComponent<C>;
 
     fn component_ids(
         components: &mut Components,

@@ -1651,7 +1651,7 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn(Foo).id();
 
-        let mut q = world.query_filtered::<Entity, <Foo as Component>::Filter>();
+        let mut q = world.query_filtered::<Entity, With<Foo>>();
 
         assert_eq!(q.single(&world), e);
     }
@@ -1667,7 +1667,7 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn((Foo, Bar)).id();
 
-        let mut q = world.query_filtered::<Entity, <(Foo, Bar) as Bundle>::Filter>();
+        let mut q = world.query_filtered::<Entity, With<(Foo, Bar)>>();
 
         assert_eq!(q.single(&world), e);
     }
@@ -1686,8 +1686,8 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn(((Foo, Bar), Baz)).id();
 
-        let mut q1 = world.query_filtered::<Entity, <((Foo, Bar), Baz) as Bundle>::Filter>();
-        let mut q2 = world.query_filtered::<Entity, <(Foo, Bar, Baz) as Bundle>::Filter>();
+        let mut q1 = world.query_filtered::<Entity, With<((Foo, Bar), Baz)>>();
+        let mut q2 = world.query_filtered::<Entity, With<(Foo, Bar, Baz)>>();
 
         assert_eq!(q1.single(&world), e);
         assert_eq!(q2.single(&world), e);
@@ -1704,7 +1704,7 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn(Foo).id(); // No Bar!
 
-        let mut q = world.query_filtered::<Entity, <(Foo, Bar) as Bundle>::Filter>(); // Query for Bar!
+        let mut q = world.query_filtered::<Entity, With<(Foo, Bar)>>(); // Query for Bar!
 
         assert!(q.get(&world, e).is_err());
     }
@@ -1726,7 +1726,7 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn(FooBundle::default()).id();
 
-        let mut q = world.query_filtered::<Entity, <(Foo, Bar) as Bundle>::Filter>();
+        let mut q = world.query_filtered::<Entity, With<(Foo, Bar)>>();
 
         assert_eq!(q.single(&world), e);
     }
@@ -1757,8 +1757,8 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn(BazBundle::default()).id();
 
-        let mut q1 = world.query_filtered::<Entity, <((Foo, Bar), Baz) as Bundle>::Filter>();
-        let mut q2 = world.query_filtered::<Entity, <(Foo, Bar, Baz) as Bundle>::Filter>();
+        let mut q1 = world.query_filtered::<Entity, With<((Foo, Bar), Baz)>>();
+        let mut q2 = world.query_filtered::<Entity, With<(Foo, Bar, Baz)>>();
 
         assert_eq!(q1.single(&world), e);
         assert_eq!(q2.single(&world), e);
