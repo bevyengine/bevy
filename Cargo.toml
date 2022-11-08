@@ -314,6 +314,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "bloom"
+path = "examples/3d/bloom.rs"
+
+[package.metadata.example.bloom]
+name = "Bloom"
+description = "Illustrates bloom configuration using HDR and emissive materials"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
@@ -1459,6 +1469,16 @@ path = "examples/ui/transparency_ui.rs"
 [package.metadata.example.transparency_ui]
 name = "Transparency UI"
 description = "Demonstrates transparency for UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "z_index"
+path = "examples/ui/z_index.rs"
+
+[package.metadata.example.z_index]
+name = "UI Z-Index"
+description = "Demonstrates how to control the relative depth (z-position) of UI elements"
 category = "UI (User Interface)"
 wasm = true
 

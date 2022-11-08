@@ -146,6 +146,11 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             #[inline]
+            fn into_reflect(self: Box<Self>) -> Box<dyn #bevy_reflect_path::Reflect> {
+                self
+            }
+
+            #[inline]
             fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
                 self
             }
@@ -182,6 +187,10 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::TupleStruct(self)
+            }
+
+            fn reflect_owned(self: Box<Self>) -> #bevy_reflect_path::ReflectOwned {
+                #bevy_reflect_path::ReflectOwned::TupleStruct(self)
             }
 
             #hash_fn

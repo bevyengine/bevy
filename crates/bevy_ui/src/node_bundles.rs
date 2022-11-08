@@ -1,17 +1,11 @@
-//! This module contains the bundles used in Bevy's UI
+//! This module contains basic node bundles used to build UIs
 
 use crate::{
     widget::{Button, ImageMode},
-    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage,
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
-use bevy_ecs::{
-    bundle::Bundle,
-    prelude::{Component, With},
-    query::QueryItem,
-};
+use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    camera::Camera,
-    extract_component::ExtractComponent,
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
@@ -19,6 +13,8 @@ use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
+///
+/// Useful as a container for a variety of child nodes.
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
     /// Describes the size of the node
@@ -27,8 +23,6 @@ pub struct NodeBundle {
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
-    /// Describes the image of the node
-    pub image: UiImage,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -45,6 +39,8 @@ pub struct NodeBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
 }
 
 impl Default for NodeBundle {
@@ -54,12 +50,12 @@ impl Default for NodeBundle {
             background_color: Color::NONE.into(),
             node: Default::default(),
             style: Default::default(),
-            image: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
+            z_index: Default::default(),
         }
     }
 }
@@ -97,6 +93,8 @@ pub struct ImageBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
 }
 
 /// A UI node that is text
@@ -126,6 +124,8 @@ pub struct TextBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
 }
 
 impl TextBundle {
@@ -174,6 +174,7 @@ impl Default for TextBundle {
             global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
+            z_index: Default::default(),
         }
     }
 }
@@ -211,6 +212,8 @@ pub struct ButtonBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
 }
 
 impl Default for ButtonBundle {
@@ -227,35 +230,7 @@ impl Default for ButtonBundle {
             global_transform: Default::default(),
             visibility: Default::default(),
             computed_visibility: Default::default(),
+            z_index: Default::default(),
         }
-    }
-}
-/// Configuration for cameras related to UI.
-///
-/// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
-/// it will display the UI by default.
-///
-/// [`Camera`]: bevy_render::camera::Camera
-#[derive(Component, Clone)]
-pub struct UiCameraConfig {
-    /// Whether to output UI to this camera view.
-    ///
-    /// When a `Camera` doesn't have the [`UiCameraConfig`] component,
-    /// it will display the UI by default.
-    pub show_ui: bool,
-}
-
-impl Default for UiCameraConfig {
-    fn default() -> Self {
-        Self { show_ui: true }
-    }
-}
-
-impl ExtractComponent for UiCameraConfig {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
     }
 }

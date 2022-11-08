@@ -69,13 +69,17 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;
-        pbr_input.world_normal = in.world_normal;
+        pbr_input.world_normal = prepare_world_normal(
+            in.world_normal,
+            (material.flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+            in.is_front,
+        );
 
         pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
-        pbr_input.N = prepare_normal(
+        pbr_input.N = apply_normal_mapping(
             material.flags,
-            in.world_normal,
+            pbr_input.world_normal,
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
             in.world_tangent,
@@ -84,7 +88,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef VERTEX_UVS
             in.uv,
 #endif
-            in.is_front,
         );
         pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
         output_color = pbr(pbr_input);

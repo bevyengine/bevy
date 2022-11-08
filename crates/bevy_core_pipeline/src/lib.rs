@@ -1,3 +1,4 @@
+pub mod bloom;
 pub mod clear_color;
 pub mod core_2d;
 pub mod core_3d;
@@ -16,6 +17,7 @@ pub mod prelude {
 }
 
 use crate::{
+    bloom::BloomPlugin,
     clear_color::{ClearColor, ClearColorConfig},
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
@@ -44,10 +46,11 @@ impl Plugin for CorePipelinePlugin {
             .register_type::<ClearColorConfig>()
             .init_resource::<ClearColor>()
             .add_plugin(ExtractResourcePlugin::<ClearColor>::default())
-            .add_plugin(TonemappingPlugin)
-            .add_plugin(UpscalingPlugin)
             .add_plugin(Core2dPlugin)
             .add_plugin(Core3dPlugin)
+            .add_plugin(TonemappingPlugin)
+            .add_plugin(UpscalingPlugin)
+            .add_plugin(BloomPlugin)
             .add_plugin(FxaaPlugin);
     }
 }

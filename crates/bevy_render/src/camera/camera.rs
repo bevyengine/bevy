@@ -289,9 +289,16 @@ impl Camera {
 pub struct CameraRenderGraph(Cow<'static, str>);
 
 impl CameraRenderGraph {
+    /// Creates a new [`CameraRenderGraph`] from any string-like type.
     #[inline]
     pub fn new<T: Into<Cow<'static, str>>>(name: T) -> Self {
         Self(name.into())
+    }
+
+    #[inline]
+    /// Sets the graph name.
+    pub fn set<T: Into<Cow<'static, str>>>(&mut self, name: T) {
+        self.0 = name.into();
     }
 }
 
