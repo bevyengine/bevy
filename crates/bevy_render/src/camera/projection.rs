@@ -173,7 +173,7 @@ impl Default for PerspectiveProjection {
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
     /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
-    /// Arguments are in world units
+    /// Arguments are in world units.
     Fixed { width: f32, height: f32 },
     /// Match the viewport size.
     /// The argument is the number of pixels that equals one world unit.
@@ -193,7 +193,7 @@ pub enum ScalingMode {
 }
 
 /// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
-/// the size at which objects appear remain the same regardless of depth.
+/// the size of objects remain the same regardless of their distance to camera.
 ///
 /// The volume contained in the projection is called the *view frustum*. Since the viewport is rectangular
 /// and projection lines are parallel, the view frustum takes the shape of a rectangular prism.
