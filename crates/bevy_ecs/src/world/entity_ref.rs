@@ -197,7 +197,7 @@ impl<'w> EntityRef<'w> {
     /// compile time.**
     ///
     /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
-    /// which is only valid while the `'w` borrow of the lifetime is active.
+    /// instead of a reference.
     ///
     /// # Safety
     ///
