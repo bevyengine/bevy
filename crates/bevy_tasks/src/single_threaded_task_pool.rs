@@ -9,6 +9,16 @@ use std::{
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
 
+/// dummy struct for wasm
+#[derive(Default)]
+pub struct ThreadExecutor;
+impl ThreadExecutor {
+    /// creates a new `ThreadExecutor`
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 impl TaskPoolBuilder {
     /// Creates a new TaskPoolBuilder instance
     pub fn new() -> Self {
@@ -62,7 +72,7 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
+    pub fn scope<'env, F, T>(&self, _thread_executor: Option<Arc<ThreadExecutor>>, f: F) -> Vec<T>
     where
         F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
